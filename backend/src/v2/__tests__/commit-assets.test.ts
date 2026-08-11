@@ -66,6 +66,41 @@ describe('PUT /commit — assets', () => {
     expect(res.body.error).toBe('PLACEMENT_OVERLAP');
   });
 
+  /**
+   * 자리를 **서로 맞바꾸는** 재배열 — 최종 배치가 멀쩡하면 통과해야 한다.
+   *
+   * 예전에는 한 건씩 적용하며 그때그때의 DB 상태로 검사해서, 첫 건이 아직 옛 자리에 있는
+   * 나머지와 겹쳐 늘 `PLACEMENT_OVERLAP` 이 났다. 화면은 오버레이를 다 얹은 최종 상태로
+   * 판정하므로 놓이기는 하는데 저장만 안 되는 상태였다(슬롯 넷을 세로→가로로 돌리기).
+   */
+  it('두 부품의 자리를 맞바꾸는 커밋이 통과한다 (중간 상태가 아니라 최종 배치를 본다)', async () => {
+    const rackId = randomUUID();
+    const a = randomUUID(), b = randomUUID();
+    await commit({
+      assets: {
+        creates: [
+          { id: rackId, name: `${uniq}-swap-rack`, assemblyId: optSetId, floorId, x: 200, y: 0, width: 60, height: 80 },
+          { id: a, name: `${uniq}-swap-a`, typeId: pitrTypeId, parentAssetId: rackId, col: 0, row: 0, colSpan: 1, rowSpan: 1 },
+          { id: b, name: `${uniq}-swap-b`, typeId: pitrTypeId, parentAssetId: rackId, col: 0, row: 1, colSpan: 1, rowSpan: 1 },
+        ],
+      },
+    }).expect(200);
+
+    const versions = await nextDb.asset.findMany({ where: { id: { in: [a, b] } }, select: { id: true, updatedAt: true } });
+    const at = (id: string) => versions.find((v) => v.id === id)!.updatedAt.toISOString();
+    await commit({
+      baseVersions: { [a]: at(a), [b]: at(b) },
+      assets: { updates: [
+        { id: a, patch: { row: 1 } },
+        { id: b, patch: { row: 0 } },
+      ] },
+    }).expect(200);
+
+    const after = await nextDb.asset.findMany({ where: { id: { in: [a, b] } }, select: { id: true, row: true } });
+    expect(after.find((x) => x.id === a)!.row).toBe(1);
+    expect(after.find((x) => x.id === b)!.row).toBe(0);
+  });
+
   /* 담을 수 있는 것은 설비 종류으로 놓은 설비뿐이다 — 부품 안에 부품을 넣을 수는 없다.
      무엇을 담을지는 설비 종류를 짜는 사람이 정하지, 자리가 정하지 않는다(수용 규칙은 걷었다). */
   it('부품을 부모로 삼으면 422 INVALID_PARENT', async () => {

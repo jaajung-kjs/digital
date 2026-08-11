@@ -23,11 +23,14 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
 
     const assets = payload.assets ?? {};
     const cables = payload.cables ?? {};
+    touchedGrids = new Set<string>();
     await applyCableDeletes(tx, substationId, cables.deletes ?? []);
     await assertNoAttachedCables(tx, assets.deletes ?? []);
     await applyDeletes(tx, substationId, assets.deletes ?? []);
     for (const u of assets.updates ?? []) await applyUpdate(tx, substationId, u);
     for (const c of orderCreates(assets.creates ?? [])) await applyCreate(tx, substationId, c);
+    // 자리 검사는 **다 놓은 뒤** 한 번 — 중간 상태를 검사하면 재배열이 늘 걸린다.
+    await assertGridsValid(tx, touchedGrids);
     for (const u of cables.updates ?? []) await applyCableUpdate(tx, substationId, u);
     for (const c of cables.creates ?? []) await applyCableCreate(tx, substationId, c);
 
@@ -98,32 +101,61 @@ async function loadTypeSpec(tx: Tx, typeId: string) {
  * 격자는 설비가 가리키는 설비 종류가 선언한다 — 자산 종류이 아니다. 그래서 부모는 반드시
  * 설비 종류으로 놓인 설비여야 한다(부품 안에 부품을 담지 않는다).
  */
-async function validateGridSlot(
+async function assertGridParent(
   tx: Tx,
   substationId: string,
-  args: { parentAssetId: string; col: number | null | undefined; row: number | null | undefined; colSpan: number | null | undefined; rowSpan: number | null | undefined },
-  excludeAssetId: string | null,
+  parentAssetId: string,
 ): Promise<void> {
-  const parent = await tx.asset.findUnique({ where: { id: args.parentAssetId }, include: { assembly: true } });
+  const parent = await tx.asset.findUnique({ where: { id: parentAssetId }, include: { assembly: true } });
   if (!parent || parent.substationId !== substationId) throw new HttpError(422, 'INVALID_PARENT', '부모 자산이 유효하지 않습니다');
   if (!parent.assembly) throw new HttpError(422, 'INVALID_PARENT', '부품을 담을 수 있는 것은 설비 종류으로 놓은 설비뿐입니다');
-
-  const siblings = await tx.asset.findMany({
-    where: { parentAssetId: parent.id, ...(excludeAssetId ? { id: { not: excludeAssetId } } : {}) },
-    select: { id: true, col: true, row: true, colSpan: true, rowSpan: true },
-  });
-  const err = validateGridPlacement({
-    grid: { cols: parent.assembly.gridCols, rows: parent.assembly.gridRows },
-    col: args.col ?? null,
-    row: args.row ?? null,
-    colSpan: args.colSpan ?? 1,
-    rowSpan: args.rowSpan ?? 1,
-    occupants: siblings
-      .filter((s) => s.col !== null && s.row !== null)
-      .map((s) => ({ assetId: s.id, col: s.col as number, row: s.row as number, colSpan: s.colSpan ?? 1, rowSpan: s.rowSpan ?? 1 })),
-  });
-  if (err) throw new HttpError(422, `PLACEMENT_${err.toUpperCase().replace(/-/g, '_')}`, `배치할 수 없습니다: ${err}`);
 }
+
+/**
+ * 손댄 설비의 격자를 **다 적용한 뒤 한 번** 검사한다 — 자리·겹침.
+ *
+ * 왜 적용하면서 한 건씩 보지 않는가: 한 건씩 보면 **중간 상태**를 검사하게 된다.
+ * 슬롯 넷을 세로에서 가로로 돌려 놓는 것처럼 자리를 서로 맞바꾸는 재배열은 최종 배치가
+ * 멀쩡해도 첫 건에서 걸린다 — 그 순간 나머지 셋은 아직 옛 자리에 있기 때문이다.
+ * 두 부품의 자리를 맞바꾸는 것도 마찬가지로 늘 걸렸다.
+ *
+ * 화면은 오버레이를 다 얹은 **최종 상태**로 판정하므로(`validateGridPlacement`), 서버도
+ * 같은 것을 봐야 둘의 답이 갈리지 않는다. 실제로 화면에서는 놓이는데 저장만 안 되는
+ * 상태였다.
+ */
+async function assertGridsValid(tx: Tx, parentIds: Iterable<string>): Promise<void> {
+  for (const parentId of new Set(parentIds)) {
+    const parent = await tx.asset.findUnique({ where: { id: parentId }, include: { assembly: true } });
+    if (!parent?.assembly) continue; // 부모가 사라졌으면 자식도 없다(삭제는 자리를 비울 뿐이다).
+    const children = await tx.asset.findMany({
+      where: { parentAssetId: parentId },
+      select: { id: true, col: true, row: true, colSpan: true, rowSpan: true },
+    });
+    const placed = children
+      .filter((c) => c.col !== null && c.row !== null)
+      .map((c) => ({ assetId: c.id, col: c.col as number, row: c.row as number, colSpan: c.colSpan ?? 1, rowSpan: c.rowSpan ?? 1 }));
+
+    for (const mine of placed) {
+      const err = validateGridPlacement({
+        grid: { cols: parent.assembly.gridCols, rows: parent.assembly.gridRows },
+        col: mine.col,
+        row: mine.row,
+        colSpan: mine.colSpan,
+        rowSpan: mine.rowSpan,
+        occupants: placed.filter((o) => o.assetId !== mine.assetId),
+      });
+      if (err) throw new HttpError(422, `PLACEMENT_${err.toUpperCase().replace(/-/g, '_')}`, `배치할 수 없습니다: ${err}`);
+    }
+  }
+}
+
+/**
+ * 이번 커밋에서 자리를 건드린 설비들 — 다 적용한 뒤 그 격자만 검사한다.
+ *
+ * 트랜잭션 하나가 한 번 쓰고 버리는 값이라 모듈 수준에 둔다(커밋은 변전소 단위
+ * advisory lock 아래에서 직렬화되므로 두 커밋이 겹치지 않는다).
+ */
+let touchedGrids = new Set<string>();
 
 async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Promise<void> {
   /* 도면에 놓이는 것은 둘이다: 설비 종류으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
@@ -142,12 +174,8 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
     if (!floor || floor.substationId !== substationId) throw new HttpError(422, 'INVALID_FLOOR', '층이 유효하지 않습니다');
   }
   if (placement === 'container') {
-    await validateGridSlot(
-      tx,
-      substationId,
-      { parentAssetId: input.parentAssetId as string, col: input.col, row: input.row, colSpan: input.colSpan, rowSpan: input.rowSpan },
-      null,
-    );
+    await assertGridParent(tx, substationId, input.parentAssetId as string);
+    touchedGrids.add(input.parentAssetId as string);
   }
   try {
     await tx.asset.create({
@@ -215,12 +243,11 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
       if (!floor || floor.substationId !== substationId) throw new HttpError(422, 'INVALID_FLOOR', '층이 유효하지 않습니다');
     }
     if (placement === 'container') {
-      await validateGridSlot(
-        tx,
-        substationId,
-        { parentAssetId: merged.parentAssetId as string, col: merged.col, row: merged.row, colSpan: merged.colSpan, rowSpan: merged.rowSpan },
-        existing.id,
-      );
+      await assertGridParent(tx, substationId, merged.parentAssetId as string);
+      touchedGrids.add(merged.parentAssetId as string);
+      // 다른 설비에서 옮겨 왔다면 떠나온 격자도 봐야 한다(거기서 자리가 비었을 뿐이지만,
+      // 같은 격자 안 재배열이면 이 한 줄이 그 격자를 잡아 준다).
+      if (existing.parentAssetId) touchedGrids.add(existing.parentAssetId);
     }
   }
 
