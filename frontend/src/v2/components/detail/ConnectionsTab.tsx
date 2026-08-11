@@ -13,7 +13,11 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Select, Toggle, cn, SELECTABLE } from '../../../components/ui';
+import { Pencil } from 'lucide-react';
+import {
+  DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, ItemCard, Select, Toggle,
+  useConfirm, cn, SELECTABLE,
+} from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../cableSelectors';
@@ -48,14 +52,27 @@ interface ConnectionsTabProps {
   onTrace: (result: TraceResult) => void;
   onClearTrace: () => void;
   traceResult?: TraceResult | null;
+  /**
+   * 빈 포트에서 케이블을 잇기 시작한다 — 평면도의 케이블 도구를 이 포트로 무장시킨다.
+   *
+   * 여기서 시작할 수 있어야 하는 이유: 이 탭이 「어느 포트가 비었나」를 보여 주는 유일한
+   * 판이다. 그걸 보고도 이으려면 평면도로 건너가 도구를 켜고 이 자산을 다시 찾아 이 포트를
+   * 다시 골라야 했다 — 같은 선택을 세 번 하는 셈이다.
+   */
+  onConnectPort?: (portId: string) => void;
 }
 
-export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, onClearTrace, traceResult }: ConnectionsTabProps) {
+export function ConnectionsTab({
+  assetId, focusPortId, onSelectAsset, onTrace, onClearTrace, traceResult, onConnectPort,
+}: ConnectionsTabProps) {
   // 타일에는 번호만 있으므로, 고른 포트 하나의 상세를 아래에 펼친다.
   const [selectedPortId, setSelectedPortId] = useState<string | null>(focusPortId ?? null);
   /* 어느 포트에서 추적을 걸었나 — 결과를 **그 포트 밑**에 펴기 위해.
      `TraceResult` 는 출발 포트를 담지 않는다(평면도 강조가 쓰는 형상이라 그럴 이유도 없다). */
   const [tracedPortId, setTracedPortId] = useState<string | null>(null);
+  /* 케이블 종류를 고치는 중인 가닥 — 읽는 줄이 기본이고, 고칠 때만 상자가 선다. */
+  const [editingCableId, setEditingCableId] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
   // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다.
   useEffect(() => {
     setSelectedPortId(null);
@@ -193,6 +210,7 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
   /* 고른 포트에 물린 대국 — 부스바는 여럿이다. 하나만 보여 주면 나머지가 없는 것처럼 읽힌다. */
   const selectedPeers = useMemo(() => {
     if (!selectedPort || !asset) return [];
+    const allCategories = catalog.data?.cableGroups.flatMap((g) => g.categories) ?? [];
     return (cablesByPortId.get(selectedPort.id) ?? []).flatMap((conn) => {
       const peer = resolvePeer(selectedPort, conn.cable, portIndex, asset.substationId);
       if (!peer) return [];
@@ -202,11 +220,12 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
         cableId: conn.cableId,
         label: `${endpointLabel(peer)}${sub}`,
         categoryId: conn.cable.categoryId,
+        categoryName: allCategories.find((c) => c.id === conn.cable.categoryId)?.name ?? null,
         lengthM: typeof lengthM === 'number' ? `${lengthM}m` : null,
         entry: portIndex.get(conn.peerPortId),
       }];
     });
-  }, [selectedPort, cablesByPortId, portIndex, asset]);
+  }, [selectedPort, cablesByPortId, portIndex, asset, catalog.data]);
 
   /**
    * 이 포트에 물릴 수 있는 케이블 종류 — **그 포트의 매체 것만**.
@@ -253,6 +272,19 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
     onTrace(traceHighlight(inputs, portId));
     setTracedPortId(portId);
+  }
+
+  /** 가닥 하나를 지운다 — 되돌릴 수 있는 스테이지이지만, 지우면 경로점까지 사라지므로 묻는다. */
+  async function handleDeleteCable(peer: { cableId: string; label: string }) {
+    const ok = await confirm({
+      title: '케이블 삭제',
+      message: `${peer.label} 으로 가는 케이블을 지웁니다. 저장 전에는 되돌릴 수 있습니다.`,
+      confirmLabel: '삭제',
+      danger: true,
+    });
+    if (!ok) return;
+    useV2WorkingCopy.getState().stageCableDelete(peer.cableId);
+    setEditingCableId(null);
   }
 
   function clearTrace() {
@@ -314,55 +346,91 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-content">
                     {endpointLabel({ assemblyName: null, assetName: owner.name, portName: sel.name, portIndex: sel.index })}
                   </span>
-                  <Button variant="secondary" size="sm" onClick={() => handleTrace(sel.id)}>
-                    추적
-                  </Button>
+                  {selectedPeers.length > 0 && (
+                    <Button variant="secondary" size="sm" onClick={() => handleTrace(sel.id)}>
+                      추적
+                    </Button>
+                  )}
                 </div>
+
                 {selectedPeers.length === 0 ? (
-                  <span className="text-sm text-content-faint">연결 없음</span>
+                  /* 빈 포트 — 「없다」로 끝내지 않고 **여기서 잇게** 한다. 예전에는 평면도로
+                     건너가 도구를 켜고 이 자산을 다시 찾아 이 포트를 다시 골라야 했다. */
+                  <DetailRow label="연결">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-content-faint">연결 없음</span>
+                      {onConnectPort && (
+                        <Button variant="secondary" size="sm" onClick={() => onConnectPort(sel.id)}>
+                          케이블 연결
+                        </Button>
+                      )}
+                    </div>
+                  </DetailRow>
                 ) : (
                   /* 부스바는 여럿이 물린다 — 하나만 적으면 나머지가 없는 것처럼 읽힌다.
-                     **어디로 가나**와 **뭘로 가나**는 줄을 나눈다. 한 줄에 나란히 두면
-                     384px 패널에서 둘이 폭을 다투다 대국 이름부터 잘렸다. */
+                     **가닥 하나에 상자 하나**: 「어디로」와 「뭘로」가 라벨을 달고 줄을 나눠 선다.
+                     예전에는 라벨 없이 장비 이름과 드롭다운이 맨몸으로 놓여, 무엇을 말하는
+                     자리인지도 모른 채 편집기부터 눈에 들어왔다. */
                   selectedPeers.map((peer) => (
-                    <div key={peer.cableId} className="space-y-1">
-                      <button
-                        type="button"
-                        className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                        title={peer.entry ? `${peer.label} 으로 이동` : peer.label}
-                        disabled={!peer.entry}
-                        onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
-                      >
-                        {peer.label}
-                      </button>
-                      <div className="flex items-center gap-2">
-                        {/* 케이블 종류는 **여기서 고친다** — 예전에는 그리기 전에 고른 종류가
-                            끝이라, 잘못 고르면 지우고 다시 그리는 수밖에 없었다(경로점까지
-                            함께 사라진다). 고를 수 있는 것은 이 포트의 매체 것뿐이다. */}
-                        <Select
-                          aria-label="케이블 종류"
-                          size="sm"
-                          value={peer.categoryId ?? ''}
-                          onChange={(e) =>
-                            useV2WorkingCopy
-                              .getState()
-                              .stageCableUpdate(peer.cableId, { categoryId: e.currentTarget.value || null })
-                          }
+                    <ItemCard
+                      key={peer.cableId}
+                      title="연결"
+                      onDelete={() => void handleDeleteCable(peer)}
+                    >
+                      <DetailRow label="대국">
+                        <button
+                          type="button"
+                          className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                          title={peer.entry ? `${peer.label} 으로 이동` : peer.label}
+                          disabled={!peer.entry}
+                          onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
                         >
-                          <option value="">종류 없음</option>
-                          {cableChoices.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </Select>
-                        {peer.lengthM && (
-                          <span className="shrink-0 text-xs tabular-nums text-content-muted">{peer.lengthM}</span>
+                          {peer.label}
+                        </button>
+                      </DetailRow>
+                      {/* 케이블은 **읽는 줄이 기본**이다. 드롭다운을 늘 펼쳐 두면 조회하러
+                          온 사람에게 편집기부터 들이미는 꼴이고, 실수로 바꾸기도 쉽다.
+                          고칠 때만 상자가 선다 — 이 화면의 다른 값들과 같은 규칙. */}
+                      <DetailRow label="케이블">
+                        {editingCableId === peer.cableId ? (
+                          <Select
+                            aria-label="케이블 종류"
+                            size="sm"
+                            autoFocus
+                            value={peer.categoryId ?? ''}
+                            onChange={(e) => {
+                              useV2WorkingCopy
+                                .getState()
+                                .stageCableUpdate(peer.cableId, { categoryId: e.currentTarget.value });
+                              setEditingCableId(null);
+                            }}
+                            onBlur={() => setEditingCableId(null)}
+                          >
+                            {cableChoices.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : (
+                          <button
+                            type="button"
+                            className={cn('flex w-full items-center gap-1.5 rounded px-1 text-left', SELECTABLE)}
+                            title="케이블 종류 바꾸기"
+                            onClick={() => setEditingCableId(peer.cableId)}
+                          >
+                            <span className="min-w-0 truncate text-sm text-content">{peer.categoryName ?? '—'}</span>
+                            {peer.lengthM && (
+                              <span className="shrink-0 text-xs tabular-nums text-content-muted">{peer.lengthM}</span>
+                            )}
+                            <Pencil size={12} className="ml-auto shrink-0 text-content-faint" />
+                          </button>
                         )}
-                      </div>
-                    </div>
+                      </DetailRow>
+                    </ItemCard>
                   ))
                 )}
+
                 {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다. 이 값을 쓰는 문은 여기뿐이라
                     (계통 표는 **출력** 포트만 다룬다) 빼면 입력측 차단기를 적을 곳이 없어진다. */}
                 {selectedSwitch && (
@@ -423,10 +491,14 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
         );
       })}
 
-      {/* 연결은 평면도에서 만든다 — 여기서 할 수 없다는 사실 자체를 알려준다. */}
-      <p className="px-1 text-xs text-content-faint">
-        연결은 평면도 뷰의 <strong className="font-medium">케이블</strong> 도구로 만듭니다.
-      </p>
+      {/* 빈 포트를 눌러 잇는 길이 생겼으므로 「평면도에서만 만든다」는 안내는 거짓이 됐다.
+          대신 어디서 시작하는지를 알린다 — 판을 봐도 무엇을 눌러야 하는지는 안 보인다. */}
+      {onConnectPort && (
+        <p className="px-1 text-xs text-content-faint">
+          빈 포트를 누르면 <strong className="font-medium">케이블 연결</strong> 로 이을 수 있습니다.
+        </p>
+      )}
+      {confirmDialog}
     </div>
   );
 }

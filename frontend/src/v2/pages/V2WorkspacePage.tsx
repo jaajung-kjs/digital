@@ -42,6 +42,13 @@ export default function V2WorkspacePage() {
   const [focusPartId, setFocusPartId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('현황');
+  /**
+   * 「이 포트에서 케이블을 시작해 달라」는 한 번짜리 요청 — 상세 패널 → 평면도.
+   *
+   * 상태가 아니라 **명령**이라 평면도가 받아 소비하면 지운다. 남겨 두면 평면도로 다시
+   * 들어올 때마다 케이블 도구가 저 혼자 켜진다.
+   */
+  const [cableStartPortId, setCableStartPortId] = useState<string | null>(null);
   const [traceResult, setTraceResult] = useState<TraceResult | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -220,6 +227,8 @@ export default function V2WorkspacePage() {
                       selectedAssetId={selectedAssetId}
                       onSelectAsset={handleSelectAssetId}
                       traceResult={traceResult}
+                      cableStartPortId={cableStartPortId}
+                      onCableStartConsumed={() => setCableStartPortId(null)}
                     />
                   ) : inSubstationScope && viewMode === '선번장' ? (
                     <FiberRegisterView
@@ -274,6 +283,11 @@ export default function V2WorkspacePage() {
                       onClearTrace={() => setTraceResult(null)}
                       traceResult={traceResult}
                       onShowOnFloorPlan={() => setViewMode('평면도')}
+                      onConnectPort={(portId) => {
+                        // 이을 자리는 평면도에 있다 — 화면부터 옮기고 그 포트로 도구를 무장한다.
+                        setViewMode('평면도');
+                        setCableStartPortId(portId);
+                      }}
                     />
                   )}
                 </div>

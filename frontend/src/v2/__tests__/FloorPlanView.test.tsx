@@ -98,7 +98,7 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
 
     // 케이블 도구 arm
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
-    expect(screen.getByText('자산 클릭으로 포트 선택 · ESC 취소')).toBeTruthy();
+    expect(screen.getByText('이을 자산을 클릭하세요')).toBeTruthy();
 
     // 첫 번째 자산(A) 클릭 → 포트 피커
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
@@ -106,8 +106,8 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     expect(screen.getAllByText('자산-a').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: /포트 p-a/ }));
 
-    // 첫 끝점 확정 → 힌트가 두 번째 자산 대기로 전환
-    expect(screen.getByText('두 번째 자산 클릭 · ESC 취소')).toBeTruthy();
+    // 첫 끝점 확정 → 안내가 반대쪽 자산 대기로 전환
+    expect(screen.getByText(/반대쪽 자산을 클릭하세요/)).toBeTruthy();
 
     // 두 번째 자산(B) 클릭 → 포트 피커
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
@@ -119,8 +119,8 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     expect(creates).toHaveLength(1);
     expect(creates[0]).toMatchObject({ aPortId: 'p-a', bPortId: 'p-b', categoryId: 'cat1' });
 
-    // 도구는 유지(연속 연결) — 다시 첫 끝점 대기 힌트로 돌아온다
-    expect(screen.getByText('자산 클릭으로 포트 선택 · ESC 취소')).toBeTruthy();
+    // 도구는 유지(연속 연결) — 다시 첫 끝점 대기 안내로 돌아온다
+    expect(screen.getByText('이을 자산을 클릭하세요')).toBeTruthy();
   });
 
   it('ESC — 첫 끝점 확정 후에도 FSM을 idle로 되돌리고 아무것도 스테이지하지 않는다', () => {
@@ -129,18 +129,18 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
     fireEvent.click(screen.getByRole('button', { name: /포트 p-a/ }));
-    expect(screen.getByText('두 번째 자산 클릭 · ESC 취소')).toBeTruthy();
+    expect(screen.getByText(/반대쪽 자산을 클릭하세요/)).toBeTruthy();
 
     fireEvent.keyDown(window, { code: 'Escape' });
 
-    // armed 힌트/피커가 전부 사라짐 (idle로 복귀) — 부분 상태 잔존 없음
-    expect(screen.queryByText('두 번째 자산 클릭 · ESC 취소')).toBeNull();
-    expect(screen.queryByText('자산 클릭으로 포트 선택 · ESC 취소')).toBeNull();
+    // armed 안내/피커가 전부 사라짐 (idle로 복귀) — 부분 상태 잔존 없음
+    expect(screen.queryByText(/반대쪽 자산을 클릭하세요/)).toBeNull();
+    expect(screen.queryByText('이을 자산을 클릭하세요')).toBeNull();
     expect(screen.queryAllByText('자산-a')).toHaveLength(0); // 포트 선택 패널 닫힘
 
     // 케이블 버튼이 더 이상 armed(primary) 표시가 아님 — 재클릭 시 다시 arm 되어야 함
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
-    expect(screen.getByText('자산 클릭으로 포트 선택 · ESC 취소')).toBeTruthy();
+    expect(screen.getByText('이을 자산을 클릭하세요')).toBeTruthy();
 
     // 아무것도 스테이지되지 않았다
     expect(Object.keys(v2WorkingCopyStore.getState().overlays.cables.creates)).toHaveLength(0);

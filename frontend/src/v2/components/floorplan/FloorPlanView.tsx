@@ -54,6 +54,10 @@ interface Props {
   selectedAssetId: string | null;
   onSelectAsset: (id: string | null) => void;
   traceResult?: TraceResult | null;
+  /** 상세 패널이 「이 포트에서 시작해 달라」고 보낸 한 번짜리 명령. */
+  cableStartPortId?: string | null;
+  /** 그 명령을 받아 소비했다 — 보낸 쪽이 지운다(안 지우면 들어올 때마다 도구가 켜진다). */
+  onCableStartConsumed?: () => void;
 }
 
 interface DrawModalState {
@@ -204,7 +208,9 @@ interface LatestRenderInputs {
   selectedCableId: string | null;
 }
 
-export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, traceResult }: Props) {
+export function FloorPlanView({
+  substationId, selectedAssetId, onSelectAsset, traceResult, cableStartPortId, onCableStartConsumed,
+}: Props) {
   const { confirm, confirmDialog } = useConfirm();
   // ── 반응형 슬라이스 구독 (함수 참조 구독 금지) ─────────────────────────────
   const saved = useV2WorkingCopy((s) => s.saved);
@@ -375,6 +381,43 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       if (firstCat) cableDispatch({ type: 'SET_CATEGORY', categoryId: firstCat.id });
     }
   }, [cableGroups, cableState.categoryId]);
+
+  /**
+   * 상세 패널이 보낸 「이 포트에서 시작」 명령을 소비한다.
+   *
+   * 도구를 켜고 그 포트를 첫 끝점으로 세운다 — 사용자는 상대 자산만 고르면 된다. 종류도
+   * **그 포트의 매체 것**으로 바꾼다: 광 포트에서 시작했는데 도구가 전원케이블을 들고 있으면
+   * 두 번째 끝점을 고르는 순간 튕기고, 그때는 왜 튕겼는지가 화면에 남지 않는다.
+   */
+  useEffect(() => {
+    if (!cableStartPortId) return;
+    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === cableStartPortId));
+    const port = owner?.ports.find((p) => p.id === cableStartPortId);
+    if (owner && port) {
+      const medium = cableGroups.find((g) => g.key === port.medium)?.categories[0];
+      if (medium) cableDispatch({ type: 'SET_CATEGORY', categoryId: medium.id });
+      cableDispatch({ type: 'ARM' });
+      cableDispatch({ type: 'CONFIRM_FIRST_ENDPOINT', endpoint: { portId: port.id, assetId: owner.id } });
+    }
+    onCableStartConsumed?.();
+  }, [cableStartPortId, effectiveAssets, cableGroups, onCableStartConsumed]);
+
+  /**
+   * 케이블 도구가 지금 어느 단계인가 — 안내 문구와 딤을 여기 한 곳에서 정한다.
+   *
+   * FSM 은 상태를 알지만 「사용자가 지금 무엇을 해야 하나」는 상태 조합에서 나온다. 그
+   * 조합을 화면 여기저기서 다시 따지면(도구바 한 번, 딤 한 번) 한쪽만 고쳐져 어긋난다.
+   */
+  const cableStep = useMemo((): { step: string; text: string; dimCanvas: boolean } | null => {
+    if (!cableState.armed && cableState.picker === null) return null;
+    if (cableState.picker) {
+      return { step: '2/3', text: '오른쪽 판에서 포트를 고르세요', dimCanvas: true };
+    }
+    if (cableState.firstEndpoint) {
+      return { step: '3/3', text: '반대쪽 자산을 클릭하세요 (다른 변전소면 대국 검색)', dimCanvas: false };
+    }
+    return { step: '1/3', text: '이을 자산을 클릭하세요', dimCanvas: false };
+  }, [cableState.armed, cableState.picker, cableState.firstEndpoint]);
 
   // ── categoryId → color 맵 (렌더용) ───────────────────────────────────────
   const categoryColorMap = useMemo(() => {
@@ -1258,11 +1301,6 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
                   ))}
                 </Select>
               </div>
-              {cableState.armed && (
-                <span className="text-xs text-content-muted">
-                  {cableState.firstEndpoint ? '두 번째 자산 클릭 · ESC 취소' : '자산 클릭으로 포트 선택 · ESC 취소'}
-                </span>
-              )}
             </>
           )}
 
@@ -1395,6 +1433,29 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
               <br />
               위 팔레트에서 종류를 고르고 도면 위에 드래그해 그리세요
             </span>
+          </div>
+        )}
+
+        {/* 지금 어디서 고르는 중인가 — **판을 어둡게 해서 말한다**.
+            포트를 고르는 단계에서는 선택이 오른쪽 패널에 있는데, 도면이 그대로 밝게 있으면
+            거기를 눌러 보다가 아무 일도 안 일어난다. 어둡게 덮으면 「저기서 고르는구나」가
+            설명 없이 전해진다 — 모달이 배경을 덮는 것과 같은 이유다. */}
+        {cableStep?.dimCanvas && (
+          <div className="absolute inset-0 z-legend bg-[var(--overlay)]" data-testid="cable-canvas-dim" />
+        )}
+
+        {/* 케이블 도구 안내 — 화면 아래 한 줄.
+            예전에는 도구바 구석에 작게 붙어 있었다. 시선은 도면과 패널에 있는데 안내는 맨
+            위에 있으니, 다음에 무엇을 해야 하는지가 눈에 들어오지 않았다. */}
+        {cableStep && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-legend flex justify-center p-3">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 shadow-sm">
+              <span className="text-xs font-medium text-primary">{cableStep.step}</span>
+              <span className="text-sm text-content">{cableStep.text}</span>
+              <Button variant="secondary" size="sm" onClick={() => cableDispatch({ type: 'DISARM' })}>
+                취소
+              </Button>
+            </div>
           </div>
         )}
 

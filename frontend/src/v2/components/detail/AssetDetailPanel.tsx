@@ -35,6 +35,8 @@ interface AssetDetailPanelProps {
    * 부품은 제 패널을 갖지 않는다: 설비 패널을 열고 그 부품을 구성 격자에서 고른 상태로 둔다.
    */
   focusPartId?: string | null;
+  /** 빈 포트에서 케이블을 잇기 시작한다 — 평면도로 넘어가 그 포트를 첫 끝점으로 무장한다. */
+  onConnectPort?: (portId: string) => void;
 }
 
 export function AssetDetailPanel({
@@ -46,6 +48,7 @@ export function AssetDetailPanel({
   onShowOnFloorPlan,
   focusPortId,
   focusPartId,
+  onConnectPort,
 }: AssetDetailPanelProps) {
   const [tab, setTab] = useState<Tab>(focusPortId ? 'connections' : 'info');
   /** 부품 카드에서 「포트 보기」로 넘어올 때 고를 포트 — 밖에서 온 지목보다 우선한다. */
@@ -264,6 +267,7 @@ export function AssetDetailPanel({
             onTrace={onTrace ?? (() => {})}
             onClearTrace={onClearTrace ?? (() => {})}
             traceResult={traceResult}
+            onConnectPort={onConnectPort}
           />
         )}
       </div>
