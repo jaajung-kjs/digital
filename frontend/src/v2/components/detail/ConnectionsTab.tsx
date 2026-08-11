@@ -1,13 +1,16 @@
 /**
  * ConnectionsTab — 상세 패널 4번째 탭 '연결'
  *
- * 자산의 포트 목록(그룹별): 각 포트에 연결 상태(상대 자산·포트 이름 — effective cables + 전체
- * assets 해소)를 표시한다. 연결된 포트에는 [추적] 버튼이 있고, 클릭하면 traceHighlight 결과를
- * 상위 콜백(onTrace)으로 올린다. 추적 중이면 경로 텍스트 목록과 [지우기] 버튼을 표시한다.
+ * **부품 한 대에 카드 한 장** — 그 안에 포트 판, 고른 포트의 상세, 그 부품의 연결 내역이
+ * 차례로 담긴다. 설비에는 제 포트가 없고 안에 든 부품이 갖는데, 예전에는 판만 여기 있고
+ * 「연결」과 「고른 포트 상세」가 맨 아래 따로 있었다. 부품이 열둘이면 판 열두 장을 지나야
+ * 그것들이 나오므로, 포트를 눌러 놓고도 무엇이 어떻게 바뀌었는지 보이지 않았다.
+ *
+ * 연결된 포트에는 [추적] 이 있고, 누르면 traceHighlight 결과를 상위 콜백(onTrace)으로 올린다.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Toggle, cn, SELECTABLE } from '../../../components/ui';
+import { Badge, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Toggle, cn, SELECTABLE } from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../cableSelectors';
@@ -67,16 +70,31 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
 
   const asset = useMemo(() => effectiveAssets.find((a) => a.id === assetId), [effectiveAssets, assetId]);
 
+  /**
+   * 이 판에 뜨는 **모든** 포트 — 이 자산과 자손의 것.
+   *
+   * 설비는 제 포트가 없다(포트는 안에 든 부품의 것이다). 그런데 고른 포트·내부 통과·이름을
+   * `asset.ports` 에서만 찾고 있어서, 설비 패널에서 포트를 골라도 **상세 카드가 아예 뜨지
+   * 않았다** — 추적·개폐·매체가 통째로 사라진 채 아래 연결 목록의 한 줄만 물들었다.
+   */
+  const allPorts = useMemo(
+    () => (asset ? withDescendants(effectiveAssets, asset.id).flatMap((a) => a.ports) : []),
+    [asset, effectiveAssets],
+  );
+
   /* 자산 내부 통과 — 실제로 어느 포트끼리가 이어지는지.
-     규칙은 **포트 선언에서만** 나온다(계산은 core 와 공유). */
+     규칙은 **포트 선언에서만** 나온다(계산은 core 와 공유).
+     자산마다 따로 셈한다 — 통과는 **한 자산 안**의 일이라 섞으면 남의 포트와 이어진다. */
   const internalOf = useMemo(() => {
     if (!asset) return new Map<string, string[]>();
-    return internalLinkMap(asset.ports.map((p) => ({ ...p, assetId: asset.id })));
-  }, [asset]);
-  const portNameById = useMemo(
-    () => new Map((asset?.ports ?? []).map((p) => [p.id, p.name])),
-    [asset],
-  );
+    const out = new Map<string, string[]>();
+    for (const a of withDescendants(effectiveAssets, asset.id)) {
+      if (a.ports.length === 0) continue;
+      for (const [k, v] of internalLinkMap(a.ports.map((p) => ({ ...p, assetId: a.id })))) out.set(k, v);
+    }
+    return out;
+  }, [asset, effectiveAssets]);
+  const portNameById = useMemo(() => new Map(allPorts.map((p) => [p.id, p.name])), [allPorts]);
 
   /**
    * 이 포트에 여닫을 값이 있는가 — 차단기의 개폐 같은 것.
@@ -175,7 +193,9 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
             return {
               key: `${port.id}-${conn.cableId}`,
               portId: port.id,
-              portLabel: owner.id === asset.id ? port.name : `${owner.name} · ${port.name}`,
+              ownerId: owner.id,
+              // 이 목록은 그 부품 카드 안에 있으므로 부품 이름을 되풀이하지 않는다.
+              portLabel: port.name,
               peerLabel: peer ? `${peer.assetName} · ${peer.portName}${sub}` : null,
               peerAssetId: portIndex.get(conn.peerPortId)?.asset.id ?? null,
               cableLabel: [cat?.name, typeof lengthM === 'number' ? `${lengthM}m` : null]
@@ -193,8 +213,8 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
   const portState = (port: V2Port): PortState => (cablesByPortId.has(port.id) ? 'full' : 'empty');
 
   const selectedPort = useMemo(
-    () => (asset?.ports ?? []).find((p) => p.id === selectedPortId) ?? null,
-    [asset, selectedPortId],
+    () => allPorts.find((p) => p.id === selectedPortId) ?? null,
+    [allPorts, selectedPortId],
   );
 
   /* 고른 포트에 여닫을 값이 있으면 그 상태 — 편집은 여기서, 판은 보여 주기만.
@@ -317,36 +337,26 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
         </DetailCard>
       )}
 
-      {/* 포트 매트릭스 (그룹별) — 판을 보고 빈 자리를 찾는다 */}
+      {/* 부품 한 대에 카드 한 장 — 판·고른 포트·연결 내역이 **한 곳에** 모인다.
+          예전에는 판만 여기 있고 「연결」과 「고른 포트 상세」는 맨 아래 따로 있었다. 부품이
+          열둘이면 판 열두 장을 지나야 그것들이 나오므로, 포트를 눌러 놓고도 무엇이 어떻게
+          바뀌었는지 보이지 않았다. */}
       {portOwners.map(({ owner, groups }) => {
         const ownerPorts = groups.flatMap((g) => g.ports);
         const connected = ownerPorts.filter((pt) => cablesByPortId.has(pt.id)).length;
-        const isSelf = owner.id === assetId;
+        const rows = connectionRows.filter((r) => r.ownerId === owner.id);
+        // 고른 포트가 이 부품 것일 때만 상세를 편다.
+        const sel = selectedPort && selectedPort.assetId === owner.id ? selectedPort : null;
         return (
           <DetailCard key={owner.id}>
-            {/* 자기 포트인지 안에 든 장비의 포트인지 이름으로 구분한다.
-                장비 이름을 누르면 그 장비로 들어간다. */}
             <DetailCardHeader
-              title={
-                isSelf ? (
-                  '포트'
-                ) : (
-                  <button
-                    type="button"
-                    className={cn('rounded px-1 text-left text-primary', SELECTABLE)}
-                    title={`${owner.name} 으로 이동`}
-                    onClick={() => onSelectAsset(owner.id)}
-                  >
-                    {owner.name}
-                  </button>
-                )
-              }
+              title={owner.name}
               badge={`${connected}/${ownerPorts.length} 연결`}
               badgeStatus={connected > 0 ? 'success' : 'neutral'}
             />
             {/* 장비 하나에 전면판 한 장 — 구획은 그 판 위에서 나뉜다. */}
             <PortFaceplate
-              labelPrefix={isSelf ? undefined : owner.name}
+              labelPrefix={owner.name}
               sections={groups.map(({ group, label, medium, ports }) => ({
                 key: group, label, accent: mediumColor(medium), ports,
               }))}
@@ -356,94 +366,90 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
               selectedPortId={selectedPortId}
               onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
             />
+
+            {/* 고른 포트 하나의 상세 — **누른 판 바로 아래**에 편다. */}
+            {sel && (
+              <div className="rounded border border-line bg-surface-2 p-2">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-content">{sel.name}</span>
+                  <Badge status={portState(sel) === 'full' ? 'success' : 'neutral'}>
+                    {PORT_STATE_LABEL[portState(sel)]}
+                  </Badge>
+                  {selectedPeers.length > 0 && (
+                    <Button variant="secondary" size="sm" onClick={() => handleTrace(sel.id)}>
+                      추적
+                    </Button>
+                  )}
+                </div>
+                {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다(§ 판은 지도, 상세는 서식). */}
+                {selectedSwitch && (
+                  <DetailRow label={selectedSwitch.field.label}>
+                    <Toggle
+                      checked={selectedSwitch.closed}
+                      onChange={(next) => setPortSwitch(selectedSwitch.owner, sel, selectedSwitch.field, next)}
+                      label={selectedSwitch.closed ? '투입' : '개방'}
+                      aria-label={`${sel.name} ${selectedSwitch.field.label}`}
+                    />
+                  </DetailRow>
+                )}
+                {/* 회선의 반대쪽 — 여기가 비어 있으면 이 회선은 아직 반쪽이다.
+                    그 사실을 포트의 그림에 얹지 않는다(포트 자신은 물려 있으니까). */}
+                {internalOf.get(sel.id)?.length ? (
+                  <DetailRow label="내부 통과">
+                    <span className="text-sm text-content-muted">
+                      {internalOf.get(sel.id)!
+                        .map((id) => `${portNameById.get(id) ?? '?'}${cablesByPortId.has(id) ? '' : ' (미연결)'}`)
+                        .join(', ')}
+                    </span>
+                  </DetailRow>
+                ) : null}
+                <DetailRow label="매체">
+                  <span className="text-sm text-content-muted">
+                    {mediumLabel(sel.medium)} · {portDirectionLabel(sel.direction)}
+                  </span>
+                </DetailRow>
+              </div>
+            )}
+
+            {/* 연결 내역 — 판이 "어디가 비었나" 라면 여기는 "무엇이 어디로 가나" 다. */}
+            {rows.length > 0 && (
+              <ul className="divide-y divide-line">
+                {rows.map((row) => (
+                  <li
+                    key={row.key}
+                    /* 케이블 정보는 툴팁으로 — 384px 패널에서 대국 이름과 자리를 다투면
+                       정작 어디로 가는지가 잘린다(`접지단자함 G1 · 접지 부…`). */
+                    title={row.cableLabel || undefined}
+                    className={cn(
+                      'group flex items-center gap-2 rounded py-1.5',
+                      row.portId === selectedPortId && 'bg-info-bg',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className={cn('shrink-0 rounded px-1 text-xs tabular-nums text-content-muted', SELECTABLE)}
+                      title={`${row.portLabel} 을 판에서 고르기`}
+                      onClick={() => setSelectedPortId((prev) => (prev === row.portId ? null : row.portId))}
+                    >
+                      {row.portLabel}
+                    </button>
+                    <span className="shrink-0 text-xs text-content-faint" aria-hidden>→</span>
+                    <button
+                      type="button"
+                      className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                      title={row.peerLabel ? `${row.peerLabel} 으로 이동` : undefined}
+                      disabled={!row.peerAssetId}
+                      onClick={() => row.peerAssetId && onSelectAsset(row.peerAssetId)}
+                    >
+                      {row.peerLabel ?? '—'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </DetailCard>
         );
       })}
-
-      {/* 연결 내역 — 판이 "어디가 비었나" 라면 여기는 "무엇이 어디로 가나" 다. */}
-      {connectionRows.length > 0 && (
-        <DetailCard>
-          <DetailCardHeader title="연결" badge={`${connectionRows.length}`} badgeStatus="neutral" />
-          <ul className="divide-y divide-line">
-            {connectionRows.map((row) => (
-              <li
-                key={row.key}
-                /* 케이블 정보는 툴팁으로 — 384px 패널에서 대국 이름과 자리를 다투면
-                   정작 어디로 가는지가 잘린다(`접지단자함 G1 · 접지 부…`). */
-                title={row.cableLabel || undefined}
-                className={cn(
-                  'group flex items-center gap-2 rounded py-1.5',
-                  row.portId === selectedPortId && 'bg-info-bg',
-                )}
-              >
-                <button
-                  type="button"
-                  className={cn('shrink-0 rounded px-1 text-xs tabular-nums text-content-muted', SELECTABLE)}
-                  title={`${row.portLabel} 을 판에서 고르기`}
-                  onClick={() => setSelectedPortId((prev) => (prev === row.portId ? null : row.portId))}
-                >
-                  {row.portLabel}
-                </button>
-                <span className="shrink-0 text-xs text-content-faint" aria-hidden>→</span>
-                <button
-                  type="button"
-                  className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                  title={row.peerLabel ? `${row.peerLabel} 으로 이동` : undefined}
-                  disabled={!row.peerAssetId}
-                  onClick={() => row.peerAssetId && onSelectAsset(row.peerAssetId)}
-                >
-                  {row.peerLabel ?? '—'}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </DetailCard>
-      )}
-
-      {/* 고른 포트 하나의 상세 — 대국은 위 표가 말하므로 여기는 나머지만 적는다. */}
-      {selectedPort && (
-        <DetailCard>
-          <DetailCardHeader
-            title={selectedPort.name}
-            badge={PORT_STATE_LABEL[portState(selectedPort)]}
-            badgeStatus={portState(selectedPort) === 'full' ? 'success' : 'neutral'}
-            actions={
-              selectedPeers.length > 0 ? (
-                <Button variant="secondary" size="sm" onClick={() => handleTrace(selectedPort.id)}>
-                  추적
-                </Button>
-              ) : undefined
-            }
-          />
-          {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다(§ 판은 지도, 상세는 서식). */}
-          {selectedSwitch && (
-            <DetailRow label={selectedSwitch.field.label}>
-              <Toggle
-                checked={selectedSwitch.closed}
-                onChange={(next) => setPortSwitch(selectedSwitch.owner, selectedPort, selectedSwitch.field, next)}
-                label={selectedSwitch.closed ? '투입' : '개방'}
-                aria-label={`${selectedPort.name} ${selectedSwitch.field.label}`}
-              />
-            </DetailRow>
-          )}
-          {/* 회선의 반대쪽 — 여기가 비어 있으면 이 회선은 아직 반쪽이다.
-              그 사실을 포트의 그림에 얹지 않는다(포트 자신은 물려 있으니까). */}
-          {internalOf.get(selectedPort.id)?.length ? (
-            <DetailRow label="내부 통과">
-              <span className="text-sm text-content-muted">
-                {internalOf.get(selectedPort.id)!
-                  .map((id) => `${portNameById.get(id) ?? '?'}${cablesByPortId.has(id) ? '' : ' (미연결)'}`)
-                  .join(', ')}
-              </span>
-            </DetailRow>
-          ) : null}
-          <DetailRow label="매체">
-            <span className="text-sm text-content-muted">
-              {mediumLabel(selectedPort.medium)} · {portDirectionLabel(selectedPort.direction)}
-            </span>
-          </DetailRow>
-        </DetailCard>
-      )}
 
       {/* 연결은 평면도에서 만든다 — 여기서 할 수 없다는 사실 자체를 알려준다. */}
       <p className="px-1 text-xs text-content-faint">
