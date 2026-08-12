@@ -6,17 +6,21 @@
  * 패턴은 사용자가 **지어내야** 하는 값이었다. "24구 네트워크 스위치" 하나 정의하는 데도
  * 내부 규칙을 알아야 했다.
  *
- * 이제 `+ 네트워크` 를 누르면 그 종류의 포트가 규칙에 맞게 만들어지고, 손댈 곳은 개수뿐이다.
- * 나머지 여섯 칸은 `세부 설정` 안에 접어 두어 필요할 때만 연다.
+ * 이제 `+ 네트워크` 를 누르면 그 종류의 포트가 규칙에 맞게 만들어지고, **손댈 곳은 개수뿐**이다.
+ * 그룹 키·방향·매체·이름 패턴은 아예 묻지 않는다 — 고른 종류가 이미 다 정한 값이라, 물어
+ * 봐야 답이 하나뿐인 칸이었다(접어 뒀어도 「무엇을 적어야 하나」를 고민하게 만든다).
+ * 심선 수만 남는다: 같은 광이라도 성단이 24심인지 12심인지는 물건마다 다르다.
+ *
+ * 판 미리보기가 옆에 선다 — 개수를 고치면 그 자리에서 판이 바뀐다. 「24구 스위치」가
+ * 실제로 어떻게 보이는지 저장하고 자산을 놓아 봐야 알던 것을 여기서 끝낸다.
  *
  * 구조 잠금(locked=true): 모든 입력 disabled
  */
 import { Plus } from 'lucide-react';
 import type { TypeSpecIssue } from '@twin/core';
-import { PORT_DIRECTIONS, portKind, portPresets, uniqueGroupKey } from '@twin/core';
+import { DEFAULT_CORE_COUNT, isMultiCorePort, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction, PortPreset } from '@twin/core';
-import { Button, DetailCard, DetailCardHeader, DetailRow, Input, Select, ItemCard } from '../../../components/ui';
-import type { V2Catalog } from '../../types';
+import { Button, DetailCard, DetailCardHeader, DetailRow, Input, ItemCard } from '../../../components/ui';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
 
@@ -32,7 +36,6 @@ interface PortRow {
 interface PortsEditorProps {
   draft: TypeDraft;
   onChange: (patch: Partial<TypeDraft>) => void;
-  catalog: V2Catalog;
   locked: boolean;
   issues: TypeSpecIssue[];
 }
@@ -55,7 +58,7 @@ function rowTitle(p: PortRow, presets: readonly PortPreset[]): string {
   return preset ? preset.name : `${p.medium} ${p.direction}`;
 }
 
-export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsEditorProps) {
+export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProps) {
   const ports = draft.ports;
   const presets = portPresets();
 
@@ -81,14 +84,8 @@ export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsE
       )}
 
       {ports.map((p, i) => {
-        const groupIssue = issueFor(issues, `ports[${i}].group`);
         const countIssue = issueFor(issues, `ports[${i}].count`);
-        const dirIssue = issueFor(issues, `ports[${i}].direction`);
-        const mediumIssue = issueFor(issues, `ports[${i}].medium`);
-        const patternIssue = issueFor(issues, `ports[${i}].namePattern`);
         const positionsIssue = issueFor(issues, `ports[${i}].positions`);
-        // 접어 둔 안쪽에 문제가 있으면 열어 둔다 — 안 그러면 저장이 막힌 이유가 안 보인다.
-        const hasHiddenIssue = Boolean(groupIssue || dirIssue || mediumIssue || patternIssue || positionsIssue);
 
         return (
           <ItemCard key={i} title={rowTitle(p, presets)} onDelete={locked ? undefined : () => remove(i)}>
@@ -106,80 +103,22 @@ export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsE
               />
             </DetailRow>
 
-            {/* 세부 설정 — 평소에는 접혀 있다. 손실율 같은 파라미터도 앞으로 여기 들어온다. */}
-            <details open={hasHiddenIssue} className="mt-1">
-              <summary className="cursor-pointer text-xs text-content-muted hover:text-content">세부 설정</summary>
-              <div className="mt-1">
-                <DetailRow label="그룹" issue={groupIssue}>
-                  <Input
-                    aria-label={`포트 ${i + 1} 그룹`}
-                    value={p.group}
-                    disabled={locked}
-                    placeholder="예: A"
-                    onChange={(e) => update(i, { group: e.currentTarget.value })}
-                  />
-                </DetailRow>
-
-                <DetailRow label="방향" issue={dirIssue}>
-                  <Select
-                    aria-label={`포트 ${i + 1} 방향`}
-                    value={p.direction}
-                    disabled={locked}
-                    onChange={(e) => update(i, { direction: e.currentTarget.value as Direction })}
-                  >
-                    {PORT_DIRECTIONS.map((d) => (
-                      <option key={d.value} value={d.value}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </Select>
-                </DetailRow>
-
-                <DetailRow label="매체" issue={mediumIssue}>
-                  <Select
-                    aria-label={`포트 ${i + 1} 매체`}
-                    value={p.medium}
-                    disabled={locked}
-                    onChange={(e) => update(i, { medium: e.currentTarget.value })}
-                  >
-                    {catalog.cableGroups.map((g) => (
-                      <option key={g.key} value={g.key}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </Select>
-                </DetailRow>
-
-                <DetailRow label="이름 패턴" issue={patternIssue}>
-                  <Input
-                    aria-label={`포트 ${i + 1} 이름 패턴`}
-                    value={p.namePattern}
-                    disabled={locked}
-                    placeholder="예: 코어 {n}"
-                    onChange={(e) => update(i, { namePattern: e.currentTarget.value })}
-                  />
-                  {p.count > 1 && !p.namePattern.includes('{n}') && !patternIssue && (
-                    <span className="text-xs text-content-faint">개수가 2 이상이면 &#123;n&#125; 이 필요합니다</span>
-                  )}
-                </DetailRow>
-
-                {/* 심선 수는 **다심이 있는 종류에만** 뜻이 있다(광). 전원·접지에 칸을 두면
-                    어휘가 흐려진다. 광 안에서 어댑터(1)와 성단(24)을 가르는 값이 이것이다 —
-                    예전에는 매체 키가 그 둘을 갈랐고 여기 값은 늘 24였다. */}
-                {portKind(p.medium)?.multiCore && (
-                  <DetailRow label="심선 수" issue={positionsIssue}>
-                    <Input
-                      type="number"
-                      aria-label={`포트 ${i + 1} 심선 수`}
-                      value={String(p.positions ?? 1)}
-                      disabled={locked}
-                      onChange={(e) => update(i, { positions: Number(e.currentTarget.value) })}
-                    />
-                    <span className="text-xs text-content-faint">1 = 어댑터 한 자리, 2 이상 = 성단(코어 수)</span>
-                  </DetailRow>
-                )}
-              </div>
-            </details>
+            {/* 심선 수 — **다심이 있는 종류에만**(광). 같은 광이라도 성단이 24심인지
+                12심인지는 물건마다 다르므로, 이건 고른 종류가 대신 정해 줄 수 없다.
+                그 밖의 값(그룹 키·방향·매체·이름)은 종류가 정하므로 묻지 않는다. */}
+            {portKind(p.medium)?.multiCore && isMultiCorePort(p.positions) && (
+              <DetailRow label="심선 수" issue={positionsIssue}>
+                <Input
+                  type="number"
+                  aria-label={`포트 ${i + 1} 심선 수`}
+                  value={String(p.positions ?? DEFAULT_CORE_COUNT)}
+                  disabled={locked}
+                  min={2}
+                  onChange={(e) => update(i, { positions: Number(e.currentTarget.value) })}
+                />
+                <span className="text-xs text-content-faint">케이블 한 가닥 안의 코어 수</span>
+              </DetailRow>
+            )}
           </ItemCard>
         );
       })}

@@ -88,7 +88,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   const addable = catalog.types;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-3 p-4">
+    <div className="w-full space-y-3 p-4">
       <DetailCard>
         <DetailCardHeader title="기본정보" />
         {/* 키는 묻지 않는다 — 시드·마이그레이션이 가리키는 참조용 식별자이지 현장에서 부르는

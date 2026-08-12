@@ -29,6 +29,7 @@ import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { CatalogEditorBar, InUseNotice } from '../components/admin/CatalogEditorBar';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { PortsEditor } from '../components/admin/PortsEditor';
+import { PortsPreview } from '../components/admin/PortsPreview';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
 import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
@@ -304,27 +305,34 @@ export default function V2CatalogAdminPage() {
                     onSave={() => void handleSave()}
                   />
 
-                  {/* 편집 폼 영역 — 스크롤 */}
+                  {/* 편집 폼 영역 — 스크롤.
+                      **가운데로 몰지 않는다.** 예전에는 `mx-auto max-w-4xl` 로 가운데 세워
+                      좌우에 큰 여백이 남았는데, 워크스페이스는 트리·본문·상세가 화면을 꽉
+                      채우는 판이라 이 화면만 홀로 떠 보였다. 대신 카드를 두 단으로 흘려
+                      폭을 쓴다 — 넓은 화면에서 라벨+입력 한 줄이 1000px 로 늘어나는 것도
+                      함께 막힌다(그게 애초에 폭을 묶은 까닭이다). */}
                   <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                    <div className="mx-auto max-w-4xl space-y-3">
-                    {/* 기본정보 · 배치 · 공량 */}
-                    <TypeBasicsForm
-                      draft={draft}
-                      catalog={catalog}
-                      onChange={handleChange}
-                      issues={issues}
-                    />
+                    <div className="grid items-start gap-3 xl:grid-cols-2">
+                      <div className="space-y-3">
+                        {/* 기본정보 · 공량 */}
+                        <TypeBasicsForm
+                          draft={draft}
+                          catalog={catalog}
+                          onChange={handleChange}
+                          issues={issues}
+                        />
 
-                    {/* 포트 템플릿 (잠금 대상) */}
-                    <PortsEditor
-                      draft={draft}
-                      onChange={handleChange}
-                      catalog={catalog}
-                      locked={locked}
-                      issues={issues}
-                    />
+                        {/* 포트 템플릿 (잠금 대상) — 고른 종류와 개수만 묻는다. */}
+                        <PortsEditor
+                          draft={draft}
+                          onChange={handleChange}
+                          locked={locked}
+                          issues={issues}
+                        />
+                      </div>
 
-                    {/* 통과 링크 규칙 (잠금 대상) */}
+                      {/* 짠 포트가 실제로 어떤 판이 되는지 — 자산 상세와 같은 판을 그린다. */}
+                      <PortsPreview draft={draft} />
                     </div>
                   </div>
                 </>

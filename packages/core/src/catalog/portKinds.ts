@@ -299,6 +299,8 @@ export interface PortGroupRef {
    * 그룹 키(`A`·`B`)는 영문만 허용되는 **식별자**라 사람에게 보여 줄 이름이 못 된다.
    */
   sampleName?: string;
+  /** 심선 수 — 같은 매체 안에서 성단(다심)을 앞에 세우는 데 쓴다. */
+  positions?: number | null;
 }
 
 /** 포트 이름에서 번호를 떼어 그룹 이름을 얻는다 — `장비 1` → `장비`. */
@@ -338,8 +340,30 @@ export function portGroupLabel(
   const mine = base(target);
   const ambiguous = siblings.filter((s) => base(s) === mine).length > 1;
   if (!ambiguous) return mine;
-  // 가를 때는 포트 이름을 쓴다 — 키(`A`·`B`)는 식별자라 사람에게 뜻이 없다.
-  return `${mine} ${nameBase(target.sampleName) ?? target.group}`;
+  /* 가를 때는 **포트 이름을 그대로** 쓴다 — 매체 이름을 앞에 덧붙이지 않는다.
+     성단 구획이 「광 OPGW」가 되던 자리다. OPGW 는 그 자체로 광이라 「광」이 군더더기고,
+     맞은편도 「광 광 포트」가 될 판이었다. 이름이 이미 무엇인지 말하고 있으면 그것으로 족하다.
+     키(`A`·`B`)는 식별자라 사람에게 뜻이 없으므로 이름이 없을 때만 쓴다. */
+  return nameBase(target.sampleName) ?? `${mine} ${target.group}`;
+}
+
+/**
+ * 판에서 구획이 서는 차례 — **어휘 순서 → 다심 먼저 → 키**.
+ *
+ * 어휘 순서(전원 → 네트워크 → 광 → 제어 → 접지)가 첫째다. 같은 매체 안에서는 **성단(다심)이
+ * 앞**이다: 판을 읽는 사람은 「밖에서 무엇이 들어오는가」를 먼저 보고 그것이 어디로 갈렸는지를
+ * 뒤에 본다.
+ *
+ * 이 규칙이 두 곳에 복제돼 있으면 **미리보기와 실물이 다른 차례로 선다** — 그러면 미리 볼
+ * 뜻이 없다. 실제로 그렇게 돼 있었다.
+ */
+export function comparePortGroups(a: PortGroupRef, b: PortGroupRef): number {
+  const kindOrder = (medium: string) => {
+    const i = PORT_KINDS.findIndex((k) => k.key === medium);
+    return i < 0 ? PORT_KINDS.length : i; // 어휘에 없는 것은 뒤로
+  };
+  const trunkFirst = (r: PortGroupRef) => (isMultiCorePort(r.positions) ? 0 : 1);
+  return kindOrder(a.medium) - kindOrder(b.medium) || trunkFirst(a) - trunkFirst(b) || a.group.localeCompare(b.group);
 }
 
 /** 이미 쓰이고 있는 그룹 키를 피해서 고른다 — 그룹 키는 타입 안에서 유일해야 한다. */

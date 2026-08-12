@@ -22,14 +22,14 @@ import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../cableSelectors';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
 import type { V2Asset, V2Cable, V2Port } from '../../types';
 import { PortFaceplate, type PortState } from './PortFaceplate';
 import type { CablePickRequest } from '../../cablePick';
-import { PORT_KINDS, portGroupLabel } from '@twin/core';
+import { comparePortGroups, portGroupLabel } from '@twin/core';
 
 /** 한 장비의 포트를 그룹 단위로 묶은 것 — 이름·정렬은 종류 선언에서 나온다. */
 interface PortGroupView {
@@ -192,28 +192,14 @@ export function ConnectionsTab({
         }
         for (const [, list] of byGroup) list.sort((x, y) => x.index - y.index);
 
-        /* 알파벳순이면 `COM · GND · P · PWR-IN` 처럼 뜻 없는 순서가 된다.
-           종류 선언 순서(전원 → 네트워크 → 광 → 제어 → 접지)로 읽는다. */
         const refs = [...byGroup.entries()].filter(([, ports]) => ports.length > 0).map(([group, ports]) => ({
           group, medium: ports[0]!.medium, direction: ports[0]!.direction,
           sampleName: ports[0]!.name, positions: ports[0]!.positions,
         }));
-        const kindOrder = (medium: string) => {
-          const i = PORT_KINDS.findIndex((k) => k.key === medium);
-          return i < 0 ? PORT_KINDS.length : i; // 어휘에 없는 것은 뒤로
-        };
-        /* 같은 매체 안에서는 **성단(다심)이 먼저**다. 판을 읽는 사람은 「밖에서 무엇이
-           들어오는가」를 먼저 보고 그것이 어디로 갈렸는지를 뒤에 본다. 예전에는 매체가
-           갈려 있어 어휘 순서가 그 일을 했다(인입이 단심 광보다 앞). */
-        const trunkFirst = (r: { positions?: number | null }) => (isMultiCorePort(r.positions) ? 0 : 1);
+        // 차례는 어휘가 정한다(`comparePortGroups`) — 미리보기와 같은 함수를 써야 안 갈린다.
         const groups = refs
           .slice()
-          .sort(
-            (x, y) =>
-              kindOrder(x.medium) - kindOrder(y.medium) ||
-              trunkFirst(x) - trunkFirst(y) ||
-              x.group.localeCompare(y.group),
-          )
+          .sort(comparePortGroups)
           .map((ref) => ({ ...ref, label: portGroupLabel(ref, refs, mediumLabel), ports: byGroup.get(ref.group)! }));
 
         return { owner: a, groups };

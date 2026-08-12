@@ -1,10 +1,9 @@
 /**
- * PortsEditor — TDD (5 cases)
- * (a) draft.ports 행이 렌더된다
- * (b) 미리 정의된 포트 버튼 → 규칙에 맞는 행이 만들어진다
- * (c) medium select 옵션이 catalog.cableGroups에서 파생된다
- * (d) locked=true(assetCount>0)이면 입력 전부 disabled
- * (e) lineSide 체크박스: draft에서 읽기 + onChange에 반전값 전달
+ * PortsEditor — **고른 종류와 개수만** 묻는다.
+ *
+ * 그룹 키·방향·매체·이름 패턴은 화면에 없다. 고른 종류가 이미 정한 값이라 물어 봐야 답이
+ * 하나뿐인 칸이었고, 접어 두어도 「무엇을 적어야 하나」를 고민하게 만들었다.
+ * 심선 수만 남는다 — 같은 광이라도 성단이 24심인지 12심인지는 물건마다 다르다.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -43,20 +42,18 @@ const mkDraft = (portOverrides: TypeDraft['ports'] = []): TypeDraft => ({
 describe('PortsEditor', () => {
   const catalog = mkCatalog();
 
-  it('(a) draft.ports 행이 화면에 렌더된다', () => {
+  it('(a) 포트 줄은 **종류와 개수**만 보여 준다', () => {
     const draft = mkDraft([
       { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '코어 {n}' },
     ]);
-    const onChange = vi.fn();
+    render(<PortsEditor draft={draft} onChange={vi.fn()} locked={false} issues={[]} />);
 
-    render(<PortsEditor draft={draft} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
-
-    // 그룹 이름이 보여야 한다
-    expect(screen.getByDisplayValue('A')).toBeTruthy();
-    // 수량이 보여야 한다
-    expect(screen.getByDisplayValue('12')).toBeTruthy();
-    // namePattern이 보여야 한다
-    expect(screen.getByDisplayValue('코어 {n}')).toBeTruthy();
+    expect(screen.getByDisplayValue('12')).toBeTruthy(); // 개수
+    // 종류가 줄 제목이다 — 「광」은 추가 버튼에도 있으므로 개수 칸의 라벨로 짚는다.
+    expect(screen.getByLabelText('광 개수')).toBeTruthy();
+    // 지어내야 하던 값들은 화면에 없다 — 종류가 이미 정했다.
+    expect(screen.queryByDisplayValue('A')).toBeNull();
+    expect(screen.queryByDisplayValue('코어 {n}')).toBeNull();
   });
 
   /* 예전에는 빈 행 하나가 생기고 그룹 키·이름 패턴을 사용자가 지어내야 했다.
@@ -65,7 +62,7 @@ describe('PortsEditor', () => {
     const draft = mkDraft([]);
     const onChange = vi.fn();
 
-    render(<PortsEditor draft={draft} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
 
     fireEvent.click(screen.getByRole('button', { name: '네트워크' }));
 
@@ -80,7 +77,7 @@ describe('PortsEditor', () => {
 
   it('(b-2) 전원은 입력·출력이 따로 있다 — 서로 다른 물건이다', () => {
     const onChange = vi.fn();
-    render(<PortsEditor draft={mkDraft([])} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
+    render(<PortsEditor draft={mkDraft([])} onChange={onChange} locked={false} issues={[]} />);
 
     fireEvent.click(screen.getByRole('button', { name: '전원 출력' }));
     expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({ medium: 'power', direction: 'OUT' });
@@ -89,33 +86,23 @@ describe('PortsEditor', () => {
   it('(b-3) 같은 종류를 두 번 넣어도 그룹 키가 겹치지 않는다', () => {
     const existing = mkDraft([{ group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' }]);
     const onChange = vi.fn();
-    render(<PortsEditor draft={existing} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
+    render(<PortsEditor draft={existing} onChange={onChange} locked={false} issues={[]} />);
 
     fireEvent.click(screen.getByRole('button', { name: '네트워크' }));
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
     expect(ports[1]!.group).not.toBe(ports[0]!.group);
   });
 
-  it('(c) medium select 옵션이 catalog.cableGroups에서 파생된다', () => {
+  /* 매체를 고르는 칸은 없앴다 — 종류 버튼이 곧 매체 선택이다. 나중에 매체를 바꾸고 싶으면
+     그 줄을 지우고 다시 고른다(중간에 바꾸면 이름·심선 수가 어긋난 채로 남는다). */
+  it('(c) 매체·방향·그룹·이름 패턴을 고르는 칸이 없다', () => {
     const draft = mkDraft([
       { group: 'A', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'A' },
     ]);
-    const onChange = vi.fn();
+    render(<PortsEditor draft={draft} onChange={vi.fn()} locked={false} issues={[]} />);
 
-    render(<PortsEditor draft={draft} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
-
-    // medium select에 cableGroups 의 name/key 기반 옵션이 있어야 한다
-    const selects = screen.getAllByRole('combobox');
-    // medium select를 찾는다 — aria-label 또는 옵션 내용으로
-    const mediumSelect = selects.find((s) => {
-      const options = Array.from((s as HTMLSelectElement).options);
-      return options.some((o) => o.value === 'fiber') && options.some((o) => o.value === 'network');
-    });
-    expect(mediumSelect).toBeTruthy();
-
-    const options = Array.from((mediumSelect as HTMLSelectElement).options).map((o) => o.value);
-    expect(options).toContain('fiber');
-    expect(options).toContain('network');
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
+    expect(screen.queryAllByRole('textbox')).toHaveLength(0);
   });
 
   it('(d) locked=true이면 입력 전부 disabled', () => {
@@ -124,11 +111,7 @@ describe('PortsEditor', () => {
     ]);
     const onChange = vi.fn();
 
-    render(<PortsEditor draft={draft} onChange={onChange} catalog={catalog} locked={true} issues={[]} />);
-
-    // 모든 input/select가 disabled여야 한다
-    const inputs = screen.getAllByRole('textbox');
-    inputs.forEach((input) => expect((input as HTMLInputElement).disabled).toBe(true));
+    render(<PortsEditor draft={draft} onChange={onChange} locked={true} issues={[]} />);
 
     const spinbuttons = screen.queryAllByRole('spinbutton');
     // queryAll* 은 없으면 빈 배열을 조용히 돌려준다 — count 입력이 사라지는 회귀가
@@ -136,25 +119,22 @@ describe('PortsEditor', () => {
     expect(spinbuttons.length).toBeGreaterThan(0);
     spinbuttons.forEach((input) => expect((input as HTMLInputElement).disabled).toBe(true));
 
-    const selects = screen.getAllByRole('combobox');
-    selects.forEach((select) => expect((select as HTMLSelectElement).disabled).toBe(true));
-
     // 구조가 잠겼으면 포트를 더할 방법이 아예 없어야 한다 — 눌리지 않는 버튼을 늘어놓지 않는다.
     expect(screen.queryByRole('button', { name: '네트워크' })).toBeNull();
   });
 
   /* 심선 수는 **다심이 있는 종류**(광)에만 뜬다. 그 안에서 1이면 어댑터, 24면 성단이다 —
      예전에는 매체 키가 그 둘을 갈랐다. 전원에는 다심이 없으므로 칸도 없다. */
-  it('(e) 심선 수 칸은 다심이 있는 종류에만 뜬다', () => {
+  it('(e) 심선 수 칸은 **다심 포트**에만 뜬다', () => {
     const draft = mkDraft([
       { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 {n}' },
       { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
     ]);
-    render(<PortsEditor draft={draft} onChange={vi.fn()} catalog={catalog} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={vi.fn()} locked={false} issues={[]} />);
 
-    expect(screen.queryByLabelText(/포트 1 심선 수/i)).toBeNull(); // 전원
-    expect((screen.getByLabelText(/포트 2 심선 수/i) as HTMLInputElement).value).toBe('1');
+    expect(screen.queryByLabelText(/포트 1 심선 수/i)).toBeNull(); // 전원 — 다심이 없다
+    expect(screen.queryByLabelText(/포트 2 심선 수/i)).toBeNull(); // 단심 광 어댑터 — 늘 1
     expect((screen.getByLabelText(/포트 3 심선 수/i) as HTMLInputElement).value).toBe('24');
   });
 
@@ -163,7 +143,7 @@ describe('PortsEditor', () => {
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
     ]);
     const onChange = vi.fn();
-    render(<PortsEditor draft={draft} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
 
     fireEvent.change(screen.getByLabelText(/포트 1 심선 수/i), { target: { value: '12' } });
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };

@@ -29,7 +29,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       // 뒤로 들어오는 한 가닥 — 현장에서 부르는 이름 그대로 OPGW 다.
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
-      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
+      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 포트 {n}' },
     ],
   },
   // ── 구 role: feeder ──
