@@ -10,7 +10,7 @@
  * 자리는 상세 패널과 **같은 격자**(`AssemblyGrid`)를 쓴다 — 설비 종류에서 짠 모습이 놓고 나면
  * 달라 보이면 짜는 뜻이 없다.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { freeCells, slotNumber, validateGridPlacement } from '@twin/core';
 import {
   Button, DetailCard, DetailCardHeader, DetailGrid, DetailNote, DetailRow, EmptyState, Input, Modal, Select,
@@ -51,17 +51,6 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   /** 어느 칸에 무엇을 넣을지 고르는 중. */
   const [addCell, setAddCell] = useState<{ col: number; row: number } | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  /**
-   * 고른 부품의 상세가 **눈에 들어오게** 한다.
-   *
-   * 판의 키를 묶어도(`GRID_MAX_H`) 위쪽 폼이 이미 510px 라, 화면(719px)에서 판 아래는
-   * 여전히 아슬아슬하다. `block: 'nearest'` 라 이미 보이면 아무 일도 하지 않는다 —
-   * 필요할 때만 움직인다.
-   */
-  const detailRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (selectedItemId) detailRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [selectedItemId]);
 
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
   const grid = { cols: draft.gridCols, rows: draft.gridRows };
@@ -109,150 +98,166 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   const addable = catalog.types;
 
   return (
-    /* 왼쪽은 폼, 오른쪽은 판 — **상세 패널과 같은 비율**로 세운다. 짠 격자가 놓고 나서
-       어떻게 보이는지가 옆에 붙어 있어야, 행·열을 고치면서 바로 확인할 수 있다.
-       예전에는 폼 넷을 세로로 쌓고 그 아래에 격자를 둬서, 열 수를 고치면 화면 밖의
-       격자가 바뀌었다. */
-    <div className="grid w-full items-start gap-3 p-4 xl:grid-cols-2">
-      <div className="space-y-3">
-      <DetailCard>
-        <DetailCardHeader title="기본정보" />
-        {/* 키는 묻지 않는다 — 시드·마이그레이션이 가리키는 참조용 식별자이지 현장에서 부르는
-            이름이 아니다. 새로 만들 때는 서버가 붙인다. */}
-        <DetailRow label="이름" issue={issueOf(issues, 'name')}>
-          <Input
-            aria-label="설비 종류 이름"
-            value={draft.name}
-            placeholder="예: 송변전광단말장치"
-            onChange={(e) => onChange({ ...draft, name: e.currentTarget.value })}
+    /* **평면도의 어법**: 왼쪽은 캔버스, 오른쪽은 상세 패널.
+       도면에서 자산을 클릭하면 오른쪽 패널이 **제자리에서** 바뀐다 — 카드가 아래로 붙지도,
+       화면이 스크롤되지도 않는다. 구성 편집도 같은 일을 하므로 같은 판을 쓴다.
+       예전에는 폼 넷을 왼쪽에 쌓고 격자 아래에 카드를 두 장 더 붙였다. 그래서 이름 한 줄을
+       보려고 카드가 한 장 생기고, 그 카드는 클릭 지점에서 멀어 스크롤로 끌어와야 했다. */
+    <div className="flex h-full min-h-0 w-full gap-3 p-4">
+      {/* 캔버스 — 남는 자리를 다 쓴다. 격자 상자의 키는 못 박혀 있어(`GRID_BOX_H`)
+          1×1 이든 10×20 이든 같은 자리를 차지한다. */}
+      <div className="min-w-0 flex-1">
+        <DetailCard>
+          {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다. */}
+          <DetailCardHeader
+            title="구성"
+            badge={`${grid.cols * grid.rows - freeCells(grid, draft.items).length}/${grid.cols * grid.rows}칸`}
+            badgeStatus="neutral"
           />
-        </DetailRow>
-        <DetailRow label="분류" issue={issueOf(issues, 'category')}>
-          {/* 자산 종류와 **같은 분류 체계**다 — 어느 탭에서 분류를 만들든 양쪽에 나타난다. */}
-          <Select
-            aria-label="분류"
-            value={draft.categoryId}
-            onChange={(e) => onChange({ ...draft, categoryId: e.currentTarget.value })}
-          >
-            <option value="">— 분류 선택 —</option>
-            {catalog.categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </Select>
-        </DetailRow>
-      </DetailCard>
-
-      <DetailCard>
-        <DetailCardHeader title="자리" />
-        {/* 격자는 이 설비의 안쪽 모양이다 — 전폭 모듈은 여러 열을 걸치고, 세로로 긴 모듈은
-            여러 행을 걸친다. 부품은 격자 안 아무 자리에나 놓고 모서리로 두 축 다 늘린다. */}
-        <DetailGrid>
-          <DetailRow label="행 수" issue={issueOf(issues, 'grid')}>
-            <Input
-              aria-label="격자 행 수"
-              type="number"
-              value={String(draft.gridRows)}
-              onChange={(e) => onChange({ ...draft, gridRows: Math.max(Number(e.currentTarget.value) || 1, 1) })}
-            />
-          </DetailRow>
-          <DetailRow label="열 수">
-            <Input
-              aria-label="격자 열 수"
-              type="number"
-              value={String(draft.gridCols)}
-              onChange={(e) => onChange({ ...draft, gridCols: Math.max(Number(e.currentTarget.value) || 1, 1) })}
-            />
-          </DetailRow>
-        </DetailGrid>
-        <DetailNote>자리 번호는 행 우선 — 4열이면 1·2·3·4가 첫 행이 된다.</DetailNote>
-      </DetailCard>
-
-      {/* ── 1식 공량 ─────────────────────────────────────────────────────
-          설비를 **통째로** 놓거나 걷을 때의 품이다. 완성된 1식에서 부품 하나만 걷어내면
-          그때는 그 자산 종류의 공량을 쓴다 — 어느 쪽인지는 설계서가 변경 집합에서 안다.
-          비워 두면 안에 든 자산의 공량을 합쳐 센다(0 은 「품이 안 든다」는 뜻이라 다르다). */}
-      <DetailCard>
-        <DetailCardHeader title="공량" />
-        <DetailRow label="노무유형" hint="설비를 통째로 놓거나 걷을 때의 품(1식)">
-          <Input
-            aria-label="1식 노무유형"
-            value={draft.laborType ?? ''}
-            placeholder="예: 통신내선공"
-            onChange={(e) => onChange({ ...draft, laborType: e.currentTarget.value.trim() || null })}
+          {issueOf(issues, 'items') && <p className="text-xs text-danger">{issueOf(issues, 'items')}</p>}
+          <AssemblyGrid
+            grid={grid}
+            boxHeight={GRID_BOX_H}
+            items={draft.items}
+            selectedId={selectedItemId}
+            onSelect={(part) => setSelectedItemId(part.id)}
+            trailing={(part) => (
+              <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? '—'}</span>
+            )}
+            onAddAtCell={setAddCell}
+            canPlace={canPlace}
+            onMove={updateItem}
           />
-        </DetailRow>
-        <DetailGrid>
-          {LABOR_HOURS.map(({ key, label }) => (
-            <DetailRow key={key} label={label}>
-              <Input
-                aria-label={`1식 ${label}`}
-                type="number"
-                value={draft[key] == null ? '' : String(draft[key])}
-                placeholder="부품 합"
-                onChange={(e) => {
-                  const raw = e.currentTarget.value;
-                  onChange({ ...draft, [key]: raw === '' ? null : Math.max(Number(raw) || 0, 0) });
-                }}
-              />
-            </DetailRow>
-          ))}
-        </DetailGrid>
-        <DetailNote>비워 두면 안에 든 부품의 공량을 합쳐 셉니다(0 은 「품이 안 든다」는 뜻).</DetailNote>
-      </DetailCard>
-
+        </DetailCard>
       </div>
 
-      <div className="space-y-3">
-      <DetailCard>
-        {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다. */}
-        <DetailCardHeader
-          title="구성"
-          badge={`${grid.cols * grid.rows - freeCells(grid, draft.items).length}/${grid.cols * grid.rows}칸`}
-          badgeStatus="neutral"
-        />
-        {issueOf(issues, 'items') && <p className="text-xs text-danger">{issueOf(issues, 'items')}</p>}
-        <AssemblyGrid
-          grid={grid}
-          boxHeight={GRID_BOX_H}
-          items={draft.items}
-          selectedId={selectedItemId}
-          onSelect={(part) => setSelectedItemId(part.id)}
-          trailing={(part) => (
-            <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? '—'}</span>
-          )}
-          onAddAtCell={setAddCell}
-          canPlace={canPlace}
-          onMove={updateItem}
-        />
-      </DetailCard>
-
-      {/* 고른 부품 — 이름과 **그 장비의 판**. 놓았을 때 이름이 자산 이름이 되고, 판은
-          그대로 생긴다. 넣기 전에 「이걸 넣으면 포트가 뭐가 생기나」를 여기서 본다 —
-          예전에는 자산 종류 탭으로 건너가 그 종류를 찾아 봐야 알 수 있었다. */}
-      {selected && (
-        <div ref={detailRef} className="space-y-3">
-          <DetailCard>
-            <DetailCardHeader
-              title={typeById.get(selected.typeId)?.name ?? '부품'}
-              actions={<Button variant="ghost" size="sm" onClick={() => removePart(selected.id)}>빼기</Button>}
-            />
-            <DetailRow label="이름">
-              <Input
-                aria-label="부품 이름"
-                value={selected.name}
-                onChange={(e) => updateItem(selected.id, { name: e.currentTarget.value })}
+      {/* 상세 — **한 자리에서 문맥만 바뀐다.** 아무것도 안 골랐으면 설비 자신, 부품을
+          골랐으면 그 부품. 상세 패널과 같은 폭(384px)이라 두 화면이 같은 판으로 읽힌다. */}
+      <aside className="w-96 shrink-0 space-y-3 overflow-y-auto">
+        {selected ? (
+          <>
+            <DetailCard>
+              <DetailCardHeader
+                title={selected.name || '부품'}
+                badge={typeById.get(selected.typeId)?.name}
+                badgeStatus="neutral"
+                actions={
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedItemId(null)}>
+                    설비 정보
+                  </Button>
+                }
               />
-            </DetailRow>
-          </DetailCard>
-          <PortsPreview
-            ports={typeById.get(selected.typeId)?.portTemplates ?? []}
-            title={`${selected.name} 의 판`}
-            empty="이 자산 종류에는 포트가 선언돼 있지 않습니다."
-          />
-        </div>
-      )}
+              <DetailRow label="이름">
+                <Input
+                  aria-label="부품 이름"
+                  value={selected.name}
+                  onChange={(e) => updateItem(selected.id, { name: e.currentTarget.value })}
+                />
+              </DetailRow>
+              <DetailRow label="자리">
+                <span className="text-sm text-content-muted">
+                  {slotNumber(draft.gridCols, selected.col ?? 0, selected.row ?? 0)}
+                  {(selected.colSpan ?? 1) * (selected.rowSpan ?? 1) > 1 &&
+                    ` · ${selected.colSpan ?? 1}×${selected.rowSpan ?? 1}칸`}
+                </span>
+              </DetailRow>
+              <Button variant="secondary" size="sm" onClick={() => removePart(selected.id)}>
+                구성에서 빼기
+              </Button>
+            </DetailCard>
 
-      </div>
+            {/* 넣기 전에 「이걸 넣으면 포트가 뭐가 생기나」를 여기서 본다. */}
+            <PortsPreview
+              ports={typeById.get(selected.typeId)?.portTemplates ?? []}
+              title="판"
+              empty="이 자산 종류에는 포트가 선언돼 있지 않습니다."
+            />
+          </>
+        ) : (
+          <>
+            <DetailCard>
+              <DetailCardHeader title="기본정보" />
+              {/* 키는 묻지 않는다 — 시드·마이그레이션이 가리키는 참조용 식별자이지 현장에서
+                  부르는 이름이 아니다. 새로 만들 때는 서버가 붙인다. */}
+              <DetailRow label="이름" issue={issueOf(issues, 'name')}>
+                <Input
+                  aria-label="설비 종류 이름"
+                  value={draft.name}
+                  placeholder="예: 송변전광단말장치"
+                  onChange={(e) => onChange({ ...draft, name: e.currentTarget.value })}
+                />
+              </DetailRow>
+              <DetailRow label="분류" issue={issueOf(issues, 'category')}>
+                {/* 자산 종류와 **같은 분류 체계**다 — 어느 탭에서 분류를 만들든 양쪽에 나타난다. */}
+                <Select
+                  aria-label="분류"
+                  value={draft.categoryId}
+                  onChange={(e) => onChange({ ...draft, categoryId: e.currentTarget.value })}
+                >
+                  <option value="">— 분류 선택 —</option>
+                  {catalog.categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Select>
+              </DetailRow>
+              {/* 격자는 이 설비의 안쪽 모양이다 — 전폭 모듈은 여러 열을 걸치고, 세로로 긴
+                  모듈은 여러 행을 걸친다. */}
+              <DetailGrid>
+                <DetailRow label="행 수" issue={issueOf(issues, 'grid')}>
+                  <Input
+                    aria-label="격자 행 수"
+                    type="number"
+                    value={String(draft.gridRows)}
+                    onChange={(e) => onChange({ ...draft, gridRows: Math.max(Number(e.currentTarget.value) || 1, 1) })}
+                  />
+                </DetailRow>
+                <DetailRow label="열 수">
+                  <Input
+                    aria-label="격자 열 수"
+                    type="number"
+                    value={String(draft.gridCols)}
+                    onChange={(e) => onChange({ ...draft, gridCols: Math.max(Number(e.currentTarget.value) || 1, 1) })}
+                  />
+                </DetailRow>
+              </DetailGrid>
+              <DetailNote>자리 번호는 행 우선 — 4열이면 1·2·3·4가 첫 행이 된다.</DetailNote>
+            </DetailCard>
+
+            {/* ── 1식 공량 ───────────────────────────────────────────────
+                설비를 **통째로** 놓거나 걷을 때의 품이다. 완성된 1식에서 부품 하나만
+                걷어내면 그때는 그 자산 종류의 공량을 쓴다 — 어느 쪽인지는 설계서가 변경
+                집합에서 안다. */}
+            <DetailCard>
+              <DetailCardHeader title="공량" />
+              <DetailRow label="노무유형" hint="설비를 통째로 놓거나 걷을 때의 품(1식)">
+                <Input
+                  aria-label="1식 노무유형"
+                  value={draft.laborType ?? ''}
+                  placeholder="예: 통신내선공"
+                  onChange={(e) => onChange({ ...draft, laborType: e.currentTarget.value.trim() || null })}
+                />
+              </DetailRow>
+              <DetailGrid>
+                {LABOR_HOURS.map(({ key, label }) => (
+                  <DetailRow key={key} label={label}>
+                    <Input
+                      aria-label={`1식 ${label}`}
+                      type="number"
+                      value={draft[key] == null ? '' : String(draft[key])}
+                      placeholder="부품 합"
+                      onChange={(e) => {
+                        const raw = e.currentTarget.value;
+                        onChange({ ...draft, [key]: raw === '' ? null : Math.max(Number(raw) || 0, 0) });
+                      }}
+                    />
+                  </DetailRow>
+                ))}
+              </DetailGrid>
+              <DetailNote>비워 두면 안에 든 부품의 공량을 합쳐 셉니다(0 은 「품이 안 든다」는 뜻).</DetailNote>
+            </DetailCard>
+          </>
+        )}
+      </aside>
 
       {addCell && (
         <Modal

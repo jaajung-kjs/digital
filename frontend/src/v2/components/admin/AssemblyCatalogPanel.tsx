@@ -185,7 +185,9 @@ export function AssemblyCatalogPanel({
               onSave={() => void handleSave()}
             />
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            {/* 스크롤은 **패널 안쪽**이 쥔다 — 바깥에서 감싸면 캔버스가 남는 자리를 못 쓰고,
+                오른쪽 상세만 길어져도 캔버스까지 함께 밀려 올라간다(평면도와 같은 규칙). */}
+            <div className="min-h-0 flex-1 overflow-hidden">
               <AssemblyPanel draft={draft} onChange={setDraft} catalog={catalog} issues={issues} />
             </div>
           </>
