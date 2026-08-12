@@ -30,3 +30,4 @@ export * from './Tabs';
 export * from './PromptModal';
 export * from './ConfirmModal';
 export * from './useConfirm';
+export * from './useDismissOnOutside';

@@ -16,6 +16,7 @@ import {
   Input,
   Select,
   useConfirm,
+  useDismissOnOutside,
   cn,
   SELECTABLE,
 } from '../../../components/ui';
@@ -167,10 +168,10 @@ export function InfoTab({
   const { confirm, confirmDialog } = useConfirm();
   /** 격자에서 고른 부품 — 패널을 바꾸지 않고 아래에 카드로 편다. */
   const [selectedPartId, setSelectedPartId] = useState<string | null>(focusPartId ?? null);
+  /* 바깥을 누르면 풀린다 — 앱 공통 규칙. 「안」은 구성 카드와 그 부품 카드다. */
+  const gridCardRef = useRef<HTMLDivElement | null>(null);
   const partCardRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (selectedPartId) partCardRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [selectedPartId]);
+  useDismissOnOutside(selectedPartId != null, [gridCardRef, partCardRef], () => setSelectedPartId(null));
   // 다른 설비로 옮겨 가거나 밖에서 부품을 지목해 오면 그것을 고른다.
   useEffect(() => setSelectedPartId(focusPartId ?? null), [assetId, focusPartId]);
   const selectedPart = parts.find((p) => p.id === selectedPartId) ?? null;
@@ -338,6 +339,7 @@ export function InfoTab({
       {/* 구성 — 설비 종류으로 놓은 설비만 안에 부품을 담는다.
           자리는 그 설비 종류의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
       {grid && assembly && (
+        <div ref={gridCardRef}>
         <DetailCard>
           {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다.
               부품 수만 적으면 이 판에 아직 자리가 남았는지를 알 수 없다. */}
@@ -370,11 +372,11 @@ export function InfoTab({
             toneOf={(part) => assetStatusTone(part.status)}
           />
         </DetailCard>
+        </div>
       )}
 
-      {/* 고른 부품 — 설비에서 갈라지는 것만 적는다.
-          판의 키를 묶어도 좁은 패널(538px)에서는 아래가 잘릴 수 있어, 고르면 눈에 들어오게
-          한다(`block: 'nearest'` — 이미 보이면 움직이지 않는다). */}
+      {/* 고른 부품 — 설비에서 갈라지는 것만 적는다. 이 카드도 「안」이다(여기서 값을 고치다
+          선택이 풀리면 안 된다). */}
       {selectedPart && (
         <div ref={partCardRef}>
         <PartCard

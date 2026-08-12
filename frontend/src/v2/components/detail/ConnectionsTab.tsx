@@ -12,11 +12,11 @@
  * 알고 싶은 것은 「내가 누른 이 포트가 어디로 가나」였고, 그건 고른 포트 카드가 말한다.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import {
   DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select, Toggle,
-  useConfirm, cn, SELECTABLE,
+  useConfirm, useDismissOnOutside, cn, SELECTABLE,
 } from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
@@ -80,6 +80,7 @@ export function ConnectionsTab({
   const [tracedPortId, setTracedPortId] = useState<string | null>(null);
   /* 케이블 종류를 고치는 중인 가닥 — 읽는 줄이 기본이고, 고칠 때만 상자가 선다. */
   const [editingCableId, setEditingCableId] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const { confirm, confirmDialog } = useConfirm();
   /* 고르는 중인가 — 요청이 **이 자산**을 가리킬 때만. 다른 자산을 보고 있는 동안에는
      판이 평소대로 조회로 남아야 한다(엉뚱한 포트를 끝점으로 집지 않게). */
@@ -361,12 +362,18 @@ export function ConnectionsTab({
     return full;
   }, [picking, portOwners, cablesByPortId]);
 
+  useDismissOnOutside(!picking && selectedPortId != null, [rootRef], () => setSelectedPortId(null));
+
   const freeCount = portOwners
     .flatMap((o) => o.groups.flatMap((g) => g.ports))
     .filter((p) => portHasRoom(p.medium, cablesByPortId.get(p.id)?.length ?? 0)).length;
 
   return (
-    <div className="space-y-3">
+    /* 바깥을 누르면 고른 포트가 풀린다 — 앱 공통 규칙. 이 탭 전체가 「안」이다: 판도,
+       고른 포트의 카드도, 추적 경로도 모두 그 선택을 다루는 자리다.
+       **고르는 중(케이블 연결)에는 붙이지 않는다** — 그때 선택은 이 탭의 것이 아니라
+       평면도의 손짓이고, 도면을 누르는 것이 곧 그 다음 단계다. */
+    <div ref={rootRef} className="space-y-3">
       {/* 고르는 중임을 판 위에 적는다 — 하단 안내만으로는 「이 판에서 고르라」는 뜻이
           전해지지 않는다. 검색은 여기 있어야 한다: 광슬롯 넷을 담은 OFD 는 포트가 100개다. */}
       {picking && (

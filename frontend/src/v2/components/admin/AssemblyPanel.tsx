@@ -10,10 +10,11 @@
  * 자리는 상세 패널과 **같은 격자**(`AssemblyGrid`)를 쓴다 — 설비 종류에서 짠 모습이 놓고 나면
  * 달라 보이면 짜는 뜻이 없다.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { freeCells, slotNumber, validateGridPlacement } from '@twin/core';
 import {
   Button, DetailCard, DetailCardHeader, DetailGrid, DetailNote, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
+  useDismissOnOutside,
 } from '../../../components/ui';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { PortsPreview } from './PortsPreview';
@@ -43,6 +44,11 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   const [addCell, setAddCell] = useState<{ col: number; row: number } | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [addQuery, setAddQuery] = useState('');
+  /* 바깥을 누르면 풀린다 — 앱 공통 규칙(`useDismissOnOutside`). 「안」은 캔버스와 그 상세다:
+     고른 부품의 이름을 고치다 선택이 풀리면 안 된다. */
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const asideRef = useRef<HTMLElement | null>(null);
+  useDismissOnOutside(selectedItemId != null, [canvasRef, asideRef], () => setSelectedItemId(null));
 
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
   const grid = { cols: draft.gridCols, rows: draft.gridRows };
@@ -101,7 +107,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
     <div className="flex h-full min-h-0 w-full gap-3 p-4">
       {/* 캔버스 — 남는 자리를 다 쓴다. 격자 상자의 키는 못 박혀 있어(`GRID_BOX_H`)
           1×1 이든 10×20 이든 같은 자리를 차지한다. */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div ref={canvasRef} className="flex min-w-0 flex-1 flex-col">
         <DetailCard className="flex min-h-0 flex-1 flex-col">
           {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다. */}
           <DetailCardHeader
@@ -132,7 +138,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
 
       {/* 상세 — **한 자리에서 문맥만 바뀐다.** 아무것도 안 골랐으면 설비 자신, 부품을
           골랐으면 그 부품. 상세 패널과 같은 폭(384px)이라 두 화면이 같은 판으로 읽힌다. */}
-      <aside className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto">
+      <aside ref={asideRef} className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto">
         {selected ? (
           <>
             <DetailCard>

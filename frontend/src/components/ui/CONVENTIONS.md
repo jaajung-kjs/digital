@@ -165,6 +165,16 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 그대로이고, 넓은 관리 화면에서만 걸린다. 이름 한 칸이 1000px 로 벌어지면 라벨과 값이 멀어지고
 같은 폼이 화면 폭마다 달라 보인다. 판·격자처럼 넓을수록 나은 값만 `wide` 로 푼다.
 
+### 무언가를 고르는 화면 → `useDismissOnOutside`
+**바깥을 누르면 풀린다**는 앱 공통 규칙이다. 고르는 화면마다 제 손으로 「빈 곳」을 정의하면
+반드시 한 곳이 빠진다 — 실제로 격자는 빈 칸과 Esc 만 알아서, 상단 머리줄이나 목록처럼
+아무 상관없는 데를 눌러도 선택이 남아 있었다. **무엇이 「안」인지만** 말한다.
+```tsx
+useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelectedId(null));
+```
+「안」에는 **고른 것을 다루는 자리**를 모두 넣는다(판 + 그 상세 패널). 상세에서 이름을 고치다
+선택이 풀리면 안 된다. 다시 누르기·Esc 는 이 훅과 별개로 각 화면이 갖는다.
+
 ### 짧은 칸 여럿을 나란히(신설·철거·이설, 행·열) → `DetailGrid`
 `DetailCard` 안에서 `DetailRow` 들을 두 단으로 흘린다. 한 줄에 하나씩 쌓으면 카드가 세로로만
 길어지고 옆자리는 빈다. 좁아지면 저절로 한 단으로 돌아온다.
