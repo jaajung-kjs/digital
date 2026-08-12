@@ -81,6 +81,7 @@ export function DetailRow({
   issue,
   hint,
   align = 'center',
+  wide = false,
   children,
 }: {
   label: ReactNode;
@@ -90,6 +91,8 @@ export function DetailRow({
   hint?: ReactNode;
   /** 세로로 긴 값(체크박스 묶음 등)이면 라벨을 첫 줄에 맞춘다. */
   align?: 'center' | 'start';
+  /** 값이 폭을 다 써야 할 때(판·격자처럼 넓을수록 나은 것). 글 입력에는 쓰지 않는다. */
+  wide?: boolean;
   children: ReactNode;
 }) {
   /* 라벨을 입력과 실제로 연결한다.
@@ -113,13 +116,27 @@ export function DetailRow({
       >
         {label}
       </label>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-content">
+      {/* 값의 폭을 묶는다(22rem) — 상세 패널(384px)에서는 어차피 이보다 좁으므로 그대로이고,
+          넓은 화면의 관리 화면에서만 걸린다. 이름 한 칸이 1000px 로 벌어지면 라벨과 값이
+          멀어져 어느 라벨의 값인지 눈으로 좇아야 하고, 폼이 화면 폭에 따라 달라 보인다.
+          두 화면이 같은 치수로 서야 같은 폼으로 읽힌다. */}
+      <div className={cn('flex min-w-0 flex-col gap-0.5 text-content', wide ? 'flex-1' : 'w-full max-w-[22rem]')}>
         {body}
         {issue && <span className="text-xs text-danger">{issue}</span>}
         {hint && <span className="text-xs text-content-faint">{hint}</span>}
       </div>
     </div>
   );
+}
+
+/**
+ * 카드 안에서 짧은 칸 여럿을 **두 단으로** 흘린다 — 신설·철거·이설처럼 나란히 읽는 값.
+ *
+ * 한 줄에 하나씩 쌓으면 카드가 세로로만 길어지고, 옆에 남는 자리는 그대로 빈다.
+ * 좁아지면 저절로 한 단으로 돌아온다.
+ */
+export function DetailGrid({ children }: { children: ReactNode }) {
+  return <div className="grid gap-2 sm:grid-cols-2">{children}</div>;
 }
 
 /** 카드 하단 보조 설명(어디서 더 보라 등). */

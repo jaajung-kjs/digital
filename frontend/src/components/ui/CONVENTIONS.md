@@ -156,6 +156,20 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 <DetailRow label="구성" align="start">{/* 세로로 긴 값이면 align="start" */}</DetailRow>
 ```
 
+값 폭은 `DetailRow` 가 **22rem 으로 묶는다** — 상세 패널(384px)에서는 어차피 그보다 좁으니
+그대로이고, 넓은 관리 화면에서만 걸린다. 이름 한 칸이 1000px 로 벌어지면 라벨과 값이 멀어지고
+같은 폼이 화면 폭마다 달라 보인다. 판·격자처럼 넓을수록 나은 값만 `wide` 로 푼다.
+
+### 짧은 칸 여럿을 나란히(신설·철거·이설, 행·열) → `DetailGrid`
+`DetailCard` 안에서 `DetailRow` 들을 두 단으로 흘린다. 한 줄에 하나씩 쌓으면 카드가 세로로만
+길어지고 옆자리는 빈다. 좁아지면 저절로 한 단으로 돌아온다.
+```tsx
+<DetailGrid>
+  <DetailRow label="행 수">…</DetailRow>
+  <DetailRow label="열 수">…</DetailRow>
+</DetailGrid>
+```
+
 ### 목록 안에서 되풀이되는 항목(포트 1·포트 2…) → `ItemCard`
 `DetailCard` *안*에 들어가는 회색 항목 블록. 제목 + (선택)삭제 버튼을 내장한다.
 ```tsx

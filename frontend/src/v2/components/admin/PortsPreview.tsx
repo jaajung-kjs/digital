@@ -13,10 +13,27 @@ import { comparePortGroups, instantiatePorts, portGroupLabel } from '@twin/core'
 import { DetailCard, DetailCardHeader, EmptyState } from '../../../components/ui';
 import { useMediumColor, useMediumLabel } from '../../hooks';
 import type { V2Port } from '../../types';
-import type { TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
 
-export function PortsPreview({ draft }: { draft: TypeDraft }) {
+/** 판을 그리는 데 필요한 최소 — 짜는 중인 초안이든 이미 저장된 종류의 템플릿이든 맞는다. */
+export interface PreviewPort {
+  group: string;
+  count: number;
+  direction: V2Port['direction'];
+  medium: string;
+  namePattern: string;
+  positions?: number | null;
+}
+
+export function PortsPreview({
+  ports: source,
+  title = '판 미리보기',
+  empty = '왼쪽에서 포트 종류를 더하면 판이 여기 나타납니다.',
+}: {
+  ports: readonly PreviewPort[];
+  title?: string;
+  empty?: string;
+}) {
   const mediumColor = useMediumColor();
   const mediumLabel = useMediumLabel();
 
@@ -24,7 +41,7 @@ export function PortsPreview({ draft }: { draft: TypeDraft }) {
     /* 미리보기용 포트 — id 는 자리만 채운다(누를 것이 없으므로 충돌도 없다).
        `positions ?? 1` 로 좁혀 두는 이유: 판은 다심을 그림으로 가른다. */
     const ports: V2Port[] = instantiatePorts(
-      draft.ports.map((p, i) => ({
+      source.map((p, i) => ({
         id: `t${i}`,
         group: p.group,
         count: p.count,
@@ -54,15 +71,15 @@ export function PortsPreview({ draft }: { draft: TypeDraft }) {
         accent: mediumColor(ref.medium),
         ports: byGroup.get(ref.group)!,
       }));
-  }, [draft.ports, mediumColor, mediumLabel]);
+  }, [source, mediumColor, mediumLabel]);
 
   const total = sections.reduce((n, s) => n + s.ports.length, 0);
 
   return (
     <DetailCard>
-      <DetailCardHeader title="판 미리보기" badge={`포트 ${total}`} badgeStatus="neutral" />
+      <DetailCardHeader title={title} badge={`포트 ${total}`} badgeStatus="neutral" />
       {sections.length === 0 ? (
-        <EmptyState title="포트가 없습니다" description="왼쪽에서 포트 종류를 더하면 판이 여기 나타납니다." className="py-6" />
+        <EmptyState title="포트가 없습니다" description={empty} className="py-6" />
       ) : (
         <PortFaceplate
           sections={sections}

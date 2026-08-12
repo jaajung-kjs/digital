@@ -8,7 +8,7 @@
  *   issues   — TypeSpecIssue[] (draftIssues 결과)
  */
 import type { TypeSpecIssue } from '@twin/core';
-import { DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, DetailGrid, DetailRow, Input, Select } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
@@ -93,6 +93,8 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
           />
         </DetailRow>
 
+        {/* 시간 셋은 나란히 읽는 값이다 — 한 줄에 하나씩 쌓으면 카드만 길어진다. */}
+        <DetailGrid>
         <DetailRow label="신설(h)">
           <div className="flex flex-col gap-0.5">
             <Input
@@ -137,6 +139,7 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
             <FieldError message={issueFor(issues, 'labor.relocateHours')} />
           </div>
         </DetailRow>
+        </DetailGrid>
       </DetailCard>
     </div>
   );

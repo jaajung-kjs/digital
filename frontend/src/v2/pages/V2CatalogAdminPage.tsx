@@ -332,7 +332,7 @@ export default function V2CatalogAdminPage() {
                       </div>
 
                       {/* 짠 포트가 실제로 어떤 판이 되는지 — 자산 상세와 같은 판을 그린다. */}
-                      <PortsPreview draft={draft} />
+                      <PortsPreview ports={draft.ports} />
                     </div>
                   </div>
                 </>

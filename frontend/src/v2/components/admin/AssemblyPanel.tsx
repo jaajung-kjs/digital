@@ -13,9 +13,10 @@
 import { useMemo, useState } from 'react';
 import { freeCells, slotNumber, validateGridPlacement } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, Input, Modal, Select,
+  Button, DetailCard, DetailCardHeader, DetailGrid, DetailNote, DetailRow, EmptyState, Input, Modal, Select,
 } from '../../../components/ui';
 import { AssemblyGrid } from '../AssemblyGrid';
+import { PortsPreview } from './PortsPreview';
 import type { GridPlacement } from '../../gridDrag';
 import { newItemId, type AssemblyDraft, type AssemblyDraftItem, type AssemblyIssue } from '../../assemblyDraft';
 import type { V2Catalog } from '../../types';
@@ -88,7 +89,12 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   const addable = catalog.types;
 
   return (
-    <div className="w-full space-y-3 p-4">
+    /* 왼쪽은 폼, 오른쪽은 판 — **상세 패널과 같은 비율**로 세운다. 짠 격자가 놓고 나서
+       어떻게 보이는지가 옆에 붙어 있어야, 행·열을 고치면서 바로 확인할 수 있다.
+       예전에는 폼 넷을 세로로 쌓고 그 아래에 격자를 둬서, 열 수를 고치면 화면 밖의
+       격자가 바뀌었다. */
+    <div className="grid w-full items-start gap-3 p-4 xl:grid-cols-2">
+      <div className="space-y-3">
       <DetailCard>
         <DetailCardHeader title="기본정보" />
         {/* 키는 묻지 않는다 — 시드·마이그레이션이 가리키는 참조용 식별자이지 현장에서 부르는
@@ -120,22 +126,25 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         <DetailCardHeader title="자리" />
         {/* 격자는 이 설비의 안쪽 모양이다 — 전폭 모듈은 여러 열을 걸치고, 세로로 긴 모듈은
             여러 행을 걸친다. 부품은 격자 안 아무 자리에나 놓고 모서리로 두 축 다 늘린다. */}
-        <DetailRow label="행 수" issue={issueOf(issues, 'grid')}>
-          <Input
-            aria-label="격자 행 수"
-            type="number"
-            value={String(draft.gridRows)}
-            onChange={(e) => onChange({ ...draft, gridRows: Math.max(Number(e.currentTarget.value) || 1, 1) })}
-          />
-        </DetailRow>
-        <DetailRow label="열 수" hint="자리 번호는 행 우선 — 4열이면 1·2·3·4가 첫 행이 된다">
-          <Input
-            aria-label="격자 열 수"
-            type="number"
-            value={String(draft.gridCols)}
-            onChange={(e) => onChange({ ...draft, gridCols: Math.max(Number(e.currentTarget.value) || 1, 1) })}
-          />
-        </DetailRow>
+        <DetailGrid>
+          <DetailRow label="행 수" issue={issueOf(issues, 'grid')}>
+            <Input
+              aria-label="격자 행 수"
+              type="number"
+              value={String(draft.gridRows)}
+              onChange={(e) => onChange({ ...draft, gridRows: Math.max(Number(e.currentTarget.value) || 1, 1) })}
+            />
+          </DetailRow>
+          <DetailRow label="열 수">
+            <Input
+              aria-label="격자 열 수"
+              type="number"
+              value={String(draft.gridCols)}
+              onChange={(e) => onChange({ ...draft, gridCols: Math.max(Number(e.currentTarget.value) || 1, 1) })}
+            />
+          </DetailRow>
+        </DetailGrid>
+        <DetailNote>자리 번호는 행 우선 — 4열이면 1·2·3·4가 첫 행이 된다.</DetailNote>
       </DetailCard>
 
       {/* ── 1식 공량 ─────────────────────────────────────────────────────
@@ -152,22 +161,28 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             onChange={(e) => onChange({ ...draft, laborType: e.currentTarget.value.trim() || null })}
           />
         </DetailRow>
-        {LABOR_HOURS.map(({ key, label }) => (
-          <DetailRow key={key} label={label} hint={draft[key] == null ? '비우면 부품 공량의 합' : undefined}>
-            <Input
-              aria-label={`1식 ${label}`}
-              type="number"
-              value={draft[key] == null ? '' : String(draft[key])}
-              placeholder="부품 합"
-              onChange={(e) => {
-                const raw = e.currentTarget.value;
-                onChange({ ...draft, [key]: raw === '' ? null : Math.max(Number(raw) || 0, 0) });
-              }}
-            />
-          </DetailRow>
-        ))}
+        <DetailGrid>
+          {LABOR_HOURS.map(({ key, label }) => (
+            <DetailRow key={key} label={label}>
+              <Input
+                aria-label={`1식 ${label}`}
+                type="number"
+                value={draft[key] == null ? '' : String(draft[key])}
+                placeholder="부품 합"
+                onChange={(e) => {
+                  const raw = e.currentTarget.value;
+                  onChange({ ...draft, [key]: raw === '' ? null : Math.max(Number(raw) || 0, 0) });
+                }}
+              />
+            </DetailRow>
+          ))}
+        </DetailGrid>
+        <DetailNote>비워 두면 안에 든 부품의 공량을 합쳐 셉니다(0 은 「품이 안 든다」는 뜻).</DetailNote>
       </DetailCard>
 
+      </div>
+
+      <div className="space-y-3">
       <DetailCard>
         {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다. */}
         <DetailCardHeader
@@ -190,22 +205,33 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         />
       </DetailCard>
 
-      {/* 고른 부품의 이름 — 놓았을 때 자산 이름이 된다. */}
+      {/* 고른 부품 — 이름과 **그 장비의 판**. 놓았을 때 이름이 자산 이름이 되고, 판은
+          그대로 생긴다. 넣기 전에 「이걸 넣으면 포트가 뭐가 생기나」를 여기서 본다 —
+          예전에는 자산 종류 탭으로 건너가 그 종류를 찾아 봐야 알 수 있었다. */}
       {selected && (
-        <DetailCard>
-          <DetailCardHeader
-            title={typeById.get(selected.typeId)?.name ?? '부품'}
-            actions={<Button variant="ghost" size="sm" onClick={() => removePart(selected.id)}>빼기</Button>}
-          />
-          <DetailRow label="이름">
-            <Input
-              aria-label="부품 이름"
-              value={selected.name}
-              onChange={(e) => updateItem(selected.id, { name: e.currentTarget.value })}
+        <>
+          <DetailCard>
+            <DetailCardHeader
+              title={typeById.get(selected.typeId)?.name ?? '부품'}
+              actions={<Button variant="ghost" size="sm" onClick={() => removePart(selected.id)}>빼기</Button>}
             />
-          </DetailRow>
-        </DetailCard>
+            <DetailRow label="이름">
+              <Input
+                aria-label="부품 이름"
+                value={selected.name}
+                onChange={(e) => updateItem(selected.id, { name: e.currentTarget.value })}
+              />
+            </DetailRow>
+          </DetailCard>
+          <PortsPreview
+            ports={typeById.get(selected.typeId)?.portTemplates ?? []}
+            title={`${selected.name} 의 판`}
+            empty="이 자산 종류에는 포트가 선언돼 있지 않습니다."
+          />
+        </>
       )}
+
+      </div>
 
       {addCell && (
         <Modal
