@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
-import { EmptyState, IconButton, Input, useConfirm } from '../../../components/ui';
+import { EmptyState, IconButton, useConfirm, useInlineRename } from '../../../components/ui';
 import { CatalogList } from './CatalogList';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
@@ -41,14 +41,11 @@ export function AssemblyCatalogPanel({
   const [selectedId, setSelectedId] = useState<string | null>(catalog.assemblies[0]?.id ?? null);
   const [draft, setDraft] = useState<AssemblyDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-
-  function commitRename(cat: V2Category) {
-    const trimmed = editingName.trim();
-    if (trimmed && trimmed !== cat.name) onRenameCategory(cat, trimmed);
-    setEditingCategoryId(null);
-  }
+  /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
+  const rename = useInlineRename((id, name) => {
+    const cat = catalog.categories.find((c) => c.id === id);
+    if (cat) onRenameCategory(cat, name);
+  });
 
   const original = useMemo(
     () => catalog.assemblies.find((a) => a.id === selectedId) ?? null,
@@ -117,19 +114,8 @@ export function AssemblyCatalogPanel({
       catalog.categories.map((cat) => ({
         key: cat.id,
         label:
-          editingCategoryId === cat.id ? (
-            <Input
-              aria-label="분류 이름 편집"
-              size="sm"
-              value={editingName}
-              autoFocus
-              onChange={(e) => setEditingName(e.currentTarget.value)}
-              onBlur={() => commitRename(cat)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitRename(cat);
-                if (e.key === 'Escape') setEditingCategoryId(null);
-              }}
-            />
+          rename.isEditing(cat.id) ? (
+            rename.field(cat.id, cat.name, `${cat.name} 이름 편집`)
           ) : (
             cat.name
           ),
@@ -142,7 +128,7 @@ export function AssemblyCatalogPanel({
             <IconButton
               aria-label={`${cat.name} 이름 변경`}
               size="sm"
-              onClick={() => { setEditingCategoryId(cat.id); setEditingName(cat.name); }}
+              onClick={() => rename.start(cat.id, cat.name)}
             >
               <Pencil size={12} />
             </IconButton>
@@ -161,7 +147,7 @@ export function AssemblyCatalogPanel({
           </>
         ),
       })),
-    [catalog.assemblies, catalog.categories, catalog.types, editingCategoryId, editingName, onDeleteCategory],
+    [catalog.assemblies, catalog.categories, catalog.types, rename, onDeleteCategory],
   );
 
   return (

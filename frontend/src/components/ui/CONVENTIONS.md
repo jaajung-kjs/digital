@@ -165,6 +165,17 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 그대로이고, 넓은 관리 화면에서만 걸린다. 이름 한 칸이 1000px 로 벌어지면 라벨과 값이 멀어지고
 같은 폼이 화면 폭마다 달라 보인다. 판·격자처럼 넓을수록 나은 값만 `wide` 로 푼다.
 
+### 목록 항목의 이름을 그 자리에서 고치기 → `useInlineRename`
+모달을 띄우지 않는다 — 고치는 중에 **어느 항목을 고치는 중인지** 화면에서 사라지면 안 된다.
+```tsx
+const rename = useInlineRename((id, name) => onRename(id, name));
+…
+{rename.isEditing(cat.id) ? rename.field(cat.id, cat.name, `${cat.name} 이름 편집`)
+                         : <button onClick={() => rename.start(cat.id, cat.name)}>{cat.name}</button>}
+```
+커밋 규칙은 훅이 갖는다: `Enter`·포커스 잃음 = 커밋, `Escape` = 물림, **비었거나 그대로면
+아무 일도 하지 않는다**(실수로 지우는 길을 만들지 않는다).
+
 ### 무언가를 고르는 화면 → `useDismissOnOutside`
 **바깥을 누르면 풀린다**는 앱 공통 규칙이다. 고르는 화면마다 제 손으로 「빈 곳」을 정의하면
 반드시 한 곳이 빠진다 — 실제로 격자는 빈 칸과 Esc 만 알아서, 상단 머리줄이나 목록처럼

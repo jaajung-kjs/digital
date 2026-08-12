@@ -8,9 +8,9 @@
  * 예전에는 이 파일이 목록 전체(머리줄·묶음·행·선택 표시)를 따로 그렸다. 그래서 설비 종류
  * 목록과 미묘하게 달랐고(폭 64 vs 56, 분류 묶음 유무), 검색은 어느 쪽에도 없었다.
  */
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
-import { IconButton, Input } from '../../../components/ui';
+import { IconButton, useInlineRename } from '../../../components/ui';
 import type { V2Catalog, V2Category } from '../../types';
 import { CatalogList } from './CatalogList';
 
@@ -34,14 +34,11 @@ export function TypeListPanel({
   onDeleteCategory,
   onAddCategory,
 }: TypeListPanelProps) {
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-
-  function commitRename(cat: V2Category) {
-    const trimmed = editingName.trim();
-    if (trimmed && trimmed !== cat.name) onRenameCategory(cat, trimmed);
-    setEditingCategoryId(null);
-  }
+  /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
+  const rename = useInlineRename((id, name) => {
+    const cat = catalog.categories.find((c) => c.id === id);
+    if (cat) onRenameCategory(cat, name);
+  });
 
   const groups = useMemo(
     () =>
@@ -57,21 +54,8 @@ export function TypeListPanel({
         return {
           key: cat.id,
           label:
-            editingCategoryId === cat.id ? (
-              /* 이름을 고치는 중에는 묶음 머리줄 자리에 상자가 선다 — 모달을 띄우면
-                 어느 분류를 고치는 중인지 화면에서 사라진다. */
-              <Input
-                aria-label="분류 이름 편집"
-                size="sm"
-                value={editingName}
-                autoFocus
-                onChange={(e) => setEditingName(e.currentTarget.value)}
-                onBlur={() => commitRename(cat)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename(cat);
-                  if (e.key === 'Escape') setEditingCategoryId(null);
-                }}
-              />
+            rename.isEditing(cat.id) ? (
+              rename.field(cat.id, cat.name, `${cat.name} 이름 편집`)
             ) : (
               cat.name
             ),
@@ -82,10 +66,7 @@ export function TypeListPanel({
               <IconButton
                 aria-label={`${cat.name} 이름 변경`}
                 size="sm"
-                onClick={() => {
-                  setEditingCategoryId(cat.id);
-                  setEditingName(cat.name);
-                }}
+                onClick={() => rename.start(cat.id, cat.name)}
               >
                 <Pencil size={12} />
               </IconButton>
@@ -102,7 +83,7 @@ export function TypeListPanel({
           ),
         };
       }),
-    [catalog.categories, catalog.types, editingCategoryId, editingName],
+    [catalog.categories, catalog.types, rename],
   );
 
   return (

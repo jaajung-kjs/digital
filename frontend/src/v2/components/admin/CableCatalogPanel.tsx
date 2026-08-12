@@ -22,6 +22,7 @@ import {
   IconButton,
   PromptModal,
   useConfirm,
+  useInlineRename,
   cn,
   SELECTABLE,
 } from '../../../components/ui';
@@ -198,8 +199,12 @@ function CableCategoryCard({ group }: { group: V2CableGroup }) {
   const { confirm, confirmDialog } = useConfirm();
   const mutations = useCatalogMutations();
   const [error, setError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
+  /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
+  const rename = useInlineRename((id, name) => {
+    void mutations.patchCableCategory
+      .mutateAsync({ id, body: { name } })
+      .catch((err: unknown) => setError(apiErrorMessage(err, '이름을 바꾸지 못했습니다')));
+  });
   const [addOpen, setAddOpen] = useState(false);
 
   async function handleAdd(name: string) {
@@ -210,20 +215,6 @@ function CableCategoryCard({ group }: { group: V2CableGroup }) {
       setAddOpen(false); // 성공했을 때만 닫는다 — 실패는 모달 안에서 보여준다
     } catch (err: unknown) {
       setError(apiErrorMessage(err, '추가하지 못했습니다'));
-    }
-  }
-
-  async function commitEdit(cat: V2CableCategory) {
-    if (editingName.trim() === '' || editingName.trim() === cat.name) {
-      setEditingId(null);
-      return;
-    }
-    setError(null);
-    try {
-      await mutations.patchCableCategory.mutateAsync({ id: cat.id, body: { name: editingName.trim() } });
-      setEditingId(null);
-    } catch (err: unknown) {
-      setError(apiErrorMessage(err, '이름을 바꾸지 못했습니다'));
     }
   }
 
@@ -280,25 +271,14 @@ function CableCategoryCard({ group }: { group: V2CableGroup }) {
         <span />
         {group.categories.map((cat) => (
           <Fragment key={cat.id}>
-            {editingId === cat.id ? (
-              <Input
-                aria-label="종류 이름 편집"
-                size="sm"
-                value={editingName}
-                autoFocus
-                onChange={(e) => setEditingName(e.currentTarget.value)}
-                onBlur={() => void commitEdit(cat)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void commitEdit(cat);
-                  if (e.key === 'Escape') setEditingId(null);
-                }}
-              />
+            {rename.isEditing(cat.id) ? (
+              rename.field(cat.id, cat.name, `${cat.name} 이름 편집`)
             ) : (
               <button
                 type="button"
                 className={cn('truncate rounded px-1 text-left text-sm text-content', SELECTABLE)}
                 title="이름 바꾸기"
-                onClick={() => { setEditingId(cat.id); setEditingName(cat.name); }}
+                onClick={() => rename.start(cat.id, cat.name)}
               >
                 {cat.name}
               </button>
