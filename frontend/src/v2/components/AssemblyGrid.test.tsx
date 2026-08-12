@@ -66,6 +66,46 @@ const pointer = (type: string, el: Element | Window, col: number, row: number) =
     clientX: col * 50 + 25, clientY: row * 50 + 25,
   }));
 
+/**
+ * 고른 것을 **푸는 길** — 격자가 갖는다.
+ *
+ * 쓰는 곳마다 따로 달면 한 곳을 빠뜨린다(실제로 설비 편집기만 빠져서, 한 번 고르면 푸는
+ * 길이 아예 없었다). 여기서 잠가 둔다.
+ */
+describe('AssemblyGrid 선택 해제', () => {
+  it('Esc 를 누르면 푼다', () => {
+    const onDeselect = vi.fn();
+    setup({ selectedId: 'a', onDeselect });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onDeselect).toHaveBeenCalledTimes(1);
+  });
+
+  it('고른 것이 없으면 Esc 는 아무 일도 하지 않는다', () => {
+    const onDeselect = vi.fn();
+    setup({ selectedId: null, onDeselect });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onDeselect).not.toHaveBeenCalled();
+  });
+
+  it('상자의 빈 곳을 누르면 푼다', () => {
+    const onDeselect = vi.fn();
+    const { grid } = setup({ selectedId: 'a', onDeselect });
+    // 격자를 감싼 상자 — 그 자신을 눌렀을 때만(칸 위에서 시작한 손짓은 칸이 받는다).
+    const box = grid.closest('div')!.parentElement!;
+    fireEvent(box, new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
+    expect(onDeselect).toHaveBeenCalledTimes(1);
+  });
+
+  it('칸을 누른 것은 해제가 아니다 — 고르기다', () => {
+    const onDeselect = vi.fn();
+    const { onSelect, grid } = setup({ selectedId: 'a', onDeselect });
+    pointer('pointerdown', item(), 0, 0);
+    pointer('pointerup', grid, 0, 0);
+    expect(onSelect).toHaveBeenCalled();
+    expect(onDeselect).not.toHaveBeenCalled();
+  });
+});
+
 describe('AssemblyGrid 손짓', () => {
   it('끌지 않고 누르면 고른다', () => {
     const { onSelect, onMove, onAddAtCell, grid } = setup();

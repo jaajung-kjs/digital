@@ -111,7 +111,9 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             fill
             items={draft.items}
             selectedId={selectedItemId}
-            onSelect={(part) => setSelectedItemId(part.id)}
+            /* 같은 것을 다시 누르면 풀린다 — 상세 패널·포트 탭과 같은 규칙. */
+            onSelect={(part) => setSelectedItemId((cur) => (cur === part.id ? null : part.id))}
+            onDeselect={() => setSelectedItemId(null)}
             trailing={(part) => (
               <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? '—'}</span>
             )}

@@ -359,6 +359,7 @@ export function InfoTab({
                대부분 빈 탭 넷이 다시 떴다(사진·점검·고장이력은 설비의 것이고, 포트는 설비
                포트 탭이 이미 부품별로 묶어 보여준다). */
             onSelect={(child) => setSelectedPartId((cur: string | null) => (cur === child.id ? null : child.id))}
+            onDeselect={() => setSelectedPartId(null)}
             trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
             onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, grid, siblings: parts, cell })}
             canPlace={canPlaceInGrid}

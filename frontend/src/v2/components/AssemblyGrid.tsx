@@ -47,6 +47,14 @@ export interface AssemblyGridProps<T extends GridItem> {
   /** 부모가 주는 세로 자리를 다 쓴다 — 캔버스가 화면 아래까지 서야 할 때. */
   fill?: boolean;
   /**
+   * 고른 것을 푼다 — 빈 곳을 누르거나 Esc 를 눌렀을 때.
+   *
+   * **격자가 이 길을 갖는다.** 쓰는 곳마다 따로 달면 한 곳을 빠뜨린다(실제로 설비 편집기만
+   * 빠져서, 한 번 고르면 푸는 길이 아예 없었다). 같은 것을 다시 누르면 풀리는 것은
+   * `onSelect` 를 받는 쪽이 정한다 — 거기서는 「무엇을 골랐나」를 알고 있기 때문이다.
+   */
+  onDeselect?: () => void;
+  /**
    * 이 칸에 표시등을 켤 것인가 — 켠다면 무슨 빛으로.
    *
    * 어휘가 정한 빛(`assetStatusTone`)을 그대로 받는다. 여기서 상태값을 보고 색을 고르면
@@ -118,12 +126,17 @@ const LABEL_MIN_W = 52;
  */
 export function AssemblyGrid<T extends GridItem>({
   grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf, boxHeight, fill,
+  onDeselect,
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
 
   const boxRef = useRef<HTMLUListElement | null>(null);
   /** 칸 폭 — 글씨를 눕힐지 판단하려면 실제 폭을 알아야 한다(열 수만으로는 모른다). */
+  /* 창 리스너는 한 번만 달고 최신 처리기는 ref 로 읽는다 — 재등록하면 그사이 눌린 키를 놓친다. */
+  const onDeselectRef = useRef(onDeselect);
+  onDeselectRef.current = onDeselect;
+
   const [boxWidth, setBoxWidth] = useState(0);
   const [boxHeightPx, setBoxHeightPx] = useState(0);
   useEffect(() => {
@@ -261,14 +274,19 @@ export function AssemblyGrid<T extends GridItem>({
    */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || !gestureRef.current) return;
-      gestureRef.current = null;
-      stopPump();
-      setPreview(null);
+      if (e.key !== 'Escape') return;
+      // 끌고 있으면 그 손짓을 물린다. 아니면 고른 것을 푼다 — Esc 는 「지금 것을 취소」다.
+      if (gestureRef.current) {
+        gestureRef.current = null;
+        stopPump();
+        setPreview(null);
+        return;
+      }
+      if (selectedId != null) onDeselectRef.current?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [selectedId]);
 
   /** 눌러서 시작한 칸에 대한 행동 — 고르거나, 빈 자리면 채운다. */
   function tap(gesture: Gesture) {
@@ -472,6 +490,11 @@ export function AssemblyGrid<T extends GridItem>({
         fill ? 'min-h-0 flex-1 overflow-hidden' : 'overflow-y-auto',
       )}
       style={boxHeight != null ? { height: boxHeight } : undefined}
+      /* 상자의 빈 곳(격자 바깥 여백)을 누르면 푼다 — 「빈 데를 누르면 풀린다」는 판에서
+         가장 흔한 손짓이다. 칸 위에서 시작한 손짓은 칸이 먼저 받으므로 여기 오지 않는다. */
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget && selectedId != null) onDeselect?.();
+      }}
     >
       {/* 단 눈금 — 랙 정면도의 U 눈금과 같다. 「몇 단인가」를 판 옆에서 한 번에 읽는다.
           격자 바깥에 두는 이유: 포인터 좌표를 칸으로 셈하는 상자(`boxRef`)에 섞이면
