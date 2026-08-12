@@ -257,8 +257,11 @@ export default function V2CatalogAdminPage() {
         {/* ── 우측 영역 ───────────────────────────────────────────────── */}
         <div className="flex min-h-0 flex-1 flex-col">
           {/* ── 설비 종류 탭 ─────────────────────────────────────────── */}
+          {/* 스크롤은 **패널 안쪽**이 쥔다. 바깥에서 `overflow-y-auto` 로 감싸면 안쪽이
+              내용만큼만 커져서, 왼쪽 목록이 화면 중간에서 끊긴다(실측 505px / 화면 719px).
+              자산 종류 탭에는 이 래퍼가 없어 세 탭의 모양이 달랐다. */}
           {activeTab === 'assembly' && (
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex min-h-0 flex-1">
               <AssemblyCatalogPanel
                 catalog={catalog}
                 onRenameCategory={handleRenameCategory}
@@ -273,7 +276,7 @@ export default function V2CatalogAdminPage() {
 
           {/* ── 케이블 종류 탭 ───────────────────────────────────────── */}
           {activeTab === 'cable' && (
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex min-h-0 flex-1">
               <CableCatalogPanel catalog={catalog} />
             </div>
           )}

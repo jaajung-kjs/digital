@@ -440,13 +440,17 @@ export function AssemblyGrid<T extends GridItem>({
     }
   }
 
-  const rowRule = { gridTemplateRows: `repeat(${rows}, ${GRID_ROW_H}px)` };
+  /* 행은 **상자를 채우되 최소 높이는 지킨다**(`minmax`). 1×1 설비가 380px 상자 맨 윗줄에만
+     30px 로 붙어 있으면 고장 난 화면으로 보인다 — 한 칸짜리면 그 한 칸이 판이다.
+     행이 많아 상자를 넘으면 최소치로 내려앉고 상자가 스크롤한다.
+     드래그 좌표는 상자 크기 대비 **비율**로 셈하므로(`cellAt`) 행 높이가 달라져도 맞는다. */
+  const rowRule = { gridTemplateRows: `repeat(${rows}, minmax(${GRID_ROW_H}px, 1fr))` };
 
   return (
     /* 세로 스크롤은 **눈금과 칸을 함께** 감싼 이 상자가 쥔다 — 눈금만 따로 두면 판을
-       내렸을 때 단 번호가 어긋난다. 격자는 상자 위쪽에 붙는다(랙은 위에서부터 센다). */
+       내렸을 때 단 번호가 어긋난다. 눈금과 격자는 함께 늘어난다(기본 `stretch`). */
     <div
-      className="mt-1 flex items-start gap-1 overflow-y-auto rounded border border-line bg-surface-2 p-1.5 shadow-inner"
+      className="mt-1 flex gap-1 overflow-y-auto rounded border border-line bg-surface-2 p-1.5 shadow-inner"
       style={boxHeight != null ? { height: boxHeight } : undefined}
     >
       {/* 단 눈금 — 랙 정면도의 U 눈금과 같다. 「몇 단인가」를 판 옆에서 한 번에 읽는다.
@@ -468,7 +472,9 @@ export function AssemblyGrid<T extends GridItem>({
         {/* 손짓의 이동·끝냄은 여기서 한 번만 받는다 — 캡처도 이 상자가 쥔다. */}
         <ul
           ref={boxRef}
-          className="grid gap-0.5"
+          /* `h-full` 이 있어야 `1fr` 행이 기준을 갖는다 — 높이가 auto 면 `1fr` 은 내용
+             높이(최소치)로 접힌다. 행이 많아 넘치면 이 격자가 상자보다 커지고 상자가 스크롤한다. */
+          className="grid h-full gap-0.5"
           onPointerMove={onPointerMove}
           onPointerUp={() => endGesture(true)}
           onPointerCancel={() => endGesture(false)}

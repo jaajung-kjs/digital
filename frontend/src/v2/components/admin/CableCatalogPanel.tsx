@@ -148,7 +148,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
             />
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="grid w-full items-start gap-3 p-4 xl:grid-cols-2">
+              <div className="grid w-full items-start gap-3 overflow-y-auto p-4 xl:grid-cols-2">
                 <DetailCard>
                   <DetailCardHeader title="그룹" />
                   <DetailRow label="이름">
