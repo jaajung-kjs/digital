@@ -1,37 +1,29 @@
 /**
- * PortsEditor — 포트 템플릿 편집
+ * PortsEditor — 포트 템플릿 편집. **줄 수가 고정된 표**다.
  *
- * **미리 정의된 포트를 고르고 개수만 적는다.** 예전에는 포트 하나를 넣을 때마다 그룹 키·
- * 수량·방향·매체·이름 패턴·선로측 여섯 칸을 빈칸에서 채워야 했고, 그중 그룹 키와 이름
- * 패턴은 사용자가 **지어내야** 하는 값이었다. "24구 네트워크 스위치" 하나 정의하는 데도
- * 내부 규칙을 알아야 했다.
+ * 포트 종류는 고정 어휘다(`PORT_KINDS` → `portPresets()` 일곱 줄). 그러니 편집기도 고정일
+ * 수 있다: 종류마다 한 줄, 개수만 적는다. 0 이면 그 종류가 없는 것이다.
  *
- * 이제 `+ 네트워크` 를 누르면 그 종류의 포트가 규칙에 맞게 만들어지고, **손댈 곳은 개수뿐**이다.
- * 그룹 키·방향·매체·이름 패턴은 아예 묻지 않는다 — 고른 종류가 이미 다 정한 값이라, 물어
- * 봐야 답이 하나뿐인 칸이었다(접어 뒀어도 「무엇을 적어야 하나」를 고민하게 만든다).
- * 심선 수만 남는다: 같은 광이라도 성단이 24심인지 12심인지는 물건마다 다르다.
+ * 예전에는 종류를 고를 때마다 카드가 하나씩 쌓였다 — 네 그룹이면 398px, 일곱이면 600px 로
+ * 자라서 자산마다 편집 화면의 키가 달랐고, 아래 있는 것(판 미리보기·저장 바)이 화면 밖으로
+ * 밀렸다. CONVENTIONS §1.6 이 금지하는 「개수에 비례해 커지는 UI」가 바로 이것이다.
+ * 이제 무엇을 고르든 표의 키는 그대로다.
  *
- * 판 미리보기가 옆에 선다 — 개수를 고치면 그 자리에서 판이 바뀐다. 「24구 스위치」가
- * 실제로 어떻게 보이는지 저장하고 자산을 놓아 봐야 알던 것을 여기서 끝낸다.
+ * **묻는 것은 개수뿐**이다. 그룹 키·방향·매체·이름 패턴은 종류가 이미 정한 값이라 물어 봐야
+ * 답이 하나뿐인 칸이었다. 심선 수만 다심 줄에 남는다 — 같은 광이라도 성단이 24심인지
+ * 12심인지는 물건마다 다르므로 종류가 대신 정해 줄 수 없다.
  *
  * 구조 잠금(locked=true): 모든 입력 disabled
  */
-import { Plus } from 'lucide-react';
+import { useMemo } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DEFAULT_CORE_COUNT, isMultiCorePort, portKind, portPresets, uniqueGroupKey } from '@twin/core';
-import type { Direction, PortPreset } from '@twin/core';
-import { Button, DetailCard, DetailCardHeader, DetailRow, Input, ItemCard } from '../../../components/ui';
+import { DEFAULT_CORE_COUNT, isMultiCorePort, portPresets, uniqueGroupKey } from '@twin/core';
+import type { Direction } from '@twin/core';
+import { DetailCard, DetailCardHeader, DetailNote, DetailRow, Input, cn } from '../../../components/ui';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
 
-interface PortRow {
-  group: string;
-  count: number;
-  direction: Direction;
-  medium: string;
-  namePattern: string;
-  positions?: number;
-}
+type PortRow = TypeDraft['ports'][number];
 
 interface PortsEditorProps {
   draft: TypeDraft;
@@ -40,107 +32,130 @@ interface PortsEditorProps {
   issues: TypeSpecIssue[];
 }
 
-/** 프리셋 하나 → 포트 한 줄. 그룹 키만 이미 쓰인 것을 피해 고른다. */
-function rowFromPreset(preset: PortPreset, taken: readonly string[]): PortRow {
-  return {
-    group: uniqueGroupKey(preset.groupKey, taken),
-    count: 1,
-    direction: preset.direction,
-    medium: preset.medium,
-    namePattern: preset.namePattern,
-    positions: preset.positions,
-  };
-}
-
-/** 이 줄이 무엇인지 한눈에 — 접어 둔 세부 설정을 열지 않고도 읽히게. */
-function rowTitle(p: PortRow, presets: readonly PortPreset[]): string {
-  const preset = presets.find((x) => x.medium === p.medium && x.direction === p.direction);
-  return preset ? preset.name : `${p.medium} ${p.direction}`;
-}
+/**
+ * 어떤 종류의 줄인가 — **매체 · 방향 · 다심 여부**로 가른다.
+ *
+ * 이 셋이 곧 프리셋의 정체다(`portPresets`). 그룹 키로 가르면 안 된다 — 키는 타입 안에서
+ * 유일하기만 하면 되는 식별자라 `FIBER`·`FIBER-2` 처럼 달라질 수 있다.
+ */
+const kindOf = (p: { medium: string; direction: Direction; positions?: number | null }) =>
+  `${p.medium}|${p.direction}|${isMultiCorePort(p.positions) ? 'multi' : 'single'}`;
 
 export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProps) {
   const ports = draft.ports;
-  const presets = portPresets();
 
-  function update(index: number, patch: Partial<PortRow>) {
-    const next = ports.map((p, i) => (i === index ? { ...p, ...patch } : p));
-    onChange({ ports: next });
+  /* 표의 줄 — 프리셋 일곱이 먼저, 그다음 **어느 프리셋과도 안 맞는 것**.
+     후자는 지금 데이터에 하나도 없지만(자산 종류 23개 전부 중복 0건), 있다고 해서 조용히
+     지워 버리면 안 된다. 뒤에 붙여 그대로 보여 주고 개수만 고칠 수 있게 둔다. */
+  const rows = useMemo(() => {
+    const presets = portPresets();
+    const byKind = new Map(ports.map((p) => [kindOf(p), p]));
+    const known = presets.map((preset) => ({
+      key: kindOf(preset),
+      label: preset.name,
+      preset,
+      port: byKind.get(kindOf(preset)) ?? null,
+    }));
+    const knownKeys = new Set(known.map((r) => r.key));
+    const extra = ports
+      .filter((p) => !knownKeys.has(kindOf(p)))
+      .map((p) => ({
+        key: `x:${p.group}`,
+        label: p.namePattern.replace(/\s*\{n\}\s*/, '').trim() || p.group,
+        preset: null,
+        port: p,
+      }));
+    return [...known, ...extra];
+  }, [ports]);
+
+  /** 개수를 바꾼다 — 0 이면 그 종류를 뺀다. 있던 줄이면 나머지 값(그룹 키·이름)은 그대로 둔다. */
+  function setCount(row: (typeof rows)[number], raw: string) {
+    const count = Math.max(Number(raw) || 0, 0);
+    if (row.port) {
+      const port = row.port;
+      onChange({
+        ports: count === 0
+          ? ports.filter((p) => p !== port)
+          : ports.map((p) => (p === port ? { ...p, count } : p)),
+      });
+      return;
+    }
+    if (count === 0 || !row.preset) return;
+    const added: PortRow = {
+      group: uniqueGroupKey(row.preset.groupKey, ports.map((p) => p.group)),
+      count,
+      direction: row.preset.direction,
+      medium: row.preset.medium,
+      namePattern: row.preset.namePattern,
+      positions: row.preset.positions,
+    };
+    onChange({ ports: [...ports, added] });
   }
 
-  function remove(index: number) {
-    onChange({ ports: ports.filter((_, i) => i !== index) });
+  function setPositions(row: (typeof rows)[number], raw: string) {
+    const port = row.port;
+    if (!port) return;
+    const positions = Math.max(Number(raw) || 2, 2);
+    onChange({ ports: ports.map((p) => (p === port ? { ...p, positions } : p)) });
   }
 
-  function addPreset(preset: PortPreset) {
-    onChange({ ports: [...ports, rowFromPreset(preset, ports.map((p) => p.group))] });
-  }
+  const total = ports.reduce((n, p) => n + p.count, 0);
 
   return (
     <DetailCard>
-      <DetailCardHeader title="포트" />
+      <DetailCardHeader title="포트" badge={`${total}개`} badgeStatus={total > 0 ? 'success' : 'neutral'} />
 
-      {ports.length === 0 && !locked && (
-        <p className="text-xs text-content-faint">아래에서 포트 종류를 골라 추가하세요.</p>
-      )}
+      <div className="space-y-1">
+        {rows.map((row) => {
+          const i = row.port ? ports.indexOf(row.port) : -1;
+          const countIssue = i >= 0 ? issueFor(issues, `ports[${i}].count`) : undefined;
+          const positionsIssue = i >= 0 ? issueFor(issues, `ports[${i}].positions`) : undefined;
+          const on = (row.port?.count ?? 0) > 0;
+          const multi = isMultiCorePort(row.port?.positions ?? row.preset?.positions);
 
-      {ports.map((p, i) => {
-        const countIssue = issueFor(issues, `ports[${i}].count`);
-        const positionsIssue = issueFor(issues, `ports[${i}].positions`);
-
-        return (
-          <ItemCard key={i} title={rowTitle(p, presets)} onDelete={locked ? undefined : () => remove(i)}>
-            <DetailRow label="개수" issue={countIssue}>
-              <Input
-                aria-label={`${rowTitle(p, presets)} 개수`}
-                type="number"
-                value={p.count}
-                disabled={locked}
-                min={1}
-                onChange={(e) => {
-                  const val = Number(e.currentTarget.value);
-                  update(i, { count: isNaN(val) ? 1 : val });
-                }}
-              />
-            </DetailRow>
-
-            {/* 심선 수 — **다심이 있는 종류에만**(광). 같은 광이라도 성단이 24심인지
-                12심인지는 물건마다 다르므로, 이건 고른 종류가 대신 정해 줄 수 없다.
-                그 밖의 값(그룹 키·방향·매체·이름)은 종류가 정하므로 묻지 않는다. */}
-            {portKind(p.medium)?.multiCore && isMultiCorePort(p.positions) && (
-              <DetailRow label="심선 수" issue={positionsIssue}>
+          return (
+            <DetailRow
+              key={row.key}
+              /* 없는 종류는 흐리게 — 표는 늘 일곱 줄이므로, 무엇이 켜져 있는지가 색으로
+                 먼저 읽혀야 줄을 세어 가며 찾지 않는다. */
+              label={<span className={cn(!on && 'text-content-faint')}>{row.label}</span>}
+              issue={countIssue ?? positionsIssue}
+            >
+              {/* 두 자리 숫자 칸이라 폭을 내용에 맞춘다 — `DetailRow` 의 기본(22rem)은
+                  이름 같은 글 입력에 맞춘 치수다. */}
+              <div className="flex items-center gap-2">
                 <Input
                   type="number"
-                  aria-label={`포트 ${i + 1} 심선 수`}
-                  value={String(p.positions ?? DEFAULT_CORE_COUNT)}
+                  aria-label={`${row.label} 개수`}
+                  className="w-24"
+                  min={0}
+                  value={String(row.port?.count ?? 0)}
                   disabled={locked}
-                  min={2}
-                  onChange={(e) => update(i, { positions: Number(e.currentTarget.value) })}
+                  onChange={(e) => setCount(row, e.currentTarget.value)}
                 />
-                <span className="text-xs text-content-faint">케이블 한 가닥 안의 코어 수</span>
-              </DetailRow>
-            )}
-          </ItemCard>
-        );
-      })}
+                {/* 심선 수는 다심 줄에만, 그것도 켜져 있을 때만 — 꺼진 줄에 칸이 서면
+                    표가 들쭉날쭉해진다. */}
+                {multi && on && (
+                  <>
+                    <span className="shrink-0 text-xs text-content-muted">심선</span>
+                    <Input
+                      type="number"
+                      aria-label={`${row.label} 심선 수`}
+                      className="w-24"
+                      min={2}
+                      value={String(row.port?.positions ?? DEFAULT_CORE_COUNT)}
+                      disabled={locked}
+                      onChange={(e) => setPositions(row, e.currentTarget.value)}
+                    />
+                  </>
+                )}
+              </div>
+            </DetailRow>
+          );
+        })}
+      </div>
 
-      {/* 종류마다 버튼 하나 — §1.6(개수에 비례해 커지는 UI 금지)의 예외다. 케이블 그룹은
-          사용자가 늘리는 데이터가 아니라 **고정 어휘**라(백엔드에 create/delete 가 없다)
-          버튼 수가 늘지 않는다. */}
-      {!locked && (
-        <div className="flex flex-wrap gap-1.5">
-          {presets.map((preset) => (
-            <Button
-              key={preset.groupKey}
-              variant="secondary"
-              size="sm"
-              leftIcon={<Plus size={13} />}
-              onClick={() => addPreset(preset)}
-            >
-              {preset.name}
-            </Button>
-          ))}
-        </div>
-      )}
+      <DetailNote>개수를 0 으로 두면 그 종류의 포트가 없습니다.</DetailNote>
     </DetailCard>
   );
 }

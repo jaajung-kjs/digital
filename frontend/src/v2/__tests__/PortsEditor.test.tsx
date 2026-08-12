@@ -1,9 +1,8 @@
 /**
- * PortsEditor — **고른 종류와 개수만** 묻는다.
+ * PortsEditor — **줄 수가 고정된 표**. 종류마다 한 줄, 개수만 적는다(0 = 없음).
  *
- * 그룹 키·방향·매체·이름 패턴은 화면에 없다. 고른 종류가 이미 정한 값이라 물어 봐야 답이
- * 하나뿐인 칸이었고, 접어 두어도 「무엇을 적어야 하나」를 고민하게 만들었다.
- * 심선 수만 남는다 — 같은 광이라도 성단이 24심인지 12심인지는 물건마다 다르다.
+ * 포트 종류는 고정 어휘라(`portPresets()` 일곱) 편집기도 고정일 수 있다. 예전에는 종류를
+ * 고를 때마다 카드가 쌓여 자산마다 편집 화면의 키가 달랐다(§1.6 위반).
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -56,20 +55,24 @@ describe('PortsEditor', () => {
     expect(screen.queryByDisplayValue('코어 {n}')).toBeNull();
   });
 
-  /* 예전에는 빈 행 하나가 생기고 그룹 키·이름 패턴을 사용자가 지어내야 했다.
-     이제 종류를 고르면 규칙에 맞게 채워져 나오고 손댈 곳은 개수뿐이다. */
-  it('(b) 미리 정의된 포트 버튼 → 규칙에 맞는 행이 만들어진다', () => {
-    const draft = mkDraft([]);
+  /* 표는 늘 일곱 줄이다 — 무엇을 고르든 키가 그대로여야 자산마다 화면이 달라지지 않는다. */
+  it('(a-2) 포트가 하나도 없어도 종류 줄은 모두 서 있다', () => {
+    render(<PortsEditor draft={mkDraft([])} onChange={vi.fn()} locked={false} issues={[]} />);
+    for (const name of ['전원 입력', '전원 출력', '네트워크', '광', '광 다심', '제어', '접지']) {
+      expect((screen.getByLabelText(`${name} 개수`) as HTMLInputElement).value).toBe('0');
+    }
+  });
+
+  /* 예전에는 종류마다 버튼이 있어 누르면 카드가 하나 쌓였다. 이제 그 줄의 개수를 적으면 된다. */
+  it('(b) 개수를 적으면 그 종류의 포트가 규칙에 맞게 만들어진다', () => {
     const onChange = vi.fn();
+    render(<PortsEditor draft={mkDraft([])} onChange={onChange} locked={false} issues={[]} />);
 
-    render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
+    fireEvent.change(screen.getByLabelText('네트워크 개수'), { target: { value: '24' } });
 
-    fireEvent.click(screen.getByRole('button', { name: '네트워크' }));
-
-    expect(onChange).toHaveBeenCalledTimes(1);
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };
     expect(called.ports).toHaveLength(1);
-    expect(called.ports[0]).toMatchObject({ medium: 'network', direction: 'BI', count: 1 });
+    expect(called.ports[0]).toMatchObject({ medium: 'network', direction: 'BI', count: 24 });
     // 지어낼 필요가 없어야 한다 — 빈칸으로 나오면 예전과 같아진다.
     expect(called.ports[0]!.group).not.toBe('');
     expect(called.ports[0]!.namePattern).toContain('{n}');
@@ -79,17 +82,36 @@ describe('PortsEditor', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={mkDraft([])} onChange={onChange} locked={false} issues={[]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '전원 출력' }));
+    fireEvent.change(screen.getByLabelText('전원 출력 개수'), { target: { value: '2' } });
     expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({ medium: 'power', direction: 'OUT' });
   });
 
-  it('(b-3) 같은 종류를 두 번 넣어도 그룹 키가 겹치지 않는다', () => {
-    const existing = mkDraft([{ group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' }]);
+  /* 개수 0 이 곧 「그 종류 없음」이다 — 지우는 길이 따로 있으면 규칙이 둘이 된다. */
+  it('(b-3) 개수를 0 으로 되돌리면 그 종류가 빠진다', () => {
+    const existing = mkDraft([{ group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' }]);
     const onChange = vi.fn();
     render(<PortsEditor draft={existing} onChange={onChange} locked={false} issues={[]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '네트워크' }));
+    fireEvent.change(screen.getByLabelText('네트워크 개수'), { target: { value: '0' } });
+    expect(onChange.mock.calls[0][0].ports).toHaveLength(0);
+  });
+
+  /* 광은 단심과 다심이 **다른 줄**이다 — 어느 쪽인지는 심선 수가 가른다. */
+  it('(b-4) 광 다심 줄은 단심 광과 섞이지 않는다', () => {
+    const existing = mkDraft([
+      { group: 'FIBER', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
+    ]);
+    const onChange = vi.fn();
+    render(<PortsEditor draft={existing} onChange={onChange} locked={false} issues={[]} />);
+
+    expect((screen.getByLabelText('광 개수') as HTMLInputElement).value).toBe('24');
+    expect((screen.getByLabelText('광 다심 개수') as HTMLInputElement).value).toBe('0');
+
+    fireEvent.change(screen.getByLabelText('광 다심 개수'), { target: { value: '1' } });
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
+    expect(ports).toHaveLength(2);
+    expect(ports[1]).toMatchObject({ medium: 'fiber', count: 1 });
+    expect(ports[1]!.positions).toBeGreaterThan(1);
     expect(ports[1]!.group).not.toBe(ports[0]!.group);
   });
 
@@ -119,13 +141,13 @@ describe('PortsEditor', () => {
     expect(spinbuttons.length).toBeGreaterThan(0);
     spinbuttons.forEach((input) => expect((input as HTMLInputElement).disabled).toBe(true));
 
-    // 구조가 잠겼으면 포트를 더할 방법이 아예 없어야 한다 — 눌리지 않는 버튼을 늘어놓지 않는다.
-    expect(screen.queryByRole('button', { name: '네트워크' })).toBeNull();
+    // 구조가 잠겼으면 개수 칸이 전부 잠긴다 — 표의 모양은 그대로 두되 손댈 수 없다.
+    expect(screen.getAllByRole('spinbutton').every((x) => (x as HTMLInputElement).disabled)).toBe(true);
   });
 
   /* 심선 수는 **다심이 있는 종류**(광)에만 뜬다. 그 안에서 1이면 어댑터, 24면 성단이다 —
      예전에는 매체 키가 그 둘을 갈랐다. 전원에는 다심이 없으므로 칸도 없다. */
-  it('(e) 심선 수 칸은 **다심 포트**에만 뜬다', () => {
+  it('(e) 심선 수 칸은 **다심 줄**에만 뜬다', () => {
     const draft = mkDraft([
       { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 {n}' },
       { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
@@ -133,9 +155,9 @@ describe('PortsEditor', () => {
     ]);
     render(<PortsEditor draft={draft} onChange={vi.fn()} locked={false} issues={[]} />);
 
-    expect(screen.queryByLabelText(/포트 1 심선 수/i)).toBeNull(); // 전원 — 다심이 없다
-    expect(screen.queryByLabelText(/포트 2 심선 수/i)).toBeNull(); // 단심 광 어댑터 — 늘 1
-    expect((screen.getByLabelText(/포트 3 심선 수/i) as HTMLInputElement).value).toBe('24');
+    expect(screen.queryByLabelText('전원 입력 심선 수')).toBeNull(); // 전원 — 다심이 없다
+    expect(screen.queryByLabelText('광 심선 수')).toBeNull();        // 단심 광 어댑터 — 늘 1
+    expect((screen.getByLabelText('광 다심 심선 수') as HTMLInputElement).value).toBe('24');
   });
 
   it('(e-2) 심선 수를 고치면 onChange 로 positions 가 전달된다', () => {
@@ -145,7 +167,7 @@ describe('PortsEditor', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
 
-    fireEvent.change(screen.getByLabelText(/포트 1 심선 수/i), { target: { value: '12' } });
+    fireEvent.change(screen.getByLabelText('광 다심 심선 수'), { target: { value: '12' } });
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };
     expect(called.ports[0]).toMatchObject({ positions: 12 });
   });
