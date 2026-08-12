@@ -125,14 +125,21 @@ export function AssemblyGrid<T extends GridItem>({
   const boxRef = useRef<HTMLUListElement | null>(null);
   /** 칸 폭 — 글씨를 눕힐지 판단하려면 실제 폭을 알아야 한다(열 수만으로는 모른다). */
   const [boxWidth, setBoxWidth] = useState(0);
+  const [boxHeightPx, setBoxHeightPx] = useState(0);
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setBoxWidth(entry!.contentRect.width));
+    const ro = new ResizeObserver(([entry]) => {
+      setBoxWidth(entry!.contentRect.width);
+      setBoxHeightPx(entry!.contentRect.height);
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
   const colWidth = boxWidth > 0 ? boxWidth / cols : 0;
+  /* 행 높이는 이제 고정이 아니다(`fill` 이면 상자에 맞춰 나뉜다) — 재 본 값을 쓴다.
+     상수(`GRID_ROW_H`)로 셈하면 20행 판에서 글씨를 눕힐지 말지를 잘못 고른다. */
+  const rowHeight = fill && boxHeightPx > 0 ? boxHeightPx / rows : GRID_ROW_H;
   /**
    * 지금 벌어지고 있는 제스처 — **격자 하나가 소유한다**.
    *
@@ -320,7 +327,7 @@ export function AssemblyGrid<T extends GridItem>({
       const at = pv ? pv.placement : { col, row, colSpan: item?.colSpan ?? 1, rowSpan: item?.rowSpan ?? 1 };
       /* 좁고 세로로 긴 칸이면 글씨를 눕힌다 — 섀시 카드가 실물에서 그렇게 읽힌다. */
       const cellW = at.colSpan * colWidth;
-      const vertical = colWidth > 0 && cellW < LABEL_MIN_W && at.rowSpan * GRID_ROW_H > cellW;
+      const vertical = colWidth > 0 && cellW < LABEL_MIN_W && at.rowSpan * rowHeight > cellW;
       const tone = item ? toneOf?.(item) ?? null : null;
 
       cells.push(
@@ -442,19 +449,27 @@ export function AssemblyGrid<T extends GridItem>({
     }
   }
 
-  /* 행은 **상자를 채우되 최소 높이는 지킨다**(`minmax`). 1×1 설비가 380px 상자 맨 윗줄에만
-     30px 로 붙어 있으면 고장 난 화면으로 보인다 — 한 칸짜리면 그 한 칸이 판이다.
-     행이 많아 상자를 넘으면 최소치로 내려앉고 상자가 스크롤한다.
+  /* 행 나누기.
+     - `fill`(캔버스로 세울 때): **상자에 맞춘다**. 스크롤을 만들지 않는다 — 랙 정면도는
+       한눈에 들어와야 하는 그림이라, 스무 행을 보려고 판을 내리는 순간 「어디에 뭐가
+       있나」를 잃는다. 행이 적으면 늘고 많으면 줄어들되 상자는 늘 꽉 찬다.
+     - 고정 px 상자(상세 패널): 최소 높이를 지키고 넘치면 스크롤한다 — 좁은 패널에서
+       칸이 12px 로 줄면 누를 수가 없다.
      드래그 좌표는 상자 크기 대비 **비율**로 셈하므로(`cellAt`) 행 높이가 달라져도 맞는다. */
-  const rowRule = { gridTemplateRows: `repeat(${rows}, minmax(${GRID_ROW_H}px, 1fr))` };
+  const rowRule = {
+    gridTemplateRows: fill
+      ? `repeat(${rows}, minmax(0, 1fr))`
+      : `repeat(${rows}, minmax(${GRID_ROW_H}px, 1fr))`,
+  };
 
   return (
     /* 세로 스크롤은 **눈금과 칸을 함께** 감싼 이 상자가 쥔다 — 눈금만 따로 두면 판을
        내렸을 때 단 번호가 어긋난다. 눈금과 격자는 함께 늘어난다(기본 `stretch`). */
     <div
       className={cn(
-        'mt-1 flex gap-1 overflow-y-auto rounded border border-line bg-surface-2 p-1.5 shadow-inner',
-        fill && 'min-h-0 flex-1',
+        'mt-1 flex gap-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner',
+        // 캔버스로 세우면 스크롤이 없다 — 격자를 상자에 맞춘다.
+        fill ? 'min-h-0 flex-1 overflow-hidden' : 'overflow-y-auto',
       )}
       style={boxHeight != null ? { height: boxHeight } : undefined}
     >
