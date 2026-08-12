@@ -119,17 +119,17 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
 
   function patch(row: PortRow, next: Partial<PortRow>) {
     const existing = ports.find((p) => kindOf(p) === kindOf(row) && p.group === row.group);
+    let after: PortRow[];
     if (!existing) {
       // 0개였던 종류를 켠다 — 선언이 그때 생긴다.
       if ((next.count ?? 0) <= 0) return;
-      onChange({ ports: [...ports, { ...row, ...next }] });
-      return;
+      after = [...ports, { ...row, ...next }];
+    } else if (next.count === 0) {
+      after = ports.filter((p) => p !== existing);
+    } else {
+      after = ports.map((p) => (p === existing ? { ...p, ...next } : p));
     }
-    if (next.count === 0) {
-      onChange({ ports: ports.filter((p) => p !== existing) });
-      return;
-    }
-    onChange({ ports: ports.map((p) => (p === existing ? { ...p, ...next } : p)) });
+    onChange({ ports: syncTrunkAdapters(after, { ...row, ...next }, existing ?? null) });
   }
 
   const total = ports.reduce((n, p) => n + p.count, 0);
@@ -200,6 +200,51 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
       )}
     </DetailCard>
   );
+}
+
+/**
+ * 성단(다심) 코어 수를 고치면 **앞면 어댑터 개수도 따라온다**.
+ *
+ * 실물에서 24심 OPGW 한 가닥은 앞면 24구로 갈라져 나온다 — 코어 하나가 어댑터 하나다
+ * (`internalLinkMap` 의 `byPosition`: 인입 코어 i ↔ 같은 자산의 단심 i 번). 12심 슬롯은
+ * 성단 12 + 인입 코어 12 로 **함께** 움직인다.
+ *
+ * 그런데 **강제하지는 않는다.** 어긋난 조합도 실제로 있다 — 24심 인입 옆의 48구 판이 그렇고,
+ * 코어를 다 쓰지 않고 남겨 두는 경우도 있다(`internalLinks.ts:106` 주석이 그 경우를 명시한다).
+ * 그래서 **맞춰져 있던 것만** 따라오게 한다: 어댑터가 0개이거나 이전 코어 수와 같을 때.
+ * 일부러 어긋내 둔 값은 건드리지 않는다.
+ */
+function syncTrunkAdapters(after: PortRow[], changed: PortRow, before: PortRow | null): PortRow[] {
+  if (!isMultiCorePort(changed.positions)) return after;
+  const cores = changed.positions ?? 0;
+  if (cores < 2) return after;
+
+  // 같은 매체의 **단심** 선언 — 앞면 어댑터. 둘 이상이면 어느 쪽인지 알 수 없으므로 둔다.
+  const adapters = after.filter((p) => p.medium === changed.medium && !isMultiCorePort(p.positions));
+  if (adapters.length > 1) return after;
+
+  if (adapters.length === 0) {
+    /* 앞면이 아직 없다 — 성단을 켠 것이므로 **그 자리에서 만든다**. 24심 인입만 있고
+       나갈 어댑터가 없는 판은 없다. 이름·그룹 키는 프리셋이 정한다. */
+    const preset = portPresets().find((x) => x.medium === changed.medium && x.positions === 1);
+    if (!preset) return after;
+    return [
+      ...after,
+      {
+        group: uniqueGroupKey(preset.groupKey, after.map((p) => p.group)),
+        count: cores,
+        direction: preset.direction,
+        medium: preset.medium,
+        namePattern: preset.namePattern,
+        positions: 1,
+      },
+    ];
+  }
+
+  const adapter = adapters[0]!;
+  const wasSynced = before == null || adapter.count === 0 || adapter.count === (before.positions ?? 0);
+  if (!wasSynced || adapter.count === cores) return after;
+  return after.map((p) => (p === adapter ? { ...p, count: cores } : p));
 }
 
 /** 이 선언을 뭐라고 부를 것인가 — 판의 구획 이름과 같은 규칙(`portGroupLabel`). */

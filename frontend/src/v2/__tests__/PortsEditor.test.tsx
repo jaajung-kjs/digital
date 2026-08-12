@@ -105,6 +105,49 @@ describe('PortsEditor', () => {
     expect(onChange.mock.calls[0][0].ports).toHaveLength(0);
   });
 
+  /* 24심 OPGW 한 가닥은 앞면 24구로 갈라져 나온다 — 코어 하나가 어댑터 하나다.
+     그래서 코어 수를 고치면 어댑터 개수가 따라온다(12심 슬롯 = 성단 12 + 코어 12). */
+  it('(f) 성단 코어 수를 고치면 앞면 광 포트 개수가 따라온다', () => {
+    const draft = mkDraft([
+      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 포트 {n}', positions: 1 },
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
+    ]);
+    const onChange = vi.fn();
+    render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
+
+    fireEvent.change(screen.getByLabelText('OPGW 심선 수'), { target: { value: '12' } });
+    const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
+    expect(ports.find((p) => p.group === 'TRUNK')!.positions).toBe(12);
+    expect(ports.find((p) => p.group === 'CORE')!.count).toBe(12);
+  });
+
+  /* 성단을 켜면 나갈 어댑터가 함께 생긴다 — 24심 인입만 있고 앞면이 없는 판은 없다. */
+  it('(f-3) 앞면이 없는 상태에서 성단을 켜면 광 포트가 함께 생긴다', () => {
+    const onChange = vi.fn();
+    render(<PortsEditor draft={mkDraft([])} onChange={onChange} locked={false} issues={[]} />);
+
+    fireEvent.change(screen.getByLabelText('OPGW 개수'), { target: { value: '1' } });
+    const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
+    const trunk = ports.find((p) => (p.positions ?? 1) > 1)!;
+    const adapter = ports.find((p) => p.medium === 'fiber' && (p.positions ?? 1) === 1)!;
+    expect(trunk.count).toBe(1);
+    expect(adapter.count).toBe(trunk.positions);
+  });
+
+  /* 어긋난 조합도 실물에 있다 — 24심 인입 옆의 48구 판. 일부러 어긋내 둔 값은 안 건드린다. */
+  it('(f-2) 어댑터가 코어 수와 이미 어긋나 있으면 따라오지 않는다', () => {
+    const draft = mkDraft([
+      { group: 'CORE', count: 48, direction: 'BI', medium: 'fiber', namePattern: '광 포트 {n}', positions: 1 },
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
+    ]);
+    const onChange = vi.fn();
+    render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
+
+    fireEvent.change(screen.getByLabelText('OPGW 심선 수'), { target: { value: '12' } });
+    const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
+    expect(ports.find((p) => p.group === 'CORE')!.count).toBe(48);
+  });
+
   /* 광은 단심과 다심이 **다른 줄**이다 — 어느 쪽인지는 심선 수가 가른다. */
   it('(b-4) 광 다심 줄은 단심 광과 섞이지 않는다', () => {
     const existing = mkDraft([
