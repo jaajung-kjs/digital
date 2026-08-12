@@ -71,45 +71,8 @@ export function validateAssembly(
   return null;
 }
 
-/** 설비 종류를 인스턴스화한 결과 — 부품 하나와 그 포트들. */
-export interface InstantiatedPart {
-  /** 설비 종류 부품의 id. */
-  itemId: string;
-  typeKey: string;
-  name: string;
-  col: number | null;
-  row: number | null;
-  colSpan: number | null;
-  rowSpan: number | null;
-  ports: Omit<PortRef, 'id' | 'assetId'>[];
-}
-
-/**
- * 설비 종류를 부품 묶음으로 편다.
- *
- * 설비 자신(이름·도면 위치)은 놓는 쪽이 만든다 — 여기서는 그 **안에 들어갈 것**만 낸다.
- * 포트는 부품마다 선언한 오버라이드까지 반영한다: 12심 판과 24심 판이 같은 타입일 수 있다.
- */
-export function instantiateAssembly(
-  spec: AssemblySpec,
-  typeSpecByKey: ReadonlyMap<string, AssetTypeSpec>,
-): InstantiatedPart[] {
-  return spec.items.map((item) => {
-    const typeSpec = typeSpecByKey.get(item.typeKey);
-    const ports = typeSpec
-      ? instantiatePorts(typeSpec.ports, '', item.portCounts ?? {}, item.portPositions ?? {}).map(
-          ({ assetId: _assetId, ...rest }) => rest,
-        )
-      : [];
-    return {
-      itemId: item.id,
-      typeKey: item.typeKey,
-      name: item.name,
-      col: item.col,
-      row: item.row,
-      colSpan: item.colSpan,
-      rowSpan: item.rowSpan,
-      ports,
-    };
-  });
-}
+/* 설비 종류를 부품 묶음으로 펴는 일(`instantiateAssembly`)은 여기 있었지만 **쓰는 곳이
+   없었다** — 화면은 DB 형상(자산 id·typeId·변전소)으로 펴야 해서 제 것을 따로 갖고
+   있었다(`frontend/src/v2/placeAssembly.ts`). 살아 있는 규칙을 흉내 내는 죽은 코드는
+   없느니만 못하다: 규칙을 고치러 온 사람이 여기를 고치고 반영됐다고 여긴다. 그래서 지웠다.
+   서버가 펴야 할 일이 생기면 그때 **쓰는 곳과 함께** 되살린다. */

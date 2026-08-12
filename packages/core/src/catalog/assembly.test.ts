@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { instantiateAssembly, validateAssembly, type AssemblySpec } from './assembly.js';
+import { validateAssembly, type AssemblySpec } from './assembly.js';
 import type { AssetTypeSpec } from './types.js';
 
 const item = (over: Partial<AssemblySpec['items'][number]> & { id: string }) => ({
@@ -59,35 +59,3 @@ describe('validateAssembly', () => {
   });
 });
 
-describe('instantiateAssembly', () => {
-  const devType: AssetTypeSpec = {
-    key: 'OPT-TERM', name: '광단말', categoryKey: '통신', sortOrder: 1, labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
-    ports: [{ group: 'OPT', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' }],
-  };
-  const swType: AssetTypeSpec = {
-    ...devType, key: 'NET-SW', name: '네트워크스위치',
-    ports: [{ group: 'P', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' }],
-  };
-  const specs = new Map([['OPT-TERM', devType], ['NET-SW', swType]]);
-
-  /* 설비 자신(이름·도면 위치)은 놓는 쪽이 만든다 — 여기서는 그 안에 들어갈 것만 낸다. */
-  it('부품 이름과 자리를 설비 종류가 적은 그대로 낸다', () => {
-    const out = instantiateAssembly(optSet, specs);
-    expect(out.map((p) => [p.name, p.row])).toEqual([['광단말', 0], ['네트워크스위치', 1]]);
-  });
-
-  it('포트도 타입 선언대로 함께 만들어진다', () => {
-    const out = instantiateAssembly(optSet, specs);
-    expect(out[0]!.ports).toHaveLength(12);
-    expect(out[1]!.ports).toHaveLength(24);
-  });
-
-  /* 12심 판과 24심 판이 같은 타입일 수 있다 — 부품마다 오버라이드를 실어 보낸다. */
-  it('부품이 선언한 포트 수 오버라이드를 반영한다', () => {
-    const withOverride: AssemblySpec = {
-      ...optSet,
-      items: [{ ...optSet.items[0]!, portCounts: { OPT: 4 } }],
-    };
-    expect(instantiateAssembly(withOverride, specs)[0]!.ports).toHaveLength(4);
-  });
-});
