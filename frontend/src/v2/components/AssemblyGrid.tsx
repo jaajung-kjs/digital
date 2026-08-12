@@ -36,14 +36,16 @@ export interface AssemblyGridProps<T extends GridItem> {
   /** 지금 골라져 있는 것 — 설비 종류 편집기가 고른 부품을 표시할 때 쓴다. */
   selectedId?: string | null;
   /**
-   * 판이 앉을 **상자의 높이**(px) — 상한이 아니라 **고정**이다.
+   * 판이 앉을 **상자의 높이**(px). 주지 않으면 남는 자리를 다 쓴다(`fill`).
    *
-   * 격자 높이는 행 수에 그대로 비례한다(1행 30px ~ 20행 600px, 20배). 상한만 두면 위쪽만
-   * 잘릴 뿐 1×1 은 여전히 44px 라 설비마다 화면 모양이 달랐다(실측 44/204/380px).
-   * 상자를 못 박으면 1×1 이든 10×20 이든 **같은 자리**를 차지하고, 넘치는 행은 상자 안에서
-   * 스크롤한다 — 칸 크기는 어디서나 같게 두어야 하므로 줄여서 담지 않는다.
+   * 격자 높이는 행 수에 그대로 비례한다(1행 30px ~ 20행 600px, 20배). 그대로 두면 설비마다
+   * 화면 모양이 달라진다. 상자를 못 박거나(px) 자리를 다 쓰게 하면(`fill`) 1×1 이든
+   * 10×20 이든 **같은 자리**를 차지한다. 넘치는 행은 상자 안에서 스크롤한다 — 칸 크기는
+   * 어디서나 같아야 하므로 줄여서 담지 않는다.
    */
   boxHeight?: number;
+  /** 부모가 주는 세로 자리를 다 쓴다 — 캔버스가 화면 아래까지 서야 할 때. */
+  fill?: boolean;
   /**
    * 이 칸에 표시등을 켤 것인가 — 켠다면 무슨 빛으로.
    *
@@ -115,7 +117,7 @@ const LABEL_MIN_W = 52;
  * 끌어서 옮기고 모서리로 크기를 바꾼다 — 수학은 `gridDrag.ts` 에 순수 함수로 있다.
  */
 export function AssemblyGrid<T extends GridItem>({
-  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf, boxHeight,
+  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf, boxHeight, fill,
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
@@ -450,7 +452,10 @@ export function AssemblyGrid<T extends GridItem>({
     /* 세로 스크롤은 **눈금과 칸을 함께** 감싼 이 상자가 쥔다 — 눈금만 따로 두면 판을
        내렸을 때 단 번호가 어긋난다. 눈금과 격자는 함께 늘어난다(기본 `stretch`). */
     <div
-      className="mt-1 flex gap-1 overflow-y-auto rounded border border-line bg-surface-2 p-1.5 shadow-inner"
+      className={cn(
+        'mt-1 flex gap-1 overflow-y-auto rounded border border-line bg-surface-2 p-1.5 shadow-inner',
+        fill && 'min-h-0 flex-1',
+      )}
       style={boxHeight != null ? { height: boxHeight } : undefined}
     >
       {/* 단 눈금 — 랙 정면도의 U 눈금과 같다. 「몇 단인가」를 판 옆에서 한 번에 읽는다.

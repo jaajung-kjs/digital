@@ -32,15 +32,6 @@ const issueOf = (issues: AssemblyIssue[], path: AssemblyIssue['path']) =>
   issues.find((i) => i.path === path)?.message;
 
 /** 1식 공량의 작업 종류 — 자산 종류의 공량 카드와 같은 순서다. */
-/**
- * 격자가 앉는 상자의 높이 — **자리 크기와 무관하게 늘 같다**(상한이 아니라 고정).
- *
- * 격자는 1행(30px)부터 20행(600px)까지 있다. 상한만 두면 위쪽만 잘릴 뿐 접지함체(1×1)는
- * 여전히 44px 라 설비마다 화면 모양이 달랐다. 못 박아 두면 어느 설비를 열어도 같은 자리를
- * 차지하고, 넘치는 행은 상자 안에서 스크롤한다.
- */
-const GRID_BOX_H = 380;
-
 const LABOR_HOURS = [
   { key: 'installHours', label: '신설(h)' },
   { key: 'removeHours', label: '철거(h)' },
@@ -106,8 +97,8 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
     <div className="flex h-full min-h-0 w-full gap-3 p-4">
       {/* 캔버스 — 남는 자리를 다 쓴다. 격자 상자의 키는 못 박혀 있어(`GRID_BOX_H`)
           1×1 이든 10×20 이든 같은 자리를 차지한다. */}
-      <div className="min-w-0 flex-1">
-        <DetailCard>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <DetailCard className="flex min-h-0 flex-1 flex-col">
           {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다. */}
           <DetailCardHeader
             title="구성"
@@ -117,7 +108,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           {issueOf(issues, 'items') && <p className="text-xs text-danger">{issueOf(issues, 'items')}</p>}
           <AssemblyGrid
             grid={grid}
-            boxHeight={GRID_BOX_H}
+            fill
             items={draft.items}
             selectedId={selectedItemId}
             onSelect={(part) => setSelectedItemId(part.id)}

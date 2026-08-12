@@ -313,15 +313,17 @@ export default function V2CatalogAdminPage() {
                       채우는 판이라 이 화면만 홀로 떠 보였다. 대신 카드를 두 단으로 흘려
                       폭을 쓴다 — 넓은 화면에서 라벨+입력 한 줄이 1000px 로 늘어나는 것도
                       함께 막힌다(그게 애초에 폭을 묶은 까닭이다). */}
-                  <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                    <div className="grid items-start gap-3 xl:grid-cols-2">
-                      {/* 기본정보 · 공량 */}
+                  <div className="min-h-0 flex-1 p-4">
+                    <div className="grid h-full min-h-0 gap-3 xl:grid-cols-2">
+                      {/* 기본정보 · 공량 — 짧으므로 제 높이만 쓰고 위에 붙는다. */}
+                      <div className="min-h-0 space-y-3 self-start overflow-y-auto">
                       <TypeBasicsForm
                         draft={draft}
                         catalog={catalog}
                         onChange={handleChange}
                         issues={issues}
                       />
+                      </div>
 
                       {/* 포트 — **판이 곧 편집기**다. 미리보기를 따로 두지 않는다:
                           개수는 그 구획이 무엇인지 말하는 값이라 구획 라벨 옆이 제 자리이고,

@@ -89,6 +89,7 @@ export function PortFaceplate({
   labelPrefix,
   disabledPortIds,
   isOpen,
+  fill,
 }: {
   sections: readonly FaceplateSection[];
   stateOf: (port: V2Port) => PortState;
@@ -111,12 +112,17 @@ export function PortFaceplate({
    * 뜨는 상세가 맡는다 — 판은 지도이고 상세는 서식이다.
    */
   isOpen?: (port: V2Port) => boolean;
+  /** 판이 부모가 주는 세로 자리를 다 쓴다 — 캔버스로 세울 때(관리 화면). */
+  fill?: boolean;
 }) {
   return (
     /* 구획을 세로로 쌓지 않고 **가로로 잇는다** — 1U 전면판이 그렇게 생겼다.
        예전에는 구획마다 한 줄을 통째로 써서 포트 6개짜리 장비가 333×287px 를 차지했다
        (포트가 실제로 쓰는 가로는 240px 뿐이라 한 줄에 다 들어간다). */
-    <div className="overflow-hidden rounded-md p-2 shadow-inner" style={{ backgroundColor: 'var(--faceplate)' }}>
+    <div
+      className={cn('overflow-hidden rounded-md p-2 shadow-inner', fill && 'h-full')}
+      style={{ backgroundColor: 'var(--faceplate)' }}
+    >
       {/* 칸 폭의 기준이 되는 상자 — 안쪽 여백이 없어야 `100cqw` 가 곧 포트가 쓸 수 있는 너비다. */}
       <div className="flex flex-wrap items-start gap-x-6 gap-y-3" style={{ containerType: 'inline-size' }}>
       {sections.map((section) => (

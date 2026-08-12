@@ -146,7 +146,9 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
     .map((section) => ({ key: section.key, label: section.labelText, accent: section.accent, ports: section.ports }));
 
   return (
-    <DetailCard>
+    /* 카드가 세로를 다 쓰고, 판이 그 안에서 남는 자리를 채운다 — 캔버스는 화면 아래까지
+       서야 한다(구성 격자와 같은 규칙). 포트가 많으면 판 안에서 스크롤한다. */
+    <DetailCard className="flex min-h-0 flex-1 flex-col">
       <DetailCardHeader title="포트" badge={`${total}개`} badgeStatus={total > 0 ? 'success' : 'neutral'} />
       {issue && <p className="text-xs text-danger">{issue}</p>}
 
@@ -185,15 +187,16 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
       </div>
 
       {/* 결과 — 이 자산 종류를 놓으면 생길 판.
-          상자를 **못 박는다**(상한이 아니라 고정): 포트가 둘이든 스물다섯이든 같은 자리를
-          차지해야 종류를 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 상자 안에서 스크롤한다. */}
+          판은 **남는 자리를 다 쓴다**: 포트가 둘이든 스물다섯이든 캔버스는 같은 크기여야
+          종류를 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 판 안에서 스크롤한다. */}
       {faceplate.length === 0 ? (
-        <div className="flex h-64 items-center justify-center">
+        <div className="flex min-h-0 flex-1 items-center justify-center">
           <EmptyState title="포트가 없습니다" description="위에서 종류별 개수를 적으면 판이 여기 나타납니다." />
         </div>
       ) : (
-        <div className="h-64 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <PortFaceplate
+            fill
             sections={faceplate}
             stateOf={() => 'empty'}
             cableCountOf={() => 0}
