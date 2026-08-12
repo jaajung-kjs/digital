@@ -27,18 +27,24 @@ export const PORT_STATE_LABEL: Record<PortState, string> = {
  * 폭에 맡기면(`flex-wrap` 만) 패널 크기에 따라 7개가 들어갔다 5개가 들어갔다 해서 같은
  * 장비가 화면마다 다른 모양이 된다.
  *
- * 칸 폭은 고정하지 않고 **판 너비에서 나눠 갖는다** — 6칸이 판을 정확히 채운다. 폭을 40px 로
- * 못 박았더니 6개로 줄인 만큼 오른쪽에 빈 자리가 남았다. 칸이 커지면 실루엣도 함께 커진다.
+ * 칸 폭은 **판 너비에서 나눠 갖되 상한이 있다.** 6칸이 좁은 판(상세 패널)을 정확히 채우고,
+ * 넓은 판(관리 화면)에서는 상한에 걸려 더 커지지 않는다.
+ *
+ * 상한이 왜 필요한가: 폭을 나누기만 하면 같은 포트가 상세 패널에서 46px, 관리 화면에서
+ * 85px 로 그려졌다(실측 1.85배). 두 곳이 같은 판을 보여 준다면서 크기가 다르면 미리보기가
+ * 미리보기 노릇을 못 한다. 실제 커넥터는 화면 폭에 따라 커지지 않는다.
  *
  * `cqw`(컨테이너 너비의 1%)를 쓰는 이유: 칸은 **판** 너비를 기준으로 나뉘어야 하는데, 칸이
  * 속한 구획은 내용만큼만 넓다. `%` 로는 구획 너비가 기준이 되어 버린다.
  */
 const PORT_GAP = 4; // px — 칸 사이
 const PORTS_PER_ROW = 6;
-/** 한 칸 = (판 너비 − 칸 사이 간격 전부) ÷ 6 */
-const PORT_W = `calc((100cqw - ${(PORTS_PER_ROW - 1) * PORT_GAP}px) / ${PORTS_PER_ROW})`;
+/** 칸 하나의 최대 폭(px) — 384px 상세 패널에서 6칸이 갖는 크기다. 그 이상 커지지 않는다. */
+const PORT_MAX_W = 46;
+/** 한 칸 = min((판 너비 − 칸 사이 간격 전부) ÷ 6, 상한) */
+const PORT_W = `min(calc((100cqw - ${(PORTS_PER_ROW - 1) * PORT_GAP}px) / ${PORTS_PER_ROW}), ${PORT_MAX_W}px)`;
 /** 한 줄은 딱 6칸에서 끊는다 — 실제 판이 12구·24구라 2줄·4줄로 떨어진다. */
-const ROW_MAX_W = '100cqw';
+const ROW_MAX_W = `min(100cqw, ${PORTS_PER_ROW * PORT_MAX_W + (PORTS_PER_ROW - 1) * PORT_GAP}px)`;
 
 export interface FaceplateSection {
   key: string;

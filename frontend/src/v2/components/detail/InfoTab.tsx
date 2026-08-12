@@ -348,9 +348,9 @@ export function InfoTab({
           />
           <AssemblyGrid
             grid={grid}
-            /* 상세 패널에서도 판의 키를 묶는다 — 20행 격자(600px)가 스크롤 영역(538px)보다
-               커서, 부품을 눌러도 그 카드가 화면 밖에 나타났다. */
-            maxHeight={320}
+            /* 상세 패널에서도 상자를 못 박는다 — 어느 설비를 열어도 같은 자리를 차지하고,
+               그 아래 부품 카드가 늘 같은 높이에 선다(스크롤로 찾아가지 않아도 되게). */
+            boxHeight={240}
             items={parts}
             selectedId={selectedPartId}
             /* 부품을 골라도 **패널은 그대로** 둔다 — 아래에 그 부품 카드만 연다.

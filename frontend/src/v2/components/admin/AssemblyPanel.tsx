@@ -33,13 +33,13 @@ const issueOf = (issues: AssemblyIssue[], path: AssemblyIssue['path']) =>
 
 /** 1식 공량의 작업 종류 — 자산 종류의 공량 카드와 같은 순서다. */
 /**
- * 판이 차지할 최대 높이 — **자리 크기와 무관하게 같은 키**로 세운다.
+ * 격자가 앉는 상자의 높이 — **자리 크기와 무관하게 늘 같다**(상한이 아니라 고정).
  *
- * 격자는 1행(30px)부터 20행(600px)까지 있다. 그대로 두면 설비마다 편집 화면의 모양이
- * 달라지고, 판 아래에 있는 것(고른 부품·그 장비의 판)이 화면 밖으로 밀린다.
- * 12행쯤이 한눈에 들어오는 크기라 그 언저리에서 끊고, 넘으면 판 안에서 스크롤한다.
+ * 격자는 1행(30px)부터 20행(600px)까지 있다. 상한만 두면 위쪽만 잘릴 뿐 접지함체(1×1)는
+ * 여전히 44px 라 설비마다 화면 모양이 달랐다. 못 박아 두면 어느 설비를 열어도 같은 자리를
+ * 차지하고, 넘치는 행은 상자 안에서 스크롤한다.
  */
-const GRID_MAX_H = 380;
+const GRID_BOX_H = 380;
 
 const LABOR_HOURS = [
   { key: 'installHours', label: '신설(h)' },
@@ -213,7 +213,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         {issueOf(issues, 'items') && <p className="text-xs text-danger">{issueOf(issues, 'items')}</p>}
         <AssemblyGrid
           grid={grid}
-          maxHeight={GRID_MAX_H}
+          boxHeight={GRID_BOX_H}
           items={draft.items}
           selectedId={selectedItemId}
           onSelect={(part) => setSelectedItemId(part.id)}

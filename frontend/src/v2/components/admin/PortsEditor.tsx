@@ -184,11 +184,15 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
         })}
       </div>
 
-      {/* 결과 — 이 자산 종류를 놓으면 생길 판. 상한을 둬 포트가 늘어도 카드가 자라지 않는다. */}
+      {/* 결과 — 이 자산 종류를 놓으면 생길 판.
+          상자를 **못 박는다**(상한이 아니라 고정): 포트가 둘이든 스물다섯이든 같은 자리를
+          차지해야 종류를 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 상자 안에서 스크롤한다. */}
       {faceplate.length === 0 ? (
-        <EmptyState title="포트가 없습니다" description="위에서 종류별 개수를 적으면 판이 여기 나타납니다." className="py-6" />
+        <div className="flex h-64 items-center justify-center">
+          <EmptyState title="포트가 없습니다" description="위에서 종류별 개수를 적으면 판이 여기 나타납니다." />
+        </div>
       ) : (
-        <div className="max-h-[26rem] overflow-y-auto">
+        <div className="h-64 overflow-y-auto">
           <PortFaceplate
             sections={faceplate}
             stateOf={() => 'empty'}

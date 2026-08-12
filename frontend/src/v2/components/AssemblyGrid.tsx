@@ -36,14 +36,14 @@ export interface AssemblyGridProps<T extends GridItem> {
   /** 지금 골라져 있는 것 — 설비 종류 편집기가 고른 부품을 표시할 때 쓴다. */
   selectedId?: string | null;
   /**
-   * 판이 차지할 **최대 높이**(px). 넘으면 안쪽에서 스크롤한다.
+   * 판이 앉을 **상자의 높이**(px) — 상한이 아니라 **고정**이다.
    *
-   * 왜 필요한가: 격자 높이는 행 수에 그대로 비례한다(1행 30px ~ 20행 600px, 20배). 그래서
-   * 설비마다 화면의 키가 달랐고, 판 아래에 있는 것(고른 부품·판 미리보기)이 화면 밖으로
-   * 밀려 「눌러도 아무 반응이 없다」가 됐다 — 실측으로 167px 밖이었다.
-   * 상한을 두면 어느 설비를 열어도 화면 모양이 같고, 고른 결과가 늘 보인다.
+   * 격자 높이는 행 수에 그대로 비례한다(1행 30px ~ 20행 600px, 20배). 상한만 두면 위쪽만
+   * 잘릴 뿐 1×1 은 여전히 44px 라 설비마다 화면 모양이 달랐다(실측 44/204/380px).
+   * 상자를 못 박으면 1×1 이든 10×20 이든 **같은 자리**를 차지하고, 넘치는 행은 상자 안에서
+   * 스크롤한다 — 칸 크기는 어디서나 같게 두어야 하므로 줄여서 담지 않는다.
    */
-  maxHeight?: number;
+  boxHeight?: number;
   /**
    * 이 칸에 표시등을 켤 것인가 — 켠다면 무슨 빛으로.
    *
@@ -115,7 +115,7 @@ const LABEL_MIN_W = 52;
  * 끌어서 옮기고 모서리로 크기를 바꾼다 — 수학은 `gridDrag.ts` 에 순수 함수로 있다.
  */
 export function AssemblyGrid<T extends GridItem>({
-  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf, maxHeight,
+  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf, boxHeight,
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
@@ -444,10 +444,10 @@ export function AssemblyGrid<T extends GridItem>({
 
   return (
     /* 세로 스크롤은 **눈금과 칸을 함께** 감싼 이 상자가 쥔다 — 눈금만 따로 두면 판을
-       내렸을 때 단 번호가 어긋난다. */
+       내렸을 때 단 번호가 어긋난다. 격자는 상자 위쪽에 붙는다(랙은 위에서부터 센다). */
     <div
-      className="mt-1 flex gap-1 overflow-y-auto rounded border border-line bg-surface-2 p-1.5 shadow-inner"
-      style={maxHeight != null ? { maxHeight } : undefined}
+      className="mt-1 flex items-start gap-1 overflow-y-auto rounded border border-line bg-surface-2 p-1.5 shadow-inner"
+      style={boxHeight != null ? { height: boxHeight } : undefined}
     >
       {/* 단 눈금 — 랙 정면도의 U 눈금과 같다. 「몇 단인가」를 판 옆에서 한 번에 읽는다.
           격자 바깥에 두는 이유: 포인터 좌표를 칸으로 셈하는 상자(`boxRef`)에 섞이면
