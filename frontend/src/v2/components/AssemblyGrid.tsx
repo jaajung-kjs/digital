@@ -296,10 +296,21 @@ export function AssemblyGrid<T extends GridItem>({
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId]);
 
-  /** 눌러서 시작한 칸에 대한 행동 — 고르거나, 빈 자리면 채운다. */
+  /** 눌러서 시작한 칸에 대한 행동 — 고르거나, 빈 자리면 (고른 것을 풀거나) 채운다. */
   function tap(gesture: Gesture) {
-    if (gesture.item) onSelect(gesture.item);
-    else onAddAtCell(gesture.cell);
+    if (gesture.item) {
+      onSelect(gesture.item);
+      return;
+    }
+    /* 빈 칸을 눌렀다.
+       고른 것이 있으면 **먼저 푼다** — 「다른 데를 누르면 풀린다」가 판에서 가장 흔한 손짓인데,
+       칸이 상자를 꽉 채우므로 「빈 곳」이라 할 만한 자리가 빈 칸뿐이다. 풀린 뒤 한 번 더
+       누르면 그때 채운다(고른 것이 없을 때가 곧 「채우기」 상태다). */
+    if (selectedId != null) {
+      onDeselect?.();
+      return;
+    }
+    onAddAtCell(gesture.cell);
   }
 
   function endGesture(commit: boolean) {
@@ -395,11 +406,12 @@ export function AssemblyGrid<T extends GridItem>({
                `onClick` 은 두지 않는다: 끈 뒤에도 click 이 뒤따라 나서 상세 패널이 열렸다.
                키보드는 아래 `onKeyDown` 이 맡는다 — 손짓과 다른 길이라 섞이지 않는다. */
             onPointerDown={(e) => beginGesture(item ? 'move' : 'tap', item ?? null, { col, row }, e)}
+            /* 키보드도 **같은 판정**을 거친다(`tap`). 예전에는 여기서 규칙을 다시 써서,
+               빈 칸을 눌러 고른 것을 푸는 거동이 손짓에만 있고 키보드에는 없었다. */
             onKeyDown={(e) => {
               if (e.key !== 'Enter' && e.key !== ' ') return;
               e.preventDefault();
-              if (item) onSelect(item);
-              else onAddAtCell({ col, row });
+              tap({ kind: 'tap', item: item ?? null, cell: { col, row }, session: null });
             }}
           >
             {/* 번호는 칸이 아니라 왼쪽 눈금이 맡는다 — 칸마다 번호를 박으면 4열 12행에서 번호가
@@ -527,6 +539,7 @@ export function AssemblyGrid<T extends GridItem>({
       /* 상자의 빈 곳(격자 바깥 여백)을 누르면 푼다 — 「빈 데를 누르면 풀린다」는 판에서
          가장 흔한 손짓이다. 칸 위에서 시작한 손짓은 칸이 먼저 받으므로 여기 오지 않는다. */
       onPointerDown={(e) => {
+        // 상자의 여백(눈금 옆·격자 아래)을 눌렀을 때. 칸 위에서 시작한 손짓은 칸이 받는다.
         if (e.target === e.currentTarget && selectedId != null) onDeselect?.();
       }}
     >

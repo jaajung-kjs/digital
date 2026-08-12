@@ -96,6 +96,35 @@ describe('AssemblyGrid 선택 해제', () => {
     expect(onDeselect).toHaveBeenCalledTimes(1);
   });
 
+  /* 칸이 상자를 꽉 채우므로 「빈 곳」이라 할 만한 자리가 빈 칸뿐이다. 고른 것이 있으면
+     빈 칸을 누르는 것이 곧 「다른 데를 눌렀다」다. */
+  it('고른 것이 있을 때 빈 칸을 누르면 채우지 않고 푼다', () => {
+    const onDeselect = vi.fn();
+    const { onAddAtCell, grid } = setup({ selectedId: 'a', onDeselect });
+    pointer('pointerdown', emptyCell(), 1, 3);
+    pointer('pointerup', grid, 1, 3);
+    expect(onDeselect).toHaveBeenCalledTimes(1);
+    expect(onAddAtCell).not.toHaveBeenCalled();
+  });
+
+  it('고른 것이 없으면 빈 칸을 누르는 것이 곧 채우기다', () => {
+    const onDeselect = vi.fn();
+    const { onAddAtCell, grid } = setup({ selectedId: null, onDeselect });
+    pointer('pointerdown', emptyCell(), 1, 3);
+    pointer('pointerup', grid, 1, 3);
+    expect(onAddAtCell).toHaveBeenCalled();
+    expect(onDeselect).not.toHaveBeenCalled();
+  });
+
+  /* 키보드도 같은 판정을 거쳐야 한다 — 예전에는 여기서 규칙을 다시 써서 손짓에만 있었다. */
+  it('키보드(Enter)도 같은 규칙을 따른다', () => {
+    const onDeselect = vi.fn();
+    const { onAddAtCell } = setup({ selectedId: 'a', onDeselect });
+    fireEvent.keyDown(emptyCell(), { key: 'Enter' });
+    expect(onDeselect).toHaveBeenCalledTimes(1);
+    expect(onAddAtCell).not.toHaveBeenCalled();
+  });
+
   it('칸을 누른 것은 해제가 아니다 — 고르기다', () => {
     const onDeselect = vi.fn();
     const { onSelect, grid } = setup({ selectedId: 'a', onDeselect });

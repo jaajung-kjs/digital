@@ -132,7 +132,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
 
       {/* 상세 — **한 자리에서 문맥만 바뀐다.** 아무것도 안 골랐으면 설비 자신, 부품을
           골랐으면 그 부품. 상세 패널과 같은 폭(384px)이라 두 화면이 같은 판으로 읽힌다. */}
-      <aside className="w-96 shrink-0 space-y-3 overflow-y-auto">
+      <aside className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto">
         {selected ? (
           <>
             <DetailCard>
@@ -153,22 +153,15 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
                   onChange={(e) => updateItem(selected.id, { name: e.currentTarget.value })}
                 />
               </DetailRow>
-              <DetailRow label="자리">
-                <span className="text-sm text-content-muted">
-                  {slotNumber(draft.gridCols, selected.col ?? 0, selected.row ?? 0)}
-                  {(selected.colSpan ?? 1) * (selected.rowSpan ?? 1) > 1 &&
-                    ` · ${selected.colSpan ?? 1}×${selected.rowSpan ?? 1}칸`}
-                </span>
-              </DetailRow>
-              <Button variant="secondary" size="sm" onClick={() => removePart(selected.id)}>
-                구성에서 빼기
-              </Button>
             </DetailCard>
 
-            {/* 넣기 전에 「이걸 넣으면 포트가 뭐가 생기나」를 여기서 본다. */}
+            {/* 넣기 전에 「이걸 넣으면 포트가 뭐가 생기나」를 여기서 본다.
+                카드는 남는 자리를 다 쓴다 — 포트가 둘이든 스물다섯이든 같은 크기여야 부품을
+                옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 카드 안에서 스크롤한다. */}
             <PortsPreview
+              fill
               ports={typeById.get(selected.typeId)?.portTemplates ?? []}
-              title="판"
+              title="포트"
               empty="이 자산 종류에는 포트가 선언돼 있지 않습니다."
             />
           </>
