@@ -42,6 +42,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   /** 어느 칸에 무엇을 넣을지 고르는 중. */
   const [addCell, setAddCell] = useState<{ col: number; row: number } | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [addQuery, setAddQuery] = useState('');
 
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
   const grid = { cols: draft.gridCols, rows: draft.gridRows };
@@ -86,7 +87,10 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
 
   const selected = draft.items.find((i) => i.id === selectedItemId) ?? null;
   /* 무엇을 놓을지는 설비 종류를 짜는 사람이 정한다 — 수용 규칙(컨테이너의 것이었다)은 없다. */
-  const addable = catalog.types;
+  const addable = useMemo(() => {
+    const q = addQuery.trim().toLowerCase();
+    return q ? catalog.types.filter((t) => t.name.toLowerCase().includes(q)) : catalog.types;
+  }, [catalog.types, addQuery]);
 
   return (
     /* **평면도의 어법**: 왼쪽은 캔버스, 오른쪽은 상세 패널.
@@ -114,6 +118,8 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             /* 같은 것을 다시 누르면 풀린다 — 상세 패널·포트 탭과 같은 규칙. */
             onSelect={(part) => setSelectedItemId((cur) => (cur === part.id ? null : part.id))}
             onDeselect={() => setSelectedItemId(null)}
+            /* 초안이라 저장 전이다 — 묻지 않는다(취소로 통째로 되돌릴 수 있다). */
+            onRemove={(part) => removePart(part.id)}
             trailing={(part) => (
               <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? '—'}</span>
             )}
@@ -255,21 +261,36 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
       {addCell && (
         <Modal
           open
-          onClose={() => setAddCell(null)}
+          onClose={() => { setAddCell(null); setAddQuery(''); }}
           title={`자리 ${slotNumber(draft.gridCols, addCell.col, addCell.row)} 에 넣기`}
         >
           {addable.length === 0 ? (
             <EmptyState title="넣을 수 있는 자산 종류가 없습니다" description="「자산 종류」 탭에서 먼저 만드세요." />
           ) : (
-            <ul className="max-h-80 space-y-1 overflow-y-auto">
-              {addable.map((t) => (
-                <li key={t.id}>
-                  <Button variant="secondary" size="sm" className="w-full justify-start" onClick={() => addPart(t.id)}>
-                    {t.name}
-                  </Button>
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* 자산 종류는 스물 몇이라 전폭 버튼으로 늘어놓으면 눈으로 훑어야 한다 —
+                  왼쪽 목록이 같은 이유로 이미 검색을 갖고 있다(CONVENTIONS §1.6). */}
+              <Input
+                aria-label="자산 종류 검색"
+                size="sm"
+                autoFocus
+                placeholder="이름으로 검색"
+                value={addQuery}
+                onChange={(e) => setAddQuery(e.currentTarget.value)}
+              />
+              <ul className="mt-2 max-h-80 space-y-1 overflow-y-auto">
+                {addable.length === 0 && (
+                  <li className="px-2 py-3 text-xs text-content-faint">검색 결과가 없습니다</li>
+                )}
+                {addable.map((t) => (
+                  <li key={t.id}>
+                    <Button variant="secondary" size="sm" className="w-full justify-start" onClick={() => addPart(t.id)}>
+                      {t.name}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </Modal>
       )}

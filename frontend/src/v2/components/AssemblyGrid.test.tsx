@@ -106,6 +106,34 @@ describe('AssemblyGrid 선택 해제', () => {
   });
 });
 
+describe('AssemblyGrid 빼기', () => {
+  it('호버 X 를 누르면 그 부품을 뺀다', () => {
+    const onRemove = vi.fn();
+    setup({ onRemove });
+    fireEvent(
+      screen.getByRole('button', { name: '광단말 A 빼기' }),
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
+    );
+    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
+  });
+
+  /* 지우려고 누른 것이 끌기로 읽히면, 손을 떼는 순간 자리가 바뀌어 있다. */
+  it('X 를 누른 것은 칸의 손짓(이동)을 일으키지 않는다', () => {
+    const { onMove, onSelect } = setup({ onRemove: vi.fn() });
+    fireEvent(
+      screen.getByRole('button', { name: '광단말 A 빼기' }),
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
+    );
+    expect(onMove).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('뺄 길을 주지 않으면 X 가 없다 — 읽기 전용 판', () => {
+    setup({});
+    expect(screen.queryByRole('button', { name: /빼기/ })).toBeNull();
+  });
+});
+
 describe('AssemblyGrid 손짓', () => {
   it('끌지 않고 누르면 고른다', () => {
     const { onSelect, onMove, onAddAtCell, grid } = setup();

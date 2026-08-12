@@ -48,7 +48,12 @@ export function TypeListPanel({
       catalog.categories.map((cat) => {
         const items = catalog.types
           .filter((t) => t.categoryId === cat.id)
-          .map((t) => ({ id: t.id, name: t.name, hint: t.assetCount > 0 ? String(t.assetCount) : undefined }));
+          .map((t) => ({
+            id: t.id,
+            name: t.name,
+            hint: t.assetCount > 0 ? String(t.assetCount) : undefined,
+            hintTitle: `쓰이는 자산 ${t.assetCount}개`,
+          }));
         return {
           key: cat.id,
           label:

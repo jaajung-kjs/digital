@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 import { slotNumber, type Grid } from '@twin/core';
 import { cn, SELECTABLE, type BadgeStatus } from '../../components/ui';
 import {
@@ -54,6 +55,13 @@ export interface AssemblyGridProps<T extends GridItem> {
    * `onSelect` 를 받는 쪽이 정한다 — 거기서는 「무엇을 골랐나」를 알고 있기 때문이다.
    */
   onDeselect?: () => void;
+  /**
+   * 이 부품을 구성에서 뺀다 — 칸에 얹히는 호버 X.
+   *
+   * 없으면 X 가 안 뜬다(읽기 전용 판). 지우기는 되돌리기 어려우므로 확인은 **부르는 쪽**이
+   * 한다 — 설비 종류 초안은 저장 전이라 물을 것이 없고, 놓인 자산은 물어야 한다.
+   */
+  onRemove?: (item: T) => void;
   /**
    * 이 칸에 표시등을 켤 것인가 — 켠다면 무슨 빛으로.
    *
@@ -126,7 +134,7 @@ const LABEL_MIN_W = 52;
  */
 export function AssemblyGrid<T extends GridItem>({
   grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf, boxHeight, fill,
-  onDeselect,
+  onDeselect, onRemove,
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
@@ -420,7 +428,8 @@ export function AssemblyGrid<T extends GridItem>({
                 +
               </span>
             )}
-            {/* 운전 상태 표시등 — 오른쪽 **위** 모서리(손잡이가 오른쪽 아래라 겹치지 않는다).
+            {/* 운전 상태 표시등 — **왼쪽 위** 모서리.
+                오른쪽 위는 행동(빼기)의 자리다 — 버튼은 관례대로 오른쪽 위에 둔다.
                 판을 훑는 사람이 먼저 보는 것은 「어느 게 죽었나」다. 이름을 한 줄씩 읽어
                 내려가지 않고 색만으로 훑을 수 있어야 하므로 글자와 자리를 다투지 않는
                 모서리에 둔다 — 랙 실물의 상태 LED 도 전면 모서리에 있다.
@@ -433,11 +442,36 @@ export function AssemblyGrid<T extends GridItem>({
                      셋의 명도가 비슷해 뭉쳤다). 키우면 좁은 칸에서 글씨와 자리를 다툰다.
                      옅은 테: 흰 카드 위의 노랑은 테가 없으면 경계가 번져 색이 흐려 보인다.
                      `absolute` 라 글의 가운데 정렬에는 관여하지 않는다. */
-                  'pointer-events-none absolute right-1 top-1 h-2 w-2 rounded-full',
+                  'pointer-events-none absolute left-1 top-1 h-2 w-2 rounded-full',
                   'ring-1 ring-content-faint/60',
                   LAMP[tone],
                 )}
               />
+            )}
+
+            {/* 빼기 — 오른쪽 위. 예전에는 고른 뒤 오른쪽 패널까지 가서 눌러야 했다.
+                손잡이와 같은 규칙으로 드러난다: 평소에는 숨고, 얹으면·고르면 보인다
+                (조직 트리·케이블 종류 목록과 같은 어법). */}
+            {item && onRemove && (
+              <span
+                role="button"
+                tabIndex={-1}
+                aria-label={`${item.name} 빼기`}
+                title="구성에서 빼기"
+                className={cn(
+                  'absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded',
+                  'text-content-faint transition-opacity hover:bg-danger-bg hover:text-danger',
+                  'opacity-0 group-hover:opacity-100',
+                  selectedId === item.id && 'opacity-100',
+                )}
+                /* 칸의 손짓(이동)을 가로챈다 — 지우려고 누른 것이 끌기로 읽히면 안 된다. */
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  onRemove(item);
+                }}
+              >
+                <X size={12} />
+              </span>
             )}
 
             {/* 크기 손잡이 — 오른쪽 아래 모서리. **두 축 모두** 늘어난다(왼쪽 위 고정).

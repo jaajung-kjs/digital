@@ -35,7 +35,9 @@ export function AssemblyCatalogPanel({
   const { confirm, confirmDialog } = useConfirm();
   const m = useCatalogMutations();
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /* 첫 항목을 열어 둔다 — 케이블 탭이 이미 그렇게 하고 있었다. 기본 탭이 설비 종류라,
+     대장을 열면 빈 화면이 먼저 나오고 탭을 옮기면 갑자기 내용이 차 있어 어긋나 보였다. */
+  const [selectedId, setSelectedId] = useState<string | null>(catalog.assemblies[0]?.id ?? null);
   const [draft, setDraft] = useState<AssemblyDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -120,7 +122,7 @@ export function AssemblyCatalogPanel({
         labelText: cat.name,
         items: catalog.assemblies
           .filter((a) => a.categoryId === cat.id)
-          .map((a) => ({ id: a.id, name: a.name, hint: String(a.items.length) })),
+          .map((a) => ({ id: a.id, name: a.name, hint: String(a.items.length), hintTitle: `구성 부품 ${a.items.length}개` })),
         actions: (
           <>
             <IconButton

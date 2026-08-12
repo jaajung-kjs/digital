@@ -11,7 +11,7 @@
  * 탭을 열면 목록이 둘(자산 | 설비) 나란히 뜨고 왼쪽 264px 는 아무 일도 하지 않았다 —
  * 어느 목록이 지금 편집 대상인지 화면이 말해 주지 않았다.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ErrorStrip,
   PromptModal,
@@ -53,12 +53,27 @@ export default function V2CatalogAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('assembly');
 
   // ── 선택 상태 ────────────────────────────────────────────────────────────
+  /* 첫 항목을 열어 둔다 — 세 탭이 같아야 탭을 옮길 때 「갑자기 빈 화면」이 나오지 않는다. */
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  /* 카탈로그가 도착하면 첫 항목을 연다 — 한 번만. 그 뒤에 고른 것을 지우거나 「+」 로
+     새로 만들면 `null` 이 되는데, 그때 다시 첫 항목으로 튕기면 안 된다. */
+  const pickedFirstType = useRef(false);
+  useEffect(() => {
+    if (pickedFirstType.current || !catalog || catalog.types.length === 0) return;
+    pickedFirstType.current = true;
+    /* `selectType` 을 쓰면 안 된다 — 그건 **사용자가 목록에서 고른** 경우라 탭까지 옮긴다
+       (`setActiveTab('type')`). 첫 로드에 그러면 설비 종류 탭으로 들어왔는데 자산 종류로
+       튕긴다. 여기서는 고른 상태만 세운다. */
+    const first = catalog.types[0]!;
+    setSelectedTypeId(first.id);
+    setDraft(typeToDraft(first));
+  }, [catalog]);
 
   // 현재 선택된 원본 타입 (신규이면 null)
   const original: V2AssetType | null = catalog?.types.find((t) => t.id === selectedTypeId) ?? null;

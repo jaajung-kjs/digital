@@ -360,6 +360,8 @@ export function InfoTab({
                포트 탭이 이미 부품별로 묶어 보여준다). */
             onSelect={(child) => setSelectedPartId((cur: string | null) => (cur === child.id ? null : child.id))}
             onDeselect={() => setSelectedPartId(null)}
+            /* 놓인 자산이라 묻는다 — 포트·연결까지 함께 사라진다. */
+            onRemove={(part) => void handleDeletePart(part)}
             trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
             onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, grid, siblings: parts, cell })}
             canPlace={canPlaceInGrid}

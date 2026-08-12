@@ -15,6 +15,7 @@ import {
   Button,
   DetailCard,
   DetailCardHeader,
+  DetailGrid,
   DetailRow,
   EmptyState,
   Input,
@@ -115,7 +116,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     {
       key: 'all',
       label: null,
-      items: groups.map((g) => ({ id: g.id, name: g.name, hint: String(g.categories.length) })),
+      items: groups.map((g) => ({ id: g.id, name: g.name, hint: String(g.categories.length), hintTitle: `케이블 종류 ${g.categories.length}개` })),
     },
   ];
 
@@ -147,8 +148,12 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
               onSave={() => void handleSave()}
             />
 
+            {/* 카드 **두 장**이다. 예전에는 그룹·공량·종류 셋을 2단에 흘려서, 오른쪽 공량
+                (190px)이 왼쪽 행 높이를 정하는 바람에 그룹 카드 아래에 설명 없는 50px 구멍이
+                났고 2행 오른쪽은 통째로 비었다(실측). 다섯 값 모두 「이 그룹은 무엇인가」에
+                대한 답이므로 한 카드에 담는다 — CONVENTIONS §3 과 같은 논리. */}
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="grid w-full items-start gap-3 overflow-y-auto p-4 xl:grid-cols-2">
+              <div className="grid w-full items-start gap-3 p-4 xl:grid-cols-2">
                 <DetailCard>
                   <DetailCardHeader title="그룹" />
                   <DetailRow label="이름">
@@ -169,11 +174,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                       className="h-7 w-10 cursor-pointer rounded border border-line"
                     />
                   </DetailRow>
-                </DetailCard>
-
-                {/* 공량은 미터당이다 — 자산·설비가 「대」 단위인 것과 다르므로 단위를 라벨에 적는다. */}
-                <DetailCard>
-                  <DetailCardHeader title="공량" />
+                  {/* 공량은 미터당이다 — 자산·설비가 「대」 단위인 것과 다르므로 단위를 라벨에 적는다. */}
                   <DetailRow label="노무유형">
                     <Input
                       aria-label="노무유형"
@@ -182,22 +183,24 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                       onChange={(e) => setDraft({ ...draft, laborType: e.currentTarget.value })}
                     />
                   </DetailRow>
-                  <DetailRow label="신설(h/m)">
-                    <Input
-                      aria-label="신설 공량"
-                      type="number"
-                      value={draft.installHoursPerM}
-                      onChange={(e) => setDraft({ ...draft, installHoursPerM: e.currentTarget.value })}
-                    />
-                  </DetailRow>
-                  <DetailRow label="철거(h/m)">
-                    <Input
-                      aria-label="철거 공량"
-                      type="number"
-                      value={draft.removeHoursPerM}
-                      onChange={(e) => setDraft({ ...draft, removeHoursPerM: e.currentTarget.value })}
-                    />
-                  </DetailRow>
+                  <DetailGrid>
+                    <DetailRow label="신설(h/m)">
+                      <Input
+                        aria-label="신설 공량"
+                        type="number"
+                        value={draft.installHoursPerM}
+                        onChange={(e) => setDraft({ ...draft, installHoursPerM: e.currentTarget.value })}
+                      />
+                    </DetailRow>
+                    <DetailRow label="철거(h/m)">
+                      <Input
+                        aria-label="철거 공량"
+                        type="number"
+                        value={draft.removeHoursPerM}
+                        onChange={(e) => setDraft({ ...draft, removeHoursPerM: e.currentTarget.value })}
+                      />
+                    </DetailRow>
+                  </DetailGrid>
                 </DetailCard>
 
                 <CableCategoryCard group={original} />

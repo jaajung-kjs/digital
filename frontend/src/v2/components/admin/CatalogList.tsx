@@ -6,8 +6,15 @@ import { IconButton, Input, cn, SELECTABLE } from '../../../components/ui';
 export interface CatalogListItem {
   id: string;
   name: string;
-  /** 이름 뒤 흐린 숫자 — 설비 종류면 구성 개수, 자산 종류면 쓰이는 자산 수. */
+  /** 이름 뒤 흐린 숫자 — 탭마다 세는 것이 다르다(`hintTitle` 로 그 뜻을 밝힌다). */
   hint?: string;
+  /**
+   * 그 숫자가 무엇인지 — 얹으면 뜬다.
+   *
+   * 같은 자리·같은 서체의 숫자가 탭마다 다른 것을 세고 있었다(설비=부품 수, 자산=쓰이는
+   * 자산 수, 케이블=종류 수). 라벨도 툴팁도 없어 읽는 사람이 알 길이 없었다.
+   */
+  hintTitle?: string;
 }
 
 /** 분류로 묶인 한 덩이. 분류가 없는 대장(케이블 그룹)은 묶음 하나에 이름 없이 담는다. */
@@ -141,7 +148,12 @@ export function CatalogList({
                   >
                     <span className="min-w-0 flex-1 truncate">{item.name}</span>
                     {item.hint && (
-                      <span className="shrink-0 text-xs text-content-faint tabular-nums">{item.hint}</span>
+                      <span
+                        className="shrink-0 text-xs text-content-faint tabular-nums"
+                        title={item.hintTitle}
+                      >
+                        {item.hint}
+                      </span>
                     )}
                   </button>
                 </li>
