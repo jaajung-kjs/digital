@@ -9,7 +9,7 @@
  * 그룹은 늘리지 않는다(포트가 무엇과 이어지는지를 이 키로 판정한다) — 그래서 `+` 가 없고,
  * 늘어나는 것은 그룹 안의 **종류**다.
  */
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import {
   Button,
@@ -17,6 +17,7 @@ import {
   DetailCardHeader,
   DetailRow,
   EmptyState,
+  ErrorStrip,
   Input,
   IconButton,
   PromptModal,
@@ -25,6 +26,7 @@ import {
   SELECTABLE,
 } from '../../../components/ui';
 import type { V2Catalog, V2CableGroup, V2CableCategory } from '../../types';
+import { useReportUnsaved } from '../../unsavedGuard';
 import { useCatalogMutations } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
 import { CatalogList } from './CatalogList';
@@ -50,6 +52,7 @@ const num = (raw: string, fallback: number) => (Number.isFinite(parseFloat(raw))
 
 export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const mutations = useCatalogMutations();
+  const { confirm, confirmDialog } = useConfirm();
   const groups = catalog.cableGroups;
 
   const [selectedId, setSelectedId] = useState<string | null>(groups[0]?.id ?? null);
@@ -59,10 +62,20 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
 
   const original = groups.find((g) => g.id === selectedId) ?? null;
 
-  /* 고른 것이 사라졌거나(첫 로드) 바뀌면 초안을 새로 뜬다 — 편집 중이면 그대로 둔다. */
-  const selectGroup = (id: string) => {
+  /* 다른 그룹으로 옮기기 전에 묻는다 — 세 탭이 같은 규칙이어야 한다(예전에는 조용히 버렸다). */
+  const selectGroup = async (id: string) => {
     const g = groups.find((x) => x.id === id);
     if (!g) return;
+    if (
+      dirtyRef.current &&
+      !(await confirm({
+        title: '저장하지 않은 변경',
+        message: '편집 내용이 사라집니다. 이동할까요?',
+        confirmLabel: '이동',
+        danger: true,
+      }))
+    )
+      return;
     setSelectedId(id);
     setDraft(toDraft(g));
     setSaveError(null);
@@ -77,6 +90,12 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     if (!original || !draft) return false;
     return draft.name.trim() !== original.name || draft.color !== original.color;
   }, [draft, original]);
+  /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
+  useReportUnsaved(dirty);
+  /* `selectGroup` 은 `dirty` 보다 위에 선다 — 최신 값을 ref 로 읽는다(선언 순서 때문이지
+     성능 때문이 아니다). */
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
 
   async function handleSave() {
     if (!original || !draft || saving) return;
@@ -108,7 +127,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         title="케이블 그룹"
         groups={listGroups}
         selectedId={selectedId}
-        onSelect={selectGroup}
+        onSelect={(id) => void selectGroup(id)}
         emptyText="케이블 그룹이 없습니다"
       />
 
@@ -164,6 +183,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
           </>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }
@@ -245,7 +265,7 @@ function CableCategoryCard({ group }: { group: V2CableGroup }) {
           </Button>
         }
       />
-      {error && <p className="text-xs text-danger">{error}</p>}
+      <ErrorStrip message={error} />
       {group.categories.length === 0 && <p className="text-xs text-content-faint">종류가 없습니다.</p>}
 
       {/* 종류마다 **품셈을 적는다** — 자산 종류·설비 종류와 같은 층이다. 같은 광이라도

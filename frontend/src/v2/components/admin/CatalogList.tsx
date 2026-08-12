@@ -121,7 +121,7 @@ export function CatalogList({
                 그 안의 것인지 읽히지 않았다. 항목은 들여쓴다. */}
             {g.label != null && (
               <div className="group flex items-center gap-1 rounded bg-surface-2 px-2 py-1">
-                <span className="flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-content-faint">
+                <span className="flex-1 truncate text-xs font-semibold uppercase tracking-wide text-content-faint">
                   {g.label}
                 </span>
                 {g.actions && (

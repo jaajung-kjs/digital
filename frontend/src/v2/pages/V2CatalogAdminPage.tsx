@@ -22,6 +22,7 @@ import {
   type TabItem,
 } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
+import { UnsavedGuardProvider, useHasUnsaved, useReportUnsaved } from '../unsavedGuard';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty } from '../catalogDraft';
 import type { TypeDraft } from '../catalogDraft';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
@@ -42,7 +43,17 @@ const CATALOG_TABS: readonly TabItem<Tab>[] = [
   { key: 'cable', label: '케이블 종류' },
 ];
 
+/* 저장 안 한 변경을 알리는 자리는 이 화면 **바깥**에 있어야 한다 — 안쪽에서 만들면
+   그 자리를 읽는 것도 안쪽이라 패널이 알린 값을 못 본다. */
 export default function V2CatalogAdminPage() {
+  return (
+    <UnsavedGuardProvider>
+      <CatalogAdmin />
+    </UnsavedGuardProvider>
+  );
+}
+
+function CatalogAdmin() {
   const { confirm, confirmDialog } = useConfirm();
   const catalogQuery = useV2Catalog();
   const catalog = catalogQuery.data;
@@ -83,6 +94,7 @@ export default function V2CatalogAdminPage() {
 
   // dirty 여부
   const dirty = draft != null ? isDraftDirty(draft, original) : false;
+  useReportUnsaved(activeTab === 'type' && dirty);
 
   // 이슈 목록 (저장 시도 또는 실시간 표시)
   const issues = draft != null && catalog != null ? draftIssues(draft, catalog) : [];
@@ -90,6 +102,25 @@ export default function V2CatalogAdminPage() {
   // ── draft onChange ────────────────────────────────────────────────────────
   function handleChange(patch: Partial<TypeDraft>) {
     setDraft((prev) => (prev == null ? prev : { ...prev, ...patch }));
+  }
+
+  /** 지금 서 있는 화면이 저장 안 한 변경을 들고 있는가 — 각 패널이 알린다. */
+  const hasUnsaved = useHasUnsaved();
+
+  async function confirmLeave(): Promise<boolean> {
+    if (!hasUnsaved()) return true;
+    return confirm({
+      title: '저장하지 않은 변경',
+      message: '편집 내용이 사라집니다. 이동할까요?',
+      confirmLabel: '이동',
+      danger: true,
+    });
+  }
+
+  async function switchTab(next: Tab) {
+    if (next === activeTab) return;
+    if (!(await confirmLeave())) return;
+    setActiveTab(next);
   }
 
   // ── 타입 선택 ─────────────────────────────────────────────────────────────
@@ -249,7 +280,8 @@ export default function V2CatalogAdminPage() {
         className="shrink-0 border-b border-line bg-surface px-4 py-1"
       />
       <PanelHeader className="px-4">
-        <Tabs items={CATALOG_TABS} value={activeTab} onChange={setActiveTab} className="-mb-px" />
+        {/* 탭을 옮기면 그 패널이 통째로 사라지고 초안도 함께 사라진다 — 묻고 옮긴다. */}
+        <Tabs items={CATALOG_TABS} value={activeTab} onChange={(t) => void switchTab(t as Tab)} className="-mb-px" />
       </PanelHeader>
       <div className="flex min-h-0 flex-1">
         {/* 목록은 탭이 각자 갖는다 — 지금 편집하는 것 옆에만 그 목록이 선다.

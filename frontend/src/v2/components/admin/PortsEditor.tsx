@@ -25,7 +25,7 @@ import { useMemo } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
 import { DEFAULT_CORE_COUNT, isMultiCorePort, portGroupLabel, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
-import { DetailCard, DetailCardHeader, EmptyState, cn } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, EmptyState, ErrorStrip, cn } from '../../../components/ui';
 import { useMediumColor, useMediumLabel } from '../../hooks';
 import type { TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
@@ -150,7 +150,7 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
        서야 한다(구성 격자와 같은 규칙). 포트가 많으면 판 안에서 스크롤한다. */
     <DetailCard className="flex min-h-0 flex-1 flex-col">
       <DetailCardHeader title="포트" badge={`${total}개`} badgeStatus={total > 0 ? 'success' : 'neutral'} />
-      {issue && <p className="text-xs text-danger">{issue}</p>}
+      <ErrorStrip message={issue ?? null} />
 
       {/* 값을 넣는 자리 — **한 줄에 모은다**. 종류가 일곱으로 고정이라 이 줄의 키도 늘 같다.
           개수 0 이면 그 종류가 없는 것이라, 켜고 끄는 길을 따로 두지 않는다. */}

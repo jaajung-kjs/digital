@@ -422,10 +422,11 @@ export function AssemblyGrid<T extends GridItem>({
               <span
                 className={cn(
                   'flex min-h-0 min-w-0 max-h-full max-w-full items-center leading-tight',
-                  /* 세로로 세운 글씨는 칸 높이가 곧 글자 수다 — 반고 카드(3단=90px)에 12px 로
-                     쓰면 「광스위치 상단」과 「광스위치 하단」이 둘 다 「광스위치 …」가 되어
-                     구분이 사라진다. 좁은 칸에 맞춰 한 급 줄인다(전체 이름은 툴팁·읽어주기에). */
-                  vertical ? 'flex-row text-[10px]' : 'flex-col',
+                  /* 세로로 세운 글씨는 칸 높이가 곧 글자 수다. 한때 10px 로 줄였는데, 그건
+                     격자 높이가 행당 30px 로 못 박혀 있을 때의 이야기다 — 이제 격자가 상자를
+                     채우므로(`fill`) 칸이 그때보다 높아 규칙 크기로 들어간다.
+                     전체 이름은 툴팁·읽어주기에 있다. */
+                  vertical ? 'flex-row text-xs' : 'flex-col',
                 )}
                 /* `text-orientation: upright` — 기본값(`mixed`)은 영문·숫자를 눕혀서
                    「광단말 A」의 A 만 옆으로 누웠다. 실물 카드 라벨의 짧은 영숫자 꼬리표는

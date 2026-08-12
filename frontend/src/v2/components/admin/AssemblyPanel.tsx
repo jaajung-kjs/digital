@@ -13,7 +13,7 @@
 import { useMemo, useState } from 'react';
 import { freeCells, slotNumber, validateGridPlacement } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, DetailGrid, DetailNote, DetailRow, EmptyState, Input, Modal, Select,
+  Button, DetailCard, DetailCardHeader, DetailGrid, DetailNote, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
 } from '../../../components/ui';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { PortsPreview } from './PortsPreview';
@@ -109,7 +109,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             badge={`${grid.cols * grid.rows - freeCells(grid, draft.items).length}/${grid.cols * grid.rows}칸`}
             badgeStatus="neutral"
           />
-          {issueOf(issues, 'items') && <p className="text-xs text-danger">{issueOf(issues, 'items')}</p>}
+          <ErrorStrip message={issueOf(issues, 'items') ?? null} />
           <AssemblyGrid
             grid={grid}
             fill

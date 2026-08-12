@@ -19,6 +19,7 @@ import {
 } from '../../assemblyDraft';
 import { AssemblyPanel } from './AssemblyPanel';
 import type { V2Catalog, V2Category } from '../../types';
+import { useReportUnsaved } from '../../unsavedGuard';
 
 interface AssemblyCatalogPanelProps {
   catalog: V2Catalog;
@@ -63,6 +64,19 @@ export function AssemblyCatalogPanel({
 
   const issues = draft ? assemblyIssues(draft, catalog.types) : [];
   const dirty = draft != null && JSON.stringify(draft) !== JSON.stringify(original ? assemblyToDraft(original) : emptyAssemblyDraft());
+  /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
+  useReportUnsaved(dirty);
+
+  /** 다른 설비 종류로 옮기기 전에 묻는다 — 자산 종류 탭과 같은 규칙. */
+  async function leaveIfConfirmed(): Promise<boolean> {
+    if (!dirty) return true;
+    return confirm({
+      title: '저장하지 않은 변경',
+      message: '편집 내용이 사라집니다. 이동할까요?',
+      confirmLabel: '이동',
+      danger: true,
+    });
+  }
   const isSaving = m.createAssembly.isPending || m.updateAssembly.isPending;
 
   async function handleSave() {
@@ -156,11 +170,12 @@ export function AssemblyCatalogPanel({
         title="설비 종류"
         groups={listGroups}
         selectedId={selectedId}
-        onSelect={setSelectedId}
-        onAdd={() => {
+        onSelect={(id) => void (async () => { if (await leaveIfConfirmed()) setSelectedId(id); })()}
+        onAdd={() => void (async () => {
+          if (!(await leaveIfConfirmed())) return;
           setSelectedId(null);
           setDraft(emptyAssemblyDraft());
-        }}
+        })()}
         addLabel="설비 종류 추가"
         onAddGroup={onAddCategory}
         emptyText="설비 종류가 없습니다"

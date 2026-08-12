@@ -20,12 +20,6 @@ interface TypeBasicsFormProps {
   issues: TypeSpecIssue[];
 }
 
-/** 필드 하단 에러 메시지 — text-xs text-danger */
-function FieldError({ message }: { message: string | null }) {
-  if (!message) return null;
-  return <span className="text-xs text-danger">{message}</span>;
-}
-
 export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsFormProps) {
 
   return (
@@ -39,8 +33,7 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
             영문 키를 지어내야 했다. 새로 만들 때는 서버가 붙인다. */}
 
         {/* 이름 */}
-        <DetailRow label="이름">
-          <div className="flex flex-col gap-0.5">
+        <DetailRow label="이름" issue={issueFor(issues, 'name')}>
             <Input
               aria-label="이름"
               value={draft.name}
@@ -50,13 +43,10 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
               }}
               placeholder="예: 광단말"
             />
-            <FieldError message={issueFor(issues, 'name')} />
-          </div>
         </DetailRow>
 
         {/* 분류 */}
-        <DetailRow label="분류">
-          <div className="flex flex-col gap-0.5">
+        <DetailRow label="분류" issue={issueFor(issues, 'categoryKey')}>
             <Select
               aria-label="분류"
               value={draft.categoryId}
@@ -71,8 +61,6 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
                 </option>
               ))}
             </Select>
-            <FieldError message={issueFor(issues, 'categoryKey')} />
-          </div>
         </DetailRow>
 
       </DetailCard>
@@ -95,8 +83,7 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
 
         {/* 시간 셋은 나란히 읽는 값이다 — 한 줄에 하나씩 쌓으면 카드만 길어진다. */}
         <DetailGrid>
-        <DetailRow label="신설(h)">
-          <div className="flex flex-col gap-0.5">
+        <DetailRow label="신설(h)" issue={issueFor(issues, 'labor.installHours')}>
             <Input
               aria-label="신설(h)"
               type="number"
@@ -106,12 +93,9 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
                 onChange({ installHours: isNaN(val) ? 0 : val });
               }}
             />
-            <FieldError message={issueFor(issues, 'labor.installHours')} />
-          </div>
         </DetailRow>
 
-        <DetailRow label="철거(h)">
-          <div className="flex flex-col gap-0.5">
+        <DetailRow label="철거(h)" issue={issueFor(issues, 'labor.removeHours')}>
             <Input
               aria-label="철거(h)"
               type="number"
@@ -121,12 +105,9 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
                 onChange({ removeHours: isNaN(val) ? 0 : val });
               }}
             />
-            <FieldError message={issueFor(issues, 'labor.removeHours')} />
-          </div>
         </DetailRow>
 
-        <DetailRow label="이설(h)">
-          <div className="flex flex-col gap-0.5">
+        <DetailRow label="이설(h)" issue={issueFor(issues, 'labor.relocateHours')}>
             <Input
               aria-label="이설(h)"
               type="number"
@@ -136,8 +117,6 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
                 onChange({ relocateHours: isNaN(val) ? 0 : val });
               }}
             />
-            <FieldError message={issueFor(issues, 'labor.relocateHours')} />
-          </div>
         </DetailRow>
         </DetailGrid>
       </DetailCard>
