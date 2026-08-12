@@ -10,7 +10,7 @@
  * 자리는 상세 패널과 **같은 격자**(`AssemblyGrid`)를 쓴다 — 설비 종류에서 짠 모습이 놓고 나면
  * 달라 보이면 짜는 뜻이 없다.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { freeCells, slotNumber, validateGridPlacement } from '@twin/core';
 import {
   Button, DetailCard, DetailCardHeader, DetailGrid, DetailNote, DetailRow, EmptyState, Input, Modal, Select,
@@ -32,6 +32,15 @@ const issueOf = (issues: AssemblyIssue[], path: AssemblyIssue['path']) =>
   issues.find((i) => i.path === path)?.message;
 
 /** 1식 공량의 작업 종류 — 자산 종류의 공량 카드와 같은 순서다. */
+/**
+ * 판이 차지할 최대 높이 — **자리 크기와 무관하게 같은 키**로 세운다.
+ *
+ * 격자는 1행(30px)부터 20행(600px)까지 있다. 그대로 두면 설비마다 편집 화면의 모양이
+ * 달라지고, 판 아래에 있는 것(고른 부품·그 장비의 판)이 화면 밖으로 밀린다.
+ * 12행쯤이 한눈에 들어오는 크기라 그 언저리에서 끊고, 넘으면 판 안에서 스크롤한다.
+ */
+const GRID_MAX_H = 380;
+
 const LABOR_HOURS = [
   { key: 'installHours', label: '신설(h)' },
   { key: 'removeHours', label: '철거(h)' },
@@ -42,6 +51,17 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   /** 어느 칸에 무엇을 넣을지 고르는 중. */
   const [addCell, setAddCell] = useState<{ col: number; row: number } | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  /**
+   * 고른 부품의 상세가 **눈에 들어오게** 한다.
+   *
+   * 판의 키를 묶어도(`GRID_MAX_H`) 위쪽 폼이 이미 510px 라, 화면(719px)에서 판 아래는
+   * 여전히 아슬아슬하다. `block: 'nearest'` 라 이미 보이면 아무 일도 하지 않는다 —
+   * 필요할 때만 움직인다.
+   */
+  const detailRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (selectedItemId) detailRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedItemId]);
 
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
   const grid = { cols: draft.gridCols, rows: draft.gridRows };
@@ -193,6 +213,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         {issueOf(issues, 'items') && <p className="text-xs text-danger">{issueOf(issues, 'items')}</p>}
         <AssemblyGrid
           grid={grid}
+          maxHeight={GRID_MAX_H}
           items={draft.items}
           selectedId={selectedItemId}
           onSelect={(part) => setSelectedItemId(part.id)}
@@ -209,7 +230,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           그대로 생긴다. 넣기 전에 「이걸 넣으면 포트가 뭐가 생기나」를 여기서 본다 —
           예전에는 자산 종류 탭으로 건너가 그 종류를 찾아 봐야 알 수 있었다. */}
       {selected && (
-        <>
+        <div ref={detailRef} className="space-y-3">
           <DetailCard>
             <DetailCardHeader
               title={typeById.get(selected.typeId)?.name ?? '부품'}
@@ -228,7 +249,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             title={`${selected.name} 의 판`}
             empty="이 자산 종류에는 포트가 선언돼 있지 않습니다."
           />
-        </>
+        </div>
       )}
 
       </div>

@@ -29,7 +29,6 @@ import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { CatalogEditorBar, InUseNotice } from '../components/admin/CatalogEditorBar';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { PortsEditor } from '../components/admin/PortsEditor';
-import { PortsPreview } from '../components/admin/PortsPreview';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
 import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
@@ -313,26 +312,23 @@ export default function V2CatalogAdminPage() {
                       함께 막힌다(그게 애초에 폭을 묶은 까닭이다). */}
                   <div className="min-h-0 flex-1 overflow-y-auto p-4">
                     <div className="grid items-start gap-3 xl:grid-cols-2">
-                      <div className="space-y-3">
-                        {/* 기본정보 · 공량 */}
-                        <TypeBasicsForm
-                          draft={draft}
-                          catalog={catalog}
-                          onChange={handleChange}
-                          issues={issues}
-                        />
+                      {/* 기본정보 · 공량 */}
+                      <TypeBasicsForm
+                        draft={draft}
+                        catalog={catalog}
+                        onChange={handleChange}
+                        issues={issues}
+                      />
 
-                        {/* 포트 템플릿 (잠금 대상) — 고른 종류와 개수만 묻는다. */}
-                        <PortsEditor
-                          draft={draft}
-                          onChange={handleChange}
-                          locked={locked}
-                          issues={issues}
-                        />
-                      </div>
-
-                      {/* 짠 포트가 실제로 어떤 판이 되는지 — 자산 상세와 같은 판을 그린다. */}
-                      <PortsPreview ports={draft.ports} />
+                      {/* 포트 — **판이 곧 편집기**다. 미리보기를 따로 두지 않는다:
+                          개수는 그 구획이 무엇인지 말하는 값이라 구획 라벨 옆이 제 자리이고,
+                          거기서 고치면 고친 결과가 같은 자리에서 바뀐다. */}
+                      <PortsEditor
+                        draft={draft}
+                        onChange={handleChange}
+                        locked={locked}
+                        issues={issues}
+                      />
                     </div>
                   </div>
                 </>

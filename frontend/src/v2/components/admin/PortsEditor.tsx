@@ -1,17 +1,19 @@
 /**
- * PortsEditor — 포트 템플릿 편집. **줄 수가 고정된 표**다.
+ * PortsEditor — **판이 곧 편집기**다. 미리보기와 입력 칸이 한 장에 있다.
  *
- * 포트 종류는 고정 어휘다(`PORT_KINDS` → `portPresets()` 일곱 줄). 그러니 편집기도 고정일
- * 수 있다: 종류마다 한 줄, 개수만 적는다. 0 이면 그 종류가 없는 것이다.
+ * 앞서 두 번 잘못 갔다.
+ *   1) 종류를 고를 때마다 카드가 쌓였다 — 네 그룹 398px, 일곱이면 600px(§1.6 위반).
+ *   2) 그래서 일곱 줄 고정 표로 바꿨더니, **한 자리 숫자 일곱 개를 받으려고 세로 376px**
+ *      를 쓰고 그 옆에 판을 또 그렸다. 고정은 됐지만 여전히 헐렁했다.
  *
- * 예전에는 종류를 고를 때마다 카드가 하나씩 쌓였다 — 네 그룹이면 398px, 일곱이면 600px 로
- * 자라서 자산마다 편집 화면의 키가 달랐고, 아래 있는 것(판 미리보기·저장 바)이 화면 밖으로
- * 밀렸다. CONVENTIONS §1.6 이 금지하는 「개수에 비례해 커지는 UI」가 바로 이것이다.
- * 이제 무엇을 고르든 표의 키는 그대로다.
+ * 개수는 그 구획이 무엇인지 말하는 값이므로 **구획 라벨 옆이 제 자리**다. 판 위에서 바로
+ * 고치면 고친 결과가 같은 자리에서 바뀐다 — 미리보기를 따로 둘 이유가 없어진다.
  *
- * **묻는 것은 개수뿐**이다. 그룹 키·방향·매체·이름 패턴은 종류가 이미 정한 값이라 물어 봐야
- * 답이 하나뿐인 칸이었다. 심선 수만 다심 줄에 남는다 — 같은 광이라도 성단이 24심인지
- * 12심인지는 물건마다 다르므로 종류가 대신 정해 줄 수 없다.
+ * 판의 키는 **포트가 늘어도 그대로**다(`max-h` + 안쪽 스크롤). 24구 스위치를 만들어도
+ * 화면이 밀리지 않는다.
+ *
+ * **묻는 것은 개수와 심선 수뿐**이다. 그룹 키·방향·매체·이름 패턴은 종류가 이미 정한 값이라
+ * 물어 봐야 답이 하나뿐인 칸이었다.
  *
  * 구조 잠금(locked=true): 모든 입력 disabled
  */
@@ -19,8 +21,11 @@ import { useMemo } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
 import { DEFAULT_CORE_COUNT, isMultiCorePort, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
-import { DetailCard, DetailCardHeader, DetailNote, DetailRow, Input, cn } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, DetailNote, cn } from '../../../components/ui';
+import { useMediumColor, useMediumLabel } from '../../hooks';
 import type { TypeDraft } from '../../catalogDraft';
+import { PortFaceplate } from '../detail/PortFaceplate';
+import { portSections } from './portSections';
 import { issueFor } from './adminUtils';
 
 type PortRow = TypeDraft['ports'][number];
@@ -41,121 +46,155 @@ interface PortsEditorProps {
 const kindOf = (p: { medium: string; direction: Direction; positions?: number | null }) =>
   `${p.medium}|${p.direction}|${isMultiCorePort(p.positions) ? 'multi' : 'single'}`;
 
+/** 판 위에 앉는 개수 칸 — 실크스크린 글자 옆이라 테두리 없이 작게. */
+function CountField({
+  label, value, min, disabled, onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  disabled: boolean;
+  onChange: (raw: string) => void;
+}) {
+  return (
+    <input
+      type="number"
+      aria-label={label}
+      value={String(value)}
+      min={min}
+      disabled={disabled}
+      onChange={(e) => onChange(e.currentTarget.value)}
+      /* 판 위의 칸이라 상자를 그리지 않는다 — `Input` 을 쓰면 38px 짜리 폼 칸이 실크스크린
+         라벨 옆에 서서 판이 폼으로 보인다. 대신 밑줄과 배경으로 「고칠 수 있는 값」을 알린다. */
+      className={cn(
+        'w-9 rounded bg-surface/70 px-1 text-center text-xs tabular-nums text-content',
+        'border border-line focus:outline-none focus:ring-1 focus:ring-primary',
+        'disabled:cursor-not-allowed disabled:opacity-60',
+        '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none',
+      )}
+    />
+  );
+}
+
 export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProps) {
   const ports = draft.ports;
+  const mediumLabel = useMediumLabel();
+  const mediumColor = useMediumColor();
 
-  /* 표의 줄 — 프리셋 일곱이 먼저, 그다음 **어느 프리셋과도 안 맞는 것**.
-     후자는 지금 데이터에 하나도 없지만(자산 종류 23개 전부 중복 0건), 있다고 해서 조용히
-     지워 버리면 안 된다. 뒤에 붙여 그대로 보여 주고 개수만 고칠 수 있게 둔다. */
-  const rows = useMemo(() => {
-    const presets = portPresets();
+  /* 선언 목록 — 이미 있는 것 + **없는 종류도 0개짜리로**.
+     없는 종류가 판에서 사라지면 켤 때마다 구획이 생겼다 없어져 판이 출렁인다. 0개짜리로
+     자리를 지켜 두면 판의 모양이 늘 같고, 그 자리에서 숫자만 올리면 된다. */
+  const declared = useMemo<PreviewRow[]>(() => {
     const byKind = new Map(ports.map((p) => [kindOf(p), p]));
-    const known = presets.map((preset) => ({
-      key: kindOf(preset),
-      label: preset.name,
-      preset,
-      port: byKind.get(kindOf(preset)) ?? null,
-    }));
-    const knownKeys = new Set(known.map((r) => r.key));
-    const extra = ports
-      .filter((p) => !knownKeys.has(kindOf(p)))
-      .map((p) => ({
-        key: `x:${p.group}`,
-        label: p.namePattern.replace(/\s*\{n\}\s*/, '').trim() || p.group,
-        preset: null,
-        port: p,
-      }));
-    return [...known, ...extra];
+    const taken = ports.map((p) => p.group);
+    const fromPresets = portPresets().map((preset) => {
+      const existing = byKind.get(kindOf(preset));
+      if (existing) return { row: existing, preset };
+      return {
+        row: {
+          group: uniqueGroupKey(preset.groupKey, taken),
+          count: 0,
+          direction: preset.direction,
+          medium: preset.medium,
+          namePattern: preset.namePattern,
+          positions: preset.positions,
+        } satisfies PortRow,
+        preset,
+      };
+    });
+    const known = new Set(fromPresets.map((r) => kindOf(r.row)));
+    // 어느 프리셋과도 안 맞는 선언(손으로 만든 것)은 조용히 지우지 않고 뒤에 남긴다.
+    const extra = ports.filter((p) => !known.has(kindOf(p))).map((row) => ({ row, preset: null }));
+    return [...fromPresets, ...extra];
   }, [ports]);
 
-  /** 개수를 바꾼다 — 0 이면 그 종류를 뺀다. 있던 줄이면 나머지 값(그룹 키·이름)은 그대로 둔다. */
-  function setCount(row: (typeof rows)[number], raw: string) {
-    const count = Math.max(Number(raw) || 0, 0);
-    if (row.port) {
-      const port = row.port;
-      onChange({
-        ports: count === 0
-          ? ports.filter((p) => p !== port)
-          : ports.map((p) => (p === port ? { ...p, count } : p)),
-      });
+  const sections = useMemo(
+    () => portSections(declared.map((d) => d.row), mediumLabel, mediumColor),
+    [declared, mediumLabel, mediumColor],
+  );
+
+  function patch(row: PortRow, next: Partial<PortRow>) {
+    const existing = ports.find((p) => kindOf(p) === kindOf(row) && p.group === row.group);
+    if (!existing) {
+      // 0개였던 종류를 켠다 — 선언이 그때 생긴다.
+      if ((next.count ?? 0) <= 0) return;
+      onChange({ ports: [...ports, { ...row, ...next }] });
       return;
     }
-    if (count === 0 || !row.preset) return;
-    const added: PortRow = {
-      group: uniqueGroupKey(row.preset.groupKey, ports.map((p) => p.group)),
-      count,
-      direction: row.preset.direction,
-      medium: row.preset.medium,
-      namePattern: row.preset.namePattern,
-      positions: row.preset.positions,
-    };
-    onChange({ ports: [...ports, added] });
+    if (next.count === 0) {
+      onChange({ ports: ports.filter((p) => p !== existing) });
+      return;
+    }
+    onChange({ ports: ports.map((p) => (p === existing ? { ...p, ...next } : p)) });
   }
 
-  function setPositions(row: (typeof rows)[number], raw: string) {
-    const port = row.port;
-    if (!port) return;
-    const positions = Math.max(Number(raw) || 2, 2);
-    onChange({ ports: ports.map((p) => (p === port ? { ...p, positions } : p)) });
-  }
+  /** 판에 얹을 구획 — 라벨 자리에 개수 칸이 함께 선다. */
+  const faceplate = sections.map((section) => {
+    const found = declared.find((d) => d.row.group === section.key);
+    const row = found?.row;
+    const i = row ? ports.findIndex((p) => p === ports.find((q) => q.group === row.group)) : -1;
+    const multi = isMultiCorePort(row?.positions);
+    return {
+      key: section.key,
+      accent: section.accent,
+      ports: section.ports,
+      label: (
+        <span className="flex items-center gap-1">
+          <span className={cn(section.ports.length === 0 && 'opacity-60')}>{section.labelText}</span>
+          {row && (
+            <CountField
+              label={`${section.labelText} 개수`}
+              value={row.count}
+              min={0}
+              disabled={locked}
+              onChange={(raw) => patch(row, { count: Math.max(Number(raw) || 0, 0) })}
+            />
+          )}
+          {/* 심선 수는 다심 구획에만, 그것도 켜져 있을 때만 — 꺼진 구획에 칸이 둘 서면
+              판이 들쭉날쭉해진다. */}
+          {row && multi && row.count > 0 && (
+            <>
+              <span className="opacity-70">×</span>
+              <CountField
+                label={`${section.labelText} 심선 수`}
+                value={row.positions ?? DEFAULT_CORE_COUNT}
+                min={2}
+                disabled={locked}
+                onChange={(raw) => patch(row, { positions: Math.max(Number(raw) || 2, 2) })}
+              />
+            </>
+          )}
+        </span>
+      ),
+      issue: i >= 0 ? issueFor(issues, `ports[${i}].count`) ?? issueFor(issues, `ports[${i}].positions`) : undefined,
+    };
+  });
 
   const total = ports.reduce((n, p) => n + p.count, 0);
+  const issue = faceplate.map((f) => f.issue).find(Boolean);
 
   return (
     <DetailCard>
       <DetailCardHeader title="포트" badge={`${total}개`} badgeStatus={total > 0 ? 'success' : 'neutral'} />
+      {issue && <p className="text-xs text-danger">{issue}</p>}
 
-      <div className="space-y-1">
-        {rows.map((row) => {
-          const i = row.port ? ports.indexOf(row.port) : -1;
-          const countIssue = i >= 0 ? issueFor(issues, `ports[${i}].count`) : undefined;
-          const positionsIssue = i >= 0 ? issueFor(issues, `ports[${i}].positions`) : undefined;
-          const on = (row.port?.count ?? 0) > 0;
-          const multi = isMultiCorePort(row.port?.positions ?? row.preset?.positions);
-
-          return (
-            <DetailRow
-              key={row.key}
-              /* 없는 종류는 흐리게 — 표는 늘 일곱 줄이므로, 무엇이 켜져 있는지가 색으로
-                 먼저 읽혀야 줄을 세어 가며 찾지 않는다. */
-              label={<span className={cn(!on && 'text-content-faint')}>{row.label}</span>}
-              issue={countIssue ?? positionsIssue}
-            >
-              {/* 두 자리 숫자 칸이라 폭을 내용에 맞춘다 — `DetailRow` 의 기본(22rem)은
-                  이름 같은 글 입력에 맞춘 치수다. */}
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  aria-label={`${row.label} 개수`}
-                  className="w-24"
-                  min={0}
-                  value={String(row.port?.count ?? 0)}
-                  disabled={locked}
-                  onChange={(e) => setCount(row, e.currentTarget.value)}
-                />
-                {/* 심선 수는 다심 줄에만, 그것도 켜져 있을 때만 — 꺼진 줄에 칸이 서면
-                    표가 들쭉날쭉해진다. */}
-                {multi && on && (
-                  <>
-                    <span className="shrink-0 text-xs text-content-muted">심선</span>
-                    <Input
-                      type="number"
-                      aria-label={`${row.label} 심선 수`}
-                      className="w-24"
-                      min={2}
-                      value={String(row.port?.positions ?? DEFAULT_CORE_COUNT)}
-                      disabled={locked}
-                      onChange={(e) => setPositions(row, e.currentTarget.value)}
-                    />
-                  </>
-                )}
-              </div>
-            </DetailRow>
-          );
-        })}
+      {/* 판의 키는 포트 수와 무관하게 고정 — 24구 스위치를 만들어도 아래가 밀리지 않는다. */}
+      <div className="max-h-72 overflow-y-auto">
+        <PortFaceplate
+          sections={faceplate}
+          stateOf={() => 'empty'}
+          cableCountOf={() => 0}
+          selectedPortId={null}
+          onSelect={() => {}}
+        />
       </div>
 
-      <DetailNote>개수를 0 으로 두면 그 종류의 포트가 없습니다.</DetailNote>
+      <DetailNote>구획 이름 옆 숫자가 포트 개수입니다. 0 으로 두면 그 종류가 없습니다.</DetailNote>
     </DetailCard>
   );
+}
+
+interface PreviewRow {
+  row: PortRow;
+  preset: ReturnType<typeof portPresets>[number] | null;
 }

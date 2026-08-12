@@ -10,6 +10,16 @@ import type { V2Catalog } from '../types';
 import type { TypeDraft } from '../catalogDraft';
 import { PortsEditor } from '../components/admin/PortsEditor';
 
+/* 판은 매체 이름·색을 카탈로그에서 읽는다(`useMediumLabel`·`useMediumColor`) — 그 훅은
+   react-query 를 타므로 여기서는 어휘만 돌려주는 목으로 갈음한다. */
+const MEDIUM_NAMES: Record<string, string> = {
+  power: '전원', network: '네트워크', fiber: '광', control: '제어', ground: '접지',
+};
+vi.mock('../hooks', () => ({
+  useMediumLabel: () => (key: string) => MEDIUM_NAMES[key] ?? key,
+  useMediumColor: () => () => null,
+}));
+
 // ─── 팩토리 ─────────────────────────────────────────────────────────────────
 const mkCatalog = (): V2Catalog => ({
   categories: [{ id: 'cat-1', key: '통신', name: '통신장비', sortOrder: 1 }],
@@ -41,15 +51,14 @@ const mkDraft = (portOverrides: TypeDraft['ports'] = []): TypeDraft => ({
 describe('PortsEditor', () => {
   const catalog = mkCatalog();
 
-  it('(a) 포트 줄은 **종류와 개수**만 보여 준다', () => {
+  it('(a) 개수 칸은 **판의 구획 라벨 옆**에 있다', () => {
     const draft = mkDraft([
       { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '코어 {n}' },
     ]);
     render(<PortsEditor draft={draft} onChange={vi.fn()} locked={false} issues={[]} />);
 
-    expect(screen.getByDisplayValue('12')).toBeTruthy(); // 개수
-    // 종류가 줄 제목이다 — 「광」은 추가 버튼에도 있으므로 개수 칸의 라벨로 짚는다.
-    expect(screen.getByLabelText('광 개수')).toBeTruthy();
+    // 구획 이름은 포트 이름에서 나온다(광이 둘이라 갈린다) — 그 옆 칸이 개수다.
+    expect((screen.getByLabelText('코어 개수') as HTMLInputElement).value).toBe('12');
     // 지어내야 하던 값들은 화면에 없다 — 종류가 이미 정했다.
     expect(screen.queryByDisplayValue('A')).toBeNull();
     expect(screen.queryByDisplayValue('코어 {n}')).toBeNull();
@@ -58,7 +67,7 @@ describe('PortsEditor', () => {
   /* 표는 늘 일곱 줄이다 — 무엇을 고르든 키가 그대로여야 자산마다 화면이 달라지지 않는다. */
   it('(a-2) 포트가 하나도 없어도 종류 줄은 모두 서 있다', () => {
     render(<PortsEditor draft={mkDraft([])} onChange={vi.fn()} locked={false} issues={[]} />);
-    for (const name of ['전원 입력', '전원 출력', '네트워크', '광', '광 다심', '제어', '접지']) {
+    for (const name of ['전원 입력', '전원 출력', '네트워크', '광', 'OPGW', '제어', '접지']) {
       expect((screen.getByLabelText(`${name} 개수`) as HTMLInputElement).value).toBe('0');
     }
   });
@@ -105,9 +114,9 @@ describe('PortsEditor', () => {
     render(<PortsEditor draft={existing} onChange={onChange} locked={false} issues={[]} />);
 
     expect((screen.getByLabelText('광 개수') as HTMLInputElement).value).toBe('24');
-    expect((screen.getByLabelText('광 다심 개수') as HTMLInputElement).value).toBe('0');
+    expect((screen.getByLabelText('OPGW 개수') as HTMLInputElement).value).toBe('0');
 
-    fireEvent.change(screen.getByLabelText('광 다심 개수'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('OPGW 개수'), { target: { value: '1' } });
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
     expect(ports).toHaveLength(2);
     expect(ports[1]).toMatchObject({ medium: 'fiber', count: 1 });
@@ -157,7 +166,7 @@ describe('PortsEditor', () => {
 
     expect(screen.queryByLabelText('전원 입력 심선 수')).toBeNull(); // 전원 — 다심이 없다
     expect(screen.queryByLabelText('광 심선 수')).toBeNull();        // 단심 광 어댑터 — 늘 1
-    expect((screen.getByLabelText('광 다심 심선 수') as HTMLInputElement).value).toBe('24');
+    expect((screen.getByLabelText('OPGW 심선 수') as HTMLInputElement).value).toBe('24');
   });
 
   it('(e-2) 심선 수를 고치면 onChange 로 positions 가 전달된다', () => {
@@ -167,7 +176,7 @@ describe('PortsEditor', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
 
-    fireEvent.change(screen.getByLabelText('광 다심 심선 수'), { target: { value: '12' } });
+    fireEvent.change(screen.getByLabelText('OPGW 심선 수'), { target: { value: '12' } });
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };
     expect(called.ports[0]).toMatchObject({ positions: 12 });
   });

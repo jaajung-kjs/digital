@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from '../../../components/ui';
 import type { V2Port } from '../../types';
 import { PortGlyph, PORT_GLYPH_ASPECT } from './PortGlyph';
@@ -41,8 +42,13 @@ const ROW_MAX_W = '100cqw';
 
 export interface FaceplateSection {
   key: string;
-  /** 구획 이름 — 종류 어휘에서 나온다(`portGroupLabel`). */
-  label: string;
+  /**
+   * 구획 이름 — 종류 어휘에서 나온다(`portGroupLabel`).
+   *
+   * `ReactNode` 인 이유: 종류 편집기는 이 자리에 **개수 칸**을 끼워 넣는다. 판이 곧
+   * 편집기가 되면 「숫자 한 자리를 받으려고 세로로 일곱 줄」을 쓰지 않아도 된다.
+   */
+  label: ReactNode;
   /** 이 구획의 종류 색(카탈로그 선언). 없으면 중성 회색. */
   accent: string | null;
   ports: readonly V2Port[];

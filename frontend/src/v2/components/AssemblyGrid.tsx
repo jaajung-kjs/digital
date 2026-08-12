@@ -36,6 +36,15 @@ export interface AssemblyGridProps<T extends GridItem> {
   /** 지금 골라져 있는 것 — 설비 종류 편집기가 고른 부품을 표시할 때 쓴다. */
   selectedId?: string | null;
   /**
+   * 판이 차지할 **최대 높이**(px). 넘으면 안쪽에서 스크롤한다.
+   *
+   * 왜 필요한가: 격자 높이는 행 수에 그대로 비례한다(1행 30px ~ 20행 600px, 20배). 그래서
+   * 설비마다 화면의 키가 달랐고, 판 아래에 있는 것(고른 부품·판 미리보기)이 화면 밖으로
+   * 밀려 「눌러도 아무 반응이 없다」가 됐다 — 실측으로 167px 밖이었다.
+   * 상한을 두면 어느 설비를 열어도 화면 모양이 같고, 고른 결과가 늘 보인다.
+   */
+  maxHeight?: number;
+  /**
    * 이 칸에 표시등을 켤 것인가 — 켠다면 무슨 빛으로.
    *
    * 어휘가 정한 빛(`assetStatusTone`)을 그대로 받는다. 여기서 상태값을 보고 색을 고르면
@@ -106,7 +115,7 @@ const LABEL_MIN_W = 52;
  * 끌어서 옮기고 모서리로 크기를 바꾼다 — 수학은 `gridDrag.ts` 에 순수 함수로 있다.
  */
 export function AssemblyGrid<T extends GridItem>({
-  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf,
+  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf, maxHeight,
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
@@ -434,7 +443,12 @@ export function AssemblyGrid<T extends GridItem>({
   const rowRule = { gridTemplateRows: `repeat(${rows}, ${GRID_ROW_H}px)` };
 
   return (
-    <div className="mt-1 flex gap-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner">
+    /* 세로 스크롤은 **눈금과 칸을 함께** 감싼 이 상자가 쥔다 — 눈금만 따로 두면 판을
+       내렸을 때 단 번호가 어긋난다. */
+    <div
+      className="mt-1 flex gap-1 overflow-y-auto rounded border border-line bg-surface-2 p-1.5 shadow-inner"
+      style={maxHeight != null ? { maxHeight } : undefined}
+    >
       {/* 단 눈금 — 랙 정면도의 U 눈금과 같다. 「몇 단인가」를 판 옆에서 한 번에 읽는다.
           격자 바깥에 두는 이유: 포인터 좌표를 칸으로 셈하는 상자(`boxRef`)에 섞이면
           눈금 폭만큼 칸 계산이 밀린다. */}

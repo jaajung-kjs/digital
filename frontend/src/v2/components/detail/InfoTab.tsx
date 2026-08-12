@@ -7,7 +7,7 @@
  * 소유(부모가 자산 전환 시 리셋 + 하단 AddAssetModal 렌더를 관장)하므로 setter 만 prop 으로 받는다.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, freeCells, validateGridPlacement } from '@twin/core';
 import {
   DetailCard,
@@ -167,6 +167,10 @@ export function InfoTab({
   const { confirm, confirmDialog } = useConfirm();
   /** 격자에서 고른 부품 — 패널을 바꾸지 않고 아래에 카드로 편다. */
   const [selectedPartId, setSelectedPartId] = useState<string | null>(focusPartId ?? null);
+  const partCardRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (selectedPartId) partCardRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedPartId]);
   // 다른 설비로 옮겨 가거나 밖에서 부품을 지목해 오면 그것을 고른다.
   useEffect(() => setSelectedPartId(focusPartId ?? null), [assetId, focusPartId]);
   const selectedPart = parts.find((p) => p.id === selectedPartId) ?? null;
@@ -344,6 +348,9 @@ export function InfoTab({
           />
           <AssemblyGrid
             grid={grid}
+            /* 상세 패널에서도 판의 키를 묶는다 — 20행 격자(600px)가 스크롤 영역(538px)보다
+               커서, 부품을 눌러도 그 카드가 화면 밖에 나타났다. */
+            maxHeight={320}
             items={parts}
             selectedId={selectedPartId}
             /* 부품을 골라도 **패널은 그대로** 둔다 — 아래에 그 부품 카드만 연다.
@@ -362,8 +369,11 @@ export function InfoTab({
         </DetailCard>
       )}
 
-      {/* 고른 부품 — 설비에서 갈라지는 것만 적는다. */}
+      {/* 고른 부품 — 설비에서 갈라지는 것만 적는다.
+          판의 키를 묶어도 좁은 패널(538px)에서는 아래가 잘릴 수 있어, 고르면 눈에 들어오게
+          한다(`block: 'nearest'` — 이미 보이면 움직이지 않는다). */}
       {selectedPart && (
+        <div ref={partCardRef}>
         <PartCard
           part={selectedPart}
           typeName={typesById.get(selectedPart.typeId ?? '')?.name ?? '—'}
@@ -371,6 +381,7 @@ export function InfoTab({
           onOpenPorts={() => onOpenPorts(selectedPart.id)}
           onDelete={() => void handleDeletePart(selectedPart)}
         />
+        </div>
       )}
 
       {confirmDialog}
