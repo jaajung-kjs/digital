@@ -457,6 +457,50 @@ describe('v2 가드레일 — DGN wasm 산출물·Rust 소스 드리프트 감�
 });
 
 describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => {
+  /**
+   * 화면마다 되풀이되던 규칙들은 **공용 것 하나가 소유한다**.
+   *
+   * 이 계열의 결함이 유난히 잦았다: 같은 규칙이 여러 화면에 복제돼 있다가 한 곳만 고쳐진다.
+   * 실제로 좌우 여백·스크롤 래퍼·선택 해제·첫 항목 열기·검색·키보드 경로·저장 안 한 초안
+   * 보호·제자리 이름 바꾸기가 차례로 그랬고, 마지막 것은 **편집 내용이 조용히 사라지는**
+   * 데까지 갔다. 뽑아 둔 것을 다시 손으로 쓰기 시작하면 여기서 걸린다.
+   */
+  it('제자리 이름 바꾸기를 손으로 다시 쓰지 않는다 — useInlineRename 을 쓴다', () => {
+    /* 표식: `editingId`/`editingCategoryId` 같은 상태와 `Escape` 처리를 한 파일에서 함께
+       들고 있으면 훅이 하는 일을 다시 쓰고 있는 것이다. 훅 자신과 인라인 셀은 제외한다. */
+    const ALLOW = new Set([
+      'frontend/src/components/ui/useInlineRename.tsx',
+      'frontend/src/components/ui/InlineEditCell.tsx',
+      'frontend/src/v2/components/InlineEditCell.tsx',
+    ]);
+    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      if (ALLOW.has(relToRoot(f))) continue;
+      const src = readFileSync(f, 'utf8');
+      const hasEditingState = /const \[editing(Id|CategoryId|Name)\b/.test(src);
+      const handlesEscape = /['"`]Escape['"`]/.test(src);
+      expect(hasEditingState && handlesEscape, `${f}: 제자리 이름 바꾸기를 다시 쓰고 있다 — useInlineRename 을 쓰세요`).toBe(false);
+    }
+  });
+
+  /**
+   * 「바깥을 누르면 고른 것이 풀린다」는 앱 공통 규칙(`useDismissOnOutside`)이다.
+   *
+   * 화면마다 제 손으로 「빈 곳」을 정의하면 반드시 한 곳이 빠진다 — 격자는 빈 칸과 Esc 만
+   * 알아서 상단 머리줄을 눌러도 선택이 남아 있었다. 고르는 화면이 늘어날 때 이 훅을 쓰게
+   * 한다: 선택 상태를 들고 있으면서 문서 수준 리스너를 손으로 다는 파일이 없어야 한다.
+   */
+  it('바깥 클릭 해제를 손으로 다시 쓰지 않는다 — useDismissOnOutside 를 쓴다', () => {
+    const ALLOW = new Set(['frontend/src/components/ui/useDismissOnOutside.ts']);
+    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      if (ALLOW.has(relToRoot(f))) continue;
+      const src = readFileSync(f, 'utf8');
+      expect(
+        /document\.addEventListener\(\s*['"`](pointerdown|mousedown|click)['"`]/.test(src),
+        `${f}: 바깥 클릭을 직접 듣고 있다 — useDismissOnOutside 를 쓰세요`,
+      ).toBe(false);
+    }
+  });
+
   it('BackgroundDrawing 타입은 @twin/core 에만 정의된다 (복제 금지)', () => {
     // 백엔드/프론트에 같은 타입을 다시 선언하면 두 정의가 조용히 갈라진다.
     // 허용된 정의처: packages/core/src/canvas/backgroundTypes.ts 단 하나.
