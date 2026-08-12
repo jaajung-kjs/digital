@@ -5,7 +5,12 @@ import { buildReportItems } from '../reportSelectors';
 const labor = { laborType: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3 };
 const rackType = { id: 't-rack', key: 'SW', name: 'L3 스위치', categoryId: 'c', sortOrder: 1, ...labor, portTemplates: [] };
 const fiberCat = 'cat-f';
-const groups = [{ id: 'g-f', key: 'fiber', name: '광', color: '#0f0', laborType: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02, sortOrder: 1, categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1 }] }];
+/* 품셈은 **종류**가 갖는다 — 같은 광이라도 OPGW 가공과 실내 점퍼 결선은 품이 다르다.
+   그룹은 이름·색뿐이고, 설계서의 「종류」 열도 그룹이 아니라 종류 이름을 적는다. */
+const groups = [{
+  id: 'g-f', key: 'fiber', name: '광', color: '#0f0', sortOrder: 1,
+  categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1, laborType: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02 }],
+}];
 
 const mkAsset = (id: string, name: string, extra: object = {}) => ({
   id, name, typeId: 't-rack', substationId: 's', status: 'normal',
@@ -39,7 +44,7 @@ describe('buildReportItems', () => {
     expect(kinds).toEqual(['asset-install', 'asset-relocate', 'cable-remove']);
     expect(items.find((i) => i.kind === 'asset-install')).toMatchObject({ name: '신규 스위치', hours: 2 });
     expect(items.find((i) => i.kind === 'asset-relocate')).toMatchObject({ name: '기존 스위치', hours: 3 });
-    expect(items.find((i) => i.kind === 'cable-remove')).toMatchObject({ qty: 50, hours: 1, typeName: '광' });
+    expect(items.find((i) => i.kind === 'cable-remove')).toMatchObject({ qty: 50, hours: 1, typeName: '광케이블' });
   });
 
   it('이름만 변경 update는 미포함, 종류 미지정 케이블은 note', () => {

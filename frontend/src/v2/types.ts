@@ -10,8 +10,10 @@ export interface V2AssetType {
   portTemplates: V2PortTemplate[];
 }
 
-export interface V2CableCategory { id: string; name: string; sortOrder: number }
-export interface V2CableGroup { id: string; key: string; name: string; color: string; laborType: string | null; installHoursPerM: number; removeHoursPerM: number; sortOrder: number; categories: V2CableCategory[] }
+/** 케이블 종류 — **품셈을 갖는다**(미터당). 자산 종류·설비 종류와 같은 층이다. */
+export interface V2CableCategory { id: string; name: string; sortOrder: number; laborType: string | null; installHoursPerM: number; removeHoursPerM: number }
+/** 케이블 그룹 — 포트 종류와 1:1인 고정 어휘. 이름·색만 고친다(품셈은 종류가 갖는다). */
+export interface V2CableGroup { id: string; key: string; name: string; color: string; sortOrder: number; categories: V2CableCategory[] }
 /** 설비 종류를 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 export interface V2AssemblyItem {
   id: string;

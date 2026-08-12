@@ -190,14 +190,14 @@ model AssemblyItem {
 
 // ---------- 케이블 카탈로그 ----------
 
+/// 케이블 그룹 — 포트 종류와 1:1인 **고정 어휘**(`PORT_KINDS`). 사용자가 늘리거나 지울 수
+/// 없고 이름·색만 고친다. 품셈은 여기가 아니라 **종류**가 갖는다: 같은 광이라도 OPGW 가공과
+/// 실내 점퍼 결선은 품이 다르고, 자산·설비도 「종류」가 품셈을 갖는다(층이 같아야 한다).
 model CableGroup {
   id                String          @id @default(uuid())
   key               String          @unique
   name              String
   color             String
-  laborType         String?
-  installHoursPerM  Float           @default(0)
-  removeHoursPerM   Float           @default(0)
   sortOrder         Int             @default(0)
   categories        CableCategory[]
   createdAt         DateTime        @default(now())
@@ -210,6 +210,10 @@ model CableCategory {
   groupId   String
   group     CableGroup @relation(fields: [groupId], references: [id])
   sortOrder Int        @default(0)
+  /// 이 종류의 품셈 — 미터당. 설계서 공량의 근거다(품셈 × 길이).
+  laborType        String?
+  installHoursPerM Float  @default(0)
+  removeHoursPerM  Float  @default(0)
   cables    Cable[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt

@@ -150,15 +150,18 @@ export const typeUpsertSchema = z.object({
 });
 export const categoryCreateSchema = z.object({ key: z.string().min(1), name: z.string().trim().min(1), sortOrder: z.number().int() });
 export const categoryPatchSchema = z.object({ name: z.string().trim().min(1).optional(), sortOrder: z.number().int().optional() });
+/* 그룹은 이름·색만 고친다 — 품셈은 종류가 갖는다(층을 자산·설비와 맞춘다). */
 export const cableGroupPatchSchema = z.object({
   name: z.string().trim().min(1).optional(),
   color: z.string().min(1).optional(),
+});
+const cableLaborSchema = {
   laborType: z.string().trim().min(1).nullable().optional(),
   installHoursPerM: z.number().min(0).optional(),
   removeHoursPerM: z.number().min(0).optional(),
-});
-export const cableCategoryCreateSchema = z.object({ groupId: z.string().uuid(), name: z.string().trim().min(1), sortOrder: z.number().int() });
-export const cableCategoryPatchSchema = z.object({ name: z.string().trim().min(1).optional(), sortOrder: z.number().int().optional() });
+};
+export const cableCategoryCreateSchema = z.object({ groupId: z.string().uuid(), name: z.string().trim().min(1), sortOrder: z.number().int(), ...cableLaborSchema });
+export const cableCategoryPatchSchema = z.object({ name: z.string().trim().min(1).optional(), sortOrder: z.number().int().optional(), ...cableLaborSchema });
 
 export const commitPayloadSchema = z.object({
   assets: z

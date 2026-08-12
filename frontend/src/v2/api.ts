@@ -95,7 +95,7 @@ export async function deleteCategory(id: string): Promise<void> {
 // 케이블 그룹
 export async function patchCableGroup(
   id: string,
-  body: { name?: string; color?: string; laborType?: string | null; installHoursPerM?: number; removeHoursPerM?: number },
+  body: { name?: string; color?: string },
 ): Promise<void> {
   await api.patch(`/v2/catalog/cable-groups/${id}`, body);
 }
@@ -104,7 +104,10 @@ export async function patchCableGroup(
 export async function createCableCategory(body: { groupId: string; name: string; sortOrder: number }): Promise<{ id: string }> {
   return (await api.post('/v2/catalog/cable-categories', body)).data;
 }
-export async function patchCableCategory(id: string, body: { name?: string; sortOrder?: number }): Promise<void> {
+export async function patchCableCategory(
+  id: string,
+  body: { name?: string; sortOrder?: number; laborType?: string | null; installHoursPerM?: number; removeHoursPerM?: number },
+): Promise<void> {
   await api.patch(`/v2/catalog/cable-categories/${id}`, body);
 }
 export async function deleteCableCategory(id: string): Promise<void> {

@@ -372,27 +372,21 @@ export const SEED_ASSEMBLIES: {
 ];
 
 /**
- * 케이블 그룹의 **품셈과 색** — 이름·키·순서는 여기 없다.
+ * 케이블 그룹의 **색** — 이름·키·순서는 여기 없고 품셈도 여기 없다.
  *
- * 그 셋은 `PORT_KINDS` 가 이미 선언한다(포트 종류 하나 = 케이블 그룹 하나). 예전에는 이
- * 표가 키·이름·순서까지 통째로 되풀이해서, 「광 인입」을 OPGW 로 바꾸는 데 어휘와 시드 두
- * 곳을 고쳐야 했고 한쪽만 고치면 화면마다 다른 말이 나왔다(판 구획은 OPGW, 자산 만들 때
- * 매체 고르는 칸은 「광 인입」). 이름은 한 곳에서만 적는다.
+ * 이름·키·순서는 `PORT_KINDS` 가 이미 선언한다(포트 종류 하나 = 케이블 그룹 하나).
+ * 품셈은 **종류**가 갖는다(`SEED_CABLE_CATEGORIES`) — 같은 광이라도 OPGW 가공(외선)과
+ * 실내 점퍼 결선은 품이 다르고, 자산 종류·설비 종류도 「종류」가 품셈을 갖는다.
+ * 그룹에 두면 층이 어긋난다.
  *
- * `Record<PortKindKey, …>` 라 **포트 종류를 늘리면 여기가 빌 때 컴파일이 깨진다** — 품셈
- * 없는 그룹이 조용히 0시간으로 새는 대신.
+ * `Record<PortKindKey, …>` 라 **포트 종류를 늘리면 여기가 빌 때 컴파일이 깨진다**.
  */
-const CABLE_GROUP_RATES: Record<PortKindKey, {
-  color: string;
-  laborType: string | null;
-  installHoursPerM: number;
-  removeHoursPerM: number;
-}> = {
-  power:   { color: '#ef4444', laborType: '통신내선공', installHoursPerM: 0.03,  removeHoursPerM: 0.015 },
-  network: { color: '#3b82f6', laborType: '통신내선공', installHoursPerM: 0.02,  removeHoursPerM: 0.01  },
-  fiber:   { color: '#22c55e', laborType: '통신외선공', installHoursPerM: 0.04,  removeHoursPerM: 0.02  },
-  control: { color: '#6b7280', laborType: '통신내선공', installHoursPerM: 0.025, removeHoursPerM: 0.012 },
-  ground:  { color: '#eab308', laborType: '통신내선공', installHoursPerM: 0.02,  removeHoursPerM: 0.01  },
+const CABLE_GROUP_COLORS: Record<PortKindKey, string> = {
+  power: '#ef4444',
+  network: '#3b82f6',
+  fiber: '#22c55e',
+  control: '#6b7280',
+  ground: '#eab308',
 };
 
 /** 시드가 넣는 케이블 그룹 — 어휘 순서가 곧 화면 순서다(`sortOrder`). */
@@ -400,33 +394,48 @@ export const SEED_CABLE_GROUPS = PORT_KINDS.map((kind, i) => ({
   key: kind.key,
   name: kind.name,
   sortOrder: i + 1,
-  ...CABLE_GROUP_RATES[kind.key],
+  color: CABLE_GROUP_COLORS[kind.key],
 }));
 
 /** 구 MaterialCategory.CABLE 17종 — 레거시 groupName을 CableGroup.key 로 매핑 */
-export const SEED_CABLE_CATEGORIES: { groupKey: string; name: string; sortOrder: number }[] = [
-  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1 },
-  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2 },
-  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3 },
-  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4 },
-  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5 },
+export interface SeedCableCategory {
+  groupKey: string;
+  name: string;
+  sortOrder: number;
+  /** 이 종류의 품셈 — 미터당. 설계서 공량의 근거다(품셈 × 길이). */
+  laborType: string;
+  installHoursPerM: number;
+  removeHoursPerM: number;
+}
+
+/* 품셈은 **종류마다** 다르다. 같은 광이라도 OPGW 는 외선 가공이고 점퍼코드는 실내 결선이다.
+   예전에는 그룹이 하나로 뭉쳐 갖고 있어 그 차이가 설계서에서 사라졌다. */
+const 내선 = '통신내선공';
+const 외선 = '통신외선공';
+
+export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
+  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1, laborType: 내선, installHoursPerM: 0.03,  removeHoursPerM: 0.015 },
+  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2, laborType: 내선, installHoursPerM: 0.035, removeHoursPerM: 0.018 },
+  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3, laborType: 내선, installHoursPerM: 0.03,  removeHoursPerM: 0.015 },
+  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4, laborType: 내선, installHoursPerM: 0.02,  removeHoursPerM: 0.01  },
+  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5, laborType: 내선, installHoursPerM: 0.02,  removeHoursPerM: 0.01  },
   /* 광 4종은 한 그룹이다. 점퍼코드만 한 가닥에 한 심이고 나머지 셋은 다심인데, 그 구분은
      **포트의 심선 수**(`positions`)가 하지 케이블 종류가 하지 않는다 — 케이블에는 심선 수
      필드가 아예 없다. 종류는 무엇을 깔았는지를 적는 이름일 뿐이다. */
-  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6 },
-  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7 },
-  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8 },
-  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9 },
-  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10 },
-  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11 },
+  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborType: 외선, installHoursPerM: 0.06,  removeHoursPerM: 0.03  },
+  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborType: 외선, installHoursPerM: 0.06,  removeHoursPerM: 0.03  },
+  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8, laborType: 외선, installHoursPerM: 0.06,  removeHoursPerM: 0.03  },
+  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9, laborType: 내선, installHoursPerM: 0.04,  removeHoursPerM: 0.02  },
+  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10, laborType: 내선, installHoursPerM: 0.02, removeHoursPerM: 0.01 },
+  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11, laborType: 내선, installHoursPerM: 0.02, removeHoursPerM: 0.01 },
   // 제어케이블은 제어 그룹이다 — 예전에는 전원 그룹에 들어가 있어, 제어 포트에 물릴 수 있는
   // 케이블 종류가 하나도 없었다(포트 종류와 케이블 그룹이 어긋난 자리).
-  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12 },
-  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13 },
-  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14 },
-  { groupKey: 'control', name: '동축케이블',            sortOrder: 15 },
-  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16 },
-  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17 },
+  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12, laborType: 내선, installHoursPerM: 0.025, removeHoursPerM: 0.012 },
+  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13, laborType: 내선, installHoursPerM: 0.02,  removeHoursPerM: 0.01  },
+  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14, laborType: 내선, installHoursPerM: 0.025, removeHoursPerM: 0.012 },
+  { groupKey: 'control', name: '동축케이블',            sortOrder: 15, laborType: 내선, installHoursPerM: 0.025, removeHoursPerM: 0.012 },
+  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16, laborType: 내선, installHoursPerM: 0.02,  removeHoursPerM: 0.01  },
+  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17, laborType: 내선, installHoursPerM: 0.025, removeHoursPerM: 0.012 },
 ];
 
 /**

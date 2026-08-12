@@ -2,7 +2,7 @@ import { assetReportItem, cableReportItem, COMMON_CABLE_FIELDS, PLACEMENT_FIELDS
 import type { ReportItem } from '@twin/core';
 import { mergeEffective } from './store/overlay';
 import { buildPortIndex, cableEndpointName } from './peerResolve';
-import type { V2Assembly, V2Asset, V2AssetType, V2Cable, V2CableGroup, V2InspectionLog, V2MaintenanceLog } from './types';
+import type { V2Assembly, V2Asset, V2AssetType, V2Cable, V2CableCategory, V2CableGroup, V2InspectionLog, V2MaintenanceLog } from './types';
 import type { Overlay } from './store/overlay';
 
 /** 스토어 Overlays의 구조적 타입 (import 없이 인라인) */
@@ -77,10 +77,11 @@ export function buildReportItems(args: {
   const assembliesById = new Map(assemblies.map((a) => [a.id, a]));
 
   // categoryId → group 매핑 (categories를 flatten)
-  const groupByCategoryId = new Map<string, V2CableGroup>();
+  /* 케이블 종류로 바로 찾아간다 — 품셈이 종류에 있으므로 그룹을 한 번 더 거칠 이유가 없다. */
+  const categoryById = new Map<string, V2CableCategory>();
   for (const g of cableGroups) {
     for (const cat of g.categories) {
-      groupByCategoryId.set(cat.id, g);
+      categoryById.set(cat.id, cat);
     }
   }
 
@@ -217,8 +218,8 @@ export function buildReportItems(args: {
       items.push(unresolvedCableItem('cable-install', '케이블'));
       continue;
     }
-    const group = groupByCategoryId.get(cable.categoryId);
-    if (!group) {
+    const category = categoryById.get(cable.categoryId);
+    if (!category) {
       items.push(unresolvedCableItem('cable-install', '케이블'));
       continue;
     }
@@ -227,12 +228,7 @@ export function buildReportItems(args: {
     const bName = portIndex.get(cable.bPortId)?.asset.name;
     const name = aName && bName ? `${aName}↔${bName}` : '케이블';
     const lengthM = cableLengthM(cable.specParams);
-    items.push(cableReportItem('cable-install', name, {
-      name: group.name,
-      laborType: group.laborType,
-      installHoursPerM: group.installHoursPerM,
-      removeHoursPerM: group.removeHoursPerM,
-    }, lengthM));
+    items.push(cableReportItem('cable-install', name, category, lengthM));
   }
 
   // --- cables.deletes → cable-remove (saved에서 해소) ---
@@ -243,8 +239,8 @@ export function buildReportItems(args: {
       items.push(unresolvedCableItem('cable-remove', cable.name ?? '케이블'));
       continue;
     }
-    const group = groupByCategoryId.get(cable.categoryId);
-    if (!group) {
+    const category = categoryById.get(cable.categoryId);
+    if (!category) {
       items.push(unresolvedCableItem('cable-remove', cable.name ?? '케이블'));
       continue;
     }
@@ -253,12 +249,7 @@ export function buildReportItems(args: {
     const bName = cableEndpointName(cable, cable.bPortId, portIndex);
     const name = cable.name ?? (aName && bName ? `${aName}↔${bName}` : '케이블');
     const lengthM = cableLengthM(cable.specParams);
-    items.push(cableReportItem('cable-remove', name, {
-      name: group.name,
-      laborType: group.laborType,
-      installHoursPerM: group.installHoursPerM,
-      removeHoursPerM: group.removeHoursPerM,
-    }, lengthM));
+    items.push(cableReportItem('cable-remove', name, category, lengthM));
   }
 
   return items;

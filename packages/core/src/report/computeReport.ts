@@ -45,15 +45,16 @@ export function assetReportItem(
 export function cableReportItem(
   kind: 'cable-install' | 'cable-remove',
   name: string,
-  group: { name: string; laborType: string | null; installHoursPerM: number; removeHoursPerM: number },
+  /** 케이블 **종류** — 품셈은 종류가 갖는다(그룹은 색·이름뿐). */
+  category: { name: string; laborType: string | null; installHoursPerM: number; removeHoursPerM: number },
   lengthM: number | null,
 ): ReportItem {
   if (lengthM === null) {
     return {
       kind,
       name,
-      typeName: group.name,
-      laborType: group.laborType,
+      typeName: category.name,
+      laborType: category.laborType,
       qty: 0,
       unit: 'm',
       hours: 0,
@@ -61,14 +62,14 @@ export function cableReportItem(
     };
   }
 
-  const hoursPerM = kind === 'cable-install' ? group.installHoursPerM : group.removeHoursPerM;
+  const hoursPerM = kind === 'cable-install' ? category.installHoursPerM : category.removeHoursPerM;
   const hours = lengthM * hoursPerM;
 
   return {
     kind,
     name,
-    typeName: group.name,
-    laborType: group.laborType,
+    typeName: category.name,
+    laborType: category.laborType,
     qty: lengthM,
     unit: 'm',
     hours,

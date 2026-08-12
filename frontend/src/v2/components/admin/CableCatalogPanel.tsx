@@ -9,19 +9,20 @@
  * 그룹은 늘리지 않는다(포트가 무엇과 이어지는지를 이 키로 판정한다) — 그래서 `+` 가 없고,
  * 늘어나는 것은 그룹 안의 **종류**다.
  */
-import { useMemo, useState } from 'react';
-import { Pencil, Check, Trash2 } from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import {
   Button,
   DetailCard,
   DetailCardHeader,
-  DetailGrid,
   DetailRow,
   EmptyState,
   Input,
   IconButton,
   PromptModal,
   useConfirm,
+  cn,
+  SELECTABLE,
 } from '../../../components/ui';
 import type { V2Catalog, V2CableGroup, V2CableCategory } from '../../types';
 import { useCatalogMutations } from '../../hooks';
@@ -37,17 +38,11 @@ interface CableCatalogPanelProps {
 interface GroupDraft {
   name: string;
   color: string;
-  laborType: string;
-  installHoursPerM: string;
-  removeHoursPerM: string;
 }
 
 const toDraft = (g: V2CableGroup): GroupDraft => ({
   name: g.name,
   color: g.color,
-  laborType: g.laborType ?? '',
-  installHoursPerM: String(g.installHoursPerM),
-  removeHoursPerM: String(g.removeHoursPerM),
 });
 
 /** 공량은 미터당 값이라 소수다 — 빈칸이나 글자면 원래 값을 지킨다. */
@@ -80,13 +75,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
 
   const dirty = useMemo(() => {
     if (!original || !draft) return false;
-    return (
-      draft.name.trim() !== original.name ||
-      draft.color !== original.color ||
-      (draft.laborType.trim() || null) !== original.laborType ||
-      num(draft.installHoursPerM, original.installHoursPerM) !== original.installHoursPerM ||
-      num(draft.removeHoursPerM, original.removeHoursPerM) !== original.removeHoursPerM
-    );
+    return draft.name.trim() !== original.name || draft.color !== original.color;
   }, [draft, original]);
 
   async function handleSave() {
@@ -96,14 +85,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     try {
       await mutations.patchCableGroup.mutateAsync({
         id: original.id,
-        body: {
-          name: draft.name.trim() || original.name,
-          color: draft.color,
-          // 빈 문자열 → null 전송(백엔드의 명시적 clear 신호; undefined 는 기존값 유지)
-          laborType: draft.laborType.trim() === '' ? null : draft.laborType.trim(),
-          installHoursPerM: num(draft.installHoursPerM, original.installHoursPerM),
-          removeHoursPerM: num(draft.removeHoursPerM, original.removeHoursPerM),
-        },
+        body: { name: draft.name.trim() || original.name, color: draft.color },
       });
     } catch (err: unknown) {
       setSaveError(apiErrorMessage(err, '저장하지 못했습니다'));
@@ -174,33 +156,6 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                       className="h-7 w-10 cursor-pointer rounded border border-line"
                     />
                   </DetailRow>
-                  {/* 공량은 미터당이다 — 자산·설비가 「대」 단위인 것과 다르므로 단위를 라벨에 적는다. */}
-                  <DetailRow label="노무유형">
-                    <Input
-                      aria-label="노무유형"
-                      value={draft.laborType}
-                      placeholder="예: 통신내선공"
-                      onChange={(e) => setDraft({ ...draft, laborType: e.currentTarget.value })}
-                    />
-                  </DetailRow>
-                  <DetailGrid>
-                    <DetailRow label="신설(h/m)">
-                      <Input
-                        aria-label="신설 공량"
-                        type="number"
-                        value={draft.installHoursPerM}
-                        onChange={(e) => setDraft({ ...draft, installHoursPerM: e.currentTarget.value })}
-                      />
-                    </DetailRow>
-                    <DetailRow label="철거(h/m)">
-                      <Input
-                        aria-label="철거 공량"
-                        type="number"
-                        value={draft.removeHoursPerM}
-                        onChange={(e) => setDraft({ ...draft, removeHoursPerM: e.currentTarget.value })}
-                      />
-                    </DetailRow>
-                  </DetailGrid>
                 </DetailCard>
 
                 <CableCategoryCard group={original} />
@@ -214,10 +169,10 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
 }
 
 /**
- * 그룹 안의 종류 — 실제로 케이블에 붙는 것.
+ * 그룹 안의 종류 — 실제로 케이블에 붙는 것이고 **품셈을 갖는다**.
  *
- * 그룹은 늘리지 않지만 종류는 계속 는다. 저장 바를 거치지 않고 바로 반영되는 이유: 이름 하나뿐이라
- * 「고치는 중」 상태를 둘 것이 없고, 삭제는 쓰이는 중이면 서버가 거부한다.
+ * 그룹은 늘리지 않지만 종류는 계속 는다. 저장 바를 거치지 않고 바로 반영되는 이유: 칸마다
+ * 값이 하나씩이라 「고치는 중」 상태를 둘 것이 없고, 삭제는 쓰이는 중이면 서버가 거부한다.
  */
 function CableCategoryCard({ group }: { group: V2CableGroup }) {
   const { confirm, confirmDialog } = useConfirm();
@@ -252,6 +207,16 @@ function CableCategoryCard({ group }: { group: V2CableGroup }) {
     }
   }
 
+  /** 품셈 한 칸 — 칸을 떠날 때 바로 반영한다(이름과 같은 규칙). */
+  async function saveLabor(cat: V2CableCategory, body: Parameters<typeof mutations.patchCableCategory.mutateAsync>[0]['body']) {
+    setError(null);
+    try {
+      await mutations.patchCableCategory.mutateAsync({ id: cat.id, body });
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, '저장하지 못했습니다'));
+    }
+  }
+
   async function handleDelete(cat: V2CableCategory) {
     const ok = await confirm({
       title: '케이블 종류 삭제',
@@ -283,48 +248,68 @@ function CableCategoryCard({ group }: { group: V2CableGroup }) {
       {error && <p className="text-xs text-danger">{error}</p>}
       {group.categories.length === 0 && <p className="text-xs text-content-faint">종류가 없습니다.</p>}
 
-      <ul className="space-y-0.5">
+      {/* 종류마다 **품셈을 적는다** — 자산 종류·설비 종류와 같은 층이다. 같은 광이라도
+          OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르므로, 그룹 하나로 뭉쳐 두면 그 차이가
+          설계서에서 사라진다. 값은 저장 바를 거치지 않고 칸을 떠날 때 바로 반영된다 —
+          이름과 같은 규칙이다(고치는 중 상태를 둘 것이 없다). */}
+      <div className="grid grid-cols-[1fr_8rem_5rem_5rem_auto] items-center gap-x-2 gap-y-1">
+        <span className="text-xs text-content-muted">이름</span>
+        <span className="text-xs text-content-muted">노무유형</span>
+        <span className="text-xs text-content-muted">신설(h/m)</span>
+        <span className="text-xs text-content-muted">철거(h/m)</span>
+        <span />
         {group.categories.map((cat) => (
-          <li key={cat.id} className="group flex items-center gap-1.5 rounded px-1 py-0.5 hover:bg-surface-2">
+          <Fragment key={cat.id}>
             {editingId === cat.id ? (
-              <>
-                <Input
-                  aria-label="종류 이름 편집"
-                  value={editingName}
-                  className="flex-1"
-                  autoFocus
-                  onChange={(e) => setEditingName(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void commitEdit(cat);
-                    if (e.key === 'Escape') setEditingId(null);
-                  }}
-                />
-                <IconButton aria-label="저장" onClick={() => void commitEdit(cat)}>
-                  <Check size={12} />
-                </IconButton>
-              </>
+              <Input
+                aria-label="종류 이름 편집"
+                size="sm"
+                value={editingName}
+                autoFocus
+                onChange={(e) => setEditingName(e.currentTarget.value)}
+                onBlur={() => void commitEdit(cat)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void commitEdit(cat);
+                  if (e.key === 'Escape') setEditingId(null);
+                }}
+              />
             ) : (
-              <>
-                <span className="min-w-0 flex-1 truncate text-sm text-content">{cat.name}</span>
-                {/* 목록 행의 액션은 호버에서 드러낸다(조직 트리와 같은 규칙).
-                    자리는 항상 차지하므로 호버해도 행이 움직이지 않는다. */}
-                <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                  <IconButton
-                    aria-label={`${cat.name} 이름 변경`}
-                    size="sm"
-                    onClick={() => { setEditingId(cat.id); setEditingName(cat.name); }}
-                  >
-                    <Pencil size={12} />
-                  </IconButton>
-                  <IconButton aria-label={`${cat.name} 삭제`} size="sm" onClick={() => void handleDelete(cat)}>
-                    <Trash2 size={12} />
-                  </IconButton>
-                </span>
-              </>
+              <button
+                type="button"
+                className={cn('truncate rounded px-1 text-left text-sm text-content', SELECTABLE)}
+                title="이름 바꾸기"
+                onClick={() => { setEditingId(cat.id); setEditingName(cat.name); }}
+              >
+                {cat.name}
+              </button>
             )}
-          </li>
+            <Input
+              aria-label={`${cat.name} 노무유형`}
+              size="sm"
+              defaultValue={cat.laborType ?? ''}
+              placeholder="예: 통신내선공"
+              onBlur={(e) => void saveLabor(cat, { laborType: e.currentTarget.value.trim() || null })}
+            />
+            <Input
+              aria-label={`${cat.name} 신설 공량`}
+              size="sm"
+              type="number"
+              defaultValue={String(cat.installHoursPerM)}
+              onBlur={(e) => void saveLabor(cat, { installHoursPerM: num(e.currentTarget.value, cat.installHoursPerM) })}
+            />
+            <Input
+              aria-label={`${cat.name} 철거 공량`}
+              size="sm"
+              type="number"
+              defaultValue={String(cat.removeHoursPerM)}
+              onBlur={(e) => void saveLabor(cat, { removeHoursPerM: num(e.currentTarget.value, cat.removeHoursPerM) })}
+            />
+            <IconButton aria-label={`${cat.name} 삭제`} size="sm" onClick={() => void handleDelete(cat)}>
+              <Trash2 size={12} />
+            </IconButton>
+          </Fragment>
         ))}
-      </ul>
+      </div>
 
       <PromptModal
         open={addOpen}

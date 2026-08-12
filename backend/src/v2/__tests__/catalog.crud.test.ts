@@ -320,24 +320,22 @@ describe('catalog CRUD', () => {
     expect(catalog.types.find((t: { key: string }) => t.key === `${KEY_PREFIX}_TYPE_A`)).toBeUndefined();
   });
 
-  it('케이블 그룹 PATCH 공량 수정 + 케이블 카테고리 CRUD, 케이블 참조 시 삭제 409', async () => {
-    // 케이블 그룹 PATCH
+  it('케이블 그룹 PATCH(이름·색) + 종류 CRUD·공량, 케이블 참조 시 삭제 409', async () => {
+    /* 그룹은 이름·색만 고친다 — 품셈은 **종류**가 갖는다(자산·설비와 같은 층). */
     await request(app)
       .patch(`/api/v2/catalog/cable-groups/${cableGroupId}`)
       .set(admin)
-      .send({ installHoursPerM: 0.25, removeHoursPerM: 0.1 })
+      .send({ color: '#123456' })
       .expect(200)
-      .then((r) => {
-        expect(r.body.installHoursPerM).toBeCloseTo(0.25);
-        expect(r.body.removeHoursPerM).toBeCloseTo(0.1);
-      });
+      .then((r) => expect(r.body.color).toBe('#123456'));
 
-    // 케이블 카테고리 생성
+    // 케이블 카테고리 생성 — 품셈을 함께 받는다
     const ccRes = await request(app)
       .post('/api/v2/catalog/cable-categories')
       .set(admin)
-      .send({ groupId: cableGroupId, name: `${uniq}-ccat`, sortOrder: 999 })
+      .send({ groupId: cableGroupId, name: `${uniq}-ccat`, sortOrder: 999, laborType: '통신외선공', installHoursPerM: 0.06, removeHoursPerM: 0.03 })
       .expect(201);
+    expect(ccRes.body.installHoursPerM).toBeCloseTo(0.06);
     cableCatId = ccRes.body.id;
     expect(cableCatId).toBeTruthy();
 
@@ -345,10 +343,12 @@ describe('catalog CRUD', () => {
     await request(app)
       .patch(`/api/v2/catalog/cable-categories/${cableCatId}`)
       .set(admin)
-      .send({ name: `${uniq}-ccat-edited` })
+      .send({ name: `${uniq}-ccat-edited`, installHoursPerM: 0.07 })
       .expect(200);
     const ccRow = await nextDb.cableCategory.findUnique({ where: { id: cableCatId } });
     expect(ccRow!.name).toBe(`${uniq}-ccat-edited`);
+    // 품셈도 종류에서 고친다 — 설계서 공량의 근거가 여기다.
+    expect(ccRow!.installHoursPerM).toBeCloseTo(0.07);
 
     // 케이블이 참조하는 경우 삭제 → 409
     // 먼저 케이블을 위한 서브스테이션, 자산, 포트 셋업

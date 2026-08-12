@@ -342,10 +342,11 @@ catalogRouter.patch('/cable-groups/:id', adminOnly, async (req, res, next) => {
 /** POST /catalog/cable-categories */
 catalogRouter.post('/cable-categories', adminOnly, async (req, res, next) => {
   try {
-    const { groupId, name, sortOrder } = cableCategoryCreateSchema.parse(req.body);
-    const group = await nextDb.cableGroup.findUnique({ where: { id: groupId } });
+    // 품셈까지 함께 받는다 — 종류가 곧 공량의 단위다(자산·설비와 같은 층).
+    const input = cableCategoryCreateSchema.parse(req.body);
+    const group = await nextDb.cableGroup.findUnique({ where: { id: input.groupId } });
     if (!group) throw new HttpError(422, 'INVALID_PARENT', '케이블 그룹을 찾을 수 없습니다');
-    const row = await nextDb.cableCategory.create({ data: { groupId, name, sortOrder } });
+    const row = await nextDb.cableCategory.create({ data: input });
     res.status(201).json(row);
   } catch (e) {
     next(e);

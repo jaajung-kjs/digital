@@ -30,7 +30,7 @@ async function main() {
       await tx.cableGroup.upsert({
         where: { key: g.key },
         update: {},
-        create: { key: g.key, name: g.name, color: g.color, laborType: g.laborType, installHoursPerM: g.installHoursPerM, removeHoursPerM: g.removeHoursPerM, sortOrder: g.sortOrder },
+        create: { key: g.key, name: g.name, color: g.color, sortOrder: g.sortOrder },
       });
     }
 
@@ -108,7 +108,10 @@ async function main() {
       await tx.cableCategory.upsert({
         where: { groupId_name: { groupId: group.id, name: cat.name } },
         update: { sortOrder: cat.sortOrder },
-        create: { groupId: group.id, name: cat.name, sortOrder: cat.sortOrder },
+        create: {
+          groupId: group.id, name: cat.name, sortOrder: cat.sortOrder,
+          laborType: cat.laborType, installHoursPerM: cat.installHoursPerM, removeHoursPerM: cat.removeHoursPerM,
+        },
       });
     }
 
