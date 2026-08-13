@@ -128,6 +128,24 @@ describe('기준자료 — 노임단가', () => {
     expect(await nextDb.laborRate.count()).toBe(before);
   });
 
+  /* 임포트한 것을 **볼 수 있어야** 한다 — 카드가 「직종 123개」라고만 말하면 확인할 길이 없다. */
+  it('직종 노임을 회차별로 펼쳐 돌려준다', async () => {
+    const body = (await request(app).get('/api/v2/standards/wages').set(admin).expect(200)).body;
+    expect(body.dates[0]).toBe('2026.1.1');
+    expect(body.dates).toHaveLength(4);
+
+    const t = body.rows.find((r: { code: string }) => r.code === '1086');
+    expect(t.name).toBe('통신내선공');
+    expect(t.wages['2026.1.1']).toBe(284880);
+    expect(t.wages['2024.9.1']).toBe(275107);
+
+    /* 그 회차에 조사되지 않았으면 **키가 없다** — 0 이 아니다. */
+    const missing = body.rows.find((r: { code: string }) => r.code === '1032');
+    expect(missing.wages['2026.1.1']).toBeUndefined();
+    expect(missing.wages['2025.9.1']).toBe(210772);
+    expect(missing.markerNote).toContain('조사되지 않은 직종');
+  });
+
   it('제비율은 표를 펼쳐 저장하고 카탈로그에 실려 온다', async () => {
     const xlsx = join(__dirname, 'fixtures', 'overhead-2026.xlsx');
     await request(app)

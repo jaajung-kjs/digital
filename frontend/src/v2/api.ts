@@ -177,3 +177,22 @@ export async function previewOverheadStandard(file: File): Promise<OverheadPrevi
 export async function uploadOverheadStandard(file: File): Promise<{ id: string; effective: string }> {
   return (await api.post('/v2/standards/overhead', filePart(file), MULTIPART)).data;
 }
+
+/** 임포트된 직종 노임 — 회차별로 펼친 표(기준자료 탭 전용). */
+export interface WageRates {
+  /** 실제로 들어온 회차들, 최신 우선. */
+  dates: string[];
+  rows: {
+    code: string;
+    name: string;
+    sector: string;
+    marker: string;
+    markerNote: string | null;
+    /** 기준일 → 원/일. 그 회차에 조사되지 않았으면 키가 없다. */
+    wages: Record<string, number>;
+  }[];
+}
+
+export async function fetchWageRates(): Promise<WageRates> {
+  return (await api.get('/v2/standards/wages')).data;
+}

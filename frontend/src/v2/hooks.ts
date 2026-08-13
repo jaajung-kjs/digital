@@ -13,6 +13,7 @@ import {
   fetchNodeAssets,
   fetchOrgTree,
   fetchStandards,
+  fetchWageRates,
   patchCategory,
   patchOrgNode,
   putCableGroup,
@@ -28,6 +29,10 @@ export function useV2Catalog() {
 /** 올려 둔 기준자료 판 목록 — 「기준자료」 탭이 쓴다. */
 export function useStandards() {
   return useQuery({ queryKey: ['v2', 'standards'], queryFn: fetchStandards, staleTime: 60_000 });
+}
+/** 임포트된 직종 노임 전체 — 기준자료 탭에서만 본다(457행이라 카탈로그에 싣지 않는다). */
+export function useWageRates() {
+  return useQuery({ queryKey: ['v2', 'wage-rates'], queryFn: fetchWageRates, staleTime: 60_000 });
 }
 export function useV2OrgTree() {
   return useQuery({ queryKey: ['v2', 'org-tree'], queryFn: fetchOrgTree, staleTime: 30_000 });

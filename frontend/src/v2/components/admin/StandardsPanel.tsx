@@ -21,6 +21,7 @@ import {
   EmptyState,
   ErrorStrip,
   TableCard,
+  TableSearch,
   Th,
   cn,
   SELECTABLE,
@@ -35,7 +36,7 @@ import {
   type WagePreview,
 } from '../../api';
 import { apiErrorMessage } from '../../apiError';
-import { useStandards, useV2Catalog } from '../../hooks';
+import { useStandards, useV2Catalog, useWageRates } from '../../hooks';
 import type { V2Standard } from '../../types';
 
 /** 파일 · 적용시기 · 올린이 · 상태. 합이 100(`TableCard`). */
@@ -152,6 +153,8 @@ export function StandardsPanel() {
               </>
             )}
           />
+
+          <WageRatesCard />
 
           <HistoryCard rows={standards.data ?? []} onActivate={activate} />
         </div>
@@ -344,6 +347,75 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
           </tbody>
         </TableCard>
       )}
+    </DetailCard>
+  );
+}
+
+/**
+ * 임포트된 직종 노임 — **무엇이 들어왔나**를 보는 자리.
+ *
+ * 카드가 「직종 123개」라고만 말하면 올린 것을 확인할 길이 없다. 회차를 나란히 두면 추이도
+ * 함께 읽힌다(통신내선공 275,107 → 278,565 → 283,607 → 284,880).
+ *
+ * 열은 **실제로 들어온 회차**가 정한다 — 보고서가 몇 회차를 주든 따라간다.
+ */
+function WageRatesCard() {
+  const rates = useWageRates();
+  const [query, setQuery] = useState('');
+  const data = rates.data;
+
+  const shown = (data?.rows ?? []).filter((r) => {
+    const q = query.trim().toLowerCase();
+    return q === '' || r.name.toLowerCase().includes(q) || r.code.includes(q);
+  });
+
+  if (!data || data.rows.length === 0) return null;
+
+  /* 직종 · 회차마다 한 칸. 합이 100(`TableCard`). */
+  const widths = [100 - data.dates.length * 15, ...data.dates.map(() => 15)];
+
+  return (
+    <DetailCard>
+      <DetailCardHeader title="직종 노임" badge={String(data.rows.length)} badgeStatus="neutral" />
+      <TableSearch
+        aria-label="직종 검색"
+        placeholder="직종 이름 · 코드"
+        value={query}
+        onChange={setQuery}
+        shown={shown.length}
+        total={data.rows.length}
+      />
+      <div className="max-h-96 overflow-y-auto">
+        <TableCard widths={widths}>
+          <thead>
+            <tr className="sticky top-0 z-sticky">
+              <Th>직종</Th>
+              {data.dates.map((d) => (
+                <Th key={d} className="text-right">
+                  {d}
+                </Th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((r) => (
+              <tr key={r.code} className="border-b border-line last:border-0">
+                <td className="truncate px-3 py-1.5 text-content" title={r.markerNote ?? undefined}>
+                  <span className="mr-1.5 text-xs text-content-faint tabular-nums">{r.code}</span>
+                  {r.name}
+                  {r.marker && <span className="ml-1 text-xs text-warning">{r.marker}</span>}
+                </td>
+                {data.dates.map((d) => (
+                  <td key={d} className="px-3 py-1.5 text-right tabular-nums text-content">
+                    {/* 그 회차에 조사되지 않았으면 **칸이 아니라 없음**이다. */}
+                    {r.wages[d]?.toLocaleString() ?? '—'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </TableCard>
+      </div>
     </DetailCard>
   );
 }

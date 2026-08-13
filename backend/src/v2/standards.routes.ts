@@ -240,6 +240,36 @@ standardsRouter.post('/standards/overhead', adminOnly, uploadSingle, async (req,
   }
 });
 
+/**
+ * GET /v2/standards/wages — 임포트된 직종 노임을 **회차별로 펼쳐** 돌려준다.
+ *
+ * 카탈로그에는 코드마다 최신 값 하나만 싣는다(모든 화면이 그것만 쓰므로). 여기서는 무엇이
+ * 들어왔는지·추이가 어떤지 보려는 것이라 회차를 다 준다 — 기준자료 탭만 부른다.
+ */
+standardsRouter.get('/standards/wages', async (_req, res, next) => {
+  try {
+    const rows = await nextDb.laborRate.findMany({ orderBy: [{ code: 'asc' }, { effectiveOn: 'desc' }] });
+    /* 열은 **실제로 들어온 회차**다 — 최신이 왼쪽. */
+    const seen = new Map<string, Date>();
+    for (const r of rows) if (!seen.has(r.effectiveLabel)) seen.set(r.effectiveLabel, r.effectiveOn);
+    const dates = [...seen.entries()].sort((a, b) => b[1].getTime() - a[1].getTime()).map(([label]) => label);
+
+    const byCode = new Map<string, { code: string; name: string; sector: string; marker: string; markerNote: string | null; wages: Record<string, number> }>();
+    for (const r of rows) {
+      /* 이름·각주는 **가장 최근 행**의 것을 쓴다(행은 최신순이라 첫 번째). */
+      const cur = byCode.get(r.code);
+      if (!cur) {
+        byCode.set(r.code, { code: r.code, name: r.name, sector: r.sector, marker: r.marker, markerNote: r.markerNote, wages: { [r.effectiveLabel]: r.wage } });
+      } else {
+        cur.wages[r.effectiveLabel] = r.wage;
+      }
+    }
+    res.json({ dates, rows: [...byCode.values()] });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** GET /v2/standards — 올려 둔 판 목록(내용은 빼고). 어느 것이 적용 중인지 보인다. */
 standardsRouter.get('/standards', async (_req, res, next) => {
   try {
