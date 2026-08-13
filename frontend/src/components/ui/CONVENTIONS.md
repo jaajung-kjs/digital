@@ -304,6 +304,8 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 **폭은 감싸는 칸으로 정한다** — `<Select className="max-w-xs">` 처럼 컨트롤에 직접 걸면 안 된다. `Select` 의 화살표는 래퍼 기준 절대배치라 `<select>` 만 좁아지고 화살표는 원래 자리에 남아 따로 논다(선번장·계통이 실제로 그랬다). `<div className="w-64"><Select …/></div>` 로 감싼다.
 
+**저장을 막는 칸은 `<Input invalid>`** — 붉은 테두리와 `aria-invalid` 를 함께 건다. 문구는 부르는 쪽이 말한다(`DetailRow` 의 `issue`, 저장 바의 `issueCount`). 표처럼 라벨 옆에 문구를 놓을 자리가 없는 곳에서는 이 테두리가 유일한 길잡이라, 「입력 오류 N건」만 띄우고 어느 칸인지 안 짚는 화면을 만들지 않는다. 테두리를 `className="border-danger"` 로 직접 그리지 않는다 — `cn` 은 tailwind-merge 가 아니라 기본 `border-line` 과 충돌한다.
+
 ### 표 셀 인라인 편집(blur/Enter 커밋) → `InlineEditCell`
 `src/v2/components/InlineEditCell.tsx` — 선번장·계통 뷰처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.
 
@@ -399,6 +401,8 @@ Esc 닫기·백드롭 클릭 닫기·`size="sm"/"md"` 폭 고정을 내장. 자�
 ```
 **주의:** 필드 하나에 붙는 검증 메시지는 이것이 아니다 — `<DetailRow issue={...}>` 로 넘긴다(입력 바로 아래에 뜬다).
 `ErrorStrip` 은 카드/폼 전체에 대한 오류(서버 응답 등) 전용.
+
+**오류 표면은 화면당 하나다.** 실패한 mutation 은 기본적으로 화면 맨 위 전역 띠로 간다(조직 트리처럼 그릴 자리가 없는 곳의 유일한 표면). 부르는 쪽이 `mutateAsync` 를 기다렸다가 제 화면에 그린다면 그 mutation 에 `meta: QUIET` 를 붙여 전역 띠를 끈다(`v2/hooks.ts` · `lib/queryClient.ts`) — 안 그러면 같은 문장이 두 곳에 나란히 선다.
 
 ### 확인 대화상자 → `useConfirm` (`window.confirm` 금지)
 네이티브 `confirm`/`prompt`/`alert` 는 쓰지 않는다. 앱과 생김새가 다르고, 브라우저를 막고, **검증 실패를 그 자리에서 보여줄 수 없다.**

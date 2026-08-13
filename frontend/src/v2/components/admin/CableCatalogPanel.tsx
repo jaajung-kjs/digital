@@ -1,13 +1,16 @@
 /**
  * CableCatalogPanel — 대장의 「케이블 종류」 탭
  *
- * 다른 두 탭과 **같은 모양**이다: 왼쪽 목록에서 그룹을 고르고, 오른쪽에서 그 그룹을 고친다.
- * 예전에는 여섯 그룹을 한 장에 세로로 늘어놓고 카드마다 저장 버튼을 달았다 — 셋 다 「분류 →
- * 항목」 2단인데 케이블만 손길이 달라서, 탭을 옮길 때마다 무엇을 어디서 누르는지 다시
- * 익혀야 했다.
+ * 다른 두 탭과 **같은 문장**이다: 왼쪽에서 하나를 고르고, 오른쪽에서 고치고, 저장한다.
  *
- * 그룹은 늘리지 않는다(포트가 무엇과 이어지는지를 이 키로 판정한다) — 그래서 `+` 가 없고,
- * 늘어나는 것은 그룹 안의 **종류**다.
+ * 왼쪽은 그룹(전원·네트워크·광·제어·접지)이다. 이 다섯은 `PORT_KINDS` 가 정하는 **고정
+ * 어휘**라 늘지도 줄지도 않고 이름·색도 코드가 주인이다 — 그래서 그룹을 고치는 UI 가 없다.
+ * 늘고 주는 것은 그룹 안의 **종류**이고, 오른쪽 표가 그것이다.
+ *
+ * 초안이 담는 것은 「그룹 하나와 그 자식들」이다 — 자산 종류의 초안이 포트를 자식으로 안고
+ * 한 번의 PUT 으로 나가는 것과 같은 모양이라, 저장 규칙이 세 탭에서 같아진다. 예전에는 이
+ * 탭만 거꾸로였다: 머리줄인 그룹의 이름·색이 저장 바를 거치고, 정작 여러 칸짜리 종류는
+ * 칸을 떠날 때마다 바로 날아갔다.
  */
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
@@ -15,18 +18,12 @@ import {
   Button,
   DetailCard,
   DetailCardHeader,
-  DetailRow,
   EmptyState,
-  ErrorStrip,
   Input,
   IconButton,
-  PromptModal,
   useConfirm,
-  useInlineRename,
-  cn,
-  SELECTABLE,
 } from '../../../components/ui';
-import type { V2Catalog, V2CableGroup, V2CableCategory } from '../../types';
+import type { V2Catalog, V2CableCategory } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
 import { useCatalogMutations } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
@@ -37,19 +34,83 @@ interface CableCatalogPanelProps {
   catalog: V2Catalog;
 }
 
-/** 편집 중인 그룹 — 서버 형상에서 고칠 수 있는 것만. */
-interface GroupDraft {
+/**
+ * 표의 한 줄.
+ *
+ * 공량이 문자열인 이유: 고치는 도중에는 `0.` 이나 빈칸 같은 「아직 수가 아닌」 상태를 지나간다.
+ * 숫자로 들고 있으면 그 순간이 `NaN` 이 되어 값이 튄다.
+ */
+interface CategoryDraft {
+  /** 이미 있는 것이면 그 id, 새로 만드는 줄이면 null. */
+  id: string | null;
+  /** 화면에서 이 줄을 가리키는 이름 — 새 줄은 아직 id 가 없다. */
+  key: string;
   name: string;
-  color: string;
+  laborType: string;
+  install: string;
+  remove: string;
 }
 
-const toDraft = (g: V2CableGroup): GroupDraft => ({
-  name: g.name,
-  color: g.color,
-});
+let seq = 0;
+const newKey = () => `new-${++seq}`;
 
-/** 공량은 미터당 값이라 소수다 — 빈칸이나 글자면 원래 값을 지킨다. */
-const num = (raw: string, fallback: number) => (Number.isFinite(parseFloat(raw)) ? parseFloat(raw) : fallback);
+const toDraft = (cats: V2CableCategory[]): CategoryDraft[] =>
+  cats.map((c) => ({
+    id: c.id,
+    key: c.id,
+    name: c.name,
+    laborType: c.laborType ?? '',
+    install: String(c.installHoursPerM),
+    remove: String(c.removeHoursPerM),
+  }));
+
+const same = (a: CategoryDraft[], b: CategoryDraft[]) =>
+  a.length === b.length &&
+  a.every((x, i) => {
+    const y = b[i]!;
+    return (
+      x.id === y.id &&
+      x.name === y.name &&
+      x.laborType === y.laborType &&
+      x.install === y.install &&
+      x.remove === y.remove
+    );
+  });
+
+/** 미터당 시간 — 빈칸·글자·음수는 저장을 막는다. */
+const isHours = (s: string) => s.trim() !== '' && Number.isFinite(Number(s)) && Number(s) >= 0;
+
+interface RowIssues {
+  name: boolean;
+  install: boolean;
+  remove: boolean;
+}
+
+/**
+ * 저장을 막는 칸들 — **어느 칸인지**까지 짚는다.
+ *
+ * 저장 바는 「입력 오류 N건」만 말할 수 있다. 한 화면에 열 줄 넘게 서는 표에서 그것만으로는
+ * 어디를 고쳐야 할지 알 수 없으므로, 칸마다 테두리로 표시한다.
+ */
+function issuesOf(rows: CategoryDraft[]): { flags: Map<string, RowIssues>; count: number } {
+  const times = new Map<string, number>();
+  for (const r of rows) times.set(r.name.trim(), (times.get(r.name.trim()) ?? 0) + 1);
+
+  const flags = new Map<string, RowIssues>();
+  let count = 0;
+  for (const r of rows) {
+    const n = r.name.trim();
+    /* 같은 그룹 안에서 이름은 겹칠 수 없다(DB 제약) — 저장하고 나서 알면 늦다. */
+    const f: RowIssues = {
+      name: n === '' || (times.get(n) ?? 0) > 1,
+      install: !isHours(r.install),
+      remove: !isHours(r.remove),
+    };
+    count += Number(f.name) + Number(f.install) + Number(f.remove);
+    flags.set(r.key, f);
+  }
+  return { flags, count };
+}
 
 export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const mutations = useCatalogMutations();
@@ -57,13 +118,15 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const groups = catalog.cableGroups;
 
   const [selectedId, setSelectedId] = useState<string | null>(groups[0]?.id ?? null);
-  const [draft, setDraft] = useState<GroupDraft | null>(groups[0] ? toDraft(groups[0]) : null);
+  const [draft, setDraft] = useState<CategoryDraft[] | null>(groups[0] ? toDraft(groups[0].categories) : null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /* 방금 더한 줄에 커서를 둔다 — 새 줄이 서기만 하고 손이 갈 곳을 안 알려 주면 한 번 더 눌러야 한다. */
+  const [focusKey, setFocusKey] = useState<string | null>(null);
 
   const original = groups.find((g) => g.id === selectedId) ?? null;
 
-  /* 다른 그룹으로 옮기기 전에 묻는다 — 세 탭이 같은 규칙이어야 한다(예전에는 조용히 버렸다). */
+  /* 다른 그룹으로 옮기기 전에 묻는다 — 세 탭이 같은 규칙이어야 한다. */
   const selectGroup = async (id: string) => {
     const g = groups.find((x) => x.id === id);
     if (!g) return;
@@ -78,19 +141,17 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     )
       return;
     setSelectedId(id);
-    setDraft(toDraft(g));
+    setDraft(toDraft(g.categories));
     setSaveError(null);
   };
   if (original == null && groups.length > 0 && selectedId != null) {
     // 목록이 갱신되며 고른 것이 사라진 경우
     setSelectedId(groups[0]!.id);
-    setDraft(toDraft(groups[0]!));
+    setDraft(toDraft(groups[0]!.categories));
   }
 
-  const dirty = useMemo(() => {
-    if (!original || !draft) return false;
-    return draft.name.trim() !== original.name || draft.color !== original.color;
-  }, [draft, original]);
+  const saved = useMemo(() => (original ? toDraft(original.categories) : []), [original]);
+  const dirty = draft != null && original != null && !same(draft, saved);
   /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
   useReportUnsaved(dirty);
   /* `selectGroup` 은 `dirty` 보다 위에 선다 — 최신 값을 ref 로 읽는다(선언 순서 때문이지
@@ -98,15 +159,44 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
 
+  const { flags, count: issueCount } = useMemo(() => issuesOf(draft ?? []), [draft]);
+
+  function patchRow(key: string, patch: Partial<CategoryDraft>) {
+    setDraft((prev) => prev?.map((r) => (r.key === key ? { ...r, ...patch } : r)) ?? prev);
+  }
+
+  function addRow() {
+    const key = newKey();
+    setFocusKey(key);
+    setSaveError(null);
+    setDraft((prev) => [...(prev ?? []), { id: null, key, name: '', laborType: '', install: '0', remove: '0' }]);
+  }
+
+  /* 지우는 것도 초안에 쌓인다 — 취소로 되돌아오므로 따로 묻지 않는다. 쓰이는 중인 종류라면
+     저장할 때 서버가 무엇이 몇 개 걸려 있는지 이름으로 알려 준다. */
+  function removeRow(key: string) {
+    setSaveError(null);
+    setDraft((prev) => prev?.filter((r) => r.key !== key) ?? prev);
+  }
+
   async function handleSave() {
-    if (!original || !draft || saving) return;
+    if (!original || !draft || saving || issueCount > 0) return;
     setSaving(true);
     setSaveError(null);
     try {
-      await mutations.patchCableGroup.mutateAsync({
-        id: original.id,
-        body: { name: draft.name.trim() || original.name, color: draft.color },
+      const updated = await mutations.putCableCategories.mutateAsync({
+        groupId: original.id,
+        categories: draft.map((r) => ({
+          ...(r.id ? { id: r.id } : {}),
+          name: r.name.trim(),
+          laborType: r.laborType.trim() || null,
+          installHoursPerM: Number(r.install),
+          removeHoursPerM: Number(r.remove),
+        })),
       });
+      /* 새로 만든 줄은 이제 id 를 갖는다 — 서버가 돌려준 것으로 초안을 다시 세우지 않으면
+         다음 저장에서 같은 줄을 또 만든다. */
+      setDraft(toDraft(updated.categories));
     } catch (err: unknown) {
       setSaveError(apiErrorMessage(err, '저장하지 못했습니다'));
     } finally {
@@ -118,7 +208,13 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     {
       key: 'all',
       label: null,
-      items: groups.map((g) => ({ id: g.id, name: g.name, hint: String(g.categories.length), hintTitle: `케이블 종류 ${g.categories.length}개` })),
+      items: groups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        dot: g.color,
+        hint: String(g.categories.length),
+        hintTitle: `케이블 종류 ${g.categories.length}개`,
+      })),
     },
   ];
 
@@ -136,7 +232,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         {original == null || draft == null ? (
           <EmptyState
             title="선택된 케이블 그룹이 없습니다"
-            description="좌측 목록에서 그룹을 고르세요. 그룹은 미터당 공량과 도면 색을 정하고, 그 안의 종류가 실제로 케이블에 붙습니다."
+            description="좌측 목록에서 그룹을 고르세요. 그룹은 고정 어휘이고, 그 안의 종류가 실제로 케이블에 붙어 설계서 공량의 근거가 됩니다."
           />
         ) : (
           <>
@@ -144,185 +240,101 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
               title={original.name}
               dirty={dirty}
               saving={saving}
+              issueCount={issueCount}
               error={saveError}
               onDismissError={() => setSaveError(null)}
-              onCancel={() => setDraft(toDraft(original))}
+              onCancel={() => setDraft(saved)}
               onSave={() => void handleSave()}
             />
 
-            {/* 카드 **두 장**이다. 예전에는 그룹·공량·종류 셋을 2단에 흘려서, 오른쪽 공량
-                (190px)이 왼쪽 행 높이를 정하는 바람에 그룹 카드 아래에 설명 없는 50px 구멍이
-                났고 2행 오른쪽은 통째로 비었다(실측). 다섯 값 모두 「이 그룹은 무엇인가」에
-                대한 답이므로 한 카드에 담는다 — CONVENTIONS §3 과 같은 논리. */}
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="grid w-full items-start gap-3 p-4 xl:grid-cols-2">
-                <DetailCard>
-                  <DetailCardHeader title="그룹" />
-                  <DetailRow label="이름">
-                    <Input
-                      aria-label="그룹 이름"
-                      value={draft.name}
-                      onChange={(e) => setDraft({ ...draft, name: e.currentTarget.value })}
-                    />
-                  </DetailRow>
-                  <DetailRow label="색상" hint="도면에서 이 그룹의 케이블이 그려지는 색">
-                    {/* hex 코드는 굳이 읽을 것이 아니다 — 스와치가 값을 보여준다. */}
-                    <input
-                      type="color"
-                      aria-label="그룹 색상"
-                      value={draft.color}
-                      title={draft.color}
-                      onChange={(e) => setDraft({ ...draft, color: e.currentTarget.value })}
-                      className="h-7 w-10 cursor-pointer rounded border border-line"
-                    />
-                  </DetailRow>
-                </DetailCard>
+            {/* 카드는 **캔버스에 고정**된다 — 종류가 몇 개든 화면 하단까지 한 장이고, 넘치면
+                표 안에서만 스크롤한다. 개수에 따라 카드가 길어지면 탭을 옮길 때마다 화면
+                구성이 달라 보인다(CONVENTIONS §1.6). */}
+            <div className="min-h-0 flex-1 p-4">
+              <DetailCard className="flex h-full min-h-0 flex-col">
+                <DetailCardHeader
+                  title="종류"
+                  badge={String(draft.length)}
+                  badgeStatus="neutral"
+                  actions={
+                    <Button variant="secondary" size="sm" onClick={addRow}>
+                      추가
+                    </Button>
+                  }
+                />
 
-                <CableCategoryCard group={original} />
-              </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {draft.length === 0 ? (
+                    <p className="text-xs text-content-faint">종류가 없습니다. 「추가」로 만드세요.</p>
+                  ) : (
+                    /* 종류마다 **품셈을 적는다** — 자산 종류·설비 종류와 같은 층이다. 같은
+                       광이라도 OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르므로, 그룹 하나로
+                       뭉쳐 두면 그 차이가 설계서에서 사라진다.
+
+                       폭은 묶는다 — 이름 칸이 남는 자리를 다 먹으면 1000px 짜리 입력이 되고
+                       화면 폭에 따라 폼이 달라 보인다(`DetailRow` 가 값을 22rem 로 묶는 것과
+                       같은 이유). */
+                    <div className="grid max-w-[52rem] grid-cols-[minmax(0,1fr)_10rem_5.5rem_5.5rem_auto] items-center gap-x-2 gap-y-1">
+                      <span className="text-xs text-content-muted">이름</span>
+                      <span className="text-xs text-content-muted">노무유형</span>
+                      <span className="text-xs text-content-muted">신설(h/m)</span>
+                      <span className="text-xs text-content-muted">철거(h/m)</span>
+                      <span />
+                      {draft.map((row) => {
+                        const bad = flags.get(row.key);
+                        return (
+                          <Fragment key={row.key}>
+                            <Input
+                              aria-label={`${row.name || '새 종류'} 이름`}
+                              size="sm"
+                              autoFocus={row.key === focusKey}
+                              invalid={bad?.name}
+                              value={row.name}
+                              placeholder="예: 광점퍼코드"
+                              onChange={(e) => patchRow(row.key, { name: e.currentTarget.value })}
+                            />
+                            <Input
+                              aria-label={`${row.name || '새 종류'} 노무유형`}
+                              size="sm"
+                              value={row.laborType}
+                              placeholder="예: 통신내선공"
+                              onChange={(e) => patchRow(row.key, { laborType: e.currentTarget.value })}
+                            />
+                            <Input
+                              aria-label={`${row.name || '새 종류'} 신설 공량`}
+                              size="sm"
+                              type="number"
+                              invalid={bad?.install}
+                              value={row.install}
+                              onChange={(e) => patchRow(row.key, { install: e.currentTarget.value })}
+                            />
+                            <Input
+                              aria-label={`${row.name || '새 종류'} 철거 공량`}
+                              size="sm"
+                              type="number"
+                              invalid={bad?.remove}
+                              value={row.remove}
+                              onChange={(e) => patchRow(row.key, { remove: e.currentTarget.value })}
+                            />
+                            <IconButton
+                              aria-label={`${row.name || '새 종류'} 삭제`}
+                              size="sm"
+                              onClick={() => removeRow(row.key)}
+                            >
+                              <Trash2 size={12} />
+                            </IconButton>
+                          </Fragment>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </DetailCard>
             </div>
           </>
         )}
       </div>
       {confirmDialog}
     </div>
-  );
-}
-
-/**
- * 그룹 안의 종류 — 실제로 케이블에 붙는 것이고 **품셈을 갖는다**.
- *
- * 그룹은 늘리지 않지만 종류는 계속 는다. 저장 바를 거치지 않고 바로 반영되는 이유: 칸마다
- * 값이 하나씩이라 「고치는 중」 상태를 둘 것이 없고, 삭제는 쓰이는 중이면 서버가 거부한다.
- */
-function CableCategoryCard({ group }: { group: V2CableGroup }) {
-  const { confirm, confirmDialog } = useConfirm();
-  const mutations = useCatalogMutations();
-  const [error, setError] = useState<string | null>(null);
-  /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
-  const rename = useInlineRename((id, name) => {
-    void mutations.patchCableCategory
-      .mutateAsync({ id, body: { name } })
-      .catch((err: unknown) => setError(apiErrorMessage(err, '이름을 바꾸지 못했습니다')));
-  });
-  const [addOpen, setAddOpen] = useState(false);
-
-  async function handleAdd(name: string) {
-    setError(null);
-    const maxOrder = Math.max(0, ...group.categories.map((c) => c.sortOrder));
-    try {
-      await mutations.createCableCategory.mutateAsync({ groupId: group.id, name, sortOrder: maxOrder + 1 });
-      setAddOpen(false); // 성공했을 때만 닫는다 — 실패는 모달 안에서 보여준다
-    } catch (err: unknown) {
-      setError(apiErrorMessage(err, '추가하지 못했습니다'));
-    }
-  }
-
-  /** 품셈 한 칸 — 칸을 떠날 때 바로 반영한다(이름과 같은 규칙). */
-  async function saveLabor(cat: V2CableCategory, body: Parameters<typeof mutations.patchCableCategory.mutateAsync>[0]['body']) {
-    setError(null);
-    try {
-      await mutations.patchCableCategory.mutateAsync({ id: cat.id, body });
-    } catch (err: unknown) {
-      setError(apiErrorMessage(err, '저장하지 못했습니다'));
-    }
-  }
-
-  async function handleDelete(cat: V2CableCategory) {
-    const ok = await confirm({
-      title: '케이블 종류 삭제',
-      message: `'${cat.name}' 을 삭제합니다. 이 종류를 쓰는 케이블이 있으면 거부됩니다.`,
-      confirmLabel: '삭제',
-      danger: true,
-    });
-    if (!ok) return;
-    setError(null);
-    try {
-      await mutations.deleteCableCategory.mutateAsync(cat.id);
-    } catch (err: unknown) {
-      setError(apiErrorMessage(err, '삭제하지 못했습니다'));
-    }
-  }
-
-  return (
-    <DetailCard>
-      <DetailCardHeader
-        title="종류"
-        badge={String(group.categories.length)}
-        badgeStatus="neutral"
-        actions={
-          <Button variant="secondary" size="sm" onClick={() => { setError(null); setAddOpen(true); }}>
-            추가
-          </Button>
-        }
-      />
-      <ErrorStrip message={error} />
-      {group.categories.length === 0 && <p className="text-xs text-content-faint">종류가 없습니다.</p>}
-
-      {/* 종류마다 **품셈을 적는다** — 자산 종류·설비 종류와 같은 층이다. 같은 광이라도
-          OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르므로, 그룹 하나로 뭉쳐 두면 그 차이가
-          설계서에서 사라진다. 값은 저장 바를 거치지 않고 칸을 떠날 때 바로 반영된다 —
-          이름과 같은 규칙이다(고치는 중 상태를 둘 것이 없다). */}
-      <div className="grid grid-cols-[1fr_8rem_5rem_5rem_auto] items-center gap-x-2 gap-y-1">
-        <span className="text-xs text-content-muted">이름</span>
-        <span className="text-xs text-content-muted">노무유형</span>
-        <span className="text-xs text-content-muted">신설(h/m)</span>
-        <span className="text-xs text-content-muted">철거(h/m)</span>
-        <span />
-        {group.categories.map((cat) => (
-          <Fragment key={cat.id}>
-            {rename.isEditing(cat.id) ? (
-              rename.field(cat.id, cat.name, `${cat.name} 이름 편집`)
-            ) : (
-              <button
-                type="button"
-                className={cn('truncate rounded px-1 text-left text-sm text-content', SELECTABLE)}
-                title="이름 바꾸기"
-                onClick={() => rename.start(cat.id, cat.name)}
-              >
-                {cat.name}
-              </button>
-            )}
-            <Input
-              aria-label={`${cat.name} 노무유형`}
-              size="sm"
-              defaultValue={cat.laborType ?? ''}
-              placeholder="예: 통신내선공"
-              onBlur={(e) => void saveLabor(cat, { laborType: e.currentTarget.value.trim() || null })}
-            />
-            <Input
-              aria-label={`${cat.name} 신설 공량`}
-              size="sm"
-              type="number"
-              defaultValue={String(cat.installHoursPerM)}
-              onBlur={(e) => void saveLabor(cat, { installHoursPerM: num(e.currentTarget.value, cat.installHoursPerM) })}
-            />
-            <Input
-              aria-label={`${cat.name} 철거 공량`}
-              size="sm"
-              type="number"
-              defaultValue={String(cat.removeHoursPerM)}
-              onBlur={(e) => void saveLabor(cat, { removeHoursPerM: num(e.currentTarget.value, cat.removeHoursPerM) })}
-            />
-            <IconButton aria-label={`${cat.name} 삭제`} size="sm" onClick={() => void handleDelete(cat)}>
-              <Trash2 size={12} />
-            </IconButton>
-          </Fragment>
-        ))}
-      </div>
-
-      <PromptModal
-        open={addOpen}
-        title="케이블 종류 추가"
-        hint={`'${group.name}' 그룹에 속하는 종류입니다.`}
-        label="종류 이름"
-        placeholder="예: 광점퍼코드"
-        busy={mutations.createCableCategory.isPending}
-        error={error}
-        onConfirm={handleAdd}
-        onClose={() => setAddOpen(false)}
-      />
-      {confirmDialog}
-    </DetailCard>
   );
 }

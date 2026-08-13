@@ -3,21 +3,18 @@ import { useMemo } from 'react';
 import {
   createAssembly,
   createCategory,
-  createCableCategory,
   createOrgNode,
   createType,
   deleteCategory,
   deleteAssembly,
-  deleteCableCategory,
   deleteOrgNode,
   deleteType,
   fetchCatalog,
   fetchNodeAssets,
   fetchOrgTree,
   patchCategory,
-  patchCableCategory,
-  patchCableGroup,
   patchOrgNode,
+  putCableCategories,
   updateAssembly,
   updateType,
   type OrgKind,
@@ -42,29 +39,33 @@ export function useTypesById(types: V2AssetType[] | undefined): Map<string, V2As
   return useMemo(() => new Map((types ?? []).map((t) => [t.id, t])), [types]);
 }
 
+/**
+ * 대장의 모든 부르는 쪽은 `mutateAsync` 를 기다렸다가 **제 화면에** 오류를 그린다(저장 바,
+ * 분류 오류 줄, 모달 안). 그래서 전역 띠까지 뜨면 같은 문장이 두 번 선다 — `meta.quiet` 이
+ * 그것을 끈다(`lib/queryClient.ts`). 조직 트리처럼 화면에 그릴 자리가 없는 곳은 전역 띠가
+ * 유일한 표면이므로 붙이지 않는다.
+ */
+const QUIET = { quiet: true } as const;
+
 /** 카탈로그 어드민 뮤테이션 — 성공 시 ['v2','catalog'] 자동 무효화 */
 export function useCatalogMutations() {
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ['v2', 'catalog'] });
 
   return {
-    createType: useMutation({ mutationFn: createType, onSuccess: invalidate }),
-    updateType: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateType>[1] }) => updateType(id, body), onSuccess: invalidate }),
-    deleteType: useMutation({ mutationFn: deleteType, onSuccess: invalidate }),
+    createType: useMutation({ mutationFn: createType, onSuccess: invalidate, meta: QUIET }),
+    updateType: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateType>[1] }) => updateType(id, body), onSuccess: invalidate, meta: QUIET }),
+    deleteType: useMutation({ mutationFn: deleteType, onSuccess: invalidate, meta: QUIET }),
 
-    createCategory: useMutation({ mutationFn: createCategory, onSuccess: invalidate }),
-    patchCategory: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof patchCategory>[1] }) => patchCategory(id, body), onSuccess: invalidate }),
-    deleteCategory: useMutation({ mutationFn: deleteCategory, onSuccess: invalidate }),
+    createCategory: useMutation({ mutationFn: createCategory, onSuccess: invalidate, meta: QUIET }),
+    patchCategory: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof patchCategory>[1] }) => patchCategory(id, body), onSuccess: invalidate, meta: QUIET }),
+    deleteCategory: useMutation({ mutationFn: deleteCategory, onSuccess: invalidate, meta: QUIET }),
 
-    patchCableGroup: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof patchCableGroup>[1] }) => patchCableGroup(id, body), onSuccess: invalidate }),
+    putCableCategories: useMutation({ mutationFn: ({ groupId, categories }: { groupId: string; categories: Parameters<typeof putCableCategories>[1] }) => putCableCategories(groupId, categories), onSuccess: invalidate, meta: QUIET }),
 
-    createCableCategory: useMutation({ mutationFn: createCableCategory, onSuccess: invalidate }),
-    patchCableCategory: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof patchCableCategory>[1] }) => patchCableCategory(id, body), onSuccess: invalidate }),
-    deleteCableCategory: useMutation({ mutationFn: deleteCableCategory, onSuccess: invalidate }),
-
-    createAssembly: useMutation({ mutationFn: createAssembly, onSuccess: invalidate }),
-    updateAssembly: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateAssembly>[1] }) => updateAssembly(id, body), onSuccess: invalidate }),
-    deleteAssembly: useMutation({ mutationFn: deleteAssembly, onSuccess: invalidate }),
+    createAssembly: useMutation({ mutationFn: createAssembly, onSuccess: invalidate, meta: QUIET }),
+    updateAssembly: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateAssembly>[1] }) => updateAssembly(id, body), onSuccess: invalidate, meta: QUIET }),
+    deleteAssembly: useMutation({ mutationFn: deleteAssembly, onSuccess: invalidate, meta: QUIET }),
   };
 }
 

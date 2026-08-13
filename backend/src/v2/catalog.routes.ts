@@ -11,9 +11,7 @@ import {
   typeUpsertSchema,
   categoryCreateSchema,
   categoryPatchSchema,
-  cableGroupPatchSchema,
-  cableCategoryCreateSchema,
-  cableCategoryPatchSchema,
+  cableCategoriesPutSchema,
   assemblyUpsertSchema,
 } from './schemas.js';
 
@@ -321,64 +319,77 @@ catalogRouter.delete('/types/:id', adminOnly, async (req, res, next) => {
   }
 });
 
-// ── 케이블 그룹 PATCH ──────────────────────────────────────────────────────────
+// ── 케이블 그룹의 종류 ────────────────────────────────────────────────────────
 
-/** PATCH /catalog/cable-groups/:id */
-catalogRouter.patch('/cable-groups/:id', adminOnly, async (req, res, next) => {
+/**
+ * PUT /catalog/cable-groups/:id/categories — 그 그룹의 종류 목록을 통째로 바꾼다.
+ *
+ * 자산 종류가 포트를 자식으로 안고 한 번의 PUT 으로 나가는 것과 같은 모양이다. 낱개 CRUD 를
+ * 두지 않는 이유는 `cableCategoriesPutSchema` 에 적었다.
+ *
+ * 그룹 자신은 고정 어휘라 고치지 않는다 — 이름·색은 시드가 `PORT_KINDS` 에서 흘려 넣는다.
+ */
+catalogRouter.put('/cable-groups/:id/categories', adminOnly, async (req, res, next) => {
   try {
-    const id = idParamSchema.parse(req.params.id);
-    const patch = cableGroupPatchSchema.parse(req.body);
-    const row = await nextDb.cableGroup.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '케이블 그룹을 찾을 수 없습니다');
-    const updated = await nextDb.cableGroup.update({ where: { id }, data: patch });
-    res.json(updated);
-  } catch (e) {
-    next(e);
-  }
-});
+    const groupId = idParamSchema.parse(req.params.id);
+    const { categories } = cableCategoriesPutSchema.parse(req.body);
 
-// ── 케이블 카테고리 CRUD ──────────────────────────────────────────────────────
+    const group = await nextDb.cableGroup.findUnique({ where: { id: groupId }, include: { categories: true } });
+    if (!group) throw new HttpError(404, 'NOT_FOUND', '케이블 그룹을 찾을 수 없습니다');
 
-/** POST /catalog/cable-categories */
-catalogRouter.post('/cable-categories', adminOnly, async (req, res, next) => {
-  try {
-    // 품셈까지 함께 받는다 — 종류가 곧 공량의 단위다(자산·설비와 같은 층).
-    const input = cableCategoryCreateSchema.parse(req.body);
-    const group = await nextDb.cableGroup.findUnique({ where: { id: input.groupId } });
-    if (!group) throw new HttpError(422, 'INVALID_PARENT', '케이블 그룹을 찾을 수 없습니다');
-    const row = await nextDb.cableCategory.create({ data: input });
-    res.status(201).json(row);
-  } catch (e) {
-    next(e);
-  }
-});
+    /* 같은 그룹 안에서 이름은 겹칠 수 없다(DB 제약) — 여기서 먼저 걸러 Prisma 의 P2002 대신
+       무엇이 겹쳤는지 말해 준다. */
+    const dup = categories.map((c) => c.name).find((n, i, all) => all.indexOf(n) !== i);
+    if (dup) throw new HttpError(422, 'DUPLICATE_NAME', `이름이 겹칩니다 — ${dup}`);
 
-/** PATCH /catalog/cable-categories/:id */
-catalogRouter.patch('/cable-categories/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    const patch = cableCategoryPatchSchema.parse(req.body);
-    const row = await nextDb.cableCategory.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '케이블 카테고리를 찾을 수 없습니다');
-    const updated = await nextDb.cableCategory.update({ where: { id }, data: patch });
-    res.json(updated);
-  } catch (e) {
-    next(e);
-  }
-});
+    const known = new Map(group.categories.map((c) => [c.id, c]));
+    const keep = new Set(categories.flatMap((c) => (c.id ? [c.id] : [])));
+    const foreign = [...keep].filter((id) => !known.has(id));
+    if (foreign.length > 0) throw new HttpError(422, 'INVALID_PARENT', '이 그룹의 종류가 아닙니다');
 
-/** DELETE /catalog/cable-categories/:id */
-catalogRouter.delete('/cable-categories/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    const row = await nextDb.cableCategory.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '케이블 카테고리를 찾을 수 없습니다');
-    const cableCount = await nextDb.cable.count({ where: { categoryId: id } });
-    if (cableCount > 0) {
-      throw new HttpError(409, 'CABLE_CATEGORY_IN_USE', `케이블이 있어 삭제할 수 없습니다 (케이블 ${cableCount}개)`);
+    /* 목록에서 빠진 것은 지운다 — 다만 쓰이는 중이면 무엇이 몇 개 걸려 있는지 이름으로 말한다
+       (저장 한 번에 여러 줄이 나가므로 「삭제할 수 없습니다」만으로는 어느 줄인지 모른다). */
+    const removed = group.categories.filter((c) => !keep.has(c.id));
+    if (removed.length > 0) {
+      const used = await nextDb.cable.groupBy({
+        by: ['categoryId'],
+        where: { categoryId: { in: removed.map((c) => c.id) } },
+        _count: { _all: true },
+      });
+      if (used.length > 0) {
+        const detail = used.map((u) => `${known.get(u.categoryId ?? '')?.name ?? '?'} ${u._count._all}개`).join(', ');
+        throw new HttpError(409, 'CABLE_CATEGORY_IN_USE', `케이블이 있어 삭제할 수 없습니다 — ${detail}`);
+      }
     }
-    await nextDb.cableCategory.delete({ where: { id } });
-    res.status(204).end();
+
+    const updated = await nextDb.$transaction(async (tx) => {
+      if (removed.length > 0) {
+        await tx.cableCategory.deleteMany({ where: { id: { in: removed.map((c) => c.id) } } });
+      }
+      /* 이름을 서로 맞바꾸는 경우(A→B, B→A)가 있다. 유니크 제약은 문장마다 검사되므로 한
+         줄씩 고치면 중간에 걸린다 — 바뀌는 이름을 먼저 임시값으로 밀어 두고 두 번째 바퀴에
+         제 이름을 준다. */
+      const renaming = categories.filter((c) => c.id && known.get(c.id)!.name !== c.name);
+      for (const c of renaming) {
+        await tx.cableCategory.update({ where: { id: c.id }, data: { name: `__tmp_${c.id}` } });
+      }
+      for (const [i, c] of categories.entries()) {
+        const data = {
+          name: c.name,
+          laborType: c.laborType,
+          installHoursPerM: c.installHoursPerM,
+          removeHoursPerM: c.removeHoursPerM,
+          sortOrder: i,
+        };
+        if (c.id) await tx.cableCategory.update({ where: { id: c.id }, data });
+        else await tx.cableCategory.create({ data: { ...data, groupId } });
+      }
+      return tx.cableGroup.findUniqueOrThrow({
+        where: { id: groupId },
+        include: { categories: { orderBy: { sortOrder: 'asc' } } },
+      });
+    });
+    res.json(updated);
   } catch (e) {
     next(e);
   }

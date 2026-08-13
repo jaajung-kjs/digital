@@ -15,6 +15,13 @@ export interface CatalogListItem {
    * 자산 수, 케이블=종류 수). 라벨도 툴팁도 없어 읽는 사람이 알 길이 없었다.
    */
   hintTitle?: string;
+  /**
+   * 이름 앞 색점 — 그 항목이 도면에서 그려지는 색(케이블 그룹).
+   *
+   * 색은 고정 어휘라 고칠 데가 없다. 그래도 어디에도 안 보이면 「이 그룹이 도면에서 무슨
+   * 색인지」를 도면을 열어 봐야만 알 수 있다.
+   */
+  dot?: string;
 }
 
 /** 분류로 묶인 한 덩이. 분류가 없는 대장(케이블 그룹)은 묶음 하나에 이름 없이 담는다. */
@@ -146,6 +153,13 @@ export function CatalogList({
                     )}
                     onClick={() => onSelect(item.id)}
                   >
+                    {item.dot && (
+                      <span
+                        aria-hidden
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: item.dot }}
+                      />
+                    )}
                     <span className="min-w-0 flex-1 truncate">{item.name}</span>
                     {item.hint && (
                       <span

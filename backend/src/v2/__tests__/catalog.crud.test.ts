@@ -88,10 +88,7 @@ describe('catalog CRUD', () => {
     await request(app).put(`/api/v2/catalog/types/${dummyId}`).set(viewer).send({}).expect(403);
     await request(app).delete(`/api/v2/catalog/types/${dummyId}`).set(viewer).expect(403);
 
-    await request(app).patch(`/api/v2/catalog/cable-groups/${dummyId}`).set(viewer).send({}).expect(403);
-    await request(app).post('/api/v2/catalog/cable-categories').set(viewer).send({}).expect(403);
-    await request(app).patch(`/api/v2/catalog/cable-categories/${dummyId}`).set(viewer).send({}).expect(403);
-    await request(app).delete(`/api/v2/catalog/cable-categories/${dummyId}`).set(viewer).expect(403);
+    await request(app).put(`/api/v2/catalog/cable-groups/${dummyId}/categories`).set(viewer).send({ categories: [] }).expect(403);
   });
 
   it('카테고리 생성→수정→삭제, 타입 존재 시 삭제 409 CATEGORY_IN_USE', async () => {
@@ -320,37 +317,53 @@ describe('catalog CRUD', () => {
     expect(catalog.types.find((t: { key: string }) => t.key === `${KEY_PREFIX}_TYPE_A`)).toBeUndefined();
   });
 
-  it('케이블 그룹 PATCH(이름·색) + 종류 CRUD·공량, 케이블 참조 시 삭제 409', async () => {
-    /* 그룹은 이름·색만 고친다 — 품셈은 **종류**가 갖는다(자산·설비와 같은 층). */
-    await request(app)
-      .patch(`/api/v2/catalog/cable-groups/${cableGroupId}`)
-      .set(admin)
-      .send({ color: '#123456' })
-      .expect(200)
-      .then((r) => expect(r.body.color).toBe('#123456'));
+  it('그룹의 종류 목록 PUT — 추가·수정·삭제가 한 저장에, 케이블이 물린 것은 409', async () => {
+    const put = (categories: unknown[]) =>
+      request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}/categories`).set(admin).send({ categories });
 
-    // 케이블 카테고리 생성 — 품셈을 함께 받는다
-    const ccRes = await request(app)
-      .post('/api/v2/catalog/cable-categories')
-      .set(admin)
-      .send({ groupId: cableGroupId, name: `${uniq}-ccat`, sortOrder: 999, laborType: '통신외선공', installHoursPerM: 0.06, removeHoursPerM: 0.03 })
-      .expect(201);
-    expect(ccRes.body.installHoursPerM).toBeCloseTo(0.06);
-    cableCatId = ccRes.body.id;
-    expect(cableCatId).toBeTruthy();
+    /* 목록을 **통째로** 보내는 API 다 — 시드 종류를 함께 실어 보내지 않으면 지워진다.
+       이 테스트가 지켜야 하는 계약이기도 하다. */
+    const seeded = (
+      await nextDb.cableCategory.findMany({ where: { groupId: cableGroupId }, orderBy: { sortOrder: 'asc' } })
+    ).map((c) => ({
+      id: c.id,
+      name: c.name,
+      laborType: c.laborType,
+      installHoursPerM: c.installHoursPerM,
+      removeHoursPerM: c.removeHoursPerM,
+    }));
+    expect(seeded.length).toBeGreaterThan(0);
 
-    // 케이블 카테고리 수정
-    await request(app)
-      .patch(`/api/v2/catalog/cable-categories/${cableCatId}`)
-      .set(admin)
-      .send({ name: `${uniq}-ccat-edited`, installHoursPerM: 0.07 })
-      .expect(200);
-    const ccRow = await nextDb.cableCategory.findUnique({ where: { id: cableCatId } });
-    expect(ccRow!.name).toBe(`${uniq}-ccat-edited`);
-    // 품셈도 종류에서 고친다 — 설계서 공량의 근거가 여기다.
-    expect(ccRow!.installHoursPerM).toBeCloseTo(0.07);
+    // 추가 — id 없는 줄은 새로 생긴다(품셈까지 함께).
+    const draft = { name: `${uniq}-ccat`, laborType: '통신외선공', installHoursPerM: 0.06, removeHoursPerM: 0.03 };
+    const created = (await put([...seeded, draft]).expect(200)).body;
+    const added = created.categories.find((c: { name: string }) => c.name === draft.name);
+    expect(added.installHoursPerM).toBeCloseTo(0.06);
+    cableCatId = added.id;
 
-    // 케이블이 참조하는 경우 삭제 → 409
+    // 수정 — 이름과 품셈이 **같은 저장**에서 함께 간다
+    const edited = (
+      await put([...seeded, { ...draft, id: cableCatId, name: `${uniq}-ccat-edited`, installHoursPerM: 0.07 }]).expect(200)
+    ).body;
+    const row = edited.categories.find((c: { id: string }) => c.id === cableCatId);
+    expect(row.name).toBe(`${uniq}-ccat-edited`);
+    // 품셈은 종류에서 고친다 — 설계서 공량의 근거가 여기다.
+    expect(row.installHoursPerM).toBeCloseTo(0.07);
+
+    // 같은 그룹 안에서 이름이 겹치면 422 — DB 제약(P2002)이 아니라 무엇이 겹쳤는지 말한다
+    await put([...seeded, { ...draft, id: cableCatId, name: seeded[0]!.name }])
+      .expect(422)
+      .then((r) => expect(r.body.error).toBe('DUPLICATE_NAME'));
+
+    // 남의 그룹 종류를 끌어올 수 없다
+    const foreign = await nextDb.cableCategory.findFirst({ where: { groupId: { not: cableGroupId } } });
+    if (foreign) {
+      await put([...seeded, { ...draft, id: foreign.id }])
+        .expect(422)
+        .then((r) => expect(r.body.error).toBe('INVALID_PARENT'));
+    }
+
+    // 케이블이 참조하는 경우 목록에서 빼면 → 409
     // 먼저 케이블을 위한 서브스테이션, 자산, 포트 셋업
     const sub = await nextDb.substation.create({
       data: {
@@ -368,12 +381,21 @@ describe('catalog CRUD', () => {
       data: { aPortId: portA.id, bPortId: portB.id, categoryId: cableCatId, substationId: sub.id },
     });
 
-    await request(app).delete(`/api/v2/catalog/cable-categories/${cableCatId}`).set(admin).expect(409)
-      .then((r) => expect(r.body.error).toBe('CABLE_CATEGORY_IN_USE'));
+    /* 지우는 것은 「목록에서 뺀다」이다 — 한 저장에 여러 줄이 나가므로 **어느 종류가 몇 개**
+       걸려 있는지 문구가 짚어야 한다. */
+    await put(seeded)
+      .expect(409)
+      .then((r) => {
+        expect(r.body.error).toBe('CABLE_CATEGORY_IN_USE');
+        expect(r.body.message).toContain(`${uniq}-ccat-edited`);
+      });
+    // 거부됐으면 아무것도 바뀌지 않았어야 한다
+    expect(await nextDb.cableCategory.count({ where: { id: cableCatId } })).toBe(1);
 
-    // 케이블 삭제 후 카테고리 삭제
+    // 케이블 삭제 후 다시 빼면 지워진다
     await nextDb.cable.delete({ where: { id: cable.id } });
-    await request(app).delete(`/api/v2/catalog/cable-categories/${cableCatId}`).set(admin).expect(204);
+    const after = (await put(seeded).expect(200)).body;
+    expect(after.categories.map((c: { id: string }) => c.id)).toEqual(seeded.map((c) => c.id));
     cableCatId = '';
 
     // 정리
@@ -385,6 +407,33 @@ describe('catalog CRUD', () => {
     if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
     const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq5` } });
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
+  });
+
+  /* 이름은 그룹 안에서 유니크하다 — 한 줄씩 고치면 맞바꾸는 순간 중간 상태가 제약에 걸린다. */
+  it('종류 이름을 서로 맞바꿔도 저장된다', async () => {
+    const seeded = await nextDb.cableCategory.findMany({ where: { groupId: cableGroupId }, orderBy: { sortOrder: 'asc' } });
+    const base = seeded.map((c) => ({
+      id: c.id,
+      name: c.name,
+      laborType: c.laborType,
+      installHoursPerM: c.installHoursPerM,
+      removeHoursPerM: c.removeHoursPerM,
+    }));
+    const put = (categories: unknown[]) =>
+      request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}/categories`).set(admin).send({ categories });
+
+    const a = { name: `${uniq}-swapA`, laborType: null, installHoursPerM: 0.1, removeHoursPerM: 0.05 };
+    const b = { name: `${uniq}-swapB`, laborType: null, installHoursPerM: 0.2, removeHoursPerM: 0.06 };
+    const made = (await put([...base, a, b]).expect(200)).body.categories as { id: string; name: string }[];
+    const idA = made.find((c) => c.name === a.name)!.id;
+    const idB = made.find((c) => c.name === b.name)!.id;
+
+    const swapped = (await put([...base, { ...a, id: idA, name: b.name }, { ...b, id: idB, name: a.name }]).expect(200))
+      .body.categories as { id: string; name: string }[];
+    expect(swapped.find((c) => c.id === idA)!.name).toBe(b.name);
+    expect(swapped.find((c) => c.id === idB)!.name).toBe(a.name);
+
+    await put(base).expect(200);
   });
 
   it('GET /v2/catalog 의 types[].assetCount 가 인스턴스 수를 반영한다', async () => {

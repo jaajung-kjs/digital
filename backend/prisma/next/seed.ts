@@ -20,16 +20,18 @@ async function main() {
 
     /*
      * 케이블 그룹은 **고정 어휘**다 — 사용자가 늘리거나 지울 수 없고(`PORT_KINDS` 가
-     * 그 목록이다), 고치는 것은 이름·색·품셈뿐이다. 그래서 아래 카탈로그 skip 가드보다
+     * 그 목록이다), 늘어나는 것은 그룹 안의 종류다. 그래서 아래 카탈로그 skip 가드보다
      * 위에 둔다: 어휘에 종류가 하나 늘면 이미 쓰고 있는 DB 에도 그 그룹이 생겨야 한다
      * (안 그러면 그 매체의 포트에 물릴 케이블 종류가 하나도 없다).
      *
-     * **없는 것만 만든다** — 이름·색·품셈은 현장이 고친 값일 수 있어 덮지 않는다.
+     * **이름·색까지 덮는다** — 편집 UI 가 없으니 코드가 유일한 주인이다. 예전에는 덮지
+     * 않아서, 어휘에서 이름을 고쳐도(「광 인입」→「OPGW」) 이미 선 DB 는 옛 이름을 계속
+     * 들고 있었고 손으로 UPDATE 해야 했다.
      */
     for (const g of SEED_CABLE_GROUPS) {
       await tx.cableGroup.upsert({
         where: { key: g.key },
-        update: {},
+        update: { name: g.name, color: g.color, sortOrder: g.sortOrder },
         create: { key: g.key, name: g.name, color: g.color, sortOrder: g.sortOrder },
       });
     }
