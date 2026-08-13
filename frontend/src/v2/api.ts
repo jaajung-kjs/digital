@@ -1,5 +1,5 @@
 import { httpClient as api } from './httpClient';
-import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2Standard, V2WageRow, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2WageRow, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
 
@@ -160,4 +160,14 @@ export async function fetchStandards(): Promise<V2Standard[]> {
 }
 export async function activateStandard(id: string): Promise<void> {
   await api.post(`/v2/standards/${id}/activate`);
+}
+
+/** 제비율 미리보기 — 등록 전에 적용시기와 펼쳐진 표를 보여 준다. */
+export type OverheadPreview = Omit<V2OverheadStandard, 'id'> & { sourceName: string };
+
+export async function previewOverheadStandard(file: File): Promise<OverheadPreview> {
+  return (await api.post('/v2/standards/overhead/preview', filePart(file), MULTIPART)).data;
+}
+export async function uploadOverheadStandard(file: File): Promise<{ id: string; effective: string }> {
+  return (await api.post('/v2/standards/overhead', filePart(file), MULTIPART)).data;
 }

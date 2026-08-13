@@ -87,10 +87,13 @@ catalogRouter.get('/', async (_req, res, next) => {
         include: { items: { orderBy: { sortOrder: 'asc' } } },
         orderBy: { sortOrder: 'asc' },
       }),
-      /* 적용 중인 노임단가를 **카탈로그에 실어 보낸다** — 노무유형 드롭다운의 어휘이고,
-         설계서의 단가다. 조회를 따로 두면 화면마다 「어느 판을 봤나」가 갈린다. */
-      nextDb.laborStandard.findFirst({ where: { kind: 'wage', active: true } }),
+      /* 적용 중인 기준자료를 **카탈로그에 실어 보낸다** — 노임은 노무유형 드롭다운의
+         어휘이자 설계서의 단가이고, 제비율은 설계서의 요율이다. 조회를 따로 두면 화면마다
+         「어느 판을 봤나」가 갈린다. */
+      nextDb.laborStandard.findMany({ where: { active: true } }),
     ]);
+    const wageRow = wage.find((s) => s.kind === 'wage') ?? null;
+    const overheadRow = wage.find((s) => s.kind === 'overhead') ?? null;
 
     const typesWithCount = types.map(({ _count, ...t }) => ({
       ...t,
@@ -102,8 +105,11 @@ catalogRouter.get('/', async (_req, res, next) => {
       types: typesWithCount,
       cableGroups,
       assemblies,
-      wageStandard: wage
-        ? { id: wage.id, effective: wage.effective, ...(wage.payload as { dates: string[]; rows: unknown[] }) }
+      wageStandard: wageRow
+        ? { id: wageRow.id, effective: wageRow.effective, ...(wageRow.payload as Record<string, unknown>) }
+        : null,
+      overheadStandard: overheadRow
+        ? { id: overheadRow.id, ...(overheadRow.payload as Record<string, unknown>) }
         : null,
     });
   } catch (e) {

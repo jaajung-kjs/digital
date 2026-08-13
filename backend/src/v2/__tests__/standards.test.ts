@@ -17,13 +17,20 @@ const hwp = join(__dirname, 'fixtures', 'wage-2026H1.hwp');
 
 describe('기준자료 — 노임단가', () => {
   let created: string[] = [];
+  /* 이 테스트는 「적용 중」을 갈아 끼운다 — 끝나면 원래대로 돌려놓는다. 개발 DB 를 공유하므로
+     테스트를 돌렸다고 화면의 기준자료가 내려가 있으면 안 된다. */
+  let wasActive: string[] = [];
 
   beforeAll(async () => {
     await sweepTestFixtures();
+    wasActive = (await nextDb.laborStandard.findMany({ where: { active: true }, select: { id: true } })).map((r) => r.id);
   });
 
   afterAll(async () => {
     if (created.length) await nextDb.laborStandard.deleteMany({ where: { id: { in: created } } });
+    if (wasActive.length) {
+      await nextDb.laborStandard.updateMany({ where: { id: { in: wasActive } }, data: { active: true } });
+    }
     await nextDb.$disconnect();
   });
 
@@ -82,14 +89,54 @@ describe('기준자료 — 노임단가', () => {
     expect(catalog.wageStandard.rows.length).toBeGreaterThan(50);
   });
 
+  it('제비율은 표를 펼쳐 저장하고 카탈로그에 실려 온다', async () => {
+    const xlsx = join(__dirname, 'fixtures', 'overhead-2026.xlsx');
+    await request(app)
+      .post('/api/v2/standards/overhead')
+      .set(viewer)
+      .attach('file', xlsx)
+      .expect(403);
+
+    const pre = (
+      await request(app).post('/api/v2/standards/overhead/preview').set(admin).attach('file', xlsx).expect(200)
+    ).body;
+    expect(pre.kind).toBe('전기통신소방전문');
+    expect(pre.bySize.이윤['10억미만']).toBeCloseTo(0.15, 5);
+
+    const res = await request(app).post('/api/v2/standards/overhead').set(admin).attach('file', xlsx).expect(201);
+    created.push(res.body.id);
+
+    const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
+    /* 요율은 **구간마다 다르다** — 이 값이 상수로 굳으면 공사가 커질 때 조용히 틀린다. */
+    expect(catalog.overheadStandard.byDuration.간접노무비['10억미만']['183']).toBeCloseTo(0.191, 5);
+    expect(catalog.overheadStandard.bySize.일반관리비['1000억이상']).toBeCloseTo(0.045, 5);
+    expect(catalog.overheadStandard.sanan['5-50억'].base).toBe(3_300_000);
+
+    // 노임과 제비율은 서로를 밀어내지 않는다 — 종류마다 「적용 중」이 하나씩이다.
+    expect(catalog.wageStandard).not.toBeNull();
+  });
+
+  it('제비율 자리에 엉뚱한 파일을 올리면 422', async () => {
+    await request(app)
+      .post('/api/v2/standards/overhead')
+      .set(admin)
+      .attach('file', Buffer.from('그냥 글자'), 'wrong.xlsx')
+      .expect(422)
+      .then((r) => expect(r.body.error).toBe('BAD_FORMAT'));
+  });
+
   it('두 번째 판을 올리면 이전 판은 내려가고 목록에는 남는다', async () => {
     const res = await request(app).post('/api/v2/standards/wage').set(admin).attach('file', hwp).expect(201);
     created.push(res.body.id);
 
     const list = (await request(app).get('/api/v2/standards').set(admin).expect(200)).body;
     const wages = list.filter((r: { kind: string }) => r.kind === 'wage');
-    expect(wages.filter((r: { active: boolean }) => r.active)).toHaveLength(1);
-    expect(wages[0].id).toBe(res.body.id); // 최신이 위
+    /* 「적용 중」은 종류마다 하나이고, 그것이 방금 올린 판이다.
+       목록 **차례**로 확인하지 않는다 — 같은 초에 올린 두 판은 순서가 정해지지 않는다. */
+    const active = wages.filter((r: { active: boolean }) => r.active);
+    expect(active).toHaveLength(1);
+    expect(active[0].id).toBe(res.body.id);
+    expect(wages.length).toBeGreaterThan(1); // 이전 판은 남는다
 
     /* 이전 판으로 되돌릴 수 있다 — 지난 설계서를 그때 값으로 다시 보려면 필요하다. */
     const older = wages.find((r: { id: string }) => r.id === created[0]);

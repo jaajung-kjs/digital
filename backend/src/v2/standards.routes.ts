@@ -17,6 +17,7 @@ import { authenticate, adminOnly } from './auth.middleware.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import { readWageHwp, HwpFormatError, type WageReport } from './standards/hwpWage.js';
+import { readOverheadXlsx, OverheadFormatError } from './standards/overheadXlsx.js';
 
 export const standardsRouter = Router();
 standardsRouter.use(authenticate);
@@ -148,6 +149,53 @@ standardsRouter.post('/standards/wage', adminOnly, uploadSingle, async (req, res
       return row;
     });
     res.status(201).json({ id: created.id, effective: created.effective, promoted: promote.length });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ── 제비율 ───────────────────────────────────────────────────────────────────
+
+/** 파일을 읽어 표로 펼친다 — 미리보기와 등록이 같은 길을 쓴다. */
+async function parseOverhead(buffer: Buffer) {
+  try {
+    return await readOverheadXlsx(buffer);
+  } catch (e) {
+    if (e instanceof OverheadFormatError) throw new HttpError(422, 'BAD_FORMAT', e.message);
+    throw e;
+  }
+}
+
+/** POST /v2/standards/overhead/preview — 읽어 보여만 준다. */
+standardsRouter.post('/standards/overhead/preview', adminOnly, uploadSingle, async (req, res, next) => {
+  try {
+    if (!req.file) throw new HttpError(400, 'NO_FILE', '파일이 없습니다');
+    const table = await parseOverhead(req.file.buffer);
+    res.json({ ...table, sourceName: req.file.originalname });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST /v2/standards/overhead — 등록하고 바로 적용한다. */
+standardsRouter.post('/standards/overhead', adminOnly, uploadSingle, async (req, res, next) => {
+  try {
+    if (!req.file) throw new HttpError(400, 'NO_FILE', '파일이 없습니다');
+    const table = await parseOverhead(req.file.buffer);
+    const created = await nextDb.$transaction(async (tx) => {
+      await tx.laborStandard.updateMany({ where: { kind: 'overhead', active: true }, data: { active: false } });
+      return tx.laborStandard.create({
+        data: {
+          kind: 'overhead',
+          effective: table.effective,
+          sourceName: req.file!.originalname,
+          payload: table as unknown as Prisma.InputJsonValue,
+          active: true,
+          uploadedBy: req.user?.username ?? 'unknown',
+        },
+      });
+    });
+    res.status(201).json({ id: created.id, effective: created.effective });
   } catch (e) {
     next(e);
   }

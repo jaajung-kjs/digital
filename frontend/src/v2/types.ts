@@ -70,7 +70,23 @@ export interface V2WageRow { code: string; name: string; sector: string; wage: n
 /** 지금 적용 중인 노임단가 판. 아직 아무것도 안 올렸으면 null 이다. */
 export interface V2WageStandard { id: string; effective: string; dates: string[]; rows: V2WageRow[] }
 
-export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[]; assemblies: V2Assembly[]; wageStandard: V2WageStandard | null }
+/**
+ * 적용 중인 제비율 판 — 간접노무비부터 이윤까지, **구간별로 펼쳐진 표**다.
+ *
+ * 요율은 고정 상수가 아니다: (공사규모 × 공사기간 × 계약방법) 으로 갈린다. 상수로 박아 두면
+ * 공사가 커질 때 조용히 틀린다.
+ */
+export interface V2OverheadStandard {
+  id: string;
+  effective: string;
+  kind: string;
+  byDuration: Record<'간접노무비' | '기타경비', Record<string, Record<string, number>>>;
+  bySize: Record<'일반관리비' | '이윤', Record<string, number>>;
+  fixed: Record<string, number>;
+  sanan: Record<string, { rate: number; base: number | null }>;
+}
+
+export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[]; assemblies: V2Assembly[]; wageStandard: V2WageStandard | null; overheadStandard: V2OverheadStandard | null }
 
 /** 올려 둔 기준자료 한 판(목록용 — 내용은 빼고). */
 export interface V2Standard {
