@@ -31,7 +31,7 @@ import {
   SELECTABLE,
   SELECTED,
 } from '../../../components/ui';
-import { EMPTY_LABOR_SPEC, LABOR_CODE_LABEL, LABOR_WAGE_LABEL, WORK_KINDS, laborSpecColumns, manDaysOf } from '@twin/core';
+import { EMPTY_LABOR_SPEC, LABOR_CODE_LABEL, LABOR_WAGE_LABEL, WAGE_UNIT, WORK_KINDS, laborSpecColumns, manDaysOf } from '@twin/core';
 import type { LaborSpec } from '@twin/core';
 import type { V2Catalog, V2CableGroup } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
@@ -342,7 +342,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                       <Th>이름</Th>
                       <Th>{LABOR_CODE_LABEL}</Th>
                       {/* **조회 칸**이다 — 저장되는 것은 직종 코드뿐이고 단가는 기준자료가 정한다. */}
-                      <Th className="text-right">{LABOR_WAGE_LABEL}</Th>
+                      <Th className="text-right">{`${LABOR_WAGE_LABEL}(${WAGE_UNIT})`}</Th>
                       {/* 열은 어휘가 정한다 — 여기서 칸을 손으로 적지 않는다. */}
                       {SPEC_COLUMNS.map((c) => (
                         <Th key={c.field} className="text-right">

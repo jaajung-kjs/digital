@@ -224,7 +224,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
               resetKey={draft.key || "new"}
               spec={draft}
               onChange={(patch) => onChange({ ...draft, ...patch })}
-              hint="설비를 통째로 놓거나 걷을 때의 품(1식) — 비워 두면 안에 든 부품의 공량을 합쳐 셉니다."
+              hint="1식 — 비우면 안에 든 부품의 공량을 합쳐 셉니다."
             />
           </>
         )}

@@ -505,7 +505,8 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
         data: {
           key: body.key, name: body.name, categoryId: body.categoryId,
           gridCols: body.gridCols, gridRows: body.gridRows,
-          laborCode: body.laborCode, installManDays: body.installManDays,
+          laborCode: body.laborCode, unitPrice: body.unitPrice,
+          installManDays: body.installManDays,
           removeManDays: body.removeManDays, relocateManDays: body.relocateManDays,
           sortOrder: body.sortOrder,
         },
@@ -535,7 +536,8 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
         data: {
           key: body.key, name: body.name, categoryId: body.categoryId,
           gridCols: body.gridCols, gridRows: body.gridRows,
-          laborCode: body.laborCode, installManDays: body.installManDays,
+          laborCode: body.laborCode, unitPrice: body.unitPrice,
+          installManDays: body.installManDays,
           removeManDays: body.removeManDays, relocateManDays: body.relocateManDays,
           sortOrder: body.sortOrder,
         },

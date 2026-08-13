@@ -2,20 +2,22 @@
  * 공량·단가 카드 — **자산 종류·설비 종류·케이블 종류가 같은 것을 쓴다**.
  *
  * 예전에는 세 화면이 각자 폼을 갖고 있었다. 그래서 케이블에만 이설이 없고, 설비에만
- * 자재단가가 없고, 라벨도 제각각이었다(신설(h) / 신설(h/m) / 신설(인)). 칸을 늘리거나
- * 줄이려면 세 곳을 손으로 맞춰야 했으니 하나만 고쳐지는 것이 시간 문제였다.
+ * 자재단가가 없고, 라벨도 제각각이었다. 칸을 늘리거나 줄이려면 세 곳을 손으로 맞춰야 했으니
+ * 하나만 고쳐지는 것이 시간 문제였다.
  *
- * 이제 칸은 `WORK_KINDS` 가, 단위는 `LABOR_CARRIERS` 가 정한다(`@twin/core` 의 `laborSpec`).
- * 여기서 필드 이름을 다시 적지 않는다 — 어휘가 늘면 세 화면이 함께 따라온다.
+ * 칸은 `WORK_KINDS` 가, 단위는 `LABOR_CARRIERS` 가 정한다(`@twin/core` 의 `laborSpec`).
+ *
+ * **고르는 칸 · 적는 칸 · 따라오는 칸**이 눈으로 갈린다: 노무유형은 고르고, 단가·품은 적고,
+ * 노임단가는 기준자료가 정해 글자로만 선다.
  */
 import { useEffect, useState } from 'react';
-import { LABOR_CARRIERS, LABOR_CODE_LABEL, LABOR_WAGE_LABEL, laborSpecColumns } from '@twin/core';
+import { LABOR_CODE_LABEL, LABOR_WAGE_LABEL, MAN_DAY_FIELD, WORK_KINDS, manDayUnit, unitPriceUnit } from '@twin/core';
 import type { LaborCarrier, LaborSpec } from '@twin/core';
-import { DetailCard, DetailCardHeader, DetailGrid, DetailRow, Input } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, DetailRow, Input } from '../../../components/ui';
 import { useWageCatalog } from '../../hooks';
 import { LaborTypeSelect } from './LaborTypeSelect';
 
-/** 숫자 칸 — 비우면 null(「안 적었다」), 0 은 「품이 안 든다」. 둘을 뭉개지 않는다. */
+/** 비우면 null(「안 적었다」), 0 은 「품이 안 든다」. 둘을 뭉개지 않는다. */
 const toNumber = (raw: string, int = false): number | null => {
   const t = raw.trim();
   if (t === '') return null;
@@ -40,6 +42,11 @@ function useNumericFields(spec: LaborSpec, resetKey: string) {
   };
 }
 
+/** 값 오른쪽에 붙는 단위 — 라벨 자리(w-16)가 좁아 「자재단가(원/m)」은 두 줄로 접힌다. */
+const Unit = ({ children }: { children: string }) => (
+  <span className="shrink-0 text-xs text-content-faint">{children}</span>
+);
+
 export function LaborSpecForm({
   carrier,
   spec,
@@ -58,19 +65,11 @@ export function LaborSpecForm({
   /** 카드 머리 아래 한 줄 — 설비의 「1식」처럼 담체마다 다른 사정. */
   hint?: string;
 }) {
-  const unit = LABOR_CARRIERS[carrier].unit;
   const num = useNumericFields(spec, resetKey);
-  const columns = laborSpecColumns(carrier);
-  const wageOf = useWageCatalog();
-  const wageValue = wageOf.wageOf(spec.laborCode);
-  const staleDate = wageOf.staleDateOf(spec.laborCode);
-  const wageText = spec.laborCode == null ? '—' : wageValue == null ? '단가 없음' : `${wageValue.toLocaleString()}원/일`;
-  /* 옛 회차 값이면 그 사정을 **보고서 문장 그대로** 옮긴다. */
-  const wageHint = staleDate
-    ? `${staleDate} 기준 — ${wageOf.noteOf(spec.laborCode) ?? '이번 회차에는 조사되지 않은 직종입니다'}`
-    : spec.laborCode != null
-      ? '기준자료가 정합니다 — 여기서 고치지 않습니다'
-      : null;
+  const wage = useWageCatalog();
+  const wageValue = wage.wageOf(spec.laborCode);
+  const staleDate = wage.staleDateOf(spec.laborCode);
+
   return (
     <DetailCard>
       <DetailCardHeader title="공량" />
@@ -80,54 +79,57 @@ export function LaborSpecForm({
         <LaborTypeSelect value={spec.laborCode} onChange={(laborCode) => onChange({ laborCode })} />
       </DetailRow>
 
-      {/* **고칠 수 없는 칸**이다 — 노임단가는 기준자료(임포트)가 정한다. 직종을 고르면
-          따라오고, 여기서 손대면 사람마다 다른 설계서가 나온다. */}
-      <DetailRow label={LABOR_WAGE_LABEL} hint={wageHint ?? undefined}>
-        <span className="text-sm text-content tabular-nums">{wageText}</span>
+      {/* **고칠 수 없는 칸** — 노임단가는 기준자료(임포트)가 정한다. 옛 회차 값일 때만 그
+          사정을 덧붙인다(보고서 문장 그대로). */}
+      <DetailRow
+        label={LABOR_WAGE_LABEL}
+        hint={staleDate ? `${staleDate} 기준 · ${wage.noteOf(spec.laborCode) ?? ''}` : undefined}
+      >
+        <span className="text-sm text-content tabular-nums">
+          {spec.laborCode == null ? '—' : wageValue == null ? '단가 없음' : `${wageValue.toLocaleString()}원/일`}
+        </span>
       </DetailRow>
 
-      {/* 칸은 어휘가 정한다 — 폼도 표도 `laborSpecColumns` 하나로만 만든다.
-          단가는 한 줄로, 품 셋은 나란히 읽는 값이라 두 단으로. */}
-      {columns
-        .filter((c) => c.kind === 'price')
-        .map((c) => (
-          <DetailRow key={c.field} label={c.label} issue={issueFor?.(`labor.${c.field}`)}>
-            <Input
-              aria-label={c.label}
-              type="number"
-              value={num.valueOf(c.field)}
-              placeholder="비우면 재료비 0"
-              onChange={(e) => {
-                num.onType(c.field, e.currentTarget.value);
-                onChange({ [c.field]: toNumber(e.currentTarget.value, true) } as Partial<LaborSpec>);
-              }}
-            />
-          </DetailRow>
-        ))}
+      <DetailRow label="자재단가" issue={issueFor?.('labor.unitPrice')}>
+        <span className="flex items-center gap-1.5">
+          <Input
+            aria-label="자재단가"
+            type="number"
+            value={num.valueOf('unitPrice')}
+            onChange={(e) => {
+              num.onType('unitPrice', e.currentTarget.value);
+              onChange({ unitPrice: toNumber(e.currentTarget.value, true) });
+            }}
+          />
+          <Unit>{unitPriceUnit(carrier)}</Unit>
+        </span>
+      </DetailRow>
 
-      <DetailGrid>
-        {columns
-          .filter((c) => c.kind === 'manDays')
-          .map((c) => (
-            <DetailRow key={c.field} label={c.label} issue={issueFor?.(`labor.${c.field}`)}>
-              <Input
-                aria-label={c.label}
-                type="number"
-                value={num.valueOf(c.field)}
-                placeholder="—"
-                onChange={(e) => {
-                  num.onType(c.field, e.currentTarget.value);
-                  onChange({ [c.field]: toNumber(e.currentTarget.value) } as Partial<LaborSpec>);
-                }}
-              />
-            </DetailRow>
-          ))}
-      </DetailGrid>
-
-      <p className="text-xs text-content-faint">
-        품은 인·일({unit}당) — 노임단가(원/일)와 곱해 직접노무비가 됩니다. 비워 두면 「안 적었다」, 0 은
-        「품이 안 든다」는 뜻입니다.
-      </p>
+      {/* 신설·철거·이설은 **나란히 읽는 값**이라 한 줄에 선다. 칸은 어휘가 정한다. */}
+      <DetailRow label="공량" align="start">
+        <span className="flex items-start gap-1.5">
+          {WORK_KINDS.map((w) => {
+            const field = MAN_DAY_FIELD[w.key];
+            return (
+              <span key={w.key} className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-xs text-content-muted">{w.label}</span>
+                <Input
+                  aria-label={`${w.label} 공량`}
+                  type="number"
+                  value={num.valueOf(field)}
+                  onChange={(e) => {
+                    num.onType(field, e.currentTarget.value);
+                    onChange({ [field]: toNumber(e.currentTarget.value) } as Partial<LaborSpec>);
+                  }}
+                />
+              </span>
+            );
+          })}
+          <span className="pt-[1.15rem]">
+            <Unit>{manDayUnit(carrier)}</Unit>
+          </span>
+        </span>
+      </DetailRow>
     </DetailCard>
   );
 }

@@ -427,6 +427,55 @@ describe('catalog CRUD', () => {
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
   });
 
+  /* 스키마를 넓혀 놓고 **쓰는 곳을 빼먹는** 결함이 세 번 났다(케이블 품셈, 설비 자재단가).
+     세 담체가 같은 다섯 칸을 쓰므로, 한 번에 왕복으로 잠근다. */
+  it('공량·단가 다섯 칸이 세 담체 모두에서 저장·조회된다', async () => {
+    const spec = { laborCode: '1086', unitPrice: 12345, installManDays: 1.5, removeManDays: 0.5, relocateManDays: 2.5 };
+
+    // 자산 종류
+    const t = await request(app)
+      .post('/api/v2/catalog/types')
+      .set(admin)
+      .send(makeTypeBody(catId, { key: `${KEY_PREFIX}_SPEC`, ...spec }))
+      .expect(201);
+    // 설비 종류
+    const a = await request(app)
+      .post('/api/v2/catalog/assemblies')
+      .set(admin)
+      .send({ name: `${uniq}-asm-spec`, categoryId: catId, gridCols: 1, gridRows: 1, sortOrder: 999, items: [], ...spec })
+      .expect(201);
+
+    const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
+    for (const row of [
+      catalog.types.find((x: { id: string }) => x.id === t.body.id),
+      catalog.assemblies.find((x: { id: string }) => x.id === a.body.id),
+    ]) {
+      expect(row).toMatchObject(spec);
+    }
+
+    // 케이블 종류 — 그룹 통째 PUT 으로 간다
+    const seeded = await nextDb.cableCategory.findMany({ where: { groupId: cableGroupId }, orderBy: { sortOrder: 'asc' } });
+    const body = {
+      name: groupName,
+      color: groupColor,
+      categories: [
+        ...seeded.map((c) => ({
+          id: c.id, name: c.name, laborCode: c.laborCode, unitPrice: c.unitPrice,
+          installManDays: c.installManDays, removeManDays: c.removeManDays, relocateManDays: c.relocateManDays,
+        })),
+        { name: `${uniq}-spec`, ...spec },
+      ],
+    };
+    const g = (await request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}`).set(admin).send(body).expect(200)).body;
+    expect(g.categories.find((c: { name: string }) => c.name === `${uniq}-spec`)).toMatchObject(spec);
+
+    // 정리
+    await request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}`).set(admin)
+      .send({ ...body, categories: body.categories.slice(0, -1) }).expect(200);
+    await request(app).delete(`/api/v2/catalog/assemblies/${a.body.id}`).set(admin).expect(204);
+    await request(app).delete(`/api/v2/catalog/types/${t.body.id}`).set(admin).expect(204);
+  });
+
   /* 이름은 그룹 안에서 유니크하다 — 한 줄씩 고치면 맞바꾸는 순간 중간 상태가 제약에 걸린다. */
   it('종류 이름을 서로 맞바꿔도 저장된다', async () => {
     const seeded = await nextDb.cableCategory.findMany({ where: { groupId: cableGroupId }, orderBy: { sortOrder: 'asc' } });

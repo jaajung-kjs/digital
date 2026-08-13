@@ -58,11 +58,20 @@ export function manDaysOf(spec: LaborSpec, kind: WorkKind): number | null {
   return spec[MAN_DAY_FIELD[kind]];
 }
 
-/** 화면이 쓰는 라벨 — 「신설(인/m)」처럼 단위까지. 한 곳에서 만든다. */
+/**
+ * 표의 열 이름 — 「신설(인/m)」처럼 단위까지. 표는 폭이 넉넉하다.
+ *
+ * 상세 폼에서는 라벨 자리가 좁아 줄이 접히므로 단위를 값 쪽에 둔다(`manDayUnit`).
+ */
 export function laborFieldLabel(kind: WorkKind, carrier: LaborCarrier): string {
   const work = WORK_KINDS.find((w) => w.key === kind)!;
   return `${work.label}(인/${LABOR_CARRIERS[carrier].unit})`;
 }
+
+/** 품의 단위 — 「인/m」. 폼이 값 옆에 한 번만 적는다. */
+export const manDayUnit = (carrier: LaborCarrier) => `인/${LABOR_CARRIERS[carrier].unit}`;
+/** 자재단가의 단위 — 「원/m」. */
+export const unitPriceUnit = (carrier: LaborCarrier) => `원/${LABOR_CARRIERS[carrier].unit}`;
 
 /**
  * 직종과 노임단가는 **다른 데이터**다 — 화면이 붙여 놓으면 한 칸에 둘 다 저장되는 것으로 읽힌다.
@@ -73,7 +82,9 @@ export function laborFieldLabel(kind: WorkKind, carrier: LaborCarrier): string {
  * 그래서 화면도 두 칸으로 나눈다: 고르는 칸과 따라오는 칸.
  */
 export const LABOR_CODE_LABEL = '노무유형';
-export const LABOR_WAGE_LABEL = '노임단가(원/일)';
+export const LABOR_WAGE_LABEL = '노임단가';
+/** 노임단가의 단위 — 폼은 값에, 표는 열 이름에 붙인다. */
+export const WAGE_UNIT = '원/일';
 
 /** 자재단가 라벨 — 「자재단가(원/m)」. */
 export function unitPriceLabel(carrier: LaborCarrier): string {
