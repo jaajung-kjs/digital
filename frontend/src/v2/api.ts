@@ -103,12 +103,15 @@ export async function putCableGroup(
   body: {
     name: string;
     color: string;
+    /** 공량·단가는 자산·설비와 같은 다섯 칸이다(`LaborSpec`). */
     categories: {
       id?: string;
       name: string;
       laborCode: string | null;
-      installManDaysPerM: number;
-      removeManDaysPerM: number;
+      unitPrice: number | null;
+      installManDays: number | null;
+      removeManDays: number | null;
+      relocateManDays: number | null;
     }[];
   },
 ): Promise<V2CableGroup> {

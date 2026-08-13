@@ -427,8 +427,9 @@ catalogRouter.put('/cable-groups/:id', adminOnly, async (req, res, next) => {
           name: c.name,
           laborCode: c.laborCode,
           unitPrice: c.unitPrice,
-          installManDaysPerM: c.installManDaysPerM,
-          removeManDaysPerM: c.removeManDaysPerM,
+          installManDays: c.installManDays,
+          removeManDays: c.removeManDays,
+          relocateManDays: c.relocateManDays,
           sortOrder: i,
         };
         if (c.id) await tx.cableCategory.update({ where: { id: c.id }, data });

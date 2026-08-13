@@ -10,7 +10,7 @@ const fiberCat = 'cat-f';
    그룹은 이름·색뿐이고, 설계서의 「종류」 열도 그룹이 아니라 종류 이름을 적는다. */
 const groups = [{
   id: 'g-f', key: 'fiber', name: '광', color: '#0f0', sortOrder: 1,
-  categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1, laborCode: '통신외선공', installManDaysPerM: 0.04, removeManDaysPerM: 0.02 }],
+  categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1, laborCode: '통신외선공', installManDays: 0.04, removeManDays: 0.02 }],
 }];
 
 const mkAsset = (id: string, name: string, extra: object = {}) => ({

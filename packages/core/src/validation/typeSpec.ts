@@ -1,3 +1,4 @@
+import { WORK_KINDS, MAN_DAY_FIELD, manDaysOf } from '../catalog/laborSpec.js';
 import { PORT_DIRECTIONS } from '../catalog/types.js';
 import { portKind } from '../catalog/portKinds.js';
 import type { AssetTypeSpec } from '../catalog/types.js';
@@ -20,9 +21,13 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
   if (spec.name.trim() === '') push('name', '이름을 입력하세요');
   if (!ctx.categoryKeys.includes(spec.categoryKey)) push('categoryKey', '존재하지 않는 분류입니다');
 
-  for (const k of ['installManDays', 'removeManDays', 'relocateManDays'] as const) {
-    if (spec.labor[k] < 0) push(`labor.${k}`, '공량은 0 이상이어야 합니다');
+  /* 작업 종류는 `WORK_KINDS` 가 유일한 선언이다 — 여기서 이름을 다시 적으면 어휘가 늘 때
+     검증만 옛 목록을 본다. null 은 「안 적었다」라 검사할 것이 없다. */
+  for (const w of WORK_KINDS) {
+    const v = manDaysOf(spec.labor, w.key);
+    if (v != null && v < 0) push(`labor.${MAN_DAY_FIELD[w.key]}`, '공량은 0 이상이어야 합니다');
   }
+  if (spec.labor.unitPrice != null && spec.labor.unitPrice < 0) push('labor.unitPrice', '단가는 0 이상이어야 합니다');
 
   const portGroups = new Set<string>();
   spec.ports.forEach((p, i) => {

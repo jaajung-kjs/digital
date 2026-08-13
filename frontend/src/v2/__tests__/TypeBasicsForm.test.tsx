@@ -19,10 +19,14 @@ import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 vi.mock('../hooks', () => ({
   useWageCatalog: () => ({
     effective: '2026년도 상반기',
-    rows: [{ code: '1086', name: '통신내선공', sector: '일반공사', wage: 284880, marker: '' }],
+    rows: [
+      { code: '1086', name: '통신내선공', sector: '일반공사', wage: 284880, marker: '', markerNote: null, effectiveLabel: '2026.1.1' },
+    ],
     nameOf: (c: string | null) => (c === '1086' ? '통신내선공' : c && `(직종 ${c})`),
     wageOf: () => null,
     known: (c: string | null) => c === '1086',
+    staleDateOf: () => null,
+    noteOf: () => null,
   }),
 }));
 

@@ -1,5 +1,6 @@
 import { assetReportItem, cableReportItem, COMMON_CABLE_FIELDS, PLACEMENT_FIELDS } from '@twin/core';
-import type { ReportItem } from '@twin/core';
+import type { LaborSpec, ReportItem } from '@twin/core';
+import { MAN_DAY_FIELD } from '@twin/core';
 import { mergeEffective } from './store/overlay';
 import { buildPortIndex, cableEndpointName } from './peerResolve';
 import type { V2Assembly, V2Asset, V2AssetType, V2Cable, V2CableCategory, V2CableGroup, V2InspectionLog, V2MaintenanceLog } from './types';
@@ -47,7 +48,7 @@ function cableLengthM(specParams: unknown): number | null {
 function assemblyLabor(
   asm: V2Assembly | undefined,
   kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
-): { laborCode: string | null; installManDays: number; removeManDays: number; relocateManDays: number } | null {
+): LaborSpec | null {
   if (!asm) return null;
   const manDays = {
     'asset-install': asm.installManDays,
@@ -57,13 +58,31 @@ function assemblyLabor(
   /* 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 부품별로 잡는 일이 흔하다.
      0 은 「품이 안 든다」는 뜻이므로 적힌 것으로 친다(null 만 「안 적었다」). */
   if (manDays == null) return null;
+  /* 이 작업 하나만 담은 공량을 만든다 — 나머지는 0(이 항목이 그 작업을 세지 않는다). */
   return {
+    ...EMPTY_SPEC,
     laborCode: asm.laborCode,
-    installManDays: kind === 'asset-install' ? manDays : 0,
-    removeManDays: kind === 'asset-remove' ? manDays : 0,
-    relocateManDays: kind === 'asset-relocate' ? manDays : 0,
+    unitPrice: asm.unitPrice ?? null,
+    [MAN_DAY_FIELD[kind === 'asset-install' ? 'install' : kind === 'asset-remove' ? 'remove' : 'relocate']]: manDays,
   };
 }
+
+/** 카탈로그 행 → 공량. 필드 이름을 여기서 다시 적지 않는다(`LaborSpec` 이 선언한다). */
+const laborSpecOf = (t: V2AssetType): LaborSpec => ({
+  laborCode: t.laborCode,
+  unitPrice: t.unitPrice ?? null,
+  installManDays: t.installManDays,
+  removeManDays: t.removeManDays,
+  relocateManDays: t.relocateManDays,
+});
+
+const EMPTY_SPEC: LaborSpec = {
+  laborCode: null,
+  unitPrice: null,
+  installManDays: 0,
+  removeManDays: 0,
+  relocateManDays: 0,
+};
 
 export function buildReportItems(args: {
   saved: { assets: V2Asset[]; cables: V2Cable[] };
@@ -131,7 +150,7 @@ export function buildReportItems(args: {
       const labor = assemblyLabor(asm, kind);
       covered.add(id);
       if (labor) {
-        items.push(assetReportItem(kind, asset.name, `${asm!.name} 1식`, labor));
+        items.push(assetReportItem(kind, asset.name, `${asm!.name} 1식`, labor, asm!.unitPrice ?? null));
       } else {
         expanded.push(...childrenOf(id));
       }
@@ -157,12 +176,7 @@ export function buildReportItems(args: {
       // 설비인데 1식 공량이 없으면 낼 것이 없다 — 위에서 자손으로 폈다.
       const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
       if (!t) continue;
-      items.push(assetReportItem(kind, asset.name, t.name, {
-        laborCode: t.laborCode,
-        installManDays: t.installManDays,
-        removeManDays: t.removeManDays,
-        relocateManDays: t.relocateManDays,
-      }, t.unitPrice ?? null));
+      items.push(assetReportItem(kind, asset.name, t.name, laborSpecOf(t), t.unitPrice ?? null));
     }
   }
 

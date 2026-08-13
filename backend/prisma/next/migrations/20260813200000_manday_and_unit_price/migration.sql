@@ -7,8 +7,8 @@ ALTER TABLE "AssetType"     RENAME COLUMN "relocateHours" TO "relocateManDays";
 ALTER TABLE "Assembly"      RENAME COLUMN "installHours"  TO "installManDays";
 ALTER TABLE "Assembly"      RENAME COLUMN "removeHours"   TO "removeManDays";
 ALTER TABLE "Assembly"      RENAME COLUMN "relocateHours" TO "relocateManDays";
-ALTER TABLE "CableCategory" RENAME COLUMN "installHoursPerM" TO "installManDaysPerM";
-ALTER TABLE "CableCategory" RENAME COLUMN "removeHoursPerM"  TO "removeManDaysPerM";
+ALTER TABLE "CableCategory" RENAME COLUMN "installHoursPerM" TO "installManDays";
+ALTER TABLE "CableCategory" RENAME COLUMN "removeHoursPerM"  TO "removeManDays";
 
 -- 자재단가 — 설계서 재료비의 근거. 비워 두면 재료비 0(「안 적었다」와 「안 든다」를 굳이
 -- 가르지 않는다: 자재비 없는 공종은 실제로 0 이다).

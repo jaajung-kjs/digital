@@ -18,6 +18,7 @@ export interface AssemblyDraft {
   gridRows: number;
   /** 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */
   laborCode: string | null;
+  unitPrice: number | null;
   installManDays: number | null;
   removeManDays: number | null;
   relocateManDays: number | null;
@@ -35,6 +36,7 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
     gridCols: a.gridCols,
     gridRows: a.gridRows,
     laborCode: a.laborCode,
+    unitPrice: a.unitPrice,
     installManDays: a.installManDays,
     removeManDays: a.removeManDays,
     relocateManDays: a.relocateManDays,
@@ -49,7 +51,8 @@ export function emptyAssemblyDraft(): AssemblyDraft {
   // 19인치 랙 한 대가 가장 흔한 모양이라 그것을 기본으로 둔다.
   return {
     key: '', name: '', categoryId: '', gridCols: 4, gridRows: 12,
-    laborCode: null, installManDays: null, removeManDays: null, relocateManDays: null,
+    laborCode: null,
+    unitPrice: null, installManDays: null, removeManDays: null, relocateManDays: null,
     sortOrder: 0, items: [],
   };
 }
@@ -113,6 +116,7 @@ export function draftToAssemblyBody(draft: AssemblyDraft) {
     gridCols: draft.gridCols,
     gridRows: draft.gridRows,
     laborCode: draft.laborCode,
+    unitPrice: draft.unitPrice,
     installManDays: draft.installManDays,
     removeManDays: draft.removeManDays,
     relocateManDays: draft.relocateManDays,

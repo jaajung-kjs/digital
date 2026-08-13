@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { assetReportItem, cableReportItem, computeReport } from './computeReport.js';
 
 const labor = { laborCode: '통신내선공', installManDays: 2, removeManDays: 1, relocateManDays: 3 };
-const fiberGroup = { name: '광', laborCode: '통신외선공', installManDaysPerM: 0.04, removeManDaysPerM: 0.02 };
+const fiberGroup = { name: '광', laborCode: '통신외선공', installManDays: 0.04, removeManDays: 0.02 };
 
 describe('assetReportItem', () => {
   it('kind별 공량', () => {

@@ -29,11 +29,12 @@ export function assetReportItem(
   /** 자재단가(원/대) — 종류가 들고 있는 값. */
   unitPrice: number | null = null,
 ): ReportItem {
+  /* null = 「안 적었다」 — 합칠 자식이 없으면 0 이다(설비 1식은 부르는 쪽이 이미 갈랐다). */
   const manDays = {
     'asset-install': labor.installManDays,
     'asset-remove': labor.removeManDays,
     'asset-relocate': labor.relocateManDays,
-  }[kind];
+  }[kind] ?? 0;
 
   return {
     kind,
@@ -51,7 +52,7 @@ export function cableReportItem(
   kind: 'cable-install' | 'cable-remove',
   name: string,
   /** 케이블 **종류** — 품셈은 종류가 갖는다(그룹은 색·이름뿐). */
-  category: { name: string; laborCode: string | null; installManDaysPerM: number; removeManDaysPerM: number; unitPrice?: number | null },
+  category: { name: string; laborCode: string | null; installManDays: number | null; removeManDays: number | null; unitPrice?: number | null },
   lengthM: number | null,
 ): ReportItem {
   if (lengthM === null) {
@@ -68,7 +69,7 @@ export function cableReportItem(
     };
   }
 
-  const manDaysPerM = kind === 'cable-install' ? category.installManDaysPerM : category.removeManDaysPerM;
+  const manDaysPerM = (kind === 'cable-install' ? category.installManDays : category.removeManDays) ?? 0;
   const manDays = lengthM * manDaysPerM;
 
   return {

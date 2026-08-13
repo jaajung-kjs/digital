@@ -106,9 +106,10 @@ model AssetType {
   laborCode      String?
   /// 자재단가(원/대) — 설계서 재료비의 근거. 안 적으면 재료비가 0 이다.
   unitPrice      Int?
-  installManDays   Float               @default(0)
-  removeManDays    Float               @default(0)
-  relocateManDays  Float               @default(0)
+  /// 공량 — `LaborSpec` 이 유일한 선언이다. null = 「안 적었다」, 0 = 「품이 안 든다」.
+  installManDays   Float?
+  removeManDays    Float?
+  relocateManDays  Float?
   portTemplates  AssetPortTemplate[]
   assets         Asset[]
   assemblyItems  AssemblyItem[]
@@ -159,6 +160,7 @@ model Assembly {
   /// 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. 0 은 「품이 안 든다」는 뜻이라
   /// 「안 적었다」와 구별해야 하므로 nullable 이다.
   laborCode     String?
+  unitPrice     Int?
   installManDays  Float?
   removeManDays   Float?
   relocateManDays Float?
@@ -212,12 +214,13 @@ model CableCategory {
   groupId   String
   group     CableGroup @relation(fields: [groupId], references: [id])
   sortOrder Int        @default(0)
-  /// 이 종류의 품셈 — 미터당 **인·일**. 설계서 직접노무비의 근거다(품 × 길이 × 노임단가).
+  /// 공량·단가 — 자산 종류·설비 종류와 **같은 다섯 칸**이다(`LaborSpec`).
+  /// 단위(m)는 담체가 정한다 — 필드 이름에 박지 않는다.
   laborCode        String?
-  /// 자재단가(원/m) — 설계서 재료비의 근거. 안 적으면 재료비가 0 이다.
   unitPrice        Int?
-  installManDaysPerM Float  @default(0)
-  removeManDaysPerM  Float  @default(0)
+  installManDays   Float?
+  removeManDays    Float?
+  relocateManDays  Float?
   cables    Cable[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt

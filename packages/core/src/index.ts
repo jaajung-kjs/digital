@@ -12,4 +12,5 @@ export * from './trace/internalLinks.js';
 export * from './seed/catalog.js';
 export * from './report/computeReport.js';
 export * from './report/computeEstimate.js';
+export * from './catalog/laborSpec.js';
 export * from './canvas/backgroundTypes.js';

@@ -128,6 +128,7 @@ export const assemblyUpsertSchema = z.object({
   gridRows: z.number().int().min(1),
   /* 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */
   laborCode: z.string().trim().min(1).nullable().default(null),
+  unitPrice: z.number().int().min(0).nullable().default(null),
   installManDays: z.number().min(0).nullable().default(null),
   removeManDays: z.number().min(0).nullable().default(null),
   relocateManDays: z.number().min(0).nullable().default(null),
@@ -173,8 +174,10 @@ export const cableGroupPutSchema = z.object({
       laborCode: z.string().trim().min(1).nullable(),
       /** 자재단가(원/m). */
       unitPrice: z.number().int().min(0).nullable().default(null),
-      installManDaysPerM: z.number().min(0),
-      removeManDaysPerM: z.number().min(0),
+      /* 공량은 자산·설비와 같은 세 칸이다 — null = 「안 적었다」, 0 = 「품이 안 든다」. */
+      installManDays: z.number().min(0).nullable().default(null),
+      removeManDays: z.number().min(0).nullable().default(null),
+      relocateManDays: z.number().min(0).nullable().default(null),
     }),
   ),
 });

@@ -8,7 +8,7 @@ export const SEED_CATEGORIES = [
   { key: '공조', name: '공조', sortOrder: 4 },
 ] as const;
 
-const NO_LABOR = { laborCode: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 };
+const NO_LABOR = { laborCode: null, unitPrice: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 };
 
 export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   // ── 구 role: slot ──
@@ -69,7 +69,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'SCADA RTU',
     categoryKey: '통신',
     sortOrder: 50,
-    labor: { laborCode: '통신내선공', installManDays: 4.0, removeManDays: 2.0, relocateManDays: 5.0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 4.0, removeManDays: 2.0, relocateManDays: 5.0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       // 현장 기기와 잇는 직렬 회선 — 방향을 따지지 않는다(널모뎀 배선이 실제로 있다).
@@ -95,7 +95,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'UPS',
     categoryKey: '전원',
     sortOrder: 80,
-    labor: { laborCode: '통신내선공', installManDays: 1.0, removeManDays: 0.5, relocateManDays: 1.5 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 1.0, removeManDays: 0.5, relocateManDays: 1.5 },
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}' },
@@ -157,7 +157,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'PITR-2000',
     categoryKey: '통신',
     sortOrder: 41,
-    labor: { laborCode: '통신내선공', installManDays: 3.0, removeManDays: 1.5, relocateManDays: 0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 3.0, removeManDays: 1.5, relocateManDays: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -167,7 +167,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'PITR-5000',
     categoryKey: '통신',
     sortOrder: 42,
-    labor: { laborCode: '통신내선공', installManDays: 3.0, removeManDays: 1.5, relocateManDays: 0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 3.0, removeManDays: 1.5, relocateManDays: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -178,7 +178,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'SCADA',
     categoryKey: '통신',
     sortOrder: 51,
-    labor: { laborCode: '통신내선공', installManDays: 4.0, removeManDays: 2.0, relocateManDays: 5.0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 4.0, removeManDays: 2.0, relocateManDays: 5.0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -188,7 +188,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '네트워크스위치',
     categoryKey: '통신',
     sortOrder: 104,
-    labor: { laborCode: '통신내선공', installManDays: 0.5, removeManDays: 0.3, relocateManDays: 0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 0.5, removeManDays: 0.3, relocateManDays: 0 },
     ports: [
       { group: 'P', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
@@ -199,7 +199,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '서지보호기',
     categoryKey: '통신',
     sortOrder: 105,
-    labor: { laborCode: '통신내선공', installManDays: 0.3, removeManDays: 0.15, relocateManDays: 0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 0.3, removeManDays: 0.15, relocateManDays: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -209,7 +209,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'UTM',
     categoryKey: '통신',
     sortOrder: 108,
-    labor: { laborCode: '통신내선공', installManDays: 1.0, removeManDays: 0.5, relocateManDays: 0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 1.0, removeManDays: 0.5, relocateManDays: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -219,7 +219,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'NAC',
     categoryKey: '통신',
     sortOrder: 109,
-    labor: { laborCode: '통신내선공', installManDays: 1.0, removeManDays: 0.5, relocateManDays: 0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 1.0, removeManDays: 0.5, relocateManDays: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -262,7 +262,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '광스위치',
     categoryKey: '통신',
     sortOrder: 145,
-    labor: { laborCode: '통신내선공', installManDays: 0.5, removeManDays: 0.3, relocateManDays: 0 },
+    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 0.5, removeManDays: 0.3, relocateManDays: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -404,8 +404,8 @@ export interface SeedCableCategory {
   sortOrder: number;
   /** 이 종류의 품셈 — 미터당. 설계서 공량의 근거다(품셈 × 길이). */
   laborCode: string;
-  installManDaysPerM: number;
-  removeManDaysPerM: number;
+  installManDays: number;
+  removeManDays: number;
 }
 
 /* 품셈은 **종류마다** 다르다. 같은 광이라도 OPGW 는 외선 가공이고 점퍼코드는 실내 결선이다.
@@ -414,28 +414,28 @@ const 내선 = '통신내선공';
 const 외선 = '통신외선공';
 
 export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
-  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1, laborCode: 내선, installManDaysPerM: 0.03,  removeManDaysPerM: 0.015 },
-  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2, laborCode: 내선, installManDaysPerM: 0.035, removeManDaysPerM: 0.018 },
-  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3, laborCode: 내선, installManDaysPerM: 0.03,  removeManDaysPerM: 0.015 },
-  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4, laborCode: 내선, installManDaysPerM: 0.02,  removeManDaysPerM: 0.01  },
-  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5, laborCode: 내선, installManDaysPerM: 0.02,  removeManDaysPerM: 0.01  },
+  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1, laborCode: 내선, installManDays: 0.03,  removeManDays: 0.015 },
+  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2, laborCode: 내선, installManDays: 0.035, removeManDays: 0.018 },
+  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3, laborCode: 내선, installManDays: 0.03,  removeManDays: 0.015 },
+  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
   /* 광 4종은 한 그룹이다. 점퍼코드만 한 가닥에 한 심이고 나머지 셋은 다심인데, 그 구분은
      **포트의 심선 수**(`positions`)가 하지 케이블 종류가 하지 않는다 — 케이블에는 심선 수
      필드가 아예 없다. 종류는 무엇을 깔았는지를 적는 이름일 뿐이다. */
-  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 외선, installManDaysPerM: 0.06,  removeManDaysPerM: 0.03  },
-  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborCode: 외선, installManDaysPerM: 0.06,  removeManDaysPerM: 0.03  },
-  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8, laborCode: 외선, installManDaysPerM: 0.06,  removeManDaysPerM: 0.03  },
-  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9, laborCode: 내선, installManDaysPerM: 0.04,  removeManDaysPerM: 0.02  },
-  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10, laborCode: 내선, installManDaysPerM: 0.02, removeManDaysPerM: 0.01 },
-  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11, laborCode: 내선, installManDaysPerM: 0.02, removeManDaysPerM: 0.01 },
+  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 외선, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborCode: 외선, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8, laborCode: 외선, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9, laborCode: 내선, installManDays: 0.04,  removeManDays: 0.02  },
+  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10, laborCode: 내선, installManDays: 0.02, removeManDays: 0.01 },
+  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11, laborCode: 내선, installManDays: 0.02, removeManDays: 0.01 },
   // 제어케이블은 제어 그룹이다 — 예전에는 전원 그룹에 들어가 있어, 제어 포트에 물릴 수 있는
   // 케이블 종류가 하나도 없었다(포트 종류와 케이블 그룹이 어긋난 자리).
-  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12, laborCode: 내선, installManDaysPerM: 0.025, removeManDaysPerM: 0.012 },
-  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13, laborCode: 내선, installManDaysPerM: 0.02,  removeManDaysPerM: 0.01  },
-  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14, laborCode: 내선, installManDaysPerM: 0.025, removeManDaysPerM: 0.012 },
-  { groupKey: 'control', name: '동축케이블',            sortOrder: 15, laborCode: 내선, installManDaysPerM: 0.025, removeManDaysPerM: 0.012 },
-  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16, laborCode: 내선, installManDaysPerM: 0.02,  removeManDaysPerM: 0.01  },
-  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17, laborCode: 내선, installManDaysPerM: 0.025, removeManDaysPerM: 0.012 },
+  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'control', name: '동축케이블',            sortOrder: 15, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
 ];
 
 /**

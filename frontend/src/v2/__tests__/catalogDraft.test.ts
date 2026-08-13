@@ -28,8 +28,8 @@ const mkCatalog = (): V2Catalog => ({
   ],
   types: [],
   cableGroups: [
-    { id: 'g-fiber', key: 'fiber', name: '광', color: '#00f', laborCode: '통신외선공', installManDaysPerM: 0.04, removeManDaysPerM: 0.02, sortOrder: 1, categories: [] },
-    { id: 'g-power', key: 'power', name: '전력', color: '#f00', laborCode: null, installManDaysPerM: 0.1, removeManDaysPerM: 0.05, sortOrder: 2, categories: [] },
+    { id: 'g-fiber', key: 'fiber', name: '광', color: '#00f', laborCode: '통신외선공', installManDays: 0.04, removeManDays: 0.02, sortOrder: 1, categories: [] },
+    { id: 'g-power', key: 'power', name: '전력', color: '#f00', laborCode: null, installManDays: 0.1, removeManDays: 0.05, sortOrder: 2, categories: [] },
   ],
 });
 

@@ -31,11 +31,13 @@ import {
   SELECTABLE,
   SELECTED,
 } from '../../../components/ui';
+import { EMPTY_LABOR_SPEC, WORK_KINDS, laborFieldLabel, manDaysOf } from '@twin/core';
+import type { LaborSpec } from '@twin/core';
 import type { V2Catalog, V2CableGroup } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
 import { useCatalogMutations, useWageCatalog } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
-import { LaborTypeSelect } from './LaborTypeSelect';
+import { LaborSpecForm } from './LaborSpecForm';
 import { CatalogList } from './CatalogList';
 import { CatalogEditorBar } from './CatalogEditorBar';
 
@@ -55,11 +57,8 @@ interface CategoryDraft {
   /** 화면에서 이 줄을 가리키는 이름 — 새 줄은 아직 id 가 없다. */
   key: string;
   name: string;
-  laborCode: string;
-  /** 자재단가(원/m). 빈칸이면 재료비 0. */
-  price: string;
-  install: string;
-  remove: string;
+  /** 공량·단가 — 세 담체가 같은 다섯 칸을 쓴다(`LaborSpec`). */
+  spec: LaborSpec;
 }
 
 /** 고치는 중인 그룹 — 제 이름·색과 그 자식들. 저장 한 번에 통째로 나간다. */
@@ -70,7 +69,8 @@ interface GroupDraft {
 }
 
 /** 이름 · 노무유형 · 신설 · 철거. 합이 100 이어야 한다(`TableCard`). */
-const COL_WIDTHS = [42, 26, 16, 16] as const;
+/** 이름 · 노무유형 · 작업 종류마다 한 칸. 합이 100(`TableCard`). */
+const COL_WIDTHS = [34, 22, ...WORK_KINDS.map(() => Math.floor(44 / WORK_KINDS.length))] as const;
 
 let seq = 0;
 const newKey = () => `new-${++seq}`;
@@ -82,10 +82,13 @@ const toDraft = (g: V2CableGroup): GroupDraft => ({
     id: c.id,
     key: c.id,
     name: c.name,
-    laborCode: c.laborCode ?? '',
-    price: c.unitPrice == null ? '' : String(c.unitPrice),
-    install: String(c.installManDaysPerM),
-    remove: String(c.removeManDaysPerM),
+    spec: {
+      laborCode: c.laborCode,
+      unitPrice: c.unitPrice,
+      installManDays: c.installManDays,
+      removeManDays: c.removeManDays,
+      relocateManDays: c.relocateManDays,
+    },
   })),
 });
 
@@ -98,20 +101,18 @@ const same = (a: GroupDraft, b: GroupDraft) =>
     return (
       x.id === y.id &&
       x.name === y.name &&
-      x.laborCode === y.laborCode &&
-      x.price === y.price &&
-      x.install === y.install &&
-      x.remove === y.remove
+      x.spec.laborCode === y.spec.laborCode &&
+      x.spec.unitPrice === y.spec.unitPrice &&
+      x.spec.installManDays === y.spec.installManDays &&
+      x.spec.removeManDays === y.spec.removeManDays &&
+      x.spec.relocateManDays === y.spec.relocateManDays
     );
   });
 
-/** 미터당 시간 — 빈칸·글자·음수는 저장을 막는다. */
-const isHours = (s: string) => s.trim() !== '' && Number.isFinite(Number(s)) && Number(s) >= 0;
-
 interface RowIssues {
   name: boolean;
-  install: boolean;
-  remove: boolean;
+  /** 음수 품이 하나라도 있는가 — 어느 칸인지는 어휘가 돌며 찾는다. */
+  manDays: boolean;
 }
 
 /**
@@ -131,12 +132,12 @@ function issuesOf(g: GroupDraft | null): { flags: Map<string, RowIssues>; groupN
   for (const r of rows) {
     const n = r.name.trim();
     /* 같은 그룹 안에서 이름은 겹칠 수 없다(DB 제약) — 저장하고 나서 알면 늦다. */
-    const f: RowIssues = {
-      name: n === '' || (times.get(n) ?? 0) > 1,
-      install: !isHours(r.install),
-      remove: !isHours(r.remove),
-    };
-    count += Number(f.name) + Number(f.install) + Number(f.remove);
+    const negative = WORK_KINDS.some((w) => {
+      const v = manDaysOf(r.spec, w.key);
+      return v != null && v < 0;
+    });
+    const f: RowIssues = { name: n === '' || (times.get(n) ?? 0) > 1, manDays: negative };
+    count += Number(f.name) + Number(f.manDays);
     flags.set(r.key, f);
   }
   return { flags, groupName, count };
@@ -228,7 +229,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         ? prev
         : {
             ...prev,
-            categories: [...prev.categories, { id: null, key, name: '', laborCode: '', price: '', install: '0', remove: '0' }],
+            categories: [...prev.categories, { id: null, key, name: '', spec: { ...EMPTY_LABOR_SPEC } }],
           },
     );
   }
@@ -254,10 +255,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
           categories: draft.categories.map((r) => ({
             ...(r.id ? { id: r.id } : {}),
             name: r.name.trim(),
-            laborCode: r.laborCode.trim() || null,
-            unitPrice: r.price.trim() === '' ? null : Math.round(Number(r.price)),
-            installManDaysPerM: Number(r.install),
-            removeManDaysPerM: Number(r.remove),
+            ...r.spec,
           })),
         },
       });
@@ -337,8 +335,12 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     <tr className="sticky top-0 z-sticky">
                       <Th>이름</Th>
                       <Th>노무유형</Th>
-                      <Th className="text-right">신설(인/m)</Th>
-                      <Th className="text-right">철거(인/m)</Th>
+                      {/* 열은 어휘가 정한다 — 여기서 작업 종류를 손으로 적지 않는다. */}
+                      {WORK_KINDS.map((w) => (
+                        <Th key={w.key} className="text-right">
+                          {laborFieldLabel(w.key, 'cable')}
+                        </Th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -360,25 +362,23 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           </td>
                           {/* 표에는 **이름**이 선다 — 저장되는 것은 코드다(`useWageCatalog`). */}
                           <td className="truncate px-3 py-1.5 text-content-muted">
-                            {wage.nameOf(row.laborCode.trim() || null) ?? '—'}
+                            {wage.nameOf(row.spec.laborCode) ?? '—'}
                           </td>
                           {/* 수는 오른쪽으로 — 자릿수가 세로로 맞아야 크기가 비교된다. */}
-                          <td
-                            className={cn(
-                              'px-3 py-1.5 text-right tabular-nums',
-                              bad?.install ? 'text-danger' : 'text-content',
-                            )}
-                          >
-                            {row.install.trim() || '—'}
-                          </td>
-                          <td
-                            className={cn(
-                              'px-3 py-1.5 text-right tabular-nums',
-                              bad?.remove ? 'text-danger' : 'text-content',
-                            )}
-                          >
-                            {row.remove.trim() || '—'}
-                          </td>
+                          {WORK_KINDS.map((w) => {
+                            const v = manDaysOf(row.spec, w.key);
+                            return (
+                              <td
+                                key={w.key}
+                                className={cn(
+                                  'px-3 py-1.5 text-right tabular-nums',
+                                  bad?.manDays ? 'text-danger' : 'text-content',
+                                )}
+                              >
+                                {v ?? '—'}
+                              </td>
+                            );
+                          })}
                         </tr>
                       );
                     })}
@@ -430,42 +430,14 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                       </DetailRow>
                     </DetailCard>
 
-                    <DetailCard>
-                      <DetailCardHeader title="공량" />
-                      <DetailRow label="노무유형">
-                        <LaborTypeSelect
-                          value={selectedRow.laborCode || null}
-                          onChange={(code) => patchRow(selectedRow.key, { laborCode: code ?? '' })}
-                        />
-                      </DetailRow>
-                      <DetailRow label="자재단가" hint="원/m — 비우면 재료비 0">
-                        <Input
-                          aria-label="자재단가"
-                          type="number"
-                          value={selectedRow.price}
-                          placeholder="예: 2867"
-                          onChange={(e) => patchRow(selectedRow.key, { price: e.currentTarget.value })}
-                        />
-                      </DetailRow>
-                      <DetailRow label="신설(인/m)" issue={selectedIssues?.install ? '0 이상의 수' : null}>
-                        <Input
-                          aria-label="신설 공량"
-                          type="number"
-                          invalid={selectedIssues?.install}
-                          value={selectedRow.install}
-                          onChange={(e) => patchRow(selectedRow.key, { install: e.currentTarget.value })}
-                        />
-                      </DetailRow>
-                      <DetailRow label="철거(인/m)" issue={selectedIssues?.remove ? '0 이상의 수' : null}>
-                        <Input
-                          aria-label="철거 공량"
-                          type="number"
-                          invalid={selectedIssues?.remove}
-                          value={selectedRow.remove}
-                          onChange={(e) => patchRow(selectedRow.key, { remove: e.currentTarget.value })}
-                        />
-                      </DetailRow>
-                    </DetailCard>
+                    {/* 여기서 칸을 적지 않는다 — 자산·설비와 **같은 폼**이다. */}
+                    <LaborSpecForm
+                      carrier="cable"
+                      resetKey={selectedRow.key}
+                      spec={selectedRow.spec}
+                      onChange={(patch) => patchRow(selectedRow.key, { spec: { ...selectedRow.spec, ...patch } })}
+                      issueFor={() => (selectedIssues?.manDays ? '0 이상의 수' : null)}
+                    />
                   </>
                 ) : (
                   <DetailCard>

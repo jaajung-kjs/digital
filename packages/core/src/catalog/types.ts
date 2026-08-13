@@ -48,12 +48,13 @@ export interface FieldDef {
   options?: string[];
 }
 
-export interface LaborRules {
-  laborCode: string | null;
-  installManDays: number;
-  removeManDays: number;
-  relocateManDays: number;
-}
+/**
+ * 공량·단가 — **`LaborSpec` 이 유일한 선언**이다(`catalog/laborSpec.ts`).
+ *
+ * 여기서 다시 적지 않는다: 세 담체(자산·설비·케이블)가 같은 다섯 칸을 쓰고, 칸이 늘거나
+ * 줄면 그 파일 하나만 고친다.
+ */
+export type LaborRules = import('./laborSpec.js').LaborSpec;
 
 /**
  * 격자 칸의 자리 번호 — 행 우선(row-major), 1부터.
@@ -172,9 +173,10 @@ export interface TypeUpsertBody {
   laborCode: string | null;
   /** 자재단가(원/대) — 설계서 재료비의 근거. 비우면 재료비 0. */
   unitPrice: number | null;
-  installManDays: number;
-  removeManDays: number;
-  relocateManDays: number;
+  /** 공량(인/대) — null = 「안 적었다」, 0 = 「품이 안 든다」(`LaborSpec`). */
+  installManDays: number | null;
+  removeManDays: number | null;
+  relocateManDays: number | null;
   ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number }>;
 }
 

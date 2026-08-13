@@ -25,8 +25,8 @@ const mkCatalog = (): V2Catalog => ({
   categories: [{ id: 'cat-1', key: '통신', name: '통신장비', sortOrder: 1 }],
   types: [],
   cableGroups: [
-    { id: 'cg-1', key: 'fiber', name: '광', color: '#8B5CF6', laborCode: null, installManDaysPerM: 0, removeManDaysPerM: 0, sortOrder: 1, categories: [] },
-    { id: 'cg-2', key: 'network', name: '통신', color: '#3B82F6', laborCode: null, installManDaysPerM: 0, removeManDaysPerM: 0, sortOrder: 2, categories: [] },
+    { id: 'cg-1', key: 'fiber', name: '광', color: '#8B5CF6', laborCode: null, installManDays: 0, removeManDays: 0, sortOrder: 1, categories: [] },
+    { id: 'cg-2', key: 'network', name: '통신', color: '#3B82F6', laborCode: null, installManDays: 0, removeManDays: 0, sortOrder: 2, categories: [] },
   ],
 });
 

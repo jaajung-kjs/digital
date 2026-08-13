@@ -3,7 +3,8 @@ import type { AssetTypeSpec, Direction, PortTemplate, TypeUpsertBody } from './t
 export interface CatalogTypeRow {
   key: string; name: string; sortOrder: number;
   category: { key: string };
-  laborCode: string | null; installManDays: number; removeManDays: number; relocateManDays: number;
+  laborCode: string | null; unitPrice?: number | null;
+  installManDays: number | null; removeManDays: number | null; relocateManDays: number | null;
   portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; sortOrder: number }[];
 }
 
@@ -36,7 +37,8 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
     name: row.name,
     categoryKey: row.category.key,
     sortOrder: row.sortOrder,
-    labor: { laborCode: row.laborCode, installManDays: row.installManDays, removeManDays: row.removeManDays, relocateManDays: row.relocateManDays },
+    labor: { laborCode: row.laborCode,
+    unitPrice: row.unitPrice ?? null, installManDays: row.installManDays, removeManDays: row.removeManDays, relocateManDays: row.relocateManDays },
     ports: portTemplatesFrom(row.portTemplates),
   };
 }
@@ -53,6 +55,7 @@ export function specFromUpsert(body: TypeUpsertBody, categoryKey: string): Asset
     sortOrder: body.sortOrder,
     labor: {
       laborCode: body.laborCode,
+    unitPrice: body.unitPrice ?? null,
       installManDays: body.installManDays,
       removeManDays: body.removeManDays,
       relocateManDays: body.relocateManDays,

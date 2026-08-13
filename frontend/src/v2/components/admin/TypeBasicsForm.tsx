@@ -8,8 +8,8 @@
  *   issues   — TypeSpecIssue[] (draftIssues 결과)
  */
 import type { TypeSpecIssue } from '@twin/core';
-import { LaborTypeSelect } from './LaborTypeSelect';
-import { DetailCard, DetailCardHeader, DetailGrid, DetailRow, Input, Select } from '../../../components/ui';
+import { LaborSpecForm } from './LaborSpecForm';
+import { DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
@@ -66,67 +66,14 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
 
       </DetailCard>
 
-      {/* ── 공량 ─────────────────────────────────────────────────────── */}
-      <DetailCard>
-        <DetailCardHeader title="공량" />
-
-        <DetailRow label="노무유형">
-          <LaborTypeSelect value={draft.laborCode ?? null} onChange={(code) => onChange({ laborCode: code })} />
-        </DetailRow>
-
-        <DetailRow label="자재단가" hint="원/대 — 설계서 재료비의 근거. 비우면 재료비 0">
-          <Input
-            aria-label="자재단가"
-            type="number"
-            value={draft.unitPrice ?? ''}
-            placeholder="예: 1700000"
-            onChange={(e) => {
-              const val = parseInt(e.currentTarget.value, 10);
-              onChange({ unitPrice: Number.isFinite(val) ? val : null });
-            }}
-          />
-        </DetailRow>
-
-        {/* 품 셋은 나란히 읽는 값이다 — 한 줄에 하나씩 쌓으면 카드만 길어진다.
-            단위는 **인·일**이다: 노임단가(원/일)와 곱해야 돈이 된다. */}
-        <DetailGrid>
-        <DetailRow label="신설(인)" issue={issueFor(issues, 'labor.installManDays')}>
-            <Input
-              aria-label="신설(인)"
-              type="number"
-              value={draft.installManDays}
-              onChange={(e) => {
-                const val = parseFloat(e.currentTarget.value);
-                onChange({ installManDays: isNaN(val) ? 0 : val });
-              }}
-            />
-        </DetailRow>
-
-        <DetailRow label="철거(인)" issue={issueFor(issues, 'labor.removeManDays')}>
-            <Input
-              aria-label="철거(인)"
-              type="number"
-              value={draft.removeManDays}
-              onChange={(e) => {
-                const val = parseFloat(e.currentTarget.value);
-                onChange({ removeManDays: isNaN(val) ? 0 : val });
-              }}
-            />
-        </DetailRow>
-
-        <DetailRow label="이설(인)" issue={issueFor(issues, 'labor.relocateManDays')}>
-            <Input
-              aria-label="이설(인)"
-              type="number"
-              value={draft.relocateManDays}
-              onChange={(e) => {
-                const val = parseFloat(e.currentTarget.value);
-                onChange({ relocateManDays: isNaN(val) ? 0 : val });
-              }}
-            />
-        </DetailRow>
-        </DetailGrid>
-      </DetailCard>
+      {/* 공량·단가는 **세 화면이 같은 폼**을 쓴다 — 칸은 어휘가 정한다(`laborSpec`). */}
+      <LaborSpecForm
+        carrier="asset"
+        resetKey={draft.key || "new"}
+        spec={draft}
+        onChange={(patch) => onChange(patch)}
+        issueFor={(path) => issueFor(issues, path)}
+      />
     </div>
   );
 }

@@ -111,7 +111,7 @@ async function main() {
         update: { sortOrder: cat.sortOrder },
         create: {
           groupId: group.id, name: cat.name, sortOrder: cat.sortOrder,
-          laborCode: cat.laborCode, installManDaysPerM: cat.installManDaysPerM, removeManDaysPerM: cat.removeManDaysPerM,
+          laborCode: cat.laborCode, installManDays: cat.installManDays, removeManDays: cat.removeManDays,
         },
       });
     }

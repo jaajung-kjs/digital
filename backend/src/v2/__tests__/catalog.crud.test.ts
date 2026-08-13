@@ -335,8 +335,8 @@ describe('catalog CRUD', () => {
       id: c.id,
       name: c.name,
       laborCode: c.laborCode,
-      installManDaysPerM: c.installManDaysPerM,
-      removeManDaysPerM: c.removeManDaysPerM,
+      installManDays: c.installManDays,
+      removeManDays: c.removeManDays,
     }));
     expect(seeded.length).toBeGreaterThan(0);
 
@@ -353,20 +353,20 @@ describe('catalog CRUD', () => {
     await put(seeded).expect(200); // 원래 색으로 되돌린다
 
     // 추가 — id 없는 줄은 새로 생긴다(품셈까지 함께).
-    const draft = { name: `${uniq}-ccat`, laborCode: '통신외선공', installManDaysPerM: 0.06, removeManDaysPerM: 0.03 };
+    const draft = { name: `${uniq}-ccat`, laborCode: '통신외선공', installManDays: 0.06, removeManDays: 0.03 };
     const created = (await put([...seeded, draft]).expect(200)).body;
     const added = created.categories.find((c: { name: string }) => c.name === draft.name);
-    expect(added.installManDaysPerM).toBeCloseTo(0.06);
+    expect(added.installManDays).toBeCloseTo(0.06);
     cableCatId = added.id;
 
     // 수정 — 이름과 품셈이 **같은 저장**에서 함께 간다
     const edited = (
-      await put([...seeded, { ...draft, id: cableCatId, name: `${uniq}-ccat-edited`, installManDaysPerM: 0.07 }]).expect(200)
+      await put([...seeded, { ...draft, id: cableCatId, name: `${uniq}-ccat-edited`, installManDays: 0.07 }]).expect(200)
     ).body;
     const row = edited.categories.find((c: { id: string }) => c.id === cableCatId);
     expect(row.name).toBe(`${uniq}-ccat-edited`);
     // 품셈은 종류에서 고친다 — 설계서 공량의 근거가 여기다.
-    expect(row.installManDaysPerM).toBeCloseTo(0.07);
+    expect(row.installManDays).toBeCloseTo(0.07);
 
     // 같은 그룹 안에서 이름이 겹치면 422 — DB 제약(P2002)이 아니라 무엇이 겹쳤는지 말한다
     await put([...seeded, { ...draft, id: cableCatId, name: seeded[0]!.name }])
@@ -434,14 +434,14 @@ describe('catalog CRUD', () => {
       id: c.id,
       name: c.name,
       laborCode: c.laborCode,
-      installManDaysPerM: c.installManDaysPerM,
-      removeManDaysPerM: c.removeManDaysPerM,
+      installManDays: c.installManDays,
+      removeManDays: c.removeManDays,
     }));
     const put = (categories: unknown[]) =>
       request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}`).set(admin).send({ name: groupName, color: groupColor, categories });
 
-    const a = { name: `${uniq}-swapA`, laborCode: null, installManDaysPerM: 0.1, removeManDaysPerM: 0.05 };
-    const b = { name: `${uniq}-swapB`, laborCode: null, installManDaysPerM: 0.2, removeManDaysPerM: 0.06 };
+    const a = { name: `${uniq}-swapA`, laborCode: null, installManDays: 0.1, removeManDays: 0.05 };
+    const b = { name: `${uniq}-swapB`, laborCode: null, installManDays: 0.2, removeManDays: 0.06 };
     const made = (await put([...base, a, b]).expect(200)).body.categories as { id: string; name: string }[];
     const idA = made.find((c) => c.name === a.name)!.id;
     const idB = made.find((c) => c.name === b.name)!.id;

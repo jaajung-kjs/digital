@@ -4,14 +4,14 @@
 -- 실제로도 같은 광 안에서 OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르다.
 
 ALTER TABLE "CableCategory" ADD COLUMN "laborType" TEXT;
-ALTER TABLE "CableCategory" ADD COLUMN "installManDaysPerM" DOUBLE PRECISION NOT NULL DEFAULT 0;
-ALTER TABLE "CableCategory" ADD COLUMN "removeManDaysPerM" DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE "CableCategory" ADD COLUMN "installManDays" DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE "CableCategory" ADD COLUMN "removeManDays" DOUBLE PRECISION NOT NULL DEFAULT 0;
 
 -- 1) 지금 값을 그대로 물려받는다 — 설계서 숫자가 조용히 바뀌지 않게.
 UPDATE "CableCategory" c
    SET "laborType"        = g."laborType",
-       "installManDaysPerM" = g."installManDaysPerM",
-       "removeManDaysPerM"  = g."removeManDaysPerM"
+       "installManDays" = g."installManDays",
+       "removeManDays"  = g."removeManDays"
   FROM "CableGroup" g
  WHERE g.id = c."groupId";
 
@@ -20,15 +20,15 @@ UPDATE "CableCategory" c
 --    그때 낮아진 것이 이것들이다. 이제 종류별로 적을 수 있으므로 제 값으로 돌린다.
 --    현장에서 이미 고친 값은 건드리지 않는다(광 그룹 값과 같을 때만).
 UPDATE "CableCategory" c
-   SET "installManDaysPerM" = 0.06,
-       "removeManDaysPerM"  = 0.03
+   SET "installManDays" = 0.06,
+       "removeManDays"  = 0.03
   FROM "CableGroup" g
  WHERE g.id = c."groupId"
    AND g.key = 'fiber'
    AND c.name IN ('OPGW(광복합가공지선)', '광케이블', '브레이크아웃케이블')
-   AND c."installManDaysPerM" = g."installManDaysPerM"
-   AND c."removeManDaysPerM"  = g."removeManDaysPerM";
+   AND c."installManDays" = g."installManDays"
+   AND c."removeManDays"  = g."removeManDays";
 
 ALTER TABLE "CableGroup" DROP COLUMN "laborType";
-ALTER TABLE "CableGroup" DROP COLUMN "installManDaysPerM";
-ALTER TABLE "CableGroup" DROP COLUMN "removeManDaysPerM";
+ALTER TABLE "CableGroup" DROP COLUMN "installManDays";
+ALTER TABLE "CableGroup" DROP COLUMN "removeManDays";

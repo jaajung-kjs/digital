@@ -44,7 +44,7 @@ vi.mock('../hooks', () => ({
       cableGroups: [
         {
           id: 'g1', key: 'power', name: '전력', color: '#333333', laborCode: null,
-          installManDaysPerM: 0, removeManDaysPerM: 0, sortOrder: 1,
+          installManDays: 0, removeManDays: 0, sortOrder: 1,
           categories: [{ id: 'cat1', name: '저압', sortOrder: 1 }],
         },
       ],
