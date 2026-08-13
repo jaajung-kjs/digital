@@ -9,9 +9,10 @@
  * 여기서 필드 이름을 다시 적지 않는다 — 어휘가 늘면 세 화면이 함께 따라온다.
  */
 import { useEffect, useState } from 'react';
-import { LABOR_CARRIERS, laborSpecColumns } from '@twin/core';
+import { LABOR_CARRIERS, LABOR_CODE_LABEL, LABOR_WAGE_LABEL, laborSpecColumns } from '@twin/core';
 import type { LaborCarrier, LaborSpec } from '@twin/core';
 import { DetailCard, DetailCardHeader, DetailGrid, DetailRow, Input } from '../../../components/ui';
+import { useWageCatalog } from '../../hooks';
 import { LaborTypeSelect } from './LaborTypeSelect';
 
 /** 숫자 칸 — 비우면 null(「안 적었다」), 0 은 「품이 안 든다」. 둘을 뭉개지 않는다. */
@@ -60,13 +61,29 @@ export function LaborSpecForm({
   const unit = LABOR_CARRIERS[carrier].unit;
   const num = useNumericFields(spec, resetKey);
   const columns = laborSpecColumns(carrier);
+  const wageOf = useWageCatalog();
+  const wageValue = wageOf.wageOf(spec.laborCode);
+  const staleDate = wageOf.staleDateOf(spec.laborCode);
+  const wageText = spec.laborCode == null ? '—' : wageValue == null ? '단가 없음' : `${wageValue.toLocaleString()}원/일`;
+  /* 옛 회차 값이면 그 사정을 **보고서 문장 그대로** 옮긴다. */
+  const wageHint = staleDate
+    ? `${staleDate} 기준 — ${wageOf.noteOf(spec.laborCode) ?? '이번 회차에는 조사되지 않은 직종입니다'}`
+    : spec.laborCode != null
+      ? '기준자료가 정합니다 — 여기서 고치지 않습니다'
+      : null;
   return (
     <DetailCard>
       <DetailCardHeader title="공량" />
       {hint && <p className="text-xs text-content-faint">{hint}</p>}
 
-      <DetailRow label="노무유형">
+      <DetailRow label={LABOR_CODE_LABEL}>
         <LaborTypeSelect value={spec.laborCode} onChange={(laborCode) => onChange({ laborCode })} />
+      </DetailRow>
+
+      {/* **고칠 수 없는 칸**이다 — 노임단가는 기준자료(임포트)가 정한다. 직종을 고르면
+          따라오고, 여기서 손대면 사람마다 다른 설계서가 나온다. */}
+      <DetailRow label={LABOR_WAGE_LABEL} hint={wageHint ?? undefined}>
+        <span className="text-sm text-content tabular-nums">{wageText}</span>
       </DetailRow>
 
       {/* 칸은 어휘가 정한다 — 폼도 표도 `laborSpecColumns` 하나로만 만든다.

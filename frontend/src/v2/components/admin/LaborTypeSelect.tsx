@@ -42,11 +42,8 @@ export function LaborTypeSelect({
         {unknown && <option value={value}>{wage.nameOf(value)}</option>}
         {wage.rows.map((r) => (
           <option key={r.code} value={r.code}>
+            {/* 이름만 — **단가는 고르는 값이 아니라 따라오는 값**이라 옆 칸이 말한다. */}
             {r.name}
-            {` · ${r.wage.toLocaleString()}원/일`}
-            {/* 이번 회차에 조사되지 않은 직종은 **그 직종의 가장 최근 값**이 온다.
-                숨기지 않고 언제 값인지 적는다. */}
-            {wage.staleDateOf(r.code) && ` (${r.effectiveLabel} 기준)`}
           </option>
         ))}
       </Select>
@@ -56,12 +53,7 @@ export function LaborTypeSelect({
       {unknown && !empty && (
         <span className="text-xs text-warning">지금 기준({wage.effective})에 없는 직종입니다</span>
       )}
-      {/* 옛 회차 값이면 그 사정을 **보고서 문장 그대로** 옮긴다. */}
-      {value != null && !unknown && wage.staleDateOf(value) && (
-        <span className="text-xs text-content-faint">
-          {wage.staleDateOf(value)} 기준 — {wage.noteOf(value) ?? '이번 회차에는 조사되지 않은 직종입니다'}
-        </span>
-      )}
+
     </div>
   );
 }

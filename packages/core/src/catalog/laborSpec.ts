@@ -64,6 +64,17 @@ export function laborFieldLabel(kind: WorkKind, carrier: LaborCarrier): string {
   return `${work.label}(인/${LABOR_CARRIERS[carrier].unit})`;
 }
 
+/**
+ * 직종과 노임단가는 **다른 데이터**다 — 화면이 붙여 놓으면 한 칸에 둘 다 저장되는 것으로 읽힌다.
+ *
+ * - `laborCode` 는 **카탈로그가 저장**한다(사용자가 고른다).
+ * - 노임단가는 **기준자료가 정한다**(임포트가 SSOT). 골라 놓으면 따라오고, 고칠 수 없다.
+ *
+ * 그래서 화면도 두 칸으로 나눈다: 고르는 칸과 따라오는 칸.
+ */
+export const LABOR_CODE_LABEL = '노무유형';
+export const LABOR_WAGE_LABEL = '노임단가(원/일)';
+
 /** 자재단가 라벨 — 「자재단가(원/m)」. */
 export function unitPriceLabel(carrier: LaborCarrier): string {
   return `자재단가(원/${LABOR_CARRIERS[carrier].unit})`;

@@ -31,7 +31,7 @@ import {
   SELECTABLE,
   SELECTED,
 } from '../../../components/ui';
-import { EMPTY_LABOR_SPEC, WORK_KINDS, laborSpecColumns, manDaysOf } from '@twin/core';
+import { EMPTY_LABOR_SPEC, LABOR_CODE_LABEL, LABOR_WAGE_LABEL, WORK_KINDS, laborSpecColumns, manDaysOf } from '@twin/core';
 import type { LaborSpec } from '@twin/core';
 import type { V2Catalog, V2CableGroup } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
@@ -75,7 +75,8 @@ interface GroupDraft {
  * 열을 손으로 적지 않는다 — 예전에 여기서 자재단가만 빠져서 상세 폼과 어긋났다.
  */
 const SPEC_COLUMNS = laborSpecColumns('cable');
-const COL_WIDTHS = [30, 20, ...SPEC_COLUMNS.map(() => Math.floor(50 / SPEC_COLUMNS.length))];
+/* 이름 · 노무유형(저장) · 노임단가(조회) + 저장되는 숫자 칸들. */
+const COL_WIDTHS = [26, 16, 14, ...SPEC_COLUMNS.map(() => Math.floor(44 / SPEC_COLUMNS.length))];
 
 let seq = 0;
 const newKey = () => `new-${++seq}`;
@@ -339,7 +340,9 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     {/* 머리글은 스크롤해도 남는다 — 현황표와 같은 규칙. */}
                     <tr className="sticky top-0 z-sticky">
                       <Th>이름</Th>
-                      <Th>노무유형</Th>
+                      <Th>{LABOR_CODE_LABEL}</Th>
+                      {/* **조회 칸**이다 — 저장되는 것은 직종 코드뿐이고 단가는 기준자료가 정한다. */}
+                      <Th className="text-right">{LABOR_WAGE_LABEL}</Th>
                       {/* 열은 어휘가 정한다 — 여기서 칸을 손으로 적지 않는다. */}
                       {SPEC_COLUMNS.map((c) => (
                         <Th key={c.field} className="text-right">
@@ -368,6 +371,11 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           {/* 표에는 **이름**이 선다 — 저장되는 것은 코드다(`useWageCatalog`). */}
                           <td className="truncate px-3 py-1.5 text-content-muted">
                             {wage.nameOf(row.spec.laborCode) ?? '—'}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
+                            {row.spec.laborCode == null
+                              ? '—'
+                              : (wage.wageOf(row.spec.laborCode)?.toLocaleString() ?? '단가 없음')}
                           </td>
                           {/* 수는 오른쪽으로 — 자릿수가 세로로 맞아야 크기가 비교된다. */}
                           {SPEC_COLUMNS.map((c) => {
