@@ -10,6 +10,7 @@
  * 아직 기준자료가 없으면 잠긴다 — 대신 저장을 막지는 않는다. 품셈 없이도 종류는 만들 수
  * 있어야 하고, 기준자료는 나중에 올려도 된다.
  */
+import { useMemo } from 'react';
 import { Select } from '../../../components/ui';
 import { useWageCatalog } from '../../hooks';
 
@@ -30,6 +31,13 @@ export function LaborTypeSelect({
      (직종이 폐지됐거나, 기준자료를 아직 안 올렸거나) */
   const unknown = value != null && !wage.known(value);
 
+  /* 부문 차례는 표에 나온 순서를 따른다 — 코드순이라 보고서와 같은 차례가 된다. */
+  const sectors = useMemo(() => {
+    const by = new Map<string, typeof wage.rows>();
+    for (const r of wage.rows) by.set(r.sector, [...(by.get(r.sector) ?? []), r]);
+    return [...by.entries()];
+  }, [wage.rows]);
+
   return (
     <div className="flex w-full flex-col gap-0.5">
       <Select
@@ -40,11 +48,17 @@ export function LaborTypeSelect({
       >
         <option value="">— 없음 —</option>
         {unknown && <option value={value}>{wage.nameOf(value)}</option>}
-        {wage.rows.map((r) => (
-          <option key={r.code} value={r.code}>
-            {/* 이름만 — **단가는 고르는 값이 아니라 따라오는 값**이라 옆 칸이 말한다. */}
-            {r.name}
-          </option>
+        {/* **부문으로 묶는다** — 124개가 평평하게 늘어서면 찾을 방법이 스크롤뿐이다.
+            묶음은 보고서가 쓰는 그것이다(코드 첫 자리: 1xxx 일반공사 · 2xxx 광전자 …). */}
+        {sectors.map(([sector, rows]) => (
+          <optgroup key={sector} label={sector}>
+            {rows.map((r) => (
+              /* 이름만 — **단가는 고르는 값이 아니라 따라오는 값**이라 옆 칸이 말한다. */
+              <option key={r.code} value={r.code}>
+                {r.name}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </Select>
       {empty && (
