@@ -49,7 +49,7 @@ export interface FieldDef {
 }
 
 export interface LaborRules {
-  laborType: string | null;
+  laborCode: string | null;
   installHours: number;
   removeHours: number;
   relocateHours: number;
@@ -169,7 +169,7 @@ export interface TypeUpsertBody {
   name: string;
   categoryId: string;
   sortOrder: number;
-  laborType: string | null;
+  laborCode: string | null;
   installHours: number;
   removeHours: number;
   relocateHours: number;

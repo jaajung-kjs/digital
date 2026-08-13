@@ -12,6 +12,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { freeCells, slotNumber, validateGridPlacement } from '@twin/core';
+import { LaborTypeSelect } from './LaborTypeSelect';
 import {
   Button, DetailCard, DetailCardHeader, DetailGrid, DetailNote, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
   useDismissOnOutside,
@@ -228,11 +229,10 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             <DetailCard>
               <DetailCardHeader title="공량" />
               <DetailRow label="노무유형" hint="설비를 통째로 놓거나 걷을 때의 품(1식)">
-                <Input
-                  aria-label="1식 노무유형"
-                  value={draft.laborType ?? ''}
-                  placeholder="예: 통신내선공"
-                  onChange={(e) => onChange({ ...draft, laborType: e.currentTarget.value.trim() || null })}
+                <LaborTypeSelect
+                  ariaLabel="1식 노무유형"
+                  value={draft.laborCode ?? null}
+                  onChange={(code) => onChange({ ...draft, laborCode: code })}
                 />
               </DetailRow>
               <DetailGrid>

@@ -5,7 +5,7 @@ import { Badge, Button, Modal } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import { buildReportItems } from '../reportSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { useV2Catalog } from '../hooks';
+import { useV2Catalog, useWageCatalog } from '../hooks';
 
 // kind → 구분 라벨
 const KIND_LABEL: Record<ReportKind, string> = {
@@ -30,7 +30,7 @@ interface ReportPanelProps {
   onClose: () => void;
 }
 
-function ReportRow({ item }: { item: ReportItem }) {
+function ReportRow({ item, laborName }: { item: ReportItem; laborName: (code: string | null) => string | null }) {
   return (
     <tr className="border-b border-line last:border-0">
       <td className="py-1.5 pr-3 align-middle">
@@ -46,8 +46,10 @@ function ReportRow({ item }: { item: ReportItem }) {
       <td className="py-1.5 pr-3 align-middle text-sm text-content tabular-nums">
         {item.qty}{item.unit}
       </td>
+      {/* 설계서에 서는 것은 **직종 이름**이다 — 저장된 것은 코드이고, 이름은 적용 중인
+          노임단가 판에서 읽는다(판을 갈면 이름도 따라 바뀐다). */}
       <td className="py-1.5 pr-3 align-middle text-sm text-content-muted">
-        {item.laborType ?? '—'}
+        {laborName(item.laborCode) ?? '—'}
       </td>
       <td className="py-1.5 align-middle text-sm text-content tabular-nums text-right">
         {item.hours.toFixed(2)}h
@@ -57,6 +59,8 @@ function ReportRow({ item }: { item: ReportItem }) {
 }
 
 export function ReportPanel({ open, onClose }: ReportPanelProps) {
+  /* 직종 이름은 적용 중인 노임단가 판에서 읽는다 — 저장된 것은 코드다. */
+  const { nameOf: laborName } = useWageCatalog();
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
   const catalog = useV2Catalog();
@@ -102,7 +106,7 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
               </thead>
               <tbody>
                 {report.items.map((item, i) => (
-                  <ReportRow key={`${item.kind}-${item.name}-${i}`} item={item} />
+                  <ReportRow key={`${item.kind}-${item.name}-${i}`} item={item} laborName={laborName} />
                 ))}
               </tbody>
             </table>
@@ -112,9 +116,9 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
           <div className="border-t border-line pt-3">
             {report.byLaborType.length > 0 && (
               <div className="mb-2 flex flex-col gap-0.5">
-                {report.byLaborType.map(({ laborType, totalHours }) => (
-                  <div key={laborType} className="flex justify-between text-xs text-content-muted">
-                    <span>{laborType}</span>
+                {report.byLaborType.map(({ laborCode, totalHours }) => (
+                  <div key={laborCode} className="flex justify-between text-xs text-content-muted">
+                    <span>{laborName(laborCode) ?? laborCode}</span>
                     <span className="tabular-nums">{totalHours.toFixed(2)}h</span>
                   </div>
                 ))}

@@ -17,7 +17,7 @@ const mockTypes: V2AssetType[] = [
   {
     id: 't', key: 'SLOT-X', name: '경로슬롯', categoryId: 'c', sortOrder: 1,
     assetCount: 0,
-    laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
+    laborCode: null, installHours: 0, removeHours: 0, relocateHours: 0,
     containerSpecs: [],
     portTemplates: [
       { id: 'pt-a', group: 'CORE', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', sortOrder: 1, positions: 1 },

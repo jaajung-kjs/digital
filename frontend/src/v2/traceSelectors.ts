@@ -74,7 +74,7 @@ export function buildTraceInputs(args: {
       name: t.name,
       sortOrder: t.sortOrder,
       category: { key: cat.key },
-      laborType: t.laborType,
+      laborCode: t.laborCode,
       installHours: t.installHours,
       removeHours: t.removeHours,
       relocateHours: t.relocateHours,

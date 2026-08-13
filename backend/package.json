@@ -22,6 +22,7 @@
     "@prisma/client": "^5.22.0",
     "@twin/core": "*",
     "bcryptjs": "^2.4.3",
+    "cfb": "^1.2.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",

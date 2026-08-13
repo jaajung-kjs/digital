@@ -14,6 +14,18 @@ import type { TypeDraft } from '../catalogDraft';
 import { typeToDraft } from '../catalogDraft';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 
+/* 직종 드롭다운은 적용 중인 노임단가 판을 읽는다(react-query) — 이 폼의 관심사가 아니므로
+   어휘만 세워 준다(`PortsEditor.test` 가 매체 이름·색을 세우는 것과 같은 방식). */
+vi.mock('../hooks', () => ({
+  useWageCatalog: () => ({
+    effective: '2026년도 상반기',
+    rows: [{ code: '1086', name: '통신내선공', sector: '일반공사', wage: 284880, marker: '' }],
+    nameOf: (c: string | null) => (c === '1086' ? '통신내선공' : c && `(직종 ${c})`),
+    wageOf: () => null,
+    known: (c: string | null) => c === '1086',
+  }),
+}));
+
 // ─── 팩토리 ─────────────────────────────────────────────────────────────────
 const mkCatalog = (): V2Catalog => ({
   categories: [
@@ -22,6 +34,8 @@ const mkCatalog = (): V2Catalog => ({
   ],
   types: [],
   cableGroups: [],
+  assemblies: [],
+  wageStandard: null,
 });
 
 const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
@@ -31,7 +45,7 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   categoryId: 'cat-comm',
   sortOrder: 1,
   assetCount: 0,
-  laborType: '통신내선공',
+  laborCode: '통신내선공',
   installHours: 2,
   removeHours: 1,
   relocateHours: 3,

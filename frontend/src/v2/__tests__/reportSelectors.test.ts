@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { emptyOverlay } from '../store/overlay';
 import { buildReportItems } from '../reportSelectors';
 
-const labor = { laborType: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3 };
+const labor = { laborCode: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3 };
 const rackType = { id: 't-rack', key: 'SW', name: 'L3 스위치', categoryId: 'c', sortOrder: 1, ...labor, portTemplates: [] };
 const fiberCat = 'cat-f';
 /* 품셈은 **종류**가 갖는다 — 같은 광이라도 OPGW 가공과 실내 점퍼 결선은 품이 다르다.
    그룹은 이름·색뿐이고, 설계서의 「종류」 열도 그룹이 아니라 종류 이름을 적는다. */
 const groups = [{
   id: 'g-f', key: 'fiber', name: '광', color: '#0f0', sortOrder: 1,
-  categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1, laborType: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02 }],
+  categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1, laborCode: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02 }],
 }];
 
 const mkAsset = (id: string, name: string, extra: object = {}) => ({
@@ -85,10 +85,10 @@ describe('1식 공량', () => {
   const optSet = {
     id: 'asm-1', key: 'OPT-SET', name: '송변전광단말장치', categoryId: 'c',
     gridCols: 4, gridRows: 12, sortOrder: 1, items: [],
-    laborType: '통신내선공', installHours: 40, removeHours: 20, relocateHours: 30,
+    laborCode: '통신내선공', installHours: 40, removeHours: 20, relocateHours: 30,
   };
   /** 1식 공량을 안 적어 둔 설비 종류 — 안에 든 자산의 공량을 합쳐 센다. */
-  const bare = { ...optSet, id: 'asm-2', key: 'BARE', name: '무명설비', laborType: null, installHours: null, removeHours: null, relocateHours: null };
+  const bare = { ...optSet, id: 'asm-2', key: 'BARE', name: '무명설비', laborCode: null, installHours: null, removeHours: null, relocateHours: null };
 
   const 설비 = (id: string, name: string, asmId: string) =>
     mkAsset(id, name, { typeId: null, assemblyId: asmId, floorId: 'f1' });
@@ -171,7 +171,7 @@ describe('1식 공량이 없을 때의 폴백', () => {
   const bare = {
     id: 'asm-b', key: 'BARE', name: '무명설비', categoryId: 'c',
     gridCols: 4, gridRows: 12, sortOrder: 1, items: [],
-    laborType: null, installHours: null, removeHours: null, relocateHours: null,
+    laborCode: null, installHours: null, removeHours: null, relocateHours: null,
   };
   const 설비 = mkAsset('e1', '무명 A', { typeId: null, assemblyId: 'asm-b', floorId: 'f1' });
   const 부품A = mkAsset('p1', 'L3 스위치 1', { parentAssetId: 'e1', col: 0, row: 0 });

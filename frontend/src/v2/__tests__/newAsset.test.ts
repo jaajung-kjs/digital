@@ -4,7 +4,7 @@ import { freeCells, makeNewAsset } from '../newAsset';
 
 const mkType = (id: string, key: string, categoryId: string): V2AssetType => ({
   id, key, name: key, categoryId, sortOrder: 1, assetCount: 0,
-  defaultWidth: null, defaultHeight: null, laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
+  defaultWidth: null, defaultHeight: null, laborCode: null, installHours: 0, removeHours: 0, relocateHours: 0,
   portTemplates: [],
 });
 

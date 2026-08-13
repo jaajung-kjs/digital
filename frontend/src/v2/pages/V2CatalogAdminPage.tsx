@@ -31,16 +31,19 @@ import { CatalogEditorBar, InUseNotice } from '../components/admin/CatalogEditor
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { PortsEditor } from '../components/admin/PortsEditor';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
+import { StandardsPanel } from '../components/admin/StandardsPanel';
 import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
 
-type Tab = 'type' | 'assembly' | 'cable';
+type Tab = 'type' | 'assembly' | 'cable' | 'standards';
 
 const CATALOG_TABS: readonly TabItem<Tab>[] = [
   // 도면에 놓이고 현황에 집계되는 단위 — 대장의 주인공이라 맨 앞에 둔다.
   { key: 'assembly', label: '설비 종류' },
   { key: 'type', label: '자산 종류' },
   { key: 'cable', label: '케이블 종류' },
+  /* 「종류」가 아니라 **바깥에서 오는 표**다 — 설계가 이 값을 쓰므로 대장에 함께 둔다. */
+  { key: 'standards', label: '기준자료' },
 ];
 
 /* 저장 안 한 변경을 알리는 자리는 이 화면 **바깥**에 있어야 한다 — 안쪽에서 만들면
@@ -318,6 +321,13 @@ function CatalogAdmin() {
                   setAddCategoryOpen(true);
                 }}
               />
+            </div>
+          )}
+
+          {/* ── 기준자료 탭 ─────────────────────────────────────────── */}
+          {activeTab === 'standards' && (
+            <div className="flex min-h-0 flex-1">
+              <StandardsPanel />
             </div>
           )}
 

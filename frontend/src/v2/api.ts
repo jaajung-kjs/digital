@@ -1,5 +1,5 @@
 import { httpClient as api } from './httpClient';
-import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2Standard, V2WageRow, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
 
@@ -106,7 +106,7 @@ export async function putCableGroup(
     categories: {
       id?: string;
       name: string;
-      laborType: string | null;
+      laborCode: string | null;
       installHoursPerM: number;
       removeHoursPerM: number;
     }[];
@@ -125,4 +125,39 @@ export async function updateAssembly(id: string, body: AssemblyUpsertBody): Prom
 }
 export async function deleteAssembly(id: string): Promise<void> {
   await api.delete(`/v2/catalog/assemblies/${id}`);
+}
+
+// ── 기준자료(노임단가·제비율) ────────────────────────────────────────────────
+
+/** 미리보기 — 올리기 전에 무엇이 들어오고 지금 대장에 무엇이 걸리는지 보여 준다. */
+export interface WagePreview {
+  effective: string;
+  sourceName: string;
+  dates: string[];
+  rows: V2WageRow[];
+  /** 이름으로 들어 있던 값 중 코드로 올릴 수 있는 것 — 등록하면 함께 바뀐다. */
+  promote: { from: string; toCode: string; toName: string; count: number }[];
+  /** 새 표에 없는 값 — 그대로 두면 설계서에서 「단가 없음」이 된다. */
+  orphans: { value: string; count: number }[];
+}
+
+const filePart = (file: File) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return fd;
+};
+// Content-Type 을 비운다 — 브라우저가 multipart boundary 를 채워야 한다(사진·배경과 같은 이유).
+const MULTIPART = { headers: { 'Content-Type': undefined } } as const;
+
+export async function previewWageStandard(file: File): Promise<WagePreview> {
+  return (await api.post('/v2/standards/wage/preview', filePart(file), MULTIPART)).data;
+}
+export async function uploadWageStandard(file: File): Promise<{ id: string; effective: string; promoted: number }> {
+  return (await api.post('/v2/standards/wage', filePart(file), MULTIPART)).data;
+}
+export async function fetchStandards(): Promise<V2Standard[]> {
+  return (await api.get('/v2/standards')).data;
+}
+export async function activateStandard(id: string): Promise<void> {
+  await api.post(`/v2/standards/${id}/activate`);
 }

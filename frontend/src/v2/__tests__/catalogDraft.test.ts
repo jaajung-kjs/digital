@@ -10,7 +10,7 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   categoryId: 'cat-comm',
   sortOrder: 1,
   assetCount: 0,
-  laborType: '통신내선공',
+  laborCode: '통신내선공',
   installHours: 2,
   removeHours: 1,
   relocateHours: 3,
@@ -28,8 +28,8 @@ const mkCatalog = (): V2Catalog => ({
   ],
   types: [],
   cableGroups: [
-    { id: 'g-fiber', key: 'fiber', name: '광', color: '#00f', laborType: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02, sortOrder: 1, categories: [] },
-    { id: 'g-power', key: 'power', name: '전력', color: '#f00', laborType: null, installHoursPerM: 0.1, removeHoursPerM: 0.05, sortOrder: 2, categories: [] },
+    { id: 'g-fiber', key: 'fiber', name: '광', color: '#00f', laborCode: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02, sortOrder: 1, categories: [] },
+    { id: 'g-power', key: 'power', name: '전력', color: '#f00', laborCode: null, installHoursPerM: 0.1, removeHoursPerM: 0.05, sortOrder: 2, categories: [] },
   ],
 });
 
@@ -47,7 +47,7 @@ describe('catalogDraft', () => {
     expect(draft.name).toBe(type.name);
     expect(draft.categoryId).toBe(type.categoryId);
     expect(draft.sortOrder).toBe(type.sortOrder);
-    expect(draft.laborType).toBe(type.laborType);
+    expect(draft.laborCode).toBe(type.laborCode);
     expect(draft.installHours).toBe(type.installHours);
     expect(draft.removeHours).toBe(type.removeHours);
     expect(draft.relocateHours).toBe(type.relocateHours);

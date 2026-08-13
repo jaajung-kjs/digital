@@ -33,8 +33,9 @@ import {
 } from '../../../components/ui';
 import type { V2Catalog, V2CableGroup } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
-import { useCatalogMutations } from '../../hooks';
+import { useCatalogMutations, useWageCatalog } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
+import { LaborTypeSelect } from './LaborTypeSelect';
 import { CatalogList } from './CatalogList';
 import { CatalogEditorBar } from './CatalogEditorBar';
 
@@ -54,7 +55,7 @@ interface CategoryDraft {
   /** 화면에서 이 줄을 가리키는 이름 — 새 줄은 아직 id 가 없다. */
   key: string;
   name: string;
-  laborType: string;
+  laborCode: string;
   install: string;
   remove: string;
 }
@@ -79,7 +80,7 @@ const toDraft = (g: V2CableGroup): GroupDraft => ({
     id: c.id,
     key: c.id,
     name: c.name,
-    laborType: c.laborType ?? '',
+    laborCode: c.laborCode ?? '',
     install: String(c.installHoursPerM),
     remove: String(c.removeHoursPerM),
   })),
@@ -94,7 +95,7 @@ const same = (a: GroupDraft, b: GroupDraft) =>
     return (
       x.id === y.id &&
       x.name === y.name &&
-      x.laborType === y.laborType &&
+      x.laborCode === y.laborCode &&
       x.install === y.install &&
       x.remove === y.remove
     );
@@ -140,6 +141,7 @@ function issuesOf(g: GroupDraft | null): { flags: Map<string, RowIssues>; groupN
 export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const mutations = useCatalogMutations();
   const { confirm, confirmDialog } = useConfirm();
+  const wage = useWageCatalog();
   const groups = catalog.cableGroups;
 
   const [selectedId, setSelectedId] = useState<string | null>(groups[0]?.id ?? null);
@@ -222,7 +224,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         ? prev
         : {
             ...prev,
-            categories: [...prev.categories, { id: null, key, name: '', laborType: '', install: '0', remove: '0' }],
+            categories: [...prev.categories, { id: null, key, name: '', laborCode: '', install: '0', remove: '0' }],
           },
     );
   }
@@ -248,7 +250,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
           categories: draft.categories.map((r) => ({
             ...(r.id ? { id: r.id } : {}),
             name: r.name.trim(),
-            laborType: r.laborType.trim() || null,
+            laborCode: r.laborCode.trim() || null,
             installHoursPerM: Number(r.install),
             removeHoursPerM: Number(r.remove),
           })),
@@ -351,7 +353,10 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           <td className={cn('truncate px-3 py-1.5', bad?.name ? 'text-danger' : 'text-content')}>
                             {row.name.trim() || '(이름 없음)'}
                           </td>
-                          <td className="truncate px-3 py-1.5 text-content-muted">{row.laborType.trim() || '—'}</td>
+                          {/* 표에는 **이름**이 선다 — 저장되는 것은 코드다(`useWageCatalog`). */}
+                          <td className="truncate px-3 py-1.5 text-content-muted">
+                            {wage.nameOf(row.laborCode.trim() || null) ?? '—'}
+                          </td>
                           {/* 수는 오른쪽으로 — 자릿수가 세로로 맞아야 크기가 비교된다. */}
                           <td
                             className={cn(
@@ -423,11 +428,9 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     <DetailCard>
                       <DetailCardHeader title="공량" />
                       <DetailRow label="노무유형">
-                        <Input
-                          aria-label="노무유형"
-                          value={selectedRow.laborType}
-                          placeholder="예: 통신내선공"
-                          onChange={(e) => patchRow(selectedRow.key, { laborType: e.currentTarget.value })}
+                        <LaborTypeSelect
+                          value={selectedRow.laborCode || null}
+                          onChange={(code) => patchRow(selectedRow.key, { laborCode: code ?? '' })}
                         />
                       </DetailRow>
                       <DetailRow label="신설(h/m)" issue={selectedIssues?.install ? '0 이상의 수' : null}>

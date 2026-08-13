@@ -70,7 +70,7 @@ function structuralKey(
 
 catalogRouter.get('/', async (_req, res, next) => {
   try {
-    const [categories, types, cableGroups, assemblies] = await Promise.all([
+    const [categories, types, cableGroups, assemblies, wage] = await Promise.all([
       nextDb.assetCategory.findMany({ orderBy: { sortOrder: 'asc' } }),
       nextDb.assetType.findMany({
         include: {
@@ -87,6 +87,9 @@ catalogRouter.get('/', async (_req, res, next) => {
         include: { items: { orderBy: { sortOrder: 'asc' } } },
         orderBy: { sortOrder: 'asc' },
       }),
+      /* 적용 중인 노임단가를 **카탈로그에 실어 보낸다** — 노무유형 드롭다운의 어휘이고,
+         설계서의 단가다. 조회를 따로 두면 화면마다 「어느 판을 봤나」가 갈린다. */
+      nextDb.laborStandard.findFirst({ where: { kind: 'wage', active: true } }),
     ]);
 
     const typesWithCount = types.map(({ _count, ...t }) => ({
@@ -94,7 +97,15 @@ catalogRouter.get('/', async (_req, res, next) => {
       assetCount: _count.assets,
     }));
 
-    res.json({ categories, types: typesWithCount, cableGroups, assemblies });
+    res.json({
+      categories,
+      types: typesWithCount,
+      cableGroups,
+      assemblies,
+      wageStandard: wage
+        ? { id: wage.id, effective: wage.effective, ...(wage.payload as { dates: string[]; rows: unknown[] }) }
+        : null,
+    });
   } catch (e) {
     next(e);
   }
@@ -203,7 +214,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
             name: body.name,
             categoryId: body.categoryId,
             sortOrder: body.sortOrder,
-            laborType: body.laborType,
+            laborCode: body.laborCode,
             installHours: body.installHours,
             removeHours: body.removeHours,
             relocateHours: body.relocateHours,
@@ -269,7 +280,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
           name: body.name,
           categoryId: body.categoryId,
           sortOrder: body.sortOrder,
-          laborType: body.laborType,
+          laborCode: body.laborCode,
           installHours: body.installHours,
           removeHours: body.removeHours,
           relocateHours: body.relocateHours,
@@ -378,7 +389,7 @@ catalogRouter.put('/cable-groups/:id', adminOnly, async (req, res, next) => {
       for (const [i, c] of categories.entries()) {
         const data = {
           name: c.name,
-          laborType: c.laborType,
+          laborCode: c.laborCode,
           installHoursPerM: c.installHoursPerM,
           removeHoursPerM: c.removeHoursPerM,
           sortOrder: i,
@@ -456,7 +467,7 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
         data: {
           key: body.key, name: body.name, categoryId: body.categoryId,
           gridCols: body.gridCols, gridRows: body.gridRows,
-          laborType: body.laborType, installHours: body.installHours,
+          laborCode: body.laborCode, installHours: body.installHours,
           removeHours: body.removeHours, relocateHours: body.relocateHours,
           sortOrder: body.sortOrder,
         },
@@ -486,7 +497,7 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
         data: {
           key: body.key, name: body.name, categoryId: body.categoryId,
           gridCols: body.gridCols, gridRows: body.gridRows,
-          laborType: body.laborType, installHours: body.installHours,
+          laborCode: body.laborCode, installHours: body.installHours,
           removeHours: body.removeHours, relocateHours: body.relocateHours,
           sortOrder: body.sortOrder,
         },

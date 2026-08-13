@@ -8,7 +8,7 @@ const device: AssetTypeSpec = {
   name: '장비',
   categoryKey: '통신',
   sortOrder: 1,
-  labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
+  labor: { laborCode: null, installHours: 0, removeHours: 0, relocateHours: 0 },
   fields: [],
   containers: [],
   // 방향을 따지지 않는 종류라 내부 통과가 유도되지 않는다 → 추적 종단

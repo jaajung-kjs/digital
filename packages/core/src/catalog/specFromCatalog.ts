@@ -3,7 +3,7 @@ import type { AssetTypeSpec, Direction, PortTemplate, TypeUpsertBody } from './t
 export interface CatalogTypeRow {
   key: string; name: string; sortOrder: number;
   category: { key: string };
-  laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
+  laborCode: string | null; installHours: number; removeHours: number; relocateHours: number;
   portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; sortOrder: number }[];
 }
 
@@ -36,7 +36,7 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
     name: row.name,
     categoryKey: row.category.key,
     sortOrder: row.sortOrder,
-    labor: { laborType: row.laborType, installHours: row.installHours, removeHours: row.removeHours, relocateHours: row.relocateHours },
+    labor: { laborCode: row.laborCode, installHours: row.installHours, removeHours: row.removeHours, relocateHours: row.relocateHours },
     ports: portTemplatesFrom(row.portTemplates),
   };
 }
@@ -52,7 +52,7 @@ export function specFromUpsert(body: TypeUpsertBody, categoryKey: string): Asset
     categoryKey,
     sortOrder: body.sortOrder,
     labor: {
-      laborType: body.laborType,
+      laborCode: body.laborCode,
       installHours: body.installHours,
       removeHours: body.removeHours,
       relocateHours: body.relocateHours,

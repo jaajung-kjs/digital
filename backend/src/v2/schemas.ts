@@ -127,7 +127,7 @@ export const assemblyUpsertSchema = z.object({
   gridCols: z.number().int().min(1),
   gridRows: z.number().int().min(1),
   /* 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */
-  laborType: z.string().trim().min(1).nullable().default(null),
+  laborCode: z.string().trim().min(1).nullable().default(null),
   installHours: z.number().min(0).nullable().default(null),
   removeHours: z.number().min(0).nullable().default(null),
   relocateHours: z.number().min(0).nullable().default(null),
@@ -142,7 +142,7 @@ export const typeUpsertSchema = z.object({
   name: z.string().trim().min(1),
   categoryId: z.string().uuid(),
   sortOrder: z.number().int(),
-  laborType: z.string().trim().min(1).nullable(),
+  laborCode: z.string().trim().min(1).nullable(),
   installHours: z.number().min(0),
   removeHours: z.number().min(0),
   relocateHours: z.number().min(0),
@@ -168,7 +168,7 @@ export const cableGroupPutSchema = z.object({
       /** 이미 있는 것이면 그 id, 새로 만드는 줄이면 없다. */
       id: z.string().uuid().optional(),
       name: z.string().trim().min(1),
-      laborType: z.string().trim().min(1).nullable(),
+      laborCode: z.string().trim().min(1).nullable(),
       installHoursPerM: z.number().min(0),
       removeHoursPerM: z.number().min(0),
     }),

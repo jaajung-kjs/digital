@@ -8,6 +8,7 @@
  *   issues   — TypeSpecIssue[] (draftIssues 결과)
  */
 import type { TypeSpecIssue } from '@twin/core';
+import { LaborTypeSelect } from './LaborTypeSelect';
 import { DetailCard, DetailCardHeader, DetailGrid, DetailRow, Input, Select } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
@@ -70,15 +71,7 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
         <DetailCardHeader title="공량" />
 
         <DetailRow label="노무유형">
-          <Input
-            aria-label="노무유형"
-            value={draft.laborType ?? ''}
-            onChange={(e) => {
-              const val = e.currentTarget.value;
-              onChange({ laborType: val === '' ? null : val });
-            }}
-            placeholder="예: 통신내선공"
-          />
+          <LaborTypeSelect value={draft.laborCode ?? null} onChange={(code) => onChange({ laborCode: code })} />
         </DetailRow>
 
         {/* 시간 셋은 나란히 읽는 값이다 — 한 줄에 하나씩 쌓으면 카드만 길어진다. */}

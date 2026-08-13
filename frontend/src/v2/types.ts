@@ -6,12 +6,12 @@ export interface V2PortTemplate { id: string; group: string; count: number; dire
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number;
   assetCount: number;
-  laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
+  laborCode: string | null; installHours: number; removeHours: number; relocateHours: number;
   portTemplates: V2PortTemplate[];
 }
 
 /** 케이블 종류 — **품셈을 갖는다**(미터당). 자산 종류·설비 종류와 같은 층이다. */
-export interface V2CableCategory { id: string; name: string; sortOrder: number; laborType: string | null; installHoursPerM: number; removeHoursPerM: number }
+export interface V2CableCategory { id: string; name: string; sortOrder: number; laborCode: string | null; installHoursPerM: number; removeHoursPerM: number }
 /** 케이블 그룹 — 포트 종류와 1:1인 고정 어휘. 이름·색만 고친다(품셈은 종류가 갖는다). */
 export interface V2CableGroup { id: string; key: string; name: string; color: string; sortOrder: number; categories: V2CableCategory[] }
 /** 설비 종류를 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
@@ -39,7 +39,7 @@ export interface V2Assembly {
    *
    * null = 안 적었다(안에 든 자산의 공량을 합쳐 센다), 0 = 품이 안 든다.
    */
-  laborType: string | null;
+  laborCode: string | null;
   installHours: number | null;
   removeHours: number | null;
   relocateHours: number | null;
@@ -52,7 +52,7 @@ export interface AssemblyUpsertBody {
   /** 새로 만들 때는 보내지 않는다 — 서버가 붙인다(참조용 식별자다). */
   key?: string; name: string; categoryId: string;
   gridCols: number; gridRows: number;
-  laborType: string | null;
+  laborCode: string | null;
   installHours: number | null;
   removeHours: number | null;
   relocateHours: number | null;
@@ -60,7 +60,28 @@ export interface AssemblyUpsertBody {
   items: Omit<V2AssemblyItem, 'sortOrder'>[];
 }
 
-export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[]; assemblies: V2Assembly[] }
+/**
+ * 직종 한 줄 — 임금실태조사가 준 그대로.
+ *
+ * 카탈로그는 **`code` 를 저장**하고 이름·단가는 여기서 읽는다. 그래서 직종 이름이 바뀌어도
+ * 대장을 손댈 일이 없다(매체 키 `fiber` 를 저장하고 이름은 어휘에서 읽는 것과 같은 규칙).
+ */
+export interface V2WageRow { code: string; name: string; sector: string; wage: number | null; marker: string }
+/** 지금 적용 중인 노임단가 판. 아직 아무것도 안 올렸으면 null 이다. */
+export interface V2WageStandard { id: string; effective: string; dates: string[]; rows: V2WageRow[] }
+
+export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[]; assemblies: V2Assembly[]; wageStandard: V2WageStandard | null }
+
+/** 올려 둔 기준자료 한 판(목록용 — 내용은 빼고). */
+export interface V2Standard {
+  id: string;
+  kind: 'wage' | 'overhead';
+  effective: string;
+  sourceName: string;
+  active: boolean;
+  uploadedBy: string;
+  createdAt: string;
+}
 
 export interface V2Floor {
   id: string;

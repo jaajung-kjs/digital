@@ -19,7 +19,7 @@ function unresolvedCableItem(kind: 'cable-install' | 'cable-remove', name: strin
     kind,
     name,
     typeName: '—',
-    laborType: null,
+    laborCode: null,
     qty: 0,
     unit: 'm',
     hours: 0,
@@ -46,7 +46,7 @@ function cableLengthM(specParams: unknown): number | null {
 function assemblyLabor(
   asm: V2Assembly | undefined,
   kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
-): { laborType: string | null; installHours: number; removeHours: number; relocateHours: number } | null {
+): { laborCode: string | null; installHours: number; removeHours: number; relocateHours: number } | null {
   if (!asm) return null;
   const hours = {
     'asset-install': asm.installHours,
@@ -57,7 +57,7 @@ function assemblyLabor(
      0 은 「품이 안 든다」는 뜻이므로 적힌 것으로 친다(null 만 「안 적었다」). */
   if (hours == null) return null;
   return {
-    laborType: asm.laborType,
+    laborCode: asm.laborCode,
     installHours: kind === 'asset-install' ? hours : 0,
     removeHours: kind === 'asset-remove' ? hours : 0,
     relocateHours: kind === 'asset-relocate' ? hours : 0,
@@ -157,7 +157,7 @@ export function buildReportItems(args: {
       const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
       if (!t) continue;
       items.push(assetReportItem(kind, asset.name, t.name, {
-        laborType: t.laborType,
+        laborCode: t.laborCode,
         installHours: t.installHours,
         removeHours: t.removeHours,
         relocateHours: t.relocateHours,

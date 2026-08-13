@@ -12,6 +12,7 @@ import {
   fetchCatalog,
   fetchNodeAssets,
   fetchOrgTree,
+  fetchStandards,
   patchCategory,
   patchOrgNode,
   putCableGroup,
@@ -19,10 +20,14 @@ import {
   updateType,
   type OrgKind,
 } from './api';
-import type { V2AssetType } from './types';
+import type { V2AssetType, V2WageRow } from './types';
 
 export function useV2Catalog() {
   return useQuery({ queryKey: ['v2', 'catalog'], queryFn: fetchCatalog, staleTime: 60_000 });
+}
+/** 올려 둔 기준자료 판 목록 — 「기준자료」 탭이 쓴다. */
+export function useStandards() {
+  return useQuery({ queryKey: ['v2', 'standards'], queryFn: fetchStandards, staleTime: 60_000 });
 }
 export function useV2OrgTree() {
   return useQuery({ queryKey: ['v2', 'org-tree'], queryFn: fetchOrgTree, staleTime: 30_000 });
@@ -116,4 +121,32 @@ export function useMediumColor(): (key: string) => string | null {
   const catalog = useV2Catalog();
   const groups = catalog.data?.cableGroups;
   return (key: string) => groups?.find((g) => g.key === key)?.color ?? null;
+}
+
+/**
+ * 직종 어휘 — **적용 중인 노임단가 판**이 유일한 출처다.
+ *
+ * 카탈로그는 직종 **코드**를 저장한다. 이름과 단가는 판에서 읽으므로, 반기마다 판을 갈아도
+ * 대장을 손댈 일이 없고 이름이 바뀌면 화면이 저절로 새 이름을 쓴다.
+ *
+ * 아직 아무 판도 안 올렸으면 `rows` 가 비어 있다 — 그때 드롭다운은 잠기고 화면이 「기준자료를
+ * 먼저 올리세요」라고 말한다. 저장은 막지 않는다(품셈 없이도 종류는 만들 수 있어야 한다).
+ */
+export function useWageCatalog() {
+  const catalog = useV2Catalog();
+  const std = catalog.data?.wageStandard ?? null;
+  return useMemo(() => {
+    const rows: V2WageRow[] = std?.rows ?? [];
+    const byCode = new Map(rows.map((r) => [r.code, r]));
+    return {
+      effective: std?.effective ?? null,
+      rows,
+      /** 이 코드의 이름 — 판에 없으면 「(직종 1084)」처럼 코드라도 보여 준다. */
+      nameOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.name ?? `(직종 ${code})`)),
+      /** 이 코드의 노임(원/일). 판에 없거나 미조사면 null — 설계서가 「단가 없음」으로 말한다. */
+      wageOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.wage ?? null)),
+      /** 판에 있는 직종인가 — 없는 것을 고쳐야 한다고 짚을 때. */
+      known: (code: string | null) => code != null && byCode.has(code),
+    };
+  }, [std]);
 }

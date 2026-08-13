@@ -103,7 +103,7 @@ model AssetType {
   category       AssetCategory       @relation(fields: [categoryId], references: [id])
   sortOrder      Int                 @default(0)
   // 공량 규칙
-  laborType      String?
+  laborCode      String?
   installHours   Float               @default(0)
   removeHours    Float               @default(0)
   relocateHours  Float               @default(0)
@@ -156,7 +156,7 @@ model Assembly {
   ///
   /// 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. 0 은 「품이 안 든다」는 뜻이라
   /// 「안 적었다」와 구별해야 하므로 nullable 이다.
-  laborType     String?
+  laborCode     String?
   installHours  Float?
   removeHours   Float?
   relocateHours Float?
@@ -211,7 +211,7 @@ model CableCategory {
   group     CableGroup @relation(fields: [groupId], references: [id])
   sortOrder Int        @default(0)
   /// 이 종류의 품셈 — 미터당. 설계서 공량의 근거다(품셈 × 길이).
-  laborType        String?
+  laborCode        String?
   installHoursPerM Float  @default(0)
   removeHoursPerM  Float  @default(0)
   cables    Cable[]
@@ -391,4 +391,29 @@ model AssetPhoto {
   // 자산 cascade 삭제와 워킹카피 조인이 이 컬럼을 탄다.
   // Postgres 는 FK 에 인덱스를 자동 생성하지 않아, 없으면 부모 1행 삭제마다 전체 스캔.
   @@index([assetId])
+}
+
+/// 설계에 쓰는 **기준자료 한 판** — 반기·고시마다 새로 올린다.
+///
+/// 왜 판째로 쌓나: 작년 설계서를 다시 열었을 때 그때 요율·노임으로 재현돼야 한다. 새 판을
+/// 올려도 이전 판은 지우지 않고, 「적용 중」 하나만 갈아 끼운다.
+///
+/// 카탈로그는 이 판을 가리키지 않는다 — **직종 코드**만 들고 있고 단가는 적용 중인 판에서
+/// 읽는다. 그래서 판을 갈아도 카탈로그를 손댈 일이 없다.
+model LaborStandard {
+  id         String   @id @default(uuid())
+  /// 무엇의 기준인가 — 'wage'(직종 노임단가). 'overhead'(제비율)가 이어 붙는다.
+  kind       String
+  /// 사람이 읽는 적용시기 — 「2026년도 상반기」.
+  effective  String
+  /// 올린 파일 이름 — 어느 문서에서 왔는지 되짚을 수 있게.
+  sourceName String
+  /// 파싱 결과. `kind` 마다 모양이 다르다(wage: { dates, rows }).
+  payload    Json
+  /// 지금 적용 중인 판인가 — `kind` 당 하나만 true.
+  active     Boolean  @default(false)
+  uploadedBy String
+  createdAt  DateTime @default(now())
+
+  @@index([kind, active])
 }
