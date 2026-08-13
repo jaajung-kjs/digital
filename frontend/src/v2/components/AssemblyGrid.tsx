@@ -27,7 +27,8 @@ export interface AssemblyGridProps<T extends GridItem> {
   items: readonly T[];
   onSelect: (item: T) => void;
   /** 빈 자리를 눌렀을 때 — 그 칸에 바로 추가한다. */
-  onAddAtCell: (cell: GridCell) => void;
+  /** 빈 자리에 만든다 — 여러 칸을 끌었으면 그 크기까지 온다. */
+  onAddAtCell: (at: GridCell & { colSpan?: number; rowSpan?: number }) => void;
   /** 자리를 옮기거나 크기를 바꿨을 때 — 검증을 통과한 것만 온다. */
   onMove: (itemId: string, placement: GridPlacement) => void;
   /** 이 자리에 놓을 수 있는가 — 겹침·범위를 부르는 쪽이 판정한다. */
@@ -183,6 +184,13 @@ export function AssemblyGrid<T extends GridItem>({
   const gestureRef = useRef<Gesture | null>(null);
   /** 끌고 있는 동안의 미리보기 — 놓기 전에는 저장하지 않는다. */
   const [preview, setPreview] = useState<{ itemId: string; placement: GridPlacement; ok: boolean } | null>(null);
+  /**
+   * 빈 칸에서 끌어 **여러 칸을 묶어** 만드는 중.
+   *
+   * 예전에는 한 칸에만 만들 수 있어서, 2×3 짜리 부품을 놓으려면 일단 한 칸에 만든 뒤 크기
+   * 손잡이로 늘려야 했다. 놓을 자리를 눈으로 정하는 판에서 그건 두 번 일하는 것이다.
+   */
+  const [createRect, setCreateRect] = useState<{ placement: GridPlacement; ok: boolean } | null>(null);
 
   /** 포인터가 가리키는 칸 — 격자 상자 기준 상대 좌표로 셈한다. */
   function cellFromPointer(e: { clientX: number; clientY: number }): GridCell | null {
@@ -259,7 +267,24 @@ export function AssemblyGrid<T extends GridItem>({
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (!gestureRef.current?.session) return;
+    const g = gestureRef.current;
+    /* 빈 칸에서 시작한 손짓 — 시작 칸과 지금 칸이 이루는 네모를 미리 보여 준다. */
+    if (g && !g.item) {
+      const to = cellFromPointer(e);
+      if (to) {
+        const col = Math.min(g.cell.col, to.col);
+        const row = Math.min(g.cell.row, to.row);
+        const placement = {
+          col,
+          row,
+          colSpan: Math.abs(to.col - g.cell.col) + 1,
+          rowSpan: Math.abs(to.row - g.cell.row) + 1,
+        };
+        setCreateRect({ placement, ok: isFree(placement) });
+      }
+      return;
+    }
+    if (!g?.session) return;
     pointRef.current = { clientX: e.clientX, clientY: e.clientY };
     aimAt(e);
     if (rafRef.current == null) rafRef.current = requestAnimationFrame(pump);
@@ -296,6 +321,19 @@ export function AssemblyGrid<T extends GridItem>({
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId]);
 
+  /** 이 네모가 통째로 비어 있나 — 여러 칸을 묶어 만들 때 놓을 수 있는지 판정한다. */
+  function isFree(p: GridPlacement): boolean {
+    if (p.col + p.colSpan > cols || p.row + p.rowSpan > rows) return false;
+    for (const item of items) {
+      if (item.col == null || item.row == null) continue;
+      const a = { col: item.col, row: item.row, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1 };
+      const hit =
+        p.col < a.col + a.colSpan && a.col < p.col + p.colSpan && p.row < a.row + a.rowSpan && a.row < p.row + p.rowSpan;
+      if (hit) return false;
+    }
+    return true;
+  }
+
   /** 눌러서 시작한 칸에 대한 행동 — 고르거나, 빈 자리면 (고른 것을 풀거나) 채운다. */
   function tap(gesture: Gesture) {
     if (gesture.item) {
@@ -318,8 +356,16 @@ export function AssemblyGrid<T extends GridItem>({
     gestureRef.current = null;
     stopPump();
     const pv = preview;
+    const rect = createRect;
     setPreview(null);
+    setCreateRect(null);
     if (!gesture) return;
+
+    /* 여러 칸을 묶어 끌었다 — 그 네모에 만든다. 한 칸이면 평소대로 누른 것으로 친다. */
+    if (rect && (rect.placement.colSpan > 1 || rect.placement.rowSpan > 1)) {
+      if (commit && rect.ok) onAddAtCell(rect.placement);
+      return;
+    }
 
     const session = gesture.session;
     /* 끈 것은 누른 것이 아니다 — 자리를 옮기려던 손짓이 상세 패널을 열거나 추가 모달을
@@ -352,6 +398,26 @@ export function AssemblyGrid<T extends GridItem>({
   }
 
   const cells: ReactNode[] = [];
+  /* 끌어 만드는 중인 네모 — 칸 위에 덮어 그린다(자리와 크기를 놓기 전에 눈으로 확인한다). */
+  if (createRect) {
+    const { col, row, colSpan, rowSpan } = createRect.placement;
+    cells.push(
+      <li
+        key="create-preview"
+        className="pointer-events-none"
+        style={{ gridColumn: `${col + 1} / span ${colSpan}`, gridRow: `${row + 1} / span ${rowSpan}`, zIndex: 12 }}
+      >
+        <div
+          className={cn(
+            'flex h-full w-full items-center justify-center rounded border-2 text-xs font-medium',
+            createRect.ok ? 'border-primary bg-info-bg text-primary' : 'border-danger bg-danger-bg text-danger',
+          )}
+        >
+          {colSpan}×{rowSpan}
+        </div>
+      </li>,
+    );
+  }
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       const key = `${col},${row}`;
@@ -384,7 +450,13 @@ export function AssemblyGrid<T extends GridItem>({
               // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
               item
                 ? cn('border border-line bg-surface text-content', SELECTABLE)
-                : cn('border border-dashed border-line/50 text-content-faint', SELECTABLE),
+                /* 빈 자리는 배경 그대로 두되, 손이 얹히면 **놓을 자리로 보이게** 한다 —
+                   예전에는 `+` 만 나타나서 어디까지가 그 칸인지 읽히지 않았다. */
+                : cn(
+                    'border border-dashed border-line/50 text-content-faint',
+                    'transition-colors hover:border-solid hover:border-primary hover:bg-info-bg hover:text-primary',
+                    SELECTABLE,
+                  ),
               item && 'cursor-grab touch-none active:cursor-grabbing',
               item && selectedId === item.id && 'ring-2 ring-inset ring-primary',
               // 놓을 수 없는 자리면 그렇다고 말한다 — 놓아 봐야 되돌아가는 것보다 낫다.

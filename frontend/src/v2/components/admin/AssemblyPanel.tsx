@@ -35,7 +35,8 @@ const issueOf = (issues: AssemblyIssue[], path: AssemblyIssue['path']) =>
 
 export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPanelProps) {
   /** 어느 칸에 무엇을 넣을지 고르는 중. */
-  const [addCell, setAddCell] = useState<{ col: number; row: number } | null>(null);
+  /** 어느 자리에 무엇을 넣을지 고르는 중 — 여러 칸을 끌었으면 그 크기까지 온다. */
+  const [addCell, setAddCell] = useState<{ col: number; row: number; colSpan?: number; rowSpan?: number } | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [addQuery, setAddQuery] = useState('');
   /* 바깥을 누르면 풀린다 — 앱 공통 규칙(`useDismissOnOutside`). 「안」은 캔버스와 그 상세다:
@@ -55,7 +56,8 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
       ...draft,
       items: [...draft.items, {
         id: newItemId(), typeId, name: type.name,
-        col: addCell.col, row: addCell.row, colSpan: 1, rowSpan: 1,
+        col: addCell.col, row: addCell.row,
+        colSpan: addCell.colSpan ?? 1, rowSpan: addCell.rowSpan ?? 1,
       }],
     });
     setAddCell(null);
@@ -232,7 +234,11 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         <Modal
           open
           onClose={() => { setAddCell(null); setAddQuery(''); }}
-          title={`자리 ${slotNumber(draft.gridCols, addCell.col, addCell.row)} 에 넣기`}
+          title={
+            addCell.colSpan && addCell.colSpan * (addCell.rowSpan ?? 1) > 1
+              ? `자리 ${slotNumber(draft.gridCols, addCell.col, addCell.row)} 부터 ${addCell.colSpan}×${addCell.rowSpan} 에 넣기`
+              : `자리 ${slotNumber(draft.gridCols, addCell.col, addCell.row)} 에 넣기`
+          }
         >
           {addable.length === 0 ? (
             <EmptyState title="넣을 수 있는 자산 종류가 없습니다" description="「자산 종류」 탭에서 먼저 만드세요." />
