@@ -60,6 +60,8 @@ export default function V2StandardsPage() {
           onSelect={(id) => setView(id as View)}
           emptyText="기준자료가 없습니다"
         />
+        {/* 스크롤은 **이 상자**가 맡는다. 안쪽 표에 스크롤 상자를 또 만들지 않는다
+            (CONVENTIONS §1.7-b) — 만들면 `TableCard` 가 넘치는 행을 스크롤바 없이 잘라 낸다. */}
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {view === 'wage' && <WageRatesView onError={setError} />}
           {view === 'overhead' && <OverheadRatesView onError={setError} />}

@@ -387,8 +387,9 @@ function WageRatesCard() {
         shown={shown.length}
         total={data.rows.length}
       />
-      <div className="max-h-96 overflow-y-auto">
-        <TableCard widths={widths}>
+      {/* 안쪽에 스크롤 상자를 만들지 않는다 — 화면 하나를 통째로 쓰므로 페이지가 스크롤하면
+          된다. 머리글은 그 스크롤에 붙어 따라온다(CONVENTIONS §1.7-b). */}
+      <TableCard widths={widths}>
           <thead>
             <tr className="sticky top-0 z-sticky">
               <Th>코드</Th>
@@ -417,8 +418,7 @@ function WageRatesCard() {
               </tr>
             ))}
           </tbody>
-        </TableCard>
-      </div>
+      </TableCard>
     </DetailCard>
   );
 }
