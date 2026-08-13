@@ -306,6 +306,14 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 **저장을 막는 칸은 `<Input invalid>`** — 붉은 테두리와 `aria-invalid` 를 함께 건다. 문구는 부르는 쪽이 말한다(`DetailRow` 의 `issue`, 저장 바의 `issueCount`). 표처럼 라벨 옆에 문구를 놓을 자리가 없는 곳에서는 이 테두리가 유일한 길잡이라, 「입력 오류 N건」만 띄우고 어느 칸인지 안 짚는 화면을 만들지 않는다. 테두리를 `className="border-danger"` 로 직접 그리지 않는다 — `cn` 은 tailwind-merge 가 아니라 기본 `border-line` 과 충돌한다.
 
+### 표 안에서 값을 고칠 때 — 상자를 깔지, 상세 패널로 보낼지
+
+**칸마다 편집 가능 여부가 갈리면 그 칸만 상자로 둔다.** 선번장은 여섯 칸 중 셋(길이·손실·점검일)만 입력이라, 상자가 「여기는 고칠 수 있다」를 말한다.
+
+**행 전체가 편집이면 상자를 깔지 않는다.** 모든 칸이 상자면 그 표시가 아무것도 구분해 주지 못하고 훑어 읽기만 방해한다(케이블 종류 표가 실제로 그랬다 — 네 칸이 다 상자라 표가 아니라 서식으로 보였다). 그때는 표를 **읽기 전용**으로 두고, 행을 고르면 오른쪽 상세 패널에서 고친다 — 평면도(`도면 │ 상세`)·설비 종류(`격자 │ 상세`)와 같은 배치이고, 폼은 `DetailCard`/`DetailRow` 를 그대로 쓴다.
+
+읽기 전용 표에서도 **저장을 막는 칸은 눈에 띄어야 한다** — 그 칸의 글자를 `text-danger` 로 두어 어느 행인지 짚고, 문구는 고른 행의 `DetailRow issue` 가 말한다.
+
 ### 표 셀 인라인 편집(blur/Enter 커밋) → `InlineEditCell`
 `src/v2/components/InlineEditCell.tsx` — 선번장·계통 뷰처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.
 
