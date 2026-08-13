@@ -36,6 +36,7 @@ import {
   type WagePreview,
 } from '../../api';
 import { apiErrorMessage } from '../../apiError';
+import { DURATION_BANDS, SANAN_BANDS, SIZE_BANDS } from '@twin/core';
 import { useStandards, useV2Catalog, useWageRates } from '../../hooks';
 import type { V2Standard } from '../../types';
 
@@ -155,6 +156,8 @@ export function StandardsPanel() {
           />
 
           <WageRatesCard />
+
+          <OverheadRatesCard />
 
           <HistoryCard rows={standards.data ?? []} onActivate={activate} />
         </div>
@@ -418,6 +421,115 @@ function WageRatesCard() {
             ))}
           </tbody>
         </TableCard>
+      </div>
+    </DetailCard>
+  );
+}
+
+/**
+ * 적용 중인 제비율 — **무엇이 적용되고 있나**를 보는 자리.
+ *
+ * 노임과 마찬가지로, 올렸다는 사실만으로는 확인이 안 된다. 요율은 구간마다 다르므로
+ * 그 구간을 그대로 편다: 규모 × 기간(간접노무비·기타경비), 규모(일반관리비·이윤),
+ * 고정요율, 산안비 대상액 구간.
+ */
+function OverheadRatesCard() {
+  const catalog = useV2Catalog();
+  const t = catalog.data?.overheadStandard ?? null;
+  if (!t) return null;
+
+  /* 차례는 **어휘**가 정한다 — 저장된 표에서 뽑으면 jsonb 가 섞어 놓은 순서가 나온다. */
+  const sizes = SIZE_BANDS;
+  const durations = DURATION_BANDS;
+
+  return (
+    <DetailCard>
+      <DetailCardHeader title="제비율" badge={t.kind} badgeStatus="neutral" />
+
+      {/* 규모 × 기간 — 두 항목이 같은 축을 쓰므로 한 표에 나란히 둔다. */}
+      <TableCard widths={[16, ...durations.flatMap(() => [Math.floor(84 / (durations.length * 2))])
+        .concat(durations.map(() => Math.floor(84 / (durations.length * 2))))]}>
+        <thead>
+          <tr>
+            <Th>공사규모</Th>
+            {durations.map((d) => (
+              <Th key={`i-${d}`} className="text-right">
+                간접노무비 {d}일
+              </Th>
+            ))}
+            {durations.map((d) => (
+              <Th key={`e-${d}`} className="text-right">
+                기타경비 {d}일
+              </Th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sizes.map((size) => (
+            <tr key={size} className="border-b border-line last:border-0">
+              <td className="px-3 py-1.5 text-content">{size}</td>
+              {durations.map((d) => (
+                <td key={`i-${d}`} className="px-3 py-1.5 text-right tabular-nums text-content">
+                  {pct(t.byDuration.간접노무비[size]![d]!)}
+                </td>
+              ))}
+              {durations.map((d) => (
+                <td key={`e-${d}`} className="px-3 py-1.5 text-right tabular-nums text-content-muted">
+                  {pct(t.byDuration.기타경비[size]![d]!)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </TableCard>
+
+      {/* 기간과 무관한 둘 + 고정요율 + 산안비. 축이 달라 표를 나눈다. */}
+      <TableCard widths={[40, 30, 30]}>
+        <thead>
+          <tr>
+            <Th>공사규모</Th>
+            <Th className="text-right">일반관리비</Th>
+            <Th className="text-right">이윤(경쟁)</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {sizes.map((size) => (
+            <tr key={size} className="border-b border-line last:border-0">
+              <td className="px-3 py-1.5 text-content">{size}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-content">{pct(t.bySize.일반관리비[size]!)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-content">{pct(t.bySize.이윤[size]!)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </TableCard>
+
+      <TableCard widths={[40, 30, 30]}>
+        <thead>
+          <tr>
+            <Th>산안비 대상액</Th>
+            <Th className="text-right">요율</Th>
+            <Th className="text-right">기초액</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {SANAN_BANDS.map((band) => ({ band, v: t.sanan[band]! })).map(({ band, v }) => (
+            <tr key={band} className="border-b border-line last:border-0">
+              <td className="px-3 py-1.5 text-content">{band}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-content">{pct(v.rate)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
+                {v.base == null ? '—' : `${v.base.toLocaleString()}원`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </TableCard>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {Object.entries(t.fixed).map(([k, v]) => (
+          <span key={k} className="text-xs text-content-muted">
+            {k} <span className="tabular-nums text-content">{pct(v)}</span>
+          </span>
+        ))}
       </div>
     </DetailCard>
   );

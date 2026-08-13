@@ -28,6 +28,16 @@ export type DurationBand = '183' | '365' | '1095' | '1096+';
 /** 산업안전보건관리비 대상액 구간. */
 export type SananBand = '2천만미만' | '5억미만' | '5-50억' | '50억이상';
 
+/**
+ * 구간의 **차례** — 화면이 표를 그릴 때 쓴다.
+ *
+ * 저장된 표에서 `Object.keys` 로 뽑으면 안 된다: Postgres `jsonb` 는 키 순서를 보존하지
+ * 않아서(길이·바이트순으로 정규화) 「10-50억」이 「10억미만」보다 앞에 선다.
+ */
+export const SIZE_BANDS: readonly SizeBand[] = ['10억미만', '10-50억', '50-300억', '300-1000억', '1000억이상'];
+export const DURATION_BANDS: readonly DurationBand[] = ['183', '365', '1095', '1096+'];
+export const SANAN_BANDS: readonly SananBand[] = ['2천만미만', '5억미만', '5-50억', '50억이상'];
+
 export function sizeBand(directCost: number): SizeBand {
   if (directCost < 1_000_000_000) return '10억미만';
   if (directCost < 5_000_000_000) return '10-50억';
