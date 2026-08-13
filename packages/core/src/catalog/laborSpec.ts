@@ -69,6 +69,25 @@ export function unitPriceLabel(carrier: LaborCarrier): string {
   return `자재단가(원/${LABOR_CARRIERS[carrier].unit})`;
 }
 
+/**
+ * 이 담체가 보여 주는 **숫자 칸 전부** — 폼도 표도 이 목록으로만 칸을 만든다.
+ *
+ * 폼과 표가 각자 칸을 적으면 반드시 어긋난다(실제로 케이블 표에만 자재단가가 빠져 있었다).
+ * 칸을 늘리려면 여기 한 곳이다.
+ */
+export function laborSpecColumns(
+  carrier: LaborCarrier,
+): { field: keyof LaborSpec; label: string; kind: 'price' | 'manDays' }[] {
+  return [
+    { field: 'unitPrice', label: unitPriceLabel(carrier), kind: 'price' },
+    ...WORK_KINDS.map((w) => ({
+      field: MAN_DAY_FIELD[w.key] as keyof LaborSpec,
+      label: laborFieldLabel(w.key, carrier),
+      kind: 'manDays' as const,
+    })),
+  ];
+}
+
 /** 아무것도 안 적힌 공량 — 새로 만들 때의 시작점. */
 export const EMPTY_LABOR_SPEC: LaborSpec = {
   laborCode: null,

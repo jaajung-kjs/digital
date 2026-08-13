@@ -9,7 +9,7 @@
  * 여기서 필드 이름을 다시 적지 않는다 — 어휘가 늘면 세 화면이 함께 따라온다.
  */
 import { useEffect, useState } from 'react';
-import { LABOR_CARRIERS, MAN_DAY_FIELD, WORK_KINDS, laborFieldLabel, unitPriceLabel } from '@twin/core';
+import { LABOR_CARRIERS, laborSpecColumns } from '@twin/core';
 import type { LaborCarrier, LaborSpec } from '@twin/core';
 import { DetailCard, DetailCardHeader, DetailGrid, DetailRow, Input } from '../../../components/ui';
 import { LaborTypeSelect } from './LaborTypeSelect';
@@ -59,6 +59,7 @@ export function LaborSpecForm({
 }) {
   const unit = LABOR_CARRIERS[carrier].unit;
   const num = useNumericFields(spec, resetKey);
+  const columns = laborSpecColumns(carrier);
   return (
     <DetailCard>
       <DetailCardHeader title="공량" />
@@ -68,39 +69,42 @@ export function LaborSpecForm({
         <LaborTypeSelect value={spec.laborCode} onChange={(laborCode) => onChange({ laborCode })} />
       </DetailRow>
 
-      <DetailRow label={unitPriceLabel(carrier)} issue={issueFor?.('labor.unitPrice')}>
-        <Input
-          aria-label={unitPriceLabel(carrier)}
-          type="number"
-          value={num.valueOf('unitPrice')}
-          placeholder="비우면 재료비 0"
-          onChange={(e) => {
-            num.onType('unitPrice', e.currentTarget.value);
-            onChange({ unitPrice: toNumber(e.currentTarget.value, true) });
-          }}
-        />
-      </DetailRow>
+      {/* 칸은 어휘가 정한다 — 폼도 표도 `laborSpecColumns` 하나로만 만든다.
+          단가는 한 줄로, 품 셋은 나란히 읽는 값이라 두 단으로. */}
+      {columns
+        .filter((c) => c.kind === 'price')
+        .map((c) => (
+          <DetailRow key={c.field} label={c.label} issue={issueFor?.(`labor.${c.field}`)}>
+            <Input
+              aria-label={c.label}
+              type="number"
+              value={num.valueOf(c.field)}
+              placeholder="비우면 재료비 0"
+              onChange={(e) => {
+                num.onType(c.field, e.currentTarget.value);
+                onChange({ [c.field]: toNumber(e.currentTarget.value, true) } as Partial<LaborSpec>);
+              }}
+            />
+          </DetailRow>
+        ))}
 
-      {/* 작업 종류는 어휘가 정한다 — 여기서 세 칸을 손으로 적지 않는다. */}
       <DetailGrid>
-        {WORK_KINDS.map((w) => {
-          const field = MAN_DAY_FIELD[w.key];
-          const label = laborFieldLabel(w.key, carrier);
-          return (
-            <DetailRow key={w.key} label={label} issue={issueFor?.(`labor.${field}`)}>
+        {columns
+          .filter((c) => c.kind === 'manDays')
+          .map((c) => (
+            <DetailRow key={c.field} label={c.label} issue={issueFor?.(`labor.${c.field}`)}>
               <Input
-                aria-label={label}
+                aria-label={c.label}
                 type="number"
-                value={num.valueOf(field)}
+                value={num.valueOf(c.field)}
                 placeholder="—"
                 onChange={(e) => {
-                  num.onType(field, e.currentTarget.value);
-                  onChange({ [field]: toNumber(e.currentTarget.value) } as Partial<LaborSpec>);
+                  num.onType(c.field, e.currentTarget.value);
+                  onChange({ [c.field]: toNumber(e.currentTarget.value) } as Partial<LaborSpec>);
                 }}
               />
             </DetailRow>
-          );
-        })}
+          ))}
       </DetailGrid>
 
       <p className="text-xs text-content-faint">
