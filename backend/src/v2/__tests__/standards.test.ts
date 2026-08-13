@@ -50,8 +50,10 @@ describe('기준자료 — 노임단가', () => {
     expect(res.body.rows.length).toBeGreaterThan(50);
     expect(res.body.rows.find((r: { name: string }) => r.name === '통신내선공')).toMatchObject({
       code: '1086',
-      wage: 284880,
+      values: expect.arrayContaining([{ date: '2026.1.1', wage: 284880 }]),
     });
+    // 한 파일이 회차를 여럿 담는다 — 값이 있는 칸만 쌓인다.
+    expect(res.body.cellCount).toBeGreaterThan(res.body.rows.length);
     // 승격 대상과 미아는 배열로 온다 — 화면이 그대로 짚어 준다.
     expect(Array.isArray(res.body.promote)).toBe(true);
     expect(Array.isArray(res.body.orphans)).toBe(true);
@@ -83,10 +85,23 @@ describe('기준자료 — 노임단가', () => {
     expect(after.laborCode).toBe('1088'); // 통신외선공
     await nextDb.cableCategory.update({ where: { id: cat.id }, data: { laborCode: before } });
 
-    // 적용 중인 판은 카탈로그에 실려 온다 — 드롭다운과 설계서가 같은 판을 본다.
+    // 노임은 **표**로 실려 온다 — 직종마다 가장 최근 값 하나.
     const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
-    expect(catalog.wageStandard.effective).toBe('2026년도 상반기');
-    expect(catalog.wageStandard.rows.length).toBeGreaterThan(50);
+    expect(catalog.wageStandard.latestDate).toBe('2026.1.1');
+    const byCode = new Map<string, { wage: number; effectiveLabel: string }>(
+      catalog.wageStandard.rows.map((r: { code: string }) => [r.code, r]),
+    );
+    expect(byCode.get('1086')).toMatchObject({ wage: 284880, effectiveLabel: '2026.1.1' });
+    /* 이번 회차에 조사되지 않은 직종은 **그 직종의 가장 최근 값**이 온다 — 폴백 코드가
+       아니라 시계열에서 접어 낸 결과다. */
+    expect(byCode.get('1032')).toMatchObject({ wage: 210772, effectiveLabel: '2025.9.1' });
+  });
+
+  it('같은 파일을 다시 올려도 값이 늘지 않는다 — (직종, 기준일) 하나에 값 하나', async () => {
+    const before = await nextDb.laborRate.count();
+    const res = await request(app).post('/api/v2/standards/wage').set(admin).attach('file', hwp).expect(201);
+    created.push(res.body.id);
+    expect(await nextDb.laborRate.count()).toBe(before);
   });
 
   it('제비율은 표를 펼쳐 저장하고 카탈로그에 실려 온다', async () => {

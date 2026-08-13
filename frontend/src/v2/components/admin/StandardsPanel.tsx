@@ -67,7 +67,7 @@ export function StandardsPanel() {
             accept=".hwp"
             badge={wage?.effective ?? null}
             hint="건설업 임금실태조사 보고서(.hwp)를 올리면 직종 어휘와 노임단가가 채워집니다."
-            summary={wage && <>직종 {wage.rows.length}개 · 기준일 {wage.dates[0]}</>}
+            summary={wage && <>직종 {wage.rows.length}개 · 최근 기준일 {wage.latestDate}</>}
             onPreview={previewWageStandard}
             onCommit={uploadWageStandard}
             onDone={refresh}
@@ -76,8 +76,12 @@ export function StandardsPanel() {
               <>
                 <DetailRow label="직종">
                   <span className="text-sm text-content">
-                    {p.rows.length}개 · 기준일 {p.dates[0]}
+                    {p.rows.length}개 · 기준일 {p.dates.join(' · ')}
                   </span>
+                </DetailRow>
+                {/* 한 파일이 여러 회차를 준다 — 값이 있는 칸만 표에 쌓인다. */}
+                <DetailRow label="채울 값">
+                  <span className="text-sm text-content tabular-nums">{p.cellCount}칸</span>
                 </DetailRow>
                 {p.promote.length > 0 && (
                   <DetailRow label="정리" align="start">

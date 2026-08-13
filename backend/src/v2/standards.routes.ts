@@ -50,6 +50,17 @@ function uploadSingle(req: Request, res: Response, next: NextFunction) {
   });
 }
 
+/**
+ * 「2026.1.1」 → Date. 보고서 표기를 그대로 두되 정렬은 날짜로 한다.
+ *
+ * 문자열 정렬은 못 쓴다 — `2026.1.1` 과 `2026.10.1` 이 뒤집힌다.
+ */
+function parseEffective(label: string): Date {
+  const m = /^(\d{4})\.(\d{1,2})\.(\d{1,2})$/.exec(label.trim());
+  if (!m) throw new HttpError(422, 'BAD_FORMAT', `기준일을 읽지 못했습니다: ${label}`);
+  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+}
+
 /** 지금 카탈로그가 쓰는 직종 값들 — 코드일 수도, 아직 승격 전 이름일 수도 있다. */
 async function usedLaborValues(): Promise<Map<string, number>> {
   const [types, assemblies, cables] = await Promise.all([
@@ -103,6 +114,8 @@ standardsRouter.post('/standards/wage/preview', adminOnly, uploadSingle, async (
       dates: report.dates,
       rows: report.rows,
       markerNotes: report.markerNotes,
+      /** 이 파일이 채우는 칸 수 — 회차 × 직종 중 값이 있는 것만. */
+      cellCount: report.rows.reduce((n, r) => n + r.values.length, 0),
       ...matchCatalog(report, await usedLaborValues()),
     });
   } catch (e) {
@@ -135,11 +148,33 @@ standardsRouter.post('/standards/wage', adminOnly, uploadSingle, async (req, res
           kind: 'wage',
           effective: report.half,
           sourceName: req.file!.originalname,
-          payload: { dates: report.dates, rows: report.rows, markerNotes: report.markerNotes } as unknown as Prisma.InputJsonValue,
+          /* 값은 `LaborRate` 가 갖는다 — 여기에는 판을 되짚을 것만 남긴다. */
+          payload: { dates: report.dates, markerNotes: report.markerNotes } as unknown as Prisma.InputJsonValue,
           active: true,
           uploadedBy: req.user?.username ?? 'unknown',
         },
       });
+
+      /* 값이 있는 칸만 넣는다. 같은 (직종, 기준일)을 다시 올리면 덮어쓰고, 다른 회차 파일을
+         올리면 빈 곳만 채운다 — 오래된 보고서를 나중에 올려도 최신을 밀어내지 않는다. */
+      for (const r of report.rows) {
+        for (const v of r.values) {
+          const effectiveOn = parseEffective(v.date);
+          const data = {
+            effectiveLabel: v.date,
+            name: r.name,
+            sector: r.sector,
+            wage: Math.round(v.wage),
+            marker: r.marker,
+            sourceId: row.id,
+          };
+          await tx.laborRate.upsert({
+            where: { code_effectiveOn: { code: r.code, effectiveOn } },
+            update: data,
+            create: { code: r.code, effectiveOn, ...data },
+          });
+        }
+      }
       /* 이름으로 들어 있던 값을 코드로 올린다 — 시드가 넣은 「통신내선공」이 여기서 1086 이
          된다. 이 한 번이 지나면 이름이 바뀌어도 카탈로그는 그대로다. */
       for (const p of promote) {

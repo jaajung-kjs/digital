@@ -20,17 +20,22 @@ export class HwpFormatError extends Error {
   }
 }
 
-/** 직종 한 줄. */
+/**
+ * 직종 한 줄 — **회차별 값을 전부** 들고 온다.
+ *
+ * 최신 열만 읽으면 그 반기에 조사되지 않은 직종(값이 `-`)을 만났을 때 「그럼 이전 걸 쓰자」는
+ * 판단을 코드가 해야 한다. 있는 값을 다 담아 두면 그 판단은 조회가 대신한다.
+ */
 export interface WageRow {
   /** 조사 코드 — 이름이 바뀌어도 이것으로 잇는다. */
   code: string;
   name: string;
   /** 부문(일반공사·광전자…) — 코드 첫 자리가 정한다. */
   sector: string;
-  /** 최신 기준일의 노임(원/일). 미조사면 null. */
-  wage: number | null;
   /** 각주 표시(`*`·`**`) — 원문이 붙여 둔 것. */
   marker: string;
+  /** **값이 있는 회차만.** 최신 우선. 비어 있으면 이 직종은 어느 회차에도 값이 없다. */
+  values: { date: string; wage: number }[];
 }
 
 export interface WageReport {
@@ -244,12 +249,18 @@ export function readWageHwp(bytes: Buffer): WageReport {
       const name = (cells[1] ?? '').trim();
       if (!name || seen.has(m[2]!)) continue;
       seen.add(m[2]!);
+      /* 기준일 열 수만큼 오른쪽으로 읽는다 — 회차 수는 분기마다 달라질 수 있다. */
+      const values: { date: string; wage: number }[] = [];
+      for (const [i, date] of (dates ?? []).entries()) {
+        const wage = parseWage(cells[2 + i] ?? '');
+        if (wage != null) values.push({ date, wage });
+      }
       rows.push({
         code: m[2]!,
         name,
         sector: SECTOR_BY_PREFIX[m[2]![0]!] ?? '기타',
-        wage: parseWage(cells[2] ?? ''),
         marker: m[1]!,
+        values,
       });
     }
   }

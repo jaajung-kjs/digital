@@ -143,8 +143,19 @@ export function useWageCatalog() {
       rows,
       /** 이 코드의 이름 — 판에 없으면 「(직종 1084)」처럼 코드라도 보여 준다. */
       nameOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.name ?? `(직종 ${code})`)),
-      /** 이 코드의 노임(원/일). 판에 없거나 미조사면 null — 설계서가 「단가 없음」으로 말한다. */
+      /** 이 코드의 노임(원/일). 표에 없으면 null — 설계서가 「단가 없음」으로 말한다. */
       wageOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.wage ?? null)),
+      /**
+       * 이 값이 **옛 회차**의 것이면 그 기준일, 최신 회차면 null.
+       *
+       * 이번 반기에 조사되지 않은 직종이 있다 — 그때는 그 직종의 가장 최근 값이 온다.
+       * 숨기지 않고 언제 값인지 적는다.
+       */
+      staleDateOf: (code: string | null) => {
+        const row = code == null ? undefined : byCode.get(code);
+        if (!row || std?.latestDate == null) return null;
+        return row.effectiveLabel === std.latestDate ? null : row.effectiveLabel;
+      },
       /** 판에 있는 직종인가 — 없는 것을 고쳐야 한다고 짚을 때. */
       known: (code: string | null) => code != null && byCode.has(code),
       /**

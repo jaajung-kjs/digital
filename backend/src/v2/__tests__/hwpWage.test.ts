@@ -19,14 +19,29 @@ describe('readWageHwp', () => {
     expect(report.half).toBe('2026년도 상반기');
   });
 
+  const by = new Map(report.rows.map((r) => [r.name, r]));
+  const newest = (name: string) => by.get(name)!.values[0];
+
   it('통신 직종의 코드·이름·단가가 원본과 같다', () => {
-    const by = new Map(report.rows.map((r) => [r.name, r]));
-    expect(by.get('통신내선공')).toMatchObject({ code: '1086', wage: 284880, sector: '일반공사' });
-    expect(by.get('통신설비공')).toMatchObject({ code: '1087', wage: 315528 });
-    expect(by.get('통신외선공')).toMatchObject({ code: '1088', wage: 408942 });
-    expect(by.get('통신케이블공')).toMatchObject({ code: '1089', wage: 436224 });
-    expect(by.get('광케이블설치사')).toMatchObject({ code: '2001', wage: 471349, sector: '광전자' });
-    expect(by.get('보통인부')).toMatchObject({ code: '1002', wage: 172068 });
+    expect(by.get('통신내선공')).toMatchObject({ code: '1086', sector: '일반공사' });
+    expect(newest('통신내선공')).toEqual({ date: '2026.1.1', wage: 284880 });
+    expect(newest('통신설비공')).toEqual({ date: '2026.1.1', wage: 315528 });
+    expect(newest('통신외선공')).toEqual({ date: '2026.1.1', wage: 408942 });
+    expect(newest('통신케이블공')).toEqual({ date: '2026.1.1', wage: 436224 });
+    expect(by.get('광케이블설치사')?.sector).toBe('광전자');
+    expect(newest('광케이블설치사')).toEqual({ date: '2026.1.1', wage: 471349 });
+  });
+
+  /* 네 회차를 다 들고 온다 — 이것이 「비면 이전 걸 쓰자」를 코드가 판단하지 않게 하는 근거다. */
+  it('회차별 값을 모두 읽고, 빈 칸은 아예 담지 않는다', () => {
+    expect(by.get('통신내선공')!.values).toEqual([
+      { date: '2026.1.1', wage: 284880 },
+      { date: '2025.9.1', wage: 283607 },
+      { date: '2025.1.1', wage: 278565 },
+      { date: '2024.9.1', wage: 275107 },
+    ]);
+    // 연마공은 이번 회차가 `-` 다 — 그 칸은 행이 아니라 **없음**이다.
+    expect(by.get('연마공')!.values).toEqual([{ date: '2025.9.1', wage: 210772 }]);
   });
 
   /* 각주 표시는 원문이 붙여 둔 것 — 지우지 않는다(조사 미실시 등을 뜻한다). */
@@ -44,8 +59,8 @@ describe('readWageHwp', () => {
 
   /* 단가가 없는 직종이 있다 — 파서 결함이 아니라 **보고서가 조사하지 않은 직종**이다.
      그 이유를 우리가 지어내지 않고 원문 각주를 그대로 들고 온다. */
-  it('단가 없는 직종과 그 이유(원문 각주)를 함께 들고 온다', () => {
-    const missing = report.rows.filter((r) => r.wage === null);
+  it('이번 회차에 값이 없는 직종과 그 이유(원문 각주)를 함께 들고 온다', () => {
+    const missing = report.rows.filter((r) => r.values[0]?.date !== report.dates[0]);
     expect(missing.length).toBeGreaterThan(0);
     expect(missing.every((r) => r.marker === '**')).toBe(true);
     expect(report.markerNotes['**']).toContain('조사되지 않은 직종');

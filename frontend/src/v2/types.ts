@@ -66,9 +66,30 @@ export interface AssemblyUpsertBody {
  * 카탈로그는 **`code` 를 저장**하고 이름·단가는 여기서 읽는다. 그래서 직종 이름이 바뀌어도
  * 대장을 손댈 일이 없다(매체 키 `fiber` 를 저장하고 이름은 어휘에서 읽는 것과 같은 규칙).
  */
-export interface V2WageRow { code: string; name: string; sector: string; wage: number | null; marker: string }
-/** 지금 적용 중인 노임단가 판. 아직 아무것도 안 올렸으면 null 이다. */
-export interface V2WageStandard { id: string; effective: string; dates: string[]; rows: V2WageRow[]; markerNotes?: Record<string, string> }
+export interface V2WageRow {
+  code: string;
+  name: string;
+  sector: string;
+  wage: number;
+  marker: string;
+  /** 이 값이 나온 회차 — 최신 회차가 아니면 화면이 그렇게 적는다. */
+  effectiveLabel: string;
+}
+
+/**
+ * 직종 노임표 — **코드마다 가장 최근 값 하나**.
+ *
+ * 판(스냅샷)이 아니라 시계열에서 접어 낸 것이다. 어떤 직종은 이번 회차에 조사되지 않아
+ * 이전 회차 값이 오는데, 그건 폴백이 아니라 **그 직종의 가장 최근 값**이다.
+ */
+export interface V2WageStandard {
+  id: string | null;
+  effective: string | null;
+  /** 표 전체에서 가장 최근 기준일 — 「이건 옛 회차 값」을 가려내는 잣대. */
+  latestDate: string | null;
+  rows: V2WageRow[];
+  markerNotes: Record<string, string>;
+}
 
 /**
  * 적용 중인 제비율 판 — 간접노무비부터 이윤까지, **구간별로 펼쳐진 표**다.

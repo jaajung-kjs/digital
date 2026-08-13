@@ -70,7 +70,7 @@ function structuralKey(
 
 catalogRouter.get('/', async (_req, res, next) => {
   try {
-    const [categories, types, cableGroups, assemblies, wage] = await Promise.all([
+    const [categories, types, cableGroups, assemblies, wage, rates] = await Promise.all([
       nextDb.assetCategory.findMany({ orderBy: { sortOrder: 'asc' } }),
       nextDb.assetType.findMany({
         include: {
@@ -91,9 +91,24 @@ catalogRouter.get('/', async (_req, res, next) => {
          어휘이자 설계서의 단가이고, 제비율은 설계서의 요율이다. 조회를 따로 두면 화면마다
          「어느 판을 봤나」가 갈린다. */
       nextDb.laborStandard.findMany({ where: { active: true } }),
+      /* 직종 노임은 **시계열**이다 — 코드마다 가장 최근 값이 「현재 단가」다. 회차마다
+         비는 칸이 있어도 여기서 판단할 것이 없다: 없는 칸은 애초에 행이 아니다.
+         (132직종 × 4회차 남짓이라 통째로 읽어 코드별로 접는 편이 질의보다 싸다.) */
+      nextDb.laborRate.findMany({ orderBy: [{ code: 'asc' }, { effectiveOn: 'desc' }] }),
     ]);
     const wageRow = wage.find((s) => s.kind === 'wage') ?? null;
     const overheadRow = wage.find((s) => s.kind === 'overhead') ?? null;
+
+    const latestByCode = new Map<string, (typeof rates)[number]>();
+    for (const r of rates) if (!latestByCode.has(r.code)) latestByCode.set(r.code, r);
+    /** 표에 실제로 있는 가장 최근 기준일 — 화면이 「이건 옛 회차 값」을 가려내는 잣대. */
+    const latestDate = rates.reduce<string | null>(
+      (acc, r) => (acc === null || r.effectiveOn > new Date(acc) ? r.effectiveOn.toISOString() : acc),
+      null,
+    );
+    const latestLabel = latestDate
+      ? (rates.find((r) => r.effectiveOn.toISOString() === latestDate)?.effectiveLabel ?? null)
+      : null;
 
     const typesWithCount = types.map(({ _count, ...t }) => ({
       ...t,
@@ -105,8 +120,23 @@ catalogRouter.get('/', async (_req, res, next) => {
       types: typesWithCount,
       cableGroups,
       assemblies,
-      wageStandard: wageRow
-        ? { id: wageRow.id, effective: wageRow.effective, ...(wageRow.payload as Record<string, unknown>) }
+      /* 노임은 판이 아니라 **표**를 실어 보낸다 — 직종마다 가장 최근 값 하나. */
+      wageStandard: latestByCode.size > 0
+        ? {
+            id: wageRow?.id ?? null,
+            effective: wageRow?.effective ?? null,
+            latestDate: latestLabel,
+            markerNotes: (wageRow?.payload as { markerNotes?: Record<string, string> } | null)?.markerNotes ?? {},
+            rows: [...latestByCode.values()].map((r) => ({
+              code: r.code,
+              name: r.name,
+              sector: r.sector,
+              wage: r.wage,
+              marker: r.marker,
+              /** 이 값이 나온 회차 — 최신 회차가 아니면 화면이 그렇게 적는다. */
+              effectiveLabel: r.effectiveLabel,
+            })),
+          }
         : null,
       overheadStandard: overheadRow
         ? { id: overheadRow.id, ...(overheadRow.payload as Record<string, unknown>) }

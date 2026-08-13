@@ -1,5 +1,5 @@
 import { httpClient as api } from './httpClient';
-import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2WageRow, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
 
@@ -133,8 +133,11 @@ export async function deleteAssembly(id: string): Promise<void> {
 export interface WagePreview {
   effective: string;
   sourceName: string;
+  /** 이 파일이 담고 있는 회차들 — 최신 우선. */
   dates: string[];
-  rows: V2WageRow[];
+  /** 값이 있는 칸 수(회차 × 직종). */
+  cellCount: number;
+  rows: { code: string; name: string; sector: string; marker: string; values: { date: string; wage: number }[] }[];
   /** 이름으로 들어 있던 값 중 코드로 올릴 수 있는 것 — 등록하면 함께 바뀐다. */
   promote: { from: string; toCode: string; toName: string; count: number }[];
   /** 새 표에 없는 값 — 그대로 두면 설계서에서 「단가 없음」이 된다. */

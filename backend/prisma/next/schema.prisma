@@ -421,3 +421,33 @@ model LaborStandard {
 
   @@index([kind, active])
 }
+
+/// 직종 노임 한 칸 — **(직종 코드 × 기준일)** 하나에 값 하나.
+///
+/// 왜 표를 통째로 스냅샷 뜨지 않고 칸으로 쪼개나: 보고서는 한 번에 네 회차를 준다. 그중
+/// 어떤 칸은 비어 있는데(그 반기에 조사되지 않은 직종), 스냅샷으로 최신 열만 담으면
+/// 「비었으면 이전 걸 쓰자」는 판단을 코드가 해야 한다. 있는 값만 행으로 넣어 두면
+/// 「현재 단가」는 **그 직종의 가장 최근 행**일 뿐이라 판단할 것이 없다.
+///
+/// 값이 없는 칸은 행을 만들지 않는다 — 없는 것은 없는 것이지 null 이 아니다.
+model LaborRate {
+  /// 조사 코드. 이름이 바뀌어도 이것으로 잇는다.
+  code           String
+  /// 정렬·비교용 기준일.
+  effectiveOn    DateTime
+  /// 화면에 적는 기준일 — 보고서 표기 그대로(「2026.1.1」).
+  effectiveLabel String
+  /// 그 회차의 직종 이름 — 이름이 바뀌면 이력으로 남는다.
+  name           String
+  sector         String
+  /// 원/일.
+  wage           Int
+  /// 그 회차의 각주 표시(`*`·`**`).
+  marker         String   @default("")
+  /// 어느 임포트에서 왔나 — 되짚기용(LaborStandard.id).
+  sourceId       String
+  createdAt      DateTime @default(now())
+
+  @@id([code, effectiveOn])
+  @@index([code, effectiveOn])
+}
