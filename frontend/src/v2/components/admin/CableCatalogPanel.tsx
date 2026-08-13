@@ -20,7 +20,6 @@ import { Plus } from 'lucide-react';
 import {
   DetailCard,
   DetailCardHeader,
-  DetailNote,
   DetailRow,
   EmptyState,
   Input,
@@ -431,7 +430,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           onChange={(e) => patchRow(selectedRow.key, { laborType: e.currentTarget.value })}
                         />
                       </DetailRow>
-                      <DetailRow label="신설" issue={selectedIssues?.install ? '0 이상의 수' : null}>
+                      <DetailRow label="신설(h/m)" issue={selectedIssues?.install ? '0 이상의 수' : null}>
                         <Input
                           aria-label="신설 공량"
                           type="number"
@@ -440,7 +439,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           onChange={(e) => patchRow(selectedRow.key, { install: e.currentTarget.value })}
                         />
                       </DetailRow>
-                      <DetailRow label="철거" issue={selectedIssues?.remove ? '0 이상의 수' : null}>
+                      <DetailRow label="철거(h/m)" issue={selectedIssues?.remove ? '0 이상의 수' : null}>
                         <Input
                           aria-label="철거 공량"
                           type="number"
@@ -449,7 +448,6 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           onChange={(e) => patchRow(selectedRow.key, { remove: e.currentTarget.value })}
                         />
                       </DetailRow>
-                      <DetailNote>미터당 시간입니다 — 설계서 공량이 여기서 나온다(품셈 × 길이).</DetailNote>
                     </DetailCard>
                   </>
                 ) : (
@@ -474,10 +472,6 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                         className="h-7 w-10 cursor-pointer rounded border border-line"
                       />
                     </DetailRow>
-                    <DetailNote>
-                      그룹은 포트 종류와 짝지어진 고정 어휘라 새로 만들거나 지울 수 없습니다. 늘어나는 것은 그 안의
-                      종류입니다 — 표에서 고르면 여기서 고칩니다.
-                    </DetailNote>
                   </DetailCard>
                 )}
               </aside>
