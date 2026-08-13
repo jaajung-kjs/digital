@@ -6,6 +6,7 @@ import { V2Shell } from './v2/V2Shell';
 import V2LoginPage from './v2/pages/V2LoginPage';
 import V2WorkspacePage from './v2/pages/V2WorkspacePage';
 import V2CatalogAdminPage from './v2/pages/V2CatalogAdminPage';
+import V2StandardsPage from './v2/pages/V2StandardsPage';
 import { queryClient } from './lib/queryClient';
 
 /**
@@ -70,6 +71,7 @@ export default function App() {
           >
             <Route path="/" element={<V2WorkspacePage />} />
             <Route path="/catalog" element={<V2CatalogAdminPage />} />
+            <Route path="/standards" element={<V2StandardsPage />} />
           </Route>
 
           {/* 구 /v2 경로 호환 리다이렉트 */}

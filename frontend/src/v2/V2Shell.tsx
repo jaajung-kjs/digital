@@ -15,6 +15,18 @@ import { useV2AuthStore, isAdminRole } from './store/authStore';
 import { useV2Notice } from './store/noticeStore';
 import { ErrorStrip } from '../components/ui';
 
+/**
+ * 최상위 화면 셋 — **다루는 것이 다르면 탭이 아니라 화면을 나눈다**.
+ *
+ * 기준자료는 대장의 「종류」 탭들과 성격이 다르다: 우리가 만드는 것이 아니라 바깥에서
+ * 받아 오는 표다. 대장 안에 넣었더니 그 탭만 왼쪽 목록이 사라져 화면이 덜컹거렸다.
+ */
+const MAIN_NAV = [
+  { to: '/', label: '워크스페이스' },
+  { to: '/catalog', label: '설비관리대장' },
+  { to: '/standards', label: '기준자료' },
+] as const;
+
 export function V2Shell() {
   const user = useV2AuthStore((s) => s.user);
   const logout = useV2AuthStore((s) => s.logout);
@@ -44,31 +56,20 @@ export function V2Shell() {
 
         {/* 내비게이션 링크 */}
         <nav className="flex items-center gap-1" aria-label="주요 메뉴">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              `rounded px-3 py-1.5 text-sm transition-colors ${
-                isActive
-                  ? 'bg-surface-2 font-medium text-content'
-                  : 'text-content-muted hover:text-content'
-              }`
-            }
-          >
-            워크스페이스
-          </NavLink>
-          <NavLink
-            to="/catalog"
-            className={({ isActive }) =>
-              `rounded px-3 py-1.5 text-sm transition-colors ${
-                isActive
-                  ? 'bg-surface-2 font-medium text-content'
-                  : 'text-content-muted hover:text-content'
-              }`
-            }
-          >
-            설비관리대장
-          </NavLink>
+          {MAIN_NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) =>
+                `rounded px-3 py-1.5 text-sm transition-colors ${
+                  isActive ? 'bg-surface-2 font-medium text-content' : 'text-content-muted hover:text-content'
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
 
         {/* 우측: 사용자 + 로그아웃 */}

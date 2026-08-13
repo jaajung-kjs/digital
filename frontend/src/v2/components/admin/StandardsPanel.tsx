@@ -19,7 +19,6 @@ import {
   DetailCardHeader,
   DetailRow,
   EmptyState,
-  ErrorStrip,
   TableCard,
   TableSearch,
   Th,
@@ -45,135 +44,126 @@ const COL_WIDTHS = [40, 22, 22, 16] as const;
 
 const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
 
-export function StandardsPanel() {
-  const standards = useStandards();
+/**
+ * 노임단가 — 올리기 + 임포트된 직종 표.
+ *
+ * 「직종 123개」라는 숫자만으로는 무엇이 들어왔는지 확인할 길이 없다. 회차를 나란히 두면
+ * 추이도 함께 읽힌다(통신내선공 275,107 → 278,565 → 283,607 → 284,880).
+ */
+export function WageRatesView({ onError }: { onError: (m: string) => void }) {
   const catalog = useV2Catalog();
-  const [error, setError] = useState<string | null>(null);
-
-  const refresh = () => Promise.all([standards.refetch(), catalog.refetch()]);
+  const standards = useStandards();
+  const rates = useWageRates();
   const wage = catalog.data?.wageStandard ?? null;
-  const overhead = catalog.data?.overheadStandard ?? null;
+  const refresh = () => Promise.all([standards.refetch(), catalog.refetch(), rates.refetch()]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ErrorStrip
-        message={error}
-        onDismiss={() => setError(null)}
-        className="shrink-0 border-b border-line bg-danger-bg px-4 py-1"
+    <div className="flex max-w-4xl flex-col gap-3">
+      <StandardCard<WagePreview>
+        title="노임단가"
+        accept=".hwp"
+        badge={wage?.latestDate ?? null}
+        hint="건설업 임금실태조사 보고서(.hwp)를 올리면 직종 어휘와 노임단가가 채워집니다."
+        summary={wage && <>직종 {wage.rows.length}개</>}
+        onPreview={previewWageStandard}
+        onCommit={uploadWageStandard}
+        onDone={refresh}
+        onError={onError}
+        renderPreview={(p) => (
+          <>
+            <DetailRow label="직종">
+              <span className="text-sm text-content">
+                {p.rows.length}개 · 기준일 {p.dates.join(' · ')}
+              </span>
+            </DetailRow>
+            <DetailRow label="채울 값">
+              <span className="text-sm text-content tabular-nums">{p.cellCount}칸</span>
+            </DetailRow>
+            {p.promote.length > 0 && (
+              <DetailRow label="정리" align="start">
+                <span className="text-sm text-content">
+                  이름으로 적혀 있던 직종 {p.promote.length}건이 코드로 바뀝니다 —{' '}
+                  {p.promote.map((x) => `${x.from}(${x.count})`).join(', ')}
+                </span>
+              </DetailRow>
+            )}
+            {p.orphans.length > 0 && (
+              <DetailRow label="주의" align="start">
+                <span className="text-sm text-warning">
+                  새 표에 없는 직종 {p.orphans.length}건 — {p.orphans.map((x) => `${x.value}(${x.count})`).join(', ')}
+                </span>
+              </DetailRow>
+            )}
+          </>
+        )}
       />
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <div className="flex max-w-4xl flex-col gap-3">
-          <StandardCard<WagePreview>
-            title="노임단가"
-            accept=".hwp"
-            badge={wage?.latestDate ?? null}
-            hint="건설업 임금실태조사 보고서(.hwp)를 올리면 직종 어휘와 노임단가가 채워집니다."
-            summary={wage && <>직종 {wage.rows.length}개</>}
-            onPreview={previewWageStandard}
-            onCommit={uploadWageStandard}
-            onDone={refresh}
-            onError={setError}
-            renderPreview={(p) => (
-              <>
-                <DetailRow label="직종">
-                  <span className="text-sm text-content">
-                    {p.rows.length}개 · 기준일 {p.dates.join(' · ')}
-                  </span>
-                </DetailRow>
-                {/* 한 파일이 여러 회차를 준다 — 값이 있는 칸만 표에 쌓인다. */}
-                <DetailRow label="채울 값">
-                  <span className="text-sm text-content tabular-nums">{p.cellCount}칸</span>
-                </DetailRow>
-                {p.promote.length > 0 && (
-                  <DetailRow label="정리" align="start">
-                    <span className="text-sm text-content">
-                      이름으로 적혀 있던 직종 {p.promote.length}건이 코드로 바뀝니다 —{' '}
-                      {p.promote.map((x) => `${x.from}(${x.count})`).join(', ')}
-                    </span>
-                  </DetailRow>
-                )}
-                {p.orphans.length > 0 && (
-                  <DetailRow label="주의" align="start">
-                    <span className="text-sm text-warning">
-                      새 표에 없는 직종 {p.orphans.length}건 — {p.orphans.map((x) => `${x.value}(${x.count})`).join(', ')}.
-                      그대로 두면 설계서에서 「단가 없음」이 됩니다.
-                    </span>
-                  </DetailRow>
-                )}
-              </>
-            )}
-          />
-
-          <StandardCard<OverheadPreview>
-            title="제비율"
-            accept=".xlsx"
-            badge={overhead?.effective ?? null}
-            hint="조달청 「간접공사비 적용기준」(.xlsx)을 올리면 간접노무비·경비·일반관리비·이윤이 채워집니다."
-            summary={
-              overhead && (
-                <>
-                  {overhead.kind} · 일반관리비 {pct(overhead.bySize.일반관리비['10억미만']!)}~
-                  {pct(overhead.bySize.일반관리비['1000억이상']!)}
-                </>
-              )
-            }
-            onPreview={previewOverheadStandard}
-            onCommit={uploadOverheadStandard}
-            onDone={refresh}
-            onError={setError}
-            renderPreview={(p) => (
-              <>
-                <DetailRow label="공사종류">
-                  <span className="text-sm text-content">{p.kind}</span>
-                </DetailRow>
-                {/* 요율이 **구간마다 다르다**는 것이 이 표의 요점이다 — 양 끝을 보여 준다. */}
-                <DetailRow label="간접노무비">
-                  <span className="text-sm text-content tabular-nums">
-                    {pct(p.byDuration.간접노무비['10억미만']!['183']!)} ~{' '}
-                    {pct(p.byDuration.간접노무비['1000억이상']!['1096+']!)} (규모·기간별)
-                  </span>
-                </DetailRow>
-                <DetailRow label="일반관리비">
-                  <span className="text-sm text-content tabular-nums">
-                    {pct(p.bySize.일반관리비['10억미만']!)} ~ {pct(p.bySize.일반관리비['1000억이상']!)} (규모별)
-                  </span>
-                </DetailRow>
-                <DetailRow label="이윤">
-                  <span className="text-sm text-content tabular-nums">
-                    {pct(p.bySize.이윤['10억미만']!)} ~ {pct(p.bySize.이윤['1000억이상']!)} (경쟁계약)
-                  </span>
-                </DetailRow>
-                <DetailRow label="고정요율" align="start">
-                  <span className="text-sm text-content">
-                    {Object.entries(p.fixed)
-                      .map(([k, v]) => `${k} ${pct(v)}`)
-                      .join(' · ')}
-                  </span>
-                </DetailRow>
-              </>
-            )}
-          />
-
-          <WageRatesCard />
-
-          <OverheadRatesCard />
-
-          <HistoryCard rows={standards.data ?? []} onActivate={activate} />
-        </div>
-      </div>
+      <WageRatesCard />
     </div>
   );
+}
+
+/** 제비율 — 올리기 + 적용 중인 요율 표. */
+export function OverheadRatesView({ onError }: { onError: (m: string) => void }) {
+  const catalog = useV2Catalog();
+  const standards = useStandards();
+  const overhead = catalog.data?.overheadStandard ?? null;
+  const refresh = () => Promise.all([standards.refetch(), catalog.refetch()]);
+
+  return (
+    <div className="flex max-w-4xl flex-col gap-3">
+      <StandardCard<OverheadPreview>
+        title="제비율"
+        accept=".xlsx"
+        badge={overhead?.effective ?? null}
+        hint="조달청 「간접공사비 적용기준」(.xlsx)을 올리면 간접노무비·경비·일반관리비·이윤이 채워집니다."
+        summary={overhead && <>{overhead.kind}</>}
+        onPreview={previewOverheadStandard}
+        onCommit={uploadOverheadStandard}
+        onDone={refresh}
+        onError={onError}
+        renderPreview={(p) => (
+          <>
+            <DetailRow label="공사종류">
+              <span className="text-sm text-content">{p.kind}</span>
+            </DetailRow>
+            <DetailRow label="간접노무비">
+              <span className="text-sm text-content tabular-nums">
+                {pct(p.byDuration.간접노무비['10억미만']!['183']!)} ~{' '}
+                {pct(p.byDuration.간접노무비['1000억이상']!['1096+']!)} (규모·기간별)
+              </span>
+            </DetailRow>
+            <DetailRow label="일반관리비">
+              <span className="text-sm text-content tabular-nums">
+                {pct(p.bySize.일반관리비['10억미만']!)} ~ {pct(p.bySize.일반관리비['1000억이상']!)} (규모별)
+              </span>
+            </DetailRow>
+          </>
+        )}
+      />
+      <OverheadRatesCard />
+    </div>
+  );
+}
+
+/** 올린 기록 — 새 판을 올려도 이전 판은 남고, 제비율은 되돌릴 수 있다. */
+export function StandardHistoryView({ onError }: { onError: (m: string) => void }) {
+  const catalog = useV2Catalog();
+  const standards = useStandards();
 
   async function activate(id: string) {
-    setError(null);
     try {
       await activateStandard(id);
-      await refresh();
+      await Promise.all([standards.refetch(), catalog.refetch()]);
     } catch (err: unknown) {
-      setError(apiErrorMessage(err, '적용하지 못했습니다'));
+      onError(apiErrorMessage(err, '적용하지 못했습니다'));
     }
   }
+
+  return (
+    <div className="flex max-w-4xl flex-col gap-3">
+      <HistoryCard rows={standards.data ?? []} onActivate={activate} />
+    </div>
+  );
 }
 
 /**
