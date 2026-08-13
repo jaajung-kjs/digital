@@ -12,16 +12,17 @@
  * 탭만 거꾸로였다: 머리줄인 그룹의 이름·색이 저장 바를 거치고, 정작 여러 칸짜리 종류는
  * 칸을 떠날 때마다 바로 날아갔다.
  */
-import { Fragment, useMemo, useRef, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import {
-  Button,
-  DetailCard,
-  DetailCardHeader,
   EmptyState,
   Input,
   IconButton,
+  TableCard,
+  Th,
+  cn,
   useConfirm,
+  SELECTABLE,
 } from '../../../components/ui';
 import type { V2Catalog, V2CableCategory } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
@@ -50,6 +51,9 @@ interface CategoryDraft {
   install: string;
   remove: string;
 }
+
+/** 이름 · 노무유형 · 신설 · 철거 · 삭제. 합이 100 이어야 한다(`TableCard`). */
+const COL_WIDTHS = [40, 24, 14, 14, 8] as const;
 
 let seq = 0;
 const newKey = () => `new-${++seq}`;
@@ -247,89 +251,100 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
               onSave={() => void handleSave()}
             />
 
-            {/* 카드는 **캔버스에 고정**된다 — 종류가 몇 개든 화면 하단까지 한 장이고, 넘치면
-                표 안에서만 스크롤한다. 개수에 따라 카드가 길어지면 탭을 옮길 때마다 화면
-                구성이 달라 보인다(CONVENTIONS §1.6). */}
+            {/* 현황·선번장과 **같은 표**다(`TableCard`) — 값을 고치는 칸이라고 해서 표가
+                다르게 생길 이유가 없다. `fill` 이라 종류가 몇 개든 카드 크기가 같고, 넘치면
+                카드 안에서만 스크롤한다(CONVENTIONS §1.6).
+
+                종류마다 **품셈을 적는다** — 자산 종류·설비 종류와 같은 층이다. 같은 광이라도
+                OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르므로, 그룹 하나로 뭉쳐 두면 그
+                차이가 설계서에서 사라진다. */}
             <div className="min-h-0 flex-1 p-4">
-              <DetailCard className="flex h-full min-h-0 flex-col">
-                <DetailCardHeader
-                  title="종류"
-                  badge={String(draft.length)}
-                  badgeStatus="neutral"
-                  actions={
-                    <Button variant="secondary" size="sm" onClick={addRow}>
-                      추가
-                    </Button>
-                  }
-                />
-
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  {draft.length === 0 ? (
-                    <p className="text-xs text-content-faint">종류가 없습니다. 「추가」로 만드세요.</p>
-                  ) : (
-                    /* 종류마다 **품셈을 적는다** — 자산 종류·설비 종류와 같은 층이다. 같은
-                       광이라도 OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르므로, 그룹 하나로
-                       뭉쳐 두면 그 차이가 설계서에서 사라진다.
-
-                       폭은 묶는다 — 이름 칸이 남는 자리를 다 먹으면 1000px 짜리 입력이 되고
-                       화면 폭에 따라 폼이 달라 보인다(`DetailRow` 가 값을 22rem 로 묶는 것과
-                       같은 이유). */
-                    <div className="grid max-w-[52rem] grid-cols-[minmax(0,1fr)_10rem_5.5rem_5.5rem_auto] items-center gap-x-2 gap-y-1">
-                      <span className="text-xs text-content-muted">이름</span>
-                      <span className="text-xs text-content-muted">노무유형</span>
-                      <span className="text-xs text-content-muted">신설(h/m)</span>
-                      <span className="text-xs text-content-muted">철거(h/m)</span>
-                      <span />
-                      {draft.map((row) => {
-                        const bad = flags.get(row.key);
-                        return (
-                          <Fragment key={row.key}>
-                            <Input
-                              aria-label={`${row.name || '새 종류'} 이름`}
-                              size="sm"
-                              autoFocus={row.key === focusKey}
-                              invalid={bad?.name}
-                              value={row.name}
-                              placeholder="예: 광점퍼코드"
-                              onChange={(e) => patchRow(row.key, { name: e.currentTarget.value })}
-                            />
-                            <Input
-                              aria-label={`${row.name || '새 종류'} 노무유형`}
-                              size="sm"
-                              value={row.laborType}
-                              placeholder="예: 통신내선공"
-                              onChange={(e) => patchRow(row.key, { laborType: e.currentTarget.value })}
-                            />
-                            <Input
-                              aria-label={`${row.name || '새 종류'} 신설 공량`}
-                              size="sm"
-                              type="number"
-                              invalid={bad?.install}
-                              value={row.install}
-                              onChange={(e) => patchRow(row.key, { install: e.currentTarget.value })}
-                            />
-                            <Input
-                              aria-label={`${row.name || '새 종류'} 철거 공량`}
-                              size="sm"
-                              type="number"
-                              invalid={bad?.remove}
-                              value={row.remove}
-                              onChange={(e) => patchRow(row.key, { remove: e.currentTarget.value })}
-                            />
-                            <IconButton
-                              aria-label={`${row.name || '새 종류'} 삭제`}
-                              size="sm"
-                              onClick={() => removeRow(row.key)}
-                            >
-                              <Trash2 size={12} />
-                            </IconButton>
-                          </Fragment>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </DetailCard>
+              <TableCard widths={COL_WIDTHS} fill className="max-w-5xl">
+                <thead>
+                  {/* 머리글은 스크롤해도 남는다 — 현황표와 같은 규칙. */}
+                  <tr className="sticky top-0 z-sticky">
+                    <Th>이름</Th>
+                    <Th>노무유형</Th>
+                    <Th>신설(h/m)</Th>
+                    <Th>철거(h/m)</Th>
+                    <Th>
+                      <span className="sr-only">삭제</span>
+                    </Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {draft.map((row) => {
+                    const bad = flags.get(row.key);
+                    const who = row.name.trim() || '새 종류';
+                    return (
+                      <tr key={row.key} className="border-b border-line last:border-0">
+                        <td className="px-3 py-1.5">
+                          <Input
+                            aria-label={`${who} 이름`}
+                            size="cell"
+                            autoFocus={row.key === focusKey}
+                            invalid={bad?.name}
+                            value={row.name}
+                            placeholder="예: 광점퍼코드"
+                            onChange={(e) => patchRow(row.key, { name: e.currentTarget.value })}
+                          />
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <Input
+                            aria-label={`${who} 노무유형`}
+                            size="cell"
+                            value={row.laborType}
+                            placeholder="예: 통신내선공"
+                            onChange={(e) => patchRow(row.key, { laborType: e.currentTarget.value })}
+                          />
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <Input
+                            aria-label={`${who} 신설 공량`}
+                            size="cell"
+                            type="number"
+                            invalid={bad?.install}
+                            value={row.install}
+                            onChange={(e) => patchRow(row.key, { install: e.currentTarget.value })}
+                          />
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <Input
+                            aria-label={`${who} 철거 공량`}
+                            size="cell"
+                            type="number"
+                            invalid={bad?.remove}
+                            value={row.remove}
+                            onChange={(e) => patchRow(row.key, { remove: e.currentTarget.value })}
+                          />
+                        </td>
+                        <td className="px-3 py-1.5 text-right">
+                          <IconButton aria-label={`${who} 삭제`} size="sm" onClick={() => removeRow(row.key)}>
+                            <Trash2 size={12} />
+                          </IconButton>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {/* 「추가」는 표의 **맨 아래 줄**이다 — 왼쪽 목록의 「분류 추가」와 같은 자리,
+                      같은 뜻(CatalogList). 머리 위에 뜬 버튼 하나보다 어디에 생길지가 분명하다. */}
+                  <tr>
+                    <td colSpan={COL_WIDTHS.length} className="p-0">
+                      <button
+                        type="button"
+                        className={cn(
+                          'flex w-full items-center gap-1 px-3 py-2 text-left text-xs text-content-faint',
+                          SELECTABLE,
+                        )}
+                        onClick={addRow}
+                      >
+                        <Plus size={12} />
+                        종류 추가
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </TableCard>
             </div>
           </>
         )}

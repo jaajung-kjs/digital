@@ -19,16 +19,13 @@ interface InlineEditCellProps {
   type?: 'text' | 'number' | 'date';
 }
 
-// 호출부가 공유하던 표 셀 전용 밀도(bg-transparent/px-1/py-0.5) —
-// Input 기본(bg-surface/px-3/py-2)과 충돌하므로 !중요도로 강제.
-const cellInputClass = 'min-w-0 !bg-transparent !px-1 !py-0.5 text-sm';
-
 export function InlineEditCell({ value, onCommit, type = 'text' }: InlineEditCellProps) {
   return (
     <Input
       type={type}
+      size="cell"
       defaultValue={value}
-      className={cellInputClass}
+      className="min-w-0"
       key={value}
       onBlur={(e) => onCommit(e.currentTarget.value)}
       onKeyDown={(e) => {

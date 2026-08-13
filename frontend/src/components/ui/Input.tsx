@@ -25,7 +25,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       disabled={disabled}
       aria-invalid={invalid || undefined}
       className={cn(
-        'w-full bg-surface border rounded text-content',
+        'w-full border rounded text-content',
+        // 표 셀은 표의 배경 위에 그대로 앉는다 — §controlSize.
+        size === 'cell' ? 'bg-transparent' : 'bg-surface',
         invalid ? 'border-danger' : 'border-line',
         controlSizeClasses[size],
         'placeholder:text-content-faint',

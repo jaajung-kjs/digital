@@ -16,16 +16,33 @@ import { cn } from './cn';
  */
 export function TableCard({
   widths,
+  fill = false,
   children,
   className,
 }: {
   /** 열 폭 비율. 합이 100 이 되게 준다. 열 개수와 순서가 머리글과 같아야 한다. */
   widths: readonly number[];
+  /**
+   * 표가 **주어진 높이를 채운다** — 행 수와 무관하게 카드 크기가 같고, 넘치면 카드 안에서
+   * 스크롤한다(머리글은 `sticky` 로 남는다).
+   *
+   * 기본(false)은 행만큼만 자라고 스크롤은 바깥이 맡는다 — 현황·선번장처럼 표가 화면의
+   * 주인공일 때. `fill` 은 표가 **패널의 한 칸**을 차지할 때다: 행이 몇 개든 화면 구성이
+   * 그대로여야 한다(§1.6).
+   */
+  fill?: boolean;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn('min-w-0 overflow-clip rounded-lg border border-line bg-surface', className)}>
+    <div
+      className={cn(
+        'min-w-0 rounded-lg border border-line bg-surface',
+        // `clip` 은 스크롤 상자를 만들지 않는다 — 위 주석 참고. `fill` 일 때만 스크롤 상자다.
+        fill ? 'flex h-full min-h-0 flex-col overflow-auto' : 'overflow-clip',
+        className,
+      )}
+    >
       <table className="w-full table-fixed text-sm">
         <colgroup>
           {widths.map((w, i) => (
