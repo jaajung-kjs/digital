@@ -444,6 +444,11 @@ model LaborRate {
   wage           Int
   /// 그 회차의 각주 표시(`*`·`**`).
   marker         String   @default("")
+  /// 그 표시의 뜻 — **그 회차 보고서의 문장 그대로**.
+  ///
+  /// 판에 두지 않고 행에 붙이는 이유: 옛 회차 값을 보여 줄 때 각주도 그 회차의 것이어야
+  /// 한다. 보고서가 문구를 바꾸면 판에서 읽던 설명이 값과 어긋난다.
+  markerNote     String?
   /// 어느 임포트에서 왔나 — 되짚기용(LaborStandard.id).
   sourceId       String
   createdAt      DateTime @default(now())

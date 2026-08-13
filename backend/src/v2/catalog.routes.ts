@@ -96,7 +96,6 @@ catalogRouter.get('/', async (_req, res, next) => {
          (132직종 × 4회차 남짓이라 통째로 읽어 코드별로 접는 편이 질의보다 싸다.) */
       nextDb.laborRate.findMany({ orderBy: [{ code: 'asc' }, { effectiveOn: 'desc' }] }),
     ]);
-    const wageRow = wage.find((s) => s.kind === 'wage') ?? null;
     const overheadRow = wage.find((s) => s.kind === 'overhead') ?? null;
 
     const latestByCode = new Map<string, (typeof rates)[number]>();
@@ -120,19 +119,18 @@ catalogRouter.get('/', async (_req, res, next) => {
       types: typesWithCount,
       cableGroups,
       assemblies,
-      /* 노임은 판이 아니라 **표**를 실어 보낸다 — 직종마다 가장 최근 값 하나. */
+      /* 노임은 판이 아니라 **표**를 실어 보낸다 — 직종마다 가장 최근 값 하나.
+         각주도 그 행이 들고 있다(옛 회차 값에 새 판의 설명이 붙지 않게). */
       wageStandard: latestByCode.size > 0
         ? {
-            id: wageRow?.id ?? null,
-            effective: wageRow?.effective ?? null,
             latestDate: latestLabel,
-            markerNotes: (wageRow?.payload as { markerNotes?: Record<string, string> } | null)?.markerNotes ?? {},
             rows: [...latestByCode.values()].map((r) => ({
               code: r.code,
               name: r.name,
               sector: r.sector,
               wage: r.wage,
               marker: r.marker,
+              markerNote: r.markerNote,
               /** 이 값이 나온 회차 — 최신 회차가 아니면 화면이 그렇게 적는다. */
               effectiveLabel: r.effectiveLabel,
             })),

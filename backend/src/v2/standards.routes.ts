@@ -142,15 +142,16 @@ standardsRouter.post('/standards/wage', adminOnly, uploadSingle, async (req, res
 
     const { promote } = matchCatalog(report, await usedLaborValues());
     const created = await nextDb.$transaction(async (tx) => {
-      await tx.laborStandard.updateMany({ where: { kind: 'wage', active: true }, data: { active: false } });
+      /* 노임은 **판을 갈아 끼우지 않는다** — 값은 `LaborRate` 가 갖고, 여기 남는 것은
+         「누가 언제 어느 파일을 올렸나」뿐이다. `active` 를 켜면 화면에 「적용」 버튼이 뜨는데,
+         눌러도 단가는 하나도 바뀌지 않는다(거짓말이 된다). */
       const row = await tx.laborStandard.create({
         data: {
           kind: 'wage',
           effective: report.half,
           sourceName: req.file!.originalname,
           /* 값은 `LaborRate` 가 갖는다 — 여기에는 판을 되짚을 것만 남긴다. */
-          payload: { dates: report.dates, markerNotes: report.markerNotes } as unknown as Prisma.InputJsonValue,
-          active: true,
+          payload: { dates: report.dates } as unknown as Prisma.InputJsonValue,
           uploadedBy: req.user?.username ?? 'unknown',
         },
       });
@@ -166,6 +167,8 @@ standardsRouter.post('/standards/wage', adminOnly, uploadSingle, async (req, res
             sector: r.sector,
             wage: Math.round(v.wage),
             marker: r.marker,
+            /* 각주는 **그 회차 문장**이다 — 판에서 읽으면 옛 값에 새 설명이 붙는다. */
+            markerNote: r.marker ? (report.markerNotes[r.marker] ?? null) : null,
             sourceId: row.id,
           };
           await tx.laborRate.upsert({
@@ -256,6 +259,9 @@ standardsRouter.post('/standards/:id/activate', adminOnly, async (req, res, next
     const id = req.params.id;
     const row = await nextDb.laborStandard.findUnique({ where: { id } });
     if (!row) throw new HttpError(404, 'NOT_FOUND', '기준자료를 찾을 수 없습니다');
+    if (row.kind === 'wage') {
+      throw new HttpError(409, 'NOT_VERSIONED', '노임단가는 판을 갈아 끼우지 않습니다 — 직종마다 가장 최근 값이 쓰입니다');
+    }
     await nextDb.$transaction([
       nextDb.laborStandard.updateMany({ where: { kind: row.kind, active: true }, data: { active: false } }),
       nextDb.laborStandard.update({ where: { id }, data: { active: true } }),

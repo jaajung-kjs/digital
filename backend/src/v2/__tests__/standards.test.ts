@@ -97,6 +97,30 @@ describe('기준자료 — 노임단가', () => {
     expect(byCode.get('1032')).toMatchObject({ wage: 210772, effectiveLabel: '2025.9.1' });
   });
 
+  /* 각주는 **그 행**이 들고 있다 — 판에서 읽으면 옛 회차 값에 새 판의 설명이 붙는다. */
+  it('각주는 값과 같은 회차의 문장이다', async () => {
+    const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
+    const row = catalog.wageStandard.rows.find((r: { code: string }) => r.code === '1032');
+    expect(row.marker).toBe('**');
+    expect(row.markerNote).toContain('조사되지 않은 직종');
+    // 최신 회차 직종은 각주가 없다.
+    const normal = catalog.wageStandard.rows.find((r: { code: string }) => r.code === '1086');
+    expect(normal.marker).toBe('');
+    expect(normal.markerNote).toBeNull();
+  });
+
+  /* 노임은 판을 갈아 끼우지 않는다 — 눌러도 안 바뀌는 버튼을 만들지 않기 위해 서버가 막는다. */
+  it('노임 임포트 기록은 「적용」할 수 없다', async () => {
+    const list = (await request(app).get('/api/v2/standards').set(admin).expect(200)).body;
+    const wageLog = list.find((r: { kind: string }) => r.kind === 'wage');
+    expect(wageLog.active).toBe(false);
+    await request(app)
+      .post(`/api/v2/standards/${wageLog.id}/activate`)
+      .set(admin)
+      .expect(409)
+      .then((r) => expect(r.body.error).toBe('NOT_VERSIONED'));
+  });
+
   it('같은 파일을 다시 올려도 값이 늘지 않는다 — (직종, 기준일) 하나에 값 하나', async () => {
     const before = await nextDb.laborRate.count();
     const res = await request(app).post('/api/v2/standards/wage').set(admin).attach('file', hwp).expect(201);
@@ -140,25 +164,26 @@ describe('기준자료 — 노임단가', () => {
       .then((r) => expect(r.body.error).toBe('BAD_FORMAT'));
   });
 
-  it('두 번째 판을 올리면 이전 판은 내려가고 목록에는 남는다', async () => {
-    const res = await request(app).post('/api/v2/standards/wage').set(admin).attach('file', hwp).expect(201);
+  it('제비율은 새 판을 올리면 이전 판이 내려가고 목록에는 남는다', async () => {
+    const xlsx = join(__dirname, 'fixtures', 'overhead-2026.xlsx');
+    const res = await request(app).post('/api/v2/standards/overhead').set(admin).attach('file', xlsx).expect(201);
     created.push(res.body.id);
 
     const list = (await request(app).get('/api/v2/standards').set(admin).expect(200)).body;
-    const wages = list.filter((r: { kind: string }) => r.kind === 'wage');
-    /* 「적용 중」은 종류마다 하나이고, 그것이 방금 올린 판이다.
-       목록 **차례**로 확인하지 않는다 — 같은 초에 올린 두 판은 순서가 정해지지 않는다. */
-    const active = wages.filter((r: { active: boolean }) => r.active);
+    const rows = list.filter((r: { kind: string }) => r.kind === 'overhead');
+    /* 「적용 중」은 하나이고, 그것이 방금 올린 판이다. 목록 **차례**로 확인하지 않는다 —
+       같은 초에 올린 두 판은 순서가 정해지지 않는다. */
+    const active = rows.filter((r: { active: boolean }) => r.active);
     expect(active).toHaveLength(1);
     expect(active[0].id).toBe(res.body.id);
-    expect(wages.length).toBeGreaterThan(1); // 이전 판은 남는다
+    expect(rows.length).toBeGreaterThan(1); // 이전 판은 남는다
 
-    /* 이전 판으로 되돌릴 수 있다 — 지난 설계서를 그때 값으로 다시 보려면 필요하다. */
-    const older = wages.find((r: { id: string }) => r.id === created[0]);
+    /* 이전 판으로 되돌릴 수 있다 — 지난 설계서를 그때 요율로 다시 보려면 필요하다. */
+    const older = rows.find((r: { id: string; active: boolean }) => !r.active);
     if (older) {
       await request(app).post(`/api/v2/standards/${older.id}/activate`).set(admin).expect(204);
       const again = (await request(app).get('/api/v2/standards').set(admin).expect(200)).body;
-      const act = again.filter((r: { kind: string; active: boolean }) => r.kind === 'wage' && r.active);
+      const act = again.filter((r: { kind: string; active: boolean }) => r.kind === 'overhead' && r.active);
       expect(act).toHaveLength(1);
       expect(act[0].id).toBe(older.id);
     }

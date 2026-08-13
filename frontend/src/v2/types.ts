@@ -72,6 +72,8 @@ export interface V2WageRow {
   sector: string;
   wage: number;
   marker: string;
+  /** 각주 표시의 뜻 — **그 회차 보고서의 문장 그대로**. */
+  markerNote: string | null;
   /** 이 값이 나온 회차 — 최신 회차가 아니면 화면이 그렇게 적는다. */
   effectiveLabel: string;
 }
@@ -83,12 +85,9 @@ export interface V2WageRow {
  * 이전 회차 값이 오는데, 그건 폴백이 아니라 **그 직종의 가장 최근 값**이다.
  */
 export interface V2WageStandard {
-  id: string | null;
-  effective: string | null;
   /** 표 전체에서 가장 최근 기준일 — 「이건 옛 회차 값」을 가려내는 잣대. */
   latestDate: string | null;
   rows: V2WageRow[];
-  markerNotes: Record<string, string>;
 }
 
 /**

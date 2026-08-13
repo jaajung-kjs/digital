@@ -65,9 +65,9 @@ export function StandardsPanel() {
           <StandardCard<WagePreview>
             title="노임단가"
             accept=".hwp"
-            badge={wage?.effective ?? null}
+            badge={wage?.latestDate ?? null}
             hint="건설업 임금실태조사 보고서(.hwp)를 올리면 직종 어휘와 노임단가가 채워집니다."
-            summary={wage && <>직종 {wage.rows.length}개 · 최근 기준일 {wage.latestDate}</>}
+            summary={wage && <>직종 {wage.rows.length}개</>}
             onPreview={previewWageStandard}
             onCommit={uploadWageStandard}
             onDone={refresh}
@@ -322,8 +322,12 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
                 <td className="truncate px-3 py-1.5 text-content-muted">
                   {row.uploadedBy} · {row.createdAt.slice(0, 10)}
                 </td>
+                {/* 「적용」은 **제비율에만** 있다 — 노임은 판을 갈아 끼우는 것이 아니라
+                    직종마다 가장 최근 값이 쓰인다. 눌러도 안 바뀌는 버튼을 두지 않는다. */}
                 <td className="px-3 py-1.5 text-right">
-                  {row.active ? (
+                  {row.kind !== 'overhead' ? (
+                    <span className="text-xs text-content-faint">임포트됨</span>
+                  ) : row.active ? (
                     <Badge status="success">적용 중</Badge>
                   ) : (
                     <button

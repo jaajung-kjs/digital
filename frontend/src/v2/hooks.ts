@@ -139,7 +139,7 @@ export function useWageCatalog() {
     const rows: V2WageRow[] = std?.rows ?? [];
     const byCode = new Map(rows.map((r) => [r.code, r]));
     return {
-      effective: std?.effective ?? null,
+      effective: std?.latestDate ?? null,
       rows,
       /** 이 코드의 이름 — 판에 없으면 「(직종 1084)」처럼 코드라도 보여 준다. */
       nameOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.name ?? `(직종 ${code})`)),
@@ -164,10 +164,7 @@ export function useWageCatalog() {
        * 「**」 직종은 조사되지 않아 단가가 없다. 그 이유를 우리가 지어내지 않고 보고서가 쓴
        * 문장을 그대로 보여 준다(기준이 바뀌면 문장도 함께 바뀐다).
        */
-      noteOf: (code: string | null) => {
-        const marker = code == null ? '' : (byCode.get(code)?.marker ?? '');
-        return marker ? (std?.markerNotes?.[marker] ?? null) : null;
-      },
+      noteOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.markerNote ?? null)),
     };
   }, [std]);
 }
