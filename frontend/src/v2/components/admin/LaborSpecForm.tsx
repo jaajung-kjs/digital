@@ -105,31 +105,28 @@ export function LaborSpecForm({
         </span>
       </DetailRow>
 
-      {/* 신설·철거·이설은 **나란히 읽는 값**이라 한 줄에 선다. 칸은 어휘가 정한다. */}
-      <DetailRow label="공량" align="start">
-        <span className="flex items-start gap-1.5">
-          {WORK_KINDS.map((w) => {
-            const field = MAN_DAY_FIELD[w.key];
-            return (
-              <span key={w.key} className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-xs text-content-muted">{w.label}</span>
-                <Input
-                  aria-label={`${w.label} 공량`}
-                  type="number"
-                  value={num.valueOf(field)}
-                  onChange={(e) => {
-                    num.onType(field, e.currentTarget.value);
-                    onChange({ [field]: toNumber(e.currentTarget.value) } as Partial<LaborSpec>);
-                  }}
-                />
-              </span>
-            );
-          })}
-          <span className="pt-[1.15rem]">
-            <Unit>{manDayUnit(carrier)}</Unit>
-          </span>
-        </span>
-      </DetailRow>
+      {/* 한 줄에 한 칸씩 — 위의 세 줄과 같은 규칙이다. 예전에는 두 단으로 흘려서
+          「2개 + 1개」로 접혔고, 그래서 카드 안에서만 규칙이 달라 보였다. */}
+      {WORK_KINDS.map((w) => {
+        const field = MAN_DAY_FIELD[w.key];
+        return (
+          <DetailRow key={w.key} label={w.label} issue={issueFor?.(`labor.${field}`)}>
+            <span className="flex items-center gap-1.5">
+              <Input
+                aria-label={`${w.label} 공량`}
+                type="number"
+                value={num.valueOf(field)}
+                onChange={(e) => {
+                  num.onType(field, e.currentTarget.value);
+                  onChange({ [field]: toNumber(e.currentTarget.value) } as Partial<LaborSpec>);
+                }}
+              />
+              <Unit>{manDayUnit(carrier)}</Unit>
+            </span>
+          </DetailRow>
+        );
+      })}
+
     </DetailCard>
   );
 }
