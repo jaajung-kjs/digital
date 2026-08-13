@@ -46,9 +46,9 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   sortOrder: 1,
   assetCount: 0,
   laborCode: '통신내선공',
-  installHours: 2,
-  removeHours: 1,
-  relocateHours: 3,
+  installManDays: 2,
+  removeManDays: 1,
+  relocateManDays: 3,
   portTemplates: [],
   ...overrides,
 });

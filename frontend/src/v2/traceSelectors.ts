@@ -75,9 +75,9 @@ export function buildTraceInputs(args: {
       sortOrder: t.sortOrder,
       category: { key: cat.key },
       laborCode: t.laborCode,
-      installHours: t.installHours,
-      removeHours: t.removeHours,
-      relocateHours: t.relocateHours,
+      installManDays: t.installManDays,
+      removeManDays: t.removeManDays,
+      relocateManDays: t.relocateManDays,
       portTemplates: t.portTemplates,
     };
     types[t.key] = specFromCatalog(row);

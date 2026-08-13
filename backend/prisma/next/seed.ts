@@ -57,10 +57,10 @@ async function main() {
         name: t.name,
         categoryId: category.id,
         sortOrder: t.sortOrder,
-        laborType: t.labor.laborType,
-        installHours: t.labor.installHours,
-        removeHours: t.labor.removeHours,
-        relocateHours: t.labor.relocateHours,
+        laborCode: t.labor.laborCode,
+        installManDays: t.labor.installManDays,
+        removeManDays: t.labor.removeManDays,
+        relocateManDays: t.labor.relocateManDays,
       };
       const type = await tx.assetType.upsert({
         where: { key: t.key },
@@ -111,7 +111,7 @@ async function main() {
         update: { sortOrder: cat.sortOrder },
         create: {
           groupId: group.id, name: cat.name, sortOrder: cat.sortOrder,
-          laborType: cat.laborType, installHoursPerM: cat.installHoursPerM, removeHoursPerM: cat.removeHoursPerM,
+          laborCode: cat.laborCode, installManDaysPerM: cat.installManDaysPerM, removeManDaysPerM: cat.removeManDaysPerM,
         },
       });
     }

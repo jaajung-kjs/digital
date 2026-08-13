@@ -22,9 +22,10 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
     categoryId: t.categoryId,
     sortOrder: t.sortOrder,
     laborCode: t.laborCode,
-    installHours: t.installHours,
-    removeHours: t.removeHours,
-    relocateHours: t.relocateHours,
+    unitPrice: t.unitPrice,
+    installManDays: t.installManDays,
+    removeManDays: t.removeManDays,
+    relocateManDays: t.relocateManDays,
     ports: t.portTemplates.map(({ group, count, direction, medium, namePattern, positions }) => ({
       group,
       count,
@@ -44,9 +45,10 @@ export function emptyDraft(categoryId: string): TypeDraft {
     categoryId,
     sortOrder: 0,
     laborCode: null,
-    installHours: 0,
-    removeHours: 0,
-    relocateHours: 0,
+    unitPrice: null,
+    installManDays: 0,
+    removeManDays: 0,
+    relocateManDays: 0,
     ports: [],
   };
 }

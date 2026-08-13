@@ -11,9 +11,9 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   sortOrder: 1,
   assetCount: 0,
   laborCode: '통신내선공',
-  installHours: 2,
-  removeHours: 1,
-  relocateHours: 3,
+  installManDays: 2,
+  removeManDays: 1,
+  relocateManDays: 3,
   portTemplates: [
     { id: 'pt-1', group: 'A', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'A', sortOrder: 1 },
   ],
@@ -28,8 +28,8 @@ const mkCatalog = (): V2Catalog => ({
   ],
   types: [],
   cableGroups: [
-    { id: 'g-fiber', key: 'fiber', name: '광', color: '#00f', laborCode: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02, sortOrder: 1, categories: [] },
-    { id: 'g-power', key: 'power', name: '전력', color: '#f00', laborCode: null, installHoursPerM: 0.1, removeHoursPerM: 0.05, sortOrder: 2, categories: [] },
+    { id: 'g-fiber', key: 'fiber', name: '광', color: '#00f', laborCode: '통신외선공', installManDaysPerM: 0.04, removeManDaysPerM: 0.02, sortOrder: 1, categories: [] },
+    { id: 'g-power', key: 'power', name: '전력', color: '#f00', laborCode: null, installManDaysPerM: 0.1, removeManDaysPerM: 0.05, sortOrder: 2, categories: [] },
   ],
 });
 
@@ -48,9 +48,9 @@ describe('catalogDraft', () => {
     expect(draft.categoryId).toBe(type.categoryId);
     expect(draft.sortOrder).toBe(type.sortOrder);
     expect(draft.laborCode).toBe(type.laborCode);
-    expect(draft.installHours).toBe(type.installHours);
-    expect(draft.removeHours).toBe(type.removeHours);
-    expect(draft.relocateHours).toBe(type.relocateHours);
+    expect(draft.installManDays).toBe(type.installManDays);
+    expect(draft.removeManDays).toBe(type.removeManDays);
+    expect(draft.relocateManDays).toBe(type.relocateManDays);
 
     // portTemplates → ports: id·sortOrder 제거
     expect(draft.ports).toHaveLength(1);

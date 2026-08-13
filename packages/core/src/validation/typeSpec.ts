@@ -20,7 +20,7 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
   if (spec.name.trim() === '') push('name', '이름을 입력하세요');
   if (!ctx.categoryKeys.includes(spec.categoryKey)) push('categoryKey', '존재하지 않는 분류입니다');
 
-  for (const k of ['installHours', 'removeHours', 'relocateHours'] as const) {
+  for (const k of ['installManDays', 'removeManDays', 'relocateManDays'] as const) {
     if (spec.labor[k] < 0) push(`labor.${k}`, '공량은 0 이상이어야 합니다');
   }
 

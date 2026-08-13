@@ -56,6 +56,8 @@ interface CategoryDraft {
   key: string;
   name: string;
   laborCode: string;
+  /** 자재단가(원/m). 빈칸이면 재료비 0. */
+  price: string;
   install: string;
   remove: string;
 }
@@ -81,8 +83,9 @@ const toDraft = (g: V2CableGroup): GroupDraft => ({
     key: c.id,
     name: c.name,
     laborCode: c.laborCode ?? '',
-    install: String(c.installHoursPerM),
-    remove: String(c.removeHoursPerM),
+    price: c.unitPrice == null ? '' : String(c.unitPrice),
+    install: String(c.installManDaysPerM),
+    remove: String(c.removeManDaysPerM),
   })),
 });
 
@@ -96,6 +99,7 @@ const same = (a: GroupDraft, b: GroupDraft) =>
       x.id === y.id &&
       x.name === y.name &&
       x.laborCode === y.laborCode &&
+      x.price === y.price &&
       x.install === y.install &&
       x.remove === y.remove
     );
@@ -224,7 +228,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         ? prev
         : {
             ...prev,
-            categories: [...prev.categories, { id: null, key, name: '', laborCode: '', install: '0', remove: '0' }],
+            categories: [...prev.categories, { id: null, key, name: '', laborCode: '', price: '', install: '0', remove: '0' }],
           },
     );
   }
@@ -251,8 +255,9 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
             ...(r.id ? { id: r.id } : {}),
             name: r.name.trim(),
             laborCode: r.laborCode.trim() || null,
-            installHoursPerM: Number(r.install),
-            removeHoursPerM: Number(r.remove),
+            unitPrice: r.price.trim() === '' ? null : Math.round(Number(r.price)),
+            installManDaysPerM: Number(r.install),
+            removeManDaysPerM: Number(r.remove),
           })),
         },
       });
@@ -332,8 +337,8 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     <tr className="sticky top-0 z-sticky">
                       <Th>이름</Th>
                       <Th>노무유형</Th>
-                      <Th className="text-right">신설(h/m)</Th>
-                      <Th className="text-right">철거(h/m)</Th>
+                      <Th className="text-right">신설(인/m)</Th>
+                      <Th className="text-right">철거(인/m)</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -433,7 +438,16 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           onChange={(code) => patchRow(selectedRow.key, { laborCode: code ?? '' })}
                         />
                       </DetailRow>
-                      <DetailRow label="신설(h/m)" issue={selectedIssues?.install ? '0 이상의 수' : null}>
+                      <DetailRow label="자재단가" hint="원/m — 비우면 재료비 0">
+                        <Input
+                          aria-label="자재단가"
+                          type="number"
+                          value={selectedRow.price}
+                          placeholder="예: 2867"
+                          onChange={(e) => patchRow(selectedRow.key, { price: e.currentTarget.value })}
+                        />
+                      </DetailRow>
+                      <DetailRow label="신설(인/m)" issue={selectedIssues?.install ? '0 이상의 수' : null}>
                         <Input
                           aria-label="신설 공량"
                           type="number"
@@ -442,7 +456,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           onChange={(e) => patchRow(selectedRow.key, { install: e.currentTarget.value })}
                         />
                       </DetailRow>
-                      <DetailRow label="철거(h/m)" issue={selectedIssues?.remove ? '0 이상의 수' : null}>
+                      <DetailRow label="철거(인/m)" issue={selectedIssues?.remove ? '0 이상의 수' : null}>
                         <Input
                           aria-label="철거 공량"
                           type="number"

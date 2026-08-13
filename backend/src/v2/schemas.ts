@@ -128,9 +128,9 @@ export const assemblyUpsertSchema = z.object({
   gridRows: z.number().int().min(1),
   /* 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */
   laborCode: z.string().trim().min(1).nullable().default(null),
-  installHours: z.number().min(0).nullable().default(null),
-  removeHours: z.number().min(0).nullable().default(null),
-  relocateHours: z.number().min(0).nullable().default(null),
+  installManDays: z.number().min(0).nullable().default(null),
+  removeManDays: z.number().min(0).nullable().default(null),
+  relocateManDays: z.number().min(0).nullable().default(null),
   sortOrder: z.number().int(),
   // 빈 설비 종류도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
   items: z.array(assemblyItemSchema),
@@ -143,9 +143,11 @@ export const typeUpsertSchema = z.object({
   categoryId: z.string().uuid(),
   sortOrder: z.number().int(),
   laborCode: z.string().trim().min(1).nullable(),
-  installHours: z.number().min(0),
-  removeHours: z.number().min(0),
-  relocateHours: z.number().min(0),
+  /** 자재단가(원/대) — 설계서 재료비의 근거. 비우면 재료비 0. */
+  unitPrice: z.number().int().min(0).nullable().default(null),
+  installManDays: z.number().min(0),
+  removeManDays: z.number().min(0),
+  relocateManDays: z.number().min(0),
   ports: z.array(portTemplateBodySchema),
 });
 export const categoryCreateSchema = z.object({ key: z.string().min(1), name: z.string().trim().min(1), sortOrder: z.number().int() });
@@ -169,8 +171,10 @@ export const cableGroupPutSchema = z.object({
       id: z.string().uuid().optional(),
       name: z.string().trim().min(1),
       laborCode: z.string().trim().min(1).nullable(),
-      installHoursPerM: z.number().min(0),
-      removeHoursPerM: z.number().min(0),
+      /** 자재단가(원/m). */
+      unitPrice: z.number().int().min(0).nullable().default(null),
+      installManDaysPerM: z.number().min(0),
+      removeManDaysPerM: z.number().min(0),
     }),
   ),
 });

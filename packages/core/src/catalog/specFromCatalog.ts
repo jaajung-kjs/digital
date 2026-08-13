@@ -3,7 +3,7 @@ import type { AssetTypeSpec, Direction, PortTemplate, TypeUpsertBody } from './t
 export interface CatalogTypeRow {
   key: string; name: string; sortOrder: number;
   category: { key: string };
-  laborCode: string | null; installHours: number; removeHours: number; relocateHours: number;
+  laborCode: string | null; installManDays: number; removeManDays: number; relocateManDays: number;
   portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; sortOrder: number }[];
 }
 
@@ -36,7 +36,7 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
     name: row.name,
     categoryKey: row.category.key,
     sortOrder: row.sortOrder,
-    labor: { laborCode: row.laborCode, installHours: row.installHours, removeHours: row.removeHours, relocateHours: row.relocateHours },
+    labor: { laborCode: row.laborCode, installManDays: row.installManDays, removeManDays: row.removeManDays, relocateManDays: row.relocateManDays },
     ports: portTemplatesFrom(row.portTemplates),
   };
 }
@@ -53,9 +53,9 @@ export function specFromUpsert(body: TypeUpsertBody, categoryKey: string): Asset
     sortOrder: body.sortOrder,
     labor: {
       laborCode: body.laborCode,
-      installHours: body.installHours,
-      removeHours: body.removeHours,
-      relocateHours: body.relocateHours,
+      installManDays: body.installManDays,
+      removeManDays: body.removeManDays,
+      relocateManDays: body.relocateManDays,
     },
     // 심선 수는 안 적으면 1 — 두 투영이 같은 spec 을 내야 한다(specFromCatalog 도 같게 채운다).
     ports: body.ports.map((p) => ({ ...p, positions: p.positions ?? 1 })),

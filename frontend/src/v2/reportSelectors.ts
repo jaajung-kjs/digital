@@ -22,7 +22,8 @@ function unresolvedCableItem(kind: 'cable-install' | 'cable-remove', name: strin
     laborCode: null,
     qty: 0,
     unit: 'm',
-    hours: 0,
+    manDays: 0,
+    unitPrice: null,
     note: '종류 미지정',
   };
 }
@@ -46,21 +47,21 @@ function cableLengthM(specParams: unknown): number | null {
 function assemblyLabor(
   asm: V2Assembly | undefined,
   kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
-): { laborCode: string | null; installHours: number; removeHours: number; relocateHours: number } | null {
+): { laborCode: string | null; installManDays: number; removeManDays: number; relocateManDays: number } | null {
   if (!asm) return null;
-  const hours = {
-    'asset-install': asm.installHours,
-    'asset-remove': asm.removeHours,
-    'asset-relocate': asm.relocateHours,
+  const manDays = {
+    'asset-install': asm.installManDays,
+    'asset-remove': asm.removeManDays,
+    'asset-relocate': asm.relocateManDays,
   }[kind];
   /* 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 부품별로 잡는 일이 흔하다.
      0 은 「품이 안 든다」는 뜻이므로 적힌 것으로 친다(null 만 「안 적었다」). */
-  if (hours == null) return null;
+  if (manDays == null) return null;
   return {
     laborCode: asm.laborCode,
-    installHours: kind === 'asset-install' ? hours : 0,
-    removeHours: kind === 'asset-remove' ? hours : 0,
-    relocateHours: kind === 'asset-relocate' ? hours : 0,
+    installManDays: kind === 'asset-install' ? manDays : 0,
+    removeManDays: kind === 'asset-remove' ? manDays : 0,
+    relocateManDays: kind === 'asset-relocate' ? manDays : 0,
   };
 }
 
@@ -158,10 +159,10 @@ export function buildReportItems(args: {
       if (!t) continue;
       items.push(assetReportItem(kind, asset.name, t.name, {
         laborCode: t.laborCode,
-        installHours: t.installHours,
-        removeHours: t.removeHours,
-        relocateHours: t.relocateHours,
-      }));
+        installManDays: t.installManDays,
+        removeManDays: t.removeManDays,
+        relocateManDays: t.relocateManDays,
+      }, t.unitPrice ?? null));
     }
   }
 
@@ -253,4 +254,26 @@ export function buildReportItems(args: {
   }
 
   return items;
+}
+
+/**
+ * 물량 → **직접공사비**(재료비 + 직접노무비).
+ *
+ * 여기가 카탈로그와 기준자료가 만나는 자리다: 수량 × 자재단가, 품(인·일) × 노임단가(원/일).
+ * 단가나 노임이 아직 없는 줄은 **0 으로 센다** — 금액이 조용히 부풀지 않게. 무엇이 비었는지는
+ * 표의 「노무」 칸과 「단가 없음」이 말한다.
+ *
+ * 화면에 두지 않는 이유: 설계서 패널·내보내기·나중의 저장이 같은 값을 써야 한다.
+ */
+export function estimateInput(
+  items: readonly ReportItem[],
+  wageOf: (code: string | null) => number | null,
+): { materialCost: number; directLaborCost: number } {
+  let materialCost = 0;
+  let directLaborCost = 0;
+  for (const it of items) {
+    materialCost += it.qty * (it.unitPrice ?? 0);
+    directLaborCost += it.manDays * (wageOf(it.laborCode) ?? 0);
+  }
+  return { materialCost, directLaborCost };
 }

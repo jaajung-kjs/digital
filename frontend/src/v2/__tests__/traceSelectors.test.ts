@@ -5,7 +5,7 @@ import { endpointRef } from '../peerResolve';
 const cat = { id: 'cat-t', key: '통신', name: '통신', sortOrder: 1 };
 const slotType = {
   id: 't-slot', key: 'OFD-SLOT', name: '광슬롯', categoryId: 'cat-t', sortOrder: 1,
-  laborCode: null, installHours: 0, removeHours: 0, relocateHours: 0,
+  laborCode: null, installManDays: 0, removeManDays: 0, relocateManDays: 0,
   containerSpecs: [],
   portTemplates: [
     { id: 'pt-a', group: 'A', count: 4, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}', sortOrder: 0, positions: 1 },

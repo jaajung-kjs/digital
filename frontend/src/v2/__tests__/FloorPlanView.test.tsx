@@ -23,7 +23,7 @@ import type { CablePickRequest } from '../cablePick';
 const mockTypes: V2AssetType[] = [
   {
     id: 't-panel', key: 'PANEL', name: '배전반', categoryId: 'c1', sortOrder: 1,
-    assetCount: 0, laborCode: null, installHours: 0, removeHours: 0, relocateHours: 0,
+    assetCount: 0, laborCode: null, installManDays: 0, removeManDays: 0, relocateManDays: 0,
     portTemplates: [],
   },
 ];
@@ -44,7 +44,7 @@ vi.mock('../hooks', () => ({
       cableGroups: [
         {
           id: 'g1', key: 'power', name: '전력', color: '#333333', laborCode: null,
-          installHoursPerM: 0, removeHoursPerM: 0, sortOrder: 1,
+          installManDaysPerM: 0, removeManDaysPerM: 0, sortOrder: 1,
           categories: [{ id: 'cat1', name: '저압', sortOrder: 1 }],
         },
       ],

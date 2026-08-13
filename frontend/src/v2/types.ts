@@ -6,12 +6,12 @@ export interface V2PortTemplate { id: string; group: string; count: number; dire
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number;
   assetCount: number;
-  laborCode: string | null; installHours: number; removeHours: number; relocateHours: number;
+  laborCode: string | null; unitPrice: number | null; installManDays: number; removeManDays: number; relocateManDays: number;
   portTemplates: V2PortTemplate[];
 }
 
 /** 케이블 종류 — **품셈을 갖는다**(미터당). 자산 종류·설비 종류와 같은 층이다. */
-export interface V2CableCategory { id: string; name: string; sortOrder: number; laborCode: string | null; installHoursPerM: number; removeHoursPerM: number }
+export interface V2CableCategory { id: string; name: string; sortOrder: number; laborCode: string | null; unitPrice: number | null; installManDaysPerM: number; removeManDaysPerM: number }
 /** 케이블 그룹 — 포트 종류와 1:1인 고정 어휘. 이름·색만 고친다(품셈은 종류가 갖는다). */
 export interface V2CableGroup { id: string; key: string; name: string; color: string; sortOrder: number; categories: V2CableCategory[] }
 /** 설비 종류를 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
@@ -40,9 +40,9 @@ export interface V2Assembly {
    * null = 안 적었다(안에 든 자산의 공량을 합쳐 센다), 0 = 품이 안 든다.
    */
   laborCode: string | null;
-  installHours: number | null;
-  removeHours: number | null;
-  relocateHours: number | null;
+  installManDays: number | null;
+  removeManDays: number | null;
+  relocateManDays: number | null;
   sortOrder: number;
   items: V2AssemblyItem[];
 }
@@ -53,9 +53,9 @@ export interface AssemblyUpsertBody {
   key?: string; name: string; categoryId: string;
   gridCols: number; gridRows: number;
   laborCode: string | null;
-  installHours: number | null;
-  removeHours: number | null;
-  relocateHours: number | null;
+  installManDays: number | null;
+  removeManDays: number | null;
+  relocateManDays: number | null;
   sortOrder: number;
   items: Omit<V2AssemblyItem, 'sortOrder'>[];
 }

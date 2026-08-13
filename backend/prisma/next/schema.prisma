@@ -104,9 +104,11 @@ model AssetType {
   sortOrder      Int                 @default(0)
   // 공량 규칙
   laborCode      String?
-  installHours   Float               @default(0)
-  removeHours    Float               @default(0)
-  relocateHours  Float               @default(0)
+  /// 자재단가(원/대) — 설계서 재료비의 근거. 안 적으면 재료비가 0 이다.
+  unitPrice      Int?
+  installManDays   Float               @default(0)
+  removeManDays    Float               @default(0)
+  relocateManDays  Float               @default(0)
   portTemplates  AssetPortTemplate[]
   assets         Asset[]
   assemblyItems  AssemblyItem[]
@@ -157,9 +159,9 @@ model Assembly {
   /// 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. 0 은 「품이 안 든다」는 뜻이라
   /// 「안 적었다」와 구별해야 하므로 nullable 이다.
   laborCode     String?
-  installHours  Float?
-  removeHours   Float?
-  relocateHours Float?
+  installManDays  Float?
+  removeManDays   Float?
+  relocateManDays Float?
   items      AssemblyItem[]
   assets     Asset[]
   createdAt  DateTime       @default(now())
@@ -210,10 +212,12 @@ model CableCategory {
   groupId   String
   group     CableGroup @relation(fields: [groupId], references: [id])
   sortOrder Int        @default(0)
-  /// 이 종류의 품셈 — 미터당. 설계서 공량의 근거다(품셈 × 길이).
+  /// 이 종류의 품셈 — 미터당 **인·일**. 설계서 직접노무비의 근거다(품 × 길이 × 노임단가).
   laborCode        String?
-  installHoursPerM Float  @default(0)
-  removeHoursPerM  Float  @default(0)
+  /// 자재단가(원/m) — 설계서 재료비의 근거. 안 적으면 재료비가 0 이다.
+  unitPrice        Int?
+  installManDaysPerM Float  @default(0)
+  removeManDaysPerM  Float  @default(0)
   cables    Cable[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt

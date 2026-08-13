@@ -8,7 +8,7 @@ const CTX = { categoryKeys: ['통신', '전원'], mediumKeys: ['fiber', 'power']
 function base(over: Partial<AssetTypeSpec> = {}): AssetTypeSpec {
   return {
     key: 'T1', name: '테스트', categoryKey: '통신', sortOrder: 0,
-    labor: { laborCode: null, installHours: 0, removeHours: 0, relocateHours: 0 }, containers: [], ports: [], links: [],
+    labor: { laborCode: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 }, containers: [], ports: [], links: [],
     ...over,
   };
 }
@@ -26,8 +26,8 @@ describe('validateTypeSpec', () => {
     expect(validateTypeSpec(base({ categoryKey: '없음' }), CTX).some((i) => i.path === 'categoryKey')).toBe(true);
   });
   it('음수 공량을 거부한다', () => {
-    const s = base({ labor: { laborCode: '통신내선공', installHours: -1, removeHours: 0, relocateHours: 0 } });
-    expect(validateTypeSpec(s, CTX).some((i) => i.path === 'labor.installHours')).toBe(true);
+    const s = base({ labor: { laborCode: '통신내선공', installManDays: -1, removeManDays: 0, relocateManDays: 0 } });
+    expect(validateTypeSpec(s, CTX).some((i) => i.path === 'labor.installManDays')).toBe(true);
   });
   it('포트 group 중복·count 0·미지 매체·{n} 누락 패턴을 거부한다', () => {
     const p = { count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: '코어 {n}' };

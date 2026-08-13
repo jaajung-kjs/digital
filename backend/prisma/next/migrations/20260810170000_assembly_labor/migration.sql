@@ -8,6 +8,6 @@
 --
 -- null = 안 적었다(부품 합으로 센다), 0 = 품이 안 든다. 둘을 구별해야 하므로 nullable.
 ALTER TABLE "Assembly" ADD COLUMN "laborType" TEXT;
-ALTER TABLE "Assembly" ADD COLUMN "installHours" DOUBLE PRECISION;
-ALTER TABLE "Assembly" ADD COLUMN "removeHours" DOUBLE PRECISION;
-ALTER TABLE "Assembly" ADD COLUMN "relocateHours" DOUBLE PRECISION;
+ALTER TABLE "Assembly" ADD COLUMN "installManDays" DOUBLE PRECISION;
+ALTER TABLE "Assembly" ADD COLUMN "removeManDays" DOUBLE PRECISION;
+ALTER TABLE "Assembly" ADD COLUMN "relocateManDays" DOUBLE PRECISION;

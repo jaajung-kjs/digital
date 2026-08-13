@@ -35,9 +35,9 @@ const issueOf = (issues: AssemblyIssue[], path: AssemblyIssue['path']) =>
 
 /** 1식 공량의 작업 종류 — 자산 종류의 공량 카드와 같은 순서다. */
 const LABOR_HOURS = [
-  { key: 'installHours', label: '신설(h)' },
-  { key: 'removeHours', label: '철거(h)' },
-  { key: 'relocateHours', label: '이설(h)' },
+  { key: 'installManDays', label: '신설(인)' },
+  { key: 'removeManDays', label: '철거(인)' },
+  { key: 'relocateManDays', label: '이설(인)' },
 ] as const;
 
 export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPanelProps) {

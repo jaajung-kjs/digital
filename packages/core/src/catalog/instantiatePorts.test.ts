@@ -7,7 +7,7 @@ const slotType: AssetTypeSpec = {
   name: '광슬롯',
   categoryKey: '통신',
   sortOrder: 1,
-  labor: { laborCode: null, installHours: 0, removeHours: 0, relocateHours: 0 },
+  labor: { laborCode: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 },
   fields: [],
   containers: [],
   ports: [

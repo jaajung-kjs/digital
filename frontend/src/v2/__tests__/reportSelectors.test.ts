@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { emptyOverlay } from '../store/overlay';
-import { buildReportItems } from '../reportSelectors';
+import { buildReportItems, estimateInput } from '../reportSelectors';
+import type { ReportItem } from '@twin/core';
 
-const labor = { laborCode: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3 };
+const labor = { laborCode: '통신내선공', installManDays: 2, removeManDays: 1, relocateManDays: 3 };
 const rackType = { id: 't-rack', key: 'SW', name: 'L3 스위치', categoryId: 'c', sortOrder: 1, ...labor, portTemplates: [] };
 const fiberCat = 'cat-f';
 /* 품셈은 **종류**가 갖는다 — 같은 광이라도 OPGW 가공과 실내 점퍼 결선은 품이 다르다.
    그룹은 이름·색뿐이고, 설계서의 「종류」 열도 그룹이 아니라 종류 이름을 적는다. */
 const groups = [{
   id: 'g-f', key: 'fiber', name: '광', color: '#0f0', sortOrder: 1,
-  categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1, laborCode: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02 }],
+  categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1, laborCode: '통신외선공', installManDaysPerM: 0.04, removeManDaysPerM: 0.02 }],
 }];
 
 const mkAsset = (id: string, name: string, extra: object = {}) => ({
@@ -42,9 +43,9 @@ describe('buildReportItems', () => {
     });
     const kinds = items.map((i) => i.kind).sort();
     expect(kinds).toEqual(['asset-install', 'asset-relocate', 'cable-remove']);
-    expect(items.find((i) => i.kind === 'asset-install')).toMatchObject({ name: '신규 스위치', hours: 2 });
-    expect(items.find((i) => i.kind === 'asset-relocate')).toMatchObject({ name: '기존 스위치', hours: 3 });
-    expect(items.find((i) => i.kind === 'cable-remove')).toMatchObject({ qty: 50, hours: 1, typeName: '광케이블' });
+    expect(items.find((i) => i.kind === 'asset-install')).toMatchObject({ name: '신규 스위치', manDays: 2 });
+    expect(items.find((i) => i.kind === 'asset-relocate')).toMatchObject({ name: '기존 스위치', manDays: 3 });
+    expect(items.find((i) => i.kind === 'cable-remove')).toMatchObject({ qty: 50, manDays: 1, typeName: '광케이블' });
   });
 
   it('이름만 변경 update는 미포함, 종류 미지정 케이블은 note', () => {
@@ -59,7 +60,7 @@ describe('buildReportItems', () => {
       cableGroups: groups as never,
     });
     expect(items.some((i) => i.kind === 'asset-relocate')).toBe(false);
-    expect(items.find((i) => i.kind === 'cable-install')).toMatchObject({ hours: 0, note: '종류 미지정' });
+    expect(items.find((i) => i.kind === 'cable-install')).toMatchObject({ manDays: 0, note: '종류 미지정' });
   });
 
   it('철거: saved에서 타입·labor 해소', () => {
@@ -70,7 +71,7 @@ describe('buildReportItems', () => {
       assemblies: [] as never,
       cableGroups: groups as never,
     });
-    expect(items[0]).toMatchObject({ kind: 'asset-remove', name: '철거랙', hours: 1 });
+    expect(items[0]).toMatchObject({ kind: 'asset-remove', name: '철거랙', manDays: 1 });
   });
 });
 
@@ -85,10 +86,10 @@ describe('1식 공량', () => {
   const optSet = {
     id: 'asm-1', key: 'OPT-SET', name: '송변전광단말장치', categoryId: 'c',
     gridCols: 4, gridRows: 12, sortOrder: 1, items: [],
-    laborCode: '통신내선공', installHours: 40, removeHours: 20, relocateHours: 30,
+    laborCode: '통신내선공', installManDays: 40, removeManDays: 20, relocateManDays: 30,
   };
   /** 1식 공량을 안 적어 둔 설비 종류 — 안에 든 자산의 공량을 합쳐 센다. */
-  const bare = { ...optSet, id: 'asm-2', key: 'BARE', name: '무명설비', laborCode: null, installHours: null, removeHours: null, relocateHours: null };
+  const bare = { ...optSet, id: 'asm-2', key: 'BARE', name: '무명설비', laborCode: null, installManDays: null, removeManDays: null, relocateManDays: null };
 
   const 설비 = (id: string, name: string, asmId: string) =>
     mkAsset(id, name, { typeId: null, assemblyId: asmId, floorId: 'f1' });
@@ -112,27 +113,27 @@ describe('1식 공량', () => {
       },
     });
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ kind: 'asset-install', name: '송광치 A', typeName: '송변전광단말장치 1식', hours: 40 });
+    expect(items[0]).toMatchObject({ kind: 'asset-install', name: '송광치 A', typeName: '송변전광단말장치 1식', manDays: 40 });
   });
 
   it('완성된 1식에서 L3 스위치만 철거하면 그 부품 공량만', () => {
     const saved = [설비('e1', '송광치 A', 'asm-1'), 부품('p1', 'L3 스위치', 'e1')];
     const items = build({ assets: { creates: {}, updates: {}, deletes: ['p1'] } }, saved);
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ kind: 'asset-remove', name: 'L3 스위치', typeName: 'L3 스위치', hours: 1 });
+    expect(items[0]).toMatchObject({ kind: 'asset-remove', name: 'L3 스위치', typeName: 'L3 스위치', manDays: 1 });
   });
 
   it('1식을 통째로 걷으면 1식 철거 공량 — 함께 지워지는 부품은 세지 않는다', () => {
     const saved = [설비('e1', '송광치 A', 'asm-1'), 부품('p1', 'L3 스위치', 'e1')];
     const items = build({ assets: { creates: {}, updates: {}, deletes: ['e1', 'p1'] } }, saved);
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ kind: 'asset-remove', typeName: '송변전광단말장치 1식', hours: 20 });
+    expect(items[0]).toMatchObject({ kind: 'asset-remove', typeName: '송변전광단말장치 1식', manDays: 20 });
   });
 
   it('1식을 옮기면 1식 이설 공량', () => {
     const saved = [설비('e1', '송광치 A', 'asm-1')];
     const items = build({ assets: { creates: {}, updates: { e1: { x: 10, y: 20 } }, deletes: [] } }, saved);
-    expect(items[0]).toMatchObject({ kind: 'asset-relocate', typeName: '송변전광단말장치 1식', hours: 30 });
+    expect(items[0]).toMatchObject({ kind: 'asset-relocate', typeName: '송변전광단말장치 1식', manDays: 30 });
   });
 
   /* null 은 「안 적었다」 — 그때만 부품 합으로 물러선다. 0 은 「품이 안 든다」라 다르다. */
@@ -143,12 +144,12 @@ describe('1식 공량', () => {
         updates: {}, deletes: [],
       },
     });
-    expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치', 2]]);
+    expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치', 2]]);
   });
 
   /* 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 부품별로 잡는 일이 흔하다. */
   it('신설만 1식으로 적어 두면 철거는 부품 합으로 센다', () => {
-    const half = { ...optSet, id: 'asm-3', name: '반쪽', removeHours: null };
+    const half = { ...optSet, id: 'asm-3', name: '반쪽', removeManDays: null };
     const saved = [mkAsset('e1', '반쪽 A', { typeId: null, assemblyId: 'asm-3', floorId: 'f1' }), 부품('p1', 'L3 스위치', 'e1')];
     const items = buildReportItems({
       saved: { assets: saved as never, cables: [] as never },
@@ -157,7 +158,7 @@ describe('1식 공량', () => {
       assemblies: [half] as never,
       cableGroups: groups as never,
     });
-    expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치', 1]]);
+    expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치', 1]]);
   });
 });
 
@@ -171,7 +172,7 @@ describe('1식 공량이 없을 때의 폴백', () => {
   const bare = {
     id: 'asm-b', key: 'BARE', name: '무명설비', categoryId: 'c',
     gridCols: 4, gridRows: 12, sortOrder: 1, items: [],
-    laborCode: null, installHours: null, removeHours: null, relocateHours: null,
+    laborCode: null, installManDays: null, removeManDays: null, relocateManDays: null,
   };
   const 설비 = mkAsset('e1', '무명 A', { typeId: null, assemblyId: 'asm-b', floorId: 'f1' });
   const 부품A = mkAsset('p1', 'L3 스위치 1', { parentAssetId: 'e1', col: 0, row: 0 });
@@ -191,7 +192,7 @@ describe('1식 공량이 없을 때의 폴백', () => {
       { assets: { creates: {}, updates: { e1: { x: 10, y: 20 } }, deletes: [] } },
       [설비, 부품A, 부품B],
     );
-    expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치 1', 3], ['L3 스위치 2', 3]]);
+    expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치 1', 3], ['L3 스위치 2', 3]]);
   });
 
   /* 놓고 걷을 때는 자손도 함께 오므로, 두 번 세지 않는지가 관건이다. */
@@ -200,7 +201,7 @@ describe('1식 공량이 없을 때의 폴백', () => {
       { assets: { creates: {}, updates: {}, deletes: ['e1', 'p1', 'p2'] } },
       [설비, 부품A, 부품B],
     );
-    expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치 1', 1], ['L3 스위치 2', 1]]);
+    expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치 1', 1], ['L3 스위치 2', 1]]);
   });
 
   it('놓으면 자손을 한 번만 센다', () => {
@@ -208,6 +209,51 @@ describe('1식 공량이 없을 때의 폴백', () => {
       { assets: { creates: { e1: 설비, p1: 부품A, p2: 부품B }, updates: {}, deletes: [] } },
       [],
     );
-    expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치 1', 2], ['L3 스위치 2', 2]]);
+    expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치 1', 2], ['L3 스위치 2', 2]]);
+  });
+});
+
+/**
+ * 물량 → 직접공사비 — **카탈로그와 기준자료가 만나는 자리**.
+ *
+ * 단가나 노임이 아직 없는 줄은 0 으로 센다. 금액이 조용히 부풀면 설계서를 믿을 수 없다.
+ */
+describe('estimateInput', () => {
+  const wage: Record<string, number> = { '1086': 284880, '1088': 408942 };
+  const wageOf = (code: string | null) => (code == null ? null : (wage[code] ?? null));
+
+  const item = (over: Partial<ReportItem>): ReportItem => ({
+    kind: 'asset-install',
+    name: 'x',
+    typeName: 't',
+    laborCode: null,
+    qty: 1,
+    unit: '대',
+    manDays: 0,
+    unitPrice: null,
+    ...over,
+  });
+
+  it('수량 × 자재단가, 품 × 노임단가를 각각 더한다', () => {
+    const out = estimateInput(
+      [
+        item({ qty: 2, unitPrice: 1_700_000, manDays: 1.0, laborCode: '1086' }),
+        item({ kind: 'cable-install', unit: 'm', qty: 100, unitPrice: 3200, manDays: 6, laborCode: '1088' }),
+      ],
+      wageOf,
+    );
+    expect(out.materialCost).toBe(2 * 1_700_000 + 100 * 3200);
+    expect(out.directLaborCost).toBeCloseTo(1.0 * 284880 + 6 * 408942, 4);
+  });
+
+  it('단가·노임이 없는 줄은 0 으로 센다', () => {
+    const out = estimateInput(
+      [
+        item({ qty: 5, unitPrice: null, manDays: 3, laborCode: null }), // 둘 다 없음
+        item({ qty: 1, unitPrice: null, manDays: 2, laborCode: '9999' }), // 판에 없는 직종
+      ],
+      wageOf,
+    );
+    expect(out).toEqual({ materialCost: 0, directLaborCost: 0 });
   });
 });

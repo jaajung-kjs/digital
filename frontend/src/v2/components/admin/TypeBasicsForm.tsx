@@ -74,40 +74,54 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
           <LaborTypeSelect value={draft.laborCode ?? null} onChange={(code) => onChange({ laborCode: code })} />
         </DetailRow>
 
-        {/* 시간 셋은 나란히 읽는 값이다 — 한 줄에 하나씩 쌓으면 카드만 길어진다. */}
+        <DetailRow label="자재단가" hint="원/대 — 설계서 재료비의 근거. 비우면 재료비 0">
+          <Input
+            aria-label="자재단가"
+            type="number"
+            value={draft.unitPrice ?? ''}
+            placeholder="예: 1700000"
+            onChange={(e) => {
+              const val = parseInt(e.currentTarget.value, 10);
+              onChange({ unitPrice: Number.isFinite(val) ? val : null });
+            }}
+          />
+        </DetailRow>
+
+        {/* 품 셋은 나란히 읽는 값이다 — 한 줄에 하나씩 쌓으면 카드만 길어진다.
+            단위는 **인·일**이다: 노임단가(원/일)와 곱해야 돈이 된다. */}
         <DetailGrid>
-        <DetailRow label="신설(h)" issue={issueFor(issues, 'labor.installHours')}>
+        <DetailRow label="신설(인)" issue={issueFor(issues, 'labor.installManDays')}>
             <Input
-              aria-label="신설(h)"
+              aria-label="신설(인)"
               type="number"
-              value={draft.installHours}
+              value={draft.installManDays}
               onChange={(e) => {
                 const val = parseFloat(e.currentTarget.value);
-                onChange({ installHours: isNaN(val) ? 0 : val });
+                onChange({ installManDays: isNaN(val) ? 0 : val });
               }}
             />
         </DetailRow>
 
-        <DetailRow label="철거(h)" issue={issueFor(issues, 'labor.removeHours')}>
+        <DetailRow label="철거(인)" issue={issueFor(issues, 'labor.removeManDays')}>
             <Input
-              aria-label="철거(h)"
+              aria-label="철거(인)"
               type="number"
-              value={draft.removeHours}
+              value={draft.removeManDays}
               onChange={(e) => {
                 const val = parseFloat(e.currentTarget.value);
-                onChange({ removeHours: isNaN(val) ? 0 : val });
+                onChange({ removeManDays: isNaN(val) ? 0 : val });
               }}
             />
         </DetailRow>
 
-        <DetailRow label="이설(h)" issue={issueFor(issues, 'labor.relocateHours')}>
+        <DetailRow label="이설(인)" issue={issueFor(issues, 'labor.relocateManDays')}>
             <Input
-              aria-label="이설(h)"
+              aria-label="이설(인)"
               type="number"
-              value={draft.relocateHours}
+              value={draft.relocateManDays}
               onChange={(e) => {
                 const val = parseFloat(e.currentTarget.value);
-                onChange({ relocateHours: isNaN(val) ? 0 : val });
+                onChange({ relocateManDays: isNaN(val) ? 0 : val });
               }}
             />
         </DetailRow>

@@ -107,8 +107,8 @@ export async function putCableGroup(
       id?: string;
       name: string;
       laborCode: string | null;
-      installHoursPerM: number;
-      removeHoursPerM: number;
+      installManDaysPerM: number;
+      removeManDaysPerM: number;
     }[];
   },
 ): Promise<V2CableGroup> {

@@ -221,9 +221,10 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
             categoryId: body.categoryId,
             sortOrder: body.sortOrder,
             laborCode: body.laborCode,
-            installHours: body.installHours,
-            removeHours: body.removeHours,
-            relocateHours: body.relocateHours,
+          unitPrice: body.unitPrice,
+            installManDays: body.installManDays,
+            removeManDays: body.removeManDays,
+            relocateManDays: body.relocateManDays,
               },
         });
 
@@ -287,9 +288,10 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
           categoryId: body.categoryId,
           sortOrder: body.sortOrder,
           laborCode: body.laborCode,
-          installHours: body.installHours,
-          removeHours: body.removeHours,
-          relocateHours: body.relocateHours,
+          unitPrice: body.unitPrice,
+          installManDays: body.installManDays,
+          removeManDays: body.removeManDays,
+          relocateManDays: body.relocateManDays,
             // key 불변
         },
       });
@@ -396,8 +398,9 @@ catalogRouter.put('/cable-groups/:id', adminOnly, async (req, res, next) => {
         const data = {
           name: c.name,
           laborCode: c.laborCode,
-          installHoursPerM: c.installHoursPerM,
-          removeHoursPerM: c.removeHoursPerM,
+          unitPrice: c.unitPrice,
+          installManDaysPerM: c.installManDaysPerM,
+          removeManDaysPerM: c.removeManDaysPerM,
           sortOrder: i,
         };
         if (c.id) await tx.cableCategory.update({ where: { id: c.id }, data });
@@ -473,8 +476,8 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
         data: {
           key: body.key, name: body.name, categoryId: body.categoryId,
           gridCols: body.gridCols, gridRows: body.gridRows,
-          laborCode: body.laborCode, installHours: body.installHours,
-          removeHours: body.removeHours, relocateHours: body.relocateHours,
+          laborCode: body.laborCode, installManDays: body.installManDays,
+          removeManDays: body.removeManDays, relocateManDays: body.relocateManDays,
           sortOrder: body.sortOrder,
         },
       });
@@ -503,8 +506,8 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
         data: {
           key: body.key, name: body.name, categoryId: body.categoryId,
           gridCols: body.gridCols, gridRows: body.gridRows,
-          laborCode: body.laborCode, installHours: body.installHours,
-          removeHours: body.removeHours, relocateHours: body.relocateHours,
+          laborCode: body.laborCode, installManDays: body.installManDays,
+          removeManDays: body.removeManDays, relocateManDays: body.relocateManDays,
           sortOrder: body.sortOrder,
         },
       });

@@ -50,9 +50,9 @@ export interface FieldDef {
 
 export interface LaborRules {
   laborCode: string | null;
-  installHours: number;
-  removeHours: number;
-  relocateHours: number;
+  installManDays: number;
+  removeManDays: number;
+  relocateManDays: number;
 }
 
 /**
@@ -170,9 +170,11 @@ export interface TypeUpsertBody {
   categoryId: string;
   sortOrder: number;
   laborCode: string | null;
-  installHours: number;
-  removeHours: number;
-  relocateHours: number;
+  /** 자재단가(원/대) — 설계서 재료비의 근거. 비우면 재료비 0. */
+  unitPrice: number | null;
+  installManDays: number;
+  removeManDays: number;
+  relocateManDays: number;
   ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number }>;
 }
 
