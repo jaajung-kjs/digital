@@ -53,9 +53,11 @@ export function LaborTypeSelect({
         {sectors.map(([sector, rows]) => (
           <optgroup key={sector} label={sector}>
             {rows.map((r) => (
-              /* 이름만 — **단가는 고르는 값이 아니라 따라오는 값**이라 옆 칸이 말한다. */
+              /* **코드를 앞에 적는다** — 카탈로그가 저장하는 값이 이것이고, 보고서도
+                 「1086 통신내선공」으로 인쇄한다. 단가는 고르는 값이 아니라 따라오는 값이라
+                 옆 칸이 말한다. */
               <option key={r.code} value={r.code}>
-                {r.name}
+                {r.code} {r.name}
               </option>
             ))}
           </optgroup>

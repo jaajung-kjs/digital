@@ -370,7 +370,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           </td>
                           {/* 표에는 **이름**이 선다 — 저장되는 것은 코드다(`useWageCatalog`). */}
                           <td className="truncate px-3 py-1.5 text-content-muted">
-                            {wage.nameOf(row.spec.laborCode) ?? '—'}
+                            {wage.labelOf(row.spec.laborCode) ?? '—'}
                           </td>
                           <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
                             {row.spec.laborCode == null

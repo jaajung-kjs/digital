@@ -143,6 +143,9 @@ export function useWageCatalog() {
       rows,
       /** 이 코드의 이름 — 판에 없으면 「(직종 1084)」처럼 코드라도 보여 준다. */
       nameOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.name ?? `(직종 ${code})`)),
+      /** 「1086 통신내선공」 — 저장되는 값을 앞에 둔다(보고서 인쇄와 같은 차례). */
+      labelOf: (code: string | null) =>
+        code == null ? null : `${code} ${byCode.get(code)?.name ?? '(표에 없음)'}`,
       /** 이 코드의 노임(원/일). 표에 없으면 null — 설계서가 「단가 없음」으로 말한다. */
       wageOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.wage ?? null)),
       /**
