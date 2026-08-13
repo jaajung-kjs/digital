@@ -42,6 +42,16 @@ describe('readWageHwp', () => {
     expect(codes.length).toBeGreaterThan(50);
   });
 
+  /* 단가가 없는 직종이 있다 — 파서 결함이 아니라 **보고서가 조사하지 않은 직종**이다.
+     그 이유를 우리가 지어내지 않고 원문 각주를 그대로 들고 온다. */
+  it('단가 없는 직종과 그 이유(원문 각주)를 함께 들고 온다', () => {
+    const missing = report.rows.filter((r) => r.wage === null);
+    expect(missing.length).toBeGreaterThan(0);
+    expect(missing.every((r) => r.marker === '**')).toBe(true);
+    expect(report.markerNotes['**']).toContain('조사되지 않은 직종');
+    expect(report.markerNotes['*']).toContain('5개미만');
+  });
+
   it('HWP 가 아니면 양식 오류로 거절한다', () => {
     expect(() => readWageHwp(Buffer.from('not an ole file'))).toThrow();
     // OLE 이지만 HWP 가 아닌 것도 서명에서 걸린다.

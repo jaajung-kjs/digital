@@ -39,6 +39,13 @@ export interface WageReport {
   /** 사람이 읽는 적용시기 — 「2026년도 상반기」. */
   half: string;
   rows: WageRow[];
+  /**
+   * 각주 표시의 뜻 — **원문 문장 그대로**.
+   *
+   * 「**」가 왜 단가가 없는지는 보고서가 스스로 설명한다(「조사되지 않은 직종…」). 그 문장을
+   * 우리가 지어내면 보고서가 기준을 바꿀 때 화면만 옛말을 하게 된다.
+   */
+  markerNotes: Record<string, string>;
 }
 
 // HWP BodyText 레코드 태그
@@ -106,8 +113,36 @@ function sectionBuffers(cfb: CFB.CFB$Container): Buffer[] {
   return out.map((x) => x.buf);
 }
 
-/** 문서 안의 모든 표를 grid 로 복원한다. */
-function readGrids(bytes: Buffer): Grid[] {
+/** 표 밖 문단까지 포함한 본문 글줄 — 각주를 읽는 데 쓴다. */
+function readParagraphs(cfb: CFB.CFB$Container): string[] {
+  const out: string[] = [];
+  for (const buf of sectionBuffers(cfb)) {
+    for (const { tag, payload } of records(buf)) {
+      if (tag === PARA_TEXT) out.push(cleanText(payload));
+    }
+  }
+  return out;
+}
+
+/**
+ * 각주 문장을 원문에서 집는다.
+ *
+ * 「*」만 든 줄과 「**」만 든 줄을 따로 고른다 — 둘 다 든 통합 안내문은 어느 쪽 설명도 아니다.
+ */
+function markerLegends(paragraphs: string[]): Record<string, string> {
+  const notes: Record<string, string> = {};
+  for (const raw of paragraphs) {
+    const t = raw.trim();
+    const one = t.includes('「*」');
+    const two = t.includes('「**」');
+    if (two && !one && !notes['**']) notes['**'] = t;
+    else if (one && !two && !notes['*']) notes['*'] = t;
+  }
+  return notes;
+}
+
+/** 문서를 한 번 열어 표(grid)와 본문 글줄을 함께 돌려준다. */
+function readDocument(bytes: Buffer): { grids: Grid[]; paragraphs: string[] } {
   /* 엉뚱한 파일을 고른 것도 「양식 불일치」다 — 컨테이너 파서가 던지는 날것을 그대로
      올려보내면 500 이 되고, 사용자는 무엇을 잘못했는지 알 수 없다. */
   let cfb: CFB.CFB$Container;
@@ -138,7 +173,7 @@ function readGrids(bytes: Buffer): Grid[] {
       }
     }
   }
-  return grids;
+  return { grids, paragraphs: readParagraphs(cfb) };
 }
 
 function gridRows(grid: Grid): number[] {
@@ -187,7 +222,8 @@ function halfOf(newestDate: string): string {
 
 /** 임금실태조사 HWP 를 읽어 직종표를 돌려준다. */
 export function readWageHwp(bytes: Buffer): WageReport {
-  const grids = readGrids(bytes).filter(isWageGrid);
+  const doc = readDocument(bytes);
+  const grids = doc.grids.filter(isWageGrid);
   if (grids.length === 0) throw new HwpFormatError('개별직종 노임단가 표를 찾지 못했습니다 — 양식 불일치');
 
   let dates: string[] | null = null;
@@ -221,5 +257,5 @@ export function readWageHwp(bytes: Buffer): WageReport {
   if (dates === null || rows.length === 0) {
     throw new HwpFormatError('노임표를 읽었지만 기준일이나 직종이 없습니다 — 양식 불일치');
   }
-  return { dates, half: halfOf(dates[0]!), rows };
+  return { dates, half: halfOf(dates[0]!), rows, markerNotes: markerLegends(doc.paragraphs) };
 }

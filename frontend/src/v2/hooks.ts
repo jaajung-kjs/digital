@@ -147,6 +147,16 @@ export function useWageCatalog() {
       wageOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.wage ?? null)),
       /** 판에 있는 직종인가 — 없는 것을 고쳐야 한다고 짚을 때. */
       known: (code: string | null) => code != null && byCode.has(code),
+      /**
+       * 이 직종의 각주 문장 — **보고서 원문 그대로**.
+       *
+       * 「**」 직종은 조사되지 않아 단가가 없다. 그 이유를 우리가 지어내지 않고 보고서가 쓴
+       * 문장을 그대로 보여 준다(기준이 바뀌면 문장도 함께 바뀐다).
+       */
+      noteOf: (code: string | null) => {
+        const marker = code == null ? '' : (byCode.get(code)?.marker ?? '');
+        return marker ? (std?.markerNotes?.[marker] ?? null) : null;
+      },
     };
   }, [std]);
 }

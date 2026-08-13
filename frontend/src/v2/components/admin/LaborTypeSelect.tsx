@@ -43,7 +43,9 @@ export function LaborTypeSelect({
         {wage.rows.map((r) => (
           <option key={r.code} value={r.code}>
             {r.name}
-            {r.wage != null && ` · ${r.wage.toLocaleString()}원/일`}
+            {/* 단가가 없는 직종이 있다(조사되지 않은 직종 — 보고서가 「**」로 표시한다).
+                빈칸으로 두면 「왜 얘만 없지」가 되므로 그렇다고 적는다. */}
+            {r.wage != null ? ` · ${r.wage.toLocaleString()}원/일` : ' · 단가 없음'}
           </option>
         ))}
       </Select>
@@ -52,6 +54,12 @@ export function LaborTypeSelect({
       )}
       {unknown && !empty && (
         <span className="text-xs text-warning">지금 기준({wage.effective})에 없는 직종입니다</span>
+      )}
+      {/* 왜 단가가 없는지는 **보고서가 스스로 설명한다** — 그 문장을 그대로 옮긴다. */}
+      {value != null && wage.wageOf(value) == null && !unknown && (
+        <span className="text-xs text-warning">
+          {wage.noteOf(value) ?? '이 직종은 단가가 없습니다 — 노무비가 0 으로 잡힙니다'}
+        </span>
       )}
     </div>
   );

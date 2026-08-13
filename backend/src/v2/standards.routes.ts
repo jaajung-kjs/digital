@@ -102,6 +102,7 @@ standardsRouter.post('/standards/wage/preview', adminOnly, uploadSingle, async (
       sourceName: req.file.originalname,
       dates: report.dates,
       rows: report.rows,
+      markerNotes: report.markerNotes,
       ...matchCatalog(report, await usedLaborValues()),
     });
   } catch (e) {
@@ -134,7 +135,7 @@ standardsRouter.post('/standards/wage', adminOnly, uploadSingle, async (req, res
           kind: 'wage',
           effective: report.half,
           sourceName: req.file!.originalname,
-          payload: { dates: report.dates, rows: report.rows } as unknown as Prisma.InputJsonValue,
+          payload: { dates: report.dates, rows: report.rows, markerNotes: report.markerNotes } as unknown as Prisma.InputJsonValue,
           active: true,
           uploadedBy: req.user?.username ?? 'unknown',
         },
