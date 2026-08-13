@@ -371,8 +371,10 @@ function WageRatesCard() {
 
   if (!data || data.rows.length === 0) return null;
 
-  /* 직종 · 회차마다 한 칸. 합이 100(`TableCard`). */
-  const widths = [100 - data.dates.length * 15, ...data.dates.map(() => 15)];
+  /* 코드 · 이름 · 회차마다 한 칸. 합이 100(`TableCard`).
+     코드와 이름은 **다른 컬럼**이다 — 붙여 놓으면 한 칸에 둘 다 저장되는 것으로 읽힌다
+     (보고서 표도 두 칸이다). */
+  const widths = [10, 90 - data.dates.length * 15, ...data.dates.map(() => 15)];
 
   return (
     <DetailCard>
@@ -389,6 +391,7 @@ function WageRatesCard() {
         <TableCard widths={widths}>
           <thead>
             <tr className="sticky top-0 z-sticky">
+              <Th>코드</Th>
               <Th>직종</Th>
               {data.dates.map((d) => (
                 <Th key={d} className="text-right">
@@ -400,8 +403,8 @@ function WageRatesCard() {
           <tbody>
             {shown.map((r) => (
               <tr key={r.code} className="border-b border-line last:border-0">
+                <td className="px-3 py-1.5 tabular-nums text-content-muted">{r.code}</td>
                 <td className="truncate px-3 py-1.5 text-content" title={r.markerNote ?? undefined}>
-                  <span className="mr-1.5 text-xs text-content-faint tabular-nums">{r.code}</span>
                   {r.name}
                   {r.marker && <span className="ml-1 text-xs text-warning">{r.marker}</span>}
                 </td>

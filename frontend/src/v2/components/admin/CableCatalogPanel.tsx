@@ -76,7 +76,7 @@ interface GroupDraft {
  */
 const SPEC_COLUMNS = laborSpecColumns('cable');
 /* 이름 · 노무유형(저장) · 노임단가(조회) + 저장되는 숫자 칸들. */
-const COL_WIDTHS = [26, 16, 14, ...SPEC_COLUMNS.map(() => Math.floor(44 / SPEC_COLUMNS.length))];
+const COL_WIDTHS = [22, 7, 15, 12, ...SPEC_COLUMNS.map(() => Math.floor(44 / SPEC_COLUMNS.length))];
 
 let seq = 0;
 const newKey = () => `new-${++seq}`;
@@ -340,6 +340,8 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     {/* 머리글은 스크롤해도 남는다 — 현황표와 같은 규칙. */}
                     <tr className="sticky top-0 z-sticky">
                       <Th>이름</Th>
+                      {/* 코드는 **저장되는 값**, 직종 이름은 기준자료에서 **조회한 값**이다. */}
+                      <Th>코드</Th>
                       <Th>{LABOR_CODE_LABEL}</Th>
                       {/* **조회 칸**이다 — 저장되는 것은 직종 코드뿐이고 단가는 기준자료가 정한다. */}
                       <Th className="text-right">{`${LABOR_WAGE_LABEL}(${WAGE_UNIT})`}</Th>
@@ -370,7 +372,10 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           </td>
                           {/* 표에는 **이름**이 선다 — 저장되는 것은 코드다(`useWageCatalog`). */}
                           <td className="truncate px-3 py-1.5 text-content-muted">
-                            {wage.labelOf(row.spec.laborCode) ?? '—'}
+                            {row.spec.laborCode ?? '—'}
+                          </td>
+                          <td className="truncate px-3 py-1.5 text-content-muted">
+                            {wage.nameOf(row.spec.laborCode) ?? '—'}
                           </td>
                           <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
                             {row.spec.laborCode == null
