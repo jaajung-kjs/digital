@@ -76,7 +76,9 @@ interface GroupDraft {
  */
 const SPEC_COLUMNS = laborSpecColumns('cable');
 /* 이름 · 노무유형(저장) · 노임단가(조회) + 저장되는 숫자 칸들. */
-const COL_WIDTHS = [22, 7, 15, 12, ...SPEC_COLUMNS.map(() => Math.floor(44 / SPEC_COLUMNS.length))];
+/* 코드(1086)가 상세 패널을 연 좁은 폭에서도 잘리지 않을 만큼 준다 — 7% 로 뒀더니
+   표가 700px 로 줄었을 때 「10…」으로 잘렸다. */
+const COL_WIDTHS = [20, 10, 14, 12, ...SPEC_COLUMNS.map(() => Math.floor(44 / SPEC_COLUMNS.length))];
 
 let seq = 0;
 const newKey = () => `new-${++seq}`;
