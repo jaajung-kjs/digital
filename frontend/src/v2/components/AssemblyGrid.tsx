@@ -397,6 +397,11 @@ export function AssemblyGrid<T extends GridItem>({
     }
   }
 
+  /* 손짓이 벌어지는 동안 빈 칸은 **반응하지 않는다**.
+     옮기는 중에 커서가 지나가는 빈 칸마다 호버가 켜져 「여기 누르면 추가」 표시(+)가
+     따라다녔다 — 지금 하는 일은 옮기기이지 추가가 아니다. */
+  const dragging = preview != null || createRect != null;
+
   const cells: ReactNode[] = [];
   /* 끌어 만드는 중인 네모 — 칸 위에 덮어 그린다(자리와 크기를 놓기 전에 눈으로 확인한다). */
   if (createRect) {
@@ -454,8 +459,12 @@ export function AssemblyGrid<T extends GridItem>({
                    예전에는 `+` 만 나타나서 어디까지가 그 칸인지 읽히지 않았다. */
                 : cn(
                     'border border-dashed border-line/50 text-content-faint',
-                    'transition-colors hover:border-solid hover:border-primary hover:bg-info-bg hover:text-primary',
-                    SELECTABLE,
+                    dragging
+                      ? 'pointer-events-none'
+                      : cn(
+                          'transition-colors hover:border-solid hover:border-primary hover:bg-info-bg hover:text-primary',
+                          SELECTABLE,
+                        ),
                   ),
               item && 'cursor-grab touch-none active:cursor-grabbing',
               item && selectedId === item.id && 'ring-2 ring-inset ring-primary',
