@@ -291,6 +291,11 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
   return (
     <DetailCard>
       <DetailCardHeader title="올린 기록" badge={String(rows.length)} badgeStatus="neutral" />
+      {/* 두 기준자료가 적용되는 단위가 다르다 — 상태 칸이 왜 다른지 여기서 한 번 말한다. */}
+      <p className="text-xs text-content-faint">
+        제비율은 <b className="font-medium">판</b>을 골라 적용합니다. 노임단가는 올린 값이 회차별로 쌓이고, 직종마다
+        가장 최근 값이 쓰입니다 — 고를 판이 없습니다.
+      </p>
       {rows.length === 0 ? (
         <EmptyState
           title="올린 기준자료가 없습니다"
@@ -322,7 +327,9 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
                     직종마다 가장 최근 값이 쓰인다. 눌러도 안 바뀌는 버튼을 두지 않는다. */}
                 <td className="px-3 py-1.5 text-right">
                   {row.kind !== 'overhead' ? (
-                    <span className="text-xs text-content-faint">임포트됨</span>
+                    /* 노임은 갈아 끼울 판이 없다 — 올린 값이 그대로 표에 쌓이고, 직종마다
+                       가장 최근 값이 쓰인다. 「임포트됨」은 반영이 안 된 것처럼 읽혔다. */
+                    <span className="text-xs text-content-muted">값 반영됨</span>
                   ) : row.active ? (
                     <Badge status="success">적용 중</Badge>
                   ) : (
