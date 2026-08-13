@@ -14,7 +14,7 @@ import { useMemo, useRef, useState } from 'react';
 import { freeCells, slotNumber, validateGridPlacement } from '@twin/core';
 import { LaborSpecForm } from './LaborSpecForm';
 import {
-  Button, DetailCard, DetailCardHeader, DetailGrid, DetailNote, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
+  Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
   useDismissOnOutside,
 } from '../../../components/ui';
 import { AssemblyGrid } from '../AssemblyGrid';
@@ -212,7 +212,6 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
                   />
                 </DetailRow>
               </DetailGrid>
-              <DetailNote>자리 번호는 행 우선 — 4열이면 1·2·3·4가 첫 행이 된다.</DetailNote>
             </DetailCard>
 
             {/* ── 1식 공량 ───────────────────────────────────────────────
@@ -224,7 +223,6 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
               resetKey={draft.key || "new"}
               spec={draft}
               onChange={(patch) => onChange({ ...draft, ...patch })}
-              hint="1식 — 비우면 안에 든 부품의 공량을 합쳐 셉니다."
             />
           </>
         )}

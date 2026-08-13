@@ -470,7 +470,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                         onChange={(e) => patchGroup({ name: e.currentTarget.value })}
                       />
                     </DetailRow>
-                    <DetailRow label="색상" hint="도면에서 이 그룹의 케이블이 그려지는 색">
+                    <DetailRow label="색상">
                       {/* hex 코드는 굳이 읽을 것이 아니다 — 스와치가 값을 보여준다. */}
                       <input
                         type="color"

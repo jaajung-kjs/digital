@@ -79,14 +79,11 @@ export function LaborSpecForm({
         <LaborTypeSelect value={spec.laborCode} onChange={(laborCode) => onChange({ laborCode })} />
       </DetailRow>
 
-      {/* **저장되는 값** — 직종은 코드로 붙든다(이름이 바뀌어도 이어진다). 고르는 칸과
-          나란히 두어, 무엇이 저장되는지가 화면에서 사라지지 않게 한다. */}
+      {/* 코드는 **저장되는 값**, 노임단가는 기준자료가 정하는 **조회 값** — 다른 데이터라 줄을 나눈다. */}
       <DetailRow label="코드">
         <span className="text-sm text-content tabular-nums">{spec.laborCode ?? '—'}</span>
       </DetailRow>
 
-      {/* **고칠 수 없는 칸** — 노임단가는 기준자료(임포트)가 정한다. 옛 회차 값일 때만 그
-          사정을 덧붙인다(보고서 문장 그대로). */}
       <DetailRow
         label={LABOR_WAGE_LABEL}
         hint={staleDate ? `${staleDate} 기준 · ${wage.noteOf(spec.laborCode) ?? ''}` : undefined}
