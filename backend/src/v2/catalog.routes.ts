@@ -11,7 +11,7 @@ import {
   typeUpsertSchema,
   categoryCreateSchema,
   categoryPatchSchema,
-  cableCategoriesPutSchema,
+  cableGroupPutSchema,
   assemblyUpsertSchema,
 } from './schemas.js';
 
@@ -319,20 +319,21 @@ catalogRouter.delete('/types/:id', adminOnly, async (req, res, next) => {
   }
 });
 
-// ── 케이블 그룹의 종류 ────────────────────────────────────────────────────────
+// ── 케이블 그룹 ──────────────────────────────────────────────────────────────
 
 /**
- * PUT /catalog/cable-groups/:id/categories — 그 그룹의 종류 목록을 통째로 바꾼다.
+ * PUT /catalog/cable-groups/:id — 그룹 하나를 통째로 바꾼다(제 이름·색 + 종류 목록).
  *
  * 자산 종류가 포트를 자식으로 안고 한 번의 PUT 으로 나가는 것과 같은 모양이다. 낱개 CRUD 를
- * 두지 않는 이유는 `cableCategoriesPutSchema` 에 적었다.
+ * 두지 않는 이유는 `cableGroupPutSchema` 에 적었다.
  *
- * 그룹 자신은 고정 어휘라 고치지 않는다 — 이름·색은 시드가 `PORT_KINDS` 에서 흘려 넣는다.
+ * 그룹을 새로 만들거나 지우는 길은 없다 — `key` 가 `PORT_KINDS` 의 어휘이고, 포트가 무엇과
+ * 이어지는지를 그 키로 판정한다.
  */
-catalogRouter.put('/cable-groups/:id/categories', adminOnly, async (req, res, next) => {
+catalogRouter.put('/cable-groups/:id', adminOnly, async (req, res, next) => {
   try {
     const groupId = idParamSchema.parse(req.params.id);
-    const { categories } = cableCategoriesPutSchema.parse(req.body);
+    const { name, color, categories } = cableGroupPutSchema.parse(req.body);
 
     const group = await nextDb.cableGroup.findUnique({ where: { id: groupId }, include: { categories: true } });
     if (!group) throw new HttpError(404, 'NOT_FOUND', '케이블 그룹을 찾을 수 없습니다');
@@ -363,6 +364,7 @@ catalogRouter.put('/cable-groups/:id/categories', adminOnly, async (req, res, ne
     }
 
     const updated = await nextDb.$transaction(async (tx) => {
+      await tx.cableGroup.update({ where: { id: groupId }, data: { name, color } });
       if (removed.length > 0) {
         await tx.cableCategory.deleteMany({ where: { id: { in: removed.map((c) => c.id) } } });
       }

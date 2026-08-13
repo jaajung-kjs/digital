@@ -60,6 +60,9 @@ describe('catalog CRUD', () => {
   let typeId: string;
   let cableGroupId: string;
   let cableCatId: string;
+  /* 그룹은 통째로 PUT 한다 — 제 이름·색을 함께 실어 보내지 않으면 그것까지 바뀐다. */
+  let groupName: string;
+  let groupColor: string;
 
   beforeAll(async () => {
     await sweepTestFixtures();
@@ -67,6 +70,8 @@ describe('catalog CRUD', () => {
     const group = await nextDb.cableGroup.findFirst({ orderBy: { sortOrder: 'asc' } });
     if (!group) throw new Error('cableGroup not seeded');
     cableGroupId = group.id;
+    groupName = group.name;
+    groupColor = group.color;
   });
 
   afterAll(async () => {
@@ -88,7 +93,7 @@ describe('catalog CRUD', () => {
     await request(app).put(`/api/v2/catalog/types/${dummyId}`).set(viewer).send({}).expect(403);
     await request(app).delete(`/api/v2/catalog/types/${dummyId}`).set(viewer).expect(403);
 
-    await request(app).put(`/api/v2/catalog/cable-groups/${dummyId}/categories`).set(viewer).send({ categories: [] }).expect(403);
+    await request(app).put(`/api/v2/catalog/cable-groups/${dummyId}`).set(viewer).send({ name: 'X', color: '#000000', categories: [] }).expect(403);
   });
 
   it('카테고리 생성→수정→삭제, 타입 존재 시 삭제 409 CATEGORY_IN_USE', async () => {
@@ -317,9 +322,10 @@ describe('catalog CRUD', () => {
     expect(catalog.types.find((t: { key: string }) => t.key === `${KEY_PREFIX}_TYPE_A`)).toBeUndefined();
   });
 
-  it('그룹의 종류 목록 PUT — 추가·수정·삭제가 한 저장에, 케이블이 물린 것은 409', async () => {
+  it('그룹 PUT — 이름·색과 종류 목록이 한 저장에, 케이블이 물린 것은 409', async () => {
     const put = (categories: unknown[]) =>
-      request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}/categories`).set(admin).send({ categories });
+      request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}`).set(admin).send({ name: groupName, color: groupColor, categories });
+
 
     /* 목록을 **통째로** 보내는 API 다 — 시드 종류를 함께 실어 보내지 않으면 지워진다.
        이 테스트가 지켜야 하는 계약이기도 하다. */
@@ -333,6 +339,18 @@ describe('catalog CRUD', () => {
       removeHoursPerM: c.removeHoursPerM,
     }));
     expect(seeded.length).toBeGreaterThan(0);
+
+    /* 그룹 자신(이름·색)도 같은 저장에서 간다 — 대장에서 고치는 값이다. */
+    const recolored = (
+      await request(app)
+        .put(`/api/v2/catalog/cable-groups/${cableGroupId}`)
+        .set(admin)
+        .send({ name: `${groupName} `, color: '#123456', categories: seeded })
+        .expect(200)
+    ).body;
+    expect(recolored.color).toBe('#123456');
+    expect(recolored.name).toBe(groupName); // 앞뒤 공백은 다듬는다
+    await put(seeded).expect(200); // 원래 색으로 되돌린다
 
     // 추가 — id 없는 줄은 새로 생긴다(품셈까지 함께).
     const draft = { name: `${uniq}-ccat`, laborType: '통신외선공', installHoursPerM: 0.06, removeHoursPerM: 0.03 };
@@ -420,7 +438,7 @@ describe('catalog CRUD', () => {
       removeHoursPerM: c.removeHoursPerM,
     }));
     const put = (categories: unknown[]) =>
-      request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}/categories`).set(admin).send({ categories });
+      request(app).put(`/api/v2/catalog/cable-groups/${cableGroupId}`).set(admin).send({ name: groupName, color: groupColor, categories });
 
     const a = { name: `${uniq}-swapA`, laborType: null, installHoursPerM: 0.1, removeHoursPerM: 0.05 };
     const b = { name: `${uniq}-swapB`, laborType: null, installHoursPerM: 0.2, removeHoursPerM: 0.06 };

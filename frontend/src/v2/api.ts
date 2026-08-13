@@ -93,22 +93,26 @@ export async function deleteCategory(id: string): Promise<void> {
 }
 
 /**
- * 케이블 그룹의 종류 — **목록 전체를 한 번에** 보낸다(자산 종류가 포트를 함께 보내는 것과 같다).
- * 보내지 않은 것은 지워지고, `id` 없는 줄은 새로 생긴다. 순서는 배열 순서다.
+ * 케이블 그룹 — **통째로** 보낸다(자산 종류가 포트를 함께 보내는 것과 같다): 제 이름·색과
+ * 종류 목록 전체. 보내지 않은 종류는 지워지고, `id` 없는 줄은 새로 생긴다. 순서는 배열 순서다.
  *
- * 그룹 자신(이름·색)은 고정 어휘라 고치는 길이 없다.
+ * 그룹을 새로 만들거나 지우는 길은 없다 — `key` 가 포트 종류의 어휘다.
  */
-export async function putCableCategories(
-  groupId: string,
-  categories: {
-    id?: string;
+export async function putCableGroup(
+  id: string,
+  body: {
     name: string;
-    laborType: string | null;
-    installHoursPerM: number;
-    removeHoursPerM: number;
-  }[],
+    color: string;
+    categories: {
+      id?: string;
+      name: string;
+      laborType: string | null;
+      installHoursPerM: number;
+      removeHoursPerM: number;
+    }[];
+  },
 ): Promise<V2CableGroup> {
-  return (await api.put(`/v2/catalog/cable-groups/${groupId}/categories`, { categories })).data;
+  return (await api.put(`/v2/catalog/cable-groups/${id}`, body)).data;
 }
 
 // ── 설비 종류 ────────────────────────────────────────────────────────────────

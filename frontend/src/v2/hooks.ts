@@ -14,7 +14,7 @@ import {
   fetchOrgTree,
   patchCategory,
   patchOrgNode,
-  putCableCategories,
+  putCableGroup,
   updateAssembly,
   updateType,
   type OrgKind,
@@ -61,7 +61,7 @@ export function useCatalogMutations() {
     patchCategory: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof patchCategory>[1] }) => patchCategory(id, body), onSuccess: invalidate, meta: QUIET }),
     deleteCategory: useMutation({ mutationFn: deleteCategory, onSuccess: invalidate, meta: QUIET }),
 
-    putCableCategories: useMutation({ mutationFn: ({ groupId, categories }: { groupId: string; categories: Parameters<typeof putCableCategories>[1] }) => putCableCategories(groupId, categories), onSuccess: invalidate, meta: QUIET }),
+    putCableGroup: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof putCableGroup>[1] }) => putCableGroup(id, body), onSuccess: invalidate, meta: QUIET }),
 
     createAssembly: useMutation({ mutationFn: createAssembly, onSuccess: invalidate, meta: QUIET }),
     updateAssembly: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateAssembly>[1] }) => updateAssembly(id, body), onSuccess: invalidate, meta: QUIET }),

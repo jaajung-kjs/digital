@@ -151,15 +151,18 @@ export const typeUpsertSchema = z.object({
 export const categoryCreateSchema = z.object({ key: z.string().min(1), name: z.string().trim().min(1), sortOrder: z.number().int() });
 export const categoryPatchSchema = z.object({ name: z.string().trim().min(1).optional(), sortOrder: z.number().int().optional() });
 /*
- * 그룹 하나의 **종류 목록 전체** — 자산 종류가 포트를 자식으로 안고 한 번의 PUT 으로 나가는
- * 것과 같은 모양이다. 종류는 그룹 없이 홀로 서지 못하므로 낱개 CRUD 를 두지 않는다: 이름
- * 바꾸기·추가·삭제·순서가 각자 다른 길로 나가면 「고치고 → 저장」이 한 화면에서 세 가지 뜻을
- * 갖는다.
+ * 그룹 하나 **통째로** — 제 이름·색과 그 안의 종류 목록 전체. 자산 종류가 포트를 자식으로
+ * 안고 한 번의 PUT 으로 나가는 것과 같은 모양이다. 종류는 그룹 없이 홀로 서지 못하므로 낱개
+ * CRUD 를 두지 않는다: 이름 바꾸기·추가·삭제·순서가 각자 다른 길로 나가면 「고치고 → 저장」이
+ * 한 화면에서 세 가지 뜻을 갖는다.
  *
  * 목록에 없는 종류는 지워진다(쓰이는 중이면 서버가 거부한다). 순서는 배열 순서다.
- * 그룹 자신(이름·색·key)은 `PORT_KINDS` 가 정하는 고정 어휘라 여기서 받지 않는다.
+ * `key` 는 `PORT_KINDS` 가 정하는 고정 어휘라 받지 않는다 — 포트가 무엇과 이어지는지를
+ * 그 키로 판정하므로, 늘리거나 갈아 끼울 수 있으면 안 된다.
  */
-export const cableCategoriesPutSchema = z.object({
+export const cableGroupPutSchema = z.object({
+  name: z.string().trim().min(1),
+  color: z.string().min(1),
   categories: z.array(
     z.object({
       /** 이미 있는 것이면 그 id, 새로 만드는 줄이면 없다. */

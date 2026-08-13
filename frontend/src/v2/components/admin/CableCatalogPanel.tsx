@@ -4,13 +4,16 @@
  * 다른 두 탭과 **같은 문장**이다: 왼쪽에서 하나를 고르고, 오른쪽에서 고치고, 저장한다.
  *
  * 왼쪽은 그룹(전원·네트워크·광·제어·접지)이다. 이 다섯은 `PORT_KINDS` 가 정하는 **고정
- * 어휘**라 늘지도 줄지도 않고 이름·색도 코드가 주인이다 — 그래서 그룹을 고치는 UI 가 없다.
- * 늘고 주는 것은 그룹 안의 **종류**이고, 오른쪽 표가 그것이다.
+ * 어휘**라 늘지도 줄지도 않는다(포트가 무엇과 이어지는지를 그 키로 판정한다). 고치는 것은
+ * 이름·색이고, 늘고 주는 것은 그 안의 **종류**다.
  *
  * 초안이 담는 것은 「그룹 하나와 그 자식들」이다 — 자산 종류의 초안이 포트를 자식으로 안고
  * 한 번의 PUT 으로 나가는 것과 같은 모양이라, 저장 규칙이 세 탭에서 같아진다. 예전에는 이
- * 탭만 거꾸로였다: 머리줄인 그룹의 이름·색이 저장 바를 거치고, 정작 여러 칸짜리 종류는
- * 칸을 떠날 때마다 바로 날아갔다.
+ * 탭만 거꾸로였다: 그룹의 이름·색만 저장 바를 거치고, 정작 여러 칸짜리 종류는 칸을 떠날
+ * 때마다 바로 날아갔다.
+ *
+ * 오른쪽은 `표 │ 상세` 다. 상세는 **한 자리에서 문맥만 바뀐다** — 아무것도 안 골랐으면 그룹
+ * 자신, 종류를 골랐으면 그 종류(설비 종류 탭이 「설비 자신 ↔ 부품」으로 바뀌는 것과 같다).
  */
 import { useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -29,7 +32,7 @@ import {
   SELECTABLE,
   SELECTED,
 } from '../../../components/ui';
-import type { V2Catalog, V2CableCategory } from '../../types';
+import type { V2Catalog, V2CableGroup } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
 import { useCatalogMutations } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
@@ -57,26 +60,38 @@ interface CategoryDraft {
   remove: string;
 }
 
+/** 고치는 중인 그룹 — 제 이름·색과 그 자식들. 저장 한 번에 통째로 나간다. */
+interface GroupDraft {
+  name: string;
+  color: string;
+  categories: CategoryDraft[];
+}
+
 /** 이름 · 노무유형 · 신설 · 철거. 합이 100 이어야 한다(`TableCard`). */
 const COL_WIDTHS = [42, 26, 16, 16] as const;
 
 let seq = 0;
 const newKey = () => `new-${++seq}`;
 
-const toDraft = (cats: V2CableCategory[]): CategoryDraft[] =>
-  cats.map((c) => ({
+const toDraft = (g: V2CableGroup): GroupDraft => ({
+  name: g.name,
+  color: g.color,
+  categories: g.categories.map((c) => ({
     id: c.id,
     key: c.id,
     name: c.name,
     laborType: c.laborType ?? '',
     install: String(c.installHoursPerM),
     remove: String(c.removeHoursPerM),
-  }));
+  })),
+});
 
-const same = (a: CategoryDraft[], b: CategoryDraft[]) =>
-  a.length === b.length &&
-  a.every((x, i) => {
-    const y = b[i]!;
+const same = (a: GroupDraft, b: GroupDraft) =>
+  a.name === b.name &&
+  a.color === b.color &&
+  a.categories.length === b.categories.length &&
+  a.categories.every((x, i) => {
+    const y = b.categories[i]!;
     return (
       x.id === y.id &&
       x.name === y.name &&
@@ -101,12 +116,14 @@ interface RowIssues {
  * 저장 바는 「입력 오류 N건」만 말할 수 있다. 한 화면에 열 줄 넘게 서는 표에서 그것만으로는
  * 어디를 고쳐야 할지 알 수 없으므로, 칸마다 테두리로 표시한다.
  */
-function issuesOf(rows: CategoryDraft[]): { flags: Map<string, RowIssues>; count: number } {
+function issuesOf(g: GroupDraft | null): { flags: Map<string, RowIssues>; groupName: boolean; count: number } {
+  const rows = g?.categories ?? [];
   const times = new Map<string, number>();
   for (const r of rows) times.set(r.name.trim(), (times.get(r.name.trim()) ?? 0) + 1);
 
+  const groupName = g != null && g.name.trim() === '';
   const flags = new Map<string, RowIssues>();
-  let count = 0;
+  let count = groupName ? 1 : 0;
   for (const r of rows) {
     const n = r.name.trim();
     /* 같은 그룹 안에서 이름은 겹칠 수 없다(DB 제약) — 저장하고 나서 알면 늦다. */
@@ -118,7 +135,7 @@ function issuesOf(rows: CategoryDraft[]): { flags: Map<string, RowIssues>; count
     count += Number(f.name) + Number(f.install) + Number(f.remove);
     flags.set(r.key, f);
   }
-  return { flags, count };
+  return { flags, groupName, count };
 }
 
 export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
@@ -127,7 +144,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const groups = catalog.cableGroups;
 
   const [selectedId, setSelectedId] = useState<string | null>(groups[0]?.id ?? null);
-  const [draft, setDraft] = useState<CategoryDraft[] | null>(groups[0] ? toDraft(groups[0].categories) : null);
+  const [draft, setDraft] = useState<GroupDraft | null>(groups[0] ? toDraft(groups[0]) : null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   /* 방금 더한 줄에 커서를 둔다 — 새 줄이 서기만 하고 손이 갈 곳을 안 알려 주면 한 번 더 눌러야 한다. */
@@ -157,17 +174,18 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     )
       return;
     setSelectedId(id);
-    setDraft(toDraft(g.categories));
+    setDraft(toDraft(g));
+    setSelectedKey(null);
     setSaveError(null);
   };
   if (original == null && groups.length > 0 && selectedId != null) {
     // 목록이 갱신되며 고른 것이 사라진 경우
     setSelectedId(groups[0]!.id);
-    setDraft(toDraft(groups[0]!.categories));
+    setDraft(toDraft(groups[0]!));
   }
 
-  const saved = useMemo(() => (original ? toDraft(original.categories) : []), [original]);
-  const dirty = draft != null && original != null && !same(draft, saved);
+  const saved = useMemo(() => (original ? toDraft(original) : null), [original]);
+  const dirty = draft != null && saved != null && !same(draft, saved);
   /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
   useReportUnsaved(dirty);
   /* `selectGroup` 은 `dirty` 보다 위에 선다 — 최신 값을 ref 로 읽는다(선언 순서 때문이지
@@ -175,14 +193,22 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
 
-  const { flags, count: issueCount } = useMemo(() => issuesOf(draft ?? []), [draft]);
+  const { flags, groupName: groupNameIssue, count: issueCount } = useMemo(() => issuesOf(draft), [draft]);
 
   /* 고른 줄이 사라졌으면(취소·저장으로 초안이 다시 서면) 자연히 풀린다 — 따로 지우지 않는다. */
-  const selectedRow = draft?.find((r) => r.key === selectedKey) ?? null;
+  const selectedRow = draft?.categories.find((r) => r.key === selectedKey) ?? null;
   const selectedIssues = selectedRow ? flags.get(selectedRow.key) : undefined;
 
+  function patchGroup(patch: Partial<Omit<GroupDraft, 'categories'>>) {
+    setDraft((prev) => (prev == null ? prev : { ...prev, ...patch }));
+  }
+
   function patchRow(key: string, patch: Partial<CategoryDraft>) {
-    setDraft((prev) => prev?.map((r) => (r.key === key ? { ...r, ...patch } : r)) ?? prev);
+    setDraft((prev) =>
+      prev == null
+        ? prev
+        : { ...prev, categories: prev.categories.map((r) => (r.key === key ? { ...r, ...patch } : r)) },
+    );
   }
 
   /* 새 줄은 서자마자 **골라진다** — 고칠 자리가 오른쪽이므로, 고르지 않으면 이름 한 칸을
@@ -192,7 +218,14 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     setFocusKey(key);
     setSelectedKey(key);
     setSaveError(null);
-    setDraft((prev) => [...(prev ?? []), { id: null, key, name: '', laborType: '', install: '0', remove: '0' }]);
+    setDraft((prev) =>
+      prev == null
+        ? prev
+        : {
+            ...prev,
+            categories: [...prev.categories, { id: null, key, name: '', laborType: '', install: '0', remove: '0' }],
+          },
+    );
   }
 
   /* 지우는 것도 초안에 쌓인다 — 취소로 되돌아오므로 따로 묻지 않는다. 쓰이는 중인 종류라면
@@ -200,7 +233,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   function removeRow(key: string) {
     setSaveError(null);
     setSelectedKey((cur) => (cur === key ? null : cur));
-    setDraft((prev) => prev?.filter((r) => r.key !== key) ?? prev);
+    setDraft((prev) => (prev == null ? prev : { ...prev, categories: prev.categories.filter((r) => r.key !== key) }));
   }
 
   async function handleSave() {
@@ -208,19 +241,23 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     setSaving(true);
     setSaveError(null);
     try {
-      const updated = await mutations.putCableCategories.mutateAsync({
-        groupId: original.id,
-        categories: draft.map((r) => ({
-          ...(r.id ? { id: r.id } : {}),
-          name: r.name.trim(),
-          laborType: r.laborType.trim() || null,
-          installHoursPerM: Number(r.install),
-          removeHoursPerM: Number(r.remove),
-        })),
+      const updated = await mutations.putCableGroup.mutateAsync({
+        id: original.id,
+        body: {
+          name: draft.name.trim(),
+          color: draft.color,
+          categories: draft.categories.map((r) => ({
+            ...(r.id ? { id: r.id } : {}),
+            name: r.name.trim(),
+            laborType: r.laborType.trim() || null,
+            installHoursPerM: Number(r.install),
+            removeHoursPerM: Number(r.remove),
+          })),
+        },
       });
       /* 새로 만든 줄은 이제 id 를 갖는다 — 서버가 돌려준 것으로 초안을 다시 세우지 않으면
          다음 저장에서 같은 줄을 또 만든다. */
-      setDraft(toDraft(updated.categories));
+      setDraft(toDraft(updated));
     } catch (err: unknown) {
       setSaveError(apiErrorMessage(err, '저장하지 못했습니다'));
     } finally {
@@ -228,17 +265,23 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     }
   }
 
+  /* 고치는 중인 그룹은 목록에도 **초안**을 보여 준다 — 색을 고르는 자리(상세)와 그 색이
+     실제로 쓰이는 자리(목록의 점)가 다르므로, 저장해야 결과를 알 수 있으면 색을 못 고른다. */
   const listGroups = [
     {
       key: 'all',
       label: null,
-      items: groups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        dot: g.color,
-        hint: String(g.categories.length),
-        hintTitle: `케이블 종류 ${g.categories.length}개`,
-      })),
+      items: groups.map((g) => {
+        const live = g.id === selectedId && draft != null ? draft : null;
+        const count = live?.categories.length ?? g.categories.length;
+        return {
+          id: g.id,
+          name: live?.name.trim() || g.name,
+          dot: live?.color ?? g.color,
+          hint: String(count),
+          hintTitle: `케이블 종류 ${count}개`,
+        };
+      }),
     },
   ];
 
@@ -256,12 +299,12 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         {original == null || draft == null ? (
           <EmptyState
             title="선택된 케이블 그룹이 없습니다"
-            description="좌측 목록에서 그룹을 고르세요. 그룹은 고정 어휘이고, 그 안의 종류가 실제로 케이블에 붙어 설계서 공량의 근거가 됩니다."
+            description="좌측 목록에서 그룹을 고르세요. 그룹 안의 종류가 실제로 케이블에 붙어 설계서 공량의 근거가 됩니다."
           />
         ) : (
           <>
             <CatalogEditorBar
-              title={original.name}
+              title={draft.name.trim() || original.name}
               dirty={dirty}
               saving={saving}
               issueCount={issueCount}
@@ -293,7 +336,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {draft.map((row) => {
+                    {draft.categories.map((row) => {
                       const bad = flags.get(row.key);
                       return (
                         <tr
@@ -411,24 +454,29 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                   </>
                 ) : (
                   <DetailCard>
-                    <DetailCardHeader
-                      title={original.name}
-                      badge={`종류 ${draft.length}`}
-                      badgeStatus="neutral"
-                    />
-                    <DetailRow label="색상">
-                      <span className="flex items-center gap-2">
-                        <span
-                          aria-hidden
-                          className="size-3 shrink-0 rounded-full"
-                          style={{ backgroundColor: original.color }}
-                        />
-                        <span className="text-xs text-content-muted">도면에서 이 그룹의 케이블이 그려지는 색</span>
-                      </span>
+                    <DetailCardHeader title="그룹" badge={`종류 ${draft.categories.length}`} badgeStatus="neutral" />
+                    <DetailRow label="이름" issue={groupNameIssue ? '이름은 비울 수 없습니다' : null}>
+                      <Input
+                        aria-label="그룹 이름"
+                        invalid={groupNameIssue}
+                        value={draft.name}
+                        onChange={(e) => patchGroup({ name: e.currentTarget.value })}
+                      />
+                    </DetailRow>
+                    <DetailRow label="색상" hint="도면에서 이 그룹의 케이블이 그려지는 색">
+                      {/* hex 코드는 굳이 읽을 것이 아니다 — 스와치가 값을 보여준다. */}
+                      <input
+                        type="color"
+                        aria-label="그룹 색상"
+                        value={draft.color}
+                        title={draft.color}
+                        onChange={(e) => patchGroup({ color: e.currentTarget.value })}
+                        className="h-7 w-10 cursor-pointer rounded border border-line"
+                      />
                     </DetailRow>
                     <DetailNote>
-                      그룹은 포트 종류와 짝지어진 고정 어휘라 늘리거나 이름·색을 고칠 수 없습니다. 늘어나는 것은 그
-                      안의 종류입니다 — 표에서 고르면 여기서 고칩니다.
+                      그룹은 포트 종류와 짝지어진 고정 어휘라 새로 만들거나 지울 수 없습니다. 늘어나는 것은 그 안의
+                      종류입니다 — 표에서 고르면 여기서 고칩니다.
                     </DetailNote>
                   </DetailCard>
                 )}
