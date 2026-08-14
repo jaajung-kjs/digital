@@ -9,7 +9,7 @@ const uniq = `t2a-cm-${Date.now()}`;
 const admin = { Authorization: authHeader('admin') };
 let subId: string, floorId: string;
 let pitrTypeId: string, slotTypeId: string, groundingTypeId: string;
-/** 설비는 설비 종류으로 놓는다 — 타입이 아니라 설비 종류가 그 분류다. */
+/** 설비는 설비 종류로 놓는다 — 타입이 아니라 설비 종류가 그 분류다. */
 let optSetId: string, ofdAssemblyId: string;
 
 const commit = (payload: unknown) =>
@@ -101,7 +101,7 @@ describe('PUT /commit — assets', () => {
     expect(after.find((x) => x.id === b)!.row).toBe(0);
   });
 
-  /* 담을 수 있는 것은 설비 종류으로 놓은 설비뿐이다 — 부품 안에 부품을 넣을 수는 없다.
+  /* 담을 수 있는 것은 설비 종류로 놓은 설비뿐이다 — 부품 안에 부품을 넣을 수는 없다.
      무엇을 담을지는 설비 종류를 짜는 사람이 정하지, 자리가 정하지 않는다(수용 규칙은 걷었다). */
   it('부품을 부모로 삼으면 422 INVALID_PARENT', async () => {
     const part = await nextDb.asset.findFirstOrThrow({ where: { substationId: subId, name: `${uniq}-m1` } });

@@ -113,7 +113,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => powerContainers(effectiveAssets), [effectiveAssets]);
 
-  /* 설비의 격자를 아는 것은 그 설비 종류가다 — 회로 번호와 빈 자리가 여기서 나온다. */
+  /* 설비의 격자를 아는 것은 그 설비 종류다 — 회로 번호와 빈 자리가 여기서 나온다. */
   const catalog = useV2Catalog();
   const assembliesById = useMemo(
     () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),

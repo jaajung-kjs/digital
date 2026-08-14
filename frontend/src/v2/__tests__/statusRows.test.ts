@@ -8,7 +8,7 @@ const types = new Map([
   ['t-mod', { id: 't-mod', name: 'PITR', categoryId: 'c-1' } as never],
 ]);
 const categories = new Map([['c-1', '통신']]);
-/* 자리 번호는 상위 **설비의 설비 종류의 격자**에서 나온다. 설비 종류으로 놓은 설비는 설비 종류가 곧 분류다. */
+/* 자리 번호는 상위 **설비의 설비 종류의 격자**에서 나온다. 설비 종류로 놓은 설비는 설비 종류가 곧 분류다. */
 const assemblies = new Map([['asm-rack', { id: 'asm-rack', name: '송변전광단말장치', gridCols: 1, gridRows: 12 } as never]]);
 
 describe('buildStatusRows (변전소 스코프)', () => {
@@ -70,7 +70,7 @@ describe('필드 열 도출', () => {
   });
 });
 
-/* 설비 종류으로 놓으면 자산이 여럿 생긴다(랙·송광치·OFD·경로슬롯…). 업무에서 세는 단위는 그
+/* 설비 종류로 놓으면 자산이 여럿 생긴다(랙·송광치·OFD·경로슬롯…). 업무에서 세는 단위는 그
    묶음 하나이므로 표가 접을 수 있어야 한다 — 어느 행이 어느 묶음에 드는지는 여기서 나온다. */
 describe('설비 묶음', () => {
   const types = new Map([

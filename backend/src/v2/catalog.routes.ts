@@ -560,7 +560,7 @@ catalogRouter.delete('/assemblies/:id', adminOnly, async (req, res, next) => {
        현황 집계가 깨진다. 안 쓰이게 하려면 `isActive` 를 끄면 된다. */
     const inUse = await nextDb.asset.count({ where: { assemblyId: id } });
     if (inUse > 0) {
-      throw new HttpError(409, 'ASSEMBLY_IN_USE', '이 설비 종류으로 놓인 설비가 있습니다', [{ count: inUse }]);
+      throw new HttpError(409, 'ASSEMBLY_IN_USE', '이 설비 종류로 놓인 설비가 있습니다', [{ count: inUse }]);
     }
     await nextDb.assembly.delete({ where: { id } });
     res.status(204).end();

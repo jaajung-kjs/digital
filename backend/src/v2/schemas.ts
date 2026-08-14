@@ -13,7 +13,7 @@ export const floorCreateSchema = orgNameSchema.extend({ substationId: z.string()
 const assetCreateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1),
-  /* 도면에 놓이는 것은 둘이다: 설비 종류으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
+  /* 도면에 놓이는 것은 둘이다: 설비 종류로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
      둘 중 하나는 있어야 한다는 판정은 커밋이 한다(설비 종류·타입이 실재하는지도 거기서 본다). */
   typeId: z.string().uuid().nullish(),
   /* 상태 어휘는 core 의 ASSET_STATUSES 가 유일한 출처다.

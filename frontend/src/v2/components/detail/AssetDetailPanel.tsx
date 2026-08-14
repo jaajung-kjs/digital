@@ -89,7 +89,7 @@ export function AssetDetailPanel({
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
-  /* 설비 종류으로 놓은 설비는 타입이 없다 — 그 분류는 설비 종류가다. */
+  /* 설비 종류로 놓은 설비는 타입이 없다 — 그 분류는 설비 종류다. */
   const type = asset?.typeId ? typesById.get(asset.typeId) : undefined;
 
   const assembliesById = useMemo(

@@ -20,11 +20,18 @@ export const WORK_KINDS = [
 
 export type WorkKind = (typeof WORK_KINDS)[number]['key'];
 
-/** 공량을 갖는 것들과 그 단위. 단위는 **담체**가 정한다 — 필드 이름에 박지 않는다. */
+/**
+ * 공량을 갖는 것들과 그 단위. 단위는 **담체**가 정한다 — 필드 이름에 박지 않는다.
+ *
+ * `emptyManDays` 는 품 칸을 **비워 뒀을 때의 뜻**이다. 담체마다 다르다: 설비만 안에 든
+ * 부품의 공량을 합쳐 세고(`reportSelectors.assemblyLabor`), 자산·케이블은 합칠 것이 없어
+ * 0 으로 잡힌다(`assetReportItem`·`cableReportItem` 의 `?? 0`). 담체가 선언하므로 화면이
+ * `carrier === 'assembly'` 를 알 필요가 없다.
+ */
 export const LABOR_CARRIERS = {
-  asset: { label: '자산 종류', unit: '대' },
-  assembly: { label: '설비 종류', unit: '식' },
-  cable: { label: '케이블 종류', unit: 'm' },
+  asset: { label: '자산 종류', unit: '대', emptyManDays: '품 0' },
+  assembly: { label: '설비 종류', unit: '식', emptyManDays: '부품 합산' },
+  cable: { label: '케이블 종류', unit: 'm', emptyManDays: '품 0' },
 } as const;
 
 export type LaborCarrier = keyof typeof LABOR_CARRIERS;
@@ -73,6 +80,21 @@ export const manDayUnit = (carrier: LaborCarrier) => `인/${LABOR_CARRIERS[carri
 /** 자재단가의 단위 — 「원/m」. */
 export const unitPriceUnit = (carrier: LaborCarrier) => `원/${LABOR_CARRIERS[carrier].unit}`;
 
+/** 자재단가를 안 적었을 때의 뜻 — 담체를 가리지 않는다(`ReportItem.unitPrice`: 재료비 0). */
+const EMPTY_UNIT_PRICE = '재료비 0';
+
+/**
+ * **비워 두면 무슨 뜻인가** — 화면이 그 칸의 빈칸 안내(placeholder)로 그대로 적는다.
+ *
+ * `null`(안 적었다)과 `0`(품이 안 든다)은 뜻이 정반대인데, 화면에서는 빈 상자와 `0` 이 든
+ * 상자라 거의 같아 보였다. 게다가 0 을 지워 null 로 되돌릴 수 있는지조차 알 수 없었다 —
+ * 지워 보고 나서야 알 수 있는 것은 알려 준 것이 아니다. 자료가 3-상태면 화면도 3-상태여야
+ * 하고, **빈 칸이 스스로 제 뜻을 말하는 것**이 가장 싼 3-상태다.
+ */
+export function emptyMeaning(carrier: LaborCarrier, kind: 'price' | 'manDays'): string {
+  return `미입력 (${kind === 'price' ? EMPTY_UNIT_PRICE : LABOR_CARRIERS[carrier].emptyManDays})`;
+}
+
 /**
  * 직종과 노임단가는 **다른 데이터**다 — 화면이 붙여 놓으면 한 칸에 둘 다 저장되는 것으로 읽힌다.
  *
@@ -97,18 +119,30 @@ export function unitPriceLabel(carrier: LaborCarrier): string {
  * 폼과 표가 각자 칸을 적으면 반드시 어긋난다(실제로 케이블 표에만 자재단가가 빠져 있었다).
  * 칸을 늘리려면 여기 한 곳이다.
  */
-export function laborSpecColumns(
-  carrier: LaborCarrier,
-): { field: keyof LaborSpec; label: string; unit: string; kind: 'price' | 'manDays' }[] {
+export function laborSpecColumns(carrier: LaborCarrier): {
+  field: keyof LaborSpec;
+  label: string;
+  unit: string;
+  kind: 'price' | 'manDays';
+  /** 이 칸을 비워 뒀을 때의 뜻 — 폼이 빈칸 안내로 적는다(`emptyMeaning`). */
+  empty: string;
+}[] {
   /* 이름과 단위를 **따로** 준다 — 붙여 두면 표 머리글이 「자재단가(원/」 처럼 토큰
      한가운데서 접힌다. 폼은 값 옆에, 표는 이름 옆에 흐리게 단다. */
   return [
-    { field: 'unitPrice', label: '자재단가', unit: unitPriceUnit(carrier), kind: 'price' },
+    {
+      field: 'unitPrice',
+      label: '자재단가',
+      unit: unitPriceUnit(carrier),
+      kind: 'price',
+      empty: emptyMeaning(carrier, 'price'),
+    },
     ...WORK_KINDS.map((w) => ({
       field: MAN_DAY_FIELD[w.key] as keyof LaborSpec,
       label: w.label,
       unit: manDayUnit(carrier),
       kind: 'manDays' as const,
+      empty: emptyMeaning(carrier, 'manDays'),
     })),
   ];
 }

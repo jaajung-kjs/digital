@@ -98,8 +98,8 @@ async function loadTypeSpec(tx: Tx, typeId: string) {
 /**
  * 부품을 **설비 격자**에 놓을 수 있는가.
  *
- * 격자는 설비가 가리키는 설비 종류가 선언한다 — 자산 종류이 아니다. 그래서 부모는 반드시
- * 설비 종류으로 놓인 설비여야 한다(부품 안에 부품을 담지 않는다).
+ * 격자는 설비가 가리키는 설비 종류가 선언한다 — 자산 종류가 아니다. 그래서 부모는 반드시
+ * 설비 종류로 놓인 설비여야 한다(부품 안에 부품을 담지 않는다).
  */
 async function assertGridParent(
   tx: Tx,
@@ -108,7 +108,7 @@ async function assertGridParent(
 ): Promise<void> {
   const parent = await tx.asset.findUnique({ where: { id: parentAssetId }, include: { assembly: true } });
   if (!parent || parent.substationId !== substationId) throw new HttpError(422, 'INVALID_PARENT', '부모 자산이 유효하지 않습니다');
-  if (!parent.assembly) throw new HttpError(422, 'INVALID_PARENT', '부품을 담을 수 있는 것은 설비 종류으로 놓은 설비뿐입니다');
+  if (!parent.assembly) throw new HttpError(422, 'INVALID_PARENT', '부품을 담을 수 있는 것은 설비 종류로 놓은 설비뿐입니다');
 }
 
 /**
@@ -158,7 +158,7 @@ async function assertGridsValid(tx: Tx, parentIds: Iterable<string>): Promise<vo
 let touchedGrids = new Set<string>();
 
 async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Promise<void> {
-  /* 도면에 놓이는 것은 둘이다: 설비 종류으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
+  /* 도면에 놓이는 것은 둘이다: 설비 종류로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
      설비는 설비 종류가 분류이므로 타입을 요구하지 않는다. */
   if (!input.typeId && !input.assemblyId) {
     throw new HttpError(422, 'INVALID_ASSET', '자산 종류나 설비 종류 중 하나는 있어야 합니다');

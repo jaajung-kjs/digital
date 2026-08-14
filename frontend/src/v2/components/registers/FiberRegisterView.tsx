@@ -128,7 +128,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => fiberContainers(effectiveAssets), [effectiveAssets]);
 
-  /* 설비의 격자를 아는 것은 그 설비 종류가다 — 표가 자리 번호를 매길 때 쓴다. */
+  /* 설비의 격자를 아는 것은 그 설비 종류다 — 표가 자리 번호를 매길 때 쓴다. */
   const catalog = useV2Catalog();
   const assembliesById = useMemo(
     () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),

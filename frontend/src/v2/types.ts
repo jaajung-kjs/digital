@@ -155,7 +155,7 @@ export interface V2Port {
 }
 export interface V2Asset {
   id: string; name: string;
-  /** 부품이면 그 타입. **설비 종류으로 놓은 설비는 타입이 없다** — 분류는 설비 종류가다. */
+  /** 부품이면 그 타입. **설비 종류로 놓은 설비는 타입이 없다** — 분류는 설비 종류다. */
   typeId: string | null;
   substationId: string; status: string;
   floorId: string | null; x: number | null; y: number | null; width: number | null; height: number | null;

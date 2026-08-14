@@ -44,7 +44,7 @@ describe('자산 위치 경로', () => {
     expect(assetLocationPath(ups, build(rack, ups), floors, assemblies)).toBe('1층 · 전원랙 A · 자리 1');
   });
 
-  /* 부품이 또 부품을 담지 않는다(평평하다) — OFD 도 도면에 바로 놓이는 설비 종류가다.
+  /* 부품이 또 부품을 담지 않는다(평평하다) — OFD 도 도면에 바로 놓이는 설비 종류다.
      그래도 경로 계산은 깊이를 가정하지 않는다: 데이터가 그렇게 되면 그대로 따라간다. */
   it('자리 번호가 없으면 이름만 붙는다', () => {
     const ofd = asset('ofd', 'OFD-1', { floorId: 'f1', typeId: null, assemblyId: 'rack-asm' });

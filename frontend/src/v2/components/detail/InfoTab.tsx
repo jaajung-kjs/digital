@@ -278,7 +278,7 @@ export function InfoTab({
     <>
       {/* 기본 정보 카드 */}
       <DetailCard>
-        {/* 종류 — 부품은 타입이, 설비 종류으로 놓은 설비는 **설비 종류**이 그 분류다. */}
+        {/* 종류 — 부품은 타입이, 설비 종류로 놓은 설비는 **설비 종류**가 그 분류다. */}
         <DetailCardHeader title={type?.name ?? assembly?.name ?? EMPTY} onDelete={handleDelete} />
 
         {/* 이름 */}
@@ -352,7 +352,7 @@ export function InfoTab({
           것이라 실제 포트도 아니고 연결 상태도 몰랐다. 같은 "포트" 가 두 탭에 반쪽씩
           나뉘어 있어, 어느 쪽을 봐야 하는지 알 수 없었다. */}
 
-      {/* 구성 — 설비 종류으로 놓은 설비만 안에 부품을 담는다.
+      {/* 구성 — 설비 종류로 놓은 설비만 안에 부품을 담는다.
           자리는 그 설비 종류의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
       {grid && assembly && (
         <div ref={gridCardRef}>
