@@ -34,6 +34,13 @@ export interface RegisterLayoutProps {
   sections?: { key: string; title: ReactNode; rows: ReactNode }[];
   /** 표 아래에 딸리는 것(모달 등) — 뷰가 소유한다. */
   trailing?: ReactNode;
+  /**
+   * 표 **바깥**을 눌렀을 때 — 고른 것을 놓는다.
+   *
+   * 「다시 누르면 풀린다」와 짝이다. 스무 줄쯤 내려가 있으면 고른 줄을 다시 찾아 누르는
+   * 것보다 여백을 누르는 편이 빠르고, 그것이 사람들이 먼저 해 보는 동작이다.
+   */
+  onClearSelection?: () => void;
 }
 
 /**
@@ -50,7 +57,7 @@ export interface RegisterLayoutProps {
  * 방법도 없다 — 이 컴포넌트는 자리와 건수만 맡는다(`TableSearch` 와 같은 규칙).
  */
 export function RegisterLayout({
-  picker, empty, search, widths, head, children, sections, trailing,
+  picker, empty, search, widths, head, children, sections, trailing, onClearSelection,
 }: RegisterLayoutProps) {
   if (picker.options.length === 0) {
     return <EmptyState title={empty.title} description={empty.description} />;
@@ -80,7 +87,13 @@ export function RegisterLayout({
 
       {/* 여백은 **스크롤되는 안쪽**에 준다 — 스크롤 상자에 직접 주면 고정 머리글이 그
           여백만큼 내려가 붙고, 그 틈으로 지나가는 행이 비친다(§1.7-b). */}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div
+        className="min-h-0 flex-1 overflow-auto"
+        /* 표 자신이 삼킨 클릭은 여기 오지 않는다 — 여백을 누른 것만 걸린다. */
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClearSelection?.();
+        }}
+      >
         <div className="p-4">
         {sections ? (
           <div className="flex flex-col gap-4">

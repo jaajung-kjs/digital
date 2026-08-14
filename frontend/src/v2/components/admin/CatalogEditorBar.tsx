@@ -7,8 +7,16 @@ export interface CatalogEditorBarProps {
   /** 고친 것이 있는가 — 있으면 이름 옆에 점이 뜬다. */
   dirty: boolean;
   saving: boolean;
-  /** 저장을 막는 입력 오류 수. */
+  /**
+   * 저장을 막는 입력 오류 수 — **저장을 눌러 막힌 뒤에만** 말한다(`showIssues`).
+   *
+   * 예전에는 이 수가 0보다 크기만 하면 띠가 떴다. 그래서 「새 자산 종류」를 누르는 순간
+   * 아직 아무것도 안 적은 빈 폼 위에 「입력 오류 2건 — 저장 전에 수정하세요」가 떠 있었다.
+   * 아직 하지 않은 일을 실수라고 부르는 것이다.
+   */
   issueCount?: number;
+  /** 저장을 눌러 막혔는가 — 그때부터 어느 칸이 막는지 말한다. */
+  showIssues?: boolean;
   /** 저장 실패 메시지 — 닫을 수 있다. */
   error?: string | null;
   onDismissError?: () => void;
@@ -35,7 +43,7 @@ export interface CatalogEditorBarProps {
  * 삭제였다. 되돌릴 수 없는 것은 이름 옆 `⋯` 안으로 한 겹 들어간다(`OverflowMenu`).
  */
 export function CatalogEditorBar({
-  title, dirty, saving, issueCount = 0, error, onDismissError,
+  title, dirty, saving, issueCount = 0, showIssues = false, error, onDismissError,
   notice, onDelete, deleteLabel, onCancel, onSave,
 }: CatalogEditorBarProps) {
   return (
@@ -45,7 +53,7 @@ export function CatalogEditorBar({
       <ErrorStrip message={error} onDismiss={onDismissError} className="w-full px-4 py-1" />
       {/* 오류가 떠 있으면 입력 오류 수는 접어 둔다 — 둘을 겹쳐 놓으면 어느 쪽을 고쳐야 할지
           알 수 없다(먼저 손댈 것은 방금 실패한 저장이다). */}
-      {issueCount > 0 && error == null && (
+      {showIssues && issueCount > 0 && error == null && (
         <div className="w-full px-4 py-1">
           <MessageStrip tone="warning">입력 오류 {issueCount}건 — 저장 전에 수정하세요</MessageStrip>
         </div>
@@ -66,7 +74,9 @@ export function CatalogEditorBar({
         <Button variant="secondary" size="sm" disabled={!dirty || saving} onClick={onCancel}>
           취소
         </Button>
-        <Button size="sm" disabled={!dirty || saving || issueCount > 0} onClick={onSave}>
+        {/* **막혔다고 꺼 두지 않는다.** 회색 단추는 왜 안 눌리는지 말해 주지 못해서
+            막다른 길이 된다 — 누르면 막고 있는 칸을 전부 짚어 준다(GOV.UK·Nielsen). */}
+        <Button size="sm" disabled={!dirty || saving} onClick={onSave}>
           {saving ? '저장 중…' : '저장'}
         </Button>
       </div>

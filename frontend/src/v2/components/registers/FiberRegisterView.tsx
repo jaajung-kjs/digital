@@ -138,7 +138,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   const [query, setQuery] = useState('');
   /* 고른 심선 — 표의 단위는 자산이 아니라 **심선**이다. 자산 id 로 칠하면 그 슬롯의 24행이
      한꺼번에 물들어, 어느 심선을 눌렀는지가 화면에서 사라진다(실제로 그랬다). */
-  const [selectedCore, setSelectedCore] = useState<{ slotId: string; coreIndex: number } | null>(null);
+  /** 고른 심선 — 슬롯과 코어를 합친 한 글자열. 표의 행 열쇠와 같은 것이라 규칙이 하나다. */
+  const [selectedCore, setSelectedCore] = useState<string | null>(null);
+  const coreKey = (row: FiberRow) => `${row.slotId}-${row.coreIndex}`;
 
   /**
    * 이 줄은 심선 하나다 — 패널도 그 포트를 고른 상태로 열어 준다.
@@ -146,8 +148,12 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
    * 줄에 대응하는 포트는 그 코어의 장비쪽 성단이고, 아직 성단되지 않은 코어(12구 판의
    * 13번 같은)는 그 심선을 나르는 인입 포트로 물러선다.
    */
-  const selectCore = (row: FiberRow) => {
-    setSelectedCore({ slotId: row.slotId, coreIndex: row.coreIndex });
+  const selectCore = (row: FiberRow, next: string | null) => {
+    setSelectedCore(next);
+    if (next === null) {
+      onSelectAsset(null);
+      return;
+    }
     const corePortId = row.cells.find((c) => c.portId)?.portId ?? null;
     onSelectAsset(row.slotId, corePortId ?? row.meta.portId);
   };
@@ -158,7 +164,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   /* 패널이 다른 자산으로 옮겨 가면 표의 선택도 놓는다 — 둘이 서로 다른 것을 가리키면
      "선택" 이라는 말이 화면에서 두 가지 뜻이 된다. */
   useEffect(() => {
-    setSelectedCore((cur) => (cur && cur.slotId === selectedAssetId ? cur : null));
+    setSelectedCore((cur) => (cur && selectedAssetId != null && cur.startsWith(`${selectedAssetId}-`) ? cur : null));
   }, [selectedAssetId]);
   const activeContainer = picked.active;
 
@@ -237,6 +243,10 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
         shown: filteredRows.length,
         total: rows.length,
       }}
+      onClearSelection={() => {
+        setSelectedCore(null);
+        onSelectAsset(null);
+      }}
       widths={fiberWidths}
       head={
         <>
@@ -259,16 +269,11 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
               rows: slotRows.map((row) => (
               <tr
                 key={`${row.slotId}-${row.coreIndex}`}
-                {...selectableRow(
-                  selectedCore?.slotId === row.slotId && selectedCore.coreIndex === row.coreIndex,
-                  () => selectCore(row),
-                )}
+                {...selectableRow(selectedCore, coreKey(row), (next) => selectCore(row, next))}
                 className={cn(
                   'h-9 border-b border-line focus-visible:outline-none focus-ring-input',
                   SELECTABLE,
-                  selectedCore?.slotId === row.slotId &&
-                    selectedCore.coreIndex === row.coreIndex &&
-                    SELECTED,
+                  selectedCore === coreKey(row) && SELECTED,
                 )}
               >
                 {/* 코어 번호 */}

@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
-import { EmptyState, IconButton, useConfirm, useInlineRename } from '../../../components/ui';
+import { EmptyState, IconButton, useConfirm, useInlineRename, IssueReveal } from '../../../components/ui';
 import { CatalogList } from './CatalogList';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
@@ -77,9 +77,18 @@ export function AssemblyCatalogPanel({
     });
   }
   const isSaving = m.createAssembly.isPending || m.updateAssembly.isPending;
+  /** 저장이 막혔을 때 폼 전체의 검증 문구를 켠다 — 평소에는 손댄 칸만 말한다. */
+  const [revealIssues, setRevealIssues] = useState(false);
+  useEffect(() => setRevealIssues(false), [selectedId]);
 
   async function handleSave() {
-    if (!draft || issues.length > 0) return;
+    if (!draft) return;
+    if (issues.length > 0) {
+      /* 몇 건인지만 말하고 어느 칸인지 안 짚으면 폼을 처음부터 훑어야 한다. */
+      setRevealIssues(true);
+      setSaveError(`입력 오류가 있습니다 (${issues.length}건) — 붉게 표시된 칸을 확인하세요`);
+      return;
+    }
     setSaveError(null);
     try {
       const body = draftToAssemblyBody(draft);
@@ -185,6 +194,7 @@ export function AssemblyCatalogPanel({
               dirty={dirty}
               saving={isSaving}
               issueCount={issues.length}
+              showIssues={revealIssues}
               error={saveError}
               onDismissError={() => setSaveError(null)}
               onDelete={selectedId != null ? () => void handleDelete() : undefined}
@@ -196,7 +206,9 @@ export function AssemblyCatalogPanel({
             {/* 스크롤은 **패널 안쪽**이 쥔다 — 바깥에서 감싸면 캔버스가 남는 자리를 못 쓰고,
                 오른쪽 상세만 길어져도 캔버스까지 함께 밀려 올라간다(평면도와 같은 규칙). */}
             <div className="min-h-0 flex-1 overflow-hidden">
-              <AssemblyPanel draft={draft} onChange={setDraft} catalog={catalog} issues={issues} />
+              <IssueReveal.Provider value={revealIssues}>
+                <AssemblyPanel draft={draft} onChange={setDraft} catalog={catalog} issues={issues} />
+              </IssueReveal.Provider>
             </div>
           </>
         )}

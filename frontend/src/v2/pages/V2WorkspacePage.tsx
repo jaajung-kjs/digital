@@ -137,6 +137,26 @@ export default function V2WorkspacePage() {
     setTraceResult(null); // 자산 선택 변경 시 추적 결과 클리어
   }, [route]);
 
+  /**
+   * **Esc 는 고른 것을 놓는다** — 화면이 무엇이든.
+   *
+   * 고르는 판이 다섯(현황·선번장·계통·평면도·조직 트리)인데 놓는 방법이 판마다 달랐고,
+   * 표에서는 아예 없었다. 「다시 누르면 풀린다」(`selectableRow`)와 짝이 되는 규칙을
+   * 여기 한 번만 적는다 — 판마다 적으면 빠뜨리는 판이 생긴다.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      /* 글자를 치는 중이면 그 칸의 일이다(입력 취소·드롭다운 닫기). */
+      const el = document.activeElement;
+      if (el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)))
+        return;
+      route.selectAsset(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [route]);
+
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
   /** 설비 종류으로 놓은 설비는 설비 종류가 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */

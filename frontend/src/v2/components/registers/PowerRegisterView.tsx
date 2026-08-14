@@ -14,11 +14,10 @@ import { RegisterLayout } from './RegisterLayout';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { powerContainers, buildPowerRows, POWER_MEDIUM } from '../../powerSelectors';
-import { cableFieldsFor, portFieldsFor, setPortValueAt, slotCell, type ValueDef } from '@twin/core';
+import { cableFieldsFor, portFieldsFor, setPortValueAt, type ValueDef } from '@twin/core';
 import type { PowerRow, PowerCell } from '../../powerSelectors';
 import { useV2Catalog } from '../../hooks';
 import { useMediumContainer } from '../../useMediumContainer';
-import { AddAssetModal } from '../AddAssetModal';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from '../InlineEditCell';
 
@@ -146,7 +145,6 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   /* 빈 회로 자리를 누르면 그 자리에 자산을 넣는다 — 모달은 이 뷰가 소유한다
      (평면도가 배치 모달을 직접 다루는 것과 같은 규칙). */
   /** 「+ 추가」를 누른 빈 자리 — 격자 칸이다(번호가 아니라). */
-  const [addCell, setAddCell] = useState<{ col: number; row: number } | null>(null);
 
   const rows = useMemo<PowerRow[]>(() => {
     if (!activeContainer) return [];
@@ -192,6 +190,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
         shown: filtered.length,
         total: rows.length,
       }}
+      onClearSelection={() => onSelectAsset(null)}
       widths={powerWidths}
       head={
         <>
@@ -211,21 +210,6 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       trailing={
         <>
   {/* 회로 자리에 자산 추가 */}
-  {addCell != null && activeContainer && picked.grid && (
-    <AddAssetModal
-      open
-      onClose={() => setAddCell(null)}
-      substationId={_substationId}
-      gridContext={{
-        parentAssetId: activeContainer.id,
-        grid: picked.grid,
-        siblings: effectiveAssets
-          .filter((a) => a.parentAssetId === activeContainer.id)
-          .map((a) => ({ col: a.col, row: a.row, colSpan: a.colSpan, rowSpan: a.rowSpan })),
-        cell: addCell,
-      }}
-    />
-  )}
         </>
       }
     >
@@ -237,34 +221,24 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           </tr>
         )}
         {filtered.map((row) =>
-          /* 빈 회로 자리 — 패널 스케줄의 SPARE. 눌러서 그 자리에 피더를 넣는다
-             (수용 UI 의 '비어 있음' 행과 같은 규칙). */
+          /* 빈 회로 자리(SPARE) — **읽는 줄이지 만드는 자리가 아니다.**
+             예전에는 이 줄만 눌러서 피더를 만들 수 있었다. 표는 셋(현황·선번장·계통)이
+             같은 판인데 여기서만 표가 생성 도구가 되니, 다른 표에서 빈 줄을 눌러 본
+             사람은 아무 일도 안 일어나는 것을 보게 된다. 만드는 일은 평면도·구성에서
+             한다. 빈 값 표기도 앱의 나머지와 같은 `—` 를 쓴다. */
           row.empty ? (
-            /* 빈 자리도 **같은 격자** 위에 있어야 한다 — 예전에는 표 폭을 통째로 가로지르는
-               점선 상자여서 행 경계선과 겹쳐 보이고 열 정렬이 끊겼다.
-               '추가' 는 손이 닿을 때만 뜨되 자리는 미리 비워 둔다(§1.7 — 안 그러면 행이 떤다). */
-            <tr
-              key={`empty-${row.slotNo}`}
-              {...selectableRow(false, () => setAddCell(slotCell(picked.grid?.cols ?? 1, row.slotNo!)))}
-              className={cn(
-                'group h-11 border-b border-line focus-visible:outline-none focus-ring-input',
-                SELECTABLE,
-              )}
-            >
-              <td className="px-3 py-1.5 text-sm text-content-faint tabular-nums">{row.slotNo}</td>
-              <td className="px-3 py-1.5 text-sm text-content-faint">
-                비어 있음
-                <span className="ml-2 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                  + 추가
-                </span>
-              </td>
-              {/* 회로 번호·이름 다음은 전부 비운다 — 빈 자리 행에도 격자는 그대로 있어야 한다. */}
-              <td colSpan={totalCols - 2} />
+            <tr key={`empty-${row.slotNo}`} className="h-11 border-b border-line text-content-faint">
+              <td className="px-3 py-1.5 text-sm tabular-nums">{row.slotNo}</td>
+              {Array.from({ length: totalCols - 1 }, (_, i) => (
+                <td key={i} className="px-3 py-1.5 text-sm">
+                  {EMPTY}
+                </td>
+              ))}
             </tr>
           ) : (
           <tr
             key={row.feederId}
-            {...selectableRow(selectedAssetId === row.feederId, () => onSelectAsset(row.feederId))}
+            {...selectableRow(selectedAssetId, row.feederId, onSelectAsset)}
             /* 모든 행이 같은 높이 — 패널 스케줄은 눈으로 회로를 세는 표다. 빈 자리 행에는
                컨트롤이 없어 10px 낮았고, 그 바람에 번호 간격이 들쭉날쭉했다. */
             className={cn(

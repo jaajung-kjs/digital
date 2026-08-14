@@ -360,6 +360,7 @@ function CatalogAdmin() {
                     dirty={dirty}
                     saving={isSaving}
                     issueCount={issues.length}
+                    showIssues={revealIssues}
                     error={saveError}
                     onDismissError={() => setSaveError(null)}
                     notice={

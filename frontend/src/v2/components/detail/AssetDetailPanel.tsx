@@ -11,7 +11,8 @@ import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
 import type { CablePickRequest } from '../../cablePick';
 import type { TraceResult } from '../../traceSelectors';
-import { Button, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../../components/ui';
+import { X } from 'lucide-react';
+import { Button, IconButton, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'info' | 'photos' | 'inspections' | 'logs' | 'connections';
@@ -19,7 +20,7 @@ type Tab = 'info' | 'photos' | 'inspections' | 'logs' | 'connections';
 // ── 메인 패널 ─────────────────────────────────────────────────────────────────
 interface AssetDetailPanelProps {
   assetId: string;
-  onSelectAsset: (id: string) => void;
+  onSelectAsset: (id: string | null) => void;
   onTrace?: (result: TraceResult) => void;
   onClearTrace?: () => void;
   traceResult?: TraceResult | null;
@@ -208,13 +209,20 @@ export function AssetDetailPanel({
         }
         className="shrink-0"
         actions={
-          /* 도면 어디에 있는지 보러 가는 길이 없었다. 자산 자신이 놓여 있지 않아도
-             (랙 안의 장비 등) 놓인 상위가 있으면 그 자리로 데려간다. */
-          onShowOnFloorPlan && placedAncestorExists ? (
-            <Button variant="secondary" size="sm" onClick={onShowOnFloorPlan}>
-              평면도에서 보기
-            </Button>
-          ) : undefined
+          <>
+            {/* 도면 어디에 있는지 보러 가는 길이 없었다. 자산 자신이 놓여 있지 않아도
+                (랙 안의 장비 등) 놓인 상위가 있으면 그 자리로 데려간다. */}
+            {onShowOnFloorPlan && placedAncestorExists && (
+              <Button variant="secondary" size="sm" onClick={onShowOnFloorPlan}>
+                평면도에서 보기
+              </Button>
+            )}
+            {/* 닫는 길이 아예 없었다 — 한 번 열면 다른 것을 고르는 수밖에 없었다.
+                패널·서랍에는 닫기가 있어야 한다. */}
+            <IconButton aria-label="상세 닫기" onClick={() => onSelectAsset(null)}>
+              <X size={14} />
+            </IconButton>
+          </>
         }
       />
       <Tabs items={tabs} value={tab} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />

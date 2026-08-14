@@ -36,7 +36,7 @@ interface StatusTableProps {
   /** 표에 열로 세울 커스텀 필드 — 타입 선언에서 나온다(`buildStatusRows` 참고). */
   fieldColumns: FieldDef[];
   selectedId: string | null;
-  onSelectAsset: (id: string) => void;
+  onSelectAsset: (id: string | null) => void;
   nodeScope?: boolean;
 }
 
@@ -273,7 +273,7 @@ export function StatusTable({
             return (
               <tr
                 key={row.id}
-                {...selectableRow(row.id === selectedId, () => onSelectAsset(row.id))}
+                {...selectableRow(selectedId, row.id, onSelectAsset)}
                 className={cn(
                   'border-b border-line last:border-0 focus-visible:outline-none focus-ring-input',
                   SELECTABLE,
