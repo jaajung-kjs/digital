@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
-import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from './DetailCard';
+import { DetailCard, DetailCardHeader, DetailRow } from './DetailCard';
 
 describe('Button', () => {
   it('renders primary variant by default', () => {
@@ -90,16 +90,14 @@ describe('DetailCard', () => {
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument();
   });
 
-  it('DetailRow 는 라벨(text-xs) + 값(text-sm 본문), DetailNote 는 보조설명', () => {
+  it('DetailRow 는 라벨(text-xs) + 값(text-sm 본문)', () => {
     render(
       <DetailCard>
         <DetailRow label="부하">복도등</DetailRow>
-        <DetailNote>안내</DetailNote>
       </DetailCard>,
     );
     expect(screen.getByText('부하')).toHaveClass('text-xs');
     expect(screen.getByText('복도등')).toBeInTheDocument();
-    expect(screen.getByText('안내')).toHaveClass('text-xs');
   });
 });
 

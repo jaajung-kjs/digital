@@ -192,7 +192,3 @@ export function DetailGrid({ children }: { children: ReactNode }) {
   return <div className="grid gap-2 sm:grid-cols-2">{children}</div>;
 }
 
-/** 카드 하단 보조 설명(어디서 더 보라 등). */
-export function DetailNote({ children }: { children: ReactNode }) {
-  return <p className="text-xs text-content-faint">{children}</p>;
-}
