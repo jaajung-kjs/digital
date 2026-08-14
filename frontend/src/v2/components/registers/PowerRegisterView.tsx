@@ -126,7 +126,10 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
      "몇 회로짜리인가" 는 타입이 아니라 명세가 말한다 — 코드는 분전반을 모르지 않는다. */
   /* 케이블에 적는 값 — 몇 칸인지는 종류 선언이 정한다(예전에는 전압 하나로 박혀 있었다). */
   const cableFields = cableFieldsFor(POWER_MEDIUM);
-  const totalCols = 4 + cableFields.length; // 회로·피더·상태·부하 출력 + 값 칸들
+  /* 회로 · 피더 · 상태 · 전원 입력 + 값 칸들 + 부하 출력.
+     예전에 「전원 입력」을 빼먹어 하나 적게 셌다 — 그래서 빈 자리 행이 마지막 열을 덮지
+     못했고, 그 행에 커서를 올리면 **호버 색이 오른쪽에서 잘렸다**(칠할 칸이 없으니까). */
+  const totalCols = 5 + cableFields.length;
   const FIELD_WIDTH = 10;
   const powerWidths = [
     8, // 회로

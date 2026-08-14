@@ -253,8 +253,12 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
           <Fragment key={slotId}>
             {/* 슬롯 구분 머리행 — 심 행보다 낮으면 구분자가 오히려 눌려 보인다.
                 같은 높이로 두고 색과 굵기로만 구분한다. */}
-            <tr className="h-9 border-b border-line bg-surface-2">
-              <td colSpan={totalCols} className="px-3 text-xs font-medium text-content-muted">
+            {/* 묶음의 **시작**을 알리는 줄이지 머리글이 아니다. 머리글이 `surface-2` 를
+                쓰므로 같은 면을 쓰면 표 중간에 머리글이 하나 더 있는 것처럼 읽힌다 —
+                본문 면에 굵은 위선과 좌측 액센트로 「여기서 새 묶음」만 말한다. */}
+            <tr className="h-8 border-b border-line border-t-2 border-t-border-2 bg-surface">
+              <td colSpan={totalCols} className="px-3 text-xs font-semibold text-content">
+                <span className="mr-2 inline-block h-3 w-0.5 translate-y-0.5 rounded-full bg-primary" />
                 {slotName}
               </td>
             </tr>
