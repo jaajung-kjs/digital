@@ -73,7 +73,7 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
   dirtyRef.current = dirty;
 
   const select = useCallback(
-    async (id: string) => {
+    async (id: string | null) => {
       if (id === requestedId) return;
       if (dirtyRef.current && !(await confirmLeave())) return;
       setRequestedId(id);

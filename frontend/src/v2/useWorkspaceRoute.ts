@@ -38,8 +38,9 @@ export function useWorkspaceRoute() {
 
   /** 조직을 옮긴다 — 보던 판·자산은 딸려 가지 않는다(그 자산은 저 변전소에 없다). */
   const selectNode = useCallback(
-    (id: string) => {
-      navigate(`/n/${id}`);
+    (id: string | null) => {
+      /* 놓으면 뿌리로 — 「선택된 조직/변전소가 없습니다」가 정당한 화면이다. */
+      navigate(id == null ? '/' : `/n/${id}`);
     },
     [navigate],
   );

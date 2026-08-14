@@ -83,7 +83,14 @@ export default function V2WorkspacePage() {
     clearError: clearCommitError,
   } = useCommit();
 
-  const handleSelect = async (n: FlatOrgNode) => {
+  const handleSelect = async (n: FlatOrgNode | null) => {
+    /* 고른 것을 다시 누르면 놓는다 — 표와 같은 규칙(`selectableRow`). 아무것도 안 고른
+       워크스페이스는 「무엇을 볼지 고르세요」라는 정당한 상태다. */
+    if (n == null) {
+      route.selectNode(null);
+      setTraceResult(null);
+      return;
+    }
     const st = useV2WorkingCopy.getState();
     if (n.kind === 'substation') {
       /* 같은 변전소를 다시 눌러도 다시 읽지 않는다 — 고쳐 둔 것이 날아간다. */
@@ -279,13 +286,13 @@ export default function V2WorkspacePage() {
                 {/* 저장은 대장과 **같은 자리**에 선다 — 고친 것이 있을 때만 나타난다. */}
                 <SaveBar onCommit={commit} isCommitting={isCommitting} />
               </div>
-              {/* 알림 띠는 **머리줄 아래** — 위에 두면 내용에 따라 머리줄이 밀려, 화면을
-                  옮길 때 첫 줄의 자리가 달라진다(대장 편집 바와 같은 규칙). */}
-              <ErrorStrip
-                message={commitError}
-                onDismiss={clearCommitError}
-                className="shrink-0 border-b border-line px-4 py-1"
-              />
+              {/* 알림 띠는 **머리줄 밖**, 캔버스 위에 뜬다 — 머리줄과 같은 상자에 넣으면
+                  제목이 두 줄로 접힌 것처럼 읽힌다(대장 편집 바와 같은 규칙). */}
+              {commitError && (
+                <div className="shrink-0 px-4 pt-4">
+                  <ErrorStrip message={commitError} onDismiss={clearCommitError} />
+                </div>
+              )}
 
               {loadingWorkingCopy ? (
                 <div className="flex min-h-0 flex-1 items-center justify-center">

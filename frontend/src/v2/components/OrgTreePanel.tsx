@@ -37,7 +37,7 @@ interface ModalState {
   initial: string;
 }
 
-export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node: FlatOrgNode) => void }) {
+export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node: FlatOrgNode | null) => void }) {
   const { confirm, confirmDialog } = useConfirm();
   const { data: tree } = useV2OrgTree();
   const { createOrgNode: createMut, renameOrgNode: renameMut, deleteOrgNode: deleteMut } = useOrgMutations();
@@ -139,8 +139,8 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
         nodes={treeNodes}
         selectedId={props.selectedId}
         onSelect={(t) => {
-          const n = nodes.find((x) => x.id === t.id);
-          if (n) props.onSelect(n);
+          const n = t ? nodes.find((x) => x.id === t.id) : null;
+          props.onSelect(n ?? null);
         }}
         onAdd={() => openCreateModal('headquarters', '')}
         addLabel="본부 추가"

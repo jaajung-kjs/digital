@@ -43,7 +43,8 @@ export default function V2StandardsPage() {
             title="기준자료"
             nodes={nodes}
             selectedId={view}
-            onSelect={(n) => setView(n.id as View)}
+            /* 기준자료는 늘 하나를 보고 있다 — 놓을 것이 없으므로 다시 눌러도 그대로 둔다. */
+            onSelect={(n) => n && setView(n.id as View)}
           />
         </aside>
         <div className="flex min-h-0 flex-1 flex-col">

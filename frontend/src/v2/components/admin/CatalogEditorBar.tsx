@@ -46,11 +46,13 @@ export function CatalogEditorBar({
   title, dirty, saving, issueCount = 0, showIssues = false, error, onDismissError,
   notice, onDelete, deleteLabel, onCancel, onSave,
 }: CatalogEditorBarProps) {
+  /* 띠가 하나도 없으면 상자째 그리지 않는다 — 빈 상자가 여백을 만들어 캔버스가 밀린다. */
+  const hasNotice = !!error || (showIssues && issueCount > 0) || notice != null;
   return (
-    <div className="shrink-0 border-b border-line bg-surface">
+    <>
       {/* 높이를 못 박는다 — `⋯` 가 있는 화면(46)과 없는 화면(42)이 4px 달라서, 화면을
           옮기면 첫 줄이 미세하게 튀었다. 캔버스 머리줄은 어디서나 같은 높이다. */}
-      <div className="flex h-12 w-full items-center gap-2 px-4">
+      <div className="flex h-12 w-full shrink-0 items-center gap-2 border-b border-line bg-surface px-4">
         <span className="min-w-0 truncate text-sm text-content">
           {title}
           {/* 고친 것이 있다는 표시 — 저장 버튼이 켜지는 것만으로는 눈에 안 띈다. */}
@@ -71,20 +73,25 @@ export function CatalogEditorBar({
         </Button>
       </div>
 
-      {/* 알림 띠는 **머리줄 아래**에 선다 — 위에 두면 내용에 따라 머리줄이 아래로
-          밀려, 화면을 옮길 때 첫 줄의 자리가 달라진다(실측 48 → 94). */}
-      {/* 손으로 베낀 마크업이었다 — `role="alert"` 이 빠져 있어 실패한 저장이 낭독되지
-          않았다. 같은 것을 두 번 적으면 한쪽만 고쳐진다. */}
-      <ErrorStrip message={error} onDismiss={onDismissError} className="w-full px-4 py-1" />
-      {/* 오류가 떠 있으면 입력 오류 수는 접어 둔다 — 둘을 겹쳐 놓으면 어느 쪽을 고쳐야 할지
-          알 수 없다(먼저 손댈 것은 방금 실패한 저장이다). */}
-      {showIssues && issueCount > 0 && error == null && (
-        <div className="w-full px-4 py-1">
-          <MessageStrip tone="warning">입력 오류 {issueCount}건 — 저장 전에 수정하세요</MessageStrip>
+      {/* 알림 띠는 **머리줄 밖**, 캔버스 위에 뜬다.
+          예전에는 머리줄과 같은 흰 상자·같은 아래 테두리 안에 있어서 제목이 두 줄로 접힌
+          것처럼 읽혔다. 그리고 머리줄 **위**에 있던 때에는 내용에 따라 머리줄이 아래로
+          밀려, 화면을 옮길 때 첫 줄의 자리가 달라졌다(실측 48 → 94).
+          머리줄은 늘 같은 자리·같은 높이이고, 사정을 알리는 띠는 내용 쪽에 붙는다. */}
+      {hasNotice && (
+        <div className="shrink-0 space-y-1.5 px-4 pt-4">
+          {/* 손으로 베낀 마크업이었다 — `role="alert"` 이 빠져 있어 실패한 저장이 낭독되지
+              않았다. 같은 것을 두 번 적으면 한쪽만 고쳐진다. */}
+          <ErrorStrip message={error} onDismiss={onDismissError} />
+          {/* 오류가 떠 있으면 입력 오류 수는 접어 둔다 — 둘을 겹쳐 놓으면 어느 쪽을 고쳐야
+              할지 알 수 없다(먼저 손댈 것은 방금 실패한 저장이다). */}
+          {showIssues && issueCount > 0 && !error && (
+            <MessageStrip tone="warning">입력 오류 {issueCount}건 — 저장 전에 수정하세요</MessageStrip>
+          )}
+          {notice}
         </div>
       )}
-      {notice && <div className="w-full px-4 py-1">{notice}</div>}
-    </div>
+    </>
   );
 }
 

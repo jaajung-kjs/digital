@@ -183,7 +183,7 @@ export function AssemblyCatalogPanel({
           title="설비 종류"
           nodes={nodes}
           selectedId={selectedId}
-          onSelect={(n) => void sel.select(n.id)}
+          onSelect={(n) => void sel.select(n?.id ?? null)}
           onAdd={onAddCategory}
           addLabel="분류 추가"
           emptyText="설비 종류가 없습니다"

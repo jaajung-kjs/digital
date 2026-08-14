@@ -24,7 +24,7 @@ interface TypeListPanelProps {
    * 캔버스가 아니라 목록에서 본다.
    */
   newDraft?: { categoryId: string; name: string } | null;
-  onSelectType: (id: string) => void;
+  onSelectType: (id: string | null) => void;
   /** 새 자산 종류 — 분류 줄의 `+` 로 만들면 그 분류로 시작한다. */
   onNewType: (categoryId?: string) => void;
   onRenameCategory: (category: V2Category, newName: string) => void;
@@ -128,7 +128,7 @@ export function TypeListPanel({
         title="자산 종류"
         nodes={nodes}
         selectedId={selectedTypeId}
-        onSelect={(n) => onSelectType(n.id)}
+        onSelect={(n) => onSelectType(n?.id ?? null)}
         onAdd={onAddCategory}
         addLabel="분류 추가"
         emptyText="자산 종류가 없습니다"

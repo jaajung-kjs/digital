@@ -97,7 +97,7 @@ function CatalogAdmin() {
   }
 
   // ── 타입 선택 ─────────────────────────────────────────────────────────────
-  async function selectType(id: string) {
+  async function selectType(id: string | null) {
     if (
       dirty &&
       !(await confirm({

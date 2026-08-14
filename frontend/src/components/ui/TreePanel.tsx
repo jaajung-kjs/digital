@@ -50,7 +50,13 @@ export interface TreePanelProps {
   title: string;
   nodes: TreeNode[];
   selectedId: string | null;
-  onSelect: (node: TreeNode) => void;
+  /**
+   * 줄을 골랐다 — **고른 줄을 다시 누르면 `null`** 이 온다.
+   *
+   * 표와 같은 규칙이다(`selectableRow`). 앱에서 「고른 것을 놓는 방법」이 판마다 다르면
+   * 사용자는 판마다 다시 익혀야 한다.
+   */
+  onSelect: (node: TreeNode | null) => void;
   /** 머리줄의 `+` — 이 트리의 것을 새로 만든다. */
   onAdd?: () => void;
   addLabel?: string;
@@ -172,7 +178,13 @@ export function TreePanel({
               tabIndex={0}
               /* 접힌 가지를 누르면 열린다 — 그 「열기」가 무엇인지는 부르는 쪽이 정한다
                  (다른 대장의 뿌리라면 그 대장으로 옮기는 일이다). */
-              onClick={() => (n.onOpen ? n.onOpen() : n.selectable === false ? branch && toggle(n.id) : onSelect(n))}
+              onClick={() =>
+                n.onOpen
+                  ? n.onOpen()
+                  : n.selectable === false
+                    ? branch && toggle(n.id)
+                    : onSelect(selectedId === n.id ? null : n)
+              }
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;
                 /* 좌우 화살표로 접었다 편다 — 트리에서 이건 관습이 아니라 규약이다. */
@@ -185,7 +197,7 @@ export function TreePanel({
                 e.preventDefault();
                 if (n.onOpen) n.onOpen();
                 else if (n.selectable === false) branch && toggle(n.id);
-                else onSelect(n);
+                else onSelect(selectedId === n.id ? null : n);
               }}
             >
               {/* 셰브런 자리는 늘 차지한다 — 없으면 이름이 층마다 어긋나 보인다. */}

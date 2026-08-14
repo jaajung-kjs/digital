@@ -173,7 +173,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   );
   const sel = useDraftSelection<V2CableGroup, GroupDraft>({ entities: groups, toDraft, confirmLeave: leaveIfConfirmed });
   const { selectedId, original, saved, draft, setDraft, dirty } = sel;
-  const selectGroup = async (id: string) => {
+  const selectGroup = async (id: string | null) => {
     await sel.select(id);
     setSelectedKey(null);
     setSaveError(null);
@@ -271,7 +271,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
           title="케이블 종류"
           nodes={nodes}
           selectedId={selectedId}
-          onSelect={(n) => void selectGroup(n.id)}
+          onSelect={(n) => void selectGroup(n?.id ?? null)}
           emptyText="케이블 그룹이 없습니다"
         />
       </aside>
