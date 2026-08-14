@@ -11,7 +11,7 @@
  * 무엇을·어떻게 비교/파싱해서 커밋할지(필드별 무변경 가드, trim, null 변환,
  * 숫자 파싱)는 호출부마다 다르므로 여기서 일반화하지 않고 `onCommit`에 그대로 위임한다.
  */
-import { Input } from '../../components/ui';
+import { DateInput, Input } from '../../components/ui';
 
 interface InlineEditCellProps {
   value: string;
@@ -20,6 +20,21 @@ interface InlineEditCellProps {
 }
 
 export function InlineEditCell({ value, onCommit, type = 'text' }: InlineEditCellProps) {
+  /* 날짜는 로케일이 표기를 정하는 네이티브 칸을 쓰지 않는다 — `DateInput` 참고. */
+  if (type === 'date') {
+    return (
+      <DateInput
+        size="cell"
+        defaultValue={value}
+        className="min-w-0"
+        key={value}
+        onBlur={(e) => onCommit(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+      />
+    );
+  }
   return (
     <Input
       type={type}

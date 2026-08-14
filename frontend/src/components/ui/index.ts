@@ -11,6 +11,8 @@ export type { CardProps } from './Card';
 export { DetailCard, DetailCardHeader, DetailGrid, DetailRow, DetailNote } from './DetailCard';
 export * from './controlSize';
 export { Input } from './Input';
+export { DateInput } from './DateInput';
+export { EMPTY, formatDate } from './format';
 export type { InputProps } from './Input';
 export { StatusDot } from './StatusDot';
 export { TableSearch } from './TableSearch';

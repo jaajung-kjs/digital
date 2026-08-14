@@ -23,6 +23,7 @@ import {
   TableSearch,
   Th,
   cn,
+  formatDate,
   SELECTABLE,
 } from '../../../components/ui';
 import {
@@ -321,7 +322,7 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
                 </td>
                 <td className="truncate px-3 py-1.5 text-content">{row.effective}</td>
                 <td className="truncate px-3 py-1.5 text-content-muted">
-                  {row.uploadedBy} · {row.createdAt.slice(0, 10)}
+                  {row.uploadedBy} · {formatDate(row.createdAt)}
                 </td>
                 {/* 「적용」은 **제비율에만** 있다 — 노임은 판을 갈아 끼우는 것이 아니라
                     직종마다 가장 최근 값이 쓰인다. 눌러도 안 바뀌는 버튼을 두지 않는다. */}

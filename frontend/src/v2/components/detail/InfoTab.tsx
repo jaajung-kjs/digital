@@ -13,6 +13,7 @@ import {
   DetailCard,
   DetailCardHeader,
   DetailRow,
+  DateInput,
   Input,
   Select,
   useConfirm,
@@ -25,7 +26,19 @@ import { AssemblyGrid } from '../AssemblyGrid';
 import { cableCountByPortId } from '../../cableSelectors';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
+import type { InputProps } from '../../../components/ui';
 import type { V2Asset, V2AssetType, V2Assembly } from '../../types';
+
+/**
+ * 선언된 필드 하나를 적는 칸 — 날짜만 다른 칸을 쓴다.
+ *
+ * 날짜를 네이티브 `type="date"` 로 두면 표기를 브라우저 로케일이 정해, 한국어 앱에
+ * `mm/dd/yyyy` 가 선다(`DateInput` 참고). 두 자리에서 같은 판단을 되풀이하지 않도록
+ * 고르는 일을 여기 한 번만 적는다.
+ */
+function FieldInput({ isDate, type, ...rest }: InputProps & { isDate: boolean }) {
+  return isDate ? <DateInput {...rest} /> : <Input type={type} {...rest} />;
+}
 
 export interface AddModalContext {
   parentAssetId: string;
@@ -107,9 +120,10 @@ function PartCard({
         const str = raw != null ? String(raw) : '';
         return (
           <DetailRow key={fd.key} label={fd.label}>
-            <Input
+            <FieldInput
               key={part.id + fd.key + str}
-              type={fd.type === 'date' ? 'date' : fd.type === 'number' ? 'number' : 'text'}
+              isDate={fd.type === 'date'}
+              type={fd.type === 'number' ? 'number' : 'text'}
               defaultValue={str}
               size="sm"
               onBlur={(e) => field(fd.key, e.currentTarget.value)}
@@ -316,8 +330,9 @@ export function InfoTab({
                   ))}
                 </Select>
               ) : (
-                <Input
-                  type={fd.type === 'date' ? 'date' : fd.type === 'number' ? 'number' : 'text'}
+                <FieldInput
+                  isDate={fd.type === 'date'}
+                  type={fd.type === 'number' ? 'number' : 'text'}
                   defaultValue={strVal}
                   size="sm"
                   onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}

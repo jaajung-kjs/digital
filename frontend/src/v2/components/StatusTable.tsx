@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel, worstAssetStatus } from '@twin/core';
-import { EmptyState, StatusDot, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
+import { EMPTY, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, SELECTABLE, SELECTED } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
 import type { StatusRowsResult } from '../statusRows';
@@ -29,11 +29,6 @@ function compareValues(a: string | null, b: string | null): number {
   if (a === null) return 1;
   if (b === null) return -1;
   return a.localeCompare(b, 'ko');
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return '—';
-  return value.slice(0, 10);
 }
 
 interface StatusTableProps {
@@ -68,7 +63,7 @@ const SUBSTATION_COL: Column = {
   label: '변전소',
   weight: 14,
   value: (r) => r.substationName ?? null,
-  render: (r) => r.substationName ?? '—',
+  render: (r) => r.substationName ?? EMPTY,
 };
 
 /** 타입 선언과 무관하게 모든 자산이 갖는 것들 — 구조(종류·이름·자리)와 이력·상태. */
@@ -137,7 +132,7 @@ function fieldColumn(fd: FieldDef): Column {
     label: fd.label,
     weight: 12,
     value: read,
-    render: (r) => (fd.type === 'date' ? formatDate(read(r)) : (read(r) ?? '—')),
+    render: (r) => (fd.type === 'date' ? formatDate(read(r)) : (read(r) ?? EMPTY)),
   };
 }
 
