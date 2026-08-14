@@ -286,7 +286,25 @@ export function StatusTable({
             return (
               <tr
                 key={row.id}
-                {...selectableRow(selectedId, row.id, onSelectAsset)}
+                /* 설비 묶음은 **가지**다 — 다시 누르면 놓이는 것이 아니라 접힌다
+                   (조직 트리의 본부·지사와 같은 규칙). */
+                {...selectableRow(
+                  selectedId,
+                  row.id,
+                  onSelectAsset,
+                  canExpand
+                    ? {
+                        collapsed: !expanded.has(row.id),
+                        setCollapsed: (next) =>
+                          setExpanded((prev) => {
+                            const s2 = new Set(prev);
+                            if (next) s2.delete(row.id);
+                            else s2.add(row.id);
+                            return s2;
+                          }),
+                      }
+                    : undefined,
+                )}
                 className={cn(
                   'border-b border-line last:border-0 focus-visible:outline-none focus-ring-input',
                   SELECTABLE,

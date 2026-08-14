@@ -5,6 +5,7 @@ import { Input } from './Input';
 import { cn } from './cn';
 import { SELECTABLE, SELECTED } from './selection';
 import { SelectionScope } from './SelectionScope';
+import { selectOrToggle } from './rowSelection';
 
 /** 트리에 서는 줄 하나. 계층은 `depth` 가 말한다 — 이미 펼쳐 놓은 평평한 목록을 받는다. */
 export interface TreeNode {
@@ -190,13 +191,17 @@ export function TreePanel({
               tabIndex={0}
               /* 접힌 가지를 누르면 열린다 — 그 「열기」가 무엇인지는 부르는 쪽이 정한다
                  (다른 대장의 뿌리라면 그 대장으로 옮기는 일이다). */
-              onClick={() =>
-                n.onOpen
-                  ? n.onOpen()
-                  : n.selectable === false
-                    ? branch && toggle(n.id)
-                    : onSelect(selectedId === n.id ? null : n)
-              }
+              onClick={() => {
+                if (n.onOpen) return n.onOpen();
+                /* 갈 곳이 아닌 가지(대장의 분류)는 누르는 일이 곧 접고 펴는 일이다. */
+                if (n.selectable === false) return void (branch && toggle(n.id));
+                selectOrToggle({
+                  selected: selectedId === n.id,
+                  branch: branch ? { collapsed: isCollapsed, setCollapsed: (v) => toggle(n.id, v) } : undefined,
+                  select: () => onSelect(n),
+                  deselect: () => onSelect(null),
+                });
+              }}
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;
                 /* 좌우 화살표로 접었다 편다 — 트리에서 이건 관습이 아니라 규약이다. */
@@ -209,7 +214,13 @@ export function TreePanel({
                 e.preventDefault();
                 if (n.onOpen) n.onOpen();
                 else if (n.selectable === false) branch && toggle(n.id);
-                else onSelect(selectedId === n.id ? null : n);
+                else
+                  selectOrToggle({
+                    selected: selectedId === n.id,
+                    branch: branch ? { collapsed: isCollapsed, setCollapsed: (v) => toggle(n.id, v) } : undefined,
+                    select: () => onSelect(n),
+                    deselect: () => onSelect(null),
+                  });
               }}
             >
               {/* 셰브런 자리는 늘 차지한다 — 없으면 이름이 층마다 어긋나 보인다. */}

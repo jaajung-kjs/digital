@@ -16,7 +16,7 @@ export { InsetBox } from './InsetBox';
 export { TreePanel } from './TreePanel';
 export type { TreeNode, TreePanelProps } from './TreePanel';
 export { isCancelKey, isTypingTarget } from './keyboard';
-export { selectableRow } from './rowSelection';
+export { selectableRow, selectOrToggle } from './rowSelection';
 export { SelectionScope } from './SelectionScope';
 export { MessageStrip } from './MessageStrip';
 export { OverflowMenu } from './OverflowMenu';
