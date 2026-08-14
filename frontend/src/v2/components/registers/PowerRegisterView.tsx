@@ -189,12 +189,7 @@ export function PowerRegisterView({
       picker={picked}
       empty={{
         title: '계통에 표시할 전원 자산이 없습니다',
-        description: (
-          <>
-            계통은 <strong>전원 포트를 가진 부품을 품고 있는 설비</strong>를 자동으로 찾습니다. 분전반 설비 종류를
-            도면에 놓고 그 안에 피더를 넣으면 여기에 나타납니다.
-          </>
-        ),
+        description: '분전반 등 전원 설비를 평면도에 놓고 그 안에 피더를 넣으면 나타납니다.',
       }}
       search={{
         'aria-label': '회로 검색',

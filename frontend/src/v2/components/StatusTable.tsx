@@ -268,10 +268,13 @@ export function StatusTable({
         {sorted.length === 0 && (
             <tr>
               <td colSpan={cols.length}>
+                {/* 거른 결과가 없을 때는 **한 줄**이다 — 제목이 이미 사정을 다 말하므로
+                    설명을 덧붙이면 같은 말을 두 번 한다. 원래 없을 때만 「무엇을 하면
+                    나타나는가」를 적는다. */}
                 {query.trim() ? (
-                  <EmptyState title="검색 결과가 없습니다" description={`'${query.trim()}' 와 맞는 자산이 없습니다.`} />
+                  <EmptyState title={`'${query.trim()}' 와 맞는 자산이 없습니다`} />
                 ) : (
-                  <EmptyState title="자산이 없습니다" description="위의 '자산 추가' 로 시작하세요." />
+                  <EmptyState title="자산이 없습니다" description="위의 「자산 추가」 로 만드세요." />
                 )}
               </td>
             </tr>

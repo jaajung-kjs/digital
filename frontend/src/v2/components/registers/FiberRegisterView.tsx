@@ -242,12 +242,8 @@ export function FiberRegisterView({
       picker={picked}
       empty={{
         title: '선번장에 표시할 광 자산이 없습니다',
-        description: (
-          <>
-        선번장은 <strong>OPGW 포트를 가진 부품을 품고 있는 설비</strong>를 자동으로 찾습니다. OFD 설비
-        종류처럼 경로슬롯을 담은 설비 종류를 도면에 놓으면 여기에 나타납니다.
-          </>
-        ),
+        /* 설명은 **무엇을 하면 나타나는가** 한 줄이다 — 왜 그런지는 여기서 설명하지 않는다. */
+        description: '경로슬롯을 담은 설비 종류(OFD 등)를 평면도에 놓으면 나타납니다.',
       }}
       search={{
         'aria-label': '심 검색',

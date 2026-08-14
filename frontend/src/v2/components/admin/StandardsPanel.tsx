@@ -302,7 +302,7 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
       {rows.length === 0 ? (
         <EmptyState
           title="올린 기준자료가 없습니다"
-          description="새 판을 올려도 이전 판은 남습니다 — 지난 설계서를 그때 값으로 다시 볼 수 있어야 하니까요."
+          description="위의 「파일 선택」 으로 올리세요."
           className="py-6"
         />
       ) : (
