@@ -11,6 +11,8 @@ export { DetailCard, DetailCardHeader, DetailGrid, DetailRow } from './DetailCar
 export * from './controlSize';
 export { IssueReveal } from './DetailCard';
 export { Input } from './Input';
+export { TreePanel } from './TreePanel';
+export type { TreeNode, TreePanelProps } from './TreePanel';
 export { isCancelKey, isTypingTarget } from './keyboard';
 export { selectableRow } from './rowSelection';
 export { MessageStrip } from './MessageStrip';

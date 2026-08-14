@@ -154,7 +154,8 @@ function CatalogAdmin() {
   /* 새 자산 종류 — 분류는 편집 화면에서 고른다. 예전에는 분류마다 `+` 를 달아 그 자리에서
      정하게 했는데, 그러면 머리줄의 `+` 는 「분류 추가」가 되어 설비 종류 탭의 `+`(종류 추가)와
      같은 자리에서 다른 뜻이 됐다. */
-  async function handleNewType() {
+  /** `categoryId` 를 주면 그 분류에 만든다 — 트리에서 분류 줄의 `+` 를 누른 경우. */
+  async function handleNewType(categoryId?: string) {
     if (
       dirty &&
       !(await confirm({
@@ -167,7 +168,7 @@ function CatalogAdmin() {
     )
       return;
     setSelectedTypeId(null);
-    setDraft(emptyDraft(catalog?.categories[0]?.id ?? ''));
+    setDraft(emptyDraft(categoryId ?? catalog?.categories[0]?.id ?? ''));
     setSaveError(null);
     setActiveTab('type');
   }
@@ -302,7 +303,7 @@ function CatalogAdmin() {
       </PanelHeader>
       <div className="flex min-h-0 flex-1">
         {/* 목록은 탭이 각자 갖는다 — 지금 편집하는 것 옆에만 그 목록이 선다.
-            폭·테두리·검색은 `CatalogList` 가 소유한다(세 탭이 같은 판). */}
+            폭·테두리·검색은 `TreePanel` 이 소유한다(조직 트리와 같은 판). */}
         {activeTab === 'type' && (
           <TypeListPanel
             catalog={catalog}

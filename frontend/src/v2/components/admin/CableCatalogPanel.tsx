@@ -40,7 +40,7 @@ import { useReportUnsaved } from '../../unsavedGuard';
 import { useCatalogMutations, useWageCatalog } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
 import { LaborSpecForm } from './LaborSpecForm';
-import { CatalogList } from './CatalogList';
+import { TreePanel, type TreeNode } from '../../../components/ui';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useV2Notice } from '../../store/noticeStore';
 
@@ -284,30 +284,24 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
 
   /* 고치는 중인 그룹은 목록에도 **초안**을 보여 준다 — 색을 고르는 자리(상세)와 그 색이
      실제로 쓰이는 자리(목록의 점)가 다르므로, 저장해야 결과를 알 수 있으면 색을 못 고른다. */
-  const listGroups = [
-    {
-      key: 'all',
-      label: null,
-      items: groups.map((g) => {
-        const live = g.id === selectedId && draft != null ? draft : null;
-        return {
-          id: g.id,
-          name: live?.name.trim() || g.name,
-          dot: live?.color ?? g.color,
-        };
-      }),
-    },
-  ];
+  const nodes: TreeNode[] = groups.map((g) => {
+    const live = g.id === selectedId && draft != null ? draft : null;
+    const name = live?.name.trim() || g.name;
+    /* 케이블 그룹은 고정 어휘라 분류 층이 없다 — 한 층짜리 트리다. */
+    return { id: g.id, label: name, text: name, depth: 0, dot: live?.color ?? g.color };
+  });
 
   return (
     <div className="flex min-h-0 flex-1">
-      <CatalogList
-        title="케이블 그룹"
-        groups={listGroups}
-        selectedId={selectedId}
-        onSelect={(id) => void selectGroup(id)}
-        emptyText="케이블 그룹이 없습니다"
-      />
+      <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
+        <TreePanel
+          title="케이블 그룹"
+          nodes={nodes}
+          selectedId={selectedId}
+          onSelect={(n) => void selectGroup(n.id)}
+          emptyText="케이블 그룹이 없습니다"
+        />
+      </aside>
 
       <div className="flex min-h-0 flex-1 flex-col">
         {original == null || draft == null ? (

@@ -8,8 +8,8 @@
  * 그래서 자산 종류와 달리 "쓰이는 중이면 구조 잠금" 이 없다.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { EmptyState, useConfirm, useInlineRename, IssueReveal } from '../../../components/ui';
-import { CatalogList } from './CatalogList';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { EmptyState, IconButton, TreePanel, useConfirm, useInlineRename, IssueReveal, type TreeNode } from '../../../components/ui';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
 import {
@@ -120,59 +120,82 @@ export function AssemblyCatalogPanel({
     setDraft(null);
   }
 
-  /* 목록은 **분류로 묶는다** — 자산 종류 탭과 같은 어법이다. 예전에는 설비 종류만 평면
-     목록이라, 같은 2단 구조인데 탭마다 다른 모양으로 보였다. */
-  const listGroups = useMemo(
-    () =>
-      catalog.categories.map((cat) => {
-        /* 빈 분류만 지울 수 있다 — 자산 종류 탭과 같은 규칙이다(같은 분류를 지운다). */
-        const inUse =
-          catalog.assemblies.some((a) => a.categoryId === cat.id) ||
-          catalog.types.some((t) => t.categoryId === cat.id);
-        return {
-        key: cat.id,
-        label:
-          rename.isEditing(cat.id) ? (
-            rename.field(cat.id, cat.name, `${cat.name} 이름 편집`)
-          ) : (
-            cat.name
-          ),
-        labelText: cat.name,
-        items: catalog.assemblies
-          .filter((a) => a.categoryId === cat.id)
-          .map((a) => ({ id: a.id, name: a.name })),
-        /* 빈 분류만 지울 수 있다 — 자산 종류 탭과 같은 규칙이다(같은 분류를 지운다). */
-        menu: [
-          { label: '이름 변경', onSelect: () => rename.start(cat.id, cat.name) },
-          {
-            label: '분류 삭제',
-            danger: true,
-            disabled: inUse,
-            disabledReason: inUse ? '이 분류에 들어 있는 것이 있어 지울 수 없습니다' : undefined,
-            onSelect: () => onDeleteCategory(cat),
-          },
-        ],
-        };
-      }),
-    [catalog.assemblies, catalog.categories, catalog.types, rename, onDeleteCategory],
-  );
+  /* 목록은 **분류로 묶는다** — 자산 종류 탭과 같은 어법이고, 판도 같은 `TreePanel` 이다. */
+  const nodes = useMemo<TreeNode[]>(() => {
+    const out: TreeNode[] = [];
+    const newInto = (categoryId: string) =>
+      void (async () => {
+        if (!(await leaveIfConfirmed())) return;
+        setSelectedId(null);
+        setDraft({ ...emptyAssemblyDraft(), categoryId });
+      })();
+    for (const cat of catalog.categories) {
+      const items = catalog.assemblies.filter((a) => a.categoryId === cat.id);
+      /* 빈 분류만 지울 수 있다 — 자산 종류 탭과 같은 규칙이다(같은 분류를 지운다). */
+      const inUse = items.length > 0 || catalog.types.some((t) => t.categoryId === cat.id);
+      out.push({
+        id: cat.id,
+        label: rename.isEditing(cat.id) ? rename.field(cat.id, cat.name, `${cat.name} 이름 편집`) : cat.name,
+        text: cat.name,
+        depth: 0,
+        selectable: false,
+        actions: (
+          <>
+            <IconButton
+              aria-label={`${cat.name} 에 설비 종류 추가`}
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                newInto(cat.id);
+              }}
+            >
+              <Plus size={12} />
+            </IconButton>
+            <IconButton
+              aria-label={`${cat.name} 이름 변경`}
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                rename.start(cat.id, cat.name);
+              }}
+            >
+              <Pencil size={12} />
+            </IconButton>
+            <IconButton
+              aria-label={`${cat.name} 분류 삭제`}
+              size="sm"
+              disabled={inUse}
+              disabledReason={inUse ? '이 분류에 들어 있는 것이 있어 지울 수 없습니다' : undefined}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteCategory(cat);
+              }}
+            >
+              <Trash2 size={12} />
+            </IconButton>
+          </>
+        ),
+      });
+      for (const a of items) out.push({ id: a.id, label: a.name, text: a.name, depth: 1 });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog.assemblies, catalog.categories, catalog.types, rename, onDeleteCategory]);
 
   return (
     <div className="flex min-h-0 flex-1">
-      <CatalogList
-        title="설비 종류"
-        groups={listGroups}
-        selectedId={selectedId}
-        onSelect={(id) => void (async () => { if (await leaveIfConfirmed()) setSelectedId(id); })()}
-        onAdd={() => void (async () => {
-          if (!(await leaveIfConfirmed())) return;
-          setSelectedId(null);
-          setDraft(emptyAssemblyDraft());
-        })()}
-        addLabel="설비 종류 추가"
-        onAddGroup={onAddCategory}
-        emptyText="설비 종류가 없습니다"
-      />
+      <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
+        <TreePanel
+          title="설비 종류"
+          nodes={nodes}
+          selectedId={selectedId}
+          onSelect={(n) => void (async () => { if (await leaveIfConfirmed()) setSelectedId(n.id); })()}
+          onAdd={onAddCategory}
+          addLabel="분류 추가"
+          searchable
+          emptyText="설비 종류가 없습니다"
+        />
+      </aside>
 
       <div className="flex min-h-0 flex-1 flex-col">
         {draft == null ? (

@@ -11,8 +11,8 @@
  * 채운다.
  */
 import { useState } from 'react';
-import { ErrorStrip } from '../../components/ui';
-import { CatalogList } from '../components/admin/CatalogList';
+import { ErrorStrip, TreePanel, type TreeNode } from '../../components/ui';
+
 import { OverheadRatesView, StandardHistoryView, WageRatesView } from '../components/admin/StandardsPanel';
 
 type View = 'wage' | 'overhead' | 'history';
@@ -24,16 +24,10 @@ export default function V2StandardsPage() {
   /* 무엇이 들어와 있는지는 **오른쪽 캔버스가** 말한다. 예전에는 항목 옆 흐린 자리에
      `123`·`전기통신소방전문`·`3` 을 섞어 넣었는데, 같은 자리의 같은 서체가 어떤 것은 개수,
      어떤 것은 낱말이라 읽는 사람이 규칙을 세울 수 없었다. */
-  const listGroups = [
-    {
-      key: 'all',
-      label: null,
-      items: [
-        { id: 'wage', name: '노임단가' },
-        { id: 'overhead', name: '제비율' },
-        { id: 'history', name: '올린 기록' },
-      ],
-    },
+  const nodes: TreeNode[] = [
+    { id: 'wage', label: '노임단가', text: '노임단가', depth: 0 },
+    { id: 'overhead', label: '제비율', text: '제비율', depth: 0 },
+    { id: 'history', label: '올린 기록', text: '올린 기록', depth: 0 },
   ];
 
   return (
@@ -44,13 +38,14 @@ export default function V2StandardsPage() {
         className="shrink-0 border-b border-line bg-danger-bg px-4 py-1"
       />
       <div className="flex min-h-0 flex-1">
-        <CatalogList
-          title="기준자료"
-          groups={listGroups}
-          selectedId={view}
-          onSelect={(id) => setView(id as View)}
-          emptyText="기준자료가 없습니다"
-        />
+        <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
+          <TreePanel
+            title="기준자료"
+            nodes={nodes}
+            selectedId={view}
+            onSelect={(n) => setView(n.id as View)}
+          />
+        </aside>
         {/* 스크롤은 **이 상자**가 맡는다. 안쪽 표에 스크롤 상자를 또 만들지 않는다
             (CONVENTIONS §1.7-b) — 만들면 `TableCard` 가 넘치는 행을 스크롤바 없이 잘라 낸다. */}
         <div className="min-h-0 flex-1 overflow-y-auto">
