@@ -19,14 +19,19 @@ export interface RegisterLayoutProps {
   /** 열 폭(%) — 열 정의는 표마다 다르다. */
   widths: number[];
   head: ReactNode;
+  /** 표 하나에 들어갈 행들. `sections` 를 주면 이쪽은 쓰지 않는다. */
+  children?: ReactNode;
   /**
-   * 표에 들어갈 행들 — **한 덩이면 표 하나, 여러 덩이면 표 여러 개**.
+   * 묶음마다 **표를 따로** 세운다 — 소제목 + 제 머리글 + 그 묶음의 행.
    *
-   * 묶음을 표 **안**의 구분행으로 그리지 않는다. 업계 표준은 묶음마다 제 머리글을 가진
-   * 표를 따로 세우는 것이다: 스크롤해 내려가도 지금 보는 열이 무엇인지 알 수 있고,
-   * 묶음마다 정렬·소계가 따로 붙을 수 있다. 구분행은 그 자리에서 열 정의를 잃는다.
+   * 묶음을 표 **안**의 구분행(`colSpan`)으로 그리지 않는다: 그 줄에서 열 정의가 사라져
+   * 아래 행이 무슨 열인지 다시 말해 주지 못한다. 업계 표준은 표를 끊고 새로 세우는 것이다.
+   *
+   * `children` 과 겹쳐 받지 않고 **따로 받는다**. 한때 `children` 하나로 둘 다 받고
+   * `Array.isArray` 로 갈랐는데, JSX 는 자식 표현식이 둘만 돼도 배열을 넘긴다 —
+   * 묶음이 없는 계통 표가 통째로 「구역 목록」으로 읽혀 한 행도 그려지지 않았다.
    */
-  children: ReactNode | { key: string; title: ReactNode; rows: ReactNode }[];
+  sections?: { key: string; title: ReactNode; rows: ReactNode }[];
   /** 표 아래에 딸리는 것(모달 등) — 뷰가 소유한다. */
   trailing?: ReactNode;
 }
@@ -45,7 +50,7 @@ export interface RegisterLayoutProps {
  * 방법도 없다 — 이 컴포넌트는 자리와 건수만 맡는다(`TableSearch` 와 같은 규칙).
  */
 export function RegisterLayout({
-  picker, empty, search, widths, head, children, trailing,
+  picker, empty, search, widths, head, children, sections, trailing,
 }: RegisterLayoutProps) {
   if (picker.options.length === 0) {
     return <EmptyState title={empty.title} description={empty.description} />;
@@ -74,9 +79,9 @@ export function RegisterLayout({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        {Array.isArray(children) ? (
+        {sections ? (
           <div className="flex flex-col gap-4">
-            {children.map((section) => (
+            {sections.map((section) => (
               <section key={section.key} className="flex flex-col gap-1.5">
                 <h3 className="text-sm font-semibold text-content">{section.title}</h3>
                 <TableCard widths={widths}>

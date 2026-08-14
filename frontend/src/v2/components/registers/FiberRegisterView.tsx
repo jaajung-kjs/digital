@@ -238,21 +238,13 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
           ))}
         </>
       }
-    >
-      {/* 슬롯마다 **표가 하나씩** 선다 — 표 안에 구분행을 넣지 않는다.
-          구분행은 그 줄에서 열 정의를 잃어(colSpan) 아래 행이 무슨 열인지 다시 말해 주지
-          못한다. 업계 표준은 묶음마다 제 머리글을 가진 표를 따로 세우는 것이다. */}
-      {rowGroups.length === 0 ? (
-        <tr>
-          <td colSpan={totalCols} className="px-3 py-6 text-center text-sm text-content-faint">
-            {query.trim() ? `'${query.trim()}' 와 맞는 심이 없습니다` : '슬롯 데이터가 없습니다'}
-          </td>
-        </tr>
-      ) : (
-        rowGroups.map(({ slotId, slotName, rows: slotRows }) => ({
-          key: slotId,
-          title: slotName,
-          rows: slotRows.map((row) => (
+      sections={
+        rowGroups.length === 0
+          ? undefined
+          : rowGroups.map(({ slotId, slotName, rows: slotRows }) => ({
+              key: slotId,
+              title: slotName,
+              rows: slotRows.map((row) => (
               <tr
                 key={`${row.slotId}-${row.coreIndex}`}
                 className={cn(
@@ -301,9 +293,18 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                   </td>
                 ))}
               </tr>
-          )),
-        }))
-      )}
+              )),
+            }))
+      }
+    >
+      {/* 슬롯마다 **표가 하나씩** 선다(`sections`) — 표 안에 구분행을 넣지 않는다.
+          구분행은 그 줄에서 열 정의를 잃어(colSpan) 아래 행이 무슨 열인지 다시 말해 주지
+          못한다. 업계 표준은 묶음마다 제 머리글을 가진 표를 따로 세우는 것이다. */}
+      <tr>
+        <td colSpan={totalCols} className="px-3 py-6 text-center text-sm text-content-faint">
+          {query.trim() ? `'${query.trim()}' 와 맞는 심이 없습니다` : '슬롯 데이터가 없습니다'}
+        </td>
+      </tr>
     </RegisterLayout>
   );
 }
