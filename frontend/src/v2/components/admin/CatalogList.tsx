@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
-import { IconButton, Input, cn, SELECTABLE } from '../../../components/ui';
+import { IconButton, Input, cn, SELECTABLE, SELECTED } from '../../../components/ui';
 
 /** 목록에 서는 것 하나. */
 export interface CatalogListItem {
@@ -50,7 +50,7 @@ export interface CatalogListProps {
    */
   onAdd?: () => void;
   addLabel?: string;
-  /** 분류를 새로 만든다 — 있으면 목록 맨 아래에 행으로 선다. */
+  /** 분류를 새로 만든다 — 있으면 검색 아래(늘 보이는 자리)에 선다. */
   onAddGroup?: () => void;
   addGroupLabel?: string;
   emptyText?: string;
@@ -112,6 +112,21 @@ export function CatalogList({
           placeholder="이름으로 검색"
           onChange={(e) => setQuery(e.currentTarget.value)}
         />
+        {/* 「분류 추가」는 **목록 위**에 둔다. 예전에는 맨 아래였는데, 항목이 늘수록 멀어져
+            실측에서 스크롤 상자 밖 295px 지점에 있었다 — 늘 보이는 자리여야 누를 수 있다. */}
+        {onAddGroup && (
+          <button
+            type="button"
+            className={cn(
+              'mt-1.5 flex w-full items-center gap-1 rounded px-1 py-1 text-left text-xs text-content-muted',
+              SELECTABLE,
+            )}
+            onClick={onAddGroup}
+          >
+            <Plus size={12} />
+            {addGroupLabel ?? '분류 추가'}
+          </button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
@@ -149,7 +164,7 @@ export function CatalogList({
                       // 들여쓰기가 「이것은 위 분류에 속한다」를 말한다.
                       'flex w-full items-center gap-1.5 rounded py-1.5 pl-4 pr-2 text-left text-sm text-content',
                       SELECTABLE,
-                      selectedId === item.id && 'bg-info-bg font-medium text-primary hover:bg-info-bg',
+                      selectedId === item.id && SELECTED,
                     )}
                     onClick={() => onSelect(item.id)}
                   >
@@ -176,22 +191,6 @@ export function CatalogList({
           </div>
         ))}
 
-        {/* 분류 추가는 목록 **맨 아래**에 — 드물게 쓰는 일이 머리줄의 `+` 를 차지하고 있으면
-            자주 쓰는 「새로 만들기」가 갈 자리가 없다. 설비·자산 두 탭이 **같은 분류 체계**를
-            쓰므로 어느 쪽에서 만들든 양쪽에 나타난다. */}
-        {onAddGroup && (
-          <button
-            type="button"
-            className={cn(
-              'mt-2 flex w-full items-center gap-1 rounded px-2 py-1.5 text-left text-xs text-content-faint',
-              SELECTABLE,
-            )}
-            onClick={onAddGroup}
-          >
-            <Plus size={12} />
-            {addGroupLabel ?? '분류 추가'}
-          </button>
-        )}
       </div>
     </aside>
   );

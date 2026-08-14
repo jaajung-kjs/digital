@@ -18,6 +18,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import {
+  Button,
   DetailCard,
   DetailCardHeader,
   DetailRow,
@@ -336,7 +337,18 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                 OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르므로, 그룹 하나로 뭉쳐 두면 그
                 차이가 설계서에서 사라진다. */}
             <div className="flex min-h-0 flex-1 gap-3 p-4">
-              <div ref={tableRef} className="flex min-w-0 flex-1 flex-col">
+              <div ref={tableRef} className="flex min-w-0 flex-1 flex-col gap-2">
+                {/* 「추가」는 표 **위**에 둔다 — 맨 아래 줄에 두면 종류가 늘수록 멀어지고,
+                    빈 표에서는 흰 여백 아래에 홀로 떠 있었다. */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-content-muted">
+                    종류 <span className="tabular-nums">{draft.categories.length}</span>
+                  </span>
+                  <Button className="ml-auto" variant="secondary" size="sm" onClick={addRow}>
+                    <Plus size={14} />
+                    종류 추가
+                  </Button>
+                </div>
                 <TableCard widths={COL_WIDTHS} fill>
                   <thead>
                     {/* 머리글은 스크롤해도 남는다 — 현황표와 같은 규칙. */}
@@ -402,24 +414,6 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                         </tr>
                       );
                     })}
-                    {/* 「추가」는 표의 **맨 아래 줄**이다 — 왼쪽 목록의 「분류 추가」와 같은
-                        자리, 같은 뜻(CatalogList). 머리 위에 뜬 버튼 하나보다 어디에 생길지가
-                        분명하다. */}
-                    <tr>
-                      <td colSpan={COL_WIDTHS.length} className="p-0">
-                        <button
-                          type="button"
-                          className={cn(
-                            'flex w-full items-center gap-1 px-3 py-2 text-left text-xs text-content-faint',
-                            SELECTABLE,
-                          )}
-                          onClick={addRow}
-                        >
-                          <Plus size={12} />
-                          종류 추가
-                        </button>
-                      </td>
-                    </tr>
                   </tbody>
                 </TableCard>
               </div>
