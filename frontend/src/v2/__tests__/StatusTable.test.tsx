@@ -13,42 +13,26 @@ const row = (over: Partial<StatusRow> & Pick<StatusRow, 'id' | 'name' | 'status'
   ...over,
 });
 
-/** 설비 하나(뿌리 + 부품 둘) — 부품 하나가 고장이다. */
+/** 설비 하나(뿌리 + 부품 둘) — 부품 하나가 고장이지만 설비는 정상으로 매겨 두었다. */
 const ROWS: StatusRow[] = [
   row({ id: 'root', name: '판암 송광치', status: 'normal', assemblyRootId: 'root' }),
   row({ id: 'k1', name: '광단말 A', status: 'normal', assemblyRootId: 'root', depth: 1 }),
   row({ id: 'k2', name: '광단말 B', status: 'fault', assemblyRootId: 'root', depth: 1 }),
 ];
 
-const table = (rows: StatusRow[] = ROWS) =>
-  render(<StatusTable rows={rows} fieldColumns={[]} selectedId={null} onSelectAsset={() => {}} />);
-
-/** 그 이름이 적힌 줄 하나. */
 const rowOf = (name: string) => screen.getByText(name).closest('tr')!;
 
-describe('StatusTable — 접힌 설비 줄의 상태 롤업', () => {
-  it('접힌 설비 줄은 안에 든 것 중 가장 나쁜 상태를 말한다', () => {
-    table();
-    /* 기본은 접힘 — 부품 줄은 아예 없다. 그런데도 고장은 보여야 한다. */
-    expect(screen.queryByText('광단말 B')).toBeNull();
-    expect(within(rowOf('판암 송광치')).getByText('고장')).toBeTruthy();
+describe('StatusTable — 상태는 그 자산에 저장된 값 그대로', () => {
+  it('자손이 고장이어도 설비는 제 상태를 표시한다', () => {
+    render(<StatusTable rows={ROWS} fieldColumns={[]} selectedId={null} onSelectAsset={() => {}} />);
+    /* 굴려 올리지 않는다 — 사람이 정상으로 매겨 둔 설비를 화면이 제멋대로 고장으로
+       바꿔 적으면, 그 화면은 저장된 값이 아니라 제 판단을 보여 주는 것이 된다. */
+    expect(within(rowOf('판암 송광치')).getByText('정상')).toBeTruthy();
   });
 
-  it('내역을 얹어 볼 수 있다 — 무엇이 몇인지', () => {
-    table();
-    expect(within(rowOf('판암 송광치')).getByTitle('정상 2 · 고장 1')).toBeTruthy();
-  });
-
-  it('「고장」으로 검색하면 그 고장을 품은 설비 줄이 걸린다', () => {
-    table([...ROWS, row({ id: 'other', name: '멀쩡한 것', status: 'normal' })]);
-    /* 롤업이 검색이 훑는 값에도 반영되지 않으면, 접힌 설비는 「고장」으로 찾히지 않는다. */
-    fireEvent.change(screen.getByLabelText('자산 검색'), { target: { value: '고장' } });
-    expect(screen.getByText('판암 송광치')).toBeTruthy();
-    expect(screen.queryByText('멀쩡한 것')).toBeNull();
-  });
-
-  it('부품이 하나도 없는 자산은 제 상태를 그대로 말한다', () => {
-    table([row({ id: 'solo', name: '단독 자산', status: 'standby' })]);
-    expect(within(rowOf('단독 자산')).getByText('예비')).toBeTruthy();
+  it('부품 줄은 펼쳤을 때 제 상태를 표시한다', () => {
+    render(<StatusTable rows={ROWS} fieldColumns={[]} selectedId={null} onSelectAsset={() => {}} />);
+    fireEvent.click(screen.getByLabelText('판암 송광치 펼치기'));
+    expect(within(rowOf('광단말 B')).getByText('고장')).toBeTruthy();
   });
 });
