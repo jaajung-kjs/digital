@@ -157,7 +157,7 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     choosePort(pick, 'p-a');
     expect(screen.getByText(/반대쪽 자산을 클릭하세요/)).toBeTruthy();
 
-    fireEvent.keyDown(window, { code: 'Escape' });
+    fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
 
     // armed 안내가 사라지고, 고르라는 요청도 걷힌다 (idle 복귀) — 부분 상태 잔존 없음
     expect(screen.queryByText(/반대쪽 자산을 클릭하세요/)).toBeNull();
@@ -184,7 +184,7 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
     fireEvent.click(screen.getByRole('button', { name: '배치' }));
     expect(screen.getByText('드래그로 영역 지정 · ESC 취소')).toBeTruthy();
 
-    fireEvent.keyDown(window, { code: 'Escape' });
+    fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
     expect(screen.queryByText('드래그로 영역 지정 · ESC 취소')).toBeNull();
   });
 

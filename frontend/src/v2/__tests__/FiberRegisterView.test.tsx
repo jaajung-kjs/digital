@@ -84,7 +84,13 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
   it('길이는 인입 케이블에서, 손실은 인입 포트의 코어 번호에서 온다', () => {
     setStore([ofd, slot], [cable('c1', 't1', 'x', { specParams: { lengthM: 40 } })]);
 
-    render(<FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<FiberRegisterView
+        substationId="sub-1"
+        selectedAssetId={null}
+        containerId={null}
+        onPickContainer={vi.fn()}
+        onSelectAsset={vi.fn()}
+      />);
 
     // 길이는 케이블 한 가닥의 값 — 두 코어 행이 **같은** 40 을 본다(예전에는 심선마다 케이블이었다).
     expect(screen.getAllByDisplayValue('40')).toHaveLength(2);
@@ -95,7 +101,13 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
 
   it('코어 손실을 고치면 그 코어 자리만 바뀐다 — 옆 코어 값은 그대로다', () => {
     setStore([ofd, slot], []);
-    render(<FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<FiberRegisterView
+        substationId="sub-1"
+        selectedAssetId={null}
+        containerId={null}
+        onPickContainer={vi.fn()}
+        onSelectAsset={vi.fn()}
+      />);
 
     const input = screen.getByDisplayValue('0.3');
     fireEvent.change(input, { target: { value: '1.4' } });
@@ -130,7 +142,13 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     const optTerm = asset('opt', '광단말-1', { parentAssetId: 'rack', ports: [port('o1', 'opt', 'CORE', 1)] });
     setStore([asset('rack', '통신랙 A'), optTerm], []);
 
-    render(<FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<FiberRegisterView
+        substationId="sub-1"
+        selectedAssetId={null}
+        containerId={null}
+        onPickContainer={vi.fn()}
+        onSelectAsset={vi.fn()}
+      />);
     expect(screen.getByText(/선번장에 표시할 광 자산이 없습니다/)).toBeTruthy();
   });
 });

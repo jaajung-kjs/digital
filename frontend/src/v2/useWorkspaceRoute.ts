@@ -87,14 +87,35 @@ export function useWorkspaceRoute() {
     [setParams],
   );
 
+  /**
+   * 선번장·계통이 보고 있는 설비 — 드롭다운으로 고른 것.
+   *
+   * 「고른 자산」과 다른 축이다: 현황에서 고른 것이 이 표에 없을 수도 있고, 반대로 이 표를
+   * 넘겨 보는 동안 아무것도 안 고를 수도 있다. 차례는 `useMediumContainer` 가 정한다.
+   */
+  const setContainer = useCallback(
+    (id: string) => {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('eq', id);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
   const assetId = params.get('asset');
   const partId = params.get('part');
   const portId = params.get('port');
+  const containerId = params.get('eq');
 
   /* 돌려주는 것을 **같은 객체로 유지한다** — 매 렌더 새 객체면 이걸 의존성에 넣은
      `useCallback` 들이 전부 다시 만들어지고, 그것을 받는 캔버스가 통째로 다시 그려진다. */
   return useMemo(
-    () => ({ nodeId, view, assetId, partId, portId, selectNode, setView, selectAsset }),
-    [nodeId, view, assetId, partId, portId, selectNode, setView, selectAsset],
+    () => ({ nodeId, view, assetId, partId, portId, containerId, selectNode, setView, selectAsset, setContainer }),
+    [nodeId, view, assetId, partId, portId, containerId, selectNode, setView, selectAsset, setContainer],
   );
 }

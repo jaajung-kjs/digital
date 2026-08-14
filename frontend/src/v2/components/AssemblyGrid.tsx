@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { slotNumber, type Grid } from '@twin/core';
-import { cn, SELECTABLE, type BadgeStatus } from '../../components/ui';
+import { cn, SELECTABLE, type BadgeStatus, isCancelKey } from '../../components/ui';
 import {
   cellAt, edgeScroll, gridDragTo, gridPlacementChanged, scrollableAncestor, startGridDrag,
   type GridCell, type GridDragKind, type GridDragSession, type GridPlacement,
@@ -307,7 +307,7 @@ export function AssemblyGrid<T extends GridItem>({
    */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (!isCancelKey(e)) return;
       // 끌고 있으면 그 손짓을 물린다. 아니면 고른 것을 푼다 — Esc 는 「지금 것을 취소」다.
       if (gestureRef.current) {
         gestureRef.current = null;

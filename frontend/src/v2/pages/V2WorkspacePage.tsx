@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CablePickRequest } from '../cablePick';
 import { Plus } from 'lucide-react';
-import { Button, EmptyState, useConfirm, Tabs, type TabItem, EMPTY } from '../../components/ui';
+import { Button, EmptyState, useConfirm, Tabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { AddAssetModal } from '../components/AddAssetModal';
@@ -146,11 +146,7 @@ export default function V2WorkspacePage() {
    */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      /* 글자를 치는 중이면 그 칸의 일이다(입력 취소·드롭다운 닫기). */
-      const el = document.activeElement;
-      if (el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)))
-        return;
+      if (!isCancelKey(e)) return;
       route.selectAsset(null);
     };
     window.addEventListener('keydown', onKey);
@@ -159,7 +155,7 @@ export default function V2WorkspacePage() {
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
-  /** 설비 종류으로 놓은 설비는 설비 종류가 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */
+  /** 설비 종류로 놓은 설비는 설비 종류가 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */
   const assembliesById = useMemo(
     () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
     [catalog.data],
@@ -300,12 +296,16 @@ export default function V2WorkspacePage() {
                     <FiberRegisterView
                       substationId={substationId}
                       selectedAssetId={highlightedAssetId}
+                      containerId={route.containerId}
+                      onPickContainer={route.setContainer}
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : inSubstationScope && viewMode === '계통' ? (
                     <PowerRegisterView
                       substationId={substationId}
                       selectedAssetId={highlightedAssetId}
+                      containerId={route.containerId}
+                      onPickContainer={route.setContainer}
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : (

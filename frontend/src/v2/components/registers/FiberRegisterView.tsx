@@ -22,6 +22,9 @@ import { InlineEditCell } from '../InlineEditCell';
 interface Props {
   substationId: string;
   selectedAssetId: string | null;
+  /** 드롭다운으로 고른 설비 — 주소가 쥔다(`useWorkspaceRoute`). */
+  containerId: string | null;
+  onPickContainer: (id: string) => void;
   /** 포트까지 주면 상세 패널이 포트 탭을 열고 그 포트를 고른 상태로 뜬다. */
   onSelectAsset: (id: string | null, portId?: string | null) => void;
 }
@@ -113,7 +116,13 @@ function PortFieldInput({
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function FiberRegisterView({ substationId: _substationId, selectedAssetId, onSelectAsset }: Props) {
+export function FiberRegisterView({
+  substationId: _substationId,
+  selectedAssetId,
+  containerId,
+  onPickContainer,
+  onSelectAsset,
+}: Props) {
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
 
@@ -159,7 +168,12 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   };
 
   /* 표의 단위는 설비 하나 — 계통과 같은 훅을 쓴다. */
-  const picked = useMediumContainer(containers, assembliesById);
+  const picked = useMediumContainer(containers, assembliesById, {
+    assets: effectiveAssets,
+    selectedAssetId,
+    containerId,
+    onPickContainer,
+  });
 
   /* 패널이 다른 자산으로 옮겨 가면 표의 선택도 놓는다 — 둘이 서로 다른 것을 가리키면
      "선택" 이라는 말이 화면에서 두 가지 뜻이 된다. */

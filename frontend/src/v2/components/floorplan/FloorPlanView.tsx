@@ -32,7 +32,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, IconButton, Select, Tabs, useConfirm } from '../../../components/ui';
+import { Button, IconButton, Select, Tabs, useConfirm, isCancelKey, isTypingTarget } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assemblyToAssets } from '../../placeAssembly';
@@ -741,13 +741,13 @@ export function FloorPlanView({
     const onKeyDown = (e: KeyboardEvent) => {
       // Guard: don't intercept keydown in input/textarea/contenteditable
       const t = e.target as HTMLElement | null;
-      if (t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable)) return;
+      if (isTypingTarget(t)) return;
 
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault();
         spaceDown.current = true;
       }
-      if (e.code === 'Escape') {
+      if (isCancelKey(e)) {
         // ESC: 케이블 도구 해제(이미 idle 이면 리듀서가 no-op) — 케이블/배치 도구는
         // 상호 배타적으로만 armed 되므로(handleArmType/handleArmCable) 둘 다
         // 무조건 dispatch 해도(원본의 "cableArmed 면 즉시 return" 분기와) 동치.
@@ -767,7 +767,7 @@ export function FloorPlanView({
     const onKeyUp = (e: KeyboardEvent) => {
       // Guard: don't intercept keyup in input/textarea/contenteditable
       const t = e.target as HTMLElement | null;
-      if (t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable)) return;
+      if (isTypingTarget(t)) return;
 
       if (e.code === 'Space') {
         spaceDown.current = false;
@@ -1255,7 +1255,7 @@ export function FloorPlanView({
     const onDeleteKey = (e: KeyboardEvent) => {
       if (e.code !== 'Delete' && e.code !== 'Backspace') return;
       const t = e.target as HTMLElement | null;
-      if (t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable)) return;
+      if (isTypingTarget(t)) return;
       // 케이블을 고른 것이 자산 선택보다 좁은 의도다 — 둘 다면 케이블을 지운다.
       if (latest.current.selectedCableId !== null) {
         e.preventDefault();

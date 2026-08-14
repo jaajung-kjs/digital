@@ -24,6 +24,9 @@ import { InlineEditCell } from '../InlineEditCell';
 interface Props {
   substationId: string;
   selectedAssetId: string | null;
+  /** 드롭다운으로 고른 설비 — 주소가 쥔다(`useWorkspaceRoute`). */
+  containerId: string | null;
+  onPickContainer: (id: string) => void;
   onSelectAsset: (id: string | null) => void;
 }
 
@@ -98,7 +101,13 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
 }
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
-export function PowerRegisterView({ substationId: _substationId, selectedAssetId, onSelectAsset }: Props) {
+export function PowerRegisterView({
+  substationId: _substationId,
+  selectedAssetId,
+  containerId,
+  onPickContainer,
+  onSelectAsset,
+}: Props) {
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
 
@@ -139,7 +148,12 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     22, // 부하 출력
   ];
 
-  const picked = useMediumContainer(containers, assembliesById);
+  const picked = useMediumContainer(containers, assembliesById, {
+    assets: effectiveAssets,
+    selectedAssetId,
+    containerId,
+    onPickContainer,
+  });
   const activeContainer = picked.active;
 
   /* 빈 회로 자리를 누르면 그 자리에 자산을 넣는다 — 모달은 이 뷰가 소유한다
