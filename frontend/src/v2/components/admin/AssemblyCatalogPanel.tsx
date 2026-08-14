@@ -7,7 +7,7 @@
  * 고쳐도 **이미 놓인 설비의 구성은 그대로다**(스냅샷) — 분류만 이 종류를 계속 가리킨다.
  * 그래서 자산 종류와 달리 "쓰이는 중이면 구조 잠금" 이 없다.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { EmptyState, IconButton, TreePanel, useConfirm, useInlineRename, IssueReveal, type TreeNode } from '../../../components/ui';
 import { CatalogEditorBar } from './CatalogEditorBar';
@@ -18,9 +18,9 @@ import {
 } from '../../assemblyDraft';
 import { NEW_ID } from '../../catalogDraft';
 import { useEditorGate } from '../../useEditorGate';
-import { isDirty } from '../../draftDiff';
+import { useDraftSelection } from '../../useDraftSelection';
 import { AssemblyPanel } from './AssemblyPanel';
-import type { V2Catalog, V2Category } from '../../types';
+import type { V2Assembly, V2Catalog, V2Category } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
 import { useV2Notice } from '../../store/noticeStore';
 
@@ -41,8 +41,6 @@ export function AssemblyCatalogPanel({
 
   /* 첫 항목을 열어 둔다 — 케이블 탭이 이미 그렇게 하고 있었다. 기본 탭이 설비 종류라,
      대장을 열면 빈 화면이 먼저 나오고 탭을 옮기면 갑자기 내용이 차 있어 어긋나 보였다. */
-  const [selectedId, setSelectedId] = useState<string | null>(catalog.assemblies[0]?.id ?? null);
-  const [draft, setDraft] = useState<AssemblyDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
   const rename = useInlineRename((id, name) => {
@@ -50,38 +48,30 @@ export function AssemblyCatalogPanel({
     if (cat) onRenameCategory(cat, name);
   });
 
-  /* 만드는 중이면 원본이 없다 — 그 사실을 `NEW_ID` 하나로 말한다(자산 종류 탭과 같은 규칙). */
-  const isNew = selectedId === NEW_ID;
-  const original = useMemo(
-    () => (isNew ? null : (catalog.assemblies.find((a) => a.id === selectedId) ?? null)),
-    [catalog.assemblies, selectedId, isNew],
+  /* 고른 것·초안·떠나기 전 묻기는 세 탭이 같은 셸을 쓴다 — `useDraftSelection`. */
+  const leaveIfConfirmed = useCallback(
+    () =>
+      confirm({
+        title: '저장하지 않은 변경',
+        target: null,
+        message: '편집 내용이 사라집니다. 이동할까요?',
+        confirmLabel: '이동',
+        danger: true,
+      }),
+    [confirm],
   );
-
-  // 고른 설비 종류가 바뀌면 초안을 새로 뜬다 — 남은 편집이 다른 설비 종류에 새어들지 않게.
-  useEffect(() => {
-    setSaveError(null);
-    if (selectedId === null || isNew) return;
-    setDraft(original ? assemblyToDraft(original) : null);
-  }, [selectedId, original, isNew]);
+  const sel = useDraftSelection<V2Assembly, AssemblyDraft>({
+    entities: catalog.assemblies,
+    toDraft: assemblyToDraft,
+    confirmLeave: leaveIfConfirmed,
+  });
+  const { selectedId, isNew, original, draft, setDraft, dirty } = sel;
 
   const issues = draft ? assemblyIssues(draft, catalog.types) : [];
   /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — `useEditorGate`. */
   const gate = useEditorGate({ issueCount: issues.length, resetKey: selectedId, onSave: handleSave });
-  const dirty = isDirty(draft, original ? assemblyToDraft(original) : null);
   /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
   useReportUnsaved(dirty);
-
-  /** 다른 설비 종류로 옮기기 전에 묻는다 — 자산 종류 탭과 같은 규칙. */
-  async function leaveIfConfirmed(): Promise<boolean> {
-    if (!dirty) return true;
-    return confirm({
-      title: '저장하지 않은 변경',
-      target: null,
-      message: '편집 내용이 사라집니다. 이동할까요?',
-      confirmLabel: '이동',
-      danger: true,
-    });
-  }
   const isSaving = m.createAssembly.isPending || m.updateAssembly.isPending;
 
   async function handleSave() {
@@ -91,7 +81,7 @@ export function AssemblyCatalogPanel({
       const body = draftToAssemblyBody(draft);
       if (isNew) {
         const created = await m.createAssembly.mutateAsync(body);
-        setSelectedId(created.id);
+        sel.setRequestedId(created.id);
         useV2Notice.getState().showSuccess(`'${draft.name}' 설비 종류를 만들었습니다`);
       } else {
         await m.updateAssembly.mutateAsync({ id: selectedId!, body });
@@ -114,7 +104,7 @@ export function AssemblyCatalogPanel({
     });
     if (!ok) return;
     await m.deleteAssembly.mutateAsync(selectedId);
-    setSelectedId(null);
+    sel.setRequestedId(null);
     setDraft(null);
   }
 
@@ -122,11 +112,7 @@ export function AssemblyCatalogPanel({
   const nodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
     const newInto = (categoryId: string) =>
-      void (async () => {
-        if (!(await leaveIfConfirmed())) return;
-        setSelectedId(NEW_ID);
-        setDraft({ ...emptyAssemblyDraft(), categoryId });
-      })();
+      void sel.startNew({ ...emptyAssemblyDraft(), categoryId });
     for (const cat of catalog.categories) {
       const items = catalog.assemblies.filter((a) => a.categoryId === cat.id);
       /* 빈 분류만 지울 수 있다 — 자산 종류 탭과 같은 규칙이다(같은 분류를 지운다). */
@@ -197,7 +183,7 @@ export function AssemblyCatalogPanel({
           title="설비 종류"
           nodes={nodes}
           selectedId={selectedId}
-          onSelect={(n) => void (async () => { if (await leaveIfConfirmed()) setSelectedId(n.id); })()}
+          onSelect={(n) => void sel.select(n.id)}
           onAdd={onAddCategory}
           addLabel="분류 추가"
           searchable
@@ -224,14 +210,7 @@ export function AssemblyCatalogPanel({
               onDelete={isNew ? undefined : () => void handleDelete()}
               deleteLabel="종류 삭제"
               /* 만들던 것을 물리면 그 줄도 목록에서 사라진다 — 저장한 적이 없으니 남을 것이 없다. */
-              onCancel={() => {
-                if (isNew) {
-                  setSelectedId(null);
-                  setDraft(null);
-                } else {
-                  setDraft(original ? assemblyToDraft(original) : null);
-                }
-              }}
+              onCancel={sel.cancel}
               onSave={gate.save}
             />
 

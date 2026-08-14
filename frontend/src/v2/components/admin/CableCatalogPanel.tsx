@@ -15,7 +15,7 @@
  * 오른쪽은 `표 │ 상세` 다. 상세는 **한 자리에서 문맥만 바뀐다** — 아무것도 안 골랐으면 그룹
  * 자신, 종류를 골랐으면 그 종류(설비 종류 탭이 「설비 자신 ↔ 부품」으로 바뀌는 것과 같다).
  */
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import {
   Button,
@@ -42,7 +42,7 @@ import { apiErrorMessage } from '../../apiError';
 import { LaborSpecForm } from './LaborSpecForm';
 import { TreePanel, type TreeNode } from '../../../components/ui';
 import { useEditorGate } from '../../useEditorGate';
-import { isDirty } from '../../draftDiff';
+import { useDraftSelection } from '../../useDraftSelection';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useV2Notice } from '../../store/noticeStore';
 
@@ -145,8 +145,6 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const wage = useWageCatalog();
   const groups = catalog.cableGroups;
 
-  const [selectedId, setSelectedId] = useState<string | null>(groups[0]?.id ?? null);
-  const [draft, setDraft] = useState<GroupDraft | null>(groups[0] ? toDraft(groups[0]) : null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   /* 방금 더한 줄에 커서를 둔다 — 새 줄이 서기만 하고 손이 갈 곳을 안 알려 주면 한 번 더 눌러야 한다. */
@@ -159,42 +157,29 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const asideRef = useRef<HTMLElement | null>(null);
   useDismissOnOutside(selectedKey != null, [tableRef, asideRef], () => setSelectedKey(null));
 
-  const original = groups.find((g) => g.id === selectedId) ?? null;
-
-  /* 다른 그룹으로 옮기기 전에 묻는다 — 세 탭이 같은 규칙이어야 한다. */
-  const selectGroup = async (id: string) => {
-    const g = groups.find((x) => x.id === id);
-    if (!g) return;
-    if (
-      dirtyRef.current &&
-      !(await confirm({
+  /* 고른 것·초안·떠나기 전 묻기는 세 탭이 같은 셸을 쓴다 — `useDraftSelection`.
+     예전에는 여기서 「고른 것이 사라졌으면 첫 번째로」를 **렌더 도중 `setState`** 로
+     바로잡고 있었다. 이제 파생값이라 바로잡을 것이 없다. */
+  const leaveIfConfirmed = useCallback(
+    () =>
+      confirm({
         title: '저장하지 않은 변경',
         target: null,
         message: '편집 내용이 사라집니다. 이동할까요?',
         confirmLabel: '이동',
         danger: true,
-      }))
-    )
-      return;
-    setSelectedId(id);
-    setDraft(toDraft(g));
+      }),
+    [confirm],
+  );
+  const sel = useDraftSelection<V2CableGroup, GroupDraft>({ entities: groups, toDraft, confirmLeave: leaveIfConfirmed });
+  const { selectedId, original, saved, draft, setDraft, dirty } = sel;
+  const selectGroup = async (id: string) => {
+    await sel.select(id);
     setSelectedKey(null);
     setSaveError(null);
   };
-  if (original == null && groups.length > 0 && selectedId != null) {
-    // 목록이 갱신되며 고른 것이 사라진 경우
-    setSelectedId(groups[0]!.id);
-    setDraft(toDraft(groups[0]!));
-  }
-
-  const saved = useMemo(() => (original ? toDraft(original) : null), [original]);
-  const dirty = isDirty(draft, saved);
   /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
   useReportUnsaved(dirty);
-  /* `selectGroup` 은 `dirty` 보다 위에 선다 — 최신 값을 ref 로 읽는다(선언 순서 때문이지
-     성능 때문이 아니다). */
-  const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
 
   const { flags, groupName: groupNameIssue, count: issueCount } = useMemo(() => issuesOf(draft), [draft]);
   /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — 예전에는 이 탭만 그 규칙이 없어서
