@@ -23,9 +23,12 @@ export interface TableSearchProps {
  *
  * 건수를 늘 함께 보여주는 이유: 검색 결과가 비었을 때 "검색이 잘못됐다" 인지 "원래
  * 없다" 인지 구분되지 않으면 사용자가 같은 검색을 반복한다.
+ *
+ * **건수는 지금 나열된 것을 서술한다.** 예전에는 검색 중일 때만 `N / M건` 을 적고 평소에는
+ * 전체만 적었다 — 현황표는 설비를 접어 두므로 화면에 두 줄이 보이는데 「18건」이라고 서
+ * 있었다. 화면과 다른 수는 세는 사람을 헷갈리게 할 뿐이다.
  */
 export function TableSearch({ value, onChange, placeholder, shown, total, ...rest }: TableSearchProps) {
-  const searching = value.trim().length > 0;
   return (
     <div className="flex shrink-0 items-center gap-2">
       <div className="w-64">
@@ -39,7 +42,7 @@ export function TableSearch({ value, onChange, placeholder, shown, total, ...res
       </div>
       {/* 건수는 줄바꿈되지 않게 — 좁은 칸에서 "48" / "건" 으로 갈라져 두 줄이 됐다. */}
       <span className="whitespace-nowrap text-xs text-content-muted">
-        {searching ? `${shown} / ${total}건` : `${total}건`}
+        {shown === total ? `${total}건` : `${shown} / ${total}건`}
       </span>
     </div>
   );

@@ -20,6 +20,7 @@ import {
 import { AssemblyPanel } from './AssemblyPanel';
 import type { V2Catalog, V2Category } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
+import { useV2Notice } from '../../store/noticeStore';
 
 interface AssemblyCatalogPanelProps {
   catalog: V2Catalog;
@@ -85,8 +86,10 @@ export function AssemblyCatalogPanel({
       if (selectedId === null) {
         const created = await m.createAssembly.mutateAsync(body);
         setSelectedId(created.id);
+        useV2Notice.getState().showSuccess(`'${draft.name}' 설비 종류를 만들었습니다`);
       } else {
         await m.updateAssembly.mutateAsync({ id: selectedId, body });
+        useV2Notice.getState().showSuccess(`'${draft.name}' 을 저장했습니다`);
       }
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : '저장하지 못했습니다');

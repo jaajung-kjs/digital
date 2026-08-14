@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
-import { X } from 'lucide-react';
-import { Badge, Button, IconButton, OverflowMenu } from '../../../components/ui';
+import { Badge, Button, ErrorStrip, OverflowMenu } from '../../../components/ui';
 
 export interface CatalogEditorBarProps {
   /** 지금 편집 중인 것의 이름 — 새로 만드는 중이면 「새 …」. */
@@ -41,16 +40,9 @@ export function CatalogEditorBar({
 }: CatalogEditorBarProps) {
   return (
     <div className="shrink-0 border-b border-line bg-surface">
-      {error != null && (
-        <div className="flex w-full items-center gap-1 px-4 py-1">
-          <span className="flex-1 text-xs text-danger">{error}</span>
-          {onDismissError && (
-            <IconButton aria-label="오류 닫기" onClick={onDismissError}>
-              <X size={12} />
-            </IconButton>
-          )}
-        </div>
-      )}
+      {/* 손으로 베낀 마크업이었다 — `role="alert"` 이 빠져 있어 실패한 저장이 낭독되지
+          않았다. 같은 것을 두 번 적으면 한쪽만 고쳐진다. */}
+      <ErrorStrip message={error} onDismiss={onDismissError} className="w-full px-4 py-1" />
       {/* 오류가 떠 있으면 입력 오류 수는 접어 둔다 — 둘을 겹쳐 놓으면 어느 쪽을 고쳐야 할지
           알 수 없다(먼저 손댈 것은 방금 실패한 저장이다). */}
       {issueCount > 0 && error == null && (

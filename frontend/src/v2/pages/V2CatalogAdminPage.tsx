@@ -33,6 +33,7 @@ import { PortsEditor } from '../components/admin/PortsEditor';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
 import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
+import { useV2Notice } from '../store/noticeStore';
 
 type Tab = 'type' | 'assembly' | 'cable';
 
@@ -181,9 +182,13 @@ function CatalogAdmin() {
         // 신규 생성
         const created = await mutations.createType.mutateAsync(draft);
         setSelectedTypeId(created.id);
+        useV2Notice.getState().showSuccess(`'${draft.name}' 자산 종류를 만들었습니다`);
       } else {
         // 수정
         await mutations.updateType.mutateAsync({ id: selectedTypeId, body: draft });
+        /* 저장 바가 사라지는 것만으로는 「정말 저장됐나」를 알 수 없다 — 그래서 저장을
+           두 번 누르게 된다. 값을 바꾼 모든 길은 결과를 말한다. */
+        useV2Notice.getState().showSuccess(`'${draft.name}' 을 저장했습니다`);
       }
     } catch (err: unknown) {
       const issues = apiErrorIssues(err);

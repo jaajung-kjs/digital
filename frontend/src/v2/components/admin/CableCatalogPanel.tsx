@@ -41,6 +41,7 @@ import { apiErrorMessage } from '../../apiError';
 import { LaborSpecForm } from './LaborSpecForm';
 import { CatalogList } from './CatalogList';
 import { CatalogEditorBar } from './CatalogEditorBar';
+import { useV2Notice } from '../../store/noticeStore';
 
 interface CableCatalogPanelProps {
   catalog: V2Catalog;
@@ -272,6 +273,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
       /* 새로 만든 줄은 이제 id 를 갖는다 — 서버가 돌려준 것으로 초안을 다시 세우지 않으면
          다음 저장에서 같은 줄을 또 만든다. */
       setDraft(toDraft(updated));
+      useV2Notice.getState().showSuccess(`'${updated.name}' 을 저장했습니다`);
     } catch (err: unknown) {
       setSaveError(apiErrorMessage(err, '저장하지 못했습니다'));
     } finally {
