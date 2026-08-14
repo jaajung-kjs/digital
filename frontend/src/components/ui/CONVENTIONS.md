@@ -288,7 +288,7 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 어느 쪽인지는 **변경 집합이 그대로 말한다** — 뿌리 설비가 같이 왔는가(`reportSelectors.unitOf`). 따로 표시할 것도, 사용자에게 물을 것도 없다.
 
-- 1식 공량은 설비 종류가 갖는다(`Assembly.laborCode`·`installManDays`…). **null = 안 적었다**(안에 든 자산의 공량을 합쳐 센다), **0 = 품이 안 든다**. 둘을 구별해야 하므로 nullable 이다.
+- 1식 공량은 설비 종류가 갖는다(`Assembly.laborCode`·`installManDays`…). **null = 안 적었다**(안에 든 자산의 공량을 합쳐 센다), **0 = 품이 안 든다**. 둘을 구별해야 하므로 nullable 이다. **화면에서도 구별돼야 한다** — 빈 칸은 제 뜻을 `placeholder` 로 말한다(§3 입력/선택). 뜻은 담체가 선언한다(`LABOR_CARRIERS[carrier].emptyManDays`): 설비만 「부품 합산」이고 자산·케이블은 합칠 것이 없어 「품 0」이다.
 - 물러설 때 자손은 **그 설비**에서 찾는다 — 변경 집합이 아니라. 놓고 걷을 때는 자손도 함께 오지만 **옮길 때는 뿌리만 온다**. 변경 집합만 보면 이설이 설계서에서 통째로 사라진다(실제로 그랬다).
 - 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 부품별로 잡는 일이 흔하다.
 
@@ -307,6 +307,12 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 별도의 `fieldClass` 유틸은 없다. 크기는 `size` prop(`sm`/`md`) 으로만 정한다(§1.5) — `className` 으로 여백·글자를 덮어쓰지 않는다.
 
 **폭은 감싸는 칸으로 정한다** — `<Select className="max-w-xs">` 처럼 컨트롤에 직접 걸면 안 된다. `Select` 의 화살표는 래퍼 기준 절대배치라 `<select>` 만 좁아지고 화살표는 원래 자리에 남아 따로 논다(선번장·계통이 실제로 그랬다). `<div className="w-64"><Select …/></div>` 로 감싼다.
+
+**금액·수량은 `<Input numeric suffix="원/식">`** — `type="number"` 를 쓰지 않는다. 칸에 손이 얹힌 채 스크롤하면 **값이 소리 없이 바뀌고**(긴 폼에서 단가가 저 혼자 달라진다), 위아래 스피너는 단가·품셈에 아무 뜻이 없으며, 천단위 구분을 붙일 수 없다. 업계도 금액에는 텍스트 입력 + 포맷터를 쓴다(Ant `InputNumber`, Carbon `NumberInput`, Stripe). `numeric` 이 `inputMode="decimal"` + 우측 정렬 + `tabular-nums` 를 함께 건다 — `numeric` 키패드에는 소수점이 없어 품셈(`0.06`)을 휴대기기에서 아예 입력할 수 없다.
+
+**단위는 칸 안 오른쪽에 붙인다(`suffix`)** — 상자 **바깥**에 별개 글자로 두면 단위가 어느 칸의 것인지 눈으로 이어야 하고, 칸이 여럿 쌓인 폼에서는 값과 단위가 서로 다른 줄에서 만난다. 값과 단위는 한 덩어리다(Ant `addonAfter`, Fluent suffix). 표에서는 `Th` 의 `unit` 이 같은 일을 한다. 폼 안에서 `<span className="text-xs text-content-faint">원/m</span>` 을 값 옆에 손으로 붙이지 않는다.
+
+**뜻이 있는 빈 칸은 그 뜻을 `placeholder` 로 말한다.** 자료가 3-상태(`null`·`0`·`N`)면 화면도 3-상태여야 한다 — 빈 상자와 `0` 이 든 상자는 거의 같아 보이는데 뜻은 정반대고, 0 을 지워 `null` 로 되돌릴 수 있는지조차 알 수 없었다. 무엇을 뜻하는지는 **선언이 정한다**(공량은 `emptyMeaning(carrier, kind)` → `미입력 (부품 합산)`) — 화면이 담체 이름으로 갈라 적지 않는다.
 
 **저장을 막는 칸은 `<Input invalid>`** — 붉은 테두리와 `aria-invalid` 를 함께 건다. 문구는 부르는 쪽이 말한다(`DetailRow` 의 `issue`, 저장 바의 `issueCount`). 표처럼 라벨 옆에 문구를 놓을 자리가 없는 곳에서는 이 테두리가 유일한 길잡이라, 「입력 오류 N건」만 띄우고 어느 칸인지 안 짚는 화면을 만들지 않는다. 테두리를 `className="border-danger"` 로 직접 그리지 않는다 — `cn` 은 tailwind-merge 가 아니라 기본 `border-line` 과 충돌한다.
 

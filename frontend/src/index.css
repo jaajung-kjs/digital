@@ -82,6 +82,13 @@ body {
     outline: 2px solid transparent;
     box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 0.2);
   }
+  /* 포커스 링(단위가 붙은 인풋) — 테두리를 **상자**가 가지므로 링도 상자에 건다.
+     위의 `:focus` 를 `:focus-within` 으로 넓히지 않는 이유: 그 클래스는 표의 `<tr>` 도
+     쓰는데(현황·선번장·계통), 그러면 칸 안의 입력에 손을 대는 순간 행 전체가 빛난다. */
+  .focus-ring-input-box:focus-within {
+    outline: 2px solid transparent;
+    box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 0.2);
+  }
   /* 버튼 눌림 — transition(all)로 색+transform 동시 전환, 눌림 시 살짝 축소 */
   .press-btn {
     @apply transition active:scale-[0.97];
