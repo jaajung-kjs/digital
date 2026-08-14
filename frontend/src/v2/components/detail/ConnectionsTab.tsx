@@ -15,9 +15,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import {
-  DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select, Toggle,
+  Accordion, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select, Toggle,
   useConfirm, useDismissOnOutside, cn, SELECTABLE,
   EMPTY,
+  type BadgeStatus,
 } from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
@@ -81,6 +82,8 @@ export function ConnectionsTab({
   const [tracedPortId, setTracedPortId] = useState<string | null>(null);
   /* 케이블 종류를 고치는 중인 가닥 — 읽는 줄이 기본이고, 고칠 때만 상자가 선다. */
   const [editingCableId, setEditingCableId] = useState<string | null>(null);
+  /* 펼친 부품 — 아래 `openPartId` 가 이 값을 「첫 부품」·「접힘」으로 풀어 읽는다. */
+  const [openPart, setOpenPart] = useState<string | null | undefined>(undefined);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const { confirm, confirmDialog } = useConfirm();
   /* 고르는 중인가 — 요청이 **이 자산**을 가리킬 때만. 다른 자산을 보고 있는 동안에는
@@ -88,10 +91,11 @@ export function ConnectionsTab({
   const picking = cablePick && cablePick.assetId === assetId ? cablePick : null;
   const [pickQuery, setPickQuery] = useState('');
   useEffect(() => setPickQuery(''), [picking?.assetId]);
-  // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다.
+  // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다. 펼친 부품도 첫 부품으로 돌아간다.
   useEffect(() => {
     setSelectedPortId(null);
     setTracedPortId(null);
+    setOpenPart(undefined);
   }, [assetId]);
   // 밖에서 다른 포트를 가리키면 따라간다 — 표의 줄과 판의 선택이 어긋나면 안 된다.
   useEffect(() => {
@@ -315,6 +319,60 @@ export function ConnectionsTab({
     onClearTrace();
   }
 
+  /**
+   * 부품을 펼친다 — 같은 것을 다시 누르면 접힌다(앱 공통 규칙).
+   *
+   * 펼친 부품이 바뀌면 **고른 포트를 놓는다.** 접힌 카드 안에 선택이 남아 있으면
+   * 「지금 무엇을 골랐나」가 화면에서 사라지고, 추적 결과도 안 보이는 자리에 매달린다.
+   */
+  function handleOpenPart(next: string | null) {
+    setOpenPart(next);
+    if (selectedPort && selectedPort.assetId !== next) {
+      setSelectedPortId(null);
+      setTracedPortId(null);
+      onClearTrace();
+    }
+  }
+
+  /* 아래 세 훅은 **이른 반환보다 위**에 있어야 한다.
+     한때 `if (!asset) return null` 뒤에 있었다 — 워킹 카피가 늦게 도착해 포트가 0개였다가
+     채워지면 렌더마다 훅 수가 달라져 React 가 통째로 터진다("Rendered more hooks than
+     during the previous render"). 훅은 조건 위에 세운다. */
+  const pickDisabledPortIds = useMemo(() => {
+    if (!picking) return undefined;
+    const full = new Set<string>();
+    for (const { groups } of portOwners) {
+      for (const { ports } of groups) {
+        for (const p of ports) {
+          if (!portHasRoom(p.medium, cablesByPortId.get(p.id)?.length ?? 0)) full.add(p.id);
+        }
+      }
+    }
+    return full;
+  }, [picking, portOwners, cablesByPortId]);
+
+  useDismissOnOutside(!picking && selectedPortId != null, [rootRef], () => setSelectedPortId(null));
+
+  /**
+   * 펼친 부품 — **한 번에 하나**(`Accordion`).
+   *
+   * `undefined` = 아직 아무도 고르지 않았다(첫 부품이 펼쳐진다), `null` = 사람이 접었다.
+   * 둘을 구분하지 않으면 「접었다」가 다음 렌더에서 「첫 부품 펼치기」로 되돌아온다.
+   */
+  const openPartId = useMemo(() => {
+    if (openPart === null) return null;
+    if (openPart != null && portOwners.some((o) => o.owner.id === openPart)) return openPart;
+    /* 처음이거나, 펼쳐 둔 부품이 목록에서 사라졌다(고르는 중에는 매체로 걸러진다). */
+    return portOwners[0]?.owner.id ?? null;
+  }, [openPart, portOwners]);
+
+  /* 밖에서 포트를 지목해 오면(선번장의 한 줄, 부품 카드의 「포트 보기」) **그 포트가 든 부품을
+     펼친다**. 안 그러면 고른 포트가 접힌 카드 안에 숨어, 표에서 줄을 눌렀는데 패널에는
+     아무 일도 안 일어난 것처럼 보인다. */
+  useEffect(() => {
+    if (selectedPort && selectedPort.assetId !== openPartId) setOpenPart(selectedPort.assetId);
+  }, [selectedPort, openPartId]);
+
   if (!asset) return null;
 
   // 자기 포트가 없어도 안에 든 장비가 가질 수 있다 — 랙·함체가 그렇다.
@@ -350,21 +408,6 @@ export function ConnectionsTab({
       />
     );
   }
-
-  const pickDisabledPortIds = useMemo(() => {
-    if (!picking) return undefined;
-    const full = new Set<string>();
-    for (const { groups } of portOwners) {
-      for (const { ports } of groups) {
-        for (const p of ports) {
-          if (!portHasRoom(p.medium, cablesByPortId.get(p.id)?.length ?? 0)) full.add(p.id);
-        }
-      }
-    }
-    return full;
-  }, [picking, portOwners, cablesByPortId]);
-
-  useDismissOnOutside(!picking && selectedPortId != null, [rootRef], () => setSelectedPortId(null));
 
   const freeCount = portOwners
     .flatMap((o) => o.groups.flatMap((g) => g.ports))
@@ -411,200 +454,209 @@ export function ConnectionsTab({
       {/* 부품 한 대에 카드 한 장 — 판·고른 포트·연결 내역이 **한 곳에** 모인다.
           예전에는 판만 여기 있고 「연결」과 「고른 포트 상세」는 맨 아래 따로 있었다. 부품이
           열둘이면 판 열두 장을 지나야 그것들이 나오므로, 포트를 눌러 놓고도 무엇이 어떻게
-          바뀌었는지 보이지 않았다. */}
-      {portOwners.map(({ owner, groups }) => {
-        const ownerPorts = groups.flatMap((g) => g.ports);
-        const connected = ownerPorts.filter((pt) => cablesByPortId.has(pt.id)).length;
-        // 고른 포트가 이 부품 것일 때만 상세를 편다.
-        // 고르는 중에는 상세를 열지 않는다 — 지금 하는 일은 「고르기」 하나뿐이다.
-        const sel = !picking && selectedPort && selectedPort.assetId === owner.id ? selectedPort : null;
-        return (
-          <DetailCard key={owner.id}>
-            <DetailCardHeader
-              title={owner.name}
-              badge={`${connected}/${ownerPorts.length} 연결`}
-              badgeStatus={connected > 0 ? 'success' : 'neutral'}
-            />
-            {/* 장비 하나에 전면판 한 장 — 구획은 그 판 위에서 나뉜다. */}
-            <PortFaceplate
-              labelPrefix={owner.name}
-              sections={groups.map(({ group, label, medium, ports }) => ({
-                key: group, label, accent: mediumColor(medium), ports,
-              }))}
-              stateOf={portState}
-              /* 고르는 중에는 **꽉 찬 포트를 못 누르게** 한다. 눌러 보고 나서 「이미 물려
-                 있습니다」로 되돌리면, 어느 자리가 남았는지를 눌러 가며 알아내야 한다.
-                 판이 이미 상태를 색으로 말하고 있으니 누를 수 없다는 것도 판이 말한다.
-                 규칙은 `portHasRoom` 한 곳 — 접지 부스바는 여러 가닥이 물린다. */
-              disabledPortIds={pickDisabledPortIds}
-              cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
-              isOpen={isPortOpen}
-              selectedPortId={selectedPortId}
-              /* 고르는 중에는 **끝점으로 잡힌다** — 상세를 여는 대신. 판은 같고 뜻만 다르다. */
-              onSelect={(id) => {
-                if (picking) {
-                  const port = allPorts.find((p) => p.id === id);
-                  if (port) picking.onSelect(port);
-                  return;
-                }
-                setSelectedPortId((prev) => (prev === id ? null : id));
-              }}
-            />
+          바뀌었는지 보이지 않았다.
 
-            {/* 고른 포트 하나 — **어디랑 · 뭘로 · 추적** 셋만.
-                포트를 누르는 사람이 알고 싶은 것은 그 셋이다. 예전에는 매체·방향·상태 배지·
-                내부 통과까지 얹혀 있었는데, 매체와 방향은 판의 구획이 이미 말하고 상태는
-                대국이 적혀 있으면 자명하며 내부 통과는 추적이 끝까지 보여 준다. */}
-            {sel && (
-              <div className="space-y-1.5 rounded border border-line bg-surface-2 p-2">
-                <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-content">
-                    {endpointLabel({ assemblyName: null, assetName: owner.name, portName: sel.name, portIndex: sel.index })}
-                  </span>
-                  {selectedPeers.length > 0 && (
-                    <Button variant="secondary" size="sm" onClick={() => handleTrace(sel.id)}>
-                      추적
-                    </Button>
-                  )}
-                </div>
+          그런데 **장수는 부품 수만큼 늘어난다** — 판암 송광치는 열둘이라 2,945px(화면 5.5장)이
+          됐고, 상세를 판 밑으로 옮겨 놔도 그 판까지 가는 길이 여전히 스크롤뿐이었다. 그래서
+          한 번에 하나만 펼친다(`Accordion`) — 접힌 머리줄이 곧 부품 목록이고, 이름 옆의
+          `n/m 연결` 이 펴 보지 않고도 어느 판을 열지 알려 준다. */}
+      <Accordion
+        openKey={openPartId}
+        onOpenChange={handleOpenPart}
+        sections={portOwners.map(({ owner, groups }) => {
+          const ownerPorts = groups.flatMap((g) => g.ports);
+          const connected = ownerPorts.filter((pt) => cablesByPortId.has(pt.id)).length;
+          // 고른 포트가 이 부품 것일 때만 상세를 편다.
+          // 고르는 중에는 상세를 열지 않는다 — 지금 하는 일은 「고르기」 하나뿐이다.
+          const sel = !picking && selectedPort && selectedPort.assetId === owner.id ? selectedPort : null;
+          return {
+            key: owner.id,
+            title: owner.name,
+            badge: `${connected}/${ownerPorts.length} 연결`,
+            badgeStatus: (connected > 0 ? 'success' : 'neutral') as BadgeStatus,
+            body: (
+              <>
+                {/* 장비 하나에 전면판 한 장 — 구획은 그 판 위에서 나뉜다. */}
+                <PortFaceplate
+                  labelPrefix={owner.name}
+                  sections={groups.map(({ group, label, medium, ports }) => ({
+                    key: group, label, accent: mediumColor(medium), ports,
+                  }))}
+                  stateOf={portState}
+                  /* 고르는 중에는 **꽉 찬 포트를 못 누르게** 한다. 눌러 보고 나서 「이미 물려
+                     있습니다」로 되돌리면, 어느 자리가 남았는지를 눌러 가며 알아내야 한다.
+                     판이 이미 상태를 색으로 말하고 있으니 누를 수 없다는 것도 판이 말한다.
+                     규칙은 `portHasRoom` 한 곳 — 접지 부스바는 여러 가닥이 물린다. */
+                  disabledPortIds={pickDisabledPortIds}
+                  cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
+                  isOpen={isPortOpen}
+                  selectedPortId={selectedPortId}
+                  /* 고르는 중에는 **끝점으로 잡힌다** — 상세를 여는 대신. 판은 같고 뜻만 다르다. */
+                  onSelect={(id) => {
+                    if (picking) {
+                      const port = allPorts.find((p) => p.id === id);
+                      if (port) picking.onSelect(port);
+                      return;
+                    }
+                    setSelectedPortId((prev) => (prev === id ? null : id));
+                  }}
+                />
 
-                {selectedPeers.length === 0 ? (
-                  /* 빈 포트 — 「없다」로 끝내지 않고 **여기서 잇게** 한다. 예전에는 평면도로
-                     건너가 도구를 켜고 이 자산을 다시 찾아 이 포트를 다시 골라야 했다. */
-                  <DetailRow label="연결">
+                {/* 고른 포트 하나 — **어디랑 · 뭘로 · 추적** 셋만.
+                    포트를 누르는 사람이 알고 싶은 것은 그 셋이다. 예전에는 매체·방향·상태 배지·
+                    내부 통과까지 얹혀 있었는데, 매체와 방향은 판의 구획이 이미 말하고 상태는
+                    대국이 적혀 있으면 자명하며 내부 통과는 추적이 끝까지 보여 준다. */}
+                {sel && (
+                  <div className="space-y-1.5 rounded border border-line bg-surface-2 p-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-content-faint">연결 없음</span>
-                      {onConnectPort && (
-                        <Button variant="secondary" size="sm" onClick={() => onConnectPort(sel.id)}>
-                          케이블 연결
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-content">
+                        {endpointLabel({ assemblyName: null, assetName: owner.name, portName: sel.name, portIndex: sel.index })}
+                      </span>
+                      {selectedPeers.length > 0 && (
+                        <Button variant="secondary" size="sm" onClick={() => handleTrace(sel.id)}>
+                          추적
                         </Button>
                       )}
                     </div>
-                  </DetailRow>
-                ) : (
-                  /* 부스바는 여럿이 물린다 — 하나만 적으면 나머지가 없는 것처럼 읽힌다.
-                     **가닥 하나에 상자 하나**: 「어디로」와 「뭘로」가 라벨을 달고 줄을 나눠 선다.
-                     예전에는 라벨 없이 장비 이름과 드롭다운이 맨몸으로 놓여, 무엇을 말하는
-                     자리인지도 모른 채 편집기부터 눈에 들어왔다. */
-                  selectedPeers.map((peer) => (
-                    <ItemCard
-                      key={peer.cableId}
-                      title="연결"
-                      onDelete={() => void handleDeleteCable(peer)}
-                    >
-                      <DetailRow label="대국">
-                        <button
-                          type="button"
-                          className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                          title={peer.entry ? `${peer.label} 으로 이동` : peer.label}
-                          disabled={!peer.entry}
-                          onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
+
+                    {selectedPeers.length === 0 ? (
+                      /* 빈 포트 — 「없다」로 끝내지 않고 **여기서 잇게** 한다. 예전에는 평면도로
+                         건너가 도구를 켜고 이 자산을 다시 찾아 이 포트를 다시 골라야 했다. */
+                      <DetailRow label="연결">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-content-faint">연결 없음</span>
+                          {onConnectPort && (
+                            <Button variant="secondary" size="sm" onClick={() => onConnectPort(sel.id)}>
+                              케이블 연결
+                            </Button>
+                          )}
+                        </div>
+                      </DetailRow>
+                    ) : (
+                      /* 부스바는 여럿이 물린다 — 하나만 적으면 나머지가 없는 것처럼 읽힌다.
+                         **가닥 하나에 상자 하나**: 「어디로」와 「뭘로」가 라벨을 달고 줄을 나눠 선다.
+                         예전에는 라벨 없이 장비 이름과 드롭다운이 맨몸으로 놓여, 무엇을 말하는
+                         자리인지도 모른 채 편집기부터 눈에 들어왔다. */
+                      selectedPeers.map((peer) => (
+                        <ItemCard
+                          key={peer.cableId}
+                          title="연결"
+                          onDelete={() => void handleDeleteCable(peer)}
                         >
-                          {peer.label}
-                        </button>
-                      </DetailRow>
-                      {/* 케이블은 **읽는 줄이 기본**이다. 드롭다운을 늘 펼쳐 두면 조회하러
-                          온 사람에게 편집기부터 들이미는 꼴이고, 실수로 바꾸기도 쉽다.
-                          고칠 때만 상자가 선다 — 이 화면의 다른 값들과 같은 규칙. */}
-                      <DetailRow label="케이블">
-                        {editingCableId === peer.cableId ? (
-                          <Select
-                            aria-label="케이블 종류"
-                            size="sm"
-                            autoFocus
-                            value={peer.categoryId ?? ''}
-                            onChange={(e) => {
-                              useV2WorkingCopy
-                                .getState()
-                                .stageCableUpdate(peer.cableId, { categoryId: e.currentTarget.value });
-                              setEditingCableId(null);
-                            }}
-                            onBlur={() => setEditingCableId(null)}
-                          >
-                            {cableChoices.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </Select>
-                        ) : (
-                          <button
-                            type="button"
-                            className={cn('flex w-full items-center gap-1.5 rounded px-1 text-left', SELECTABLE)}
-                            title="케이블 종류 바꾸기"
-                            onClick={() => setEditingCableId(peer.cableId)}
-                          >
-                            <span className="min-w-0 truncate text-sm text-content">{peer.categoryName ?? EMPTY}</span>
-                            {peer.lengthM && (
-                              <span className="shrink-0 text-xs tabular-nums text-content-muted">{peer.lengthM}</span>
-                            )}
-                            <Pencil size={12} className="ml-auto shrink-0 text-content-faint" />
-                          </button>
-                        )}
-                      </DetailRow>
-                    </ItemCard>
-                  ))
-                )}
-
-                {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다. 이 값을 쓰는 문은 여기뿐이라
-                    (계통 표는 **출력** 포트만 다룬다) 빼면 입력측 차단기를 적을 곳이 없어진다. */}
-                {selectedSwitch && (
-                  <DetailRow label={selectedSwitch.field.label}>
-                    <Toggle
-                      checked={selectedSwitch.closed}
-                      onChange={(next) => setPortSwitch(selectedSwitch.owner, sel, selectedSwitch.field, next)}
-                      label={selectedSwitch.closed ? '투입' : '개방'}
-                      aria-label={`${sel.name} ${selectedSwitch.field.label}`}
-                    />
-                  </DetailRow>
-                )}
-
-                {/* 추적 결과 — **누른 자리 바로 아래**에 편다.
-                    맨 위 카드에 띄우면 부품이 열둘일 때 결과가 화면 밖으로 나가, 누르고도
-                    아무 일이 없는 것처럼 보였다. 경로는 이 포트에서 출발한 것이므로
-                    이 포트 밑이 그 경로의 자리다. */}
-                {tracedPortId === sel.id && traceResult && (
-                  <div className="border-t border-line pt-1.5">
-                    <div className="mb-0.5 flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-content-muted">
-                        {traceResult.hops.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
-                      </span>
-                      <Button variant="secondary" size="sm" onClick={clearTrace}>
-                        지우기
-                      </Button>
-                    </div>
-                    <ol className="space-y-0.5">
-                      {traceResult.hops.map((hop, i) => {
-                        // 경로에 나온 자산은 눌러서 그리로 갈 수 있어야 한다 — 예전에는 글자일
-                        // 뿐이라 그 장비를 찾으려면 표에서 다시 검색해야 했다.
-                        const target = hop.kind === 'internal' ? undefined : portIndex.get(hop.toPortId)?.asset;
-                        return (
-                          <li key={i} className="flex items-baseline gap-1 text-sm text-content">
-                            <span className="shrink-0 text-xs tabular-nums text-content-faint">{i + 1}.</span>
-                            {target ? (
+                          <DetailRow label="대국">
+                            <button
+                              type="button"
+                              className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                              title={peer.entry ? `${peer.label} 으로 이동` : peer.label}
+                              disabled={!peer.entry}
+                              onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
+                            >
+                              {peer.label}
+                            </button>
+                          </DetailRow>
+                          {/* 케이블은 **읽는 줄이 기본**이다. 드롭다운을 늘 펼쳐 두면 조회하러
+                              온 사람에게 편집기부터 들이미는 꼴이고, 실수로 바꾸기도 쉽다.
+                              고칠 때만 상자가 선다 — 이 화면의 다른 값들과 같은 규칙. */}
+                          <DetailRow label="케이블">
+                            {editingCableId === peer.cableId ? (
+                              <Select
+                                aria-label="케이블 종류"
+                                size="sm"
+                                autoFocus
+                                value={peer.categoryId ?? ''}
+                                onChange={(e) => {
+                                  useV2WorkingCopy
+                                    .getState()
+                                    .stageCableUpdate(peer.cableId, { categoryId: e.currentTarget.value });
+                                  setEditingCableId(null);
+                                }}
+                                onBlur={() => setEditingCableId(null)}
+                              >
+                                {cableChoices.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name}
+                                  </option>
+                                ))}
+                              </Select>
+                            ) : (
                               <button
                                 type="button"
-                                className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
-                                title={`${target.name} 으로 이동`}
-                                onClick={() => onSelectAsset(target.id)}
+                                className={cn('flex w-full items-center gap-1.5 rounded px-1 text-left', SELECTABLE)}
+                                title="케이블 종류 바꾸기"
+                                onClick={() => setEditingCableId(peer.cableId)}
                               >
-                                {hopText(hop)}
+                                <span className="min-w-0 truncate text-sm text-content">{peer.categoryName ?? EMPTY}</span>
+                                {peer.lengthM && (
+                                  <span className="shrink-0 text-xs tabular-nums text-content-muted">{peer.lengthM}</span>
+                                )}
+                                <Pencil size={12} className="ml-auto shrink-0 text-content-faint" />
                               </button>
-                            ) : (
-                              <span className="min-w-0 flex-1 truncate px-1 text-content-muted">{hopText(hop)}</span>
                             )}
-                          </li>
-                        );
-                      })}
-                    </ol>
+                          </DetailRow>
+                        </ItemCard>
+                      ))
+                    )}
+
+                    {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다. 이 값을 쓰는 문은 여기뿐이라
+                        (계통 표는 **출력** 포트만 다룬다) 빼면 입력측 차단기를 적을 곳이 없어진다. */}
+                    {selectedSwitch && (
+                      <DetailRow label={selectedSwitch.field.label}>
+                        <Toggle
+                          checked={selectedSwitch.closed}
+                          onChange={(next) => setPortSwitch(selectedSwitch.owner, sel, selectedSwitch.field, next)}
+                          label={selectedSwitch.closed ? '투입' : '개방'}
+                          aria-label={`${sel.name} ${selectedSwitch.field.label}`}
+                        />
+                      </DetailRow>
+                    )}
+
+                    {/* 추적 결과 — **누른 자리 바로 아래**에 편다.
+                        맨 위 카드에 띄우면 부품이 열둘일 때 결과가 화면 밖으로 나가, 누르고도
+                        아무 일이 없는 것처럼 보였다. 경로는 이 포트에서 출발한 것이므로
+                        이 포트 밑이 그 경로의 자리다. */}
+                    {tracedPortId === sel.id && traceResult && (
+                      <div className="border-t border-line pt-1.5">
+                        <div className="mb-0.5 flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-content-muted">
+                            {traceResult.hops.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
+                          </span>
+                          <Button variant="secondary" size="sm" onClick={clearTrace}>
+                            지우기
+                          </Button>
+                        </div>
+                        <ol className="space-y-0.5">
+                          {traceResult.hops.map((hop, i) => {
+                            // 경로에 나온 자산은 눌러서 그리로 갈 수 있어야 한다 — 예전에는 글자일
+                            // 뿐이라 그 장비를 찾으려면 표에서 다시 검색해야 했다.
+                            const target = hop.kind === 'internal' ? undefined : portIndex.get(hop.toPortId)?.asset;
+                            return (
+                              <li key={i} className="flex items-baseline gap-1 text-sm text-content">
+                                <span className="shrink-0 text-xs tabular-nums text-content-faint">{i + 1}.</span>
+                                {target ? (
+                                  <button
+                                    type="button"
+                                    className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
+                                    title={`${target.name} 으로 이동`}
+                                    onClick={() => onSelectAsset(target.id)}
+                                  >
+                                    {hopText(hop)}
+                                  </button>
+                                ) : (
+                                  <span className="min-w-0 flex-1 truncate px-1 text-content-muted">{hopText(hop)}</span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
-
-          </DetailCard>
-        );
-      })}
+              </>
+            ),
+          };
+        })}
+      />
 
       {/* 빈 포트를 눌러 잇는 길이 생겼으므로 「평면도에서만 만든다」는 안내는 거짓이 됐다.
           대신 어디서 시작하는지를 알린다 — 판을 봐도 무엇을 눌러야 하는지는 안 보인다. */}

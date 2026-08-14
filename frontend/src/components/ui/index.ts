@@ -6,6 +6,8 @@ export { IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
 export { Badge } from './Badge';
 export type { BadgeProps, BadgeStatus } from './Badge';
+export { Accordion } from './Accordion';
+export type { AccordionProps, AccordionSection } from './Accordion';
 export { Card } from './Card';
 export type { CardProps } from './Card';
 export { DetailCard, DetailCardHeader, DetailGrid, DetailRow, DetailNote } from './DetailCard';
