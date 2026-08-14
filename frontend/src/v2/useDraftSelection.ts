@@ -19,6 +19,8 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
   toDraft,
   confirmLeave,
   autoSelectFirst = true,
+  requestedId: controlledId,
+  onRequestId,
 }: {
   entities: TEntity[];
   toDraft: (entity: TEntity) => TDraft;
@@ -26,8 +28,17 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
   confirmLeave: () => Promise<boolean>;
   /** 아무것도 안 고른 상태에서 첫 항목을 열어 둘 것인가. */
   autoSelectFirst?: boolean;
+  /**
+   * 바깥이 고른 것을 쥘 때 준다 — 트리가 화면 하나에 하나뿐이면 「무엇이 골라졌나」도
+   * 화면이 알아야 한다. 주지 않으면 이 훅이 제 안에서 쥔다.
+   */
+  requestedId?: string | null;
+  onRequestId?: (id: string | null) => void;
 }) {
-  const [requestedId, setRequestedId] = useState<string | null>(null);
+  const [ownId, setOwnId] = useState<string | null>(null);
+  const controlled = onRequestId != null;
+  const requestedId = controlled ? (controlledId ?? null) : ownId;
+  const setRequestedId = controlled ? onRequestId : setOwnId;
   const [draft, setDraft] = useState<TDraft | null>(null);
 
   const isNew = requestedId === NEW_ID;

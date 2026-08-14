@@ -23,6 +23,20 @@ export interface TreeNode {
    */
   selectable?: boolean;
   /**
+   * 자식이 있는 가지인가 — 보통은 뒤따르는 줄의 깊이로 저절로 안다.
+   *
+   * 명시해야 하는 자리가 하나 있다: **지금 펼쳐져 있지 않은 다른 대장의 뿌리**. 그 아래
+   * 줄이 아직 없어도 셰브런이 서야 「눌러서 열 수 있는 것」으로 읽힌다.
+   */
+  branch?: boolean;
+  /**
+   * 이 줄을 열면 무슨 일이 일어나는가 — 주면 접고 펴는 대신 **이것**이 불린다.
+   *
+   * 트리가 지금 담고 있지 않은 것을 가리키는 줄에 쓴다(다른 대장의 뿌리). 「열기」가
+   * 무엇인지는 부르는 쪽이 안다 — 트리가 `root:` 같은 이름 규칙을 알아채게 하지 않는다.
+   */
+  onOpen?: () => void;
+  /**
    * 이 줄을 다루는 것 — 손이 닿으면 드러난다.
    *
    * **팝업이 아니라 아이콘 단추**를 준다. 트리는 스크롤 상자 안에 있어서, 떠 있는 메뉴를
@@ -140,7 +154,7 @@ export function TreePanel({
           </p>
         )}
         {shown.map((n) => {
-          const branch = hasChildren.has(n.id);
+          const branch = n.branch ?? hasChildren.has(n.id);
           const isCollapsed = !searching && collapsed.has(n.id);
           return (
             <div
@@ -156,18 +170,21 @@ export function TreePanel({
               aria-selected={selectedId === n.id}
               aria-expanded={branch ? !isCollapsed : undefined}
               tabIndex={0}
-              onClick={() => (n.selectable === false ? branch && toggle(n.id) : onSelect(n))}
+              /* 접힌 가지를 누르면 열린다 — 그 「열기」가 무엇인지는 부르는 쪽이 정한다
+                 (다른 대장의 뿌리라면 그 대장으로 옮기는 일이다). */
+              onClick={() => (n.onOpen ? n.onOpen() : n.selectable === false ? branch && toggle(n.id) : onSelect(n))}
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;
                 /* 좌우 화살표로 접었다 편다 — 트리에서 이건 관습이 아니라 규약이다. */
-                if (branch && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+                if (!n.onOpen && branch && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
                   e.preventDefault();
                   toggle(n.id, e.key === 'ArrowLeft');
                   return;
                 }
                 if (e.key !== 'Enter' && e.key !== ' ') return;
                 e.preventDefault();
-                if (n.selectable === false) branch && toggle(n.id);
+                if (n.onOpen) n.onOpen();
+                else if (n.selectable === false) branch && toggle(n.id);
                 else onSelect(n);
               }}
             >
@@ -180,7 +197,8 @@ export function TreePanel({
                   className="shrink-0 rounded text-content-faint hover:text-content"
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggle(n.id);
+                    if (n.onOpen) n.onOpen();
+                    else toggle(n.id);
                   }}
                 >
                   {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}

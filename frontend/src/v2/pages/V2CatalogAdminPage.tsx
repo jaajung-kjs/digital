@@ -17,10 +17,8 @@ import {
   PromptModal,
   useConfirm,
   EmptyState,
-  PanelHeader,
-  Tabs,
-  type TabItem,
   IssueReveal,
+  type TreeNode,
 } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { UnsavedGuardProvider, useHasUnsaved, useReportUnsaved } from '../unsavedGuard';
@@ -39,12 +37,50 @@ import { useV2Notice } from '../store/noticeStore';
 
 type Tab = 'type' | 'assembly' | 'cable';
 
-const CATALOG_TABS: readonly TabItem<Tab>[] = [
+/**
+ * 세 대장 — **트리의 세 뿌리**다.
+ *
+ * 예전에는 사이드바 **위**에 탭 바로 서 있었다. 그런데 이 탭이 지배하는 것은 캔버스가
+ * 아니라 **트리가 무엇을 나열하는가**다 — 워크스페이스의 탭(현황·평면도·선번장·계통)이
+ * 고른 변전소 하나를 다르게 보는 판인 것과 다른 물건인데, 생김새가 같아서 같은 것처럼
+ * 보였다. 게다가 그 바 때문에 대장만 사이드바가 40px 아래에서 시작해, 화면을 옮길 때
+ * 트리 높이가 달라졌다.
+ *
+ * 지배하는 것이 트리이니 트리 안에 둔다. 뿌리 셋 중 하나만 펼쳐지고, 다른 뿌리를 누르면
+ * 그리로 옮긴다.
+ */
+const CATALOGS: readonly { key: Tab; label: string }[] = [
   // 도면에 놓이고 현황에 집계되는 단위 — 대장의 주인공이라 맨 앞에 둔다.
   { key: 'assembly', label: '설비 종류' },
   { key: 'type', label: '자산 종류' },
-  { key: 'cable', label: '케이블 종류' },
+  { key: 'cable', label: '케이블 그룹' },
 ];
+
+/**
+ * 지금 펼친 대장의 줄 앞에, 나머지 두 대장을 **접힌 뿌리**로 함께 세운다.
+ *
+ * 트리는 하나로 보이고, 뿌리를 누르면 그 대장으로 옮긴다.
+ */
+export function withCatalogRoots(active: Tab, own: TreeNode[], onPick: (t: Tab) => void): TreeNode[] {
+  const out: TreeNode[] = [];
+  for (const c of CATALOGS) {
+    if (c.key === active) {
+      out.push({ id: `root:${c.key}`, label: c.label, text: c.label, depth: 0, selectable: false, branch: true });
+      /* 펼친 대장의 내용은 한 단 들어간다 — 뿌리가 층 0, 그 안이 층 1부터. */
+      out.push(...own.map((n) => ({ ...n, depth: n.depth + 1 })));
+    } else {
+      out.push({
+        id: `root:${c.key}`,
+        label: c.label,
+        text: c.label,
+        depth: 0,
+        branch: true,
+        onOpen: () => onPick(c.key),
+      });
+    }
+  }
+  return out;
+}
 
 /* 저장 안 한 변경을 알리는 자리는 이 화면 **바깥**에 있어야 한다 — 안쪽에서 만들면
    그 자리를 읽는 것도 안쪽이라 패널이 알린 값을 못 본다. */
@@ -125,6 +161,7 @@ function CatalogAdmin() {
     });
   }
 
+  /** 다른 대장으로 옮긴다 — 그 패널이 통째로 사라지고 초안도 함께 사라지므로 묻고 옮긴다. */
   async function switchTab(next: Tab) {
     if (next === activeTab) return;
     if (!(await confirmLeave())) return;
@@ -291,16 +328,13 @@ function CatalogAdmin() {
         onDismiss={() => setCategoryError(null)}
         className="shrink-0 border-b border-line bg-surface px-4 py-1"
       />
-      <PanelHeader className="px-4">
-        {/* 탭을 옮기면 그 패널이 통째로 사라지고 초안도 함께 사라진다 — 묻고 옮긴다. */}
-        <Tabs items={CATALOG_TABS} value={activeTab} onChange={(t) => void switchTab(t as Tab)} className="-mb-px" />
-      </PanelHeader>
       <div className="flex min-h-0 flex-1">
         {/* 목록은 탭이 각자 갖는다 — 지금 편집하는 것 옆에만 그 목록이 선다.
             폭·테두리·검색은 `TreePanel` 이 소유한다(조직 트리와 같은 판). */}
         {activeTab === 'type' && (
           <TypeListPanel
             catalog={catalog}
+            withRoots={(own) => withCatalogRoots('type', own, (t) => void switchTab(t))}
             selectedTypeId={selectedTypeId}
             newDraft={isNew && draft ? { categoryId: draft.categoryId, name: draft.name } : null}
             onSelectType={selectType}
@@ -324,6 +358,7 @@ function CatalogAdmin() {
             <div className="flex min-h-0 flex-1">
               <AssemblyCatalogPanel
                 catalog={catalog}
+                withRoots={(own) => withCatalogRoots('assembly', own, (t) => void switchTab(t))}
                 onRenameCategory={handleRenameCategory}
                 onDeleteCategory={handleDeleteCategory}
                 onAddCategory={() => {
@@ -337,7 +372,10 @@ function CatalogAdmin() {
           {/* ── 케이블 종류 탭 ───────────────────────────────────────── */}
           {activeTab === 'cable' && (
             <div className="flex min-h-0 flex-1">
-              <CableCatalogPanel catalog={catalog} />
+              <CableCatalogPanel
+                catalog={catalog}
+                withRoots={(own) => withCatalogRoots('cable', own, (t) => void switchTab(t))}
+              />
             </div>
           )}
 
