@@ -302,27 +302,15 @@ function CatalogAdmin() {
                     onSave={gate.save}
                   />
 
-                  {/* 편집 폼 영역 — 스크롤.
-                      **가운데로 몰지 않는다.** 예전에는 `mx-auto max-w-4xl` 로 가운데 세워
-                      좌우에 큰 여백이 남았는데, 워크스페이스는 트리·본문·상세가 화면을 꽉
-                      채우는 판이라 이 화면만 홀로 떠 보였다. 대신 카드를 두 단으로 흘려
-                      폭을 쓴다 — 넓은 화면에서 라벨+입력 한 줄이 1000px 로 늘어나는 것도
-                      함께 막힌다(그게 애초에 폭을 묶은 까닭이다). */}
-                  <div className="min-h-0 flex-1 p-4">
-                    <div className="grid h-full min-h-0 gap-3 xl:grid-cols-2">
-                      {/* 기본정보 · 공량 — 짧으므로 제 높이만 쓰고 위에 붙는다. */}
-                      <div className="min-h-0 space-y-3 self-start overflow-y-auto">
-                      <TypeBasicsForm
-                        draft={draft}
-                        catalog={catalog}
-                        onChange={handleChange}
-                        issues={issues}
-                      />
-                      </div>
-
-                      {/* 포트 — **판이 곧 편집기**다. 미리보기를 따로 두지 않는다:
-                          개수는 그 구획이 무엇인지 말하는 값이라 구획 라벨 옆이 제 자리이고,
-                          거기서 고치면 고친 결과가 같은 자리에서 바뀐다. */}
+                  {/* **주인공은 왼쪽, 속성은 오른쪽** — 설비 종류·케이블 종류·워크스페이스
+                      상세와 같은 배치다. 예전에는 이 화면만 두 단 그리드라 기본정보·공량이
+                      **반대편**에 서 있었고, 오른쪽 폭도 화면따라 늘었다 줄었다 했다.
+                      화면을 옮길 때 같은 카드를 눈으로 다시 찾아야 하는 이유가 이것이었다. */}
+                  <div className="flex h-full min-h-0 w-full gap-3 p-4">
+                    {/* 포트 — **판이 곧 편집기**다. 미리보기를 따로 두지 않는다:
+                        개수는 그 구획이 무엇인지 말하는 값이라 구획 라벨 옆이 제 자리이고,
+                        거기서 고치면 고친 결과가 같은 자리에서 바뀐다. */}
+                    <div className="flex min-w-0 flex-1 flex-col">
                       <PortsEditor
                         draft={draft}
                         onChange={handleChange}
@@ -330,6 +318,16 @@ function CatalogAdmin() {
                         issues={issues}
                       />
                     </div>
+
+                    {/* 속성은 늘 같은 폭(384) — 화면이 넓어져도 라벨과 값이 멀어지지 않는다. */}
+                    <aside className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto">
+                      <TypeBasicsForm
+                        draft={draft}
+                        catalog={catalog}
+                        onChange={handleChange}
+                        issues={issues}
+                      />
+                    </aside>
                   </div>
                 </IssueReveal.Provider>
               )}

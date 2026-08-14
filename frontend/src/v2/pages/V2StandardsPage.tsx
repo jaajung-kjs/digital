@@ -46,6 +46,15 @@ export default function V2StandardsPage() {
             onSelect={(n) => setView(n.id as View)}
           />
         </aside>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* 캔버스 머리줄 — **다섯 화면이 같은 자리에 「지금 무엇을 보고 있나」를 적는다.**
+              여기만 머리줄이 없어서 카드가 곧장 시작했고, 화면을 옮길 때 첫 줄의 높이가
+              달라 보였다. 고칠 대상이 없는 화면이라 오른쪽에 놓을 것은 없다. */}
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-4">
+            <span className="text-sm font-semibold text-content">
+              {nodes.find((n) => n.id === view)?.text}
+            </span>
+          </div>
         {/* 스크롤은 **이 상자**가 맡는다. 안쪽 표에 스크롤 상자를 또 만들지 않는다
             (CONVENTIONS §1.7-b) — 만들면 `TableCard` 가 넘치는 행을 스크롤바 없이 잘라 낸다. */}
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -56,6 +65,7 @@ export default function V2StandardsPage() {
             {view === 'overhead' && <OverheadRatesView onError={setError} />}
             {view === 'history' && <StandardHistoryView onError={setError} />}
           </div>
+        </div>
         </div>
       </div>
     </div>

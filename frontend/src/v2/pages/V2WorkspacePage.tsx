@@ -258,15 +258,9 @@ export default function V2WorkspacePage() {
           {selected != null && (
             <div className="flex min-h-0 flex-1 flex-col">
               {/* 헤더: 선택 노드 이름 + 뷰 토글 (변전소 스코프에서만) */}
-              {/* 커밋 실패는 머리줄 **위**에 뜬다 — 대장 편집 바와 같은 자리다. */}
-              <ErrorStrip
-                message={commitError}
-                onDismiss={clearCommitError}
-                className="shrink-0 border-b border-line px-4 py-1"
-              />
               {/* 왼쪽은 「지금 무엇을 보고 있나」, 오른쪽은 「그것을 어떻게 할 것인가」 —
                   대장 편집 바와 같은 골격이다. */}
-              <div className="flex shrink-0 items-center gap-2 border-b border-line px-4 py-2">
+              <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-4">
                 <span className="text-sm font-semibold text-content" data-testid="v2-selected">
                   {selected.name}
                 </span>
@@ -285,6 +279,13 @@ export default function V2WorkspacePage() {
                 {/* 저장은 대장과 **같은 자리**에 선다 — 고친 것이 있을 때만 나타난다. */}
                 <SaveBar onCommit={commit} isCommitting={isCommitting} />
               </div>
+              {/* 알림 띠는 **머리줄 아래** — 위에 두면 내용에 따라 머리줄이 밀려, 화면을
+                  옮길 때 첫 줄의 자리가 달라진다(대장 편집 바와 같은 규칙). */}
+              <ErrorStrip
+                message={commitError}
+                onDismiss={clearCommitError}
+                className="shrink-0 border-b border-line px-4 py-1"
+              />
 
               {loadingWorkingCopy ? (
                 <div className="flex min-h-0 flex-1 items-center justify-center">
