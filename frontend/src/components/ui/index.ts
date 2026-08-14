@@ -11,6 +11,8 @@ export type { CardProps } from './Card';
 export { DetailCard, DetailCardHeader, DetailGrid, DetailRow, DetailNote } from './DetailCard';
 export * from './controlSize';
 export { Input } from './Input';
+export { OverflowMenu } from './OverflowMenu';
+export type { OverflowMenuItem } from './OverflowMenu';
 export { DateInput } from './DateInput';
 export { EMPTY, formatDate } from './format';
 export type { InputProps } from './Input';

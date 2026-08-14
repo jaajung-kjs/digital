@@ -299,7 +299,8 @@ export function ConnectionsTab({
   async function handleDeleteCable(peer: { cableId: string; label: string }) {
     const ok = await confirm({
       title: '케이블 삭제',
-      message: `${peer.label} 으로 가는 케이블을 지웁니다. 저장 전에는 되돌릴 수 있습니다.`,
+      target: `${peer.label} 으로 가는 케이블`,
+      message: '저장 전에는 되돌릴 수 있습니다.',
       confirmLabel: '삭제',
       danger: true,
     });

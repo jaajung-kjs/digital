@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Check, Plus, X } from 'lucide-react';
-import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState, formatDate } from '../../../components/ui';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { mergeEffective } from '../../store/overlay';
 import type { V2MaintenanceLog, V2InspectionLog } from '../../types';
@@ -164,10 +164,14 @@ export function RecordsTab({
     setEditState(null);
   }
 
-  async function handleDelete(id: string) {
-    if (!(await confirm({ title: '기록 삭제', message: '이 기록을 삭제합니다.', confirmLabel: '삭제', danger: true }))) return;
-    stageDelete(id);
-    if (editState?.id === id) setEditState(null);
+  async function handleDelete(record: AnyRecord) {
+    /* 어느 기록인지 이름으로 부른다 — 목록에 여러 줄이 있을 때 「이 기록」만으로는 못 짚는다. */
+    const label = [formatDate(fieldOf(record, dateField)), record.content]
+      .filter(Boolean)
+      .join(' · ');
+    if (!(await confirm({ title: '기록 삭제', target: label, message: '저장 전에는 되돌릴 수 있습니다.', confirmLabel: '삭제', danger: true }))) return;
+    stageDelete(record.id);
+    if (editState?.id === record.id) setEditState(null);
   }
 
   return (
@@ -284,7 +288,7 @@ export function RecordsTab({
               badge={extraVal || undefined}
               badgeStatus="neutral"
               onEdit={() => handleEditStart(record)}
-              onDelete={() => handleDelete(record.id)}
+              onDelete={() => handleDelete(record)}
             />
             <p className="text-sm text-content">{record.content}</p>
           </DetailCard>

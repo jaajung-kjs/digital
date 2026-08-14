@@ -111,6 +111,7 @@ function CatalogAdmin() {
     if (!hasUnsaved()) return true;
     return confirm({
       title: '저장하지 않은 변경',
+      target: null,
       message: '편집 내용이 사라집니다. 이동할까요?',
       confirmLabel: '이동',
       danger: true,
@@ -129,6 +130,7 @@ function CatalogAdmin() {
       dirty &&
       !(await confirm({
         title: '저장하지 않은 변경',
+        target: null,
         message: '편집 내용이 사라집니다. 이동할까요?',
         confirmLabel: '이동',
         danger: true,
@@ -151,6 +153,7 @@ function CatalogAdmin() {
       dirty &&
       !(await confirm({
         title: '저장하지 않은 변경',
+        target: null,
         message: '편집 내용이 사라집니다. 이동할까요?',
         confirmLabel: '이동',
         danger: true,
@@ -212,7 +215,8 @@ function CatalogAdmin() {
     if (
       !(await confirm({
         title: '자산 종류 삭제',
-        message: '이 자산 종류를 삭제합니다. 이 종류로 만든 자산이 있으면 거부됩니다.',
+        target: draft?.name ?? '',
+        message: '이 종류로 만든 자산이 있으면 거부됩니다.',
         confirmLabel: '삭제',
         danger: true,
       }))

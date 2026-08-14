@@ -1218,7 +1218,8 @@ export function FloorPlanView({
     const n = countDescendants(selectedAssetId);
     const ok = await confirm({
       title: '자산 삭제',
-      message: n > 0 ? `'${target.name}' 과 하위 자산 ${n}개가 함께 삭제됩니다.` : `'${target.name}' 을 삭제합니다.`,
+      target: target.name,
+      message: n > 0 ? `하위 자산 ${n}개가 함께 삭제됩니다.` : '이 자산을 삭제합니다.',
       confirmLabel: '삭제',
       danger: true,
     });

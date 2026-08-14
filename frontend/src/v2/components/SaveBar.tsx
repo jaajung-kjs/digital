@@ -16,7 +16,7 @@ export function SaveBar({ onCommit, isCommitting, error, onClearError }: SaveBar
   if (dirty === 0) return null;
 
   async function handleRevert() {
-    if (!(await confirm({ title: '변경 되돌리기', message: `저장하지 않은 변경 ${dirty}건이 모두 사라집니다.`, confirmLabel: '되돌리기', danger: true }))) return;
+    if (!(await confirm({ title: '변경 되돌리기', target: null, message: `저장하지 않은 변경 ${dirty}건이 모두 사라집니다.`, confirmLabel: '되돌리기', danger: true }))) return;
     useV2WorkingCopy.getState().revert();
   }
 

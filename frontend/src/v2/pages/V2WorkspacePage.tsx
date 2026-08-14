@@ -80,6 +80,7 @@ export default function V2WorkspacePage() {
         st.dirtyCount() > 0 &&
         !(await confirm({
           title: '저장하지 않은 변경',
+          target: null,
           message: `변경 ${st.dirtyCount()}건이 사라집니다. 이동할까요?`,
           confirmLabel: '이동',
           danger: true,

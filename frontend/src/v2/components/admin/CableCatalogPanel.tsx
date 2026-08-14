@@ -182,6 +182,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
       dirtyRef.current &&
       !(await confirm({
         title: '저장하지 않은 변경',
+        target: null,
         message: '편집 내용이 사라집니다. 이동할까요?',
         confirmLabel: '이동',
         danger: true,

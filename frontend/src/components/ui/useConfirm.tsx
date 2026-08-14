@@ -3,6 +3,8 @@ import { ConfirmModal } from './ConfirmModal';
 
 interface ConfirmOptions {
   title: string;
+  /** 무엇을 두고 묻는가 — 그 하나의 이름(`ConfirmModal` 참고). 대상이 없으면 `null`. */
+  target: string | null;
   message: React.ReactNode;
   /** 확인 버튼 문구. 삭제면 '삭제' 처럼 동사를 쓴다 — '확인' 보다 결과가 분명하다. */
   confirmLabel?: string;
@@ -12,7 +14,7 @@ interface ConfirmOptions {
 /**
  * 프로미스 기반 확인 대화상자 — `window.confirm` 을 **호출 형태 그대로** 대체한다.
  *
- *     if (!(await confirm({ title: '삭제', message: '…', danger: true }))) return;
+ *     if (!(await confirm({ title: '삭제', target: name, message: '…', danger: true }))) return;
  *
  * 왜 이 형태인가: 기존 코드는 전부 `if (!window.confirm(msg)) return;` 로 **동기 분기**
  * 였다. 각 호출부를 "모달 열기 → 콜백에서 계속"으로 뜯어고치면 변경이 커지고, 특히
@@ -45,6 +47,7 @@ export function useConfirm() {
     <ConfirmModal
       open
       title={options.title}
+      target={options.target}
       message={options.message}
       confirmLabel={options.confirmLabel}
       danger={options.danger}

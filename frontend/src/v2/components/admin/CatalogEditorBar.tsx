@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
-import { Badge, Button, IconButton } from '../../../components/ui';
+import { Badge, Button, IconButton, OverflowMenu } from '../../../components/ui';
 
 export interface CatalogEditorBarProps {
   /** 지금 편집 중인 것의 이름 — 새로 만드는 중이면 「새 …」. */
@@ -15,6 +15,7 @@ export interface CatalogEditorBarProps {
   onDismissError?: () => void;
   /** 「몇 개 사용 중」 같은 안내 — 구조 잠금처럼 저장 전에 알아야 하는 것. */
   notice?: ReactNode;
+  /** 되돌릴 수 없는 동작 — 저장 옆이 아니라 이름 옆 `⋯` 안에 선다. */
   onDelete?: () => void;
   deleteLabel?: string;
   onCancel: () => void;
@@ -28,9 +29,11 @@ export interface CatalogEditorBarProps {
  * 케이블은 그룹 카드마다 아래쪽에 저장 버튼이 있었다. 그래서 「지금 고친 것이 저장됐나」를
  * 탭마다 다른 곳에서 확인해야 했다.
  *
- * 왼쪽은 **지금 무엇을 고치고 있는가**, 오른쪽은 **그것을 어떻게 할 것인가**다. 삭제가
- * 취소·저장에서 떨어져 있는 것도 그래서다 — 되돌릴 수 없는 것과 되돌릴 수 있는 것을 나란히
- * 두면 손이 미끄러진다.
+ * 왼쪽은 **지금 무엇을 고치고 있는가**, 오른쪽은 **그것을 어떻게 할 것인가**다.
+ *
+ * **삭제는 오른쪽에 없다.** 예전에는 `[종류 삭제] [취소] [저장]` 이 한 뼘 안에 늘어서
+ * 있었고, 아무것도 고치지 않은 화면에서는 취소·저장이 꺼져 있어 유일하게 눌리는 단추가
+ * 삭제였다. 되돌릴 수 없는 것은 이름 옆 `⋯` 안으로 한 겹 들어간다(`OverflowMenu`).
  */
 export function CatalogEditorBar({
   title, dirty, saving, issueCount = 0, error, onDismissError,
@@ -58,16 +61,16 @@ export function CatalogEditorBar({
       {notice && <div className="w-full px-4 py-1">{notice}</div>}
 
       <div className="flex w-full items-center gap-2 px-4 py-2">
-        <span className="min-w-0 flex-1 truncate text-sm text-content">
+        <span className="min-w-0 truncate text-sm text-content">
           {title}
           {/* 고친 것이 있다는 표시 — 저장 버튼이 켜지는 것만으로는 눈에 안 띈다. */}
           {dirty && <span className="ml-1 text-warning" aria-label="저장하지 않은 변경">●</span>}
         </span>
         {onDelete && (
-          <Button variant="ghost" size="sm" className="text-danger hover:text-danger" onClick={onDelete}>
-            {deleteLabel ?? '삭제'}
-          </Button>
+          <OverflowMenu items={[{ label: deleteLabel ?? '삭제', danger: true, onSelect: onDelete }]} />
         )}
+        {/* 되돌릴 수 있는 것과 없는 것 사이를 화면 폭으로 벌린다. */}
+        <span className="flex-1" />
         <Button variant="secondary" size="sm" disabled={!dirty || saving} onClick={onCancel}>
           취소
         </Button>

@@ -85,7 +85,8 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
   async function handleDelete(n: FlatOrgNode) {
     const ok = await confirm({
       title: '조직 삭제',
-      message: `'${n.name}' 을 삭제합니다. 하위 항목이 있으면 서버가 거부합니다.`,
+      target: n.name,
+      message: '하위 항목이 있으면 서버가 거부합니다.',
       confirmLabel: '삭제',
       danger: true,
     });

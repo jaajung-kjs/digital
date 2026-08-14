@@ -239,14 +239,14 @@ export function InfoTab({
       descendantCount > 0
         ? `${descendantCount}개 하위 자산이 함께 삭제됩니다. 계속하시겠습니까?`
         : '이 자산을 삭제하시겠습니까?';
-    if (!(await confirm({ title: '자산 삭제', message: msg, confirmLabel: '삭제', danger: true }))) return;
+    if (!(await confirm({ title: '자산 삭제', target: asset.name, message: msg, confirmLabel: '삭제', danger: true }))) return;
     useV2WorkingCopy.getState().stageAssetDeleteCascade(assetId);
   }
 
   /** 부품 하나 걷어내기 — 설비는 그대로 둔다. */
   async function handleDeletePart(part: V2Asset) {
     const ok = await confirm({
-      title: '부품 삭제', message: `'${part.name}' 을 이 설비에서 걷어냅니다.`,
+      title: '부품 삭제', target: part.name, message: '이 설비에서 걷어냅니다.',
       confirmLabel: '삭제', danger: true,
     });
     if (!ok) return;

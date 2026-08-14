@@ -69,6 +69,7 @@ export function AssemblyCatalogPanel({
     if (!dirty) return true;
     return confirm({
       title: '저장하지 않은 변경',
+      target: null,
       message: '편집 내용이 사라집니다. 이동할까요?',
       confirmLabel: '이동',
       danger: true,
@@ -95,7 +96,8 @@ export function AssemblyCatalogPanel({
   async function handleDelete() {
     if (selectedId === null) return;
     const ok = await confirm({
-      title: '설비 종류를 지울까요?',
+      title: '설비 종류 삭제',
+      target: draft?.name ?? '',
       // 이미 놓인 설비는 스냅샷이라 그대로 남는다 — 그 사실을 미리 말해 준다.
       message: '이미 배치된 설비는 그대로 남습니다. 앞으로 이 설비 종류으로 새로 놓을 수만 없게 됩니다.',
       confirmLabel: '삭제',
