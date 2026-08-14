@@ -8,8 +8,7 @@
  * 그래서 자산 종류와 달리 "쓰이는 중이면 구조 잠금" 이 없다.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
-import { EmptyState, IconButton, useConfirm, useInlineRename, IssueReveal } from '../../../components/ui';
+import { EmptyState, useConfirm, useInlineRename, IssueReveal } from '../../../components/ui';
 import { CatalogList } from './CatalogList';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
@@ -141,28 +140,18 @@ export function AssemblyCatalogPanel({
         labelText: cat.name,
         items: catalog.assemblies
           .filter((a) => a.categoryId === cat.id)
-          .map((a) => ({ id: a.id, name: a.name, hint: String(a.items.length), hintTitle: `구성 부품 ${a.items.length}개` })),
-        actions: (
-          <>
-            <IconButton
-              aria-label={`${cat.name} 이름 변경`}
-              size="sm"
-              onClick={() => rename.start(cat.id, cat.name)}
-            >
-              <Pencil size={12} />
-            </IconButton>
-            {/* 빈 분류만 지울 수 있다 — 자산 종류 탭과 같은 규칙이다(같은 분류를 지운다). */}
-            <IconButton
-              aria-label={`${cat.name} 분류 삭제`}
-              size="sm"
-              disabled={inUse}
-              disabledReason={inUse ? '이 분류에 들어 있는 것이 있어 지울 수 없습니다' : undefined}
-              onClick={() => onDeleteCategory(cat)}
-            >
-              <Trash2 size={12} />
-            </IconButton>
-          </>
-        ),
+          .map((a) => ({ id: a.id, name: a.name })),
+        /* 빈 분류만 지울 수 있다 — 자산 종류 탭과 같은 규칙이다(같은 분류를 지운다). */
+        menu: [
+          { label: '이름 변경', onSelect: () => rename.start(cat.id, cat.name) },
+          {
+            label: '분류 삭제',
+            danger: true,
+            disabled: inUse,
+            disabledReason: inUse ? '이 분류에 들어 있는 것이 있어 지울 수 없습니다' : undefined,
+            onSelect: () => onDeleteCategory(cat),
+          },
+        ],
         };
       }),
     [catalog.assemblies, catalog.categories, catalog.types, rename, onDeleteCategory],

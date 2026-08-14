@@ -14,33 +14,24 @@ import { useState } from 'react';
 import { ErrorStrip } from '../../components/ui';
 import { CatalogList } from '../components/admin/CatalogList';
 import { OverheadRatesView, StandardHistoryView, WageRatesView } from '../components/admin/StandardsPanel';
-import { useStandards, useV2Catalog } from '../hooks';
 
 type View = 'wage' | 'overhead' | 'history';
 
 export default function V2StandardsPage() {
-  const catalog = useV2Catalog();
-  const standards = useStandards();
   const [view, setView] = useState<View>('wage');
   const [error, setError] = useState<string | null>(null);
 
-  const wage = catalog.data?.wageStandard ?? null;
-  const overhead = catalog.data?.overheadStandard ?? null;
-
-  /* 왼쪽 목록은 **무엇이 들어와 있나**를 함께 말한다 — 숫자 하나로 상태가 읽힌다. */
+  /* 무엇이 들어와 있는지는 **오른쪽 캔버스가** 말한다. 예전에는 항목 옆 흐린 자리에
+     `123`·`전기통신소방전문`·`3` 을 섞어 넣었는데, 같은 자리의 같은 서체가 어떤 것은 개수,
+     어떤 것은 낱말이라 읽는 사람이 규칙을 세울 수 없었다. */
   const listGroups = [
     {
       key: 'all',
       label: null,
       items: [
-        { id: 'wage', name: '노임단가', hint: wage ? String(wage.rows.length) : '없음', hintTitle: '직종 수' },
-        { id: 'overhead', name: '제비율', hint: overhead ? overhead.kind : '없음', hintTitle: '공사종류' },
-        {
-          id: 'history',
-          name: '올린 기록',
-          hint: String(standards.data?.length ?? 0),
-          hintTitle: '올린 파일 수',
-        },
+        { id: 'wage', name: '노임단가' },
+        { id: 'overhead', name: '제비율' },
+        { id: 'history', name: '올린 기록' },
       ],
     },
   ];

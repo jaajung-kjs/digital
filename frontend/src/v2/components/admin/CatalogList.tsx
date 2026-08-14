@@ -1,20 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Plus } from 'lucide-react';
-import { IconButton, Input, cn, SELECTABLE, SELECTED } from '../../../components/ui';
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { Button, Input, OverflowMenu, cn, SELECTABLE, SELECTED, type OverflowMenuItem } from '../../../components/ui';
 
 /** 목록에 서는 것 하나. */
 export interface CatalogListItem {
   id: string;
   name: string;
-  /** 이름 뒤 흐린 숫자 — 탭마다 세는 것이 다르다(`hintTitle` 로 그 뜻을 밝힌다). */
-  hint?: string;
-  /**
-   * 그 숫자가 무엇인지 — 얹으면 뜬다.
-   *
-   * 같은 자리·같은 서체의 숫자가 탭마다 다른 것을 세고 있었다(설비=부품 수, 자산=쓰이는
-   * 자산 수, 케이블=종류 수). 라벨도 툴팁도 없어 읽는 사람이 알 길이 없었다.
-   */
-  hintTitle?: string;
   /**
    * 이름 앞 색점 — 그 항목이 도면에서 그려지는 색(케이블 그룹).
    *
@@ -32,8 +23,8 @@ export interface CatalogListGroup {
   /** 검색이 훑는 분류 이름 — `label` 이 상자일 수 있으므로 글자는 따로 받는다. */
   labelText?: string;
   items: CatalogListItem[];
-  /** 분류 자체를 다루는 것(이름 변경·삭제·그 분류에 추가) — 있으면 호버에서 드러난다. */
-  actions?: ReactNode;
+  /** 이 분류 자체를 다루는 것 — 손이 닿으면 `⋯` 로 드러난다. */
+  menu?: OverflowMenuItem[];
 }
 
 export interface CatalogListProps {
@@ -43,14 +34,17 @@ export interface CatalogListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   /**
-   * **이 대장의 것을 새로 만든다** — 설비 종류·자산 종류. 세 탭이 같은 뜻으로 쓴다.
+   * **이 대장의 것을 새로 만든다** — 자주 쓰는 일이므로 겉에 글자로 선다.
    *
-   * 케이블 그룹은 늘리지 않으므로(매체라서 고정) 주지 않는다. 그래도 머리줄 높이는 같다 —
-   * 버튼 유무로 줄 높이가 달라지면 탭을 옮길 때 화면이 덜컹거린다.
+   * 예전에는 머리줄의 아이콘 전용 `+` 였다. 무엇이 만들어지는지가 `aria-label` 에만 있어
+   * 눈으로 보는 사람은 알 수 없었고, 바로 아래 「분류 추가」와 50px 안에 나란히 서서
+   * 둘 다 같은 `Plus` 아이콘을 쓰는데 하나만 글자를 갖고 있었다.
    */
   onAdd?: () => void;
+  /** 만들기 단추에 적히는 말 — 「설비 종류 추가」처럼 **만들어지는 것의 이름**을 적는다.
+   *  동사는 앱 전체가 「추가」 하나를 쓴다(자산 추가·분류 추가·본부 추가). */
   addLabel?: string;
-  /** 분류를 새로 만든다 — 있으면 검색 아래(늘 보이는 자리)에 선다. */
+  /** 분류를 새로 만든다 — 드물게 쓰는 구조 변경이라 머리줄 `⋯` 안에 든다. */
   onAddGroup?: () => void;
   addGroupLabel?: string;
   emptyText?: string;
@@ -64,14 +58,20 @@ export interface CatalogListProps {
  * 「분류 → 항목」 2단인데 손길이 제각각이라, 탭을 옮길 때마다 무엇을 어디서 누르는지 다시
  * 익혀야 했다.
  *
+ * **만드는 손잡이에는 만들어지는 것의 이름이 글자로 적힌다.** 그리고 자주 쓰는 것은 겉에,
+ * 드물게 쓰는 구조 변경(분류)은 `⋯` 안에 둔다 — 아이콘 둘이 나란히 서서 어느 쪽이 무엇을
+ * 만드는지 알 수 없던 자리가 여기였다.
+ *
+ * **분류는 접힌다.** 조직 트리와 같은 어법이다 — 한 앱 안에서 트리가 두 가지로 굴지 않는다.
+ *
  * **검색이 들어 있다.** 자산 종류만 스물세 개고 앞으로 계속 는다 — 스크롤로 훑는 것이 유일한
- * 길이면 목록은 금세 못 쓰게 된다. 「단종」(목록에서 숨김) 딱지를 걷어낼 수 있었던 것도
- * 검색이 그 일을 대신하기 때문이다.
+ * 길이면 목록은 금세 못 쓰게 된다.
  */
 export function CatalogList({
   title, groups, selectedId, onSelect, onAdd, addLabel, onAddGroup, addGroupLabel, emptyText,
 }: CatalogListProps) {
   const [query, setQuery] = useState('');
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -88,23 +88,24 @@ export function CatalogList({
   }, [groups, query]);
 
   const total = groups.reduce((n, g) => n + g.items.length, 0);
+  /* 거르는 중에는 접지 않는다 — 찾은 것이 접힌 분류 안에 있으면 「없다」로 읽힌다. */
+  const searching = query.trim().length > 0;
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-sidebar">
-      {/* 머리줄 높이는 버튼 유무와 무관하게 같다 — `+` 가 없는 탭에서 줄이 얇아지면
-          탭을 옮길 때마다 목록이 위아래로 덜컹거린다(케이블 탭이 그랬다). */}
       <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-3">
         <span className="flex-1 truncate text-xs font-medium text-content-muted">
           {title} <span className="text-content-faint tabular-nums">{total}</span>
         </span>
-        {onAdd && (
-          <IconButton aria-label={addLabel ?? `${title} 추가`} onClick={onAdd}>
-            <Plus size={14} />
-          </IconButton>
+        {onAddGroup && (
+          <OverflowMenu
+            label={`${title} 목록 더 보기`}
+            items={[{ label: addGroupLabel ?? '분류 추가', onSelect: onAddGroup }]}
+          />
         )}
       </div>
 
-      <div className="shrink-0 border-b border-line px-2 py-1.5">
+      <div className="shrink-0 space-y-1.5 border-b border-line px-2 py-1.5">
         <Input
           aria-label={`${title} 검색`}
           size="sm"
@@ -112,85 +113,84 @@ export function CatalogList({
           placeholder="이름으로 검색"
           onChange={(e) => setQuery(e.currentTarget.value)}
         />
-        {/* 「분류 추가」는 **목록 위**에 둔다. 예전에는 맨 아래였는데, 항목이 늘수록 멀어져
-            실측에서 스크롤 상자 밖 295px 지점에 있었다 — 늘 보이는 자리여야 누를 수 있다. */}
-        {onAddGroup && (
-          <button
-            type="button"
-            className={cn(
-              'mt-1.5 flex w-full items-center gap-1 rounded px-1 py-1 text-left text-xs text-content-muted',
-              SELECTABLE,
-            )}
-            onClick={onAddGroup}
-          >
-            <Plus size={12} />
-            {addGroupLabel ?? '분류 추가'}
-          </button>
+        {/* 자주 쓰는 일은 **늘 보이는 자리에 글자로**. 스크롤 밖으로 밀리지 않는다. */}
+        {onAdd && (
+          <Button variant="secondary" size="sm" className="w-full" leftIcon={<Plus size={14} />} onClick={onAdd}>
+            {addLabel ?? `${title} 추가`}
+          </Button>
         )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {filtered.length === 0 && (
           <p className="px-2 py-3 text-xs text-content-faint">
-            {query.trim() ? '검색 결과가 없습니다' : (emptyText ?? '없음')}
+            {searching ? '검색 결과가 없습니다' : (emptyText ?? '없음')}
           </p>
         )}
-        {filtered.map((g) => (
-          <div key={g.key}>
-            {/* 분류 머리줄 — 분류가 없는 대장에서는 그리지 않는다(빈 줄만 남는다).
-                띠를 깔고 글자를 눌러 **항목과 확실히 가른다**: 예전에는 둘 다 왼쪽 같은
-                자리에 서서 크기만 한 급 달랐고, 그래서 어디까지가 분류이고 어디부터가
-                그 안의 것인지 읽히지 않았다. 항목은 들여쓴다. */}
-            {g.label != null && (
-              <div className="group flex items-center gap-1 rounded bg-surface-2 px-2 py-1">
-                <span className="flex-1 truncate text-xs font-semibold uppercase tracking-wide text-content-faint">
-                  {g.label}
-                </span>
-                {g.actions && (
-                  /* 목록 행의 액션은 호버에서 드러낸다(조직 트리와 같은 규칙).
-                     자리는 항상 차지하므로 호버해도 줄이 움직이지 않는다. */
-                  <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                    {g.actions}
-                  </span>
-                )}
-              </div>
-            )}
-            <ul>
-              {g.items.map((item) => (
-                <li key={item.id}>
+        {filtered.map((g) => {
+          const isCollapsed = !searching && collapsed.has(g.key);
+          return (
+            <div key={g.key}>
+              {/* 분류 머리줄 — 분류가 없는 대장에서는 그리지 않는다(빈 줄만 남는다). */}
+              {g.label != null && (
+                <div className="group flex items-center gap-1 rounded px-1 py-1">
                   <button
                     type="button"
-                    className={cn(
-                      // 들여쓰기가 「이것은 위 분류에 속한다」를 말한다.
-                      'flex w-full items-center gap-1.5 rounded py-1.5 pl-4 pr-2 text-left text-sm text-content',
-                      SELECTABLE,
-                      selectedId === item.id && SELECTED,
-                    )}
-                    onClick={() => onSelect(item.id)}
+                    aria-label={`${g.labelText ?? ''} ${isCollapsed ? '펼치기' : '접기'}`}
+                    aria-expanded={!isCollapsed}
+                    className="shrink-0 rounded text-content-faint hover:text-content"
+                    onClick={() =>
+                      setCollapsed((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(g.key)) next.delete(g.key);
+                        else next.add(g.key);
+                        return next;
+                      })
+                    }
                   >
-                    {item.dot && (
-                      <span
-                        aria-hidden
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: item.dot }}
-                      />
-                    )}
-                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                    {item.hint && (
-                      <span
-                        className="shrink-0 text-xs text-content-faint tabular-nums"
-                        title={item.hintTitle}
-                      >
-                        {item.hint}
-                      </span>
-                    )}
+                    {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                   </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-
+                  <span className="flex-1 truncate text-xs font-semibold text-content-muted">{g.label}</span>
+                  <span className="shrink-0 text-xs text-content-faint tabular-nums">{g.items.length}</span>
+                  {g.menu && g.menu.length > 0 && (
+                    /* 목록 행의 구조 변경은 손이 닿을 때 드러낸다. 자리는 항상 차지하므로
+                       호버해도 줄이 움직이지 않는다. */
+                    <span className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      <OverflowMenu label={`${g.labelText ?? ''} 분류 더 보기`} items={g.menu} />
+                    </span>
+                  )}
+                </div>
+              )}
+              {!isCollapsed && (
+                <ul>
+                  {g.items.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className={cn(
+                          // 들여쓰기가 「이것은 위 분류에 속한다」를 말한다.
+                          'flex w-full items-center gap-1.5 rounded py-1.5 pl-6 pr-2 text-left text-sm text-content',
+                          SELECTABLE,
+                          selectedId === item.id && SELECTED,
+                        )}
+                        onClick={() => onSelect(item.id)}
+                      >
+                        {item.dot && (
+                          <span
+                            aria-hidden
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: item.dot }}
+                          />
+                        )}
+                        <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
       </div>
     </aside>
   );

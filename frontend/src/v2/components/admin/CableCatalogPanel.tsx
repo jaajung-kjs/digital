@@ -290,13 +290,10 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
       label: null,
       items: groups.map((g) => {
         const live = g.id === selectedId && draft != null ? draft : null;
-        const count = live?.categories.length ?? g.categories.length;
         return {
           id: g.id,
           name: live?.name.trim() || g.name,
           dot: live?.color ?? g.color,
-          hint: String(count),
-          hintTitle: `케이블 종류 ${count}개`,
         };
       }),
     },

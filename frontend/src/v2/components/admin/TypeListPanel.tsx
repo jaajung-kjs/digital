@@ -9,8 +9,7 @@
  * 목록과 미묘하게 달랐고(폭 64 vs 56, 분류 묶음 유무), 검색은 어느 쪽에도 없었다.
  */
 import { useMemo } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
-import { IconButton, useInlineRename } from '../../../components/ui';
+import { useInlineRename } from '../../../components/ui';
 import type { V2Catalog, V2Category } from '../../types';
 import { CatalogList } from './CatalogList';
 
@@ -45,14 +44,7 @@ export function TypeListPanel({
       catalog.categories.map((cat) => {
         const items = catalog.types
           .filter((t) => t.categoryId === cat.id)
-          .map((t) => ({
-            id: t.id,
-            name: t.name,
-            /* 0 도 그대로 찍는다 — 빈칸은 「모른다」로 읽히지 「없다」로 읽히지 않는다.
-               같은 자리에서 설비 종류 목록은 `분전반 0` 을 찍고 있었다. */
-            hint: String(t.assetCount),
-            hintTitle: `쓰이는 자산 ${t.assetCount}개`,
-          }));
+          .map((t) => ({ id: t.id, name: t.name }));
         return {
           key: cat.id,
           label:
@@ -63,27 +55,19 @@ export function TypeListPanel({
             ),
           labelText: cat.name,
           items,
-          actions: (
-            <>
-              <IconButton
-                aria-label={`${cat.name} 이름 변경`}
-                size="sm"
-                onClick={() => rename.start(cat.id, cat.name)}
-              >
-                <Pencil size={12} />
-              </IconButton>
-              {/* 빈 분류만 지울 수 있다 — 종류가 남아 있으면 서버가 거부하므로 아예 막는다. */}
-              <IconButton
-                aria-label={`${cat.name} 분류 삭제`}
-                size="sm"
-                disabled={items.length > 0}
-                disabledReason={items.length > 0 ? `이 분류에 ${items.length}개가 들어 있어 지울 수 없습니다` : undefined}
-                onClick={() => onDeleteCategory(cat)}
-              >
-                <Trash2 size={12} />
-              </IconButton>
-            </>
-          ),
+          menu: [
+            { label: '이름 변경', onSelect: () => rename.start(cat.id, cat.name) },
+            {
+              label: '분류 삭제',
+              danger: true,
+              /* 빈 분류만 지울 수 있다 — 종류가 남아 있으면 서버가 거부하므로 아예 막고,
+                 왜 못 지우는지 그 자리에서 말한다. */
+              disabled: items.length > 0,
+              disabledReason:
+                items.length > 0 ? `이 분류에 ${items.length}개가 들어 있어 지울 수 없습니다` : undefined,
+              onSelect: () => onDeleteCategory(cat),
+            },
+          ],
         };
       }),
     [catalog.categories, catalog.types, rename],

@@ -11,6 +11,8 @@ export interface OverflowMenuItem {
   /** 되돌릴 수 없는 것 — 글자가 위험 색을 쓴다. */
   danger?: boolean;
   disabled?: boolean;
+  /** 왜 못 누르는지 — `disabled` 일 때 얹으면 뜬다. 말할 수 없으면 항목을 아예 두지 않는다. */
+  disabledReason?: string;
 }
 
 /**
@@ -59,6 +61,7 @@ export function OverflowMenu({
               type="button"
               role="menuitem"
               disabled={item.disabled}
+              title={item.disabled ? item.disabledReason : undefined}
               className={cn(
                 'block w-full px-3 py-1.5 text-left text-sm',
                 item.danger ? 'text-danger' : 'text-content',
