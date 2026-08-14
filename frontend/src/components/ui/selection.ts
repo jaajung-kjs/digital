@@ -8,10 +8,13 @@
  *
  * 규칙: 호버는 표면색만 바뀌고(`SELECTABLE`), 선택은 강조색 배경 + 굵기로 확실히 구분한다
  * (`SELECTED`). 둘이 같은 색을 쓰지 않는 것이 핵심이다.
+ *
+ * 호버가 `surface-3` 인 이유: 표 머리글이 `surface-2` 를 쓴다(`ui/Table.tsx`). 행 호버가
+ * 같은 색이면 커서를 올린 행이 머리글처럼 보인다 — 실제로 선번장에서 그랬다.
  */
 
 /** 고를 수 있는 항목의 기본 상태 — 호버에만 반응한다. */
-export const SELECTABLE = 'cursor-pointer transition-colors hover:bg-surface-2';
+export const SELECTABLE = 'cursor-pointer transition-colors hover:bg-surface-3';
 
 /**
  * 골라진 항목 — 호버색과 겹치지 않는 강조색.

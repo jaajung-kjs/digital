@@ -346,10 +346,10 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                       <Th>코드</Th>
                       <Th>{LABOR_CODE_LABEL}</Th>
                       {/* **조회 칸**이다 — 저장되는 것은 직종 코드뿐이고 단가는 기준자료가 정한다. */}
-                      <Th className="text-right">{`${LABOR_WAGE_LABEL}(${WAGE_UNIT})`}</Th>
+                      <Th align="right" unit={WAGE_UNIT}>{LABOR_WAGE_LABEL}</Th>
                       {/* 열은 어휘가 정한다 — 여기서 칸을 손으로 적지 않는다. */}
                       {SPEC_COLUMNS.map((c) => (
-                        <Th key={c.field} className="text-right">
+                        <Th key={c.field} align="right" unit={c.unit}>
                           {c.label}
                         </Th>
                       ))}

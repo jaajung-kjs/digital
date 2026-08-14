@@ -55,21 +55,43 @@ export function TableCard({
   );
 }
 
-interface ThProps extends ThHTMLAttributes<HTMLTableCellElement> {
+interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> {
   children: ReactNode;
+  /** 수는 오른쪽으로 — 자릿수가 세로로 맞아야 크기가 비교된다. */
+  align?: 'left' | 'right';
+  /** 단위는 **이름에 붙이지 않는다** — 붙이면 「노임단가(원/」 처럼 토큰 한가운데서 접힌다. */
+  unit?: string;
 }
 
-/** 표 머리글 셀 — 라벨 타이포(`text-xs`)와 구분선을 고정한다. 폭은 `TableCard widths` 가 정한다. */
-export function Th({ children, className, ...rest }: ThProps) {
+/**
+ * 표 머리글 셀 — **머리글이 머리글로 보이게** 하는 단일 지점.
+ *
+ * 예전에는 배경이 `bg-surface`(흰색)라 본문 행과 **완전히 같은 색**이었고, 1px 선 하나로만
+ * 갈렸다. 그래서 선번장의 「슬롯 1」 구분행(색이 있다)이 진짜 머리글보다 머리글처럼 보였다.
+ * 면을 한 단 내리고 글자를 굵혀 위계를 만든다.
+ *
+ * **줄을 접지 않는다.** 한글은 어디서나 끊기므로(`break-keep` 이 없으면 「원/」+「일)」로
+ * 쪼개진다) 머리글 높이가 행보다 커지고 표가 들쭉날쭉해진다. 넘치면 접는 대신 말줄임한다 —
+ * 폭이 모자란 것이지 이름이 두 줄짜리인 게 아니다.
+ *
+ * 배경이 **불투명**해야 `sticky` 머리글 아래로 행이 비치지 않는다.
+ */
+export function Th({ children, className, align = 'left', unit, ...rest }: ThProps) {
   return (
     <th
       className={cn(
-        'border-b border-line bg-surface px-3 py-2 text-left text-xs font-medium text-content-muted',
+        'border-b border-line bg-surface-2 px-3 py-2 text-xs font-semibold text-content-muted',
+        'whitespace-nowrap break-keep',
+        align === 'right' ? 'text-right' : 'text-left',
         className,
       )}
       {...rest}
     >
-      {children}
+      <span className="block truncate">
+        {children}
+        {/* 단위는 이름보다 한 단 흐리게 — 무엇을 세는 열인지는 이름이 말하고, 단위는 곁들인다. */}
+        {unit && <span className="ml-1 font-normal text-content-faint">{unit}</span>}
+      </span>
     </th>
   );
 }

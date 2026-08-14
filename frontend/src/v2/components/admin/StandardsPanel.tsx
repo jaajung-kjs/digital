@@ -309,7 +309,7 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
               <Th>파일</Th>
               <Th>적용시기</Th>
               <Th>올린이</Th>
-              <Th className="text-right">상태</Th>
+              <Th align="right">상태</Th>
             </tr>
           </thead>
           <tbody>
@@ -395,7 +395,7 @@ function WageRatesCard() {
               <Th>코드</Th>
               <Th>직종</Th>
               {data.dates.map((d) => (
-                <Th key={d} className="text-right">
+                <Th key={d} align="right">
                   {d}
                 </Th>
               ))}
@@ -450,13 +450,13 @@ function OverheadRatesCard() {
           <tr>
             <Th>공사규모</Th>
             {durations.map((d) => (
-              <Th key={`i-${d}`} className="text-right">
-                간접노무비 {d}일
+              <Th key={`i-${d}`} align="right" unit={`${d}일`}>
+                간접노무비
               </Th>
             ))}
             {durations.map((d) => (
-              <Th key={`e-${d}`} className="text-right">
-                기타경비 {d}일
+              <Th key={`e-${d}`} align="right" unit={`${d}일`}>
+                기타경비
               </Th>
             ))}
           </tr>
@@ -485,8 +485,8 @@ function OverheadRatesCard() {
         <thead>
           <tr>
             <Th>공사규모</Th>
-            <Th className="text-right">일반관리비</Th>
-            <Th className="text-right">이윤(경쟁)</Th>
+            <Th align="right">일반관리비</Th>
+            <Th align="right" unit="경쟁">이윤</Th>
           </tr>
         </thead>
         <tbody>
@@ -504,8 +504,8 @@ function OverheadRatesCard() {
         <thead>
           <tr>
             <Th>산안비 대상액</Th>
-            <Th className="text-right">요율</Th>
-            <Th className="text-right">기초액</Th>
+            <Th align="right">요율</Th>
+            <Th align="right">기초액</Th>
           </tr>
         </thead>
         <tbody>

@@ -99,12 +99,15 @@ export function unitPriceLabel(carrier: LaborCarrier): string {
  */
 export function laborSpecColumns(
   carrier: LaborCarrier,
-): { field: keyof LaborSpec; label: string; kind: 'price' | 'manDays' }[] {
+): { field: keyof LaborSpec; label: string; unit: string; kind: 'price' | 'manDays' }[] {
+  /* 이름과 단위를 **따로** 준다 — 붙여 두면 표 머리글이 「자재단가(원/」 처럼 토큰
+     한가운데서 접힌다. 폼은 값 옆에, 표는 이름 옆에 흐리게 단다. */
   return [
-    { field: 'unitPrice', label: unitPriceLabel(carrier), kind: 'price' },
+    { field: 'unitPrice', label: '자재단가', unit: unitPriceUnit(carrier), kind: 'price' },
     ...WORK_KINDS.map((w) => ({
       field: MAN_DAY_FIELD[w.key] as keyof LaborSpec,
-      label: laborFieldLabel(w.key, carrier),
+      label: w.label,
+      unit: manDayUnit(carrier),
       kind: 'manDays' as const,
     })),
   ];
