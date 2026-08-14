@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
+import { ASSET_STATUSES, assetStatusLabel, worstAssetStatus } from '@twin/core';
 import { EmptyState, StatusDot, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
@@ -88,14 +88,43 @@ const TRAILING_COLS: Column[] = [
     value: (r) => r.lastInspectedAt,
     render: (r) => formatDate(r.lastInspectedAt),
   },
-  {
+];
+
+/** 설비 한 줄이 안에 든 것들을 대신해 말하는 값. */
+interface Rollup {
+  /** 자기 자신과 자손 중 **가장 나쁜** 상태. */
+  status: string;
+  /** 무엇이 몇인지 — 접힌 줄을 얹으면 나온다. 어휘 순서 그대로 센다. */
+  breakdown: string;
+}
+
+/**
+ * 상태 열 — 접힌 설비 줄은 **자기 것이 아니라 안의 것 중 가장 나쁜 것**을 말한다.
+ *
+ * 접기는 정보를 줄이는 장치이지 바꾸는 장치가 아니다. 예전에는 설비 줄이 제 상태만 말해서,
+ * 「판암 송광치 ● 정상」을 펴야 안에 든 「광단말 B ● 고장」이 나왔다 — 기본이 접힘이므로
+ * 현황을 열면 고장이 아예 안 보였다. 접힌 값이 편 값과 모순되면 접기 자체를 못 믿는다.
+ *
+ * 정렬·검색이 쓰는 값도 같이 굴린다. 아니면 「고장」으로 찾을 때 그 고장을 품은 설비 줄이
+ * 검색에 안 걸린다.
+ */
+function statusColumn(rollupOf: (r: StatusRow) => Rollup | null): Column {
+  const shown = (r: StatusRow) => rollupOf(r)?.status ?? r.status;
+  return {
     key: 'status',
     label: '상태',
     weight: 12,
-    value: (r) => assetStatusLabel(r.status),
-    render: (r) => <StatusDot status={assetStatusTone(r.status)}>{assetStatusLabel(r.status)}</StatusDot>,
-  },
-];
+    value: (r) => assetStatusLabel(shown(r)),
+    render: (r) => {
+      const rollup = rollupOf(r);
+      return (
+        <StatusDot status={assetStatusTone(shown(r))} title={rollup?.breakdown}>
+          {assetStatusLabel(shown(r))}
+        </StatusDot>
+      );
+    },
+  };
+}
 
 /** 선언된 필드 하나 → 열 하나. 날짜는 날짜로 보이게 하되, 그 외에는 값을 그대로 적는다. */
 function fieldColumn(fd: FieldDef): Column {
@@ -124,6 +153,35 @@ export function StatusTable({
   /** 펼쳐 둔 설비 묶음 — 기본은 접힘(세는 단위가 설비 하나이므로). */
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
+  /**
+   * 설비 뿌리 → 그 안의 것들을 대신해 말할 값.
+   *
+   * **거르기 전의 `rows`** 로 센다. 검색이 부품 줄을 걷어냈다고 그 설비가 멀쩡해지는 것은
+   * 아니다 — 접힌 줄이 말하는 것은 「검색 결과의 상태」가 아니라 「이 설비의 상태」다.
+   */
+  const rollup = useMemo(() => {
+    const members = new Map<string, StatusRow[]>();
+    for (const r of rows) {
+      if (r.assemblyRootId === null) continue;
+      const list = members.get(r.assemblyRootId) ?? [];
+      list.push(r);
+      members.set(r.assemblyRootId, list);
+    }
+    const out = new Map<string, Rollup>();
+    for (const [rootId, list] of members) {
+      /* 자기 혼자인 설비는 굴릴 것이 없다 — 제 상태를 그대로 말하면 된다. */
+      if (list.length < 2) continue;
+      const worst = worstAssetStatus(list.map((r) => r.status));
+      if (worst === null) continue;
+      const breakdown = ASSET_STATUSES.map((s) => ({ s, n: list.filter((r) => r.status === s.value).length }))
+        .filter(({ n }) => n > 0)
+        .map(({ s, n }) => `${s.label} ${n}`)
+        .join(' · ');
+      out.set(rootId, { status: worst, breakdown });
+    }
+    return out;
+  }, [rows]);
+
   /* 구조 열 → 선언된 필드 열 → 이력·상태. 필드 열은 카탈로그가 정하므로 개수가 화면마다 다르다. */
   const cols = useMemo<Column[]>(
     () => [
@@ -131,8 +189,9 @@ export function StatusTable({
       ...STRUCTURAL_COLS,
       ...fieldColumns.map(fieldColumn),
       ...TRAILING_COLS,
+      statusColumn((r) => (r.id === r.assemblyRootId ? (rollup.get(r.id) ?? null) : null)),
     ],
-    [fieldColumns, nodeScope],
+    [fieldColumns, nodeScope, rollup],
   );
 
   /* 검색이 없으면 자산이 수백 개가 됐을 때 찾을 방법이 정렬뿐이다.

@@ -28,5 +28,33 @@ export function assetStatusTone(value: string): AssetStatusTone | null {
 
 export type AssetStatusTone = (typeof ASSET_STATUSES)[number]['tone'];
 
+/**
+ * 여럿의 상태를 하나로 — **나쁜 쪽이 이긴다**.
+ *
+ * 설비를 한 줄로 접으면 그 줄은 안에 든 것들을 대신해 말한다. 접기는 정보를 **줄이는**
+ * 장치이지 **바꾸는** 장치가 아니므로, 접힌 줄이 「정상」인데 펴면 「고장」이 들어 있으면
+ * 안 된다 — 변전소 대장을 여는 첫째 이유가 「고장난 게 있나」인데 그때 초록 점을 보게 된다.
+ *
+ * 심각도는 **어휘의 선언 순서**다(정상 → 예비 → 고장, 뒤로 갈수록 나쁘다). 순서를 여기
+ * 따로 적지 않는 이유는 그것이 곧 두 번째 진실이 되기 때문이다 — 어휘에 하나를 끼워 넣고
+ * 이 함수를 안 고치면 조용히 어긋난다.
+ *
+ * 어휘에 없는 값은 순위를 매길 근거가 없으므로 겨루지 않는다(다 모르는 값이면 첫 값 그대로).
+ */
+export function worstAssetStatus(values: Iterable<string>): string | null {
+  const rank = (v: string) => ASSET_STATUSES.findIndex((s) => s.value === v);
+  let best: string | null = null;
+  let bestRank = -1;
+  for (const v of values) {
+    if (best === null) best = v;
+    const r = rank(v);
+    if (r > bestRank) {
+      bestRank = r;
+      best = v;
+    }
+  }
+  return best;
+}
+
 /* 포트 방향 어휘는 `catalog/types.ts` 에 있다 — 타입(`Direction`) 이 그 어휘에서 파생되므로
    값과 타입이 한 곳에 있어야 갈라지지 않는다. */

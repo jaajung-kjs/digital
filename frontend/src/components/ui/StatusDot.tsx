@@ -33,9 +33,18 @@ const TEXT: Record<BadgeStatus, string> = {
  *
  * 단독으로 강조하는 자리(패널 머리말, 안내 띠)는 그대로 `Badge` 를 쓴다.
  */
-export function StatusDot({ status, children }: { status: BadgeStatus; children: React.ReactNode }) {
+export function StatusDot({
+  status,
+  title,
+  children,
+}: {
+  status: BadgeStatus;
+  /** 얹으면 나오는 한 줄 — 이 값이 **어디서 나왔는지** 밝힐 때만 쓴다(묶음 줄의 내역 등). */
+  title?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 text-sm', TEXT[status])}>
+    <span className={cn('inline-flex items-center gap-1.5 text-sm', TEXT[status])} title={title}>
       <span className={cn('size-1.5 shrink-0 rounded-full', DOT[status])} aria-hidden />
       <span className={cn(ALERTING.has(status) && 'font-medium')}>{children}</span>
     </span>
