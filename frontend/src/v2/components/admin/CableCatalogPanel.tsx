@@ -48,8 +48,6 @@ import { useV2Notice } from '../../store/noticeStore';
 
 interface CableCatalogPanelProps {
   catalog: V2Catalog;
-  /** 이 대장의 줄 앞뒤에 다른 대장의 뿌리를 세운다 — 트리는 화면에 하나뿐이다. */
-  withRoots: (own: TreeNode[]) => TreeNode[];
 }
 
 /**
@@ -141,7 +139,7 @@ function issuesOf(g: GroupDraft | null): { flags: Map<string, RowIssues>; groupN
   return { flags, groupName, count };
 }
 
-export function CableCatalogPanel({ catalog, withRoots }: CableCatalogPanelProps) {
+export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const mutations = useCatalogMutations();
   const { confirm, confirmDialog } = useConfirm();
   const wage = useWageCatalog();
@@ -270,8 +268,8 @@ export function CableCatalogPanel({ catalog, withRoots }: CableCatalogPanelProps
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
         <TreePanel
-          title="설비관리대장"
-          nodes={withRoots(nodes)}
+          title="케이블 종류"
+          nodes={nodes}
           selectedId={selectedId}
           onSelect={(n) => void selectGroup(n.id)}
           emptyText="케이블 그룹이 없습니다"

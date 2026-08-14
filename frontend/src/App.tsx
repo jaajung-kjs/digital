@@ -6,6 +6,7 @@ import { V2Shell } from './v2/V2Shell';
 import V2LoginPage from './v2/pages/V2LoginPage';
 import V2WorkspacePage from './v2/pages/V2WorkspacePage';
 import V2CatalogAdminPage from './v2/pages/V2CatalogAdminPage';
+import V2CablesPage from './v2/pages/V2CablesPage';
 import V2StandardsPage from './v2/pages/V2StandardsPage';
 import { queryClient } from './lib/queryClient';
 
@@ -73,6 +74,7 @@ export default function App() {
             {/* 보고 있는 자리는 주소가 안다 — `useWorkspaceRoute` 참고. */}
             <Route path="/n/:nodeId" element={<V2WorkspacePage />} />
             <Route path="/catalog" element={<V2CatalogAdminPage />} />
+            <Route path="/cables" element={<V2CablesPage />} />
             <Route path="/standards" element={<V2StandardsPage />} />
           </Route>
 

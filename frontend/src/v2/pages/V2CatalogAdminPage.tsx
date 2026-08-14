@@ -30,12 +30,11 @@ import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { CatalogEditorBar, InUseNotice } from '../components/admin/CatalogEditorBar';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { PortsEditor } from '../components/admin/PortsEditor';
-import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
 import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
 import { useV2Notice } from '../store/noticeStore';
 
-type Tab = 'type' | 'assembly' | 'cable';
+type Tab = 'type' | 'assembly';
 
 /**
  * 세 대장 — **트리의 세 뿌리**다.
@@ -53,7 +52,6 @@ const CATALOGS: readonly { key: Tab; label: string }[] = [
   // 도면에 놓이고 현황에 집계되는 단위 — 대장의 주인공이라 맨 앞에 둔다.
   { key: 'assembly', label: '설비 종류' },
   { key: 'type', label: '자산 종류' },
-  { key: 'cable', label: '케이블 그룹' },
 ];
 
 /**
@@ -365,16 +363,6 @@ function CatalogAdmin() {
                   setCategoryError(null);
                   setAddCategoryOpen(true);
                 }}
-              />
-            </div>
-          )}
-
-          {/* ── 케이블 종류 탭 ───────────────────────────────────────── */}
-          {activeTab === 'cable' && (
-            <div className="flex min-h-0 flex-1">
-              <CableCatalogPanel
-                catalog={catalog}
-                withRoots={(own) => withCatalogRoots('cable', own, (t) => void switchTab(t))}
               />
             </div>
           )}

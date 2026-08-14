@@ -25,6 +25,9 @@ import { PRODUCT_NAME } from '../product';
 const MAIN_NAV = [
   { to: '/', label: '워크스페이스' },
   { to: '/catalog', label: '설비관리대장' },
+  /* 케이블은 설비·자산과 분류 체계를 공유하지 않는다 — 같은 트리에 두면 없는 계층을
+     꾸며 내게 되므로 제 화면을 갖는다(`V2CablesPage`). */
+  { to: '/cables', label: '케이블 종류' },
   { to: '/standards', label: '기준자료' },
 ] as const;
 
