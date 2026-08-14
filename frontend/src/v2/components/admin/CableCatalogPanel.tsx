@@ -41,6 +41,8 @@ import { useCatalogMutations, useWageCatalog } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
 import { LaborSpecForm } from './LaborSpecForm';
 import { TreePanel, type TreeNode } from '../../../components/ui';
+import { useEditorGate } from '../../useEditorGate';
+import { isDirty } from '../../draftDiff';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useV2Notice } from '../../store/noticeStore';
 
@@ -102,23 +104,6 @@ const toDraft = (g: V2CableGroup): GroupDraft => ({
     },
   })),
 });
-
-const same = (a: GroupDraft, b: GroupDraft) =>
-  a.name === b.name &&
-  a.color === b.color &&
-  a.categories.length === b.categories.length &&
-  a.categories.every((x, i) => {
-    const y = b.categories[i]!;
-    return (
-      x.id === y.id &&
-      x.name === y.name &&
-      x.spec.laborCode === y.spec.laborCode &&
-      x.spec.unitPrice === y.spec.unitPrice &&
-      x.spec.installManDays === y.spec.installManDays &&
-      x.spec.removeManDays === y.spec.removeManDays &&
-      x.spec.relocateManDays === y.spec.relocateManDays
-    );
-  });
 
 interface RowIssues {
   name: boolean;
@@ -203,7 +188,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   }
 
   const saved = useMemo(() => (original ? toDraft(original) : null), [original]);
-  const dirty = draft != null && saved != null && !same(draft, saved);
+  const dirty = isDirty(draft, saved);
   /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
   useReportUnsaved(dirty);
   /* `selectGroup` 은 `dirty` 보다 위에 선다 — 최신 값을 ref 로 읽는다(선언 순서 때문이지
@@ -212,6 +197,9 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   dirtyRef.current = dirty;
 
   const { flags, groupName: groupNameIssue, count: issueCount } = useMemo(() => issuesOf(draft), [draft]);
+  /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — 예전에는 이 탭만 그 규칙이 없어서
+     저장 단추가 회색인 채 왜인지 말해 주지 않았다. */
+  const gate = useEditorGate({ issueCount, resetKey: selectedId, onSave: handleSave });
 
   /* 고른 줄이 사라졌으면(취소·저장으로 초안이 다시 서면) 자연히 풀린다 — 따로 지우지 않는다. */
   const selectedRow = draft?.categories.find((r) => r.key === selectedKey) ?? null;
@@ -255,7 +243,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   }
 
   async function handleSave() {
-    if (!original || !draft || saving || issueCount > 0) return;
+    if (!original || !draft || saving) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -316,10 +304,11 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
               dirty={dirty}
               saving={saving}
               issueCount={issueCount}
-              error={saveError}
+              showIssues={gate.showIssues}
+              error={saveError ?? gate.blockedMessage}
               onDismissError={() => setSaveError(null)}
               onCancel={() => setDraft(saved)}
-              onSave={() => void handleSave()}
+              onSave={gate.save}
             />
 
             {/* `표 │ 상세` — 평면도(도면 │ 상세)·설비 종류(격자 │ 상세)와 같은 배치다.

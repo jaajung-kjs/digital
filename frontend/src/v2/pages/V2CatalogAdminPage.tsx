@@ -25,6 +25,7 @@ import {
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { UnsavedGuardProvider, useHasUnsaved, useReportUnsaved } from '../unsavedGuard';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID } from '../catalogDraft';
+import { useEditorGate } from '../useEditorGate';
 import type { TypeDraft } from '../catalogDraft';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
@@ -70,10 +71,6 @@ function CatalogAdmin() {
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  /** 저장이 막혔을 때 폼 전체의 검증 문구를 켠다 — 평소에는 손댄 칸만 말한다. */
-  const [revealIssues, setRevealIssues] = useState(false);
-  /* 다른 종류로 옮기면 다시 잠근다 — 저기서 막혔던 표시를 여기 들고 오지 않는다. */
-  useEffect(() => setRevealIssues(false), [selectedTypeId]);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -106,6 +103,8 @@ function CatalogAdmin() {
 
   // 이슈 목록 (저장 시도 또는 실시간 표시)
   const issues = draft != null && catalog != null ? draftIssues(draft, catalog) : [];
+  /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — `useEditorGate`. */
+  const gate = useEditorGate({ issueCount: issues.length, resetKey: selectedTypeId, onSave: handleSave });
 
   // ── draft onChange ────────────────────────────────────────────────────────
   function handleChange(patch: Partial<TypeDraft>) {
@@ -179,14 +178,6 @@ function CatalogAdmin() {
   // ── 저장 ──────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (draft == null || catalog == null) return;
-    const currentIssues = draftIssues(draft, catalog);
-    if (currentIssues.length > 0) {
-      /* 몇 건인지만 말하고 어느 칸인지 안 짚으면 사람은 폼을 처음부터 훑어야 한다 —
-         막고 있는 칸을 전부 켠다(`IssueReveal`). */
-      setRevealIssues(true);
-      setSaveError(`입력 오류가 있습니다 (${currentIssues.length}건) — 붉게 표시된 칸을 확인하세요`);
-      return;
-    }
     setSaveError(null);
     setIsSaving(true);
     try {
@@ -359,14 +350,14 @@ function CatalogAdmin() {
                   description="좌측 목록에서 고르거나, + 버튼으로 새로 만드세요. 자산 종류는 설비 안에 들어가는 것입니다."
                 />
               ) : (
-                <IssueReveal.Provider value={revealIssues}>
+                <IssueReveal.Provider value={gate.showIssues}>
                   <CatalogEditorBar
                     title={isNew ? '새 자산 종류' : (original?.name ?? '')}
                     dirty={dirty}
                     saving={isSaving}
                     issueCount={issues.length}
-                    showIssues={revealIssues}
-                    error={saveError}
+                    showIssues={gate.showIssues}
+                    error={saveError ?? gate.blockedMessage}
                     onDismissError={() => setSaveError(null)}
                     notice={
                       locked ? <InUseNotice count={original?.assetCount ?? 0} message="포트 구조는 변경할 수 없습니다" /> : null
@@ -374,7 +365,7 @@ function CatalogAdmin() {
                     onDelete={isNew ? undefined : () => void handleDeleteType()}
                     deleteLabel="종류 삭제"
                     onCancel={handleCancel}
-                    onSave={() => void handleSave()}
+                    onSave={gate.save}
                   />
 
                   {/* 편집 폼 영역 — 스크롤.

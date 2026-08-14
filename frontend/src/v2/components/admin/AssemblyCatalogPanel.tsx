@@ -17,6 +17,8 @@ import {
   type AssemblyDraft,
 } from '../../assemblyDraft';
 import { NEW_ID } from '../../catalogDraft';
+import { useEditorGate } from '../../useEditorGate';
+import { isDirty } from '../../draftDiff';
 import { AssemblyPanel } from './AssemblyPanel';
 import type { V2Catalog, V2Category } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
@@ -63,7 +65,9 @@ export function AssemblyCatalogPanel({
   }, [selectedId, original, isNew]);
 
   const issues = draft ? assemblyIssues(draft, catalog.types) : [];
-  const dirty = draft != null && JSON.stringify(draft) !== JSON.stringify(original ? assemblyToDraft(original) : emptyAssemblyDraft());
+  /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — `useEditorGate`. */
+  const gate = useEditorGate({ issueCount: issues.length, resetKey: selectedId, onSave: handleSave });
+  const dirty = isDirty(draft, original ? assemblyToDraft(original) : null);
   /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
   useReportUnsaved(dirty);
 
@@ -79,18 +83,9 @@ export function AssemblyCatalogPanel({
     });
   }
   const isSaving = m.createAssembly.isPending || m.updateAssembly.isPending;
-  /** 저장이 막혔을 때 폼 전체의 검증 문구를 켠다 — 평소에는 손댄 칸만 말한다. */
-  const [revealIssues, setRevealIssues] = useState(false);
-  useEffect(() => setRevealIssues(false), [selectedId]);
 
   async function handleSave() {
     if (!draft) return;
-    if (issues.length > 0) {
-      /* 몇 건인지만 말하고 어느 칸인지 안 짚으면 폼을 처음부터 훑어야 한다. */
-      setRevealIssues(true);
-      setSaveError(`입력 오류가 있습니다 (${issues.length}건) — 붉게 표시된 칸을 확인하세요`);
-      return;
-    }
     setSaveError(null);
     try {
       const body = draftToAssemblyBody(draft);
@@ -223,8 +218,8 @@ export function AssemblyCatalogPanel({
               dirty={dirty}
               saving={isSaving}
               issueCount={issues.length}
-              showIssues={revealIssues}
-              error={saveError}
+              showIssues={gate.showIssues}
+              error={saveError ?? gate.blockedMessage}
               onDismissError={() => setSaveError(null)}
               onDelete={isNew ? undefined : () => void handleDelete()}
               deleteLabel="종류 삭제"
@@ -237,13 +232,13 @@ export function AssemblyCatalogPanel({
                   setDraft(original ? assemblyToDraft(original) : null);
                 }
               }}
-              onSave={() => void handleSave()}
+              onSave={gate.save}
             />
 
             {/* 스크롤은 **패널 안쪽**이 쥔다 — 바깥에서 감싸면 캔버스가 남는 자리를 못 쓰고,
                 오른쪽 상세만 길어져도 캔버스까지 함께 밀려 올라간다(평면도와 같은 규칙). */}
             <div className="min-h-0 flex-1 overflow-hidden">
-              <IssueReveal.Provider value={revealIssues}>
+              <IssueReveal.Provider value={gate.showIssues}>
                 <AssemblyPanel draft={draft} onChange={setDraft} catalog={catalog} issues={issues} />
               </IssueReveal.Provider>
             </div>

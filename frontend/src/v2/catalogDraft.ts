@@ -11,6 +11,7 @@
 import { specFromUpsert, validateTypeSpec } from '@twin/core';
 import type { TypeSpecIssue } from '@twin/core';
 import type { V2AssetType, V2Catalog, TypeUpsertBody } from './types';
+import { isDirty } from './draftDiff';
 
 export type TypeDraft = TypeUpsertBody;
 
@@ -65,15 +66,9 @@ export function draftIssues(draft: TypeDraft, catalog: V2Catalog): TypeSpecIssue
   });
 }
 
-/**
- * 원본 V2AssetType 대비 draft 변경 여부.
- * original === null (신규 타입) → 항상 true.
- * 불변식: draft는 typeToDraft/emptyDraft로 생성하고 spread-patch로만 수정할 것 — 비교(JSON.stringify)가 필드 순서에 민감하다.
- */
+/** 원본 대비 변경 여부 — 규칙은 `draftDiff` 하나가 갖는다. */
 export function isDraftDirty(draft: TypeDraft, original: V2AssetType | null): boolean {
-  if (original === null) return true;
-  const reference = typeToDraft(original);
-  return JSON.stringify(draft) !== JSON.stringify(reference);
+  return isDirty(draft, original ? typeToDraft(original) : null);
 }
 
 /**
