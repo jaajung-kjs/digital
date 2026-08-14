@@ -78,7 +78,10 @@ export function RegisterLayout({
         <TableSearch {...search} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+      {/* 여백은 **스크롤되는 안쪽**에 준다 — 스크롤 상자에 직접 주면 고정 머리글이 그
+          여백만큼 내려가 붙고, 그 틈으로 지나가는 행이 비친다(§1.7-b). */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="p-4">
         {sections ? (
           <div className="flex flex-col gap-4">
             {sections.map((section) => (
@@ -86,7 +89,9 @@ export function RegisterLayout({
                 <h3 className="text-sm font-semibold text-content">{section.title}</h3>
                 <TableCard widths={widths}>
                   <thead>
-                    <tr className="border-b border-line">{head}</tr>
+                    {/* 묶음마다 제 머리글이 제 표 위에 붙어 따라온다 — 96행을 내려가도
+                        지금 보는 칸이 무슨 열인지 잃지 않는다. */}
+                    <tr className="sticky top-0 z-sticky border-b border-line">{head}</tr>
                   </thead>
                   <tbody>{section.rows}</tbody>
                 </TableCard>
@@ -96,11 +101,12 @@ export function RegisterLayout({
         ) : (
           <TableCard widths={widths}>
             <thead>
-              <tr className="border-b border-line">{head}</tr>
+              <tr className="sticky top-0 z-sticky border-b border-line">{head}</tr>
             </thead>
             <tbody>{children}</tbody>
           </TableCard>
         )}
+        </div>
       </div>
       {trailing}
     </div>

@@ -121,9 +121,16 @@ function fieldColumn(fd: FieldDef): Column {
   };
 }
 
-/* 바깥 틀에 `min-h-0` 을 걸지 않는다 — 걸면 flex 가 표를 컨테이너 높이까지 **줄여** 버리는데,
-   `TableCard` 가 넘치는 부분을 잘라 내므로 스크롤바도 없이 행이 사라진다(21건 중 17행만
-   보였다). 스크롤은 바깥(`overflow-auto`)이 맡으므로 여기서 줄어들 이유가 없다. */
+/**
+ * 도구바는 **고정**, 표 본문만 스크롤한다.
+ *
+ * 예전에는 검색 상자까지 통째로 스크롤 상자 안에 있어서, 아래로 내려가면 도구바가 탭 바
+ * 밑으로 쓸려 올라가 글자 중간에서 잘렸다. 200행짜리 표에서 검색하려고 맨 위로 되돌아가야
+ * 하는 것은 표준과 반대다 — 크롬은 서 있고 내용이 흐른다.
+ *
+ * 표가 제 스크롤 상자를 가지므로 `TableCard fill` 을 쓴다(그래야 고정 머리글이 그 상자에
+ * 붙는다). 바깥은 이 컴포넌트에 높이를 주기만 하면 된다.
+ */
 export function StatusTable({
   rows, fieldColumns, selectedId, onSelectAsset, nodeScope = false,
 }: StatusTableProps) {
@@ -220,8 +227,8 @@ export function StatusTable({
   const widths = cols.map((c) => (c.weight / totalWeight) * 100);
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <div className="flex max-w-6xl items-center gap-2">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+      <div className="flex max-w-6xl shrink-0 items-center gap-2">
         <TableSearch
           aria-label="자산 검색"
           placeholder="표에 보이는 값으로 검색"
@@ -232,7 +239,7 @@ export function StatusTable({
         />
       </div>
 
-    <TableCard widths={widths}>
+    <TableCard fill widths={widths}>
       <thead>
         {/* 머리글은 스크롤해도 남는다 — 긴 목록에서 어느 열인지 잃지 않게. */}
         <tr className="sticky top-0 z-sticky">

@@ -281,11 +281,10 @@ export default function V2WorkspacePage() {
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : (
-                    /* 현황 뷰 (기본) — 여백은 **스크롤되는 안쪽**에 둔다. 스크롤 상자에 직접
-                       주면 고정 머리글이 그 여백만큼 내려가 붙어, 그 틈으로 지나가는 행이
-                       비쳐 보인다. */
-                    <div className="min-w-0 flex-1 overflow-auto">
-                      <div className="flex flex-col gap-3 p-4">
+                    /* 현황 뷰 (기본) — **스크롤은 표가 쥔다**. 여기서 감싸 스크롤하면
+                       도구바(자산 추가·검색)까지 함께 쓸려 올라간다. */
+                    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
                       {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
                       {inSubstationScope && (
                         <div className="shrink-0">

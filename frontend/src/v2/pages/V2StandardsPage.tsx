@@ -62,10 +62,14 @@ export default function V2StandardsPage() {
         />
         {/* 스크롤은 **이 상자**가 맡는다. 안쪽 표에 스크롤 상자를 또 만들지 않는다
             (CONVENTIONS §1.7-b) — 만들면 `TableCard` 가 넘치는 행을 스크롤바 없이 잘라 낸다. */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {view === 'wage' && <WageRatesView onError={setError} />}
-          {view === 'overhead' && <OverheadRatesView onError={setError} />}
-          {view === 'history' && <StandardHistoryView onError={setError} />}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* 여백은 스크롤되는 **안쪽**에 — 스크롤 상자에 주면 고정 머리글이 그만큼
+              내려가 붙는다(§1.7-b). */}
+          <div className="p-4">
+            {view === 'wage' && <WageRatesView onError={setError} />}
+            {view === 'overhead' && <OverheadRatesView onError={setError} />}
+            {view === 'history' && <StandardHistoryView onError={setError} />}
+          </div>
         </div>
       </div>
     </div>
