@@ -12,8 +12,9 @@ import { ConflictDialog } from '../components/ConflictDialog';
 import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import { FiberRegisterView } from '../components/registers/FiberRegisterView';
 import { PowerRegisterView } from '../components/registers/PowerRegisterView';
-import { useV2Catalog, useV2NodeAssets, useTypesById } from '../hooks';
-import type { FlatOrgNode } from '../orgTreeSelectors';
+import { useV2Catalog, useV2NodeAssets, useTypesById, useV2OrgTree } from '../hooks';
+import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
+import { useWorkspaceRoute, VIEW_MODES, type ViewMode } from '../useWorkspaceRoute';
 import { buildStatusRows, type StatusRowsResult } from '../statusRows';
 
 /** 스코프 밖일 때의 빈 결과 — 매번 새 객체를 만들면 useMemo 아래가 헛되이 다시 계산된다. */
@@ -23,26 +24,31 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useCommit } from '../store/useCommit';
 import type { TraceResult } from '../traceSelectors';
 
-type ViewMode = '현황' | '평면도' | '선번장' | '계통';
-
-const VIEW_TABS: readonly TabItem<ViewMode>[] = [
-  { key: '현황', label: '현황' },
-  { key: '평면도', label: '평면도' },
-  { key: '선번장', label: '선번장' },
-  { key: '계통', label: '계통' },
-];
+/* 탭 목록은 판 어휘에서 나온다 — 판을 하나 더할 때 고칠 곳이 둘이면 하나만 고쳐진다. */
+const VIEW_TABS: readonly TabItem<ViewMode>[] = VIEW_MODES.map((v) => ({ key: v, label: v }));
 
 export default function V2WorkspacePage() {
   const { confirm, confirmDialog } = useConfirm();
   const loadingWorkingCopy = useV2WorkingCopy((st) => st.loading);
-  const [selected, setSelected] = useState<FlatOrgNode | null>(null);
-  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  /**
+   * **보고 있는 자리는 주소가 안다** — 고른 조직·판·자산·부품·포트(`useWorkspaceRoute`).
+   *
+   * 예전에는 전부 이 컴포넌트의 `useState` 였고, 그래서 북마크도 공유도 새로고침 복원도
+   * 없었으며 뒤로가기는 앱 밖으로 나갔다.
+   */
+  const route = useWorkspaceRoute();
+  const { data: orgTree } = useV2OrgTree();
+  const selected: FlatOrgNode | null = useMemo(() => {
+    if (route.nodeId == null || !orgTree) return null;
+    return flattenTree(orgTree).find((n) => n.id === route.nodeId) ?? null;
+  }, [orgTree, route.nodeId]);
+  const selectedAssetId = route.assetId;
   /** 상세 패널이 열자마자 골라 줄 포트 — 표의 한 줄이 포트 하나를 가리킬 때 쓴다. */
-  const [focusPortId, setFocusPortId] = useState<string | null>(null);
+  const focusPortId = route.portId;
   /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 부품. */
-  const [focusPartId, setFocusPartId] = useState<string | null>(null);
+  const focusPartId = route.partId;
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('현황');
+  const viewMode = route.view;
   /**
    * 「이 포트에서 케이블을 시작해 달라」는 한 번짜리 요청 — 상세 패널 → 평면도.
    *
@@ -72,10 +78,8 @@ export default function V2WorkspacePage() {
   const handleSelect = async (n: FlatOrgNode) => {
     const st = useV2WorkingCopy.getState();
     if (n.kind === 'substation') {
-      if (n.id === st.substationId) {
-        setSelected(n);
-        return;
-      } // same substation re-click: no reload/discard
+      /* 같은 변전소를 다시 눌러도 다시 읽지 않는다 — 고쳐 둔 것이 날아간다. */
+      if (n.id === st.substationId && route.nodeId === n.id) return;
       if (
         st.dirtyCount() > 0 &&
         !(await confirm({
@@ -88,11 +92,22 @@ export default function V2WorkspacePage() {
       )
         return;
     }
-    setSelected(n);
-    setSelectedAssetId(null);
+    /* 자산·부품·포트는 딸려 가지 않는다 — 저기 있던 자산이 여기 있을 리 없다. */
+    route.selectNode(n.id);
     setTraceResult(null); // 변전소 전환 시 추적 결과 클리어
-    if (n.kind === 'substation') void st.load(n.id);
   };
+
+  /**
+   * 고른 변전소의 워킹 카피를 읽어 온다 — **주소가 정한 결과**를 따라간다.
+   *
+   * 예전에는 트리를 누르는 자리에서 곧장 불렀다. 그러면 주소로 바로 들어온 사람(북마크·
+   * 공유 링크·새로고침)에게는 아무것도 안 실린다.
+   */
+  useEffect(() => {
+    if (selected?.kind !== 'substation') return;
+    const st = useV2WorkingCopy.getState();
+    if (st.substationId !== selected.id) void st.load(selected.id);
+  }, [selected]);
 
   /**
    * 자산 선택의 단일 지점.
@@ -110,11 +125,9 @@ export default function V2WorkspacePage() {
     const target = id ? assets.find((a) => a.id === id) : null;
     const parent = target?.parentAssetId ? assets.find((a) => a.id === target.parentAssetId) : null;
 
-    setSelectedAssetId(parent ? parent.id : id);
-    setFocusPartId(parent ? target!.id : null);
-    setFocusPortId(portId ?? null);
+    route.selectAsset(parent ? parent.id : id, parent ? target!.id : null, portId ?? null);
     setTraceResult(null); // 자산 선택 변경 시 추적 결과 클리어
-  }, []);
+  }, [route]);
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
@@ -191,10 +204,13 @@ export default function V2WorkspacePage() {
    * 정한 것이라 캔버스의 선택도 이미 그리로 가 있다 — 패널만 되돌리면 도면은 송광치를
    * 고른 채인데 패널은 OFD 를 보여 주는, 둘이 어긋난 화면이 된다.
    */
-  const handlePickPort = useCallback((req: CablePickRequest | null) => {
-    setCablePick(req);
-    if (req) setSelectedAssetId((cur) => (cur === req.assetId ? cur : req.assetId));
-  }, []);
+  const handlePickPort = useCallback(
+    (req: CablePickRequest | null) => {
+      setCablePick(req);
+      if (req && route.assetId !== req.assetId) route.selectAsset(req.assetId);
+    },
+    [route],
+  );
 
   // 상세 패널: 변전소 스코프 + selectedAssetId 가 effective assets 에 있을 때만
   const showDetailPanel =
@@ -223,7 +239,7 @@ export default function V2WorkspacePage() {
                   {selected.name}
                 </span>
                 {inSubstationScope && (
-                  <Tabs items={VIEW_TABS} value={viewMode} onChange={setViewMode} className="ml-4 -mb-px" />
+                  <Tabs items={VIEW_TABS} value={viewMode} onChange={route.setView} className="ml-4 -mb-px" />
                 )}
                 {inSubstationScope && (
                   /* 설계서는 지금 스테이징된 변경의 공량을 보는 화면이다. 예전엔 진입점이
@@ -305,10 +321,10 @@ export default function V2WorkspacePage() {
                       onClearTrace={() => setTraceResult(null)}
                       traceResult={traceResult}
                       cablePick={cablePick}
-                      onShowOnFloorPlan={() => setViewMode('평면도')}
+                      onShowOnFloorPlan={() => route.setView('평면도')}
                       onConnectPort={(portId) => {
                         // 이을 자리는 평면도에 있다 — 화면부터 옮기고 그 포트로 도구를 무장한다.
-                        setViewMode('평면도');
+                        route.setView('평면도');
                         setCableStartPortId(portId);
                       }}
                     />

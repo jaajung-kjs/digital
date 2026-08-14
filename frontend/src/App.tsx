@@ -70,6 +70,8 @@ export default function App() {
             }
           >
             <Route path="/" element={<V2WorkspacePage />} />
+            {/* 보고 있는 자리는 주소가 안다 — `useWorkspaceRoute` 참고. */}
+            <Route path="/n/:nodeId" element={<V2WorkspacePage />} />
             <Route path="/catalog" element={<V2CatalogAdminPage />} />
             <Route path="/standards" element={<V2StandardsPage />} />
           </Route>
