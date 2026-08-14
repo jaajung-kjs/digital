@@ -18,11 +18,14 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: '삭제' })).toHaveClass('bg-danger');
   });
 
+  /* 비활성은 **색을 죽인다** — 반투명(`opacity-50`)으로만 두면 흰 글자 대비가 2.73:1 로
+     떨어지면서도 여전히 파란 주 버튼처럼 보여, 눌리지 않는 이유가 화면에 없었다. */
   it('applies disabled styles', () => {
     render(<Button disabled>비활성</Button>);
     const btn = screen.getByRole('button', { name: '비활성' });
     expect(btn).toBeDisabled();
-    expect(btn).toHaveClass('opacity-50');
+    expect(btn).toHaveClass('!bg-surface-3');
+    expect(btn).toHaveClass('!text-content-faint');
     expect(btn).toHaveClass('cursor-not-allowed');
   });
 });
