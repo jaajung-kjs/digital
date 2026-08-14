@@ -104,7 +104,8 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-1">
+      {/* 고르는 목록이다 — 행이 `option` 이므로 상자는 `listbox` 로 읽힌다. */}
+      <div className="min-h-0 flex-1 overflow-y-auto py-1" role="listbox" aria-label="조직">
         {nodes.map((n) => (
           <div
             key={n.id}
@@ -115,6 +116,17 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
             )}
             style={{ paddingLeft: 8 + n.depth * 14 }}
             onClick={() => props.onSelect(n)}
+            /* 키보드로도 고를 수 있어야 한다 — 예전에는 `div onClick` 뿐이라 Tab 으로는 행
+               안의 아이콘 버튼 세 개에만 닿았고, 정작 **노드를 고르는 일**은 마우스로만
+               됐다. 목록 안에서 고르는 것이므로 `option` 이 그 뜻을 맞게 읽어 준다. */
+            role="option"
+            aria-selected={props.selectedId === n.id}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              props.onSelect(n);
+            }}
           >
             <span className="min-w-0 flex-1 truncate">{n.name}</span>
             {/* 액션은 항상 자리를 차지하고 보이기만 바뀐다.

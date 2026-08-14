@@ -21,8 +21,13 @@ export const SELECTABLE = 'cursor-pointer transition-colors hover:bg-surface-2';
  * 호버 회색에 덮여, 정작 보고 있는 순간에 어느 것을 골랐는지 알 수 없었다.
  * 고른 항목은 호버 피드백이 필요 없다 — 이미 표시돼 있다.
  *
+ * `!` 를 붙이는 이유: 둘 다 `hover:` 라 **특정도가 같다** — 그러면 컴파일된 CSS 의 순서가
+ * 이긴다. 실제로 `hover:bg-surface-2` 가 `hover:bg-info-bg` 보다 256바이트 뒤에 있어서,
+ * 이 주석이 「고쳤다」고 말하는 동안 고른 행은 여전히 호버에서 회색으로 돌아갔다(실측).
+ * 순서에 기대지 않으려면 우선순위를 명시해야 한다.
+ *
  * 확실히 먹는 신호는 **배경과 굵기**다. `text-primary` 는 셀이 제 글자색을 지정하지 않은
  * 곳(조직트리·타입목록)에서만 적용된다 — 표의 `<td>` 는 열마다 색을 정하므로 덮인다.
  */
-export const SELECTED = 'bg-info-bg font-medium text-primary hover:bg-info-bg';
+export const SELECTED = 'bg-info-bg font-medium text-primary hover:!bg-info-bg';
 
