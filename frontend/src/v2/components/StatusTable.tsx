@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import { EMPTY, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, selectableRow, SELECTABLE, SELECTED } from '../../components/ui';
+import { EMPTY, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, selectableRow, SelectionScope, SELECTABLE, SELECTED } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
 import type { StatusRowsResult } from '../statusRows';
@@ -248,6 +248,7 @@ export function StatusTable({
         {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
       </div>
 
+    <SelectionScope onClear={() => onSelectAsset(null)} className="flex min-h-0 flex-1 flex-col">
     <TableCard fill widths={widths}>
       <thead>
         {/* 머리글은 스크롤해도 남는다 — 긴 목록에서 어느 열인지 잃지 않게. */}
@@ -335,6 +336,7 @@ export function StatusTable({
           })}
       </tbody>
     </TableCard>
+    </SelectionScope>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { EmptyState, Select, TableCard, TableSearch } from '../../../components/ui';
+import { EmptyState, Select, SelectionScope, TableCard, TableSearch } from '../../../components/ui';
 import type { MediumContainerPick } from '../../useMediumContainer';
 
 export interface RegisterLayoutProps {
@@ -87,13 +87,9 @@ export function RegisterLayout({
 
       {/* 여백은 **스크롤되는 안쪽**에 준다 — 스크롤 상자에 직접 주면 고정 머리글이 그
           여백만큼 내려가 붙고, 그 틈으로 지나가는 행이 비친다(§1.7-b). */}
-      <div
-        className="min-h-0 flex-1 overflow-auto"
-        /* 표 자신이 삼킨 클릭은 여기 오지 않는다 — 여백을 누른 것만 걸린다. */
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClearSelection?.();
-        }}
-      >
+      {/* 표가 **선택의 주인**이다 — 여백을 누르면 풀린다. 예전에는 이 상자에 직접
+          `e.target === e.currentTarget` 을 걸어, 안쪽 여백(패딩·표 아래)은 안 걸렸다. */}
+      <SelectionScope onClear={() => onClearSelection?.()} className="min-h-0 flex-1 overflow-auto">
         <div className="p-4">
         {sections ? (
           <div className="flex flex-col gap-4">
@@ -120,7 +116,7 @@ export function RegisterLayout({
           </TableCard>
         )}
         </div>
-      </div>
+      </SelectionScope>
       {trailing}
     </div>
   );

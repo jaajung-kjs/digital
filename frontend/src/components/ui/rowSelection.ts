@@ -20,6 +20,8 @@ export function selectableRow(current: string | null, id: string, onSelect: (nex
   const selected = current === id;
   const toggle = () => onSelect(selected ? null : id);
   return {
+    /* 「이건 항목이다」 — 빈 곳 클릭으로 푸는 규칙이 이 표시를 본다(`SelectionScope`). */
+    'data-selectable': '',
     tabIndex: 0,
     'aria-selected': selected,
     onClick: toggle,

@@ -19,8 +19,6 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
   toDraft,
   confirmLeave,
   autoSelectFirst = true,
-  requestedId: controlledId,
-  onRequestId,
 }: {
   entities: TEntity[];
   toDraft: (entity: TEntity) => TDraft;
@@ -28,29 +26,31 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
   confirmLeave: () => Promise<boolean>;
   /** 아무것도 안 고른 상태에서 첫 항목을 열어 둘 것인가. */
   autoSelectFirst?: boolean;
-  /**
-   * 바깥이 고른 것을 쥘 때 준다 — 트리가 화면 하나에 하나뿐이면 「무엇이 골라졌나」도
-   * 화면이 알아야 한다. 주지 않으면 이 훅이 제 안에서 쥔다.
-   */
-  requestedId?: string | null;
-  onRequestId?: (id: string | null) => void;
 }) {
-  const [ownId, setOwnId] = useState<string | null>(null);
-  const controlled = onRequestId != null;
-  const requestedId = controlled ? (controlledId ?? null) : ownId;
-  const setRequestedId = controlled ? onRequestId : setOwnId;
+  /**
+   * **아직 아무것도 안 골랐다**(`undefined`)와 **놓았다**(`null`)는 다르다.
+   *
+   * 처음 들어오면 첫 항목을 열어 둔다. 그런데 그 규칙을 「고른 것이 없으면 첫 번째」로
+   * 적어 두었더니 **놓을 수가 없었다** — 놓는 순간 첫 항목으로 되돌아갔다. 빈 곳을 눌러도
+   * Esc 를 눌러도 선택이 그대로였던 까닭이 이것이다.
+   */
+  const [chosen, setChosen] = useState<string | null | undefined>(undefined);
+  const setRequestedId = setChosen;
   const [draft, setDraft] = useState<TDraft | null>(null);
 
-  const isNew = requestedId === NEW_ID;
+  const isNew = chosen === NEW_ID;
+  const first = autoSelectFirst ? (entities[0]?.id ?? null) : null;
   /* 고른 것이 목록에 없으면(지워졌거나 갈렸거나) 첫 번째로 물러선다 — 파생값이므로
-     바로잡는 `setState` 가 필요 없다. */
+     바로잡는 `setState` 가 필요 없다. **놓은 것(`null`)은 그대로 둔다.** */
   const selectedId = isNew
     ? NEW_ID
-    : entities.some((e) => e.id === requestedId)
-      ? requestedId
-      : autoSelectFirst
-        ? (entities[0]?.id ?? null)
-        : null;
+    : chosen === undefined
+      ? first
+      : chosen === null
+        ? null
+        : entities.some((e) => e.id === chosen)
+          ? chosen
+          : first;
 
   const original = useMemo(
     () => (isNew ? null : (entities.find((e) => e.id === selectedId) ?? null)),
@@ -74,11 +74,11 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
 
   const select = useCallback(
     async (id: string | null) => {
-      if (id === requestedId) return;
+      if (id === selectedId) return;
       if (dirtyRef.current && !(await confirmLeave())) return;
       setRequestedId(id);
     },
-    [confirmLeave, requestedId],
+    [confirmLeave, selectedId],
   );
 
   /** 새로 만들기 시작 — 만드는 중인 것도 목록의 한 줄이다(`NEW_ID`). */

@@ -273,6 +273,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
           selectedId={selectedId}
           onSelect={(n) => void selectGroup(n?.id ?? null)}
           emptyText="케이블 그룹이 없습니다"
+          escapes
         />
       </aside>
 

@@ -132,6 +132,7 @@ export function TypeListPanel({
         onAdd={onAddCategory}
         addLabel="분류 추가"
         emptyText="자산 종류가 없습니다"
+        escapes
       />
     </aside>
   );

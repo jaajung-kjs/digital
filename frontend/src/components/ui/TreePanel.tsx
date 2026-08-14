@@ -4,6 +4,7 @@ import { IconButton } from './IconButton';
 import { Input } from './Input';
 import { cn } from './cn';
 import { SELECTABLE, SELECTED } from './selection';
+import { SelectionScope } from './SelectionScope';
 
 /** 트리에 서는 줄 하나. 계층은 `depth` 가 말한다 — 이미 펼쳐 놓은 평평한 목록을 받는다. */
 export interface TreeNode {
@@ -61,6 +62,8 @@ export interface TreePanelProps {
   onAdd?: () => void;
   addLabel?: string;
   emptyText?: string;
+  /** Esc 로도 푼다 — 이 트리가 그 화면의 주인일 때만 준다(`SelectionScope`). */
+  escapes?: boolean;
 }
 
 /**
@@ -85,6 +88,7 @@ export function TreePanel({
   onAdd,
   addLabel,
   emptyText,
+  escapes = false,
 }: TreePanelProps) {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -153,7 +157,14 @@ export function TreePanel({
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-1" role="tree" aria-label={title}>
+      {/* 목록 영역이 **선택의 주인**이다 — 여백을 누르면 풀린다(`SelectionScope`). */}
+      <SelectionScope
+        onClear={() => onSelect(null)}
+        escapes={escapes}
+        className="min-h-0 flex-1 overflow-y-auto py-1"
+        role="tree"
+        aria-label={title}
+      >
         {shown.length === 0 && (
           <p className="px-3 py-3 text-xs text-content-faint">
             {searching ? '검색 결과가 없습니다' : (emptyText ?? '없음')}
@@ -165,6 +176,7 @@ export function TreePanel({
           return (
             <div
               key={n.id}
+              data-selectable=""
               className={cn(
                 'group flex items-center gap-1 px-2 py-1 text-sm',
                 SELECTABLE,
@@ -232,7 +244,7 @@ export function TreePanel({
             </div>
           );
         })}
-      </div>
+      </SelectionScope>
     </div>
   );
 }
