@@ -38,7 +38,7 @@ export function Tabs<T extends string>({ items, value, onChange, className }: Ta
             onClick={() => onChange(t.key)}
             className={cn(
               // 테두리는 항상 존재한다 — 활성 시에만 색을 준다(선택해도 레이아웃이 안 밀린다).
-              'border-b-2 px-3 py-2 text-sm transition-colors focus-visible:outline-none',
+              'border-b-2 px-3 py-2 text-sm transition-colors focus-ring',
               active
                 ? 'border-primary font-medium text-primary'
                 : 'border-transparent text-content-muted hover:text-content',

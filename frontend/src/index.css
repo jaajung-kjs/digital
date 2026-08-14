@@ -8,11 +8,15 @@
      *-rgb : "R G B" 채널 — Tailwind alpha 의 단일 소스. config 가
              rgb(var(--x-rgb) / <alpha-value>) 로 래핑 → bg-surface/80, ring-primary/40
              같은 opacity 모디파이어가 전역에서 정상 동작.
+     `--text-muted` 는 「흐린 글자」다 — 168 162 158 이던 시절 흰 바탕 대비가 **2.52:1** 로
+     WCAG AA 는 물론 큰 글자 기준(3:1)도 못 넘겼다(60곳에서 쓰인다: 「분류 추가」 버튼 전체,
+     단위 표기, 사이드바 본문). 흐리게 **보이되 읽히는** 값으로 올린다(4.9:1).
+
      --x   : 합성 색 별칭 — canvas/inline/box-shadow 의 직접 var(--x) 소비자용.
              채널에서 파생하므로 단일 소스 유지(호출부 수정 불필요). */
   --bg-rgb:238 240 243; --surface-rgb:255 255 255; --surface-2-rgb:244 246 248; --surface-3-rgb:231 234 238; --sidebar-rgb:248 249 251;
   --border-rgb:226 230 235; --border-2-rgb:205 211 218;
-  --text-rgb:28 25 23; --text-2-rgb:87 83 78; --text-muted-rgb:168 162 158;
+  --text-rgb:28 25 23; --text-2-rgb:87 83 78; --text-muted-rgb:120 113 108;
   --primary-rgb:21 64 107; --primary-hover-rgb:26 78 133;
   --success-rgb:21 128 61; --warning-rgb:180 83 9; --danger-rgb:185 28 28; --info-rgb:30 64 175;
   --success-bg-rgb:220 252 231; --warning-bg-rgb:254 243 199; --danger-bg-rgb:254 226 226; --info-bg-rgb:219 234 254;
