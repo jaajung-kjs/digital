@@ -125,7 +125,12 @@ export function AssemblyCatalogPanel({
      목록이라, 같은 2단 구조인데 탭마다 다른 모양으로 보였다. */
   const listGroups = useMemo(
     () =>
-      catalog.categories.map((cat) => ({
+      catalog.categories.map((cat) => {
+        /* 빈 분류만 지울 수 있다 — 자산 종류 탭과 같은 규칙이다(같은 분류를 지운다). */
+        const inUse =
+          catalog.assemblies.some((a) => a.categoryId === cat.id) ||
+          catalog.types.some((t) => t.categoryId === cat.id);
+        return {
         key: cat.id,
         label:
           rename.isEditing(cat.id) ? (
@@ -150,17 +155,16 @@ export function AssemblyCatalogPanel({
             <IconButton
               aria-label={`${cat.name} 분류 삭제`}
               size="sm"
-              disabled={
-                catalog.assemblies.some((a) => a.categoryId === cat.id) ||
-                catalog.types.some((t) => t.categoryId === cat.id)
-              }
+              disabled={inUse}
+              disabledReason={inUse ? '이 분류에 들어 있는 것이 있어 지울 수 없습니다' : undefined}
               onClick={() => onDeleteCategory(cat)}
             >
               <Trash2 size={12} />
             </IconButton>
           </>
         ),
-      })),
+        };
+      }),
     [catalog.assemblies, catalog.categories, catalog.types, rename, onDeleteCategory],
   );
 

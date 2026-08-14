@@ -21,17 +21,28 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
    * 붉어져 "이건 지우는 것" 을 알린다.
    */
   tone?: 'default' | 'danger';
+  /**
+   * **왜 못 누르는지** — `disabled` 일 때 얹으면 뜬다.
+   *
+   * 회색 버튼은 그 자체로는 아무 말도 하지 않아서 「왜 안 눌리지」 막다른 길이 된다.
+   * 이유를 말할 수 없다면 그 버튼은 아예 두지 않는 편이 낫다(Fiori·Fluent·Atlassian).
+   */
+  disabledReason?: string;
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { children, className, active, type, disabled, size = 'md', tone = 'default', ...rest },
+  { children, className, active, type, disabled, size = 'md', tone = 'default', disabledReason, ...rest },
   ref,
 ) {
+  const label = rest['aria-label'];
   return (
     <button
       ref={ref}
       type={type ?? 'button'}
       disabled={disabled}
+      /* 이유는 `title` 로 — 비활성 버튼은 초점을 받지 못해 `aria-describedby` 가 낭독되지
+         않는다. 그래서 `aria-label` 에도 이유를 붙여 보조기술이 함께 읽게 한다. */
+      title={disabled ? disabledReason : undefined}
       className={cn(
         'press-btn focus-ring rounded text-content-muted hover:bg-surface-2',
         size === 'sm' ? 'p-0.5' : 'p-2',
@@ -41,6 +52,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
         className,
       )}
       {...rest}
+      aria-label={disabled && disabledReason ? `${label} — ${disabledReason}` : label}
     >
       {children}
     </button>

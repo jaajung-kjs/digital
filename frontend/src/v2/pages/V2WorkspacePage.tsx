@@ -313,25 +313,25 @@ export default function V2WorkspacePage() {
                        도구바(자산 추가·검색)까지 함께 쓸려 올라간다. */
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-                      {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
-                      {inSubstationScope && (
-                        <div className="shrink-0">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={<Plus size={14} />}
-                            onClick={() => setAddModalOpen(true)}
-                          >
-                            자산 추가
-                          </Button>
-                        </div>
-                      )}
                       <StatusTable
                         rows={rows}
                         fieldColumns={fieldColumns}
                         selectedId={highlightedAssetId}
                         onSelectAsset={handleSelectAssetId}
                         nodeScope={nodeScope}
+                        /* 주요 동작은 검색과 같은 줄 오른쪽 — 표마다 다른 자리에 두지 않는다. */
+                        actions={
+                          inSubstationScope ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              leftIcon={<Plus size={14} />}
+                              onClick={() => setAddModalOpen(true)}
+                            >
+                              자산 추가
+                            </Button>
+                          ) : undefined
+                        }
                       />
                       </div>
                     </div>
@@ -348,7 +348,9 @@ export default function V2WorkspacePage() {
                       onClearTrace={() => setTraceResult(null)}
                       traceResult={traceResult}
                       cablePick={cablePick}
-                      onShowOnFloorPlan={() => route.setView('평면도')}
+                      /* 이미 평면도를 보고 있으면 「평면도에서 보기」를 두지 않는다 —
+                         지금 있는 곳으로 가는 버튼은 눌러도 아무 일이 없다. */
+                      onShowOnFloorPlan={viewMode === '평면도' ? undefined : () => route.setView('평면도')}
                       onConnectPort={(portId) => {
                         // 이을 자리는 평면도에 있다 — 화면부터 옮기고 그 포트로 도구를 무장한다.
                         route.setView('평면도');

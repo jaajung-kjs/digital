@@ -38,6 +38,14 @@ interface StatusTableProps {
   selectedId: string | null;
   onSelectAsset: (id: string | null) => void;
   nodeScope?: boolean;
+  /**
+   * 표의 주요 동작 — **검색과 같은 줄, 오른쪽 끝**.
+   *
+   * 예전에는 「자산 추가」가 검색 위 별도 줄 왼쪽에 서서, 표마다 주요 동작이 다른 자리에
+   * 있었다(케이블 종류는 도구바 오른쪽, 기준자료는 카드 머리 오른쪽). 도구바 한 줄에
+   * 검색과 동작을 함께 두는 것이 표 UI 의 표준 배치다.
+   */
+  actions?: ReactNode;
 }
 
 /**
@@ -132,7 +140,7 @@ function fieldColumn(fd: FieldDef): Column {
  * 붙는다). 바깥은 이 컴포넌트에 높이를 주기만 하면 된다.
  */
 export function StatusTable({
-  rows, fieldColumns, selectedId, onSelectAsset, nodeScope = false,
+  rows, fieldColumns, selectedId, onSelectAsset, nodeScope = false, actions,
 }: StatusTableProps) {
   const [sortKey, setSortKey] = useState<string>('name');
   const [asc, setAsc] = useState(true);
@@ -237,6 +245,7 @@ export function StatusTable({
           shown={visible.length}
           total={rows.length}
         />
+        {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
       </div>
 
     <TableCard fill widths={widths}>

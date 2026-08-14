@@ -77,6 +77,7 @@ export function TypeListPanel({
                 aria-label={`${cat.name} 분류 삭제`}
                 size="sm"
                 disabled={items.length > 0}
+                disabledReason={items.length > 0 ? `이 분류에 ${items.length}개가 들어 있어 지울 수 없습니다` : undefined}
                 onClick={() => onDeleteCategory(cat)}
               >
                 <Trash2 size={12} />

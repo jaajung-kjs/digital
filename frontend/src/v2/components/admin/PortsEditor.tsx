@@ -168,10 +168,13 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
                 disabled={locked}
                 onChange={(raw) => patch(row, { count: Math.max(Number(raw) || 0, 0) })}
               />
-              {/* 심선 수는 다심 종류에만, 그것도 켜져 있을 때만. */}
+              {/* 심선 수는 다심 종류에만, 그것도 켜져 있을 때만.
+                  **두 수에 단위를 적는다.** 예전에는 `1 × 24` 뿐이라 곱셈인지 「1구에 24코어」
+                  인지 읽는 사람이 알 단서가 없었다 — 수가 둘 나란히 서면 각각이 무엇을
+                  세는지 말해야 한다. */}
               {isMultiCorePort(row.positions) && on && (
                 <>
-                  <span className="text-xs text-content-faint">×</span>
+                  <span className="text-xs text-content-faint">구 ×</span>
                   <CountField
                     label={`${label} 심선 수`}
                     value={row.positions ?? DEFAULT_CORE_COUNT}
@@ -179,6 +182,7 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
                     disabled={locked}
                     onChange={(raw) => patch(row, { positions: Math.max(Number(raw) || 2, 2) })}
                   />
+                  <span className="text-xs text-content-faint">코어</span>
                 </>
               )}
             </span>
