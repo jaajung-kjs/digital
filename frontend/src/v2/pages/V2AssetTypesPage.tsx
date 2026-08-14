@@ -18,6 +18,7 @@ import {
   useConfirm,
   EmptyState,
   IssueReveal,
+  PageState,
 } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { UnsavedGuardProvider, useReportUnsaved } from '../unsavedGuard';
@@ -237,14 +238,8 @@ function CatalogAdmin() {
   }
 
   // ── 렌더 ─────────────────────────────────────────────────────────────────
-  if (catalogQuery.isLoading) {
-    return <div className="flex h-full items-center justify-center text-sm text-content-muted">로딩 중…</div>;
-  }
-  if (catalogQuery.isError || catalog == null) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-danger">카탈로그를 불러오지 못했습니다</div>
-    );
-  }
+  if (catalogQuery.isLoading) return <PageState />;
+  if (catalogQuery.isError || catalog == null) return <PageState error="카탈로그를 불러오지 못했습니다" />;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">

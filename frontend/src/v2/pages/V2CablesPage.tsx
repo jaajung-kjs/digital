@@ -9,12 +9,15 @@
  *
  * 판은 앱의 다른 화면과 같다 — `트리 │ 캔버스`.
  */
+import { PageState } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
 
 export default function V2CablesPage() {
   const catalog = useV2Catalog();
-  if (!catalog.data) return null;
+  /* `null` 을 돌려주지 않는다 — 아무것도 없는 화면은 고장과 구별되지 않는다. */
+  if (catalog.isLoading) return <PageState />;
+  if (catalog.isError || catalog.data == null) return <PageState error="카탈로그를 불러오지 못했습니다" />;
   return (
     <div className="flex min-h-0 flex-1">
       <CableCatalogPanel catalog={catalog.data} />

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CablePickRequest } from '../cablePick';
 import { Plus } from 'lucide-react';
-import { Button, EmptyState, ErrorStrip, useConfirm, Tabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
+import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { AddAssetModal } from '../components/AddAssetModal';
@@ -295,9 +295,7 @@ export default function V2WorkspacePage() {
               )}
 
               {loadingWorkingCopy ? (
-                <div className="flex min-h-0 flex-1 items-center justify-center">
-                  <span className="text-sm text-content-muted">불러오는 중…</span>
-                </div>
+                <PageState />
               ) : (
                 <div className="flex min-h-0 flex-1 overflow-hidden">
                   {/* 평면도 뷰 */}

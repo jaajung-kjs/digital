@@ -20,6 +20,7 @@ export { selectableRow, selectOrToggle } from './rowSelection';
 export { SelectionScope } from './SelectionScope';
 export { MessageStrip } from './MessageStrip';
 export { OverflowMenu } from './OverflowMenu';
+export { PageState } from './PageState';
 export type { OverflowMenuItem } from './OverflowMenu';
 export { DateInput } from './DateInput';
 export { EMPTY, formatDate } from './format';

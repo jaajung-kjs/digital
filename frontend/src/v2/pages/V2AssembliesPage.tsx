@@ -9,7 +9,7 @@
  *
  * 판은 앱의 다른 화면과 같다 — `트리 │ 캔버스`.
  */
-import { ErrorStrip } from '../../components/ui';
+import { ErrorStrip, PageState } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
 import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import { useCategoryAdmin } from '../useCategoryAdmin';
@@ -20,12 +20,8 @@ export default function V2AssembliesPage() {
   /* 분류는 자산 종류 화면과 **같은 체계**다 — 어느 쪽에서 만들든 양쪽에 나타난다. */
   const category = useCategoryAdmin();
 
-  if (catalogQuery.isLoading) {
-    return <div className="flex h-full items-center justify-center text-sm text-content-muted">로딩 중…</div>;
-  }
-  if (catalogQuery.isError || catalog == null) {
-    return <div className="flex h-full items-center justify-center text-sm text-danger">카탈로그를 불러오지 못했습니다</div>;
-  }
+  if (catalogQuery.isLoading) return <PageState />;
+  if (catalogQuery.isError || catalog == null) return <PageState error="카탈로그를 불러오지 못했습니다" />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

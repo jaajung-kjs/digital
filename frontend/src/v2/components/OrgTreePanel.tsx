@@ -155,8 +155,10 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
             <Button variant="secondary" size="sm" onClick={() => setModal(null)}>
               취소
             </Button>
+            {/* 「확인」은 무엇이 일어나는지 말해 주지 않는다 — 동사를 쓴다(§확인 상자와
+                같은 규칙). 제목이 「본부 추가」면 단추도 「추가」다. */}
             <Button variant="primary" size="sm" disabled={confirmPending} onClick={handleConfirm}>
-              확인
+              {modal?.mode === 'create' ? '추가' : '이름 변경'}
             </Button>
           </>
         }
