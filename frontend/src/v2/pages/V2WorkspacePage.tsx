@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CablePickRequest } from '../cablePick';
 import { Plus } from 'lucide-react';
-import { Button, EmptyState, useConfirm, Tabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
+import { Button, EmptyState, ErrorStrip, useConfirm, Tabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { AddAssetModal } from '../components/AddAssetModal';
@@ -258,21 +258,32 @@ export default function V2WorkspacePage() {
           {selected != null && (
             <div className="flex min-h-0 flex-1 flex-col">
               {/* 헤더: 선택 노드 이름 + 뷰 토글 (변전소 스코프에서만) */}
-              <div className="flex shrink-0 items-center border-b border-line px-4 py-2">
+              {/* 커밋 실패는 머리줄 **위**에 뜬다 — 대장 편집 바와 같은 자리다. */}
+              <ErrorStrip
+                message={commitError}
+                onDismiss={clearCommitError}
+                className="shrink-0 border-b border-line px-4 py-1"
+              />
+              {/* 왼쪽은 「지금 무엇을 보고 있나」, 오른쪽은 「그것을 어떻게 할 것인가」 —
+                  대장 편집 바와 같은 골격이다. */}
+              <div className="flex shrink-0 items-center gap-2 border-b border-line px-4 py-2">
                 <span className="text-sm font-semibold text-content" data-testid="v2-selected">
                   {selected.name}
                 </span>
                 {inSubstationScope && (
                   <Tabs items={VIEW_TABS} value={viewMode} onChange={route.setView} className="ml-4 -mb-px" />
                 )}
+                <span className="flex-1" />
                 {inSubstationScope && (
                   /* 설계서는 지금 스테이징된 변경의 공량을 보는 화면이다. 예전엔 진입점이
-                     SaveBar 뿐이라 **변경을 만들어야만 볼 수 있었다**(SaveBar 는 dirty===0
-                     이면 사라진다). 상시 노출로 옮긴다. */
-                  <Button variant="secondary" size="sm" className="ml-auto" onClick={() => setReportOpen(true)}>
+                     저장 바 뿐이라 **변경을 만들어야만 볼 수 있었다**(고친 것이 없으면
+                     사라진다). 상시 노출로 옮긴다. */
+                  <Button variant="secondary" size="sm" onClick={() => setReportOpen(true)}>
                     설계서
                   </Button>
                 )}
+                {/* 저장은 대장과 **같은 자리**에 선다 — 고친 것이 있을 때만 나타난다. */}
+                <SaveBar onCommit={commit} isCommitting={isCommitting} />
               </div>
 
               {loadingWorkingCopy ? (
@@ -364,9 +375,6 @@ export default function V2WorkspacePage() {
           )}
         </main>
       </div>
-
-      {/* 저장바 (dirty > 0 일 때만 표시) */}
-      <SaveBar onCommit={commit} isCommitting={isCommitting} error={commitError} onClearError={clearCommitError} />
 
       {/* 자산 추가 모달 (미배치 추가) */}
       {substationId != null && (
