@@ -17,6 +17,7 @@ import { Pencil } from 'lucide-react';
 import {
   DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select, Toggle,
   useConfirm, useDismissOnOutside, cn, SELECTABLE,
+  EMPTY,
 } from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
@@ -533,7 +534,7 @@ export function ConnectionsTab({
                             title="케이블 종류 바꾸기"
                             onClick={() => setEditingCableId(peer.cableId)}
                           >
-                            <span className="min-w-0 truncate text-sm text-content">{peer.categoryName ?? '—'}</span>
+                            <span className="min-w-0 truncate text-sm text-content">{peer.categoryName ?? EMPTY}</span>
                             {peer.lengthM && (
                               <span className="shrink-0 text-xs tabular-nums text-content-muted">{peer.lengthM}</span>
                             )}

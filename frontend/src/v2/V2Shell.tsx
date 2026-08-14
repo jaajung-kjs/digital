@@ -14,6 +14,7 @@ import { Boxes, LogOut } from 'lucide-react';
 import { useV2AuthStore, isAdminRole } from './store/authStore';
 import { useV2Notice } from './store/noticeStore';
 import { ErrorStrip } from '../components/ui';
+import { PRODUCT_NAME } from '../product';
 
 /**
  * 최상위 화면 셋 — **다루는 것이 다르면 탭이 아니라 화면을 나눈다**.
@@ -51,7 +52,7 @@ export function V2Shell() {
           className="flex shrink-0 items-center gap-2 text-sm font-semibold text-content"
         >
           <Boxes size={20} className="text-primary" />
-          ICT 디지털 트윈
+          {PRODUCT_NAME}
         </Link>
 
         {/* 내비게이션 링크 */}

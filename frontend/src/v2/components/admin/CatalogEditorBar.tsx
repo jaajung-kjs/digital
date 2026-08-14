@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Badge, Button, ErrorStrip, OverflowMenu } from '../../../components/ui';
+import { Badge, Button, ErrorStrip, MessageStrip, OverflowMenu } from '../../../components/ui';
 
 export interface CatalogEditorBarProps {
   /** 지금 편집 중인 것의 이름 — 새로 만드는 중이면 「새 …」. */
@@ -46,9 +46,9 @@ export function CatalogEditorBar({
       {/* 오류가 떠 있으면 입력 오류 수는 접어 둔다 — 둘을 겹쳐 놓으면 어느 쪽을 고쳐야 할지
           알 수 없다(먼저 손댈 것은 방금 실패한 저장이다). */}
       {issueCount > 0 && error == null && (
-        <p className="w-full px-4 py-1 text-xs text-warning">
-          입력 오류 {issueCount}건 — 저장 전에 수정하세요
-        </p>
+        <div className="w-full px-4 py-1">
+          <MessageStrip tone="warning">입력 오류 {issueCount}건 — 저장 전에 수정하세요</MessageStrip>
+        </div>
       )}
       {notice && <div className="w-full px-4 py-1">{notice}</div>}
 
@@ -74,12 +74,19 @@ export function CatalogEditorBar({
   );
 }
 
-/** 「몇 개 사용 중」 안내 — 개수는 배지가 말하므로 문장에서 되풀이하지 않는다. */
+/**
+ * 「몇 개 사용 중」 안내 — 사용자가 낸 오류가 아니라 **사정**이다.
+ *
+ * 예전에는 컨테이너 없이 맨 문장이 `text-danger` 빨강으로 떠 있었다. 고칠 수 없는 것을
+ * 빨갛게 칠하면 빨강이 아무 뜻도 없어진다 — 띠에 담고 톤을 낮춘다.
+ */
 export function InUseNotice({ count, message }: { count: number; message: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <Badge status="warning">{count}개 사용 중</Badge>
-      <span className="text-xs text-warning">{message}</span>
-    </div>
+    <MessageStrip tone="info">
+      <span className="flex items-center gap-2">
+        <Badge status="info">{count}개 사용 중</Badge>
+        <span>{message}</span>
+      </span>
+    </MessageStrip>
   );
 }

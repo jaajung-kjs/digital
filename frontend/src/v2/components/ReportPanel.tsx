@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { computeEstimate, computeReport } from '@twin/core';
 import type { ReportItem, ReportKind } from '@twin/core';
-import { Badge, Button, Input, Select, Modal } from '../../components/ui';
+import { Badge, Button, Input, Select, Modal, EMPTY } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import { buildReportItems, estimateInput } from '../reportSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -49,7 +49,7 @@ function ReportRow({ item, laborName }: { item: ReportItem; laborName: (code: st
       {/* 설계서에 서는 것은 **직종 이름**이다 — 저장된 것은 코드이고, 이름은 적용 중인
           노임단가 판에서 읽는다(판을 갈면 이름도 따라 바뀐다). */}
       <td className="py-1.5 pr-3 align-middle text-sm text-content-muted">
-        {laborName(item.laborCode) ?? '—'}
+        {laborName(item.laborCode) ?? EMPTY}
       </td>
       <td className="py-1.5 align-middle text-sm text-content tabular-nums text-right">
         {item.manDays.toFixed(3)}

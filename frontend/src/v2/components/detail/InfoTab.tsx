@@ -20,6 +20,7 @@ import {
   useDismissOnOutside,
   cn,
   SELECTABLE,
+  EMPTY,
 } from '../../../components/ui';
 import type { GridPlacement } from '../../gridDrag';
 import { AssemblyGrid } from '../AssemblyGrid';
@@ -278,7 +279,7 @@ export function InfoTab({
       {/* 기본 정보 카드 */}
       <DetailCard>
         {/* 종류 — 부품은 타입이, 설비 종류으로 놓은 설비는 **설비 종류**이 그 분류다. */}
-        <DetailCardHeader title={type?.name ?? assembly?.name ?? '—'} onDelete={handleDelete} />
+        <DetailCardHeader title={type?.name ?? assembly?.name ?? EMPTY} onDelete={handleDelete} />
 
         {/* 이름 */}
         <DetailRow label="이름">
@@ -324,7 +325,7 @@ export function InfoTab({
                   onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
                   key={strVal}
                 >
-                  <option value="">—</option>
+                  <option value="">{EMPTY}</option>
                   {(fd.options ?? []).map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
@@ -396,7 +397,7 @@ export function InfoTab({
         <div ref={partCardRef}>
         <PartCard
           part={selectedPart}
-          typeName={typesById.get(selectedPart.typeId ?? '')?.name ?? '—'}
+          typeName={typesById.get(selectedPart.typeId ?? '')?.name ?? EMPTY}
           portCount={selectedPart.ports.length}
           onOpenPorts={() => onOpenPorts(selectedPart.id)}
           onDelete={() => void handleDeletePart(selectedPart)}

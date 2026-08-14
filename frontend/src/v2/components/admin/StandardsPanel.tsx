@@ -13,18 +13,19 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Upload } from 'lucide-react';
 import {
-  Badge,
   Button,
   DetailCard,
   DetailCardHeader,
   DetailRow,
   EmptyState,
+  StatusDot,
   TableCard,
   TableSearch,
   Th,
   cn,
   formatDate,
   SELECTABLE,
+  EMPTY,
 } from '../../../components/ui';
 import {
   activateStandard,
@@ -41,7 +42,8 @@ import { useStandards, useV2Catalog, useWageRates } from '../../hooks';
 import type { V2Standard } from '../../types';
 
 /** 파일 · 적용시기 · 올린이 · 상태. 합이 100(`TableCard`). */
-const COL_WIDTHS = [40, 22, 22, 16] as const;
+/* 상태와 동작은 **다른 열**이다 — 한 칸에 섞으면 같은 열에 배지·맨글자·단추가 뒤섞인다. */
+const COL_WIDTHS = [36, 20, 20, 14, 10] as const;
 
 const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
 
@@ -310,7 +312,8 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
               <Th>파일</Th>
               <Th>적용시기</Th>
               <Th>올린이</Th>
-              <Th align="right">상태</Th>
+              <Th>상태</Th>
+              <Th align="right">동작</Th>
             </tr>
           </thead>
           <tbody>
@@ -324,16 +327,21 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
                 <td className="truncate px-3 py-1.5 text-content-muted">
                   {row.uploadedBy} · {formatDate(row.createdAt)}
                 </td>
-                {/* 「적용」은 **제비율에만** 있다 — 노임은 판을 갈아 끼우는 것이 아니라
-                    직종마다 가장 최근 값이 쓰인다. 눌러도 안 바뀌는 버튼을 두지 않는다. */}
-                <td className="px-3 py-1.5 text-right">
+                {/* 한 열은 한 컴포넌트다 — 세 값이 전부 점+글자로 서고 톤만 다르다.
+                    노임은 갈아 끼울 판이 없다: 올린 값이 그대로 쌓이고 직종마다 가장 최근
+                    값이 쓰인다(「임포트됨」은 반영이 안 된 것처럼 읽혔다). */}
+                <td className="truncate px-3 py-1.5">
                   {row.kind !== 'overhead' ? (
-                    /* 노임은 갈아 끼울 판이 없다 — 올린 값이 그대로 표에 쌓이고, 직종마다
-                       가장 최근 값이 쓰인다. 「임포트됨」은 반영이 안 된 것처럼 읽혔다. */
-                    <span className="text-xs text-content-muted">값 반영됨</span>
+                    <StatusDot status="info">값 반영됨</StatusDot>
                   ) : row.active ? (
-                    <Badge status="success">적용 중</Badge>
+                    <StatusDot status="success">적용 중</StatusDot>
                   ) : (
+                    <StatusDot status="neutral">미적용</StatusDot>
+                  )}
+                </td>
+                {/* 「적용」은 **제비율에만** 있다 — 눌러도 안 바뀌는 버튼을 두지 않는다. */}
+                <td className="px-3 py-1.5 text-right">
+                  {row.kind === 'overhead' && !row.active && (
                     <button
                       type="button"
                       className={cn('rounded px-2 py-0.5 text-xs text-primary', SELECTABLE)}
@@ -413,7 +421,7 @@ function WageRatesCard() {
                 {data.dates.map((d) => (
                   <td key={d} className="px-3 py-1.5 text-right tabular-nums text-content">
                     {/* 그 회차에 조사되지 않았으면 **칸이 아니라 없음**이다. */}
-                    {r.wages[d]?.toLocaleString() ?? '—'}
+                    {r.wages[d]?.toLocaleString() ?? EMPTY}
                   </td>
                 ))}
               </tr>
@@ -515,7 +523,7 @@ function OverheadRatesCard() {
               <td className="px-3 py-1.5 text-content">{band}</td>
               <td className="px-3 py-1.5 text-right tabular-nums text-content">{pct(v.rate)}</td>
               <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
-                {v.base == null ? '—' : `${v.base.toLocaleString()}원`}
+                {v.base == null ? EMPTY : `${v.base.toLocaleString()}원`}
               </td>
             </tr>
           ))}

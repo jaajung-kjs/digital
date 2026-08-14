@@ -16,6 +16,7 @@ import { LaborSpecForm } from './LaborSpecForm';
 import {
   Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
   useDismissOnOutside,
+  EMPTY,
 } from '../../../components/ui';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { PortsPreview } from './PortsPreview';
@@ -123,7 +124,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             /* 초안이라 저장 전이다 — 묻지 않는다(취소로 통째로 되돌릴 수 있다). */
             onRemove={(part) => removePart(part.id)}
             trailing={(part) => (
-              <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? '—'}</span>
+              <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? EMPTY}</span>
             )}
             onAddAtCell={setAddCell}
             canPlace={canPlace}

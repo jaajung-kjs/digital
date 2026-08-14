@@ -5,6 +5,7 @@
  * 이어 붙여서 「광단말 A · 광 1」·「광단말A-광1」처럼 화면마다 다른 말이 나왔고, 장비
  * 이름만으로는 어느 송광치의 광단말 A 인지 고를 수도 없었다.
  */
+import { EMPTY } from '../../../components/ui';
 import { endpointLabel, type PeerInfo } from '../../peerResolve';
 
 interface PeerCellProps {
@@ -12,7 +13,7 @@ interface PeerCellProps {
 }
 
 export function PeerCell({ peer }: PeerCellProps) {
-  if (!peer) return <span className="text-content-faint">—</span>;
+  if (!peer) return <span className="text-content-faint">{EMPTY}</span>;
   const label = endpointLabel(peer);
   /* 상대 변전소는 **배지로 달지 않는다** — 대국이 상대 국에 있다는 것은 OPGW 를 탔다는
      뜻이고 그건 그 줄이 이미 말한다. 좁은 칸에서 배지가 정작 장비 이름을 밀어냈다.

@@ -4,6 +4,7 @@ import { Boxes, AlertCircle } from 'lucide-react';
 import { useV2AuthStore } from '../store/authStore';
 import { apiErrorMessage } from '../apiError';
 import { Button, Input } from '../../components/ui';
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from '../../product';
 
 export function V2LoginPage() {
   const [username, setUsername] = useState('');
@@ -36,19 +37,20 @@ export function V2LoginPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded border border-white/20">
             <Boxes className="h-6 w-6 text-primary" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">ICT 디지털 트윈</span>
+          <span className="text-lg font-semibold tracking-tight">{PRODUCT_NAME}</span>
         </div>
 
         <div className="space-y-4">
           <h1 className="text-3xl font-bold leading-snug">
-            변전소 설비 현황관리 시스템
+            {PRODUCT_TAGLINE}
           </h1>
           <p className="text-base text-white/60">
             현황 · 평면도 · 계통도 통합 관리
           </p>
         </div>
 
-        <p className="text-sm text-white/40">강원본부 · v2.0</p>
+        {/* 조직 이름은 데이터다 — 화면에 박아 두면 다른 본부에 깔았을 때 거짓말이 된다. */}
+        <p className="text-sm text-white/40">v2.0</p>
       </div>
 
       {/* RIGHT — 폼 패널 */}
@@ -59,13 +61,13 @@ export function V2LoginPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded border border-line">
               <Boxes className="h-5 w-5 text-primary" />
             </div>
-            <span className="text-base font-semibold text-content">ICT 디지털 트윈</span>
+            <span className="text-base font-semibold text-content">{PRODUCT_NAME}</span>
           </div>
 
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-content">로그인</h2>
             <p className="mt-2 text-sm text-content-muted">
-              계정 정보를 입력해 시스템에 접속하세요.
+              계정 정보를 입력해 로그인하세요.
             </p>
           </div>
 
@@ -122,12 +124,12 @@ export function V2LoginPage() {
               disabled={submitting}
               className="w-full justify-center py-2.5"
             >
-              {submitting ? '접속 중...' : '접속'}
+              {submitting ? '로그인 중…' : '로그인'}
             </Button>
           </form>
 
           <p className="mt-8 text-center text-xs text-content-faint">
-            © 2026 ICT 디지털 트윈 시스템
+            © 2026 {PRODUCT_NAME}
           </p>
         </div>
       </div>

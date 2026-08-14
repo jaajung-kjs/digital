@@ -48,7 +48,9 @@ export function TypeListPanel({
           .map((t) => ({
             id: t.id,
             name: t.name,
-            hint: t.assetCount > 0 ? String(t.assetCount) : undefined,
+            /* 0 도 그대로 찍는다 — 빈칸은 「모른다」로 읽히지 「없다」로 읽히지 않는다.
+               같은 자리에서 설비 종류 목록은 `분전반 0` 을 찍고 있었다. */
+            hint: String(t.assetCount),
             hintTitle: `쓰이는 자산 ${t.assetCount}개`,
           }));
         return {

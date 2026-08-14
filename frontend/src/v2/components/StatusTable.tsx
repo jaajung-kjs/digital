@@ -56,6 +56,12 @@ interface Column {
   /** 정렬·검색이 쓰는 문자열 값. 화면 표시(`render`)와 달리 `—` 같은 장식이 없다. */
   value: (row: StatusRow) => string | null;
   render: (row: StatusRow) => ReactNode;
+  /**
+   * 수는 오른쪽으로 — 자릿수가 세로로 맞아야 크기가 비교된다(예외 없는 표 규칙).
+   *
+   * 어느 열이 수인지는 **선언이 말한다**(`FieldDef.type`). 열 이름을 보고 짐작하지 않는다.
+   */
+  align?: 'left' | 'right';
 }
 
 const SUBSTATION_COL: Column = {
@@ -131,6 +137,7 @@ function fieldColumn(fd: FieldDef): Column {
     key: `field:${fd.key}`,
     label: fd.label,
     weight: 12,
+    align: fd.type === 'number' ? 'right' : 'left',
     value: read,
     render: (r) => (fd.type === 'date' ? formatDate(read(r)) : (read(r) ?? EMPTY)),
   };
@@ -284,6 +291,7 @@ export function StatusTable({
           {cols.map((col) => (
             <Th
               key={col.key}
+              align={col.align}
               className="cursor-pointer select-none hover:text-content"
               onClick={() => handleHeaderClick(col.key)}
             >
@@ -315,7 +323,13 @@ export function StatusTable({
                 onClick={() => onSelectAsset(row.id)}
               >
                 {cols.map((col, i) => (
-                  <td key={col.key} className="truncate px-3 py-2 text-content">
+                  <td
+                    key={col.key}
+                    className={cn(
+                      'truncate px-3 py-2 text-content',
+                      col.align === 'right' && 'text-right tabular-nums',
+                    )}
+                  >
                     {/* 접기 화살표는 첫 열에만 — 들여쓰기도 여기서 준다(안쪽임을 한눈에). */}
                     {i === 0 ? (
                       <span className="flex items-center gap-1" style={{ paddingLeft: row.depth * 14 }}>

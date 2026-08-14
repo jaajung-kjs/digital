@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react';
 import { LABOR_CODE_LABEL, LABOR_WAGE_LABEL, MAN_DAY_FIELD, WORK_KINDS, manDayUnit, unitPriceUnit } from '@twin/core';
 import type { LaborCarrier, LaborSpec } from '@twin/core';
-import { DetailCard, DetailCardHeader, DetailRow, Input } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, DetailRow, Input, EMPTY } from '../../../components/ui';
 import { useWageCatalog } from '../../hooks';
 import { LaborTypeSelect } from './LaborTypeSelect';
 
@@ -81,7 +81,7 @@ export function LaborSpecForm({
 
       {/* 코드는 **저장되는 값**, 노임단가는 기준자료가 정하는 **조회 값** — 다른 데이터라 줄을 나눈다. */}
       <DetailRow label="코드">
-        <span className="text-sm text-content tabular-nums">{spec.laborCode ?? '—'}</span>
+        <span className="text-sm text-content tabular-nums">{spec.laborCode ?? EMPTY}</span>
       </DetailRow>
 
       <DetailRow
@@ -89,7 +89,7 @@ export function LaborSpecForm({
         hint={staleDate ? `${staleDate} 기준 · ${wage.noteOf(spec.laborCode) ?? ''}` : undefined}
       >
         <span className="text-sm text-content tabular-nums">
-          {spec.laborCode == null ? '—' : wageValue == null ? '단가 없음' : `${wageValue.toLocaleString()}원/일`}
+          {spec.laborCode == null ? EMPTY : wageValue == null ? '단가 없음' : `${wageValue.toLocaleString()}원/일`}
         </span>
       </DetailRow>
 

@@ -4,12 +4,12 @@
  * 상단: 설비(전원 포트를 가진 부품을 담은 것) Select
  * 테이블 컬럼: 회로 | 피더 | 상태 | 전원 입력(peer) | 전압 | 부하 출력(peer)
  *   - 개폐: 출력 포트의 `closed` 값을 여닫는 스위치
- *   - 전압: 인라인 Input → stageCableUpdate specParams 병합 (IN 케이블 없으면 '—')
+ *   - 전압: 인라인 Input → stageCableUpdate specParams 병합 (IN 케이블 없으면 EMPTY)
  *   - peer: 선번장과 동일(원격 Badge)
  *   - 행 클릭 → onSelectAsset(feederId)
  */
 import { useMemo, useState } from 'react';
-import { Th, Toggle, cn, SELECTABLE, SELECTED } from '../../../components/ui';
+import { Th, Toggle, cn, SELECTABLE, SELECTED, EMPTY } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -38,7 +38,7 @@ interface Props {
  * 한때 여기만 `'closed'` 를 직접 적고 있어서 읽기는 선언 기반인데 쓰기만 키를 알았다.
  */
 function ClosedCell({ feederId, portId, closed }: { feederId: string; portId: string | null; closed: boolean | null }) {
-  if (!portId) return <span className="text-content-faint">—</span>;
+  if (!portId) return <span className="text-content-faint">{EMPTY}</span>;
   const resolvedPortId: string = portId;
 
   function toggle(next: boolean) {
@@ -64,7 +64,7 @@ function ClosedCell({ feederId, portId, closed }: { feederId: string; portId: st
   );
 }
 
-// ── 케이블 값 인라인 편집 (케이블 없으면 '—' 비편집) ────────────────────────
+// ── 케이블 값 인라인 편집 (케이블 없으면 EMPTY 비편집) ────────────────────────
 interface CableFieldInputProps {
   cableId: string | null;
   value: unknown;
@@ -73,7 +73,7 @@ interface CableFieldInputProps {
 }
 
 function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
-  if (!cableId) return <span className="text-content-faint">—</span>;
+  if (!cableId) return <span className="text-content-faint">{EMPTY}</span>;
 
   const resolvedCableId: string = cableId;
   const isNumber = field.type === 'number';
@@ -270,7 +270,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             )}
             onClick={() => onSelectAsset(row.feederId)}
           >
-            <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{row.slotNo ?? '—'}</td>
+            <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{row.slotNo ?? EMPTY}</td>
             <td className="truncate px-3 py-1.5 text-sm text-content">{row.feederName}</td>
 
             {/* 개폐 — 그 회로의 상태이지 기기의 속성이 아니다. 값은 출력 포트에 있다. */}

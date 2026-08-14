@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CablePickRequest } from '../cablePick';
 import { Plus } from 'lucide-react';
-import { Button, EmptyState, useConfirm, Tabs, type TabItem } from '../../components/ui';
+import { Button, EmptyState, useConfirm, Tabs, type TabItem, EMPTY } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { AddAssetModal } from '../components/AddAssetModal';
@@ -166,7 +166,7 @@ export default function V2WorkspacePage() {
       id: r.id,
       typeName: r.typeName,
       name: r.name,
-      location: r.parentName ?? '—',
+      location: r.parentName ?? EMPTY,
       lastInspectedAt: null,
       status: r.status,
       substationName: r.substationName,

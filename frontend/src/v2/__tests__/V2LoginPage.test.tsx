@@ -40,11 +40,11 @@ beforeEach(() => {
 });
 
 describe('V2LoginPage 렌더', () => {
-  it('아이디·비밀번호 입력, 접속 버튼이 있다', () => {
+  it('아이디·비밀번호 입력, 로그인 버튼이 있다', () => {
     renderPage();
     expect(screen.getByLabelText('아이디')).toBeInTheDocument();
     expect(screen.getByLabelText('비밀번호')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /접속/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /로그인/ })).toBeInTheDocument();
   });
 });
 
@@ -55,7 +55,7 @@ describe('V2LoginPage 제출', () => {
 
     fireEvent.change(screen.getByLabelText('아이디'), { target: { value: 'admin' } });
     fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'admin123' } });
-    fireEvent.click(screen.getByRole('button', { name: /접속/ }));
+    fireEvent.click(screen.getByRole('button', { name: /로그인/ }));
 
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith({ username: 'admin', password: 'admin123' });
@@ -69,7 +69,7 @@ describe('V2LoginPage 제출', () => {
 
     fireEvent.change(screen.getByLabelText('아이디'), { target: { value: 'wrong' } });
     fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'bad' } });
-    fireEvent.click(screen.getByRole('button', { name: /접속/ }));
+    fireEvent.click(screen.getByRole('button', { name: /로그인/ }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('로그인에 실패했습니다.');
@@ -92,7 +92,7 @@ describe('V2LoginPage 제출', () => {
 
     fireEvent.change(screen.getByLabelText('아이디'), { target: { value: 'wrong' } });
     fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'bad' } });
-    fireEvent.click(screen.getByRole('button', { name: /접속/ }));
+    fireEvent.click(screen.getByRole('button', { name: /로그인/ }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('아이디 또는 비밀번호가 올바르지 않습니다.');

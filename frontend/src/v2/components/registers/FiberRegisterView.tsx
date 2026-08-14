@@ -7,7 +7,7 @@
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Th, cn, SELECTABLE, SELECTED } from '../../../components/ui';
+import { Th, cn, SELECTABLE, SELECTED, EMPTY } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -37,7 +37,7 @@ interface MetaInputProps {
 function MetaInput({ value, field, cableId }: MetaInputProps) {
   const { key: fieldKey, type } = field;
   // cableId 없으면 비편집 대시
-  if (!cableId) return <span className="text-content-faint">—</span>;
+  if (!cableId) return <span className="text-content-faint">{EMPTY}</span>;
 
   // After the null-guard, capture as string for TypeScript narrowing in closures
   const resolvedCableId: string = cableId;
@@ -81,7 +81,7 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
 function PortFieldInput({
   value, field, portId, assetId, position,
 }: { value: unknown; field: ValueDef; portId: string | null; assetId: string | null; position: number }) {
-  if (!portId || !assetId) return <span className="text-content-faint">—</span>;
+  if (!portId || !assetId) return <span className="text-content-faint">{EMPTY}</span>;
   const resolvedPortId: string = portId;
   const resolvedAssetId: string = assetId;
   const isNumber = field.type === 'number';

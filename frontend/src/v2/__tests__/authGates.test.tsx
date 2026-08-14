@@ -50,7 +50,7 @@ describe('만료 세션 (persisted 인증 + 토큰 없음)', () => {
 
     // RequireAuth 의 no-token 경로가 fetchCurrentUser → initialState 리셋
     // → /login 으로 정착, LoginRoute 는 토큰 없으므로 폼을 렌더
-    expect(await screen.findByRole('button', { name: /접속/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /로그인/ })).toBeInTheDocument();
     expect(screen.queryByText('WORKSPACE')).not.toBeInTheDocument();
 
     // 스토어도 정합화됨
@@ -68,7 +68,7 @@ describe('만료 세션 (persisted 인증 + 토큰 없음)', () => {
     // 토큰 없음 → LoginRoute 는 리다이렉트하지 않고 폼을 보여준다
     renderRoutes('/login');
 
-    expect(await screen.findByRole('button', { name: /접속/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /로그인/ })).toBeInTheDocument();
     expect(screen.queryByText('WORKSPACE')).not.toBeInTheDocument();
   });
 });
@@ -85,7 +85,7 @@ describe('정상 세션 (인증 + 토큰 보유)', () => {
     renderRoutes('/login');
 
     expect(await screen.findByText('WORKSPACE')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /접속/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /로그인/ })).not.toBeInTheDocument();
   });
 
   it('/ 진입 → 워크스페이스 렌더 유지', async () => {
@@ -105,7 +105,7 @@ describe('정상 세션 (인증 + 토큰 보유)', () => {
 describe('완전 미인증', () => {
   it('/ 진입 → /login 폼으로 리다이렉트', async () => {
     renderRoutes('/');
-    expect(await screen.findByRole('button', { name: /접속/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /로그인/ })).toBeInTheDocument();
     expect(screen.queryByText('WORKSPACE')).not.toBeInTheDocument();
   });
 });
@@ -133,7 +133,7 @@ describe('httpClient 세션-무효 핸들러 → 게이트 연동 (B-V2)', () =>
     });
 
     // React 재렌더만으로(페이지 이동 없이) 폼 도달
-    expect(await screen.findByRole('button', { name: /접속/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /로그인/ })).toBeInTheDocument();
     expect(screen.queryByText('WORKSPACE')).not.toBeInTheDocument();
     expect(window.location.href).toBe(hrefBefore);
 

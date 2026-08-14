@@ -31,6 +31,7 @@ import {
   useDismissOnOutside,
   SELECTABLE,
   SELECTED,
+  EMPTY,
 } from '../../../components/ui';
 import { EMPTY_LABOR_SPEC, LABOR_CODE_LABEL, LABOR_WAGE_LABEL, WAGE_UNIT, WORK_KINDS, laborSpecColumns, manDaysOf } from '@twin/core';
 import type { LaborSpec } from '@twin/core';
@@ -389,14 +390,14 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           </td>
                           {/* 표에는 **이름**이 선다 — 저장되는 것은 코드다(`useWageCatalog`). */}
                           <td className="truncate px-3 py-1.5 text-content-muted">
-                            {row.spec.laborCode ?? '—'}
+                            {row.spec.laborCode ?? EMPTY}
                           </td>
                           <td className="truncate px-3 py-1.5 text-content-muted">
-                            {wage.nameOf(row.spec.laborCode) ?? '—'}
+                            {wage.nameOf(row.spec.laborCode) ?? EMPTY}
                           </td>
                           <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
                             {row.spec.laborCode == null
-                              ? '—'
+                              ? EMPTY
                               : (wage.wageOf(row.spec.laborCode)?.toLocaleString() ?? '단가 없음')}
                           </td>
                           {/* 수는 오른쪽으로 — 자릿수가 세로로 맞아야 크기가 비교된다. */}
@@ -410,7 +411,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                                   c.kind === 'manDays' && bad?.manDays ? 'text-danger' : 'text-content',
                                 )}
                               >
-                                {v == null ? '—' : v.toLocaleString()}
+                                {v == null ? EMPTY : v.toLocaleString()}
                               </td>
                             );
                           })}
