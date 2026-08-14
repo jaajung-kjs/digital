@@ -5,7 +5,8 @@ import { useV2AuthStore } from './v2/store/authStore';
 import { V2Shell } from './v2/V2Shell';
 import V2LoginPage from './v2/pages/V2LoginPage';
 import V2WorkspacePage from './v2/pages/V2WorkspacePage';
-import V2CatalogAdminPage from './v2/pages/V2CatalogAdminPage';
+import V2AssembliesPage from './v2/pages/V2AssembliesPage';
+import V2AssetTypesPage from './v2/pages/V2AssetTypesPage';
 import V2CablesPage from './v2/pages/V2CablesPage';
 import V2StandardsPage from './v2/pages/V2StandardsPage';
 import { queryClient } from './lib/queryClient';
@@ -73,14 +74,17 @@ export default function App() {
             <Route path="/" element={<V2WorkspacePage />} />
             {/* 보고 있는 자리는 주소가 안다 — `useWorkspaceRoute` 참고. */}
             <Route path="/n/:nodeId" element={<V2WorkspacePage />} />
-            <Route path="/catalog" element={<V2CatalogAdminPage />} />
+            <Route path="/assemblies" element={<V2AssembliesPage />} />
+            <Route path="/assets" element={<V2AssetTypesPage />} />
             <Route path="/cables" element={<V2CablesPage />} />
             <Route path="/standards" element={<V2StandardsPage />} />
           </Route>
 
           {/* 구 /v2 경로 호환 리다이렉트 */}
           <Route path="/v2" element={<Navigate to="/" replace />} />
-          <Route path="/v2/catalog" element={<Navigate to="/catalog" replace />} />
+          {/* 대장이 셋으로 갈렸다 — 옛 주소는 첫 대장으로 보낸다. */}
+          <Route path="/catalog" element={<Navigate to="/assemblies" replace />} />
+          <Route path="/v2/catalog" element={<Navigate to="/assemblies" replace />} />
 
           {/* 기타 → 루트 */}
           <Route path="*" element={<Navigate to="/" replace />} />

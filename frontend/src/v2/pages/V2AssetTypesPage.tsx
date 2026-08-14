@@ -18,10 +18,9 @@ import {
   useConfirm,
   EmptyState,
   IssueReveal,
-  type TreeNode,
 } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
-import { UnsavedGuardProvider, useHasUnsaved, useReportUnsaved } from '../unsavedGuard';
+import { UnsavedGuardProvider, useReportUnsaved } from '../unsavedGuard';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID } from '../catalogDraft';
 import { useEditorGate } from '../useEditorGate';
 import type { TypeDraft } from '../catalogDraft';
@@ -30,59 +29,12 @@ import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { CatalogEditorBar, InUseNotice } from '../components/admin/CatalogEditorBar';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { PortsEditor } from '../components/admin/PortsEditor';
-import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
 import { useV2Notice } from '../store/noticeStore';
 
-type Tab = 'type' | 'assembly';
-
-/**
- * 세 대장 — **트리의 세 뿌리**다.
- *
- * 예전에는 사이드바 **위**에 탭 바로 서 있었다. 그런데 이 탭이 지배하는 것은 캔버스가
- * 아니라 **트리가 무엇을 나열하는가**다 — 워크스페이스의 탭(현황·평면도·선번장·계통)이
- * 고른 변전소 하나를 다르게 보는 판인 것과 다른 물건인데, 생김새가 같아서 같은 것처럼
- * 보였다. 게다가 그 바 때문에 대장만 사이드바가 40px 아래에서 시작해, 화면을 옮길 때
- * 트리 높이가 달라졌다.
- *
- * 지배하는 것이 트리이니 트리 안에 둔다. 뿌리 셋 중 하나만 펼쳐지고, 다른 뿌리를 누르면
- * 그리로 옮긴다.
- */
-const CATALOGS: readonly { key: Tab; label: string }[] = [
-  // 도면에 놓이고 현황에 집계되는 단위 — 대장의 주인공이라 맨 앞에 둔다.
-  { key: 'assembly', label: '설비 종류' },
-  { key: 'type', label: '자산 종류' },
-];
-
-/**
- * 지금 펼친 대장의 줄 앞에, 나머지 두 대장을 **접힌 뿌리**로 함께 세운다.
- *
- * 트리는 하나로 보이고, 뿌리를 누르면 그 대장으로 옮긴다.
- */
-export function withCatalogRoots(active: Tab, own: TreeNode[], onPick: (t: Tab) => void): TreeNode[] {
-  const out: TreeNode[] = [];
-  for (const c of CATALOGS) {
-    if (c.key === active) {
-      out.push({ id: `root:${c.key}`, label: c.label, text: c.label, depth: 0, selectable: false, branch: true });
-      /* 펼친 대장의 내용은 한 단 들어간다 — 뿌리가 층 0, 그 안이 층 1부터. */
-      out.push(...own.map((n) => ({ ...n, depth: n.depth + 1 })));
-    } else {
-      out.push({
-        id: `root:${c.key}`,
-        label: c.label,
-        text: c.label,
-        depth: 0,
-        branch: true,
-        onOpen: () => onPick(c.key),
-      });
-    }
-  }
-  return out;
-}
-
 /* 저장 안 한 변경을 알리는 자리는 이 화면 **바깥**에 있어야 한다 — 안쪽에서 만들면
    그 자리를 읽는 것도 안쪽이라 패널이 알린 값을 못 본다. */
-export default function V2CatalogAdminPage() {
+export default function V2AssetTypesPage() {
   return (
     <UnsavedGuardProvider>
       <CatalogAdmin />
@@ -98,7 +50,6 @@ function CatalogAdmin() {
 
   // ── 탭 상태 ──────────────────────────────────────────────────────────────
   // 대장을 열면 **설비 종류**부터 — 도면에 놓이고 현황에 집계되는 단위가 주인공이다.
-  const [activeTab, setActiveTab] = useState<Tab>('assembly');
 
   // ── 선택 상태 ────────────────────────────────────────────────────────────
   /* 첫 항목을 열어 둔다 — 세 탭이 같아야 탭을 옮길 때 「갑자기 빈 화면」이 나오지 않는다. */
@@ -133,7 +84,7 @@ function CatalogAdmin() {
 
   // dirty 여부
   const dirty = draft != null ? isDraftDirty(draft, original) : false;
-  useReportUnsaved(activeTab === 'type' && dirty);
+  useReportUnsaved(dirty);
 
   // 이슈 목록 (저장 시도 또는 실시간 표시)
   const issues = draft != null && catalog != null ? draftIssues(draft, catalog) : [];
@@ -143,27 +94,6 @@ function CatalogAdmin() {
   // ── draft onChange ────────────────────────────────────────────────────────
   function handleChange(patch: Partial<TypeDraft>) {
     setDraft((prev) => (prev == null ? prev : { ...prev, ...patch }));
-  }
-
-  /** 지금 서 있는 화면이 저장 안 한 변경을 들고 있는가 — 각 패널이 알린다. */
-  const hasUnsaved = useHasUnsaved();
-
-  async function confirmLeave(): Promise<boolean> {
-    if (!hasUnsaved()) return true;
-    return confirm({
-      title: '저장하지 않은 변경',
-      target: null,
-      message: '편집 내용이 사라집니다. 이동할까요?',
-      confirmLabel: '이동',
-      danger: true,
-    });
-  }
-
-  /** 다른 대장으로 옮긴다 — 그 패널이 통째로 사라지고 초안도 함께 사라지므로 묻고 옮긴다. */
-  async function switchTab(next: Tab) {
-    if (next === activeTab) return;
-    if (!(await confirmLeave())) return;
-    setActiveTab(next);
   }
 
   // ── 타입 선택 ─────────────────────────────────────────────────────────────
@@ -183,7 +113,6 @@ function CatalogAdmin() {
     const type = catalog?.types.find((t) => t.id === id);
     setDraft(type ? typeToDraft(type) : null);
     setSaveError(null);
-    setActiveTab('type');
   }
 
   // ── 신규 타입 ─────────────────────────────────────────────────────────────
@@ -207,7 +136,6 @@ function CatalogAdmin() {
     setSelectedTypeId(NEW_ID);
     setDraft(emptyDraft(categoryId ?? catalog?.categories[0]?.id ?? ''));
     setSaveError(null);
-    setActiveTab('type');
   }
 
   // ── 저장 ──────────────────────────────────────────────────────────────────
@@ -329,10 +257,9 @@ function CatalogAdmin() {
       <div className="flex min-h-0 flex-1">
         {/* 목록은 탭이 각자 갖는다 — 지금 편집하는 것 옆에만 그 목록이 선다.
             폭·테두리·검색은 `TreePanel` 이 소유한다(조직 트리와 같은 판). */}
-        {activeTab === 'type' && (
+        {(
           <TypeListPanel
             catalog={catalog}
-            withRoots={(own) => withCatalogRoots('type', own, (t) => void switchTab(t))}
             selectedTypeId={selectedTypeId}
             newDraft={isNew && draft ? { categoryId: draft.categoryId, name: draft.name } : null}
             onSelectType={selectType}
@@ -348,27 +275,8 @@ function CatalogAdmin() {
 
         {/* ── 우측 영역 ───────────────────────────────────────────────── */}
         <div className="flex min-h-0 flex-1 flex-col">
-          {/* ── 설비 종류 탭 ─────────────────────────────────────────── */}
-          {/* 스크롤은 **패널 안쪽**이 쥔다. 바깥에서 `overflow-y-auto` 로 감싸면 안쪽이
-              내용만큼만 커져서, 왼쪽 목록이 화면 중간에서 끊긴다(실측 505px / 화면 719px).
-              자산 종류 탭에는 이 래퍼가 없어 세 탭의 모양이 달랐다. */}
-          {activeTab === 'assembly' && (
-            <div className="flex min-h-0 flex-1">
-              <AssemblyCatalogPanel
-                catalog={catalog}
-                withRoots={(own) => withCatalogRoots('assembly', own, (t) => void switchTab(t))}
-                onRenameCategory={handleRenameCategory}
-                onDeleteCategory={handleDeleteCategory}
-                onAddCategory={() => {
-                  setCategoryError(null);
-                  setAddCategoryOpen(true);
-                }}
-              />
-            </div>
-          )}
-
           {/* ── 자산 종류 탭 ─────────────────────────────────────────── */}
-          {activeTab === 'type' && (
+          {(
             <>
               {draft == null ? (
                 <EmptyState

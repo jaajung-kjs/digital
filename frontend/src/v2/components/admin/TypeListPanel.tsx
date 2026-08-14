@@ -16,8 +16,6 @@ import type { V2Catalog, V2Category } from '../../types';
 
 interface TypeListPanelProps {
   catalog: V2Catalog;
-  /** 이 대장의 줄 앞뒤에 다른 대장의 뿌리를 세운다 — 트리는 화면에 하나뿐이다. */
-  withRoots: (own: TreeNode[]) => TreeNode[];
   selectedTypeId: string | null;
   /**
    * 아직 저장되지 않은 「만드는 중인 것」 — 목록에도 한 줄로 선다.
@@ -36,7 +34,6 @@ interface TypeListPanelProps {
 
 export function TypeListPanel({
   catalog,
-  withRoots,
   selectedTypeId,
   newDraft,
   onSelectType,
@@ -128,8 +125,8 @@ export function TypeListPanel({
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
       <TreePanel
-        title="설비관리대장"
-        nodes={withRoots(nodes)}
+        title="자산 종류"
+        nodes={nodes}
         selectedId={selectedTypeId}
         onSelect={(n) => onSelectType(n.id)}
         onAdd={onAddCategory}

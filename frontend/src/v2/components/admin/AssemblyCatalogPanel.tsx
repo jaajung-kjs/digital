@@ -26,8 +26,6 @@ import { useV2Notice } from '../../store/noticeStore';
 
 interface AssemblyCatalogPanelProps {
   catalog: V2Catalog;
-  /** 이 대장의 줄 앞뒤에 다른 대장의 뿌리를 세운다 — 트리는 화면에 하나뿐이다. */
-  withRoots: (own: TreeNode[]) => TreeNode[];
   /* 분류는 **자산 종류와 같은 체계**(AssetCategory)다 — 관리 로직은 한 곳(페이지)에 두고
      두 탭이 같은 것을 부른다. 어느 탭에서 만들든 양쪽 목록에 나타난다. */
   onRenameCategory: (category: V2Category, newName: string) => void;
@@ -36,7 +34,7 @@ interface AssemblyCatalogPanelProps {
 }
 
 export function AssemblyCatalogPanel({
-  catalog, withRoots, onRenameCategory, onDeleteCategory, onAddCategory,
+  catalog, onRenameCategory, onDeleteCategory, onAddCategory,
 }: AssemblyCatalogPanelProps) {
   const { confirm, confirmDialog } = useConfirm();
   const m = useCatalogMutations();
@@ -182,8 +180,8 @@ export function AssemblyCatalogPanel({
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
         <TreePanel
-          title="설비관리대장"
-          nodes={withRoots(nodes)}
+          title="설비 종류"
+          nodes={nodes}
           selectedId={selectedId}
           onSelect={(n) => void sel.select(n.id)}
           onAdd={onAddCategory}

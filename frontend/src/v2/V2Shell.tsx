@@ -9,6 +9,7 @@
  *   │  v2 페이지가 자체 OrgTreePanel 보유 → 이중 사이드바 없음           │
  *   └─────────────────────────────────────────────────────────────────────┘
  */
+import { Fragment } from 'react';
 import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
 import { Boxes, LogOut } from 'lucide-react';
 import { useV2AuthStore, isAdminRole } from './store/authStore';
@@ -22,12 +23,17 @@ import { PRODUCT_NAME } from '../product';
  * 기준자료는 대장의 「종류」 탭들과 성격이 다르다: 우리가 만드는 것이 아니라 바깥에서
  * 받아 오는 표다. 대장 안에 넣었더니 그 탭만 왼쪽 목록이 사라져 화면이 덜컹거렸다.
  */
+/**
+ * 상단 내비 — **일하는 곳 │ 정의하는 곳 │ 밖에서 받는 표**.
+ *
+ * 세 대장(설비·자산·케이블)은 서로의 보는 면이 아니라 각자 별개의 대장이라 각자 목적지를
+ * 갖는다. 그래도 한 묶음이라는 것은 보여야 해서, 앞뒤로 옅은 구분선을 둔다.
+ */
 const MAIN_NAV = [
-  { to: '/', label: '워크스페이스' },
-  { to: '/catalog', label: '설비관리대장' },
-  /* 케이블은 설비·자산과 분류 체계를 공유하지 않는다 — 같은 트리에 두면 없는 계층을
-     꾸며 내게 되므로 제 화면을 갖는다(`V2CablesPage`). */
-  { to: '/cables', label: '케이블 종류' },
+  { to: '/', label: '워크스페이스', divideAfter: true },
+  { to: '/assemblies', label: '설비 종류' },
+  { to: '/assets', label: '자산 종류' },
+  { to: '/cables', label: '케이블 종류', divideAfter: true },
   { to: '/standards', label: '기준자료' },
 ] as const;
 
@@ -61,8 +67,8 @@ export function V2Shell() {
         {/* 내비게이션 링크 */}
         <nav className="flex items-center gap-1" aria-label="주요 메뉴">
           {MAIN_NAV.map((item) => (
+            <Fragment key={item.to}>
             <NavLink
-              key={item.to}
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
@@ -73,6 +79,10 @@ export function V2Shell() {
             >
               {item.label}
             </NavLink>
+            {'divideAfter' in item && item.divideAfter && (
+              <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-line" />
+            )}
+            </Fragment>
           ))}
         </nav>
 
