@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   Button,
   DetailRow,
@@ -57,6 +57,36 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
 
   const nodes = tree ? flattenTree(tree) : [];
 
+  /**
+   * 접어 둔 가지 — 기본은 다 펴 둔다.
+   *
+   * 트리처럼 생겼는데 접히지 않았다: 본부가 늘면 목록이 그만큼 길어지기만 하고, 지금 보는
+   * 지사만 남겨 둘 방법이 없었다. 트리의 존재 이유가 그것이다.
+   */
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const hasChildren = useMemo(() => new Set(nodes.map((n) => n.parentId).filter((id): id is string => id != null)), [nodes]);
+  /* 접힌 가지의 **자손 전부**를 감춘다 — 부모만 보고 판단하면 손자가 남는다. */
+  const hidden = useMemo(() => {
+    const out = new Set<string>();
+    for (const n of nodes) {
+      if (n.parentId == null) continue;
+      if (collapsed.has(n.parentId) || out.has(n.parentId)) out.add(n.id);
+    }
+    return out;
+  }, [nodes, collapsed]);
+  const visible = nodes.filter((n) => !hidden.has(n.id));
+
+  /** `force` 를 주면 그 상태로 못 박는다(왼쪽 화살표는 접기, 오른쪽은 펴기). */
+  function toggleCollapsed(id: string, force?: boolean) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      const willCollapse = force ?? !prev.has(id);
+      if (willCollapse) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
   function openCreateModal(kind: OrgKind, targetId: string) {
     setName('');
     setModal({ mode: 'create', kind, targetId, initial: '' });
@@ -105,9 +135,9 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
         }
       />
 
-      {/* 고르는 목록이다 — 행이 `option` 이므로 상자는 `listbox` 로 읽힌다. */}
-      <div className="min-h-0 flex-1 overflow-y-auto py-1" role="listbox" aria-label="조직">
-        {nodes.map((n) => (
+      {/* 나무다 — 층이 있고 접힌다. `listbox` 는 그 둘을 말할 방법이 없다(WAI-ARIA Tree View). */}
+      <div className="min-h-0 flex-1 overflow-y-auto py-1" role="tree" aria-label="조직">
+        {visible.map((n) => (
           <div
             key={n.id}
             className={cn(
@@ -120,15 +150,41 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
             /* 키보드로도 고를 수 있어야 한다 — 예전에는 `div onClick` 뿐이라 Tab 으로는 행
                안의 아이콘 버튼 세 개에만 닿았고, 정작 **노드를 고르는 일**은 마우스로만
                됐다. 목록 안에서 고르는 것이므로 `option` 이 그 뜻을 맞게 읽어 준다. */
-            role="option"
+            role="treeitem"
+            aria-level={n.depth + 1}
             aria-selected={props.selectedId === n.id}
+            aria-expanded={hasChildren.has(n.id) ? !collapsed.has(n.id) : undefined}
             tabIndex={0}
             onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              /* 좌우 화살표로 접었다 편다 — 트리에서 이건 관습이 아니라 규약이다. */
+              if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                toggleCollapsed(n.id, e.key === 'ArrowLeft');
+                return;
+              }
               if (e.key !== 'Enter' && e.key !== ' ') return;
               e.preventDefault();
               props.onSelect(n);
             }}
           >
+            {/* 셰브런은 **자식이 있을 때만**. 자리는 늘 차지한다 — 없으면 이름이 층마다
+                제멋대로 어긋나 보인다. */}
+            {hasChildren.has(n.id) ? (
+              <button
+                type="button"
+                aria-label={`${n.name} ${collapsed.has(n.id) ? '펼치기' : '접기'}`}
+                className="shrink-0 rounded text-content-faint hover:text-content"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCollapsed(n.id);
+                }}
+              >
+                {collapsed.has(n.id) ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+              </button>
+            ) : (
+              <span className="w-3 shrink-0" aria-hidden />
+            )}
             <span className="min-w-0 flex-1 truncate">{n.name}</span>
             {/* 액션은 항상 자리를 차지하고 보이기만 바뀐다.
                 `hidden → group-hover:flex` 로 하면 호버할 때 행에 요소가 끼어들어 폭·높이가

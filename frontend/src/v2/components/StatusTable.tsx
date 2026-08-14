@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import { EMPTY, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, SELECTABLE, SELECTED } from '../../components/ui';
+import { EMPTY, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, selectableRow, SELECTABLE, SELECTED } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
 import type { StatusRowsResult } from '../statusRows';
@@ -240,11 +240,10 @@ export function StatusTable({
             <Th
               key={col.key}
               align={col.align}
-              className="cursor-pointer select-none hover:text-content"
-              onClick={() => handleHeaderClick(col.key)}
+              sort={sortKey === col.key ? (asc ? 'asc' : 'desc') : null}
+              onSort={() => handleHeaderClick(col.key)}
             >
               {col.label}
-              {sortKey === col.key && <span className="ml-1">{asc ? '↑' : '↓'}</span>}
             </Th>
           ))}
         </tr>
@@ -267,8 +266,12 @@ export function StatusTable({
             return (
               <tr
                 key={row.id}
-                className={cn('border-b border-line last:border-0', SELECTABLE, row.id === selectedId && SELECTED)}
-                onClick={() => onSelectAsset(row.id)}
+                {...selectableRow(row.id === selectedId, () => onSelectAsset(row.id))}
+                className={cn(
+                  'border-b border-line last:border-0 focus-visible:outline-none focus-ring-input',
+                  SELECTABLE,
+                  row.id === selectedId && SELECTED,
+                )}
               >
                 {cols.map((col, i) => (
                   <td

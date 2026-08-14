@@ -1,4 +1,5 @@
 import type { ReactNode, ThHTMLAttributes } from 'react';
+import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { cn } from './cn';
 
 /**
@@ -61,6 +62,14 @@ interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> 
   align?: 'left' | 'right';
   /** 단위는 **이름에 붙이지 않는다** — 붙이면 「노임단가(원/」 처럼 토큰 한가운데서 접힌다. */
   unit?: string;
+  /**
+   * 이 열로 정렬한다 — 주면 머리글이 **누를 수 있는 것**이 된다.
+   *
+   * 주지 않으면 아무 일도 없다: 정렬되는 열과 안 되는 열이 똑같이 생기는 일이 없다.
+   */
+  onSort?: () => void;
+  /** 지금 이 열로 정렬돼 있는가. `onSort` 가 있을 때만 뜻이 있다. */
+  sort?: 'asc' | 'desc' | null;
 }
 
 /**
@@ -76,9 +85,18 @@ interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> 
  *
  * 배경이 **불투명**해야 `sticky` 머리글 아래로 행이 비치지 않는다.
  */
-export function Th({ children, className, align = 'left', unit, ...rest }: ThProps) {
+export function Th({ children, className, align = 'left', unit, onSort, sort = null, ...rest }: ThProps) {
+  const label = (
+    <>
+      {children}
+      {/* 단위는 이름보다 한 단 흐리게 — 무엇을 세는 열인지는 이름이 말하고, 단위는 곁들인다. */}
+      {unit && <span className="ml-1 font-normal text-content-faint">{unit}</span>}
+    </>
+  );
   return (
     <th
+      /* 스크린리더가 「정렬됨」을 읽을 방법 — 없으면 정렬은 눈에만 있는 기능이다. */
+      aria-sort={onSort ? (sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : 'none') : undefined}
       className={cn(
         'border-b border-line bg-surface-2 px-3 py-2 text-xs font-semibold text-content-muted',
         'whitespace-nowrap break-keep',
@@ -87,11 +105,35 @@ export function Th({ children, className, align = 'left', unit, ...rest }: ThPro
       )}
       {...rest}
     >
-      <span className="block truncate">
-        {children}
-        {/* 단위는 이름보다 한 단 흐리게 — 무엇을 세는 열인지는 이름이 말하고, 단위는 곁들인다. */}
-        {unit && <span className="ml-1 font-normal text-content-faint">{unit}</span>}
-      </span>
+      {onSort ? (
+        /* 누를 수 있는 것은 **단추**여야 한다 — `<th onClick>` 은 키보드로 닿지 않는다.
+           쉬는 상태에도 흐린 이중 화살표를 세운다: 어포던스 없는 클릭 타깃은 없는 것과
+           같아서, 정렬된다는 사실 자체를 아무도 모른다. */
+        <button
+          type="button"
+          onClick={onSort}
+          className={cn(
+            'group flex w-full min-w-0 items-center gap-1 rounded text-inherit',
+            'transition-colors hover:text-content focus-visible:outline-none focus-ring-input',
+            align === 'right' && 'justify-end',
+          )}
+        >
+          <span className="min-w-0 truncate">{label}</span>
+          {sort === 'asc' ? (
+            <ChevronUp size={12} className="shrink-0 text-primary" aria-hidden />
+          ) : sort === 'desc' ? (
+            <ChevronDown size={12} className="shrink-0 text-primary" aria-hidden />
+          ) : (
+            <ChevronsUpDown
+              size={12}
+              className="shrink-0 text-content-faint opacity-40 transition-opacity group-hover:opacity-100"
+              aria-hidden
+            />
+          )}
+        </button>
+      ) : (
+        <span className="block truncate">{label}</span>
+      )}
     </th>
   );
 }

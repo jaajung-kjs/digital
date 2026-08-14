@@ -9,7 +9,7 @@
  *   - 행 클릭 → onSelectAsset(feederId)
  */
 import { useMemo, useState } from 'react';
-import { Th, Toggle, cn, SELECTABLE, SELECTED, EMPTY } from '../../../components/ui';
+import { Th, Toggle, cn, SELECTABLE, SELECTED, EMPTY, selectableRow } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -245,8 +245,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                '추가' 는 손이 닿을 때만 뜨되 자리는 미리 비워 둔다(§1.7 — 안 그러면 행이 떤다). */
             <tr
               key={`empty-${row.slotNo}`}
-              className={cn('group h-11 border-b border-line', SELECTABLE)}
-              onClick={() => setAddCell(slotCell(picked.grid?.cols ?? 1, row.slotNo!))}
+              {...selectableRow(false, () => setAddCell(slotCell(picked.grid?.cols ?? 1, row.slotNo!)))}
+              className={cn(
+                'group h-11 border-b border-line focus-visible:outline-none focus-ring-input',
+                SELECTABLE,
+              )}
             >
               <td className="px-3 py-1.5 text-sm text-content-faint tabular-nums">{row.slotNo}</td>
               <td className="px-3 py-1.5 text-sm text-content-faint">
@@ -261,14 +264,14 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           ) : (
           <tr
             key={row.feederId}
+            {...selectableRow(selectedAssetId === row.feederId, () => onSelectAsset(row.feederId))}
             /* 모든 행이 같은 높이 — 패널 스케줄은 눈으로 회로를 세는 표다. 빈 자리 행에는
                컨트롤이 없어 10px 낮았고, 그 바람에 번호 간격이 들쭉날쭉했다. */
             className={cn(
-              'h-11 border-b border-line',
+              'h-11 border-b border-line focus-visible:outline-none focus-ring-input',
               SELECTABLE,
               selectedAssetId === row.feederId && SELECTED,
             )}
-            onClick={() => onSelectAsset(row.feederId)}
           >
             <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{row.slotNo ?? EMPTY}</td>
             <td className="truncate px-3 py-1.5 text-sm text-content">{row.feederName}</td>

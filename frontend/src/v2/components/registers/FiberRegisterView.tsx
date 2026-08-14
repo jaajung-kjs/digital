@@ -7,7 +7,7 @@
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Th, cn, SELECTABLE, SELECTED, EMPTY } from '../../../components/ui';
+import { Th, cn, selectableRow, SELECTABLE, SELECTED, EMPTY } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -140,6 +140,18 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
      한꺼번에 물들어, 어느 심선을 눌렀는지가 화면에서 사라진다(실제로 그랬다). */
   const [selectedCore, setSelectedCore] = useState<{ slotId: string; coreIndex: number } | null>(null);
 
+  /**
+   * 이 줄은 심선 하나다 — 패널도 그 포트를 고른 상태로 열어 준다.
+   *
+   * 줄에 대응하는 포트는 그 코어의 장비쪽 성단이고, 아직 성단되지 않은 코어(12구 판의
+   * 13번 같은)는 그 심선을 나르는 인입 포트로 물러선다.
+   */
+  const selectCore = (row: FiberRow) => {
+    setSelectedCore({ slotId: row.slotId, coreIndex: row.coreIndex });
+    const corePortId = row.cells.find((c) => c.portId)?.portId ?? null;
+    onSelectAsset(row.slotId, corePortId ?? row.meta.portId);
+  };
+
   /* 표의 단위는 설비 하나 — 계통과 같은 훅을 쓴다. */
   const picked = useMediumContainer(containers, assembliesById);
 
@@ -247,21 +259,17 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
               rows: slotRows.map((row) => (
               <tr
                 key={`${row.slotId}-${row.coreIndex}`}
+                {...selectableRow(
+                  selectedCore?.slotId === row.slotId && selectedCore.coreIndex === row.coreIndex,
+                  () => selectCore(row),
+                )}
                 className={cn(
-                  'h-9 border-b border-line',
+                  'h-9 border-b border-line focus-visible:outline-none focus-ring-input',
                   SELECTABLE,
                   selectedCore?.slotId === row.slotId &&
                     selectedCore.coreIndex === row.coreIndex &&
                     SELECTED,
                 )}
-                /* 이 줄은 심선 하나다 — 패널도 그 포트를 고른 상태로 열어 준다.
-                   줄에 대응하는 포트는 그 코어의 장비쪽 성단이고, 아직 성단되지 않은
-                   코어(12구 판의 13번 같은)는 그 심선을 나르는 인입 포트로 물러선다. */
-                onClick={() => {
-                  setSelectedCore({ slotId: row.slotId, coreIndex: row.coreIndex });
-                  const corePortId = row.cells.find((c) => c.portId)?.portId ?? null;
-                  onSelectAsset(row.slotId, corePortId ?? row.meta.portId);
-                }}
               >
                 {/* 코어 번호 */}
                 <td className="px-3 py-1.5 text-sm text-content-muted">{row.coreIndex}</td>

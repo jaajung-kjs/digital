@@ -11,6 +11,7 @@ export type { CardProps } from './Card';
 export { DetailCard, DetailCardHeader, DetailGrid, DetailRow, DetailNote } from './DetailCard';
 export * from './controlSize';
 export { Input } from './Input';
+export { selectableRow } from './rowSelection';
 export { MessageStrip } from './MessageStrip';
 export { OverflowMenu } from './OverflowMenu';
 export type { OverflowMenuItem } from './OverflowMenu';
