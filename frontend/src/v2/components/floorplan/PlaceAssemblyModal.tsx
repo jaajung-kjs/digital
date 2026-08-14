@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, DetailRow, Input, Modal } from '../../../components/ui';
+import { Button, DetailRow, Input, Modal, InsetBox } from '../../../components/ui';
 import type { V2Assembly } from '../../types';
 
 /**
@@ -45,14 +45,14 @@ export function PlaceAssemblyModal({
         {parts.length > 0 && (
           <div className="space-y-1">
             <p className="text-xs text-content-muted">함께 생기는 것</p>
-            <ul className="rounded border border-line bg-surface-2 p-2 text-sm text-content-muted">
+            <InsetBox as="ul" className="text-sm text-content-muted">
               {parts.map(([partName, n]) => (
                 <li key={partName} className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate">{partName}</span>
                   {n > 1 && <span className="shrink-0 text-xs text-content-faint">× {n}</span>}
                 </li>
               ))}
-            </ul>
+            </InsetBox>
           </div>
         )}
 

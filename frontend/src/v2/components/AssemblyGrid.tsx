@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { slotNumber, type Grid } from '@twin/core';
-import { cn, SELECTABLE, type BadgeStatus, isCancelKey } from '../../components/ui';
+import { cn, SELECTABLE, type BadgeStatus, isCancelKey, InsetBox } from '../../components/ui';
 import {
   cellAt, edgeScroll, gridDragTo, gridPlacementChanged, scrollableAncestor, startGridDrag,
   type GridCell, type GridDragKind, type GridDragSession, type GridPlacement,
@@ -611,9 +611,9 @@ export function AssemblyGrid<T extends GridItem>({
   return (
     /* 세로 스크롤은 **눈금과 칸을 함께** 감싼 이 상자가 쥔다 — 눈금만 따로 두면 판을
        내렸을 때 단 번호가 어긋난다. 눈금과 격자는 함께 늘어난다(기본 `stretch`). */
-    <div
+    <InsetBox
       className={cn(
-        'mt-1 flex gap-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner',
+        'mt-1 flex gap-1 p-1.5 shadow-inner',
         // 캔버스로 세우면 스크롤이 없다 — 격자를 상자에 맞춘다.
         fill ? 'min-h-0 flex-1 overflow-hidden' : 'overflow-y-auto',
       )}
@@ -659,6 +659,6 @@ export function AssemblyGrid<T extends GridItem>({
           {cells}
         </ul>
       </div>
-    </div>
+    </InsetBox>
   );
 }

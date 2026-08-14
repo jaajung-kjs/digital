@@ -19,6 +19,7 @@ import {
   useConfirm, useDismissOnOutside, cn, SELECTABLE,
   EMPTY,
   type BadgeStatus,
+  InsetBox,
 } from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
@@ -507,7 +508,7 @@ export function ConnectionsTab({
                     내부 통과까지 얹혀 있었는데, 매체와 방향은 판의 구획이 이미 말하고 상태는
                     대국이 적혀 있으면 자명하며 내부 통과는 추적이 끝까지 보여 준다. */}
                 {sel && (
-                  <div className="space-y-1.5 rounded border border-line bg-surface-2 p-2">
+                  <InsetBox className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-content">
                         {endpointLabel({ assemblyName: null, assetName: owner.name, portName: sel.name, portIndex: sel.index })}
@@ -650,7 +651,7 @@ export function ConnectionsTab({
                         </ol>
                       </div>
                     )}
-                  </div>
+                  </InsetBox>
                 )}
               </>
             ),

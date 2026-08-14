@@ -32,7 +32,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, IconButton, Select, Tabs, useConfirm, isCancelKey, isTypingTarget } from '../../../components/ui';
+import { Button, IconButton, Select, Tabs, useConfirm, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assemblyToAssets } from '../../placeAssembly';
@@ -1575,19 +1575,19 @@ export function FloorPlanView({
             위에 있으니, 다음에 무엇을 해야 하는지가 눈에 들어오지 않았다. */}
         {cableStep && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-legend flex justify-center p-3">
-            <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 shadow-sm">
+            <FloatingBar className="pointer-events-auto gap-2 px-3 py-1.5">
               <span className="text-xs font-medium text-primary">{cableStep.step}</span>
               <span className="text-sm text-content">{cableStep.text}</span>
               <Button variant="secondary" size="sm" onClick={() => cableDispatch({ type: 'DISARM' })}>
                 취소
               </Button>
-            </div>
+            </FloatingBar>
           </div>
         )}
 
         {/* 줌 컨트롤 — 예전에는 배율 표시만 있고 조작은 휠뿐이라,
             휠이 불편한 환경에서는 확대/축소할 방법이 없었다. */}
-        <div className="absolute bottom-2 right-2 flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 shadow-sm z-legend">
+        <FloatingBar className="absolute bottom-2 right-2 z-legend gap-0.5 p-0.5">
           <IconButton aria-label="축소" size="sm" onClick={() => zoomByButton(1 / ZOOM_STEP)}>
             <Minus size={14} />
           </IconButton>
@@ -1602,7 +1602,7 @@ export function FloorPlanView({
           <IconButton aria-label="확대" size="sm" onClick={() => zoomByButton(ZOOM_STEP)}>
             <Plus size={14} />
           </IconButton>
-        </div>
+        </FloatingBar>
       </div>
 
       </div>

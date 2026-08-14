@@ -25,7 +25,7 @@ import { useMemo } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
 import { DEFAULT_CORE_COUNT, isMultiCorePort, portGroupLabel, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
-import { DetailCard, DetailCardHeader, EmptyState, ErrorStrip, cn } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, EmptyState, ErrorStrip, cn, InsetBox } from '../../../components/ui';
 import { useMediumColor, useMediumLabel } from '../../hooks';
 import type { TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
@@ -154,7 +154,7 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
 
       {/* 값을 넣는 자리 — **한 줄에 모은다**. 종류가 일곱으로 고정이라 이 줄의 키도 늘 같다.
           개수 0 이면 그 종류가 없는 것이라, 켜고 끄는 길을 따로 두지 않는다. */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1.5 rounded border border-line bg-surface-2 px-2 py-1.5">
+      <InsetBox className="flex flex-wrap gap-x-3 gap-y-1.5 px-2 py-1.5">
         {declared.map(({ row }) => {
           const label = labelOf(row, declared, mediumLabel);
           const on = row.count > 0;
@@ -188,7 +188,7 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
             </span>
           );
         })}
-      </div>
+      </InsetBox>
 
       {/* 결과 — 이 자산 종류를 놓으면 생길 판.
           판은 **남는 자리를 다 쓴다**: 포트가 둘이든 스물다섯이든 캔버스는 같은 크기여야
