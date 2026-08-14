@@ -13,6 +13,7 @@ import type { V2AssetType, V2Catalog } from '../types';
 import type { TypeDraft } from '../catalogDraft';
 import { typeToDraft } from '../catalogDraft';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
+import { IssueReveal } from '../../components/ui';
 
 /* 직종 드롭다운은 적용 중인 노임단가 판을 읽는다(react-query) — 이 폼의 관심사가 아니므로
    어휘만 세워 준다(`PortsEditor.test` 가 매체 이름·색을 세우는 것과 같은 방식). */
@@ -103,7 +104,8 @@ describe('TypeBasicsForm', () => {
     expect(onChange).toHaveBeenCalledWith({ name: '광단말 B' });
   });
 
-  it('(c) path=name 이슈가 이름 필드 하단에 text-xs text-danger 로 표시된다', () => {
+  /* 아직 손대지 않은 칸은 실수라고 부르지 않는다 — 칸을 떠난 뒤부터 말한다. */
+  it('(c) path=name 이슈는 손대기 전엔 조용하고, 칸을 떠나면 이름 필드 하단에 붉게 뜬다', () => {
     const type = mkType({ name: '' });
     const draft: TypeDraft = typeToDraft(type);
     const onChange = vi.fn();
@@ -119,9 +121,28 @@ describe('TypeBasicsForm', () => {
       />,
     );
 
+    expect(screen.queryByText('이름은 필수입니다')).toBeNull();
+
+    fireEvent.blur(screen.getByRole('textbox', { name: '이름' }));
+
     const errorEl = screen.getByText('이름은 필수입니다');
     expect(errorEl.className).toContain('text-xs');
     expect(errorEl.className).toContain('text-danger');
+  });
+
+  it('(c-2) 저장이 막히면 손대지 않은 칸까지 전부 짚어 준다', () => {
+    render(
+      <IssueReveal.Provider value>
+        <TypeBasicsForm
+          draft={typeToDraft(mkType({ name: '' }))}
+          catalog={catalog}
+          onChange={vi.fn()}
+          issues={[{ path: 'name', message: '이름은 필수입니다' }]}
+          locked={false}
+        />
+      </IssueReveal.Provider>,
+    );
+    expect(screen.getByText('이름은 필수입니다')).toBeTruthy();
   });
 
   /* 키는 시드·마이그레이션이 종류를 가리키는 참조용 식별자다. 필수 입력으로 두면 새 종류를

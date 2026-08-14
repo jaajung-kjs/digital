@@ -1,4 +1,14 @@
-import { Children, cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from 'react';
+import {
+  Children,
+  cloneElement,
+  createContext,
+  isValidElement,
+  useContext,
+  useId,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { cn } from './cn';
 import { Badge, type BadgeStatus } from './Badge';
@@ -76,10 +86,20 @@ export function DetailCardHeader({
  * w-12·w-14·w-16 세 갈래로 갈렸고, 화면을 옮길 때마다 입력 열이 다른 자리에서 시작했다.
  * 폭은 가장 긴 라벨("이름 패턴", "수용 대상")이 한 줄에 들어가는 w-16 으로 맞춘다.
  */
+/**
+ * 검증 문구를 **지금 다 보여 줄 것인가** — 저장을 눌렀을 때 폼 전체가 켠다.
+ *
+ * 평소에는 각 줄이 「손대 본 칸」만 붉게 말한다(아래 `touched`). 하지만 저장을 눌러
+ * 막혔다면 어느 칸이 막고 있는지 전부 짚어 줘야 한다 — 「입력 오류 3건」만 뜨고 어느
+ * 칸인지 안 짚는 화면이 실제로 그랬다.
+ */
+export const IssueReveal = createContext(false);
+
 export function DetailRow({
   label,
   issue,
   hint,
+  required = false,
   align = 'center',
   wide = false,
   children,
@@ -87,6 +107,13 @@ export function DetailRow({
   label: ReactNode;
   /** 검증 실패 문구 — 값 바로 아래에 붉게. */
   issue?: string | null;
+  /**
+   * 비우면 저장이 안 되는 칸 — 라벨에 `*`, 컨트롤에 `aria-required`.
+   *
+   * 표시가 없으면 무엇이 필수인지 **눌러 보기 전에는 알 수 없다**. 저장 단추가 회색인데
+   * 왜인지 알 방법이 없는 막다른 길이 거기서 나온다.
+   */
+  required?: boolean;
   /** 보조 설명 — 지금 값이 무엇을 뜻하는지(예: "자유형"). */
   hint?: ReactNode;
   /** 세로로 긴 값(체크박스 묶음 등)이면 라벨을 첫 줄에 맞춘다. */
@@ -100,21 +127,47 @@ export function DetailRow({
      "편집창" 이라고만 읽었고, 라벨을 눌러도 입력에 포커스가 가지 않았다.
      자식이 하나짜리 컨트롤이면 id 를 붙여 htmlFor 로 잇고, 여러 개(체크박스 묶음 등)면
      연결할 대상이 모호하므로 예전처럼 단순 텍스트로 둔다. */
+  /**
+   * 아직 손대지 않은 칸을 **실수라고 부르지 않는다**.
+   *
+   * 예전에는 매 렌더마다 검증해 그대로 붉게 칠했다 — 새 종류를 만들면 이름 칸에 손도
+   * 대기 전에 「이름은 필수입니다」가 이미 떠 있었다. 오류색이 상시 켜져 있으면 진짜
+   * 오류를 알리는 힘을 잃는다. 칸을 떠난 뒤부터(또는 저장을 눌러 막힌 뒤부터) 말한다.
+   */
+  const [touched, setTouched] = useState(false);
+  const revealAll = useContext(IssueReveal);
+  const showIssue = issue != null && issue !== '' && (touched || revealAll);
+
   const generatedId = useId();
   // Children.count 는 텍스트 노드도 1 로 세므로, 배열로 펼쳐 **엘리먼트 하나**인지 본다.
   const items = Children.toArray(children);
   const only = items.length === 1 ? items[0] : null;
   const linkable = isValidElement<{ id?: string }>(only) && only.props.id === undefined;
   const controlId = linkable ? generatedId : undefined;
-  const body = linkable ? cloneElement(only as ReactElement<{ id?: string }>, { id: controlId }) : children;
+  const body = linkable
+    ? cloneElement(only as ReactElement<{ id?: string; 'aria-required'?: boolean }>, {
+        id: controlId,
+        ...(required ? { 'aria-required': true } : {}),
+      })
+    : children;
 
   return (
-    <div className={cn('flex gap-2', align === 'start' ? 'items-start' : 'items-center')}>
+    <div
+      className={cn('flex gap-2', align === 'start' ? 'items-start' : 'items-center')}
+      /* 칸을 떠나면 그때부터 말한다 — 안쪽 어느 컨트롤이든 한 번 떠나면 켜진다. */
+      onBlur={() => setTouched(true)}
+    >
       <label
         htmlFor={controlId}
         className={cn('w-16 shrink-0 text-xs text-content-muted', align === 'start' && 'pt-2')}
       >
         {label}
+        {/* 필수 표시는 라벨 쪽에 — 값 칸에 두면 값이 길 때 밀려 안 보인다. */}
+        {required && (
+          <span className="ml-0.5 text-danger" aria-hidden>
+            *
+          </span>
+        )}
       </label>
       {/* 값의 폭을 묶는다(22rem) — 상세 패널(384px)에서는 어차피 이보다 좁으므로 그대로이고,
           넓은 화면의 관리 화면에서만 걸린다. 이름 한 칸이 1000px 로 벌어지면 라벨과 값이
@@ -122,7 +175,7 @@ export function DetailRow({
           두 화면이 같은 치수로 서야 같은 폼으로 읽힌다. */}
       <div className={cn('flex min-w-0 flex-col gap-0.5 text-content', wide ? 'flex-1' : 'w-full max-w-[22rem]')}>
         {body}
-        {issue && <span className="text-xs text-danger">{issue}</span>}
+        {showIssue && <span className="text-xs text-danger">{issue}</span>}
         {hint && <span className="text-xs text-content-faint">{hint}</span>}
       </div>
     </div>

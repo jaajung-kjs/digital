@@ -460,7 +460,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                 ) : (
                   <DetailCard>
                     <DetailCardHeader title="그룹" badge={`종류 ${draft.categories.length}`} badgeStatus="neutral" />
-                    <DetailRow label="이름" issue={groupNameIssue ? '이름은 비울 수 없습니다' : null}>
+                    <DetailRow label="이름" required issue={groupNameIssue ? '이름은 비울 수 없습니다' : null}>
                       <Input
                         aria-label="그룹 이름"
                         invalid={groupNameIssue}

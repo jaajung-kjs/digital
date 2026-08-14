@@ -20,6 +20,7 @@ import {
   PanelHeader,
   Tabs,
   type TabItem,
+  IssueReveal,
 } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { UnsavedGuardProvider, useHasUnsaved, useReportUnsaved } from '../unsavedGuard';
@@ -69,6 +70,10 @@ function CatalogAdmin() {
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** 저장이 막혔을 때 폼 전체의 검증 문구를 켠다 — 평소에는 손댄 칸만 말한다. */
+  const [revealIssues, setRevealIssues] = useState(false);
+  /* 다른 종류로 옮기면 다시 잠근다 — 저기서 막혔던 표시를 여기 들고 오지 않는다. */
+  useEffect(() => setRevealIssues(false), [selectedTypeId]);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -172,7 +177,10 @@ function CatalogAdmin() {
     if (draft == null || catalog == null) return;
     const currentIssues = draftIssues(draft, catalog);
     if (currentIssues.length > 0) {
-      setSaveError(`입력 오류가 있습니다 (${currentIssues.length}건)`);
+      /* 몇 건인지만 말하고 어느 칸인지 안 짚으면 사람은 폼을 처음부터 훑어야 한다 —
+         막고 있는 칸을 전부 켠다(`IssueReveal`). */
+      setRevealIssues(true);
+      setSaveError(`입력 오류가 있습니다 (${currentIssues.length}건) — 붉게 표시된 칸을 확인하세요`);
       return;
     }
     setSaveError(null);
@@ -346,7 +354,7 @@ function CatalogAdmin() {
                   description="좌측 목록에서 고르거나, + 버튼으로 새로 만드세요. 자산 종류는 설비 안에 들어가는 것입니다."
                 />
               ) : (
-                <>
+                <IssueReveal.Provider value={revealIssues}>
                   <CatalogEditorBar
                     title={selectedTypeId == null ? '새 자산 종류' : (original?.name ?? '')}
                     dirty={dirty}
@@ -392,7 +400,7 @@ function CatalogAdmin() {
                       />
                     </div>
                   </div>
-                </>
+                </IssueReveal.Provider>
               )}
             </>
           )}

@@ -10,6 +10,7 @@ export { Card } from './Card';
 export type { CardProps } from './Card';
 export { DetailCard, DetailCardHeader, DetailGrid, DetailRow, DetailNote } from './DetailCard';
 export * from './controlSize';
+export { IssueReveal } from './DetailCard';
 export { Input } from './Input';
 export { selectableRow } from './rowSelection';
 export { MessageStrip } from './MessageStrip';

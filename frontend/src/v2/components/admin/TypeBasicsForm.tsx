@@ -34,7 +34,7 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
             영문 키를 지어내야 했다. 새로 만들 때는 서버가 붙인다. */}
 
         {/* 이름 */}
-        <DetailRow label="이름" issue={issueFor(issues, 'name')}>
+        <DetailRow label="이름" required issue={issueFor(issues, 'name')}>
             <Input
               aria-label="이름"
               value={draft.name}
@@ -47,7 +47,7 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
         </DetailRow>
 
         {/* 분류 */}
-        <DetailRow label="분류" issue={issueFor(issues, 'categoryKey')}>
+        <DetailRow label="분류" required issue={issueFor(issues, 'categoryKey')}>
             <Select
               aria-label="분류"
               value={draft.categoryId}

@@ -174,7 +174,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
               <DetailCardHeader title="기본정보" />
               {/* 키는 묻지 않는다 — 시드·마이그레이션이 가리키는 참조용 식별자이지 현장에서
                   부르는 이름이 아니다. 새로 만들 때는 서버가 붙인다. */}
-              <DetailRow label="이름" issue={issueOf(issues, 'name')}>
+              <DetailRow label="이름" required issue={issueOf(issues, 'name')}>
                 <Input
                   aria-label="설비 종류 이름"
                   value={draft.name}
