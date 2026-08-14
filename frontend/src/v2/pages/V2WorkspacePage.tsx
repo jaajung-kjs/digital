@@ -259,7 +259,7 @@ export default function V2WorkspacePage() {
           {selected == null && (
             <EmptyState
               title="선택된 조직/변전소가 없습니다"
-              description="좌측 트리에서 변전소를 고르면 현황·평면도·선번장·계통을 볼 수 있습니다."
+              description="왼쪽에서 변전소를 고르면 현황·평면도·선번장·계통을 볼 수 있습니다."
             />
           )}
           {selected != null && (

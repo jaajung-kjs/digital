@@ -242,7 +242,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           }
         >
           {addable.length === 0 ? (
-            <EmptyState title="넣을 수 있는 자산 종류가 없습니다" description="「자산 종류」 탭에서 먼저 만드세요." />
+            <EmptyState title="넣을 수 있는 자산 종류가 없습니다" description="상단의 「자산 종류」 에서 먼저 만드세요." />
           ) : (
             <>
               {/* 자산 종류는 스물 몇이라 전폭 버튼으로 늘어놓으면 눈으로 훑어야 한다 —

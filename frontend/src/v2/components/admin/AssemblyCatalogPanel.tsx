@@ -194,7 +194,7 @@ export function AssemblyCatalogPanel({
         {draft == null ? (
           <EmptyState
             title="선택된 설비 종류가 없습니다"
-            description="좌측 목록에서 고르거나, + 버튼으로 새로 만드세요. 설비 종류는 도면에 놓이고 현황에 집계되는 단위입니다."
+            description="왼쪽에서 고르거나, 분류 줄에 손을 얹고 + 로 새로 만드세요. 설비 종류는 도면에 놓이고 현황에 집계되는 단위입니다."
           />
         ) : (
           <>

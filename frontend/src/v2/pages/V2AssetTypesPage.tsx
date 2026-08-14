@@ -281,7 +281,7 @@ function CatalogAdmin() {
               {draft == null ? (
                 <EmptyState
                   title="선택된 자산 종류가 없습니다"
-                  description="좌측 목록에서 고르거나, + 버튼으로 새로 만드세요. 자산 종류는 설비 안에 들어가는 것입니다."
+                  description="왼쪽에서 고르거나, 분류 줄에 손을 얹고 + 로 새로 만드세요. 자산 종류는 설비 안에 들어가는 것입니다."
                 />
               ) : (
                 <IssueReveal.Provider value={gate.showIssues}>

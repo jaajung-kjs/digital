@@ -403,7 +403,7 @@ export function ConnectionsTab({
     return (
       <EmptyState
         title="이 자산에는 포트가 없습니다"
-        description="포트는 자산 종류가 선언합니다 — 설비관리대장의 「자산 종류」 에서 포트를 추가하세요."
+        description="포트는 자산 종류가 선언합니다 — 상단의 「자산 종류」 에서 포트를 추가하세요."
         className="py-6"
       />
     );

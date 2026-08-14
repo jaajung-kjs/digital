@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { portHasRoom } from '@twin/core';
-import { Button, Modal } from '../../../components/ui';
+import { Button, Input, Modal } from '../../../components/ui';
 import { searchAssets, fetchAssetPorts } from '../../api';
 import type { AssetSearchResult } from '../../api';
 import type { V2Port } from '../../types';
@@ -172,14 +172,14 @@ export function RemoteEndpointModal({
       ) : (
         /* 자산 검색 화면 */
         <div className="space-y-3">
-          <input
+          {/* 공용 `Input` 을 쓴다 — 여기만 테두리·여백·포커스를 손으로 적어 두어서
+              같은 검색칸인데 다른 화면과 높이·초점 테가 달랐다. */}
+          <Input
             autoFocus
-            type="text"
-            className="w-full rounded border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-content-faint focus:border-primary focus:outline-none"
             aria-label="자산 이름 검색"
             placeholder="자산 이름 검색…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => setQuery(e.currentTarget.value)}
           />
 
           {searching && (

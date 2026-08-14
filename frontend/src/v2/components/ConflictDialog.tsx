@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button } from '../../components/ui';
+import { Button, Modal } from '../../components/ui';
 import type { V2Conflict } from '../types';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { mergeEffective } from '../store/overlay';
@@ -68,24 +68,26 @@ export function ConflictDialog({ conflicts, substationId, onClear }: ConflictDia
     }
   }
 
+  /* 공용 `Modal` 을 쓴다. 예전에는 여기만 마크업을 직접 만들어서 **초점 가두기·Esc·
+     `aria-labelledby` 가 전부 빠져 있었다** — 같은 것을 두 번 적으면 한쪽만 고쳐진다.
+     닫기는 「새로고침」 하나뿐이라 백드롭·Esc 로는 닫지 않는다(저장이 막힌 상태다). */
   return (
-    <div className="fixed inset-0 z-alert flex items-center justify-center bg-[var(--overlay)]">
-      <div className="mx-4 w-full max-w-md rounded-lg border border-line bg-surface p-5 shadow-lg">
-        <h2 className="text-sm font-semibold text-content mb-1">저장 충돌</h2>
-        <p className="text-xs text-content-muted mb-3">
-          아래 항목이 서버와 충돌하여 저장되지 않았습니다.
-        </p>
-        <ul className="mb-4 space-y-1">
-          {conflicts.map((c) => (
-            <ConflictItem key={c.id} conflict={c} />
-          ))}
-        </ul>
-        <div className="flex justify-end">
-          <Button size="sm" disabled={reloading} onClick={() => void handleRefresh()}>
-            {reloading ? '새로고침 중…' : '서버 기준으로 새로고침'}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <Modal
+      open
+      onClose={() => {}}
+      title="저장 충돌"
+      footer={
+        <Button size="sm" disabled={reloading} onClick={() => void handleRefresh()}>
+          {reloading ? '새로고침 중…' : '서버 기준으로 새로고침'}
+        </Button>
+      }
+    >
+      <p className="mb-3 text-xs text-content-muted">아래 항목이 서버와 충돌하여 저장되지 않았습니다.</p>
+      <ul className="space-y-1">
+        {conflicts.map((c) => (
+          <ConflictItem key={c.id} conflict={c} />
+        ))}
+      </ul>
+    </Modal>
   );
 }

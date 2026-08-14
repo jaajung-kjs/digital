@@ -280,7 +280,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         {original == null || draft == null ? (
           <EmptyState
             title="선택된 케이블 그룹이 없습니다"
-            description="좌측 목록에서 그룹을 고르세요. 그룹 안의 종류가 실제로 케이블에 붙어 설계서 공량의 근거가 됩니다."
+            description="왼쪽에서 그룹을 고르세요. 그룹 안의 종류가 실제로 케이블에 붙어 설계서 공량의 근거가 됩니다."
           />
         ) : (
           <>
