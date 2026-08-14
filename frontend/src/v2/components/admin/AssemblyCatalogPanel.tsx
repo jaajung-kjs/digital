@@ -186,7 +186,6 @@ export function AssemblyCatalogPanel({
           onSelect={(n) => void sel.select(n.id)}
           onAdd={onAddCategory}
           addLabel="분류 추가"
-          searchable
           emptyText="설비 종류가 없습니다"
         />
       </aside>

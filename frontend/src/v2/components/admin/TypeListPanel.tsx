@@ -131,7 +131,6 @@ export function TypeListPanel({
         onSelect={(n) => onSelectType(n.id)}
         onAdd={onAddCategory}
         addLabel="분류 추가"
-        searchable
         emptyText="자산 종류가 없습니다"
       />
     </aside>

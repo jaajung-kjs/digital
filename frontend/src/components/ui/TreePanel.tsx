@@ -40,8 +40,6 @@ export interface TreePanelProps {
   /** 머리줄의 `+` — 이 트리의 것을 새로 만든다. */
   onAdd?: () => void;
   addLabel?: string;
-  /** 이름으로 거르는 상자. 항목이 스무 개를 넘는 트리에만 준다. */
-  searchable?: boolean;
   emptyText?: string;
 }
 
@@ -66,7 +64,6 @@ export function TreePanel({
   onSelect,
   onAdd,
   addLabel,
-  searchable = false,
   emptyText,
 }: TreePanelProps) {
   const [query, setQuery] = useState('');
@@ -122,17 +119,19 @@ export function TreePanel({
         )}
       </div>
 
-      {searchable && (
-        <div className="shrink-0 border-b border-line px-2 py-1.5">
-          <Input
-            aria-label={`${title} 검색`}
-            size="sm"
-            value={query}
-            placeholder="이름으로 검색"
-            onChange={(e) => setQuery(e.currentTarget.value)}
-          />
-        </div>
-      )}
+      {/* 검색은 **모든 트리에 있다.** 예전에는 「항목이 스무 개를 넘는 트리에만」이라는
+          기준을 두었는데, 그 기준을 부르는 쪽이 판단하게 되니 조직 트리에만 검색이 없어
+          같은 판인데 손잡이가 달랐다. 트리마다 다시 판단할 일을 만들지 않는다 — 항목이
+          셋뿐인 목록에 상자가 하나 서는 것은 손해가 없고, 목록은 늘 자란다. */}
+      <div className="shrink-0 border-b border-line px-2 py-1.5">
+        <Input
+          aria-label={`${title} 검색`}
+          size="sm"
+          value={query}
+          placeholder="이름으로 검색"
+          onChange={(e) => setQuery(e.currentTarget.value)}
+        />
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto py-1" role="tree" aria-label={title}>
         {shown.length === 0 && (
