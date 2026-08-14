@@ -19,7 +19,14 @@ export interface RegisterLayoutProps {
   /** 열 폭(%) — 열 정의는 표마다 다르다. */
   widths: number[];
   head: ReactNode;
-  children: ReactNode;
+  /**
+   * 표에 들어갈 행들 — **한 덩이면 표 하나, 여러 덩이면 표 여러 개**.
+   *
+   * 묶음을 표 **안**의 구분행으로 그리지 않는다. 업계 표준은 묶음마다 제 머리글을 가진
+   * 표를 따로 세우는 것이다: 스크롤해 내려가도 지금 보는 열이 무엇인지 알 수 있고,
+   * 묶음마다 정렬·소계가 따로 붙을 수 있다. 구분행은 그 자리에서 열 정의를 잃는다.
+   */
+  children: ReactNode | { key: string; title: ReactNode; rows: ReactNode }[];
   /** 표 아래에 딸리는 것(모달 등) — 뷰가 소유한다. */
   trailing?: ReactNode;
 }
@@ -67,12 +74,28 @@ export function RegisterLayout({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <TableCard widths={widths}>
-          <thead>
-            <tr className="border-b border-line">{head}</tr>
-          </thead>
-          <tbody>{children}</tbody>
-        </TableCard>
+        {Array.isArray(children) ? (
+          <div className="flex flex-col gap-4">
+            {children.map((section) => (
+              <section key={section.key} className="flex flex-col gap-1.5">
+                <h3 className="text-sm font-semibold text-content">{section.title}</h3>
+                <TableCard widths={widths}>
+                  <thead>
+                    <tr className="border-b border-line">{head}</tr>
+                  </thead>
+                  <tbody>{section.rows}</tbody>
+                </TableCard>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <TableCard widths={widths}>
+            <thead>
+              <tr className="border-b border-line">{head}</tr>
+            </thead>
+            <tbody>{children}</tbody>
+          </TableCard>
+        )}
       </div>
       {trailing}
     </div>

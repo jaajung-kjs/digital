@@ -6,7 +6,7 @@
  *   컬럼: 코어 | {groups 동적} | 길이(m) | 손실(dB) | 점검일
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Th, cn, SELECTABLE, SELECTED } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { mergeEffective } from '../../store/overlay';
@@ -239,31 +239,20 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
         </>
       }
     >
-        {rowGroups.length === 0 && (
-          <tr>
-            <td
-              colSpan={totalCols}
-              className="px-3 py-6 text-center text-sm text-content-faint"
-            >
-              {query.trim() ? `'${query.trim()}' 와 맞는 심이 없습니다` : '슬롯 데이터가 없습니다'}
-            </td>
-          </tr>
-        )}
-        {rowGroups.map(({ slotId, slotName, rows: slotRows }) => (
-          <Fragment key={slotId}>
-            {/* 슬롯 구분 머리행 — 심 행보다 낮으면 구분자가 오히려 눌려 보인다.
-                같은 높이로 두고 색과 굵기로만 구분한다. */}
-            {/* 묶음의 **시작**을 알리는 줄이지 머리글이 아니다. 머리글이 `surface-2` 를
-                쓰므로 같은 면을 쓰면 표 중간에 머리글이 하나 더 있는 것처럼 읽힌다 —
-                본문 면에 굵은 위선과 좌측 액센트로 「여기서 새 묶음」만 말한다. */}
-            <tr className="h-8 border-b border-line border-t-2 border-t-border-2 bg-surface">
-              <td colSpan={totalCols} className="px-3 text-xs font-semibold text-content">
-                <span className="mr-2 inline-block h-3 w-0.5 translate-y-0.5 rounded-full bg-primary" />
-                {slotName}
-              </td>
-            </tr>
-            {/* 코어 데이터 행 */}
-            {slotRows.map((row) => (
+      {/* 슬롯마다 **표가 하나씩** 선다 — 표 안에 구분행을 넣지 않는다.
+          구분행은 그 줄에서 열 정의를 잃어(colSpan) 아래 행이 무슨 열인지 다시 말해 주지
+          못한다. 업계 표준은 묶음마다 제 머리글을 가진 표를 따로 세우는 것이다. */}
+      {rowGroups.length === 0 ? (
+        <tr>
+          <td colSpan={totalCols} className="px-3 py-6 text-center text-sm text-content-faint">
+            {query.trim() ? `'${query.trim()}' 와 맞는 심이 없습니다` : '슬롯 데이터가 없습니다'}
+          </td>
+        </tr>
+      ) : (
+        rowGroups.map(({ slotId, slotName, rows: slotRows }) => ({
+          key: slotId,
+          title: slotName,
+          rows: slotRows.map((row) => (
               <tr
                 key={`${row.slotId}-${row.coreIndex}`}
                 className={cn(
@@ -312,9 +301,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                   </td>
                 ))}
               </tr>
-            ))}
-          </Fragment>
-        ))}
+          )),
+        }))
+      )}
     </RegisterLayout>
   );
 }
