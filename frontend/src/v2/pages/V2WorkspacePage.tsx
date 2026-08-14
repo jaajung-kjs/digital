@@ -43,6 +43,14 @@ export default function V2WorkspacePage() {
     return flattenTree(orgTree).find((n) => n.id === route.nodeId) ?? null;
   }, [orgTree, route.nodeId]);
   const selectedAssetId = route.assetId;
+  /**
+   * 표·도면에서 **켜져 보일 줄** — 누른 것 그 자체다.
+   *
+   * 부품을 누르면 패널은 그 부품을 품은 설비를 연다(부품은 제 패널을 갖지 않는다). 그런데
+   * 켜지는 줄까지 설비로 옮겨 버리면, 광단말 B 를 눌렀는데 판암 송광치 줄에 불이 들어온다 —
+   * 누른 것과 켜진 것이 다른 화면은 사람이 자기가 뭘 눌렀는지 의심하게 만든다.
+   */
+  const highlightedAssetId = route.partId ?? route.assetId;
   /** 상세 패널이 열자마자 골라 줄 포트 — 표의 한 줄이 포트 하나를 가리킬 때 쓴다. */
   const focusPortId = route.portId;
   /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 부품. */
@@ -261,7 +269,7 @@ export default function V2WorkspacePage() {
                   {inSubstationScope && viewMode === '평면도' ? (
                     <FloorPlanView
                       substationId={substationId}
-                      selectedAssetId={selectedAssetId}
+                      selectedAssetId={highlightedAssetId}
                       onSelectAsset={handleSelectAssetId}
                       traceResult={traceResult}
                       cableStartPortId={cableStartPortId}
@@ -271,13 +279,13 @@ export default function V2WorkspacePage() {
                   ) : inSubstationScope && viewMode === '선번장' ? (
                     <FiberRegisterView
                       substationId={substationId}
-                      selectedAssetId={selectedAssetId}
+                      selectedAssetId={highlightedAssetId}
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : inSubstationScope && viewMode === '계통' ? (
                     <PowerRegisterView
                       substationId={substationId}
-                      selectedAssetId={selectedAssetId}
+                      selectedAssetId={highlightedAssetId}
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : (
@@ -301,7 +309,7 @@ export default function V2WorkspacePage() {
                       <StatusTable
                         rows={rows}
                         fieldColumns={fieldColumns}
-                        selectedId={selectedAssetId}
+                        selectedId={highlightedAssetId}
                         onSelectAsset={handleSelectAssetId}
                         nodeScope={nodeScope}
                       />
