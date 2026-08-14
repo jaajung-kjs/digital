@@ -24,7 +24,7 @@ import {
 } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { UnsavedGuardProvider, useHasUnsaved, useReportUnsaved } from '../unsavedGuard';
-import { typeToDraft, emptyDraft, draftIssues, isDraftDirty } from '../catalogDraft';
+import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID } from '../catalogDraft';
 import type { TypeDraft } from '../catalogDraft';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
@@ -92,8 +92,10 @@ function CatalogAdmin() {
     setDraft(typeToDraft(first));
   }, [catalog]);
 
-  // 현재 선택된 원본 타입 (신규이면 null)
-  const original: V2AssetType | null = catalog?.types.find((t) => t.id === selectedTypeId) ?? null;
+  /* 만드는 중이면 원본이 없다 — 그 사실을 `NEW_ID` 하나로 말한다(`null` 선택 + 초안 있음
+     이라는 조합을 없앤다). */
+  const isNew = selectedTypeId === NEW_ID;
+  const original: V2AssetType | null = isNew ? null : (catalog?.types.find((t) => t.id === selectedTypeId) ?? null);
 
   // 구조 잠금: assetCount > 0 → 포트 read-only
   const locked = (original?.assetCount ?? 0) > 0;
@@ -167,7 +169,8 @@ function CatalogAdmin() {
       }))
     )
       return;
-    setSelectedTypeId(null);
+    /* 만드는 중인 것도 목록의 한 줄이다 — 어느 분류에 무엇이 생기는지 화면이 보여 준다. */
+    setSelectedTypeId(NEW_ID);
     setDraft(emptyDraft(categoryId ?? catalog?.categories[0]?.id ?? ''));
     setSaveError(null);
     setActiveTab('type');
@@ -187,14 +190,14 @@ function CatalogAdmin() {
     setSaveError(null);
     setIsSaving(true);
     try {
-      if (selectedTypeId == null) {
+      if (isNew) {
         // 신규 생성
         const created = await mutations.createType.mutateAsync(draft);
         setSelectedTypeId(created.id);
         useV2Notice.getState().showSuccess(`'${draft.name}' 자산 종류를 만들었습니다`);
       } else {
         // 수정
-        await mutations.updateType.mutateAsync({ id: selectedTypeId, body: draft });
+        await mutations.updateType.mutateAsync({ id: selectedTypeId!, body: draft });
         /* 저장 바가 사라지는 것만으로는 「정말 저장됐나」를 알 수 없다 — 그래서 저장을
            두 번 누르게 된다. 값을 바꾼 모든 길은 결과를 말한다. */
         useV2Notice.getState().showSuccess(`'${draft.name}' 을 저장했습니다`);
@@ -213,19 +216,19 @@ function CatalogAdmin() {
 
   // ── 취소 ─────────────────────────────────────────────────────────────────
   function handleCancel() {
-    if (selectedTypeId) {
-      const type = catalog?.types.find((t) => t.id === selectedTypeId);
-      setDraft(type ? typeToDraft(type) : null);
-    } else {
-      setDraft(null);
+    /* 만들던 것을 물리면 그 줄도 목록에서 사라진다 — 저장한 적이 없으니 남을 것이 없다. */
+    if (isNew) {
       setSelectedTypeId(null);
+      setDraft(null);
+    } else {
+      setDraft(original ? typeToDraft(original) : null);
     }
     setSaveError(null);
   }
 
   // ── 자산 종류 삭제 ────────────────────────────────────────────────────────────
   async function handleDeleteType() {
-    if (selectedTypeId == null) return;
+    if (selectedTypeId == null || isNew) return;
     if (
       !(await confirm({
         title: '자산 종류 삭제',
@@ -308,6 +311,7 @@ function CatalogAdmin() {
           <TypeListPanel
             catalog={catalog}
             selectedTypeId={selectedTypeId}
+            newDraft={isNew && draft ? { categoryId: draft.categoryId, name: draft.name } : null}
             onSelectType={selectType}
             onNewType={handleNewType}
             onRenameCategory={handleRenameCategory}
@@ -357,7 +361,7 @@ function CatalogAdmin() {
               ) : (
                 <IssueReveal.Provider value={revealIssues}>
                   <CatalogEditorBar
-                    title={selectedTypeId == null ? '새 자산 종류' : (original?.name ?? '')}
+                    title={isNew ? '새 자산 종류' : (original?.name ?? '')}
                     dirty={dirty}
                     saving={isSaving}
                     issueCount={issues.length}
@@ -367,7 +371,7 @@ function CatalogAdmin() {
                     notice={
                       locked ? <InUseNotice count={original?.assetCount ?? 0} message="포트 구조는 변경할 수 없습니다" /> : null
                     }
-                    onDelete={selectedTypeId != null ? () => void handleDeleteType() : undefined}
+                    onDelete={isNew ? undefined : () => void handleDeleteType()}
                     deleteLabel="종류 삭제"
                     onCancel={handleCancel}
                     onSave={() => void handleSave()}

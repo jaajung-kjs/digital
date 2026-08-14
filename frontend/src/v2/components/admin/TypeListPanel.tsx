@@ -10,12 +10,20 @@
  */
 import { useMemo } from 'react';
 import { IconButton, TreePanel, useInlineRename, type TreeNode } from '../../../components/ui';
+import { NEW_ID } from '../../catalogDraft';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import type { V2Catalog, V2Category } from '../../types';
 
 interface TypeListPanelProps {
   catalog: V2Catalog;
   selectedTypeId: string | null;
+  /**
+   * 아직 저장되지 않은 「만드는 중인 것」 — 목록에도 한 줄로 선다.
+   *
+   * 이름을 치는 대로 그 줄이 바뀐다: 사용자는 **어느 분류에 무엇이 생기는 중인지**를
+   * 캔버스가 아니라 목록에서 본다.
+   */
+  newDraft?: { categoryId: string; name: string } | null;
   onSelectType: (id: string) => void;
   /** 새 자산 종류 — 분류 줄의 `+` 로 만들면 그 분류로 시작한다. */
   onNewType: (categoryId?: string) => void;
@@ -27,6 +35,7 @@ interface TypeListPanelProps {
 export function TypeListPanel({
   catalog,
   selectedTypeId,
+  newDraft,
   onSelectType,
   onNewType,
   onRenameCategory,
@@ -97,10 +106,21 @@ export function TypeListPanel({
         ),
       });
       for (const t of items) out.push({ id: t.id, label: t.name, text: t.name, depth: 1 });
+      /* 만드는 중인 줄은 **그 분류 안**에 선다. 이름을 아직 안 지었으면 무엇을 만드는
+         중인지 흐린 글씨로 말한다 — 빈 줄은 고장 난 것처럼 보인다. */
+      if (newDraft && newDraft.categoryId === cat.id) {
+        const typed = newDraft.name.trim();
+        out.push({
+          id: NEW_ID,
+          label: typed || <span className="text-content-faint">새 자산 종류</span>,
+          text: typed,
+          depth: 1,
+        });
+      }
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.categories, catalog.types, rename]);
+  }, [catalog.categories, catalog.types, rename, newDraft]);
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">

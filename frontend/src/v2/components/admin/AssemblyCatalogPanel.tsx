@@ -16,6 +16,7 @@ import {
   assemblyIssues, assemblyToDraft, draftToAssemblyBody, emptyAssemblyDraft,
   type AssemblyDraft,
 } from '../../assemblyDraft';
+import { NEW_ID } from '../../catalogDraft';
 import { AssemblyPanel } from './AssemblyPanel';
 import type { V2Catalog, V2Category } from '../../types';
 import { useReportUnsaved } from '../../unsavedGuard';
@@ -47,17 +48,19 @@ export function AssemblyCatalogPanel({
     if (cat) onRenameCategory(cat, name);
   });
 
+  /* 만드는 중이면 원본이 없다 — 그 사실을 `NEW_ID` 하나로 말한다(자산 종류 탭과 같은 규칙). */
+  const isNew = selectedId === NEW_ID;
   const original = useMemo(
-    () => catalog.assemblies.find((a) => a.id === selectedId) ?? null,
-    [catalog.assemblies, selectedId],
+    () => (isNew ? null : (catalog.assemblies.find((a) => a.id === selectedId) ?? null)),
+    [catalog.assemblies, selectedId, isNew],
   );
 
   // 고른 설비 종류가 바뀌면 초안을 새로 뜬다 — 남은 편집이 다른 설비 종류에 새어들지 않게.
   useEffect(() => {
     setSaveError(null);
-    if (selectedId === null) return;
+    if (selectedId === null || isNew) return;
     setDraft(original ? assemblyToDraft(original) : null);
-  }, [selectedId, original]);
+  }, [selectedId, original, isNew]);
 
   const issues = draft ? assemblyIssues(draft, catalog.types) : [];
   const dirty = draft != null && JSON.stringify(draft) !== JSON.stringify(original ? assemblyToDraft(original) : emptyAssemblyDraft());
@@ -91,12 +94,12 @@ export function AssemblyCatalogPanel({
     setSaveError(null);
     try {
       const body = draftToAssemblyBody(draft);
-      if (selectedId === null) {
+      if (isNew) {
         const created = await m.createAssembly.mutateAsync(body);
         setSelectedId(created.id);
         useV2Notice.getState().showSuccess(`'${draft.name}' 설비 종류를 만들었습니다`);
       } else {
-        await m.updateAssembly.mutateAsync({ id: selectedId, body });
+        await m.updateAssembly.mutateAsync({ id: selectedId!, body });
         useV2Notice.getState().showSuccess(`'${draft.name}' 을 저장했습니다`);
       }
     } catch (e) {
@@ -105,7 +108,7 @@ export function AssemblyCatalogPanel({
   }
 
   async function handleDelete() {
-    if (selectedId === null) return;
+    if (selectedId === null || isNew) return;
     const ok = await confirm({
       title: '설비 종류 삭제',
       target: draft?.name ?? '',
@@ -126,7 +129,7 @@ export function AssemblyCatalogPanel({
     const newInto = (categoryId: string) =>
       void (async () => {
         if (!(await leaveIfConfirmed())) return;
-        setSelectedId(null);
+        setSelectedId(NEW_ID);
         setDraft({ ...emptyAssemblyDraft(), categoryId });
       })();
     for (const cat of catalog.categories) {
@@ -177,10 +180,20 @@ export function AssemblyCatalogPanel({
         ),
       });
       for (const a of items) out.push({ id: a.id, label: a.name, text: a.name, depth: 1 });
+      /* 만드는 중인 줄은 **그 분류 안**에 선다 — 어디에 무엇이 생기는지 목록이 보여 준다. */
+      if (isNew && draft?.categoryId === cat.id) {
+        const typed = draft.name.trim();
+        out.push({
+          id: NEW_ID,
+          label: typed || <span className="text-content-faint">새 설비 종류</span>,
+          text: typed,
+          depth: 1,
+        });
+      }
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.assemblies, catalog.categories, catalog.types, rename, onDeleteCategory]);
+  }, [catalog.assemblies, catalog.categories, catalog.types, rename, onDeleteCategory, isNew, draft]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -206,16 +219,24 @@ export function AssemblyCatalogPanel({
         ) : (
           <>
             <CatalogEditorBar
-              title={selectedId == null ? '새 설비 종류' : (original?.name ?? '')}
+              title={isNew ? '새 설비 종류' : (original?.name ?? '')}
               dirty={dirty}
               saving={isSaving}
               issueCount={issues.length}
               showIssues={revealIssues}
               error={saveError}
               onDismissError={() => setSaveError(null)}
-              onDelete={selectedId != null ? () => void handleDelete() : undefined}
+              onDelete={isNew ? undefined : () => void handleDelete()}
               deleteLabel="종류 삭제"
-              onCancel={() => setDraft(original ? assemblyToDraft(original) : emptyAssemblyDraft())}
+              /* 만들던 것을 물리면 그 줄도 목록에서 사라진다 — 저장한 적이 없으니 남을 것이 없다. */
+              onCancel={() => {
+                if (isNew) {
+                  setSelectedId(null);
+                  setDraft(null);
+                } else {
+                  setDraft(original ? assemblyToDraft(original) : null);
+                }
+              }}
               onSave={() => void handleSave()}
             />
 

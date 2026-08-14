@@ -75,3 +75,16 @@ export function isDraftDirty(draft: TypeDraft, original: V2AssetType | null): bo
   const reference = typeToDraft(original);
   return JSON.stringify(draft) !== JSON.stringify(reference);
 }
+
+/**
+ * **아직 저장되지 않은 「만드는 중인 것」이 목록에서 갖는 자리.**
+ *
+ * 예전에는 새로 만들 때 「고른 것 없음(`null`) + 초안 있음」이라는 상태를 썼다. 그러면
+ * 목록에는 아무것도 안 서는데 오른쪽 캔버스는 무언가를 편집하고 있어서, 사용자는 자기가
+ * 무엇을 어디에 만들고 있는지 화면에서 볼 수 없었다. 코드 쪽에서도 「id 는 없는데 초안은
+ * 있는」 조합이 생겨, 이름을 짓는 자리·저장하는 자리·지우는 자리가 저마다 그 조합을
+ * 따로 분기했다.
+ *
+ * 만드는 중인 것도 **목록의 한 줄**이다. 그러면 고른 것은 언제나 하나이고, 분기가 사라진다.
+ */
+export const NEW_ID = 'new';
