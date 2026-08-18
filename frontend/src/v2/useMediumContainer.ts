@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { ASSEMBLY_GRID } from '@twin/core';
-import type { V2Asset, V2Assembly } from './types';
+import type { V2Asset } from './types';
 
 export interface ContainerOption {
   key: string;
@@ -13,8 +12,6 @@ export interface MediumContainerPick {
   setActiveKey: (key: string) => void;
   /** 고른 설비. */
   active: V2Asset | null;
-  /** 그 설비의 격자 — 자리 번호와 빈 자리 계산이 여기서 나온다. */
-  grid: { cols: number; rows: number } | null;
 }
 
 /**
@@ -34,7 +31,6 @@ export interface MediumContainerPick {
  */
 export function useMediumContainer(
   equipments: V2Asset[],
-  assembliesById: Map<string, V2Assembly>,
   from: {
     /** 상위를 거슬러 올라갈 때 쓴다 — 고른 것이 부품이면 그것을 품은 설비를 찾아야 한다. */
     assets: V2Asset[];
@@ -66,14 +62,10 @@ export function useMediumContainer(
 
   const picked = fromSelection ?? from.containerId;
   const activeKey = options.some((o) => o.key === picked) ? picked! : (options[0]?.key ?? '');
-  const active = equipments.find((e) => e.id === activeKey) ?? null;
-  const assembly = active?.assemblyId ? assembliesById.get(active.assemblyId) : undefined;
-
   return {
     options,
     activeKey,
     setActiveKey: from.onPickContainer,
-    active,
-    grid: assembly ? ASSEMBLY_GRID : null,
+    active: equipments.find((e) => e.id === activeKey) ?? null,
   };
 }

@@ -59,7 +59,7 @@ export function newItemId(): string {
 }
 
 export interface AssemblyIssue {
-  path: 'key' | 'name' | 'category' | 'grid' | 'items';
+  path: 'key' | 'name' | 'category' | 'items';
   message: string;
 }
 

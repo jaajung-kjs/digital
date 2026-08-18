@@ -21,7 +21,6 @@ import { useEditorGate } from '../../useEditorGate';
 import { useDraftSelection } from '../../useDraftSelection';
 import { AssemblyPanel } from './AssemblyPanel';
 import type { V2Assembly, V2Catalog, V2Category } from '../../types';
-import { useReportUnsaved } from '../../unsavedGuard';
 import { useV2Notice } from '../../store/noticeStore';
 
 interface AssemblyCatalogPanelProps {
@@ -71,7 +70,6 @@ export function AssemblyCatalogPanel({
   /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — `useEditorGate`. */
   const gate = useEditorGate({ issueCount: issues.length, resetKey: selectedId, onSave: handleSave });
   /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
-  useReportUnsaved(dirty);
   const isSaving = m.createAssembly.isPending || m.updateAssembly.isPending;
 
   async function handleSave() {

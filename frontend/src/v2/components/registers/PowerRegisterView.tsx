@@ -16,7 +16,6 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { powerContainers, buildPowerRows, POWER_MEDIUM } from '../../powerSelectors';
 import { cableFieldsFor, portFieldsFor, setPortValueAt, type ValueDef } from '@twin/core';
 import type { PowerRow, PowerCell } from '../../powerSelectors';
-import { useV2Catalog } from '../../hooks';
 import { useMediumContainer } from '../../useMediumContainer';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from '../InlineEditCell';
@@ -122,13 +121,6 @@ export function PowerRegisterView({
 
   const containers = useMemo(() => powerContainers(effectiveAssets), [effectiveAssets]);
 
-  /* 설비의 격자를 아는 것은 그 설비 종류다 — 회로 번호와 빈 자리가 여기서 나온다. */
-  const catalog = useV2Catalog();
-  const assembliesById = useMemo(
-    () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
-    [catalog.data],
-  );
-
   /* 어느 설비를 보고 있나 + 그 설비 종류가 선언한 회로 수.
      회로 수가 선언돼 있으면 빈 자리까지 표(패널 스케줄)에 나오고, 자유형이면 있는 것만 나온다.
      "몇 회로짜리인가" 는 타입이 아니라 명세가 말한다 — 코드는 분전반을 모르지 않는다. */
@@ -148,7 +140,7 @@ export function PowerRegisterView({
     22, // 부하 출력
   ];
 
-  const picked = useMediumContainer(containers, assembliesById, {
+  const picked = useMediumContainer(containers, {
     assets: effectiveAssets,
     selectedAssetId,
     containerId,
@@ -162,8 +154,8 @@ export function PowerRegisterView({
 
   const rows = useMemo<PowerRow[]>(() => {
     if (!activeContainer) return [];
-    return buildPowerRows(activeContainer, effectiveAssets, effectiveCables, picked.grid);
-  }, [activeContainer, effectiveAssets, effectiveCables, picked.grid]);
+    return buildPowerRows(activeContainer, effectiveAssets, effectiveCables);
+  }, [activeContainer, effectiveAssets, effectiveCables]);
 
   /* 검색이 없으면 회로가 42개인 분전반에서 "그 피더" 를 찾을 방법이 눈으로 훑는 것뿐이다.
      표에 보이는 값을 통째로 훑는다 — 사용자는 이름만 기억하지 그것이 몇 번째 열인지는 모른다.

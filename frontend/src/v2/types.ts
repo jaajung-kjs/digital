@@ -42,7 +42,6 @@ export interface V2AssemblyItem {
  */
 export interface V2Assembly {
   id: string; key: string; name: string; categoryId: string;
-  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류가 아니라). */
   /**
    * 「1식」 공량 — 설비를 **통째로** 놓거나 걷을 때의 품.
    *

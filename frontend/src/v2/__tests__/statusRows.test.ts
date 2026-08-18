@@ -22,7 +22,6 @@ describe('buildStatusRows (변전소 스코프)', () => {
       assets: [rack, mod, unplaced] as never,
       floors: floors as never,
       typesById: types,
-      categoryNameById: categories,
       inspectionsByAsset: new Map([['a-1', ['2026-06-01T00:00:00.000Z', '2026-07-01T00:00:00.000Z']]]),
       assembliesById: assemblies,
     });
@@ -42,8 +41,8 @@ describe('buildStatusRows (변전소 스코프)', () => {
       assets: mergeEffective(saved, overlay),
       floors: floors as never,
       typesById: types,
-      categoryNameById: categories,
       inspectionsByAsset: new Map(),
+      assembliesById: assemblies,
     });
 
     expect(rows.map((r) => r.id)).toEqual(['a-1', 'tmp-1']);
@@ -61,7 +60,7 @@ describe('필드 열 도출', () => {
   const build = (assets: object[], typesById: Map<string, never>) =>
     buildStatusRows({
       assets: assets as never, floors: [] as never, typesById,
-      categoryNameById: new Map(), inspectionsByAsset: new Map(),
+      inspectionsByAsset: new Map(), assembliesById: new Map(),
     }).fieldColumns.map((f) => f.key);
 
   it('타입이 섞여도 열은 같다 — 자산 속성은 종류를 가리지 않는다', () => {
@@ -85,7 +84,7 @@ describe('설비 묶음', () => {
   const build = (assets: object[]) =>
     buildStatusRows({
       assets: assets as never, floors: [] as never, typesById: types as never,
-      categoryNameById: new Map(), inspectionsByAsset: new Map(), assembliesById,
+      inspectionsByAsset: new Map(), assembliesById,
     }).rows;
 
   it('뿌리에만 설비 종류 이름이 적히고, 자손은 그 뿌리에 매인다', () => {

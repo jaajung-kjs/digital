@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Input, Modal, Select, DetailRow } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
-import { cellLabel } from '@twin/core';
-import { makeNewAsset, freeCells } from '../newAsset';
+import { ASSEMBLY_GRID, cellLabel, freeCells } from '@twin/core';
+import { makeNewAsset } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 
 interface AddAssetModalProps {
@@ -20,7 +20,6 @@ interface AddAssetModalProps {
   gridContext: {
     parentAssetId: string;
     /** 그 설비의 격자 — 설비 종류가 정한 자리다. */
-    grid: { cols: number; rows: number };
     /** 현재 형제들 — 빈 자리 계산용 */
     siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
     /** 빈 자리를 눌러 열었으면 그 칸 — 사용자가 방금 고른 것을 다시 묻지 않는다. */
@@ -59,7 +58,7 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
   const availableTypes = allActiveTypes;
 
   const free = useMemo(
-    () => freeCells(gridContext.grid, gridContext.siblings),
+    () => freeCells(ASSEMBLY_GRID, gridContext.siblings),
     [gridContext],
   );
 

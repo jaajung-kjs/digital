@@ -41,8 +41,8 @@ export function buildStatusRows(args: {
   floors: V2Floor[];
   typesById: Map<string, V2AssetType>;
   inspectionsByAsset: Map<string, string[]>;
-  /** 설비 종류 id → 설비 종류. 설비 종류로 놓은 설비는 **설비 종류가 곧 분류**이고, 격자도 여기서 나온다. */
-  assembliesById?: Map<string, V2Assembly>;
+  /** 설비 종류 id → 설비 종류. 설비 종류로 놓은 설비는 **설비 종류가 곧 분류**다. */
+  assembliesById: Map<string, V2Assembly>;
 }): StatusRowsResult {
   const floorName = new Map(args.floors.map((f) => [f.id, f.name]));
   const assetById = new Map(args.assets.map((a) => [a.id, a]));
@@ -75,7 +75,7 @@ export function buildStatusRows(args: {
       id: a.id,
       /* 설비 종류로 놓은 설비는 **설비 종류가 곧 분류**다 — 업무에서 "랙이 몇 개" 는 묻지 않는다.
          이름을 글자로 굳히지 않고 설비 종류를 가리키므로, 설비 종류 이름을 고치면 여기도 따라 바뀐다. */
-      typeName: (a.assemblyId && args.assembliesById?.get(a.assemblyId)?.name) || type?.name || '—',
+      typeName: (a.assemblyId && args.assembliesById.get(a.assemblyId)?.name) || type?.name || '—',
       name: a.name,
       location: assetLocationPath(a, assetById, floorName),
       lastInspectedAt: inspections.length ? [...inspections].sort().at(-1)! : null,

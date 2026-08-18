@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { V2AssetType } from '../types';
-import { freeCells, makeNewAsset } from '../newAsset';
+import { makeNewAsset } from '../newAsset';
 
 const mkType = (id: string, key: string, categoryId: string): V2AssetType => ({
   id, key, name: key, categoryId, sortOrder: 1, assetCount: 0,
@@ -13,19 +13,8 @@ const mkType = (id: string, key: string, categoryId: string): V2AssetType => ({
 /* 자산은 반드시 어딘가에 놓인다 — 자리 없는 자산을 만드는 길은 없앴다. */
 const GRID = { kind: 'grid', parentAssetId: 'rack', col: 0, row: 0, colSpan: 1, rowSpan: 1 } as const;
 
-describe('freeCells', () => {
-  it('점유(span 포함) 제외한 빈 자리', () => {
-    expect(freeCells({ cols: 1, rows: 6 }, [{ col: 0, row: 0, colSpan: 1, rowSpan: 2 }, { col: 0, row: 4, colSpan: 1, rowSpan: 1 }]))
-      .toEqual([{ col: 0, row: 2 }, { col: 0, row: 3 }, { col: 0, row: 5 }]);
-  });
-
-  /* 가로·세로 둘 다 겹쳐야 겹친 것이다 — 2열 격자의 옆 칸은 남의 자리가 아니다. */
-  it('여러 열이면 행 우선으로 나열한다', () => {
-    expect(freeCells({ cols: 2, rows: 2 }, [{ col: 0, row: 0, colSpan: 1, rowSpan: 1 }]))
-      .toEqual([{ col: 1, row: 0 }, { col: 0, row: 1 }, { col: 1, row: 1 }]);
-  });
-});
-
+/* `freeCells` 는 규칙이 사는 곳(core)에서 잰다 — 여기서 다시 재던 것은 재수출을 타고
+   들어온 같은 함수였다. */
 describe('makeNewAsset', () => {
   it('uuid id + 기본값 + 격자 배치 반영', () => {
     const a = makeNewAsset({ type: mkType('t1', 'PITR', 'c-comm'), name: '신규', substationId: 'ss', placement: { kind: 'grid', parentAssetId: 'rack', col: 0, row: 3, colSpan: 1, rowSpan: 1 } });

@@ -43,8 +43,6 @@ function FieldInput({ isDate, type, ...rest }: InputProps & { isDate: boolean })
 
 export interface AddModalContext {
   parentAssetId: string;
-  /** 그 설비의 격자 — 설비 종류가 정한 자리다. */
-  grid: { cols: number; rows: number };
   siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
   /** 빈 자리를 눌러 열었으면 그 칸 — 모달에서 다시 고르게 하지 않는다. */
   cell?: { col: number; row: number };
@@ -374,13 +372,11 @@ export function LayoutTab({
   );
 
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
-  const grid = assembly ? ASSEMBLY_GRID : null;
 
   function canPlaceInGrid(movingId: string, at: GridPlacement): boolean {
-    if (!grid) return false;
     return (
       validateGridPlacement({
-        grid,
+        grid: ASSEMBLY_GRID,
         ...at,
         occupants: parts
           .filter((a) => a.id !== movingId && a.col != null && a.row != null)
@@ -406,14 +402,14 @@ export function LayoutTab({
        판이 탭을 통째로 쓰므로 스크롤도 생기지 않는다. */
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 자리는 그 설비 종류의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
-      {grid && assembly && (
+      {assembly && (
         <DetailCard className="flex min-h-0 flex-1 flex-col">
           {/* 「몇 칸 중 몇 칸」은 적지 않는다 — 격자는 그저 배치용 도화지라, 200칸 중 몇 칸을
               썼는지는 이 설비에 대해 아무것도 말해 주지 않는다(꽉 채워 그린 접지함체가 촘촘히
               그린 랙보다 「찼다」고 읽힐 이유가 없다). */}
           <DetailCardHeader title="구성" />
           <AssemblyGrid
-            grid={grid}
+            grid={ASSEMBLY_GRID}
             /* 상자를 못 박지 않고 **남는 높이를 채운다**(`fill`) — 구성 탭은 스크롤이 생기면 안 된다. */
             fill
             items={parts}
@@ -426,7 +422,7 @@ export function LayoutTab({
             /* 놓인 자산이라 묻는다 — 포트·연결까지 함께 사라진다. */
             onRemove={(part) => void handleDeletePart(part)}
             trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
-            onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, grid, siblings: parts, cell })}
+            onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, siblings: parts, cell })}
             canPlace={canPlaceInGrid}
             onMove={(id, at) => useV2WorkingCopy.getState().stageAssetUpdate(id, at)}
             /* 칸마다 운전 상태 불 — 색은 어휘가 정한다(정상 초록·예비 노랑·고장 빨강). */

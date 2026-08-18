@@ -1,8 +1,6 @@
 import { DEFAULT_ASSET_STATUS, instantiatePorts, portTemplatesFrom } from '@twin/core';
 import type { V2Asset, V2AssetType, V2Port } from './types';
 
-export { freeCells } from '@twin/core';
-
 /**
  * 자산이 갖는 포트 — **놓는 순간 화면이 만든다**.
  *

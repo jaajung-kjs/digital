@@ -36,7 +36,6 @@ import {
 import { EMPTY_LABOR_SPEC, LABOR_CODE_LABEL, LABOR_WAGE_LABEL, WAGE_UNIT, WORK_KINDS, laborSpecColumns, manDaysOf } from '@twin/core';
 import type { LaborSpec } from '@twin/core';
 import type { V2Catalog, V2CableGroup } from '../../types';
-import { useReportUnsaved } from '../../unsavedGuard';
 import { useCatalogMutations, useWageCatalog } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
 import { LaborSpecForm } from './LaborSpecForm';
@@ -179,7 +178,6 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     setSaveError(null);
   };
   /* 탭을 옮기면 이 패널이 통째로 사라진다 — 떠나보내는 쪽(페이지)이 물을 수 있게 알린다. */
-  useReportUnsaved(dirty);
 
   const { flags, groupName: groupNameIssue, count: issueCount } = useMemo(() => issuesOf(draft), [draft]);
   /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — 예전에는 이 탭만 그 규칙이 없어서

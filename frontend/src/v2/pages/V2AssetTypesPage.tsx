@@ -21,7 +21,6 @@ import {
   PageState,
 } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
-import { UnsavedGuardProvider, useReportUnsaved } from '../unsavedGuard';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID } from '../catalogDraft';
 import { useEditorGate } from '../useEditorGate';
 import type { TypeDraft } from '../catalogDraft';
@@ -33,17 +32,7 @@ import { PortsEditor } from '../components/admin/PortsEditor';
 import type { V2AssetType, V2Category } from '../types';
 import { useV2Notice } from '../store/noticeStore';
 
-/* 저장 안 한 변경을 알리는 자리는 이 화면 **바깥**에 있어야 한다 — 안쪽에서 만들면
-   그 자리를 읽는 것도 안쪽이라 패널이 알린 값을 못 본다. */
 export default function V2AssetTypesPage() {
-  return (
-    <UnsavedGuardProvider>
-      <CatalogAdmin />
-    </UnsavedGuardProvider>
-  );
-}
-
-function CatalogAdmin() {
   const { confirm, confirmDialog } = useConfirm();
   const catalogQuery = useV2Catalog();
   const catalog = catalogQuery.data;
@@ -95,7 +84,6 @@ function CatalogAdmin() {
 
   // dirty 여부
   const dirty = draft != null ? isDraftDirty(draft, original) : false;
-  useReportUnsaved(dirty);
 
   // 이슈 목록 (저장 시도 또는 실시간 표시)
   const issues = draft != null && catalog != null ? draftIssues(draft, catalog) : [];

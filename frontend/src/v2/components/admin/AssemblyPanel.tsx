@@ -47,7 +47,6 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   useDismissOnOutside(selectedItemId != null, [canvasRef, asideRef], () => setSelectedItemId(null));
 
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
-  const grid = ASSEMBLY_GRID;
 
   function addPart(typeId: string) {
     if (!addCell) return;
@@ -80,7 +79,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
    */
   function canPlace(movingId: string, at: GridPlacement): boolean {
     return validateGridPlacement({
-      grid,
+      grid: ASSEMBLY_GRID,
       ...at,
       occupants: draft.items
         .filter((i) => i.id !== movingId && i.col != null && i.row != null)
@@ -111,7 +110,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           <DetailCardHeader title="구성" />
           <ErrorStrip message={issueOf(issues, 'items') ?? null} />
           <AssemblyGrid
-            grid={grid}
+            grid={ASSEMBLY_GRID}
             fill
             items={draft.items}
             selectedId={selectedItemId}

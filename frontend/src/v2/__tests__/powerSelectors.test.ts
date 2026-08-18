@@ -58,10 +58,11 @@ describe('buildPowerRows', () => {
 describe('패널 스케줄 — 회로 자리', () => {
   // 전기 도면의 패널 스케줄은 회로 번호가 곧 패널에서의 위치이고,
   // 쓰지 않는 자리도 SPARE 로 보여준다. 그 두 성질을 붙잡는다.
+  /* 회로 번호는 **도화지에서의 자리**다(`row × 10 + col + 1`) — 모든 설비가 같은 판을
+     쓰므로 열 수도 하나다. 여기서는 첫 열에 세로로 세운다. */
   const mk = (id: string, name: string, breakerNo: string | null, slotIndex: number | null) =>
     asset(id, name, {
       parentAssetId: 'panel',
-      // 1열 격자에서는 행이 곧 자리 번호(0-based)다.
       col: slotIndex == null ? null : 0,
       row: slotIndex,
       fieldValues: breakerNo == null ? {} : { breakerNo },
@@ -75,9 +76,9 @@ describe('패널 스케줄 — 회로 자리', () => {
     expect(buildPowerRows(panel, assets, []).map((r) => r.feederName)).toEqual(['먼저', '나중']);
   });
 
-  it('자리 번호는 문자열이 아니라 수로 센다 — 10이 2보다 앞서면 안 된다', () => {
+  it('자리 번호는 문자열이 아니라 수로 센다 — 91이 11보다 앞서면 안 된다', () => {
     const assets = [panel, mk('c', '열번', null, 9), mk('a', '두번', null, 1)];
-    expect(buildPowerRows(panel, assets, []).map((r) => r.slotNo)).toEqual([2, 10]);
+    expect(buildPowerRows(panel, assets, []).map((r) => r.slotNo)).toEqual([11, 91]);
   });
 
   it('자리 번호가 없으면(자유형) 이름순으로 물러선다', () => {
@@ -89,16 +90,16 @@ describe('패널 스케줄 — 회로 자리', () => {
     /* 예전에는 격자 칸 수만큼 빈 행을 만들어 「12회로 분전반」을 표현했다. 도화지 칸 수를
        회로 수라고 우긴 것이라, 모든 설비가 같은 판을 쓰게 된 지금은 200행이 된다. */
     const assets = [panel, mk('a', '피더A', null, 0), mk('b', '피더B', null, 5)];
-    const rows = buildPowerRows(panel, assets, [], { cols: 1, rows: 12 });
+    const rows = buildPowerRows(panel, assets, []);
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.feederName)).toEqual(['피더A', '피더B']);
   });
 });
 
-/* 분전반 조서는 좌우 두 줄이다 — 격자가 2열이면 번호는 행 우선으로 1·2가 첫 행이다.
+/* 분전반 조서는 좌우 두 줄이다 — 옆 칸은 **같은 행의 다음 번호**다(행 우선).
    예전에는 이것을 컨테이너 두 개로 표현해서 양쪽 다 0번 자리를 갖는 표가 둘로 갈렸다.
    격자 하나로 두면 한 표 안에서 번호가 이어진다. */
-describe('2열 격자', () => {
+describe('옆 칸', () => {
   const twoCol = asset('panel2', '분전반2');
   const left = asset('L', '좌측 1번', {
     parentAssetId: 'panel2', col: 0, row: 0,
@@ -110,12 +111,12 @@ describe('2열 격자', () => {
   });
 
   it('같은 행의 옆 칸은 다음 회로 번호다', () => {
-    const rows = buildPowerRows(twoCol as never, [twoCol, left, right] as never, [] as never, { cols: 2, rows: 1 });
+    const rows = buildPowerRows(twoCol as never, [twoCol, left, right] as never, [] as never);
     expect(rows.map((r) => [r.slotNo, r.feederName])).toEqual([[1, '좌측 1번'], [2, '우측 1번']]);
   });
 
-  it('격자 크기와 무관하게 놓인 것만 나온다', () => {
-    const rows = buildPowerRows(twoCol as never, [twoCol, left] as never, [] as never, { cols: 2, rows: 2 });
+  it('놓인 것만 나온다 — 도화지가 아무리 커도 빈 칸은 행이 아니다', () => {
+    const rows = buildPowerRows(twoCol as never, [twoCol, left] as never, [] as never);
     expect(rows.map((r) => r.feederName)).toEqual(['좌측 1번']);
   });
 });

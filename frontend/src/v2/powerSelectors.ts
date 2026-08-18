@@ -1,4 +1,4 @@
-import { portFieldsFor, portValuesAt, slotNumber, type SeededMediumKey } from '@twin/core';
+import { ASSEMBLY_GRID, portFieldsFor, portValuesAt, slotNumber, type SeededMediumKey } from '@twin/core';
 import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
@@ -46,8 +46,10 @@ export interface PowerRow {
  * 정렬 기준은 화면에 안 보이는 쪽이었다. 보이는 것으로 센다.
  * 격자에 놓이지 않았으면(자리 없음) null — 그때는 이름순으로 물러선다.
  */
-function circuitNumber(feeder: V2Asset, cols: number): number | null {
-  return feeder.col != null && feeder.row != null ? slotNumber(cols, feeder.col, feeder.row) : null;
+function circuitNumber(feeder: V2Asset): number | null {
+  return feeder.col != null && feeder.row != null
+    ? slotNumber(ASSEMBLY_GRID.cols, feeder.col, feeder.row)
+    : null;
 }
 
 /**
@@ -72,7 +74,6 @@ export function buildPowerRows(
   assets: V2Asset[],
   cables: V2Cable[],
   /** 설비 종류가 선언한 격자 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
-  grid?: { cols: number; rows: number } | null,
 ): PowerRow[] {
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
 
@@ -87,8 +88,8 @@ export function buildPowerRows(
         a.ports.some((p) => p.medium === POWER_MEDIUM),
     )
     .sort((a, b) => {
-      const na = circuitNumber(a, grid?.cols ?? 1);
-      const nb = circuitNumber(b, grid?.cols ?? 1);
+      const na = circuitNumber(a);
+      const nb = circuitNumber(b);
       if (na != null && nb != null && na !== nb) return na - nb;
       if (na != null && nb == null) return -1;
       if (na == null && nb != null) return 1;
@@ -138,7 +139,7 @@ export function buildPowerRows(
     }
 
     rows.push({
-      slotNo: circuitNumber(feeder, grid?.cols ?? 1),
+      slotNo: circuitNumber(feeder),
       feederId: feeder.id,
       feederName: feeder.name,
       closed: outPort ? closedOf(outPort) : null,

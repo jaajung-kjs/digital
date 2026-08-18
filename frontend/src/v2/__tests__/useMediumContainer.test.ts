@@ -16,7 +16,7 @@ const assemblies = new Map<string, V2Assembly>();
 
 const pick = (selectedAssetId: string | null, containerId: string | null = null, onPickContainer = vi.fn()) =>
   renderHook(() =>
-    useMediumContainer(CONTAINERS, assemblies, { assets: ALL, selectedAssetId, containerId, onPickContainer }),
+    useMediumContainer(CONTAINERS, { assets: ALL, selectedAssetId, containerId, onPickContainer }),
   ).result.current;
 
 describe('useMediumContainer — 「지금 보는 설비」는 하나다', () => {

@@ -11,7 +11,6 @@ import { Th, cn, selectableRow, SELECTABLE, SELECTED, EMPTY } from '../../../com
 import { RegisterLayout } from './RegisterLayout';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { useV2Catalog } from '../../hooks';
 import { DEFAULT_CORE_COUNT, cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { useMediumContainer } from '../../useMediumContainer';
 import { fiberContainers, buildFiberRows, FIBER_MEDIUM } from '../../fiberSelectors';
@@ -137,13 +136,6 @@ export function FiberRegisterView({
 
   const containers = useMemo(() => fiberContainers(effectiveAssets), [effectiveAssets]);
 
-  /* 설비의 격자를 아는 것은 그 설비 종류다 — 표가 자리 번호를 매길 때 쓴다. */
-  const catalog = useV2Catalog();
-  const assembliesById = useMemo(
-    () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
-    [catalog.data],
-  );
-
   const [query, setQuery] = useState('');
   /* 고른 심선 — 표의 단위는 자산이 아니라 **심선**이다. 자산 id 로 칠하면 그 슬롯의 24행이
      한꺼번에 물들어, 어느 심선을 눌렀는지가 화면에서 사라진다(실제로 그랬다). */
@@ -168,7 +160,7 @@ export function FiberRegisterView({
   };
 
   /* 표의 단위는 설비 하나 — 계통과 같은 훅을 쓴다. */
-  const picked = useMediumContainer(containers, assembliesById, {
+  const picked = useMediumContainer(containers, {
     assets: effectiveAssets,
     selectedAssetId,
     containerId,
