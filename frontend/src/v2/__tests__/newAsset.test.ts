@@ -10,6 +10,9 @@ const mkType = (id: string, key: string, categoryId: string): V2AssetType => ({
 
 /* 무엇을 담을 수 있는가는 이제 판정할 것이 없다 — 설비 종류를 짜는 사람이 정한다.
    자리가 타입을 걸러내던 수용 규칙(accepts)은 개념째 걷었다. */
+/* 자산은 반드시 어딘가에 놓인다 — 자리 없는 자산을 만드는 길은 없앴다. */
+const GRID = { kind: 'grid', parentAssetId: 'rack', col: 0, row: 0, colSpan: 1, rowSpan: 1 } as const;
+
 describe('freeCells', () => {
   it('점유(span 포함) 제외한 빈 자리', () => {
     expect(freeCells({ cols: 1, rows: 6 }, [{ col: 0, row: 0, colSpan: 1, rowSpan: 2 }, { col: 0, row: 4, colSpan: 1, rowSpan: 1 }]))
@@ -51,7 +54,7 @@ describe('새 자산의 포트', () => {
   ];
 
   it('놓는 순간 명세대로 포트가 생긴다', () => {
-    const a = makeNewAsset({ type: slotType, name: '슬롯 1', substationId: 'ss' });
+    const a = makeNewAsset({ type: slotType, name: '슬롯 1', substationId: 'ss', placement: GRID });
     expect(a.ports).toHaveLength(25);
     expect(a.ports.filter((p) => p.group === 'CORE')).toHaveLength(24);
     // 다심 인입은 포트 **하나**가 심선 수를 나른다 — 심선마다 펴지 않는다.
@@ -59,14 +62,14 @@ describe('새 자산의 포트', () => {
   });
 
   it('포트마다 id 가 붙는다 — 저장 전에 케이블을 이을 수 있어야 한다', () => {
-    const a = makeNewAsset({ type: slotType, name: '슬롯 1', substationId: 'ss' });
+    const a = makeNewAsset({ type: slotType, name: '슬롯 1', substationId: 'ss', placement: GRID });
     const ids = new Set(a.ports.map((p) => p.id));
     expect(ids.size).toBe(a.ports.length);
     expect(a.ports.every((p) => p.assetId === a.id)).toBe(true);
   });
 
   it('포트가 없는 종류는 빈 채로 둔다', () => {
-    const a = makeNewAsset({ type: mkType('t2', 'HVAC', 'c-comm'), name: '공조', substationId: 'ss' });
+    const a = makeNewAsset({ type: mkType('t2', 'HVAC', 'c-comm'), name: '공조', substationId: 'ss', placement: GRID });
     expect(a.ports).toEqual([]);
   });
 });

@@ -39,15 +39,21 @@ export type PlacementInput =
   | { kind: 'grid'; parentAssetId: string; col: number | null; row: number | null; colSpan: number; rowSpan: number }
   | { kind: 'floor'; floorId: string; x: number; y: number; width: number; height: number };
 
+/**
+ * 자산은 **반드시 어딘가에 놓인다** — 도면 위이거나, 설비 격자 안이거나.
+ *
+ * 예전에는 자리를 안 줄 수도 있었고, 그렇게 만든 자산은 도면에도 설비 안에도 없이 현황표에만
+ * 존재했다. 그런 자산은 세기만 할 뿐 아무 데서도 만질 수 없다 — 그 길을 없앤다.
+ */
 export function makeNewAsset(args: {
   type: V2AssetType;
   name: string;
   substationId: string;
-  placement?: PlacementInput;
+  placement: PlacementInput;
 }): V2Asset {
   const p = args.placement;
-  const isContainer = p?.kind === 'grid';
-  const isFloor = p?.kind === 'floor';
+  const isContainer = p.kind === 'grid';
+  const isFloor = p.kind === 'floor';
   const id = crypto.randomUUID();
 
   return {

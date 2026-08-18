@@ -10,7 +10,14 @@ interface AddAssetModalProps {
   onClose: () => void;
   substationId: string;
   /** 격자 컨텍스트: 설비 구성의 빈 자리에서 열릴 때 지정 */
-  gridContext?: {
+  /**
+   * 어느 설비의 어느 자리에 넣는가 — **항상 있다**.
+   *
+   * 예전에는 없을 수도 있었다(현황 도구바의 「자산 추가」가 어디에도 안 놓인 자산을
+   * 만들었다). 도면에도 설비 안에도 없는 자산은 현황표에만 존재하는 유령이라, 그 길을
+   * 없앴다. 만드는 일은 **설비를 도면에 놓는 것**과 **설비 안에 부품을 넣는 것** 둘뿐이다.
+   */
+  gridContext: {
     parentAssetId: string;
     /** 그 설비의 격자 — 설비 종류가 정한 자리다. */
     grid: { cols: number; rows: number };
@@ -52,7 +59,7 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
   const availableTypes = allActiveTypes;
 
   const free = useMemo(
-    () => (gridContext ? freeCells(gridContext.grid, gridContext.siblings) : []),
+    () => freeCells(gridContext.grid, gridContext.siblings),
     [gridContext],
   );
 
@@ -78,19 +85,16 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
     const type = availableTypes.find((t) => t.id === selectedTypeId);
     if (!type || !name.trim()) return;
 
-    let placement: Parameters<typeof makeNewAsset>[0]['placement'];
-    if (gridContext) {
-      /* 고른 자리는 격자 칸이다 — `열,행` 으로 실어 보낸다(번호는 저장하지 않는다). */
-      const cell = selectedSlot !== '' ? selectedSlot.split(',').map(Number) : null;
-      placement = {
-        kind: 'grid',
-        parentAssetId: gridContext.parentAssetId,
-        col: cell ? cell[0]! : null,
-        row: cell ? cell[1]! : null,
-        colSpan: 1,
-        rowSpan: 1,
-      };
-    }
+    /* 고른 자리는 격자 칸이다 — `열,행` 으로 실어 보낸다(번호는 저장하지 않는다). */
+    const cell = selectedSlot !== '' ? selectedSlot.split(',').map(Number) : null;
+    const placement: Parameters<typeof makeNewAsset>[0]['placement'] = {
+      kind: 'grid',
+      parentAssetId: gridContext.parentAssetId,
+      col: cell ? cell[0]! : null,
+      row: cell ? cell[1]! : null,
+      colSpan: 1,
+      rowSpan: 1,
+    };
 
     const asset = makeNewAsset({ type, name: name.trim(), substationId, placement });
     useV2WorkingCopy.getState().stageAssetCreate(asset);
@@ -99,14 +103,14 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
 
   /* 어디에 추가되는지 — 모달만 보고는 어느 설비의 빈 자리를 눌렀는지 알 수 없었다. */
   const destination = useMemo(
-    () => (gridContext ? effectiveAssets.find((a) => a.id === gridContext.parentAssetId)?.name ?? null : null),
+    () => effectiveAssets.find((a) => a.id === gridContext.parentAssetId)?.name ?? null,
     [gridContext, effectiveAssets],
   );
 
   const canConfirm =
     selectedTypeId !== '' &&
     name.trim() !== '' &&
-    (gridContext == null || selectedSlot !== '');
+    selectedSlot !== '';
 
   return (
     <Modal
@@ -162,7 +166,7 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
         </DetailRow>
 
         {/* 자리 선택 (설비 격자에 넣는 경우) */}
-        {gridContext && (
+        {(
           <DetailRow label="자리">
             {free.length === 0 ? (
               <p className="text-xs text-content-faint">빈 자리 없음</p>

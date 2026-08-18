@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CablePickRequest } from '../cablePick';
-import { Plus } from 'lucide-react';
 import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
-import { AddAssetModal } from '../components/AddAssetModal';
 import { StatusTable } from '../components/StatusTable';
 import { SaveBar } from '../components/SaveBar';
 import { ReportPanel } from '../components/ReportPanel';
@@ -55,7 +53,6 @@ export default function V2WorkspacePage() {
   const focusPortId = route.portId;
   /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 부품. */
   const focusPartId = route.partId;
-  const [addModalOpen, setAddModalOpen] = useState(false);
   const viewMode = route.view;
   /**
    * 「이 포트에서 케이블을 시작해 달라」는 한 번짜리 요청 — 상세 패널 → 평면도.
@@ -225,7 +222,7 @@ export default function V2WorkspacePage() {
   const { rows, fieldColumns } = selected?.kind === 'substation' ? substationRows : nodeRows;
   const nodeScope = isNodeScope;
 
-  // 이 변전소를 실제로 보고 있는가 — 뷰 분기와 '자산 추가' 노출의 공통 전제.
+  // 이 변전소를 실제로 보고 있는가 — 뷰 분기의 전제.
   const inSubstationScope = selected?.kind === 'substation' && substationId === selected.id;
 
   /**
@@ -327,7 +324,7 @@ export default function V2WorkspacePage() {
                     />
                   ) : (
                     /* 현황 뷰 (기본) — **스크롤은 표가 쥔다**. 여기서 감싸 스크롤하면
-                       도구바(자산 추가·검색)까지 함께 쓸려 올라간다. */
+                       도구바(검색)까지 함께 쓸려 올라간다. */
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
                       <StatusTable
@@ -336,19 +333,6 @@ export default function V2WorkspacePage() {
                         selectedId={highlightedAssetId}
                         onSelectAsset={handleSelectAssetId}
                         nodeScope={nodeScope}
-                        /* 주요 동작은 검색과 같은 줄 오른쪽 — 표마다 다른 자리에 두지 않는다. */
-                        actions={
-                          inSubstationScope ? (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              leftIcon={<Plus size={14} />}
-                              onClick={() => setAddModalOpen(true)}
-                            >
-                              자산 추가
-                            </Button>
-                          ) : undefined
-                        }
                       />
                       </div>
                     </div>
@@ -382,10 +366,6 @@ export default function V2WorkspacePage() {
         </main>
       </div>
 
-      {/* 자산 추가 모달 (미배치 추가) */}
-      {substationId != null && (
-        <AddAssetModal open={addModalOpen} onClose={() => setAddModalOpen(false)} substationId={substationId} />
-      )}
 
       {/* 설계서 패널 (조건부 마운트 — 닫힌 상태에서 store 구독/계산 방지) */}
       {reportOpen && <ReportPanel open onClose={() => setReportOpen(false)} />}
