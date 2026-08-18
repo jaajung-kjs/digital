@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
-import { slotNumber, type Grid } from '@twin/core';
+import { type Grid, cellLabel } from '@twin/core';
 import { cn, SELECTABLE, type BadgeStatus, isCancelKey, InsetBox } from '../../components/ui';
 import {
   cellAt, edgeScroll, gridDragTo, gridPlacementChanged, scrollableAncestor, startGridDrag,
@@ -473,15 +473,15 @@ export function AssemblyGrid<T extends GridItem>({
             )}
             title={
               item
-                ? `${item.name} · 자리 ${slotNumber(cols, at.col, at.row)}`
-                : `자리 ${slotNumber(cols, col, row)} (비어 있음)`
+                ? `${item.name} · ${cellLabel(at.col, at.row)}`
+                : `${cellLabel(col, row)} (비어 있음)`
             }
             /* `title` 은 마우스를 얹어야 뜬다 — 읽어 주는 이름은 따로 준다. 칸 안의 글씨는
                좁으면 잘리고 세로로 눕기까지 하므로 그것만으로는 무엇인지 알 수 없다. */
             aria-label={
               item
-                ? `${item.name}, 자리 ${slotNumber(cols, at.col, at.row)}`
-                : `자리 ${slotNumber(cols, col, row)}, 비어 있음. 눌러서 추가`
+                ? `${item.name}, ${cellLabel(at.col, at.row)}`
+                : `${cellLabel(col, row)}, 비어 있음. 눌러서 추가`
             }
             /* 누름만 알린다 — 이동·끝냄은 격자가 받는다(한 손짓이 두 번 해석되지 않게).
                `onClick` 은 두지 않는다: 끈 뒤에도 click 이 뒤따라 나서 상세 패널이 열렸다.

@@ -1,4 +1,4 @@
-import { validateAssembly, type AssemblyError } from '@twin/core';
+import { validateAssembly, type AssemblyError, ASSEMBLY_GRID } from '@twin/core';
 import type { V2Assembly, V2AssemblyItem, V2AssetType } from './types';
 
 /**
@@ -14,8 +14,6 @@ export interface AssemblyDraft {
   name: string;
   categoryId: string;
   /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다. */
-  gridCols: number;
-  gridRows: number;
   /** 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */
   laborCode: string | null;
   unitPrice: number | null;
@@ -33,8 +31,6 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
     key: a.key,
     name: a.name,
     categoryId: a.categoryId,
-    gridCols: a.gridCols,
-    gridRows: a.gridRows,
     laborCode: a.laborCode,
     unitPrice: a.unitPrice,
     installManDays: a.installManDays,
@@ -50,7 +46,7 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
 export function emptyAssemblyDraft(): AssemblyDraft {
   // 19인치 랙 한 대가 가장 흔한 모양이라 그것을 기본으로 둔다.
   return {
-    key: '', name: '', categoryId: '', gridCols: 4, gridRows: 12,
+    key: '', name: '', categoryId: '',
     laborCode: null,
     unitPrice: null, installManDays: null, removeManDays: null, relocateManDays: null,
     sortOrder: 0, items: [],
@@ -97,7 +93,7 @@ export function assemblyIssues(draft: AssemblyDraft, types: V2AssetType[]): Asse
     {
       key: draft.key,
       name: draft.name,
-      grid: { cols: draft.gridCols, rows: draft.gridRows },
+      grid: ASSEMBLY_GRID,
       items: draft.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
     },
     new Set(types.map((t) => t.key)),
@@ -113,8 +109,8 @@ export function draftToAssemblyBody(draft: AssemblyDraft) {
     ...(draft.key === '' ? {} : { key: draft.key }),
     name: draft.name.trim(),
     categoryId: draft.categoryId,
-    gridCols: draft.gridCols,
-    gridRows: draft.gridRows,
+    gridCols: ASSEMBLY_GRID.cols,
+    gridRows: ASSEMBLY_GRID.rows,
     laborCode: draft.laborCode,
     unitPrice: draft.unitPrice,
     installManDays: draft.installManDays,

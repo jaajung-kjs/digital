@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Input, Modal, Select, DetailRow } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
-import { slotNumber } from '@twin/core';
+import { cellLabel } from '@twin/core';
 import { makeNewAsset, freeCells } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 
@@ -181,7 +181,7 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
                   const key = `${cell.col},${cell.row}`;
                   return (
                     <option key={key} value={key}>
-                      자리 {slotNumber(gridContext.grid.cols, cell.col, cell.row)}
+                      {cellLabel(cell.col, cell.row)}
                     </option>
                   );
                 })}

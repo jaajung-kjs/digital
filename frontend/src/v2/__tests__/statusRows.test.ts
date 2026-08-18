@@ -8,7 +8,7 @@ const types = new Map([
   ['t-mod', { id: 't-mod', name: 'PITR', categoryId: 'c-1' } as never],
 ]);
 const categories = new Map([['c-1', '통신']]);
-/* 자리 번호는 상위 **설비의 설비 종류의 격자**에서 나온다. 설비 종류로 놓은 설비는 설비 종류가 곧 분류다. */
+/* 격자 안의 자리는 행·열로 적는다. 설비 종류로 놓은 설비는 설비 종류가 곧 분류다. */
 const assemblies = new Map([['asm-rack', { id: 'asm-rack', name: '송변전광단말장치', gridCols: 1, gridRows: 12 } as never]]);
 
 describe('buildStatusRows (변전소 스코프)', () => {
@@ -28,8 +28,8 @@ describe('buildStatusRows (변전소 스코프)', () => {
     });
     expect(rows[0]).toMatchObject({ id: 'a-1', typeName: '송변전광단말장치', location: '1층', lastInspectedAt: '2026-07-01T00:00:00.000Z', status: 'normal' });
     expect(rows[0]?.fieldValues).toMatchObject({ installDate: '2026-01-01', manager: '홍길동' });
-    // 위치는 층까지 거슬러 올라간다 — 예전에는 '랙1 · 자리 4' 라서 몇 층인지 알 수 없었다.
-    expect(rows[1]).toMatchObject({ id: 'a-2', location: '1층 · 랙1 · 자리 4', lastInspectedAt: null });
+    // 위치는 층까지 거슬러 올라간다 — 예전에는 '랙1 · 4행 1열' 라서 몇 층인지 알 수 없었다.
+    expect(rows[1]).toMatchObject({ id: 'a-2', location: '1층 · 랙1 · 4행 1열', lastInspectedAt: null });
     expect(rows[2]).toMatchObject({ id: 'a-3', location: '미배치', status: 'standby', lastInspectedAt: null });
   });
 

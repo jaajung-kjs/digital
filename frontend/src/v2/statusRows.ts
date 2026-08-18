@@ -77,7 +77,7 @@ export function buildStatusRows(args: {
          이름을 글자로 굳히지 않고 설비 종류를 가리키므로, 설비 종류 이름을 고치면 여기도 따라 바뀐다. */
       typeName: (a.assemblyId && args.assembliesById?.get(a.assemblyId)?.name) || type?.name || '—',
       name: a.name,
-      location: assetLocationPath(a, assetById, floorName, args.assembliesById),
+      location: assetLocationPath(a, assetById, floorName),
       lastInspectedAt: inspections.length ? [...inspections].sort().at(-1)! : null,
       status: a.status,
       fieldValues: a.fieldValues,

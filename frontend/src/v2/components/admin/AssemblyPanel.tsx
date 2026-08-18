@@ -11,10 +11,10 @@
  * 달라 보이면 짜는 뜻이 없다.
  */
 import { useMemo, useRef, useState } from 'react';
-import { freeCells, slotNumber, validateGridPlacement } from '@twin/core';
+import { freeCells, validateGridPlacement, ASSEMBLY_GRID, cellLabel } from '@twin/core';
 import { LaborSpecForm } from './LaborSpecForm';
 import {
-  Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
+  Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
   useDismissOnOutside,
   EMPTY,
 } from '../../../components/ui';
@@ -47,7 +47,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   useDismissOnOutside(selectedItemId != null, [canvasRef, asideRef], () => setSelectedItemId(null));
 
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
-  const grid = { cols: draft.gridCols, rows: draft.gridRows };
+  const grid = ASSEMBLY_GRID;
 
   function addPart(typeId: string) {
     if (!addCell) return;
@@ -195,26 +195,10 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
                   ))}
                 </Select>
               </DetailRow>
-              {/* 격자는 이 설비의 안쪽 모양이다 — 전폭 모듈은 여러 열을 걸치고, 세로로 긴
-                  모듈은 여러 행을 걸친다. */}
-              <DetailGrid>
-                <DetailRow label="행 수" issue={issueOf(issues, 'grid')}>
-                  <Input
-                    aria-label="격자 행 수"
-                    type="number"
-                    value={String(draft.gridRows)}
-                    onChange={(e) => onChange({ ...draft, gridRows: Math.max(Number(e.currentTarget.value) || 1, 1) })}
-                  />
-                </DetailRow>
-                <DetailRow label="열 수">
-                  <Input
-                    aria-label="격자 열 수"
-                    type="number"
-                    value={String(draft.gridCols)}
-                    onChange={(e) => onChange({ ...draft, gridCols: Math.max(Number(e.currentTarget.value) || 1, 1) })}
-                  />
-                </DetailRow>
-              </DetailGrid>
+              {/* 행·열 수를 묻지 않는다 — 격자는 **모든 설비가 같은 도화지**다
+                  (`ASSEMBLY_GRID`). 그 설비가 어떤 물건인지는 크기가 아니라 안에 무엇이
+                  놓였는가가 말한다. 접지함체를 1×1 로 지을 이유가 없다: 판은 그대로 두고
+                  부품을 크게 그리면 된다. */}
             </DetailCard>
 
             {/* ── 1식 공량 ───────────────────────────────────────────────
@@ -237,8 +221,8 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           onClose={() => { setAddCell(null); setAddQuery(''); }}
           title={
             addCell.colSpan && addCell.colSpan * (addCell.rowSpan ?? 1) > 1
-              ? `자리 ${slotNumber(draft.gridCols, addCell.col, addCell.row)} 부터 ${addCell.colSpan}×${addCell.rowSpan} 에 넣기`
-              : `자리 ${slotNumber(draft.gridCols, addCell.col, addCell.row)} 에 넣기`
+              ? `${cellLabel(addCell.col, addCell.row)} 부터 ${addCell.colSpan}×${addCell.rowSpan} 에 넣기`
+              : `${cellLabel(addCell.col, addCell.row)} 에 넣기`
           }
         >
           {addable.length === 0 ? (

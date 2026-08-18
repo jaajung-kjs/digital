@@ -1,5 +1,5 @@
-import { slotNumber } from '@twin/core';
-import type { V2Asset, V2Assembly } from './types';
+import { cellLabel } from '@twin/core';
+import type { V2Asset } from './types';
 
 /**
  * 자산이 어디에 있는가 — 층부터 슬롯까지 전체 경로.
@@ -11,14 +11,12 @@ import type { V2Asset, V2Assembly } from './types';
  * 같은 계산이 현황표와 상세 패널에 각각 복제돼 있었다(한쪽만 고치면 두 화면이 달라진다).
  * 여기 한 곳에 둔다.
  *
- * 자리 번호는 격자에서 유도한다 — 열이 몇인지는 **상위 설비의 설비 종류**가 안다.
- * 설비 종류를 못 주면 번호를 생략한다(이름만으로도 어디인지는 읽힌다).
+ * 격자 안의 자리는 **행·열**로 적는다 — 좌표를 번호 하나로 접지 않는다.
  */
 export function assetLocationPath(
   asset: V2Asset,
   assetById: Map<string, V2Asset>,
   floorNameById: Map<string, string>,
-  assembliesById?: Map<string, V2Assembly>,
 ): string {
   const parts: string[] = [];
   let cur: V2Asset | undefined = asset;
@@ -36,12 +34,12 @@ export function assetLocationPath(
       break;
     }
     const parent: V2Asset | undefined = assetById.get(cur.parentAssetId);
-    /* 자리 번호는 "그 상위의 몇 번 자리인가" 이므로 상위 이름 뒤에 붙인다.
-       격자가 몇 열인지는 상위 설비의 설비 종류가 선언한다 — 2열짜리 분전반은 1·2 가 첫 행이다. */
-    const assembly = parent?.assemblyId ? assembliesById?.get(parent.assemblyId) : undefined;
+    /* 자리는 "그 상위의 어느 칸인가" 이므로 상위 이름 뒤에 붙인다. 칸은 **행·열로 말한다** —
+       예전에는 `row × cols + col + 1` 로 접어 「자리 4」라고 불렀는데, 도화지 좌표에 이름을
+       붙인 것일 뿐이라 도화지가 촘촘해지면 뜻이 없어진다. */
     const slot =
       cur.col != null && cur.row != null
-        ? ` · 자리 ${slotNumber(assembly?.gridCols ?? 1, cur.col, cur.row)}`
+        ? ` · ${cellLabel(cur.col, cur.row)}`
         : '';
     parts.unshift(`${parent?.name ?? '—'}${slot}`);
     cur = parent;
