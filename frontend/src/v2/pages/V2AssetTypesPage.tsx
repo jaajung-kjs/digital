@@ -80,8 +80,18 @@ function CatalogAdmin() {
   const isNew = selectedTypeId === NEW_ID;
   const original: V2AssetType | null = isNew ? null : (catalog?.types.find((t) => t.id === selectedTypeId) ?? null);
 
-  // 구조 잠금: assetCount > 0 → 포트 read-only
-  const locked = (original?.assetCount ?? 0) > 0;
+  /**
+   * 사용 중이면 **늘리기만** 된다 — 구획마다 「이 아래로는 못 내린다」는 바닥을 준다.
+   *
+   * 예전에는 자산이 하나라도 있으면 포트 칸을 통째로 잠갔다. 그런데 위험한 것은 없애는
+   * 쪽이고(케이블이 물린 포트가 사라진다) 더하는 쪽은 빈 자리가 늘 뿐이다. 서버도 같은
+   * 규칙으로 잰다(`comparePortStructure`) — 화면이 먼저 말해 주지 않으면 저장할 때 튕긴다.
+   */
+  const inUseCount = original?.assetCount ?? 0;
+  const portFloors =
+    inUseCount > 0 && original
+      ? Object.fromEntries(original.portTemplates.map((p) => [p.group, p.count]))
+      : null;
 
   // dirty 여부
   const dirty = draft != null ? isDraftDirty(draft, original) : false;
@@ -289,7 +299,9 @@ function CatalogAdmin() {
                     error={saveError ?? gate.blockedMessage}
                     onDismissError={() => setSaveError(null)}
                     notice={
-                      locked ? <InUseNotice count={original?.assetCount ?? 0} message="포트 구조는 변경할 수 없습니다" /> : null
+                      portFloors ? (
+                        <InUseNotice count={inUseCount} message="포트는 늘릴 수만 있습니다 — 줄이거나 지울 수 없습니다" />
+                      ) : null
                     }
                     onDelete={isNew ? undefined : () => void handleDeleteType()}
                     deleteLabel="종류 삭제"
@@ -309,7 +321,7 @@ function CatalogAdmin() {
                       <PortsEditor
                         draft={draft}
                         onChange={handleChange}
-                        locked={locked}
+                        floors={portFloors}
                         issues={issues}
                       />
                     </div>

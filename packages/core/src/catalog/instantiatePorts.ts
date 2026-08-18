@@ -1,4 +1,5 @@
 import type { PortRef, PortTemplate } from './types.js';
+import { portName } from './portStructure.js';
 
 /**
  * 포트 템플릿에서 자산 인스턴스의 포트 목록을 만든다. id 는 부르는 쪽이 붙인다.
@@ -25,7 +26,7 @@ export function instantiatePorts(
       assetId,
       group: tpl.group,
       index: i + 1,
-      name: tpl.namePattern.replace('{n}', String(i + 1)),
+      name: portName(tpl.namePattern, i + 1),
       direction: tpl.direction,
       medium: tpl.medium,
       positions,

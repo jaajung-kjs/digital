@@ -55,7 +55,7 @@ describe('PortsEditor', () => {
     const draft = mkDraft([
       { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '코어 {n}' },
     ]);
-    render(<PortsEditor draft={draft} onChange={vi.fn()} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={vi.fn()} floors={null} issues={[]} />);
 
     // 구획 이름은 포트 이름에서 나온다(광이 둘이라 갈린다) — 그 옆 칸이 개수다.
     expect((screen.getByLabelText('코어 개수') as HTMLInputElement).value).toBe('12');
@@ -66,7 +66,7 @@ describe('PortsEditor', () => {
 
   /* 표는 늘 일곱 줄이다 — 무엇을 고르든 키가 그대로여야 자산마다 화면이 달라지지 않는다. */
   it('(a-2) 포트가 하나도 없어도 종류 줄은 모두 서 있다', () => {
-    render(<PortsEditor draft={mkDraft([])} onChange={vi.fn()} locked={false} issues={[]} />);
+    render(<PortsEditor draft={mkDraft([])} onChange={vi.fn()} floors={null} issues={[]} />);
     for (const name of ['전원 입력', '전원 출력', '네트워크', '광', 'OPGW', '제어', '접지']) {
       expect((screen.getByLabelText(`${name} 개수`) as HTMLInputElement).value).toBe('0');
     }
@@ -75,7 +75,7 @@ describe('PortsEditor', () => {
   /* 예전에는 종류마다 버튼이 있어 누르면 카드가 하나 쌓였다. 이제 그 줄의 개수를 적으면 된다. */
   it('(b) 개수를 적으면 그 종류의 포트가 규칙에 맞게 만들어진다', () => {
     const onChange = vi.fn();
-    render(<PortsEditor draft={mkDraft([])} onChange={onChange} locked={false} issues={[]} />);
+    render(<PortsEditor draft={mkDraft([])} onChange={onChange} floors={null} issues={[]} />);
 
     fireEvent.change(screen.getByLabelText('네트워크 개수'), { target: { value: '24' } });
 
@@ -89,7 +89,7 @@ describe('PortsEditor', () => {
 
   it('(b-2) 전원은 입력·출력이 따로 있다 — 서로 다른 물건이다', () => {
     const onChange = vi.fn();
-    render(<PortsEditor draft={mkDraft([])} onChange={onChange} locked={false} issues={[]} />);
+    render(<PortsEditor draft={mkDraft([])} onChange={onChange} floors={null} issues={[]} />);
 
     fireEvent.change(screen.getByLabelText('전원 출력 개수'), { target: { value: '2' } });
     expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({ medium: 'power', direction: 'OUT' });
@@ -99,7 +99,7 @@ describe('PortsEditor', () => {
   it('(b-3) 개수를 0 으로 되돌리면 그 종류가 빠진다', () => {
     const existing = mkDraft([{ group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' }]);
     const onChange = vi.fn();
-    render(<PortsEditor draft={existing} onChange={onChange} locked={false} issues={[]} />);
+    render(<PortsEditor draft={existing} onChange={onChange} floors={null} issues={[]} />);
 
     fireEvent.change(screen.getByLabelText('네트워크 개수'), { target: { value: '0' } });
     expect(onChange.mock.calls[0][0].ports).toHaveLength(0);
@@ -113,7 +113,7 @@ describe('PortsEditor', () => {
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
     ]);
     const onChange = vi.fn();
-    render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={onChange} floors={null} issues={[]} />);
 
     fireEvent.change(screen.getByLabelText('OPGW 심선 수'), { target: { value: '12' } });
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
@@ -124,7 +124,7 @@ describe('PortsEditor', () => {
   /* 성단을 켜면 나갈 어댑터가 함께 생긴다 — 24심 인입만 있고 앞면이 없는 판은 없다. */
   it('(f-3) 앞면이 없는 상태에서 성단을 켜면 광 포트가 함께 생긴다', () => {
     const onChange = vi.fn();
-    render(<PortsEditor draft={mkDraft([])} onChange={onChange} locked={false} issues={[]} />);
+    render(<PortsEditor draft={mkDraft([])} onChange={onChange} floors={null} issues={[]} />);
 
     fireEvent.change(screen.getByLabelText('OPGW 개수'), { target: { value: '1' } });
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
@@ -141,7 +141,7 @@ describe('PortsEditor', () => {
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
     ]);
     const onChange = vi.fn();
-    render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={onChange} floors={null} issues={[]} />);
 
     fireEvent.change(screen.getByLabelText('OPGW 심선 수'), { target: { value: '12' } });
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
@@ -154,7 +154,7 @@ describe('PortsEditor', () => {
       { group: 'FIBER', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
     ]);
     const onChange = vi.fn();
-    render(<PortsEditor draft={existing} onChange={onChange} locked={false} issues={[]} />);
+    render(<PortsEditor draft={existing} onChange={onChange} floors={null} issues={[]} />);
 
     expect((screen.getByLabelText('광 개수') as HTMLInputElement).value).toBe('24');
     expect((screen.getByLabelText('OPGW 개수') as HTMLInputElement).value).toBe('0');
@@ -173,28 +173,41 @@ describe('PortsEditor', () => {
     const draft = mkDraft([
       { group: 'A', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'A' },
     ]);
-    render(<PortsEditor draft={draft} onChange={vi.fn()} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={vi.fn()} floors={null} issues={[]} />);
 
     expect(screen.queryAllByRole('combobox')).toHaveLength(0);
     expect(screen.queryAllByRole('textbox')).toHaveLength(0);
   });
 
-  it('(d) locked=true이면 입력 전부 disabled', () => {
+  /* 사용 중이어도 **늘리는 것은 된다**. 예전에는 자산이 하나라도 있으면 칸을 통째로 잠가서,
+     종류를 잘못 등록해 포트 두 개를 더 달아야 할 때 할 수 있는 일이 「자산을 다 지우고 다시
+     만들기」뿐이었다. 위험한 것은 없애는 쪽이다. */
+  it('(d) 사용 중이면 지금 개수가 바닥이 된다 — 늘리는 것은 열려 있다', () => {
     const draft = mkDraft([
-      { group: 'A', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'A' },
+      { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' },
     ]);
     const onChange = vi.fn();
 
-    render(<PortsEditor draft={draft} onChange={onChange} locked={true} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={onChange} floors={{ NETWORK: 2 }} issues={[]} />);
 
-    const spinbuttons = screen.queryAllByRole('spinbutton');
-    // queryAll* 은 없으면 빈 배열을 조용히 돌려준다 — count 입력이 사라지는 회귀가
-    // 나도 아래 forEach 가 0회 돌아 통과해 버린다.
-    expect(spinbuttons.length).toBeGreaterThan(0);
-    spinbuttons.forEach((input) => expect((input as HTMLInputElement).disabled).toBe(true));
+    const count = screen.getByLabelText('네트워크 개수') as HTMLInputElement;
+    expect(count.disabled).toBe(false);
+    expect(count.min).toBe('2'); // 이 아래로는 못 내린다
 
-    // 구조가 잠겼으면 개수 칸이 전부 잠긴다 — 표의 모양은 그대로 두되 손댈 수 없다.
-    expect(screen.getAllByRole('spinbutton').every((x) => (x as HTMLInputElement).disabled)).toBe(true);
+    fireEvent.change(count, { target: { value: '4' } });
+    expect(onChange.mock.calls[0]![0].ports[0]).toMatchObject({ count: 4 });
+  });
+
+  /* 줄이는 쪽은 바닥이 막는다 — 서버도 같은 규칙으로 거절한다(`comparePortStructure`). */
+  it('(d-2) 사용 중인 구획은 바닥 아래로 내려가지 않는다', () => {
+    const draft = mkDraft([
+      { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' },
+    ]);
+    const onChange = vi.fn();
+
+    render(<PortsEditor draft={draft} onChange={onChange} floors={{ NETWORK: 2 }} issues={[]} />);
+    fireEvent.change(screen.getByLabelText('네트워크 개수'), { target: { value: '0' } });
+    expect(onChange.mock.calls[0]![0].ports[0]).toMatchObject({ count: 2 });
   });
 
   /* 심선 수는 **다심이 있는 종류**(광)에만 뜬다. 그 안에서 1이면 어댑터, 24면 성단이다 —
@@ -205,7 +218,7 @@ describe('PortsEditor', () => {
       { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
     ]);
-    render(<PortsEditor draft={draft} onChange={vi.fn()} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={vi.fn()} floors={null} issues={[]} />);
 
     expect(screen.queryByLabelText('전원 입력 심선 수')).toBeNull(); // 전원 — 다심이 없다
     expect(screen.queryByLabelText('광 심선 수')).toBeNull();        // 단심 광 어댑터 — 늘 1
@@ -217,7 +230,7 @@ describe('PortsEditor', () => {
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
     ]);
     const onChange = vi.fn();
-    render(<PortsEditor draft={draft} onChange={onChange} locked={false} issues={[]} />);
+    render(<PortsEditor draft={draft} onChange={onChange} floors={null} issues={[]} />);
 
     fireEvent.change(screen.getByLabelText('OPGW 심선 수'), { target: { value: '12' } });
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };

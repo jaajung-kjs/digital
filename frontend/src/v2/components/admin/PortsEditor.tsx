@@ -19,7 +19,10 @@
  * **묻는 것은 개수와 심선 수뿐**이다. 그룹 키·방향·매체·이름 패턴은 종류가 이미 정한 값이라
  * 물어 봐야 답이 하나뿐인 칸이었다.
  *
- * 구조 잠금(locked=true): 모든 입력 disabled
+ * **사용 중이면 늘리기만 된다**(`floors`). 예전에는 자산이 하나라도 있으면 모든 칸을 잠갔다 —
+ * 종류를 잘못 등록해 포트 두 개를 더 달아야 할 때 할 수 있는 일이 「자산을 다 지우고 다시
+ * 만들기」뿐이었다. 위험한 것은 없애는 쪽이다(케이블이 물린 포트가 사라진다). 더하는 쪽은
+ * 빈 자리가 늘 뿐이므로 막을 이유가 없다.
  */
 import { useMemo } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
@@ -37,7 +40,14 @@ type PortRow = TypeDraft['ports'][number];
 interface PortsEditorProps {
   draft: TypeDraft;
   onChange: (patch: Partial<TypeDraft>) => void;
-  locked: boolean;
+  /**
+   * 구획별 **내릴 수 없는 바닥** — 이미 놓인 자산이 가진 개수다. 사용 중이 아니면 `null`.
+   *
+   * 서버가 재는 규칙(`comparePortStructure`)과 같은 것을 화면에서도 말한다: 늘리는 것은 되고
+   * 줄이는 것은 안 된다. 심선 수는 포트가 느는 것이 아니라 **있는 포트의 속이 바뀌는** 일이라
+   * 바닥이 있는 구획에서는 잠근다.
+   */
+  floors: Record<string, number> | null;
   issues: TypeSpecIssue[];
 }
 
@@ -80,7 +90,7 @@ function CountField({
   );
 }
 
-export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProps) {
+export function PortsEditor({ draft, onChange, floors, issues }: PortsEditorProps) {
   const ports = draft.ports;
   const mediumLabel = useMediumLabel();
   const mediumColor = useMediumColor();
@@ -158,15 +168,17 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
         {declared.map(({ row }) => {
           const label = labelOf(row, declared, mediumLabel);
           const on = row.count > 0;
+          /* 이 구획은 여기까지만 내려간다 — 이미 놓인 자산이 그만큼 갖고 있다. */
+          const floor = floors?.[row.group] ?? 0;
           return (
             <span key={row.group} className="flex items-center gap-1">
               <span className={cn('text-xs', on ? 'text-content' : 'text-content-faint')}>{label}</span>
               <CountField
                 label={`${label} 개수`}
                 value={row.count}
-                min={0}
-                disabled={locked}
-                onChange={(raw) => patch(row, { count: Math.max(Number(raw) || 0, 0) })}
+                min={floor}
+                disabled={false}
+                onChange={(raw) => patch(row, { count: Math.max(Number(raw) || 0, floor) })}
               />
               {/* 심선 수는 다심 종류에만, 그것도 켜져 있을 때만.
                   **두 수에 단위를 적는다.** 예전에는 `1 × 24` 뿐이라 곱셈인지 「1구에 24코어」
@@ -179,7 +191,7 @@ export function PortsEditor({ draft, onChange, locked, issues }: PortsEditorProp
                     label={`${label} 심선 수`}
                     value={row.positions ?? DEFAULT_CORE_COUNT}
                     min={2}
-                    disabled={locked}
+                    disabled={floor > 0}
                     onChange={(raw) => patch(row, { positions: Math.max(Number(raw) || 2, 2) })}
                   />
                   <span className="text-xs text-content-faint">코어</span>

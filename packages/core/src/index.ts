@@ -1,5 +1,6 @@
 export * from './catalog/types.js';
 export * from './catalog/instantiatePorts.js';
+export * from './catalog/portStructure.js';
 export * from './catalog/status.js';
 export * from './catalog/portKinds.js';
 export * from './catalog/specFromCatalog.js';

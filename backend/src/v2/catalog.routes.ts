@@ -1,4 +1,5 @@
-import { specFromUpsert, validateAssembly, validateTypeSpec } from '@twin/core';
+import { comparePortStructure, portName, specFromUpsert, validateAssembly, validateTypeSpec } from '@twin/core';
+import type { PortAddition } from '@twin/core';
 import { z } from 'zod';
 import type { TypeUpsertBody } from '@twin/core';
 import { Router } from 'express';
@@ -52,18 +53,45 @@ async function createTypeStructure(
 
 
 /**
- * 구조(포트) 동일성 비교 키 — id/sortOrder 제외 캐노니컬 JSON.
+ * 이미 놓인 자산들에 **늘어난 포트를 달아 준다**.
  *
- * 포트가 바뀌면 이미 만들어진 자산의 포트와 어긋나므로, 인스턴스가 있는 타입에서는 막는다.
+ * 선언만 고치고 말면 「포트를 더했다」가 새로 놓는 자산에만 참이 된다 — 정작 고치려던
+ * 그 자산은 그대로다. 종류를 잘못 등록해 두 개를 더 달아야 하는 상황이 바로 이것이다.
+ *
+ * **늘어난 만큼만 더한다**(자산이 지금 가진 수 + delta). 선언의 개수로 맞추지 않는 이유:
+ * 같은 종류라도 실물은 규모가 다를 수 있어 자산마다 제 개수를 가질 수 있다(12심 판과 24심
+ * 판). 선언 값으로 덮으면 그 자산의 규모가 조용히 바뀐다.
  */
-function structuralKey(
-  ports: Array<{ group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null }>,
-): string {
-  return JSON.stringify(
-    [...ports]
-      .sort((a, b) => a.group.localeCompare(b.group))
-      .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1 })),
-  );
+async function addPortsToExistingAssets(tx: Prisma.TransactionClient, typeId: string, additions: readonly PortAddition[]): Promise<void> {
+  if (additions.length === 0) return;
+  const assets = await tx.asset.findMany({
+    where: { typeId },
+    select: { id: true, ports: { select: { group: true, index: true, positions: true } } },
+  });
+
+  for (const asset of assets) {
+    const rows = additions.flatMap((add) => {
+      const have = asset.ports.filter((p) => p.group === add.group);
+      const last = have.reduce((m, p) => Math.max(m, p.index), 0);
+      /* 심선 수는 **그 자산이 쓰던 값**을 따른다 — 선언 값으로 새 포트만 다르게 만들면
+         한 판 안에서 12심과 24심이 섞인다. 그 구획이 처음이면 선언을 쓴다. */
+      const positions = have[0]?.positions ?? add.template.positions ?? 1;
+      return Array.from({ length: add.delta }, (_, i) => ({
+        assetId: asset.id,
+        group: add.group,
+        index: last + i + 1,
+        name: portName(add.template.namePattern, last + i + 1),
+        direction: add.template.direction,
+        medium: add.template.medium,
+        positions,
+      }));
+    });
+    if (rows.length === 0) continue;
+    await tx.port.createMany({ data: rows });
+    /* 자산이 달라졌다고 알린다 — 워킹카피는 `updatedAt` 으로 「내 사본이 낡았나」를 판단한다.
+       안 올리면 낡은 사본이 낡은 줄 모르고 저장을 시도한다. */
+    await tx.asset.update({ where: { id: asset.id }, data: { updatedAt: new Date() } });
+  }
 }
 
 // ── GET / — 카탈로그 전체 조회 (기존 유지 + assetCount 추가) ────────────────
@@ -298,14 +326,18 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
-    // 구조 변경 여부 확인 (한 번만 계산해 가드/교체 판단에 재사용)
-    const oldKey = structuralKey(existing.portTemplates);
-    const newKey = structuralKey(body.ports);
-    const structureChanged = oldKey !== newKey;
-
+    /* **늘리는 것은 되고, 줄이거나 바꾸는 것은 안 된다.**
+       예전에는 「달라졌나」만 봐서, 자산이 하나라도 있으면 포트를 한 개도 더할 수 없었다 —
+       종류를 잘못 등록한 뒤 할 수 있는 일이 「자산을 다 지우고 다시 만들기」뿐이었다.
+       위험한 것은 없애는 쪽이다(케이블이 물린 포트가 사라진다). 더하는 쪽은 빈 자리가 늘 뿐이다. */
+    const change = comparePortStructure(existing.portTemplates, body.ports);
     const assetCount = existing._count.assets;
-    if (assetCount > 0 && structureChanged) {
-      throw new HttpError(409, 'TYPE_IN_USE', `사용 중인 타입입니다 (자산 ${assetCount}개) — 구조 변경 불가`);
+    if (assetCount > 0 && change.verdict === 'breaking') {
+      throw new HttpError(
+        409,
+        'TYPE_IN_USE',
+        `사용 중인 타입입니다 (자산 ${assetCount}개) — 포트는 늘릴 수만 있습니다`,
+      );
     }
 
     const updated = await nextDb.$transaction(async (tx) => {
@@ -324,11 +356,11 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         },
       });
 
-      // 구조가 변경된 경우(인스턴스 없음 확정) 명세 교체
-      if (structureChanged) {
-            await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
-    
+      if (change.verdict !== 'same') {
+        await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
         await createTypeStructure(tx, id, body);
+        // 늘린 것은 **이미 놓인 자산에도** 달아 준다 — 선언만 고치면 정작 그 자산은 그대로다.
+        if (change.verdict === 'additive') await addPortsToExistingAssets(tx, id, change.additions);
       }
 
       const { _count, ...row } = await tx.assetType.findUniqueOrThrow({
