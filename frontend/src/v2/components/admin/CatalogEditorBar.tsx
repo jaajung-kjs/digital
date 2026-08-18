@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-import { Badge, Button, ErrorStrip, MessageStrip, OverflowMenu } from '../../../components/ui';
+import { Button, ErrorStrip, MessageStrip, OverflowMenu } from '../../../components/ui';
 
 export interface CatalogEditorBarProps {
   /** 지금 편집 중인 것의 이름 — 새로 만드는 중이면 「새 …」. */
@@ -20,8 +19,6 @@ export interface CatalogEditorBarProps {
   /** 저장 실패 메시지 — 닫을 수 있다. */
   error?: string | null;
   onDismissError?: () => void;
-  /** 「몇 개 사용 중」 같은 안내 — 구조 잠금처럼 저장 전에 알아야 하는 것. */
-  notice?: ReactNode;
   /** 되돌릴 수 없는 동작 — 저장 옆이 아니라 이름 옆 `⋯` 안에 선다. */
   onDelete?: () => void;
   deleteLabel?: string;
@@ -44,10 +41,10 @@ export interface CatalogEditorBarProps {
  */
 export function CatalogEditorBar({
   title, dirty, saving, issueCount = 0, showIssues = false, error, onDismissError,
-  notice, onDelete, deleteLabel, onCancel, onSave,
+  onDelete, deleteLabel, onCancel, onSave,
 }: CatalogEditorBarProps) {
   /* 띠가 하나도 없으면 상자째 그리지 않는다 — 빈 상자가 여백을 만들어 캔버스가 밀린다. */
-  const hasNotice = !!error || (showIssues && issueCount > 0) || notice != null;
+  const hasNotice = !!error || (showIssues && issueCount > 0);
   return (
     <>
       {/* 높이를 못 박는다 — `⋯` 가 있는 화면(46)과 없는 화면(42)이 4px 달라서, 화면을
@@ -88,26 +85,8 @@ export function CatalogEditorBar({
           {showIssues && issueCount > 0 && !error && (
             <MessageStrip tone="warning">입력 오류 {issueCount}건 — 저장 전에 수정하세요</MessageStrip>
           )}
-          {notice}
         </div>
       )}
     </>
-  );
-}
-
-/**
- * 「몇 개 사용 중」 안내 — 사용자가 낸 오류가 아니라 **사정**이다.
- *
- * 예전에는 컨테이너 없이 맨 문장이 `text-danger` 빨강으로 떠 있었다. 고칠 수 없는 것을
- * 빨갛게 칠하면 빨강이 아무 뜻도 없어진다 — 띠에 담고 톤을 낮춘다.
- */
-export function InUseNotice({ count, message }: { count: number; message: string }) {
-  return (
-    <MessageStrip tone="info">
-      <span className="flex items-center gap-2">
-        <Badge status="info">{count}개 사용 중</Badge>
-        <span>{message}</span>
-      </span>
-    </MessageStrip>
   );
 }

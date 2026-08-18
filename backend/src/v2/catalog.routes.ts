@@ -1,5 +1,5 @@
 import { comparePortStructure, portName, specFromUpsert, validateAssembly, validateTypeSpec } from '@twin/core';
-import type { PortAddition } from '@twin/core';
+import type { PortChange } from '@twin/core';
 import { z } from 'zod';
 import type { TypeUpsertBody } from '@twin/core';
 import { Router } from 'express';
@@ -53,6 +53,44 @@ async function createTypeStructure(
 
 
 /**
+ * 줄이려는 포트 가운데 **케이블이 물린 것** — 있으면 줄일 수 없다.
+ *
+ * 「사용 중인 타입이면 무조건 막기」는 눈먼 규칙이었다. 잘못 만든 포트를 지우는 일까지 함께
+ * 막혀서, 할 수 있는 일이 「자산을 다 지우고 다시 만들기」뿐이었다. 정작 위험한 것은 **그
+ * 포트에 케이블이 물려 있을 때**뿐이다 — 그것만 본다.
+ *
+ * **뒤에서부터 뗀다.** 자산마다 제 개수를 가질 수 있으므로(12심 판과 24심 판) 선언의 개수로
+ * 맞추지 않고 줄어든 만큼만 덜어낸다 — 붙일 때와 같은 셈이다.
+ */
+async function portsToRemove(
+  tx: Prisma.TransactionClient,
+  typeId: string,
+  removals: readonly PortChange[],
+): Promise<{ id: string; label: string }[]> {
+  if (removals.length === 0) return [];
+  const assets = await tx.asset.findMany({
+    where: { typeId },
+    select: {
+      id: true,
+      name: true,
+      /* 같은 이름의 자산이 변전소마다 있다 — 「광단말 A 광 12」가 두 번 적히면 한 자산이
+         두 번 걸린 것처럼 읽힌다. 어디 것인지까지 말해야 찾아갈 수 있다. */
+      substation: { select: { name: true } },
+      ports: { select: { id: true, group: true, index: true, name: true } },
+    },
+  });
+  return assets.flatMap((asset) =>
+    removals.flatMap((cut) =>
+      asset.ports
+        .filter((p) => p.group === cut.group)
+        .sort((a, b) => b.index - a.index)
+        .slice(0, cut.delta)
+        .map((p) => ({ id: p.id, label: `${asset.substation.name} ${asset.name} ${p.name}` })),
+    ),
+  );
+}
+
+/**
  * 이미 놓인 자산들에 **늘어난 포트를 달아 준다**.
  *
  * 선언만 고치고 말면 「포트를 더했다」가 새로 놓는 자산에만 참이 된다 — 정작 고치려던
@@ -62,7 +100,7 @@ async function createTypeStructure(
  * 같은 종류라도 실물은 규모가 다를 수 있어 자산마다 제 개수를 가질 수 있다(12심 판과 24심
  * 판). 선언 값으로 덮으면 그 자산의 규모가 조용히 바뀐다.
  */
-async function addPortsToExistingAssets(tx: Prisma.TransactionClient, typeId: string, additions: readonly PortAddition[]): Promise<void> {
+async function addPortsToExistingAssets(tx: Prisma.TransactionClient, typeId: string, additions: readonly PortChange[]): Promise<void> {
   if (additions.length === 0) return;
   const assets = await tx.asset.findMany({
     where: { typeId },
@@ -326,17 +364,17 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
-    /* **늘리는 것은 되고, 줄이거나 바꾸는 것은 안 된다.**
-       예전에는 「달라졌나」만 봐서, 자산이 하나라도 있으면 포트를 한 개도 더할 수 없었다 —
-       종류를 잘못 등록한 뒤 할 수 있는 일이 「자산을 다 지우고 다시 만들기」뿐이었다.
-       위험한 것은 없애는 쪽이다(케이블이 물린 포트가 사라진다). 더하는 쪽은 빈 자리가 늘 뿐이다. */
+    /* 늘리는 것은 언제나 되고, **줄이는 것은 그 포트가 안 쓰일 때** 된다.
+       예전에는 「달라졌나」만 봐서, 자산이 하나라도 있으면 늘리지도 줄이지도 못했다 — 종류를
+       잘못 등록한 뒤 할 수 있는 일이 「자산을 다 지우고 다시 만들기」뿐이었다. 위험한 것은
+       사라질 포트에 케이블이 물려 있을 때뿐이다(그 연결이 갈 곳을 잃는다). */
     const change = comparePortStructure(existing.portTemplates, body.ports);
     const assetCount = existing._count.assets;
-    if (assetCount > 0 && change.verdict === 'breaking') {
+    if (assetCount > 0 && change.redefined) {
       throw new HttpError(
         409,
         'TYPE_IN_USE',
-        `사용 중인 타입입니다 (자산 ${assetCount}개) — 포트는 늘릴 수만 있습니다`,
+        `사용 중인 타입입니다 (자산 ${assetCount}개) — 이미 있는 포트의 방향·매체·이름·심선 수는 바꿀 수 없습니다`,
       );
     }
 
@@ -356,11 +394,35 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         },
       });
 
-      if (change.verdict !== 'same') {
+      if (change.redefined || change.additions.length > 0 || change.removals.length > 0) {
+        /* 줄이는 쪽은 **사라질 포트에 케이블이 물렸는지**만 본다. 물려 있으면 어느 자산의
+           어느 포트인지 말해 준다 — 「사용 중입니다」로 끝내면 무엇을 먼저 풀어야 할지 알 수 없다. */
+        const cut = await portsToRemove(tx, id, change.removals);
+        if (cut.length > 0) {
+          const cutIds = cut.map((p) => p.id);
+          const used = await tx.cable.findMany({
+            where: { OR: [{ aPortId: { in: cutIds } }, { bPortId: { in: cutIds } }] },
+            select: { aPortId: true, bPortId: true },
+          });
+          const usedIds = new Set(used.flatMap((c) => [c.aPortId, c.bPortId]));
+          const blocked = cut.filter((p) => usedIds.has(p.id));
+          if (blocked.length > 0) {
+            const head = blocked.slice(0, 3).map((p) => p.label).join(', ');
+            throw new HttpError(
+              409,
+              'PORT_IN_USE',
+              `케이블이 물린 포트는 지울 수 없습니다 — ${head}${blocked.length > 3 ? ` 외 ${blocked.length - 3}건` : ''}`,
+            );
+          }
+          await tx.port.deleteMany({ where: { id: { in: cutIds } } });
+          /* 포트가 달라진 자산은 낡았다고 알린다(붙일 때와 같은 이유) — 줄이는 일은
+             이 종류의 자산 전부에 걸친다. */
+          await tx.asset.updateMany({ where: { typeId: id }, data: { updatedAt: new Date() } });
+        }
         await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
         await createTypeStructure(tx, id, body);
         // 늘린 것은 **이미 놓인 자산에도** 달아 준다 — 선언만 고치면 정작 그 자산은 그대로다.
-        if (change.verdict === 'additive') await addPortsToExistingAssets(tx, id, change.additions);
+        await addPortsToExistingAssets(tx, id, change.additions);
       }
 
       const { _count, ...row } = await tx.assetType.findUniqueOrThrow({
