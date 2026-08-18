@@ -7,8 +7,8 @@
  * 소유(부모가 자산 전환 시 리셋 + 하단 AddAssetModal 렌더를 관장)하므로 setter 만 prop 으로 받는다.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, freeCells, validateGridPlacement } from '@twin/core';
+import { useMemo, useRef, useState } from 'react';
+import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, freeCells, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
 import {
   DetailCard,
   DetailCardHeader,
@@ -173,64 +173,16 @@ export function InfoTab({
   asset,
   type,
   assembliesById,
-  parts,
-  typesById,
-  focusPartId,
-  onOpenPorts,
   effectiveAssets,
-  setAddModalCtx,
 }: InfoTabProps) {
   const { confirm, confirmDialog } = useConfirm();
-  /** 격자에서 고른 부품 — 패널을 바꾸지 않고 아래에 카드로 편다. */
-  const [selectedPartId, setSelectedPartId] = useState<string | null>(focusPartId ?? null);
-  /* 바깥을 누르면 풀린다 — 앱 공통 규칙. 「안」은 구성 카드와 그 부품 카드다. */
-  const gridCardRef = useRef<HTMLDivElement | null>(null);
-  const partCardRef = useRef<HTMLDivElement | null>(null);
-  useDismissOnOutside(selectedPartId != null, [gridCardRef, partCardRef], () => setSelectedPartId(null));
-  // 다른 설비로 옮겨 가거나 밖에서 부품을 지목해 오면 그것을 고른다.
-  useEffect(() => setSelectedPartId(focusPartId ?? null), [assetId, focusPartId]);
-  const selectedPart = parts.find((p) => p.id === selectedPartId) ?? null;
-  /* 케이블이 물린 포트 집합 — 자식 목록의 포트 요약이 읽는다. */
-  const savedCables = useV2WorkingCopy((st) => st.saved.cables);
-  const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
-  /* 여기서는 "한 가닥이라도 물렸나" 만 쓴다(포트 요약 n/m). Map 이라 `has()` 가 그대로 된다. */
-  const occupiedPortIds = useMemo(
-    () => cableCountByPortId(mergeEffective(savedCables, cableOverlays)),
-    [savedCables, cableOverlays],
-  );
-
-  /* 이 설비의 자리 — 설비 종류가 격자를 갖는다. 설비 종류로 놓은 것만 안에 무언가를 담는다.
-     **어디에 놓여 있는가는 여기서 다루지 않는다.** 위치는 사람이 적는 값이 아니라 놓은 결과로
-     기록되는 값이다. 자리를 옮기는 일도 상위 설비의 구성 격자에서 끌어서 한다 — 눈에 보이는
-     판이 곧 자리다. */
+  /* 종류 이름을 짓는 데만 쓴다 — 격자는 「구성」 탭이 맡는다. */
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
-  const grid = assembly ? { cols: assembly.gridCols, rows: assembly.gridRows } : null;
 
-  /**
-   * 이 자리에 놓을 수 있는가 — 판정은 core 가 한다(격자 안·겹침).
-   *
-   * 화면이 규칙을 다시 쓰면 저장 때 튕기는 자리를 드래그로는 놓을 수 있게 되어,
-   * 눈에 보이는 것과 저장되는 것이 갈린다. 같은 함수를 부른다.
-   */
-  function canPlaceInGrid(movingId: string, at: GridPlacement): boolean {
-    if (!grid) return false;
-    return (
-      validateGridPlacement({
-        grid,
-        ...at,
-        occupants: parts
-          .filter((a) => a.id !== movingId && a.col != null && a.row != null)
-          .map((a) => ({
-            assetId: a.id, col: a.col!, row: a.row!, colSpan: a.colSpan ?? 1, rowSpan: a.rowSpan ?? 1,
-          })),
-      }) === null
-    );
-  }
-
-  // 하위 자산 총 수 (cascade 삭제 confirm용)
+  /** 함께 사라지는 것이 몇인가 — 삭제 확인 문구가 쓴다. */
   function countDescendants(rootId: string): number {
-    const directChildren = effectiveAssets.filter((a) => a.parentAssetId === rootId);
-    return directChildren.reduce((acc, child) => acc + 1 + countDescendants(child.id), 0);
+    const kids = effectiveAssets.filter((a) => a.parentAssetId === rootId);
+    return kids.length + kids.reduce((n, k) => n + countDescendants(k.id), 0);
   }
   const descendantCount = countDescendants(assetId);
 
@@ -245,15 +197,6 @@ export function InfoTab({
   }
 
   /** 부품 하나 걷어내기 — 설비는 그대로 둔다. */
-  async function handleDeletePart(part: V2Asset) {
-    const ok = await confirm({
-      title: '부품 삭제', target: part.name, message: '이 설비에서 걷어냅니다.',
-      confirmLabel: '삭제', danger: true,
-    });
-    if (!ok) return;
-    useV2WorkingCopy.getState().stageAssetDeleteCascade(part.id);
-    setSelectedPartId(null);
-  }
 
   // ── 인라인 편집 핸들러 ─────────────────────────────────────────────────────
   function handleNameCommit(value: string) {
@@ -352,11 +295,88 @@ export function InfoTab({
           것이라 실제 포트도 아니고 연결 상태도 몰랐다. 같은 "포트" 가 두 탭에 반쪽씩
           나뉘어 있어, 어느 쪽을 봐야 하는지 알 수 없었다. */}
 
+      {confirmDialog}
+    </>
+  );
+}
+
+/**
+ * 구성 탭 — **설비 안을 실제로 들여다보는 판**.
+ *
+ * 예전에는 이 격자가 「정보」 탭 안, 기본정보 카드 **아래**에 240px 상자로 있었다. 설비를
+ * 고른 사람이 가장 먼저 보고 싶은 것이 그 안인데, 스크롤해야 나왔고 크기도 작았다.
+ *
+ * **스크롤이 생기지 않는다.** 격자가 남는 높이를 채우고(`fill`), 부품을 고르면 그만큼
+ * 줄어들며 아래에 그 부품 카드가 선다 — 포트 탭이 쓰는 어법과 같다(고른 것의 상세는
+ * 누른 판 **바로 아래**). 부품을 눌렀다고 다른 탭으로 튕기지 않는다.
+ */
+export function LayoutTab({
+  assetId,
+  asset,
+  assembliesById,
+  parts,
+  typesById,
+  focusPartId,
+  onOpenPorts,
+  setAddModalCtx,
+}: Pick<
+  InfoTabProps,
+  'assetId' | 'asset' | 'assembliesById' | 'parts' | 'typesById' | 'focusPartId' | 'onOpenPorts' | 'setAddModalCtx'
+>) {
+  const { confirm, confirmDialog } = useConfirm();
+  /** 격자에서 고른 부품 — 탭을 바꾸지 않고 아래에 카드로 편다. */
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(focusPartId ?? null);
+  const gridCardRef = useRef<HTMLDivElement | null>(null);
+  const partCardRef = useRef<HTMLDivElement | null>(null);
+  useDismissOnOutside(selectedPartId != null, [gridCardRef, partCardRef], () => setSelectedPartId(null));
+
+  const selectedPart = parts.find((p) => p.id === selectedPartId) ?? null;
+  const savedCables = useV2WorkingCopy((st) => st.saved.cables);
+  const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
+  /* 케이블이 물린 포트 — 부품 칸의 포트 요약(n/m)이 읽는다. */
+  const occupiedPortIds = useMemo(
+    () => cableCountByPortId(mergeEffective(savedCables, cableOverlays)),
+    [savedCables, cableOverlays],
+  );
+
+  const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
+  const grid = assembly ? ASSEMBLY_GRID : null;
+
+  function canPlaceInGrid(movingId: string, at: GridPlacement): boolean {
+    if (!grid) return false;
+    return (
+      validateGridPlacement({
+        grid,
+        ...at,
+        occupants: parts
+          .filter((a) => a.id !== movingId && a.col != null && a.row != null)
+          .map((a) => ({
+            assetId: a.id, col: a.col!, row: a.row!, colSpan: a.colSpan ?? 1, rowSpan: a.rowSpan ?? 1,
+          })),
+      }) === null
+    );
+  }
+
+  async function handleDeletePart(part: V2Asset) {
+    const ok = await confirm({
+      title: '부품 삭제', target: part.name, message: '이 설비에서 걷어냅니다.',
+      confirmLabel: '삭제', danger: true,
+    });
+    if (!ok) return;
+    useV2WorkingCopy.getState().stageAssetDeleteCascade(part.id);
+    setSelectedPartId(null);
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* 구성 — 설비 종류로 놓은 설비만 안에 부품을 담는다.
           자리는 그 설비 종류의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
+      {/* 격자는 **눌리지 않는다** — 부품을 고르면 아래에 카드가 서는데, 격자가 그만큼
+          줄어들면 20행이 290px 로 눌려 글씨가 뭉갠다. 격자가 제 최소 높이를 지키고,
+          양보는 카드 쪽이 한다(카드가 길면 카드 안에서 스크롤). */}
       {grid && assembly && (
-        <div ref={gridCardRef}>
-        <DetailCard>
+        <div ref={gridCardRef} className="flex min-h-[420px] flex-1 flex-col">
+        <DetailCard className="flex min-h-0 flex-1 flex-col">
           {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다.
               부품 수만 적으면 이 판에 아직 자리가 남았는지를 알 수 없다. */}
           <DetailCardHeader
@@ -366,9 +386,9 @@ export function InfoTab({
           />
           <AssemblyGrid
             grid={grid}
-            /* 상세 패널에서도 상자를 못 박는다 — 어느 설비를 열어도 같은 자리를 차지하고,
-               그 아래 부품 카드가 늘 같은 높이에 선다(스크롤로 찾아가지 않아도 되게). */
-            boxHeight={240}
+            /* 상자를 못 박지 않고 **남는 높이를 채운다**(`fill`) — 구성 탭은 스크롤이
+               생기면 안 된다. 부품을 고르면 아래에 카드가 서면서 격자가 그만큼 줄어든다. */
+            fill
             items={parts}
             selectedId={selectedPartId}
             /* 부품을 골라도 **패널은 그대로** 둔다 — 아래에 그 부품 카드만 연다.
@@ -394,7 +414,7 @@ export function InfoTab({
       {/* 고른 부품 — 설비에서 갈라지는 것만 적는다. 이 카드도 「안」이다(여기서 값을 고치다
           선택이 풀리면 안 된다). */}
       {selectedPart && (
-        <div ref={partCardRef}>
+        <div ref={partCardRef} className="min-h-0 shrink overflow-y-auto">
         <PartCard
           part={selectedPart}
           typeName={typesById.get(selectedPart.typeId ?? '')?.name ?? EMPTY}
@@ -406,6 +426,6 @@ export function InfoTab({
       )}
 
       {confirmDialog}
-    </>
+    </div>
   );
 }

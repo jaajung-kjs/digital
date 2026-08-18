@@ -5,7 +5,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2Asset } from '../../types';
 import { withDescendants } from '../../cableSelectors';
 import { AddAssetModal } from '../AddAssetModal';
-import { InfoTab, type AddModalContext } from './InfoTab';
+import { InfoTab, LayoutTab, type AddModalContext } from './InfoTab';
 import { PhotoCard } from './PhotoCard';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
@@ -15,7 +15,7 @@ import { X } from 'lucide-react';
 import { Button, IconButton, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
-type Tab = 'info' | 'photos' | 'inspections' | 'logs' | 'connections';
+type Tab = 'layout' | 'info' | 'photos' | 'records' | 'connections';
 
 // ── 메인 패널 ─────────────────────────────────────────────────────────────────
 interface AssetDetailPanelProps {
@@ -55,7 +55,9 @@ export function AssetDetailPanel({
   onConnectPort,
   cablePick,
 }: AssetDetailPanelProps) {
-  const [tab, setTab] = useState<Tab>(focusPortId ? 'connections' : 'info');
+  /* 설비를 열면 **그 안이 먼저** 보인다 — 현장에서 랙 문을 열면 안이 보이는 것과 같다.
+     포트를 지목해 온 경우에만 포트 탭으로 연다(그때는 무엇을 보라는 것인지가 분명하다). */
+  const [tab, setTab] = useState<Tab>(focusPortId ? 'connections' : 'layout');
   /** 부품 카드에서 「포트 보기」로 넘어올 때 고를 포트 — 밖에서 온 지목보다 우선한다. */
   const [localFocusPort, setLocalFocusPort] = useState<string | null>(null);
   useEffect(() => setLocalFocusPort(null), [assetId]);
@@ -165,14 +167,22 @@ export function AssetDetailPanel({
    * '연결' 이면 이 자산이 어떤 포트를 갖는지 보려고 그 탭을 열 생각을 하지 못한다
    * (DCIM 표준인 NetBox 도 Interfaces / Power Ports 처럼 대상 이름을 그대로 쓴다).
    */
+  /* 격자가 없는 자산에는 「구성」 탭이 없다 — 그때는 정보로 물러선다. */
+  const effectiveTab: Tab = tab === 'layout' && !asset.assemblyId ? 'info' : tab;
+
   const tabs: TabItem<Tab>[] = [
+    /* 설비를 고른 사람이 가장 먼저 보고 싶은 것은 **그 안**이다 — 랙을 들여다보듯.
+       부품이 없는 자산(설비 아닌 것)에는 격자가 없으므로 이 탭도 없다. */
+    ...(asset.assemblyId ? [{ key: 'layout' as const, label: '구성' }] : []),
     { key: 'info', label: '정보' },
     /* 사진은 제 탭을 갖는다 — 예전에는 '정보' 탭 맨 아래 카드였다. 그러면 속성을 보러 온
        사람에게는 스크롤 끝의 군더더기이고, 사진을 보러 온 사람은 그것이 거기 있는 줄 모른다.
        점검·고장이력과 같은 성격(자산에 딸려 쌓이는 기록)이므로 같은 층위에 세운다. */
     { key: 'photos', label: '사진', count: photoCount },
-    { key: 'inspections', label: '점검', count: inspectionCount },
-    { key: 'logs', label: '고장이력', count: logCount },
+    /* 점검과 고장이력은 둘 다 「이 자산에 언제 무슨 일이 있었나」다 — 한 탭에 두 섹션으로
+       세운다. 탭 바는 383px 이고 다섯 개가 이미 366px 을 쓰므로, 「구성」을 넣으려면
+       합치는 것이 선택이 아니라 조건이다. */
+    { key: 'records', label: '이력', count: inspectionCount + logCount },
     ...(hasPorts
       ? [{ key: 'connections' as const, label: '포트', count: portCount }]
       : []),
@@ -225,11 +235,34 @@ export function AssetDetailPanel({
           </>
         }
       />
-      <Tabs items={tabs} value={tab} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
+      <Tabs items={tabs} value={effectiveTab} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
 
       {/* 탭 컨텐츠 */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {tab === 'info' && (
+      {/* 구성 탭은 **스크롤이 생기면 안 된다** — 격자가 남는 높이를 채우고 부품을 고르면
+          그만큼 줄어든다. 나머지 탭은 내용만큼 길어지므로 이 상자가 스크롤을 맡는다. */}
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col gap-3 p-3',
+          effectiveTab === 'layout' ? 'overflow-hidden' : 'overflow-y-auto',
+        )}
+      >
+        {effectiveTab === 'layout' && (
+          <LayoutTab
+            assetId={assetId}
+            asset={asset}
+            assembliesById={assembliesById}
+            parts={parts}
+            typesById={typesById}
+            focusPartId={focusPartId}
+            onOpenPorts={(partId: string) => {
+              setLocalFocusPort(parts.find((a) => a.id === partId)?.ports[0]?.id ?? null);
+              setTab('connections');
+            }}
+            setAddModalCtx={setAddModalCtx}
+          />
+        )}
+
+        {effectiveTab === 'info' && (
           <InfoTab
             assetId={assetId}
             asset={asset}
@@ -248,9 +281,10 @@ export function AssetDetailPanel({
           />
         )}
 
-        {tab === 'photos' && <PhotoCard assetId={assetId} />}
+        {effectiveTab === 'photos' && <PhotoCard assetId={assetId} />}
 
-        {tab === 'inspections' && (
+        {effectiveTab === 'records' && (
+          <>
           <RecordsTab
             assetId={assetId}
             kind="inspections"
@@ -263,9 +297,6 @@ export function AssetDetailPanel({
             sectionTitle="점검"
             emptyMessage="점검 기록이 없습니다"
           />
-        )}
-
-        {tab === 'logs' && (
           <RecordsTab
             assetId={assetId}
             kind="maintenance"
@@ -276,9 +307,10 @@ export function AssetDetailPanel({
             sectionTitle="고장이력"
             emptyMessage="고장이력이 없습니다"
           />
+          </>
         )}
 
-        {tab === 'connections' && (
+        {effectiveTab === 'connections' && (
           <ConnectionsTab
             assetId={assetId}
             focusPortId={localFocusPort ?? focusPortId}
