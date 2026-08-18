@@ -258,7 +258,9 @@ export function AssetDetailPanel({
             extraField="result"
             dateLabel="점검일"
             extraLabel="결과"
-            sectionTitle="점검 기록"
+            /* 카드 머리는 탭 이름과 같다 — 「점검」 탭을 눌렀는데 「점검 기록」이 서면
+               다른 것으로 읽힌다. */
+            sectionTitle="점검"
             emptyMessage="점검 기록이 없습니다"
           />
         )}

@@ -1,4 +1,4 @@
-import { useEffect, type HTMLAttributes } from 'react';
+import { forwardRef, useEffect, type HTMLAttributes } from 'react';
 import { isCancelKey } from './keyboard';
 
 /**
@@ -19,12 +19,9 @@ import { isCancelKey } from './keyboard';
  * 좌표로 따져야 한다. 그리고 같은 포인터 손짓이 끌기·훑기와도 겹친다. 그래서 평면도는 제
  * 손으로 판단한다 — 중복이 아니라 다른 문제다.
  */
-export function SelectionScope({
-  onClear,
-  escapes = false,
-  children,
-  ...rest
-}: HTMLAttributes<HTMLDivElement> & {
+export const SelectionScope = forwardRef<
+  HTMLDivElement,
+  HTMLAttributes<HTMLDivElement> & {
   onClear: () => void;
   /**
    * Esc 로도 푼다 — **화면마다 하나만** 준다.
@@ -33,7 +30,8 @@ export function SelectionScope({
    * 튕겨 나가므로, 지금 일하고 있는 쪽만 받는다.
    */
   escapes?: boolean;
-}) {
+  }
+>(function SelectionScope({ onClear, escapes = false, children, ...rest }, ref) {
   useEffect(() => {
     if (!escapes) return;
     const onKey = (e: KeyboardEvent) => {
@@ -45,6 +43,7 @@ export function SelectionScope({
 
   return (
     <div
+      ref={ref}
       onPointerDown={(e) => {
         const el = e.target as HTMLElement | null;
         /* 항목 위도, 누를 수 있는 것 위도 아니면 빈 곳이다. 검색칸·`+` 단추를 누를 때
@@ -58,4 +57,4 @@ export function SelectionScope({
       {children}
     </div>
   );
-}
+});

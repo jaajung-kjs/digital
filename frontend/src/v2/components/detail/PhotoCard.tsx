@@ -80,8 +80,10 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
         <DetailCardHeader
           title="사진"
           actions={
+            /* 같은 패널의 점검·고장이력과 **같은 동작**이다(목록에 한 줄을 더한다) —
+               한 동작에 한 단어. 「업로드」는 그 일을 하는 **방법**이지 하려는 일이 아니다. */
             <Button variant="secondary" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-              {uploading ? '업로드 중…' : '업로드'}
+              {uploading ? '올리는 중…' : '추가'}
             </Button>
           }
         />

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { IconButton } from './IconButton';
 import { Input } from './Input';
@@ -93,6 +93,15 @@ export function TreePanel({
 }: TreePanelProps) {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const listRef = useRef<HTMLDivElement>(null);
+  /**
+   * Tab 으로 닿는 줄은 **하나뿐**이다(roving tabindex).
+   *
+   * 예전에는 모든 줄이 `tabIndex=0` 이라, 자산 종류처럼 스물일곱 줄짜리 트리를 지나가려면
+   * Tab 을 스물일곱 번 눌러야 했다. 줄 사이는 화살표로 옮긴다 — WAI-ARIA Tree View 가
+   * 정한 규약이고, 파일 탐색기·메일함이 다 그렇게 움직인다.
+   */
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   /** 이 줄이 자식을 갖는가 — 다음 줄이 더 깊으면 그렇다. */
   const hasChildren = useMemo(() => {
@@ -123,6 +132,18 @@ export function TreePanel({
     }
     return out;
   }, [nodes, query, collapsed]);
+
+  /** 화면에 보이는 줄들 사이를 옮긴다 — 접힌 가지 속은 건너뛴다(그 줄들은 없는 것이다). */
+  function moveFocus(from: string, delta: number | 'first' | 'last') {
+    const els = [...(listRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])];
+    if (els.length === 0) return;
+    const i = els.findIndex((el) => el.dataset.id === from);
+    const next =
+      delta === 'first' ? els[0] : delta === 'last' ? els[els.length - 1] : els[Math.min(Math.max(i + delta, 0), els.length - 1)];
+    if (!next) return;
+    setActiveId(next.dataset.id ?? null);
+    next.focus();
+  }
 
   function toggle(id: string, force?: boolean) {
     setCollapsed((prev) => {
@@ -160,6 +181,7 @@ export function TreePanel({
 
       {/* 목록 영역이 **선택의 주인**이다 — 여백을 누르면 풀린다(`SelectionScope`). */}
       <SelectionScope
+        ref={listRef}
         onClear={() => onSelect(null)}
         escapes={escapes}
         className="min-h-0 flex-1 overflow-y-auto py-1"
@@ -178,6 +200,7 @@ export function TreePanel({
             <div
               key={n.id}
               data-selectable=""
+              data-id={n.id}
               className={cn(
                 'group flex items-center gap-1 px-2 py-1 text-sm',
                 SELECTABLE,
@@ -188,7 +211,9 @@ export function TreePanel({
               aria-level={n.depth + 1}
               aria-selected={selectedId === n.id}
               aria-expanded={branch ? !isCollapsed : undefined}
-              tabIndex={0}
+              /* Tab 으로 닿는 줄은 하나 — 고른 줄, 없으면 첫 줄. 나머지는 화살표로 온다. */
+              tabIndex={(activeId ?? selectedId ?? shown[0]?.id) === n.id ? 0 : -1}
+              onFocus={() => setActiveId(n.id)}
               /* 접힌 가지를 누르면 열린다 — 그 「열기」가 무엇인지는 부르는 쪽이 정한다
                  (다른 대장의 뿌리라면 그 대장으로 옮기는 일이다). */
               onClick={() => {
@@ -204,6 +229,16 @@ export function TreePanel({
               }}
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  moveFocus(n.id, e.key === 'ArrowDown' ? 1 : -1);
+                  return;
+                }
+                if (e.key === 'Home' || e.key === 'End') {
+                  e.preventDefault();
+                  moveFocus(n.id, e.key === 'Home' ? 'first' : 'last');
+                  return;
+                }
                 /* 좌우 화살표로 접었다 편다 — 트리에서 이건 관습이 아니라 규약이다. */
                 if (!n.onOpen && branch && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
                   e.preventDefault();
