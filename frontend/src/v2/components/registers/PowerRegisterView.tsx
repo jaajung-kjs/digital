@@ -175,12 +175,8 @@ export function PowerRegisterView({
     if (!q) return rows;
     const peerText = (cell: PowerCell) =>
       cell.peer ? `${cell.peer.assetName} ${cell.peer.portName}` : '';
-    return rows.filter(
-      (r) =>
-        !r.empty &&
-        [r.feederName, peerText(r.inCell), peerText(r.outCell)].some((v) =>
-          v.toLowerCase().includes(q),
-        ),
+    return rows.filter((r) =>
+      [r.feederName, peerText(r.inCell), peerText(r.outCell)].some((v) => v.toLowerCase().includes(q)),
     );
   }, [rows, query]);
 
@@ -229,22 +225,7 @@ export function PowerRegisterView({
             </td>
           </tr>
         )}
-        {filtered.map((row) =>
-          /* 빈 회로 자리(SPARE) — **읽는 줄이지 만드는 자리가 아니다.**
-             예전에는 이 줄만 눌러서 피더를 만들 수 있었다. 표는 셋(현황·선번장·계통)이
-             같은 판인데 여기서만 표가 생성 도구가 되니, 다른 표에서 빈 줄을 눌러 본
-             사람은 아무 일도 안 일어나는 것을 보게 된다. 만드는 일은 평면도·구성에서
-             한다. 빈 값 표기도 앱의 나머지와 같은 `—` 를 쓴다. */
-          row.empty ? (
-            <tr key={`empty-${row.slotNo}`} className="h-11 border-b border-line text-content-faint">
-              <td className="px-3 py-1.5 text-sm tabular-nums">{row.slotNo}</td>
-              {Array.from({ length: totalCols - 1 }, (_, i) => (
-                <td key={i} className="px-3 py-1.5 text-sm">
-                  {EMPTY}
-                </td>
-              ))}
-            </tr>
-          ) : (
+        {filtered.map((row) => (
           <tr
             key={row.feederId}
             {...selectableRow(selectedAssetId, row.feederId, onSelectAsset)}
@@ -278,8 +259,7 @@ export function PowerRegisterView({
               <PeerCell peer={row.outCell.peer} />
             </td>
           </tr>
-          ),
-        )}
+        ))}
     </RegisterLayout>
   );
 }

@@ -85,22 +85,13 @@ describe('패널 스케줄 — 회로 자리', () => {
     expect(buildPowerRows(panel, assets, []).map((r) => r.feederName)).toEqual(['가피더', '나피더']);
   });
 
-  it('회로 수를 선언하면 빈 자리도 행이 된다 — 12회로에 2개만 물린 것이 보여야 한다', () => {
+  it('빈 회로를 지어내지 않는다 — 실제로 놓인 피더만 나열한다', () => {
+    /* 예전에는 격자 칸 수만큼 빈 행을 만들어 「12회로 분전반」을 표현했다. 도화지 칸 수를
+       회로 수라고 우긴 것이라, 모든 설비가 같은 판을 쓰게 된 지금은 200행이 된다. */
     const assets = [panel, mk('a', '피더A', null, 0), mk('b', '피더B', null, 5)];
     const rows = buildPowerRows(panel, assets, [], { cols: 1, rows: 12 });
-    expect(rows).toHaveLength(12);
-    expect(rows.map((r) => r.slotNo)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-    expect(rows.filter((r) => r.empty)).toHaveLength(10);
-    expect(rows[0]?.feederName).toBe('피더A');
-    expect(rows[5]?.feederName).toBe('피더B');
-    expect(rows[1]?.empty).toBe(true);
-  });
-
-  it('자유형(회로 수 미선언)이면 있는 것만 나열한다 — 빈 자리를 지어내지 않는다', () => {
-    const assets = [panel, mk('a', '피더A', null, 0)];
-    const rows = buildPowerRows(panel, assets, [], null);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.empty).toBe(false);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.feederName)).toEqual(['피더A', '피더B']);
   });
 });
 
@@ -123,8 +114,8 @@ describe('2열 격자', () => {
     expect(rows.map((r) => [r.slotNo, r.feederName])).toEqual([[1, '좌측 1번'], [2, '우측 1번']]);
   });
 
-  it('빈 자리 수는 격자가 선언한 칸 수에서 채워진 만큼을 뺀 것', () => {
+  it('격자 크기와 무관하게 놓인 것만 나온다', () => {
     const rows = buildPowerRows(twoCol as never, [twoCol, left] as never, [] as never, { cols: 2, rows: 2 });
-    expect(rows.filter((r) => r.empty).map((r) => r.slotNo)).toEqual([2, 3, 4]);
+    expect(rows.map((r) => r.feederName)).toEqual(['좌측 1번']);
   });
 });

@@ -21,7 +21,6 @@ export interface PowerRow {
   /** 회로 자리 번호(1-based) — 그 설비의 설비 종류의 격자에서 유도한다. 자리가 없으면 null. */
   slotNo: number | null;
   /** 비어 있는 회로 자리 — 패널 스케줄의 SPARE. 이 행에는 피더가 없다. */
-  empty: boolean;
   feederId: string;
   feederName: string;
   /**
@@ -140,7 +139,6 @@ export function buildPowerRows(
 
     rows.push({
       slotNo: circuitNumber(feeder, grid?.cols ?? 1),
-      empty: false,
       feederId: feeder.id,
       feederName: feeder.name,
       closed: outPort ? closedOf(outPort) : null,
@@ -149,25 +147,11 @@ export function buildPowerRows(
     });
   }
 
-  /* 빈 회로 자리 — 패널 스케줄은 쓰지 않는 자리도 보여준다(SPARE).
-     "12회로 분전반에 지금 3개만 물려 있다" 를 보려면 빈 자리가 행으로 있어야 한다.
-     회로 수는 설비 종류가 선언한 격자 칸 수다 — 격자를 모르면 있는 것만 나열한다. */
-  if (grid?.rows != null) {
-    const taken = new Set(rows.map((r) => r.slotNo).filter((n): n is number => n != null));
-    for (let i = 1; i <= grid.cols * grid.rows; i++) {
-      if (taken.has(i)) continue;
-      rows.push({
-        slotNo: i,
-        empty: true,
-        feederId: '',
-        feederName: '',
-        closed: null,
-        inCell: { portId: null, cableId: null, peer: null, values: {} },
-        outCell: { portId: null, cableId: null, peer: null },
-      });
-    }
-    rows.sort((a, b) => (a.slotNo ?? 0) - (b.slotNo ?? 0));
-  }
+  /* **빈 회로를 지어내지 않는다.** 예전에는 격자 칸 수만큼(`cols × rows`) 빈 행을 만들어
+     「12회로 분전반」을 표현했다 — 도화지 칸 수를 회로 수라고 우긴 것이다. 격자는 자산을
+     놓는 도화지일 뿐이고 모든 설비가 같은 판을 쓰므로, 그대로 두면 어느 분전반이든 200행이
+     된다. 표는 **실제로 놓인 피더만** 나열한다. */
+  rows.sort((a, b) => (a.slotNo ?? 0) - (b.slotNo ?? 0));
 
   return rows;
 }
