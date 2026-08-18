@@ -4,6 +4,7 @@ import { Button } from './Button';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
 import { SELECTABLE } from './selection';
+import { isCancelKey } from './keyboard';
 import { DetailCard, DetailCardHeader, DetailRow } from './DetailCard';
 
 describe('Button', () => {
@@ -122,6 +123,24 @@ describe('Modal', () => {
     expect(screen.queryByText('본문 내용')).not.toBeInTheDocument();
   });
 
+  /* 뒤에 깔린 화면들도 Esc 를 「고른 것 풀기」로 듣는다. 상자를 닫는 Esc 가 거기까지 닿으면
+     상자가 닫히면서 고른 자산까지 풀려 상세 패널이 통째로 사라진다. 「떠 있는 상자가 있으면
+     뒤는 듣지 않는다」로는 못 막는다 — 이 손짓 안에서 상자가 이미 지워지기 때문이다. */
+  it('Esc 는 상자에서 끝난다 — 뒤에 깔린 화면까지 닿지 않는다', () => {
+    const behind = vi.fn();
+    window.addEventListener('keydown', behind);
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} title="제목">
+        <p>본문</p>
+      </Modal>,
+    );
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    window.removeEventListener('keydown', behind);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(behind).not.toHaveBeenCalled();
+  });
+
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn();
     render(
@@ -131,6 +150,25 @@ describe('Modal', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: '닫기' }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('isCancelKey', () => {
+  const esc = () => new KeyboardEvent('keydown', { key: 'Escape' });
+
+  it('Esc 는 「지금 하던 것을 물린다」', () => {
+    expect(isCancelKey(esc())).toBe(true);
+  });
+
+  /* 상자가 떠 있으면 Esc 는 그 상자의 것이다. 예전에는 뒤에 깔린 화면들도 같은 키를 들어서,
+     구성 격자에서 부품 상자를 닫으면 고른 자산까지 함께 풀려 상세 패널이 사라졌다. */
+  it('대화상자가 떠 있으면 뒤에 깔린 화면은 Esc 를 듣지 않는다', () => {
+    render(
+      <Modal open onClose={() => {}} title="제목">
+        <p>본문</p>
+      </Modal>,
+    );
+    expect(isCancelKey(esc())).toBe(false);
   });
 });
 

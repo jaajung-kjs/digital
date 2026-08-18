@@ -343,9 +343,13 @@ export function AssemblyGrid<T extends GridItem>({
     /* 빈 칸을 눌렀다.
        고른 것이 있으면 **먼저 푼다** — 「다른 데를 누르면 풀린다」가 판에서 가장 흔한 손짓인데,
        칸이 상자를 꽉 채우므로 「빈 곳」이라 할 만한 자리가 빈 칸뿐이다. 풀린 뒤 한 번 더
-       누르면 그때 채운다(고른 것이 없을 때가 곧 「채우기」 상태다). */
-    if (selectedId != null) {
-      onDeselect?.();
+       누르면 그때 채운다(고른 것이 없을 때가 곧 「채우기」 상태다).
+
+       **푸는 길을 주지 않은 판**(`onDeselect` 없음)은 이 단계를 건너뛴다 — 거기서 빛나는 것은
+       밖에서 고른 것을 비추는 표시일 뿐이라 여기서 풀 것이 없는데, 그것 때문에 「추가」가
+       두 번 눌러야 되는 일이 되면 안 된다. */
+    if (onDeselect && selectedId != null) {
+      onDeselect();
       return;
     }
     onAddAtCell(gesture.cell);

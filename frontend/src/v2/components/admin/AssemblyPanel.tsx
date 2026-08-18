@@ -11,7 +11,7 @@
  * 달라 보이면 짜는 뜻이 없다.
  */
 import { useMemo, useRef, useState } from 'react';
-import { freeCells, validateGridPlacement, ASSEMBLY_GRID, cellLabel } from '@twin/core';
+import { validateGridPlacement, ASSEMBLY_GRID, cellLabel } from '@twin/core';
 import { LaborSpecForm } from './LaborSpecForm';
 import {
   Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
@@ -106,12 +106,9 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           1×1 이든 10×20 이든 같은 자리를 차지한다. */}
       <div ref={canvasRef} className="flex min-w-0 flex-1 flex-col">
         <DetailCard className="flex min-h-0 flex-1 flex-col">
-          {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다. */}
-          <DetailCardHeader
-            title="구성"
-            badge={`${grid.cols * grid.rows - freeCells(grid, draft.items).length}/${grid.cols * grid.rows}칸`}
-            badgeStatus="neutral"
-          />
+          {/* 「몇 칸 중 몇 칸」은 적지 않는다 — 격자는 배치용 도화지라 쓴 칸 수가 이 설비 종류에
+              대해 말해 주는 것이 없다(상세 패널 구성 탭과 같은 판단). */}
+          <DetailCardHeader title="구성" />
           <ErrorStrip message={issueOf(issues, 'items') ?? null} />
           <AssemblyGrid
             grid={grid}

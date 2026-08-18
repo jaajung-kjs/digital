@@ -7,17 +7,18 @@
  * 소유(부모가 자산 전환 시 리셋 + 하단 AddAssetModal 렌더를 관장)하므로 setter 만 prop 으로 받는다.
  */
 
-import { useMemo, useRef, useState } from 'react';
-import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, freeCells, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
+import { useMemo, useState } from 'react';
+import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
 import {
+  Button,
   DetailCard,
   DetailCardHeader,
   DetailRow,
   DateInput,
   Input,
+  Modal,
   Select,
   useConfirm,
-  useDismissOnOutside,
   cn,
   SELECTABLE,
   EMPTY,
@@ -77,12 +78,25 @@ function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortI
  * 다르다). 사진·점검·고장이력은 **설비의 것**이고, 포트는 설비의 포트 탭이 이미 부품별로
  * 묶어 보여준다 — 그래서 여기 다시 두지 않는다.
  */
-function PartCard({
-  part, typeName, portCount, onOpenPorts, onDelete,
+/**
+ * 격자에서 누른 부품 — **대화상자**로 연다.
+ *
+ * 아래에 카드로 펴 봤는데, 그러면 구성 탭이 「판 + 카드」 두 층이 되어 판을 보러 온 사람이
+ * 매번 카드에 자리를 내주게 된다. 랙을 보러 왔으면 랙만 보여야 한다.
+ *
+ * 대화상자인 이유는 **빈 칸이 이미 그렇게 동작하기 때문**이다 — 빈 칸을 누르면 「자산 추가」
+ * 상자가 뜬다. 찬 칸을 누르면 그 부품 상자가 뜬다: 한 판에서 누르는 곳에 따라 만들기와
+ * 고치기가 같은 모양으로 열린다. 카드로 펴면 이 둘이 서로 다른 어법이 된다.
+ *
+ * 판은 **한 번도 줄지 않는다**(상자가 위에 뜨므로) — 20행이 눌려 글씨가 뭉갤 일이 없다.
+ */
+function PartDialog({
+  part, typeName, portCount, onClose, onOpenPorts, onDelete,
 }: {
   part: V2Asset;
   typeName: string;
   portCount: number;
+  onClose: () => void;
   onOpenPorts: () => void;
   onDelete: () => void;
 }) {
@@ -94,8 +108,25 @@ function PartCard({
   };
 
   return (
-    <DetailCard>
-      <DetailCardHeader title={part.name} badge={typeName} badgeStatus="neutral" onDelete={onDelete} />
+    <Modal
+      open
+      onClose={onClose}
+      title={part.name}
+      size="sm"
+      footer={
+        <>
+          {/* 삭제는 왼쪽 끝 — 닫기 옆에 두면 손이 미끄러진다. */}
+          <Button variant="danger" size="sm" className="mr-auto" onClick={onDelete}>
+            삭제
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            닫기
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+      <DetailRow label="종류">{typeName}</DetailRow>
       <DetailRow label="이름">
         <Input
           key={part.id + part.name}
@@ -145,7 +176,8 @@ function PartCard({
           </button>
         </DetailRow>
       )}
-    </DetailCard>
+      </div>
+    </Modal>
   );
 }
 
@@ -324,13 +356,10 @@ export function LayoutTab({
   'assetId' | 'asset' | 'assembliesById' | 'parts' | 'typesById' | 'focusPartId' | 'onOpenPorts' | 'setAddModalCtx'
 >) {
   const { confirm, confirmDialog } = useConfirm();
-  /** 격자에서 고른 부품 — 탭을 바꾸지 않고 아래에 카드로 편다. */
-  const [selectedPartId, setSelectedPartId] = useState<string | null>(focusPartId ?? null);
-  const gridCardRef = useRef<HTMLDivElement | null>(null);
-  const partCardRef = useRef<HTMLDivElement | null>(null);
-  useDismissOnOutside(selectedPartId != null, [gridCardRef, partCardRef], () => setSelectedPartId(null));
+  /** 격자에서 누른 부품 — 대화상자가 뜬다. 판 자체는 그대로다. */
+  const [openPartId, setOpenPartId] = useState<string | null>(null);
 
-  const selectedPart = parts.find((p) => p.id === selectedPartId) ?? null;
+  const openPart = parts.find((p) => p.id === openPartId) ?? null;
   const savedCables = useV2WorkingCopy((st) => st.saved.cables);
   const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
   /* 케이블이 물린 포트 — 부품 칸의 포트 요약(n/m)이 읽는다. */
@@ -364,40 +393,31 @@ export function LayoutTab({
     });
     if (!ok) return;
     useV2WorkingCopy.getState().stageAssetDeleteCascade(part.id);
-    setSelectedPartId(null);
+    setOpenPartId(null);
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      {/* 구성 — 설비 종류로 놓은 설비만 안에 부품을 담는다.
-          자리는 그 설비 종류의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
-      {/* 격자는 **눌리지 않는다** — 부품을 고르면 아래에 카드가 서는데, 격자가 그만큼
-          줄어들면 20행이 290px 로 눌려 글씨가 뭉갠다. 격자가 제 최소 높이를 지키고,
-          양보는 카드 쪽이 한다(카드가 길면 카드 안에서 스크롤). */}
+    /* 구성 탭에는 **구성뿐**이다 — 부품을 눌러도 아래에 카드가 붙지 않는다(대화상자로 뜬다).
+       판이 탭을 통째로 쓰므로 스크롤도 생기지 않는다. */
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* 자리는 그 설비 종류의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
       {grid && assembly && (
-        <div ref={gridCardRef} className="flex min-h-[420px] flex-1 flex-col">
         <DetailCard className="flex min-h-0 flex-1 flex-col">
-          {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다.
-              부품 수만 적으면 이 판에 아직 자리가 남았는지를 알 수 없다. */}
-          <DetailCardHeader
-            title="구성"
-            badge={`${grid.cols * grid.rows - freeCells(grid, parts).length}/${grid.cols * grid.rows}칸`}
-            badgeStatus="neutral"
-          />
+          {/* 「몇 칸 중 몇 칸」은 적지 않는다 — 격자는 그저 배치용 도화지라, 200칸 중 몇 칸을
+              썼는지는 이 설비에 대해 아무것도 말해 주지 않는다(꽉 채워 그린 접지함체가 촘촘히
+              그린 랙보다 「찼다」고 읽힐 이유가 없다). */}
+          <DetailCardHeader title="구성" />
           <AssemblyGrid
             grid={grid}
-            /* 상자를 못 박지 않고 **남는 높이를 채운다**(`fill`) — 구성 탭은 스크롤이
-               생기면 안 된다. 부품을 고르면 아래에 카드가 서면서 격자가 그만큼 줄어든다. */
+            /* 상자를 못 박지 않고 **남는 높이를 채운다**(`fill`) — 구성 탭은 스크롤이 생기면 안 된다. */
             fill
             items={parts}
-            selectedId={selectedPartId}
-            /* 부품을 골라도 **패널은 그대로** 둔다 — 아래에 그 부품 카드만 연다.
-               예전에는 패널이 통째로 그 부품으로 바뀌었다. 부품마다 다른 것은 상태·설치일·
-               담당자 네 줄뿐인데, 그것을 보려고 맥락(지금 어느 설비를 보고 있나)이 사라지고
-               대부분 빈 탭 넷이 다시 떴다(사진·점검·고장이력은 설비의 것이고, 포트는 설비
-               포트 탭이 이미 부품별로 묶어 보여준다). */
-            onSelect={(child) => setSelectedPartId((cur: string | null) => (cur === child.id ? null : child.id))}
-            onDeselect={() => setSelectedPartId(null)}
+            /* 밖에서 고른 부품(현황 표·평면도)도 여기서 빛난다 — 대화상자를 열면 그 부품으로 옮겨간다. */
+            selectedId={openPartId ?? focusPartId ?? null}
+            /* 부품을 누르면 **그 부품 상자**가 뜬다. 패널이 통째로 그 부품으로 바뀌지 않는다:
+               부품마다 다른 것은 이름·상태·설치일·담당자 네 줄뿐인데, 그것을 보려고 맥락(지금
+               어느 설비를 보고 있나)이 사라지고 대부분 빈 탭 넷이 다시 떴다. */
+            onSelect={(child) => setOpenPartId(child.id)}
             /* 놓인 자산이라 묻는다 — 포트·연결까지 함께 사라진다. */
             onRemove={(part) => void handleDeletePart(part)}
             trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
@@ -408,21 +428,18 @@ export function LayoutTab({
             toneOf={(part) => assetStatusTone(part.status)}
           />
         </DetailCard>
-        </div>
       )}
 
-      {/* 고른 부품 — 설비에서 갈라지는 것만 적는다. 이 카드도 「안」이다(여기서 값을 고치다
-          선택이 풀리면 안 된다). */}
-      {selectedPart && (
-        <div ref={partCardRef} className="min-h-0 shrink overflow-y-auto">
-        <PartCard
-          part={selectedPart}
-          typeName={typesById.get(selectedPart.typeId ?? '')?.name ?? EMPTY}
-          portCount={selectedPart.ports.length}
-          onOpenPorts={() => onOpenPorts(selectedPart.id)}
-          onDelete={() => void handleDeletePart(selectedPart)}
+      {openPart && (
+        <PartDialog
+          part={openPart}
+          typeName={typesById.get(openPart.typeId ?? '')?.name ?? EMPTY}
+          portCount={openPart.ports.length}
+          onClose={() => setOpenPartId(null)}
+          /* 포트 탭으로 옮겨가면서 상자는 닫는다 — 옮겨간 판 위에 상자가 남아 가리면 안 된다. */
+          onOpenPorts={() => { setOpenPartId(null); onOpenPorts(openPart.id); }}
+          onDelete={() => void handleDeletePart(openPart)}
         />
-        </div>
       )}
 
       {confirmDialog}

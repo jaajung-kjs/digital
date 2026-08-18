@@ -42,7 +42,21 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
     (first ?? panel.current)?.focus();
 
     const onKey = (e: KeyboardEvent) => {
+      /* 상자가 쌓였으면 **맨 위 것만** 키를 가진다 — 확인 상자가 상자 위에 뜨는 자리가 있다.
+         아래 것들은 흘려보내서(끊지 않고) 안쪽 상자가 잡게 둔다. */
+      const stack = [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')];
+      if (panel.current && stack.length > 1 && stack[stack.length - 1] !== panel.current) return;
       if (e.key === 'Escape') {
+        /* **이 Esc 는 여기서 끝난다.** 뒤에 깔린 화면들도 Esc 를 「고른 것 풀기」로 듣고
+           있는데, 상자가 닫히면서 그것들까지 함께 물리면 안 된다 — 구성 격자에서 부품 상자를
+           Esc 로 닫으면 고른 자산까지 풀려 상세 패널이 통째로 사라졌다.
+
+           「떠 있는 상자가 있으면 뒤는 듣지 않는다」로는 못 막는다: 이 손짓 하나 안에서 상자가
+           닫히고 React 가 그 자리에서 DOM 을 지우므로, 뒤 핸들러가 볼 때는 이미 상자가 없다.
+           그래서 **잡는 단계에서 미리 끊는다** — 붙잡기(capture)는 window 에서 가장 먼저
+           돈다. 상자가 여럿 쌓였으면 **맨 위 것만** 가져간다(그 아래 것은 그냥 흘려보내
+           안쪽 상자가 잡게 둔다). */
+        e.stopPropagation();
         onClose();
         return;
       }
@@ -54,9 +68,9 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
       e.preventDefault();
       (e.shiftKey ? items[items.length - 1]! : items[0]!).focus();
     };
-    document.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
     return () => {
-      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
       opener?.focus?.();
     };
   }, [open, onClose]);

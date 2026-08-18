@@ -107,6 +107,16 @@ describe('AssemblyGrid 선택 해제', () => {
     expect(onAddAtCell).not.toHaveBeenCalled();
   });
 
+  /* 상세 패널 구성 탭은 푸는 길을 주지 않는다 — 거기서 빛나는 것은 밖에서 고른 것을 비추는
+     표시일 뿐이라 여기서 풀 것이 없다. 그런데도 「먼저 푼다」에 걸리면 추가가 두 번 눌러야
+     되는 일이 된다. */
+  it('푸는 길이 없는 판이면 빛나고 있어도 빈 칸은 한 번에 채운다', () => {
+    const { onAddAtCell, grid } = setup({ selectedId: 'a', onDeselect: undefined });
+    pointer('pointerdown', emptyCell(), 1, 3);
+    pointer('pointerup', grid, 1, 3);
+    expect(onAddAtCell).toHaveBeenCalled();
+  });
+
   it('고른 것이 없으면 빈 칸을 누르는 것이 곧 채우기다', () => {
     const onDeselect = vi.fn();
     const { onAddAtCell, grid } = setup({ selectedId: null, onDeselect });
