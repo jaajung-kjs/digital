@@ -338,7 +338,15 @@ export default function V2WorkspacePage() {
                     </div>
                   )}
 
-                  {showDetailPanel && (
+                  {/* 상세가 앉을 자리 — **늘 있다.**
+                      예전에는 고른 것이 있을 때만 이 열이 생겨, 표에서 한 줄 누를 때마다 표가
+                      384px 씩 좁아졌다 폈다 했다. 여기서 하는 일은 대부분 「골라서 본다」라 열렸다
+                      닫혔다가 잦은데, 그때마다 열 너비가 다시 잡히고 눈이 따라간 자리가 어긋난다.
+                      자리를 못 박아 두면 표는 한 번 잡힌 폭 그대로다(Figma·VS Code 의 검사기 레일).
+                      자리는 **화면이** 정하고 내용은 패널이 채운다 — 그래야 비었을 때도 같은 폭이다. */}
+                  {inSubstationScope && (
+                  <aside className="flex h-full w-96 shrink-0 flex-col border-l border-line bg-surface">
+                  {showDetailPanel ? (
                     <AssetDetailPanel
                       key={selectedAssetId}
                       assetId={selectedAssetId!}
@@ -358,6 +366,13 @@ export default function V2WorkspacePage() {
                         setCableStartPortId(portId);
                       }}
                     />
+                  ) : (
+                    <EmptyState
+                      title="고른 자산이 없습니다"
+                      description="표나 도면에서 하나를 누르세요."
+                    />
+                  )}
+                  </aside>
                   )}
                 </div>
               )}

@@ -186,7 +186,9 @@ export function AssetDetailPanel({
   ];
 
   return (
-    <div className="flex h-full w-96 shrink-0 flex-col border-l border-line bg-surface">
+    /* 폭·테두리는 **화면이** 정한다(워크스페이스의 상세 레일) — 이 패널이 스스로 자리를
+       만들면 비었을 때 그 자리가 사라져 옆 표가 넓어졌다 좁아졌다 한다. */
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       {/* 어느 자산을 보고 있는지는 탭 위에 고정한다.
           예전에는 자산 이름이 '정보' 탭 안의 카드에만 있어서, 점검·고장이력·연결 탭으로
           옮기면 패널만 봐서는 무엇의 기록인지 알 수 없었다. */}
