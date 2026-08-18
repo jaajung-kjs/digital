@@ -203,6 +203,12 @@ export function AssemblyGrid<T extends GridItem>({
   /** 눌렀을 때 — 무엇을 시작하는지만 정하고, 그 뒤는 격자가 받는다. */
   function beginGesture(kind: GridDragKind | 'tap', item: T | null, cell: GridCell, e: React.PointerEvent) {
     if (e.button !== 0) return;
+    /* 브라우저의 기본 손짓을 끈다 — 안 끄면 끌기 하나가 **글자 선택**으로도 읽혀서, 판 밖으로
+       나갔다 오면 표와 패널이 파랗게 잡힌 채 돌아온다(네이티브 이미지 끌기도 같이 뜬다).
+       기본 동작에는 「누른 것에 초점 주기」도 들어 있으므로 그것만 손으로 되돌린다 — 키보드로
+       칸을 옮겨 다니는 길(`onKeyDown`)이 초점 위에 서 있다. */
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).closest<HTMLElement>('button')?.focus();
     const session =
       item && kind !== 'tap'
         ? startGridDrag(
@@ -268,6 +274,14 @@ export function AssemblyGrid<T extends GridItem>({
 
   function onPointerMove(e: React.PointerEvent) {
     const g = gestureRef.current;
+    /* **손을 우리가 못 보는 데서 뗐다.** 창 밖에서 놓거나 다른 앱으로 넘어가면 캡처가 풀려
+       `pointerup` 이 오지 않는다. 그러면 손짓이 살아 있는 채로 남아, 돌아왔을 때 버튼을
+       누르지도 않았는데 부품이 커서를 따라다녔다 — 손을 뗀 자리가 어디였는지 알 수 없으므로
+       **물린다**(`pointercancel` 과 같은 뜻이다). 눌린 버튼이 없다는 사실이 그 신호다. */
+    if (g && e.buttons === 0) {
+      endGesture(false);
+      return;
+    }
     /* 빈 칸에서 시작한 손짓 — 시작 칸과 지금 칸이 이루는 네모를 미리 보여 준다. */
     if (g && !g.item) {
       const to = cellFromPointer(e);
@@ -650,10 +664,14 @@ export function AssemblyGrid<T extends GridItem>({
           ref={boxRef}
           /* `h-full` 이 있어야 `1fr` 행이 기준을 갖는다 — 높이가 auto 면 `1fr` 은 내용
              높이(최소치)로 접힌다. 행이 많아 넘치면 이 격자가 상자보다 커지고 상자가 스크롤한다. */
-          className="grid h-full gap-0.5"
+          /* 끌기는 글자를 잡지 않는다 — 칸 안 이름이 잡힌 채로 끌리면 판이 파래진다. */
+          className="grid h-full select-none gap-0.5"
           onPointerMove={onPointerMove}
           onPointerUp={() => endGesture(true)}
           onPointerCancel={() => endGesture(false)}
+          /* 캡처가 풀리면 그 손짓은 끝난 것이다 — 화면이 다시 그려져 상자가 갈리거나 브라우저가
+             가져갈 수 있다. 남겨 두면 미리보기만 붙박여 있고 손짓은 죽어 있는 상태가 된다. */
+          onLostPointerCapture={() => { if (gestureRef.current) endGesture(false); }}
           style={{
             gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
             minWidth: cols * GRID_COL_MIN,

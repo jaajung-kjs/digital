@@ -9,7 +9,7 @@ const types = new Map([
 ]);
 const categories = new Map([['c-1', '통신']]);
 /* 격자 안의 자리는 행·열로 적는다. 설비 종류로 놓은 설비는 설비 종류가 곧 분류다. */
-const assemblies = new Map([['asm-rack', { id: 'asm-rack', name: '송변전광단말장치', gridCols: 1, gridRows: 12 } as never]]);
+const assemblies = new Map([['asm-rack', { id: 'asm-rack', name: '송변전광단말장치' } as never]]);
 
 describe('buildStatusRows (변전소 스코프)', () => {
   const floors = [{ id: 'f-1', name: '1층', sortOrder: 1, substationId: 's' }];
@@ -81,7 +81,7 @@ describe('설비 묶음', () => {
        col: null, row: null, fieldValues: {}, ...over });
 
   /* 설비 종류 이름은 글자로 굳혀 두지 않고 설비 종류를 가리킨다 — 이름은 카탈로그에서 읽는다. */
-  const assembliesById = new Map([['asm-1', { id: 'asm-1', name: '송변전광단말장치 1식', gridCols: 1, gridRows: 12 } as never]]);
+  const assembliesById = new Map([['asm-1', { id: 'asm-1', name: '송변전광단말장치 1식' } as never]]);
   const build = (assets: object[]) =>
     buildStatusRows({
       assets: assets as never, floors: [] as never, typesById: types as never,

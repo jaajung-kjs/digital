@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { ASSEMBLY_GRID } from '@twin/core';
 import type { V2Asset, V2Assembly } from './types';
 
 export interface ContainerOption {
@@ -73,6 +74,6 @@ export function useMediumContainer(
     activeKey,
     setActiveKey: from.onPickContainer,
     active,
-    grid: assembly ? { cols: assembly.gridCols, rows: assembly.gridRows } : null,
+    grid: assembly ? ASSEMBLY_GRID : null,
   };
 }

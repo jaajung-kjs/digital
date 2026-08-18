@@ -1,5 +1,6 @@
 import {
   instantiatePorts, validateConnection, validateGridPlacement, PLACEMENT_FIELDS, DEFAULT_ASSET_STATUS,
+  ASSEMBLY_GRID,
 } from '@twin/core';
 import type { Direction } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
@@ -137,7 +138,9 @@ async function assertGridsValid(tx: Tx, parentIds: Iterable<string>): Promise<vo
 
     for (const mine of placed) {
       const err = validateGridPlacement({
-        grid: { cols: parent.assembly.gridCols, rows: parent.assembly.gridRows },
+        /* 격자는 **상수 하나**다 — 설비 종류마다 따로 저장하던 행·열 수를 걷었다. 화면이
+           그리는 판과 서버가 재는 판이 다르면, 눈으로 놓은 자리가 저장할 때만 튕긴다. */
+        grid: ASSEMBLY_GRID,
         col: mine.col,
         row: mine.row,
         colSpan: mine.colSpan,

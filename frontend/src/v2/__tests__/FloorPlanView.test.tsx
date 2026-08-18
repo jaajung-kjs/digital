@@ -30,7 +30,7 @@ const mockTypes: V2AssetType[] = [
 const mockAssemblies = [
   {
     id: 'asm-panel', key: 'PANEL-SET', name: '배전반', categoryId: 'c1',
-    gridCols: 1, gridRows: 1, sortOrder: 1,
+    sortOrder: 1,
     items: [{ id: 'it1', typeId: 't-panel', name: '배전반', col: 0, row: 0, colSpan: 1, rowSpan: 1, sortOrder: 0 }],
   },
 ];

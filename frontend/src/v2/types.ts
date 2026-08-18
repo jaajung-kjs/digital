@@ -43,7 +43,6 @@ export interface V2AssemblyItem {
 export interface V2Assembly {
   id: string; key: string; name: string; categoryId: string;
   /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류가 아니라). */
-  gridCols: number; gridRows: number;
   /**
    * 「1식」 공량 — 설비를 **통째로** 놓거나 걷을 때의 품.
    *
@@ -62,7 +61,6 @@ export interface V2Assembly {
 export interface AssemblyUpsertBody {
   /** 새로 만들 때는 보내지 않는다 — 서버가 붙인다(참조용 식별자다). */
   key?: string; name: string; categoryId: string;
-  gridCols: number; gridRows: number;
   laborCode: string | null;
   unitPrice: number | null;
   installManDays: number | null;

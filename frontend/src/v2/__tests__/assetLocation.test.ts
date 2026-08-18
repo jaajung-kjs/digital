@@ -28,8 +28,8 @@ const build = (...list: V2Asset[]) => new Map(list.map((a) => [a.id, a]));
 
 /* 격자 안의 자리는 **행·열**로 적는다 — 좌표를 번호 하나로 접지 않는다. */
 const assemblies = new Map([
-  ['rack-asm', { id: 'rack-asm', gridCols: 1, gridRows: 12 } as never],
-  ['panel-asm', { id: 'panel-asm', gridCols: 2, gridRows: 6 } as never],
+  ['rack-asm', { id: 'rack-asm' } as never],
+  ['panel-asm', { id: 'panel-asm' } as never],
 ]);
 
 describe('자산 위치 경로', () => {

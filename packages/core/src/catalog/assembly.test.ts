@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateAssembly, type AssemblySpec } from './assembly.js';
+import { validateAssembly, ASSEMBLY_GRID, type AssemblySpec } from './assembly.js';
 import type { AssetTypeSpec } from './types.js';
 
 const item = (over: Partial<AssemblySpec['items'][number]> & { id: string }) => ({
@@ -9,7 +9,6 @@ const item = (over: Partial<AssemblySpec['items'][number]> & { id: string }) => 
 /** 격자 하나에 부품을 놓은 것 — 그게 설비 종류의 전부다(담는 중간 자산이 없다). */
 const optSet: AssemblySpec = {
   key: 'OPT-SET', name: '송변전광단말장치',
-  grid: { cols: 1, rows: 12 },
   items: [
     item({ id: 'a', typeKey: 'OPT-TERM', name: '광단말', row: 0 }),
     item({ id: 'b', typeKey: 'NET-SW', name: '네트워크스위치', row: 1 }),
@@ -22,9 +21,11 @@ describe('validateAssembly', () => {
     expect(validateAssembly(optSet, types)).toBeNull();
   });
 
-  it('격자가 0이면 거부한다', () => {
-    expect(validateAssembly({ ...optSet, grid: { cols: 0, rows: 12 } }, types)).toBe('bad-grid');
-    expect(validateAssembly({ ...optSet, grid: { cols: 1, rows: 0 } }, types)).toBe('bad-grid');
+  /* 격자는 명세가 들고 다니지 않는다 — 모든 설비가 같은 도화지를 쓴다. 들고 다니던 동안
+     화면(상수)과 서버(저장값)의 판이 갈려, 눈으로 놓은 자리가 저장할 때만 튕겼다. */
+  it('격자는 상수 하나다 — 명세가 제 격자를 갖지 않는다', () => {
+    expect('grid' in optSet).toBe(false);
+    expect(ASSEMBLY_GRID).toEqual({ cols: 10, rows: 20 });
   });
 
   it('어휘에 없는 타입은 거부한다', () => {
@@ -34,9 +35,9 @@ describe('validateAssembly', () => {
   /* 저장 전에 걸러야 배치할 때 터지지 않는다 — 설비 종류에서는 놓였는데 실제 배치에서 튕기면
      짠 사람이 무엇이 잘못됐는지 알 길이 없다. */
   it('격자 밖은 거부한다', () => {
-    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 12 })] }, types)).toBe('out-of-range');
-    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', col: 1 })] }, types)).toBe('out-of-range');
-    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 11, rowSpan: 2 })] }, types)).toBe('out-of-range');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 20 })] }, types)).toBe('out-of-range');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', col: 10 })] }, types)).toBe('out-of-range');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 19, rowSpan: 2 })] }, types)).toBe('out-of-range');
   });
 
   it('같은 자리에 둘을 놓으면 거부한다', () => {
@@ -48,7 +49,6 @@ describe('validateAssembly', () => {
   it('열이 다르면 같은 행이라도 겹치지 않는다', () => {
     const twoCol: AssemblySpec = {
       ...optSet,
-      grid: { cols: 2, rows: 6 },
       items: [item({ id: 'a', col: 0, row: 0 }), item({ id: 'b', typeKey: 'NET-SW', col: 1, row: 0 })],
     };
     expect(validateAssembly(twoCol, types)).toBeNull();

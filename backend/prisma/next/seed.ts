@@ -87,7 +87,7 @@ async function main() {
       const asm = await tx.assembly.create({
         data: {
           key: a.key, name: a.name, categoryId: category.id,
-          gridCols: a.grid.cols, gridRows: a.grid.rows, sortOrder: a.sortOrder,
+          sortOrder: a.sortOrder,
         },
       });
       for (const [i, item] of a.items.entries()) {

@@ -485,7 +485,6 @@ async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
       // 키는 검사에 쓰이지 않는다(격자 안·겹침만 본다) — 아직 안 붙었으면 빈 값으로 둔다.
       key: body.key ?? '',
       name: body.name,
-      grid: { cols: body.gridCols, rows: body.gridRows },
       items: body.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
     },
     typeKeys: new Set(types.map((t) => t.key)),
@@ -504,7 +503,6 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
       const row = await tx.assembly.create({
         data: {
           key: body.key, name: body.name, categoryId: body.categoryId,
-          gridCols: body.gridCols, gridRows: body.gridRows,
           laborCode: body.laborCode, unitPrice: body.unitPrice,
           installManDays: body.installManDays,
           removeManDays: body.removeManDays, relocateManDays: body.relocateManDays,
@@ -535,7 +533,6 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
         where: { id },
         data: {
           key: body.key, name: body.name, categoryId: body.categoryId,
-          gridCols: body.gridCols, gridRows: body.gridRows,
           laborCode: body.laborCode, unitPrice: body.unitPrice,
           installManDays: body.installManDays,
           removeManDays: body.removeManDays, relocateManDays: body.relocateManDays,

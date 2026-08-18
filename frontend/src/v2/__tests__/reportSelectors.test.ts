@@ -85,7 +85,7 @@ describe('buildReportItems', () => {
 describe('1식 공량', () => {
   const optSet = {
     id: 'asm-1', key: 'OPT-SET', name: '송변전광단말장치', categoryId: 'c',
-    gridCols: 4, gridRows: 12, sortOrder: 1, items: [],
+    sortOrder: 1, items: [],
     laborCode: '통신내선공', installManDays: 40, removeManDays: 20, relocateManDays: 30,
   };
   /** 1식 공량을 안 적어 둔 설비 종류 — 안에 든 자산의 공량을 합쳐 센다. */
@@ -171,7 +171,7 @@ describe('1식 공량', () => {
 describe('1식 공량이 없을 때의 폴백', () => {
   const bare = {
     id: 'asm-b', key: 'BARE', name: '무명설비', categoryId: 'c',
-    gridCols: 4, gridRows: 12, sortOrder: 1, items: [],
+    sortOrder: 1, items: [],
     laborCode: null, installManDays: null, removeManDays: null, relocateManDays: null,
   };
   const 설비 = mkAsset('e1', '무명 A', { typeId: null, assemblyId: 'asm-b', floorId: 'f1' });

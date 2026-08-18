@@ -60,9 +60,12 @@ const emptyCell = () => screen.getAllByRole('button', { name: /비어 있음/ })
  * `button` 이 사라져 「왼쪽 버튼으로 눌렀나」 판정에 걸린다. `MouseEvent` 로 직접 만든다 —
  * 타입 이름만 pointer 계열이면 React 가 그대로 pointer 핸들러로 보낸다.
  */
-const pointer = (type: string, el: Element | Window, col: number, row: number) =>
+const pointer = (type: string, el: Element | Window, col: number, row: number, buttons?: number) =>
   fireEvent(el, new MouseEvent(type, {
     bubbles: true, cancelable: true, button: 0,
+    /* 끄는 동안에는 버튼이 눌려 있다 — 화면은 이 값으로 「우리가 못 본 사이에 손을 뗐나」를
+       가린다(창 밖에서 놓으면 `pointerup` 이 오지 않는다). 손을 뗄 때만 0 이다. */
+    buttons: buttons ?? (type === 'pointerup' ? 0 : 1),
     clientX: col * 50 + 25, clientY: row * 50 + 25,
   }));
 
@@ -209,6 +212,19 @@ describe('AssemblyGrid 손짓', () => {
     pointer('pointermove', grid, 1, 3);
     pointer('pointerup', grid, 1, 3);
     expect(onMove).toHaveBeenCalledWith('a', { col: 0, row: 0, colSpan: 2, rowSpan: 4 });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  /* 창 밖에서 손을 떼면 `pointerup` 이 오지 않는다(캡처가 풀린다). 그러면 손짓이 살아 있는
+     채로 남아, 돌아왔을 때 버튼을 누르지도 않았는데 부품이 커서를 따라다녔다. */
+  it('못 본 사이에 손을 뗐으면 물린다 — 돌아와도 따라다니지 않는다', () => {
+    const { onMove, onSelect, grid } = setup();
+    pointer('pointerdown', item(), 0, 0);
+    pointer('pointermove', grid, 1, 2);
+    pointer('pointermove', grid, 1, 3, 0); // 창 밖에서 뗀 손이 돌아왔다
+    pointer('pointermove', grid, 1, 4);
+    pointer('pointerup', grid, 1, 4);
+    expect(onMove).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
   });
 

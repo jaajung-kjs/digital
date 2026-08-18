@@ -1,4 +1,4 @@
-import { validateAssembly, type AssemblyError, ASSEMBLY_GRID } from '@twin/core';
+import { validateAssembly, type AssemblyError } from '@twin/core';
 import type { V2Assembly, V2AssemblyItem, V2AssetType } from './types';
 
 /**
@@ -64,7 +64,6 @@ export interface AssemblyIssue {
 }
 
 const ERROR_MESSAGE: Record<AssemblyError, string> = {
-  'bad-grid': '격자는 가로·세로 1 이상이어야 합니다',
   'unknown-type': '없는 자산 종류를 가리키는 부품이 있습니다',
   'out-of-range': '격자 밖에 놓인 부품이 있습니다',
   overlap: '같은 자리에 겹쳐 놓인 부품이 있습니다',
@@ -93,7 +92,6 @@ export function assemblyIssues(draft: AssemblyDraft, types: V2AssetType[]): Asse
     {
       key: draft.key,
       name: draft.name,
-      grid: ASSEMBLY_GRID,
       items: draft.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
     },
     new Set(types.map((t) => t.key)),
@@ -109,8 +107,6 @@ export function draftToAssemblyBody(draft: AssemblyDraft) {
     ...(draft.key === '' ? {} : { key: draft.key }),
     name: draft.name.trim(),
     categoryId: draft.categoryId,
-    gridCols: ASSEMBLY_GRID.cols,
-    gridRows: ASSEMBLY_GRID.rows,
     laborCode: draft.laborCode,
     unitPrice: draft.unitPrice,
     installManDays: draft.installManDays,

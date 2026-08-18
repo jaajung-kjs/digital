@@ -442,7 +442,7 @@ describe('catalog CRUD', () => {
     const a = await request(app)
       .post('/api/v2/catalog/assemblies')
       .set(admin)
-      .send({ name: `${uniq}-asm-spec`, categoryId: catId, gridCols: 1, gridRows: 1, sortOrder: 999, items: [], ...spec })
+      .send({ name: `${uniq}-asm-spec`, categoryId: catId, sortOrder: 999, items: [], ...spec })
       .expect(201);
 
     const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;

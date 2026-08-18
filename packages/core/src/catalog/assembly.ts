@@ -1,6 +1,6 @@
 import type { AssetTypeSpec, PortRef } from './types.js';
 import { instantiatePorts } from './instantiatePorts.js';
-import { validateGridPlacement, type Grid } from '../validation/gridPlacement.js';
+import { validateGridPlacement } from '../validation/gridPlacement.js';
 
 /**
  * 설비 종류 — **격자 하나에 부품을 놓아 만든 한 설비**.
@@ -18,8 +18,6 @@ import { validateGridPlacement, type Grid } from '../validation/gridPlacement.js
 export interface AssemblySpec {
   key: string;
   name: string;
-  /** 이 설비 안의 자리. */
-  grid: Grid;
   items: AssemblyItemSpec[];
 }
 
@@ -37,7 +35,7 @@ export interface AssemblyItemSpec {
   portPositions?: Record<string, number>;
 }
 
-export type AssemblyError = 'bad-grid' | 'unknown-type' | 'out-of-range' | 'overlap';
+export type AssemblyError = 'unknown-type' | 'out-of-range' | 'overlap';
 
 /**
  * 설비 종류가 말이 되는가. null = 유효.
@@ -49,13 +47,11 @@ export function validateAssembly(
   spec: AssemblySpec,
   typeKeys: ReadonlySet<string>,
 ): AssemblyError | null {
-  if (spec.grid.cols < 1 || spec.grid.rows < 1) return 'bad-grid';
-
   const placed: { assetId: string; col: number; row: number; colSpan: number; rowSpan: number }[] = [];
   for (const item of spec.items) {
     if (!typeKeys.has(item.typeKey)) return 'unknown-type';
     const issue = validateGridPlacement({
-      grid: spec.grid,
+      grid: ASSEMBLY_GRID,
       col: item.col,
       row: item.row,
       colSpan: item.colSpan ?? 1,
@@ -78,7 +74,12 @@ export function validateAssembly(
    서버가 펴야 할 일이 생기면 그때 **쓰는 곳과 함께** 되살린다. */
 
 /**
- * 설비의 **도화지** — 모든 설비가 같은 판을 쓴다.
+ * 설비의 **도화지** — 모든 설비가 같은 판을 쓴다. **이 값이 격자의 유일한 출처다.**
+ *
+ * 한동안 화면만 이 상수를 쓰고 설비 종류마다 행·열 수를 따로 저장해 두었다(`Assembly.gridCols`).
+ * 그래서 화면은 10×20 을 그리는데 서버는 4×6 으로 판정해, 눈으로 놓은 자리가 저장할 때
+ * `배치할 수 없습니다: out-of-range` 로 튕겼다 — 사용자가 무엇이 잘못됐는지 알 길이 없는
+ * 종류의 버그다. 같은 규칙을 두 곳에 두면 반드시 갈린다.
  *
  * 예전에는 설비 종류마다 행·열 수를 숫자로 받았다. 그런데 격자는 자산을 놓는 도화지일
  * 뿐이고, 그 설비가 어떤 물건인지는 **안에 무엇이 놓였는가**가 말한다 — 크기가 말하는 게

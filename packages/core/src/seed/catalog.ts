@@ -294,7 +294,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
  */
 export const SEED_ASSEMBLIES: {
   key: string; name: string; categoryKey: string; sortOrder: number;
-  grid: { cols: number; rows: number };
   items: { typeKey: string; name: string; col: number; row: number; colSpan: number; rowSpan: number;
            portCounts?: Record<string, number>; portPositions?: Record<string, number> }[];
 }[] = [
@@ -302,7 +301,6 @@ export const SEED_ASSEMBLIES: {
     /* 성단 판을 담는 함체 — 도면에 이것을 놓는다(예전의 OFD 자산 + 그 안의 슬롯들).
        판은 가로로 나란히 꽂힌다. 세로 1열로 두면 세로로만 쌓는 판이 되어 버린다. */
     key: 'OFD', name: 'OFD(광분배함)', categoryKey: '통신', sortOrder: 20,
-    grid: { cols: 4, rows: 6 },
     items: Array.from({ length: 4 }, (_, i) => ({
       typeKey: 'OFD-SLOT', name: `슬롯 ${i + 1}`, col: i, row: 0, colSpan: 1, rowSpan: 2,
     })),
@@ -311,18 +309,15 @@ export const SEED_ASSEMBLIES: {
     /* 분전반 조서는 좌우 2열 — 홀수 왼쪽, 짝수 오른쪽이 표준이라 회로 번호가 그대로 나온다.
        구성이 비어 있는 것은 회로를 놓고 나서 계통 화면에서 채우기 때문이다. */
     key: 'DIST', name: '분전반', categoryKey: '전원', sortOrder: 30,
-    grid: { cols: 2, rows: 12 },
     items: [],
   },
   // ── 단품 — 안에 든 것이 하나뿐이라 격자도 한 칸이다. ──
   {
     key: 'GROUNDING-SET', name: '접지함체', categoryKey: '구조', sortOrder: 31,
-    grid: { cols: 1, rows: 1 },
     items: [{ typeKey: 'GROUNDING', name: '접지함체', col: 0, row: 0, colSpan: 1, rowSpan: 1 }],
   },
   {
     key: 'HVAC-SET', name: '공조설비', categoryKey: '공조', sortOrder: 32,
-    grid: { cols: 1, rows: 1 },
     items: [{ typeKey: 'HVAC', name: '공조설비', col: 0, row: 0, colSpan: 1, rowSpan: 1 }],
   },
   {
@@ -339,7 +334,6 @@ export const SEED_ASSEMBLIES: {
      * 반고라 위아래 두 단으로 겹친다. 빈 슬롯(BLANK 공판넬)은 자산이 아니므로 비워 둔다.
      */
     key: 'OPT-SET', name: '송변전광단말장치', categoryKey: '통신', sortOrder: 63,
-    grid: { cols: 10, rows: 20 },
     items: [
       { typeKey: 'PWR-DC', name: '전원경보분배반(DC)', col: 0, row: 0, colSpan: 10, rowSpan: 2 },
       { typeKey: 'PWR-AC', name: '전원경보분배반(AC)', col: 0, row: 2, colSpan: 10, rowSpan: 2 },
@@ -361,7 +355,6 @@ export const SEED_ASSEMBLIES: {
   {
     // 전원반도 같은 4칸 격자 — 축전지는 여러 단을 차지하므로 아래로 걸친다.
     key: 'PWR-SET', name: '전원설비', categoryKey: '전원', sortOrder: 70,
-    grid: { cols: 4, rows: 12 },
     items: [
       { typeKey: 'UPS', name: 'UPS', col: 0, row: 0, colSpan: 2, rowSpan: 2 },
       { typeKey: 'CHARGER', name: '충전기', col: 2, row: 0, colSpan: 2, rowSpan: 2 },

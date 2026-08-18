@@ -123,9 +123,7 @@ export const assemblyUpsertSchema = z.object({
   key: z.string().regex(keyRe).optional(),
   name: z.string().trim().min(1),
   categoryId: z.string().uuid(),
-  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류가 아니라). */
-  gridCols: z.number().int().min(1),
-  gridRows: z.number().int().min(1),
+  /* 격자는 받지 않는다 — 모든 설비가 같은 도화지를 쓴다(`ASSEMBLY_GRID`). */
   /* 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */
   laborCode: z.string().trim().min(1).nullable().default(null),
   unitPrice: z.number().int().min(0).nullable().default(null),
