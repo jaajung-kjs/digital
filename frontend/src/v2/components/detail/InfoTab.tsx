@@ -20,7 +20,6 @@ import {
   Select,
   useConfirm,
   cn,
-  SELECTABLE,
   EMPTY,
 } from '../../../components/ui';
 import type { GridPlacement } from '../../gridDrag';
@@ -91,13 +90,13 @@ function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortI
  * 판은 **한 번도 줄지 않는다**(상자가 위에 뜨므로) — 20행이 눌려 글씨가 뭉갤 일이 없다.
  */
 function PartDialog({
-  part, typeName, portCount, onClose, onOpenPorts, onDelete,
+  part, typeName, portBoard, onClose, onDelete,
 }: {
   part: V2Asset;
   typeName: string;
-  portCount: number;
+  /** 이 부품의 포트 판 — 포트 탭이 쓰는 것과 **같은 판**이다(위에서 만들어 내려온다). */
+  portBoard: React.ReactNode;
   onClose: () => void;
-  onOpenPorts: () => void;
   onDelete: () => void;
 }) {
   const commit = (patch: Partial<V2Asset>) => useV2WorkingCopy.getState().stageAssetUpdate(part.id, patch);
@@ -112,7 +111,8 @@ function PartDialog({
       open
       onClose={onClose}
       title={part.name}
-      size="sm"
+      /* 포트 판이 들어오므로 좁으면 타일이 한 줄에 서너 개밖에 못 선다. */
+      size="lg"
       footer={
         <>
           {/* 삭제는 왼쪽 끝 — 닫기 옆에 두면 손이 미끄러진다. */}
@@ -164,19 +164,13 @@ function PartDialog({
           </DetailRow>
         );
       })}
-      {portCount > 0 && (
-        <DetailRow label="포트">
-          {/* 포트는 설비의 포트 탭이 부품별로 묶어 보여준다 — 여기서는 그리로 보낸다. */}
-          <button
-            type="button"
-            className={cn('rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-            onClick={onOpenPorts}
-          >
-            {portCount}개 보기
-          </button>
-        </DetailRow>
-      )}
       </div>
+
+      {/* 포트는 **여기서 본다.** 예전에는 「25개 보기」가 포트 탭으로 보냈는데, 부품 하나를
+          보러 상자를 연 사람에게 상자를 닫고 다른 탭으로 건너뛰게 하는 일이었다.
+          판은 포트 탭이 쓰는 것과 같은 것을 그대로 쓴다 — 포트를 보는 판이 둘이 되면
+          「빈 자리가 어디였지」를 화면마다 다시 배워야 한다. */}
+      {portBoard && <div className="mt-3 border-t border-line pt-3">{portBoard}</div>}
     </Modal>
   );
 }
@@ -188,15 +182,29 @@ interface InfoTabProps {
   type: V2AssetType | undefined;
   /** 설비의 분류이자 자리 명세 — 격자가 여기서 나온다. */
   assembliesById: Map<string, V2Assembly>;
+  effectiveAssets: V2Asset[];
+}
+
+interface LayoutTabProps {
+  assetId: string;
+  asset: V2Asset;
+  /** 설비의 분류이자 자리 명세 — 격자가 여기서 나온다. */
+  assembliesById: Map<string, V2Assembly>;
   /** 이 설비 안에 놓인 부품들 — 자리 순. */
   parts: V2Asset[];
-  /** 자산 종류 이름을 부품 카드에 적는다. */
+  /** 자산 종류 이름을 부품 상자에 적는다. */
   typesById: Map<string, V2AssetType>;
-  /** 밖에서 부품을 지목해 온 경우(현황표에서 부품 행을 눌렀을 때). */
+  /** 밖에서 부품을 지목해 온 경우(현황표에서 부품 행을 눌렀을 때) — 격자에서 빛난다. */
   focusPartId?: string | null;
-  /** 그 부품의 포트를 보러 간다 — 포트 탭이 부품별로 묶어 보여준다. */
-  onOpenPorts: (partId: string) => void;
-  effectiveAssets: V2Asset[];
+  /**
+   * 그 부품의 포트 판 — 상자 안에 그대로 앉는다.
+   *
+   * 판을 여기서 만들지 않고 받는 이유: 그것은 포트 탭이 쓰는 것과 **같은 판**이어야 하고,
+   * 그 판이 쓰는 것들(추적·대국 이동·케이블 잇기)은 이 탭이 아니라 워크스페이스의 것이다.
+   * `close` 는 **화면 뒤를 바꾸는 일**에 쓴다 — 다른 자산으로 옮겨가거나 평면도의 케이블
+   * 도구를 무장시키면, 그 앞을 가린 상자는 닫혀야 한다.
+   */
+  renderPortBoard: (partId: string, close: () => void) => React.ReactNode;
   setAddModalCtx: (ctx: AddModalContext | null) => void;
 }
 
@@ -349,12 +357,9 @@ export function LayoutTab({
   parts,
   typesById,
   focusPartId,
-  onOpenPorts,
+  renderPortBoard,
   setAddModalCtx,
-}: Pick<
-  InfoTabProps,
-  'assetId' | 'asset' | 'assembliesById' | 'parts' | 'typesById' | 'focusPartId' | 'onOpenPorts' | 'setAddModalCtx'
->) {
+}: LayoutTabProps) {
   const { confirm, confirmDialog } = useConfirm();
   /** 격자에서 누른 부품 — 대화상자가 뜬다. 판 자체는 그대로다. */
   const [openPartId, setOpenPartId] = useState<string | null>(null);
@@ -434,10 +439,8 @@ export function LayoutTab({
         <PartDialog
           part={openPart}
           typeName={typesById.get(openPart.typeId ?? '')?.name ?? EMPTY}
-          portCount={openPart.ports.length}
+          portBoard={openPart.ports.length > 0 ? renderPortBoard(openPart.id, () => setOpenPartId(null)) : null}
           onClose={() => setOpenPartId(null)}
-          /* 포트 탭으로 옮겨가면서 상자는 닫는다 — 옮겨간 판 위에 상자가 남아 가리면 안 된다. */
-          onOpenPorts={() => { setOpenPartId(null); onOpenPorts(openPart.id); }}
           onDelete={() => void handleDeletePart(openPart)}
         />
       )}

@@ -58,9 +58,6 @@ export function AssetDetailPanel({
   /* 설비를 열면 **그 안이 먼저** 보인다 — 현장에서 랙 문을 열면 안이 보이는 것과 같다.
      포트를 지목해 온 경우에만 포트 탭으로 연다(그때는 무엇을 보라는 것인지가 분명하다). */
   const [tab, setTab] = useState<Tab>(focusPortId ? 'connections' : 'layout');
-  /** 부품 카드에서 「포트 보기」로 넘어올 때 고를 포트 — 밖에서 온 지목보다 우선한다. */
-  const [localFocusPort, setLocalFocusPort] = useState<string | null>(null);
-  useEffect(() => setLocalFocusPort(null), [assetId]);
   const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
 
   // 자산 전환 시 로컬 상태 리셋 (stale 자식 선택/모달 컨텍스트 방지)
@@ -254,10 +251,24 @@ export function AssetDetailPanel({
             parts={parts}
             typesById={typesById}
             focusPartId={focusPartId}
-            onOpenPorts={(partId: string) => {
-              setLocalFocusPort(parts.find((a) => a.id === partId)?.ports[0]?.id ?? null);
-              setTab('connections');
-            }}
+            /* 부품 상자 안에 앉을 포트 판 — **포트 탭이 쓰는 것과 같은 것**이다.
+               판이 하는 일 가운데 **화면 뒤를 바꾸는 둘**(대국 자산으로 옮겨가기, 평면도의
+               케이블 도구 무장)은 상자를 먼저 닫는다 — 그 앞을 가린 채로 뒤가 바뀌면
+               무엇이 일어났는지 보이지 않는다.
+               `cablePick` 은 넘기지 않는다: 포트를 「고르는」 판은 하나여야 하고(포트 탭),
+               그 요청은 평면도가 보낸다. */
+            renderPortBoard={(partId, close) => (
+              <ConnectionsTab
+                assetId={partId}
+                /* 이 판은 이미 그 부품의 상자 안이다 — 머리줄이 이름을 두 번 말하지 않게. */
+                ownerHeadings={false}
+                onSelectAsset={(id) => { close(); onSelectAsset(id); }}
+                onTrace={onTrace ?? (() => {})}
+                onClearTrace={onClearTrace ?? (() => {})}
+                traceResult={traceResult}
+                onConnectPort={onConnectPort && ((portId) => { close(); onConnectPort(portId); })}
+              />
+            )}
             setAddModalCtx={setAddModalCtx}
           />
         )}
@@ -268,16 +279,7 @@ export function AssetDetailPanel({
             asset={asset}
             type={type}
             assembliesById={assembliesById}
-            parts={parts}
             effectiveAssets={effectiveAssets}
-            typesById={typesById}
-            focusPartId={focusPartId}
-            onOpenPorts={(partId) => {
-              // 그 부품의 첫 포트를 골라 둔다 — 포트 탭은 부품별로 묶여 있으니 그리로 열린다.
-              setLocalFocusPort(parts.find((a) => a.id === partId)?.ports[0]?.id ?? null);
-              setTab('connections');
-            }}
-            setAddModalCtx={setAddModalCtx}
           />
         )}
 
@@ -313,7 +315,7 @@ export function AssetDetailPanel({
         {effectiveTab === 'connections' && (
           <ConnectionsTab
             assetId={assetId}
-            focusPortId={localFocusPort ?? focusPortId}
+            focusPortId={focusPortId}
             onSelectAsset={onSelectAsset}
             onTrace={onTrace ?? (() => {})}
             onClearTrace={onClearTrace ?? (() => {})}

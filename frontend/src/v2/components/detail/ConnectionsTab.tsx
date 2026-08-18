@@ -34,6 +34,26 @@ import { PortFaceplate, type PortState } from './PortFaceplate';
 import type { CablePickRequest } from '../../cablePick';
 import { comparePortGroups, portGroupLabel } from '@twin/core';
 
+/**
+ * 부품별 판을 늘어놓는 자리 — 머리줄을 다느냐만 다르다.
+ *
+ * 다는 쪽은 `Accordion`(한 번에 하나만 펼친다), 안 다는 쪽은 판을 그대로 앉힌다. 이 갈림을
+ * 여기 한 번만 적어, 부르는 쪽은 「머리줄을 달까」만 말하면 되게 한다.
+ */
+function PortOwnerSections({
+  headings, openKey, onOpenChange, sections,
+}: {
+  headings: boolean;
+  openKey: string | null;
+  onOpenChange: (key: string | null) => void;
+  sections: { key: string; title: string; badge: string; badgeStatus: BadgeStatus; body: React.ReactNode }[];
+}) {
+  if (!headings) {
+    return <>{sections.map((s) => <div key={s.key} className="space-y-3">{s.body}</div>)}</>;
+  }
+  return <Accordion openKey={openKey} onOpenChange={onOpenChange} sections={sections} />;
+}
+
 /** 한 장비의 포트를 그룹 단위로 묶은 것 — 이름·정렬은 종류 선언에서 나온다. */
 interface PortGroupView {
   group: string;
@@ -71,10 +91,19 @@ interface ConnectionsTabProps {
    * 조회하던 판과 고르는 판이 같아야 「빈 자리가 어디였지」를 다시 배우지 않는다.
    */
   cablePick?: CablePickRequest | null;
+  /**
+   * 부품 이름 머리줄을 달까 — 기본은 단다.
+   *
+   * 설비의 포트 탭에서는 부품이 열둘이라 **머리줄이 곧 목록**이다(접힌 채로도 `n/m 연결` 이
+   * 보인다). 그런데 부품 상자 안에서는 이 판이 이미 그 부품의 것이라, 머리줄이 상자 제목과
+   * 같은 이름을 두 번 말한다 — 그때는 접을 것도 없으므로 판만 앉힌다.
+   */
+  ownerHeadings?: boolean;
 }
 
 export function ConnectionsTab({
   assetId, focusPortId, onSelectAsset, onTrace, onClearTrace, traceResult, onConnectPort, cablePick,
+  ownerHeadings = true,
 }: ConnectionsTabProps) {
   // 타일에는 번호만 있으므로, 고른 포트 하나의 상세를 아래에 펼친다.
   const [selectedPortId, setSelectedPortId] = useState<string | null>(focusPortId ?? null);
@@ -86,6 +115,8 @@ export function ConnectionsTab({
   /* 펼친 부품 — 아래 `openPartId` 가 이 값을 「첫 부품」·「접힘」으로 풀어 읽는다. */
   const [openPart, setOpenPart] = useState<string | null | undefined>(undefined);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  /* 추적 결과 상자 — 뜨면 눈에 들어오게 끌어온다(아래 `useEffect`). */
+  const traceRef = useRef<HTMLDivElement | null>(null);
   const { confirm, confirmDialog } = useConfirm();
   /* 고르는 중인가 — 요청이 **이 자산**을 가리킬 때만. 다른 자산을 보고 있는 동안에는
      판이 평소대로 조회로 남아야 한다(엉뚱한 포트를 끝점으로 집지 않게). */
@@ -374,6 +405,17 @@ export function ConnectionsTab({
     if (selectedPort && selectedPort.assetId !== openPartId) setOpenPart(selectedPort.assetId);
   }, [selectedPort, openPartId]);
 
+  /**
+   * 추적 결과가 뜨면 **보이는 자리로 끌어온다.**
+   *
+   * 결과는 누른 포트 바로 아래에 서지만, 그 아래가 화면 밖일 수 있다 — 부품 상자는 키가
+   * 85vh 로 묶여 있고 포트 탭도 판이 길면 마찬가지다. 누르고도 아무 일이 없는 것처럼 보이는
+   * 일이 이 화면에서 되풀이됐으므로, 답이 났으면 답을 보여 준다.
+   */
+  useEffect(() => {
+    if (tracedPortId && traceResult) traceRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [tracedPortId, traceResult]);
+
   if (!asset) return null;
 
   // 자기 포트가 없어도 안에 든 장비가 가질 수 있다 — 랙·함체가 그렇다.
@@ -461,7 +503,8 @@ export function ConnectionsTab({
           됐고, 상세를 판 밑으로 옮겨 놔도 그 판까지 가는 길이 여전히 스크롤뿐이었다. 그래서
           한 번에 하나만 펼친다(`Accordion`) — 접힌 머리줄이 곧 부품 목록이고, 이름 옆의
           `n/m 연결` 이 펴 보지 않고도 어느 판을 열지 알려 준다. */}
-      <Accordion
+      <PortOwnerSections
+        headings={ownerHeadings}
         openKey={openPartId}
         onOpenChange={handleOpenPart}
         sections={portOwners.map(({ owner, groups }) => {
@@ -616,7 +659,7 @@ export function ConnectionsTab({
                         아무 일이 없는 것처럼 보였다. 경로는 이 포트에서 출발한 것이므로
                         이 포트 밑이 그 경로의 자리다. */}
                     {tracedPortId === sel.id && traceResult && (
-                      <div className="border-t border-line pt-1.5">
+                      <div ref={traceRef} className="border-t border-line pt-1.5">
                         <div className="mb-0.5 flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-content-muted">
                             {traceResult.hops.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}

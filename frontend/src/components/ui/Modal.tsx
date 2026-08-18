@@ -10,11 +10,13 @@ export interface ModalProps {
   title?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
-  /** 패널 최대 폭 — md(기본, max-w-md=448px) / sm(360px). 폭 매직넘버의 단일 소스. */
-  size?: 'sm' | 'md';
+  /** 패널 최대 폭 — md(기본, 448px) / sm(360px) / lg(672px, 판을 담을 때). 폭 매직넘버의 단일 소스. */
+  size?: 'sm' | 'md' | 'lg';
   /** 패널에 추가 className */
   className?: string;
 }
+
+const SIZE = { sm: 'max-w-[360px]', md: 'max-w-md', lg: 'max-w-2xl' } as const;
 
 /** 초점이 갈 수 있는 것들 — 트랩이 순환시킬 대상. */
 const FOCUSABLE =
@@ -84,7 +86,13 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
     >
       <Card
         padding={false}
-        className={cn('mx-4 w-full hover:!bg-surface active:!bg-surface cursor-default', size === 'sm' ? 'max-w-[360px]' : 'max-w-md', className)}
+        /* 키는 화면을 넘지 않는다 — 안이 길면 **본문만** 구른다(머리줄과 단추는 제자리에
+           남아야 닫는 길이 늘 보인다). 판을 담는 상자가 생기면서 필요해졌다. */
+        className={cn(
+          'mx-4 flex max-h-[85vh] w-full flex-col hover:!bg-surface active:!bg-surface cursor-default',
+          SIZE[size],
+          className,
+        )}
         ref={panel}
         role="dialog"
         aria-modal="true"
@@ -92,15 +100,15 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-line px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
           <h2 id={titleId} className="text-sm font-semibold text-content">{title}</h2>
           <IconButton aria-label="닫기" onClick={onClose}>
             <X size={16} />
           </IconButton>
         </div>
-        <div className="px-4 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 border-t border-line px-4 py-3">{footer}</div>
+          <div className="flex shrink-0 justify-end gap-2 border-t border-line px-4 py-3">{footer}</div>
         )}
       </Card>
     </div>
