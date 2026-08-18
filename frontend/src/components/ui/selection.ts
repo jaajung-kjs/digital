@@ -13,8 +13,15 @@
  * 같은 색이면 커서를 올린 행이 머리글처럼 보인다 — 실제로 선번장에서 그랬다.
  */
 
-/** 고를 수 있는 항목의 기본 상태 — 호버에만 반응한다. */
-export const SELECTABLE = 'cursor-pointer transition-colors hover:bg-surface-3';
+/**
+ * 고를 수 있는 항목의 기본 상태 — 호버에만 반응한다.
+ *
+ * **글자가 선택되지 않는다**(`select-none`). 이 줄들은 다시 누르는 것이 뜻을 갖는다(가지는
+ * 접히고 잎은 놓인다). 그런데 연달아 두 번 누르면 브라우저가 그것을 더블클릭으로 읽고
+ * 줄의 글자를 통째로 잡는다 — 접었다 펴면 글자가 파랗게 잡힌 채로 열렸다. 누르는 자리가
+ * 곧 읽는 자리는 아니다.
+ */
+export const SELECTABLE = 'cursor-pointer select-none transition-colors hover:bg-surface-3';
 
 /**
  * 골라진 항목 — 호버색과 겹치지 않는 강조색.

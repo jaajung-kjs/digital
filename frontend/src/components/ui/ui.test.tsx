@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
+import { SELECTABLE } from './selection';
 import { DetailCard, DetailCardHeader, DetailRow } from './DetailCard';
 
 describe('Button', () => {
@@ -130,5 +131,13 @@ describe('Modal', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: '닫기' }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SELECTABLE', () => {
+  it('고를 수 있는 줄은 글자가 선택되지 않는다', () => {
+    /* 다시 누르는 것이 뜻을 갖는 줄들이다(가지는 접히고 잎은 놓인다). 연달아 두 번 누르면
+       브라우저가 더블클릭으로 읽고 줄의 글자를 잡아, 접었다 펴면 파랗게 잡힌 채로 열렸다. */
+    expect(SELECTABLE).toContain('select-none');
   });
 });
