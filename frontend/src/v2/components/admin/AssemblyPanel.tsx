@@ -114,9 +114,15 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             onDeselect={() => { setPendingAt(null); setSelectedItemId(null); }}
             /* 초안이라 저장 전이다 — 묻지 않는다(취소로 통째로 되돌릴 수 있다). */
             onRemove={(part) => removePart(part.id)}
-            trailing={(part) => (
-              <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? EMPTY}</span>
-            )}
+            /* 품목 이름은 **이름과 다를 때만** 적는다 — 갓 넣은 장비는 이름이 곧 품목 이름이라
+               같은 말이 칸 안에 두 번 섰다(「권역망전…」 아래 다시 「권역망전송장치」). */
+            trailing={(part) => {
+              const typeName = typeById.get(part.typeId)?.name;
+              if (!typeName) return <span className="shrink-0 text-xs text-content-faint">{EMPTY}</span>;
+              return typeName === part.name ? null : (
+                <span className="shrink-0 text-xs text-content-faint">{typeName}</span>
+              );
+            }}
             onAddAtCell={(at) => {
               setSelectedItemId(null);
               setPendingAt({ col: at.col, row: at.row, colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1 });
