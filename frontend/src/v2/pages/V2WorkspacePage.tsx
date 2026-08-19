@@ -5,7 +5,7 @@ import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { StatusTable } from '../components/StatusTable';
 import { SaveBar } from '../components/SaveBar';
-import { confirmDiscard } from '../leaveGuard';
+import { confirmDiscard, unsavedPrompt } from '../leaveGuard';
 import { useUnsavedMark } from '../useUnsavedMark';
 import { ReportPanel } from '../components/ReportPanel';
 import { ConflictDialog } from '../components/ConflictDialog';
@@ -100,15 +100,7 @@ export default function V2WorkspacePage() {
       if (n.id === st.substationId && route.nodeId === n.id) return;
       /* 묻고 **버리는** 일은 `confirmDiscard` 가 함께 쥔다 — 버리는 일이 「다른 변전소를 새로
          읽는」 부수 효과에 얹혀 있으면, 같은 변전소로 돌아오는 길에서는 안 버려진다. */
-      const mayLeave = await confirmDiscard(st, (dirty) =>
-        confirm({
-          title: '저장하지 않은 변경',
-          target: null,
-          message: `변경 ${dirty}건이 사라집니다. 이동할까요?`,
-          confirmLabel: '이동',
-          danger: true,
-        }),
-      );
+      const mayLeave = await confirmDiscard(st, (dirty) => confirm(unsavedPrompt(dirty)));
       if (!mayLeave) return;
     }
     /* 자산·장비·포트는 딸려 가지 않는다 — 저기 있던 자산이 여기 있을 리 없다. */

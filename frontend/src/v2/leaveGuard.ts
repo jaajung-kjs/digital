@@ -8,6 +8,21 @@
  *
  * 묻는 쪽이 버려야 그 말이 어느 길로 가든 참이 된다.
  */
+/**
+ * **떠나기 전에 묻는 말은 한 벌이다.**
+ *
+ * 같은 제목·같은 문구를 다섯 자리가 각자 적고 있었다(셸의 메뉴 이동, 워크스페이스의 변전소
+ * 바꾸기, 설비·장비·케이블 품목의 항목 바꾸기). 다섯이 조금씩 달라지면 같은 상황에서 화면마다
+ * 다른 말이 나온다 — 묻는 모양은 여기 한 번만 적는다.
+ */
+export const unsavedPrompt = (dirty: number) => ({
+  title: '저장하지 않은 변경',
+  target: null,
+  message: `변경 ${dirty}건이 사라집니다. 이동할까요?`,
+  confirmLabel: '이동',
+  danger: true,
+});
+
 export interface DirtyWorkingCopy {
   dirtyCount: () => number;
   revert: () => void;

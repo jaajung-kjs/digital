@@ -19,6 +19,7 @@ import {
 import { NEW_ID } from '../../catalogDraft';
 import { useEditorGate } from '../../useEditorGate';
 import { useDraftSelection } from '../../useDraftSelection';
+import { unsavedPrompt } from '../../leaveGuard';
 import { useUnsavedMark } from '../../useUnsavedMark';
 import { AssemblyPanel } from './AssemblyPanel';
 import type { V2Assembly, V2Catalog, V2Category } from '../../types';
@@ -50,16 +51,11 @@ export function AssemblyCatalogPanel({
 
   /* 고른 것·초안·떠나기 전 묻기는 세 탭이 같은 셸을 쓴다 — `useDraftSelection`. */
   const leaveIfConfirmed = useCallback(
-    () =>
-      confirm({
-        title: '저장하지 않은 변경',
-        target: null,
-        message: '편집 내용이 사라집니다. 이동할까요?',
-        confirmLabel: '이동',
-        danger: true,
-      }),
+    /* 묻는 말은 앱에 한 벌뿐이다 — `unsavedPrompt`. */
+    () => confirm(unsavedPrompt(1)),
     [confirm],
   );
+
   const sel = useDraftSelection<V2Assembly, AssemblyDraft>({
     entities: catalog.assemblies,
     toDraft: assemblyToDraft,
@@ -83,9 +79,11 @@ export function AssemblyCatalogPanel({
       if (isNew) {
         const created = await m.createAssembly.mutateAsync(body);
         sel.setRequestedId(created.id);
+        sel.markSaved();
         useV2Notice.getState().showSuccess(`'${draft.name}' 설비 품목을 만들었습니다`);
       } else {
         await m.updateAssembly.mutateAsync({ id: selectedId!, body });
+        sel.markSaved();
         useV2Notice.getState().showSuccess(`'${draft.name}' 을 저장했습니다`);
       }
     } catch (e) {

@@ -15,6 +15,7 @@ import { Boxes, LogOut } from 'lucide-react';
 import { useV2AuthStore, isAdminRole } from './store/authStore';
 import { useV2Notice } from './store/noticeStore';
 import { useUnsaved } from './store/unsavedStore';
+import { unsavedPrompt } from './leaveGuard';
 import { ErrorStrip, useConfirm } from '../components/ui';
 import { PRODUCT_NAME } from '../product';
 
@@ -55,13 +56,7 @@ export function V2Shell() {
   const unsaved = useUnsaved((s) => s.count);
   const mayLeave = async () => {
     if (unsaved === 0) return true;
-    return confirm({
-      title: '저장하지 않은 변경',
-      target: null,
-      message: `변경 ${unsaved}건이 사라집니다. 이동할까요?`,
-      confirmLabel: '이동',
-      danger: true,
-    });
+    return confirm(unsavedPrompt(unsaved));
   };
   /* 창을 닫거나 새로 고칠 때는 브라우저가 대신 묻는다 — 우리 상자를 띄울 수 없는 자리다. */
   useEffect(() => {

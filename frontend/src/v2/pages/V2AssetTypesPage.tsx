@@ -25,6 +25,7 @@ import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID } from '../c
 import { useEditorGate } from '../useEditorGate';
 import type { TypeDraft } from '../catalogDraft';
 import { useUnsavedMark } from '../useUnsavedMark';
+import { unsavedPrompt } from '../leaveGuard';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { CatalogEditorBar } from '../components/admin/CatalogEditorBar';
@@ -89,13 +90,7 @@ export default function V2AssetTypesPage() {
   async function selectType(id: string | null) {
     if (
       dirty &&
-      !(await confirm({
-        title: '저장하지 않은 변경',
-        target: null,
-        message: '편집 내용이 사라집니다. 이동할까요?',
-        confirmLabel: '이동',
-        danger: true,
-      }))
+      !(await confirm(unsavedPrompt(1)))
     )
       return;
     setSelectedTypeId(id);
@@ -112,13 +107,7 @@ export default function V2AssetTypesPage() {
   async function handleNewType(categoryId?: string) {
     if (
       dirty &&
-      !(await confirm({
-        title: '저장하지 않은 변경',
-        target: null,
-        message: '편집 내용이 사라집니다. 이동할까요?',
-        confirmLabel: '이동',
-        danger: true,
-      }))
+      !(await confirm(unsavedPrompt(1)))
     )
       return;
     /* 만드는 중인 것도 목록의 한 줄이다 — 어느 분류에 무엇이 생기는지 화면이 보여 준다. */

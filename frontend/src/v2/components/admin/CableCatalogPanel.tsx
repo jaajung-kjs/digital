@@ -42,6 +42,7 @@ import { LaborSpecForm } from './LaborSpecForm';
 import { TreePanel, type TreeNode } from '../../../components/ui';
 import { useEditorGate } from '../../useEditorGate';
 import { useDraftSelection } from '../../useDraftSelection';
+import { unsavedPrompt } from '../../leaveGuard';
 import { useUnsavedMark } from '../../useUnsavedMark';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useV2Notice } from '../../store/noticeStore';
@@ -161,16 +162,11 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
      예전에는 여기서 「고른 것이 사라졌으면 첫 번째로」를 **렌더 도중 `setState`** 로
      바로잡고 있었다. 이제 파생값이라 바로잡을 것이 없다. */
   const leaveIfConfirmed = useCallback(
-    () =>
-      confirm({
-        title: '저장하지 않은 변경',
-        target: null,
-        message: '편집 내용이 사라집니다. 이동할까요?',
-        confirmLabel: '이동',
-        danger: true,
-      }),
+    /* 묻는 말은 앱에 한 벌뿐이다 — `unsavedPrompt`. */
+    () => confirm(unsavedPrompt(1)),
     [confirm],
   );
+
   const sel = useDraftSelection<V2CableGroup, GroupDraft>({ entities: groups, toDraft, confirmLeave: leaveIfConfirmed });
   /* 저장 안 한 초안이 있으면 셸이 떠나기를 막는다 — 묻는 자리는 셸 하나다. */
   useUnsavedMark(sel.dirty ? 1 : 0);

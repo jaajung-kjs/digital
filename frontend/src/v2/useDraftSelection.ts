@@ -67,10 +67,32 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
+  /**
+   * 저장한 뒤에는 **서버가 돌려준 것으로 초안을 다시 뜬다.**
+   *
+   * 안 그러면 영원히 「고친 것이 있다」로 남는다: 초안이 들고 있는 장비 id 는 화면이 임시로
+   * 지은 것(`tmp-…`)이고 서버는 제 id 를 만들어 준다 — 같은 내용인데 글자가 다르다. 그래서
+   * 저장을 하고도 다른 화면으로 옮길 때마다 「변경이 사라집니다」를 물었다.
+   *
+   * 저장 시점에 바로 뜨지 않고 **다음에 오는 목록**을 기다린다 — 만들기는 그 뒤에야 새 id 를
+   * 알고, 고치기도 서버가 다듬은 값(정렬 순서 등)이 그때 온다.
+   */
+  const resyncRef = useRef(false);
+  useEffect(() => {
+    if (!resyncRef.current || !saved) return;
+    resyncRef.current = false;
+    setDraft(saved);
+  }, [saved]);
+
   const dirty = isDirty(draft, isNew ? null : saved);
   /* 고르는 함수가 `dirty` 보다 위에 설 수 있으므로 최신 값을 ref 로 읽는다. */
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
+
+  /** 저장이 끝났다 — 다음에 오는 목록으로 초안을 다시 뜬다. */
+  const markSaved = useCallback(() => {
+    resyncRef.current = true;
+  }, []);
 
   const select = useCallback(
     async (id: string | null) => {
@@ -101,5 +123,5 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
     }
   }, [isNew, saved]);
 
-  return { selectedId, isNew, original, saved, draft, setDraft, dirty, select, startNew, cancel, setRequestedId };
+  return { selectedId, isNew, original, saved, draft, setDraft, dirty, select, startNew, cancel, setRequestedId, markSaved };
 }
