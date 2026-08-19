@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 
 /**
  * **고른 것을 다시 누르면 풀린다.** 앱 전체가 이 한 줄을 따른다.
@@ -68,7 +68,20 @@ export function selectableRow(
     'data-selectable': '',
     tabIndex: 0,
     'aria-selected': selected,
-    onClick: toggle,
+    /**
+     * **줄은 어디를 눌러도 골라진다** — 그 안의 **조작 가능한 것**을 누른 때만 비켜준다.
+     *
+     * 예전에는 칸을 고르는 셀(개폐 토글, 케이블 값)이 `onClick={e => e.stopPropagation()}` 로
+     * **셀 통째로** 클릭을 삼켰다. 그러면 그 셀의 여백까지 죽는다 — 계통 표는 일곱 칸 중 셋이
+     * 그랬고, 하필 줄 한가운데라 줄을 누르려던 사람에게는 「클릭이 안 되는 표」였다.
+     *
+     * 막아야 하는 것은 **셀**이 아니라 **그 안의 조작기**다. 그 판정을 여기 한 곳에 둔다 —
+     * 부르는 표마다 셀에 손으로 붙이면 어느 칸 하나는 반드시 빠진다.
+     */
+    onClick: (e: MouseEvent<HTMLElement>) => {
+      if ((e.target as Element).closest('input, select, textarea, button, a, [contenteditable="true"]')) return;
+      toggle();
+    },
     onKeyDown: (e: KeyboardEvent<HTMLTableRowElement>) => {
       if (e.target !== e.currentTarget) return;
       if (e.key !== 'Enter' && e.key !== ' ') return;

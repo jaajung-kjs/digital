@@ -327,8 +327,7 @@ export function StatusTable({
                             type="button"
                             aria-label={`${row.name} ${expanded.has(row.id) ? '접기' : '펼치기'}`}
                             className="shrink-0 text-content-faint hover:text-content"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onClick={() => {
                               setExpanded((prev) => {
                                 const next = new Set(prev);
                                 if (next.has(row.id)) next.delete(row.id);

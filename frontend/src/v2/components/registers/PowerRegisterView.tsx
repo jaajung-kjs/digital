@@ -255,7 +255,7 @@ export function PowerRegisterView({
             <td className="truncate px-3 py-1.5 text-sm text-content">{row.feederName}</td>
 
             {/* 개폐 — 그 회로의 상태이지 기기의 속성이 아니다. 값은 출력 포트에 있다. */}
-            <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+            <td className="px-3 py-1.5">
               <ClosedCell feederId={row.feederId} portId={row.outCell.portId} closed={row.closed} />
             </td>
 
@@ -264,7 +264,7 @@ export function PowerRegisterView({
             </td>
 
             {cableFields.map((f) => (
-              <td key={f.key} className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+              <td key={f.key} className="px-3 py-1.5">
                 <CableFieldInput cableId={row.inCell.cableId} value={row.inCell.values[f.key]} field={f} />
               </td>
             ))}

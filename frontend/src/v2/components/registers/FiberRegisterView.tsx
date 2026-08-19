@@ -296,12 +296,12 @@ export function FiberRegisterView({
                 </td>
                 {/* 선로측 케이블에 적는 값 — 어떤 칸이 있는지는 종류 선언이 정한다. */}
                 {cableMetaFields.map((f) => (
-                  <td key={f.key} className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+                  <td key={f.key} className="px-3 py-1.5">
                     <MetaInput value={row.meta.cableValues[f.key]} field={f} cableId={row.meta.cableId} />
                   </td>
                 ))}
                 {portMetaFields.map((f) => (
-                  <td key={f.key} className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+                  <td key={f.key} className="px-3 py-1.5">
                     <PortFieldInput
                       value={row.meta.portValues[f.key]}
                       field={f}
