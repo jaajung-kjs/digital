@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button, Input, MessageStrip, Modal, Select, DetailRow } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
-import { ASSEMBLY_GRID, cellLabel, freeCells } from '@twin/core';
 import { makeNewAsset } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 
@@ -9,7 +8,6 @@ interface AddAssetModalProps {
   open: boolean;
   onClose: () => void;
   substationId: string;
-  /** 격자 컨텍스트: 설비 구성의 빈 자리에서 열릴 때 지정 */
   /**
    * 어느 설비의 어느 자리에 넣는가 — **항상 있다**.
    *
@@ -19,15 +17,15 @@ interface AddAssetModalProps {
    */
   gridContext: {
     parentAssetId: string;
-    /** 현재 형제들 — 빈 자리 계산용 */
-    siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
-  /**
-     * 빈 자리를 눌러(또는 끌어) 열었으면 **그 자리와 크기** — 다시 고르게 하지 않는다.
+    /**
+     * 눌러(또는 끌어) 잡은 **자리와 크기**.
      *
-     * 크기를 함께 나르지 않던 동안, 여러 칸을 묶어 끌어도 만들어지는 것은 늘 1×1 이었다
-     * (모달이 `colSpan: 1` 을 못 박고 있었다). 끌어서 잡은 크기가 조용히 버려진 셈이다.
+     * 여기서 자리를 다시 묻지 않는다: 이 상자는 그 칸을 눌러야 열리고, 뒤의 판에는 그 네모가
+     * 물든 채 남아 있다(`AssemblyGrid pending`). 한때 「몇 행 몇 열」 드롭다운이 있었는데,
+     * 방금 손으로 고른 것을 글자로 한 번 더 고르게 하는 칸이었다 — 자리를 옮기고 싶으면
+     * 취소하고 그 칸을 누르는 편이 짧다.
      */
-    cell?: { col: number; row: number; colSpan?: number; rowSpan?: number };
+    cell: { col: number; row: number; colSpan?: number; rowSpan?: number };
   };
 }
 
@@ -35,16 +33,7 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
   const effectiveAssets = useV2WorkingCopy((st) => st.saved.assets);
   const [selectedTypeId, setSelectedTypeId] = useState('');
   const [name, setName] = useState('');
-  const [selectedSlot, setSelectedSlot] = useState<string>('');
-
-  // 빈 자리를 눌러 열었으면 그 칸을 미리 고른 상태로 연다.
-  const presetCell = gridContext?.cell;
-  const presetKey = presetCell ? `${presetCell.col},${presetCell.row}` : undefined;
-  /** 끌어서 잡은 크기를 그대로 쓰는가 — 자리를 손으로 다시 고르면 그 크기는 뜻을 잃는다. */
-  const keepsDraggedSize = presetKey !== undefined && selectedSlot === presetKey;
-  useEffect(() => {
-    if (presetKey !== undefined) setSelectedSlot(presetKey);
-  }, [presetKey]);
+  const [showMissing, setShowMissing] = useState(false);
 
   const catalog = useV2Catalog();
 
@@ -54,19 +43,9 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
     [catalog.data],
   );
 
-  const allActiveTypes = useMemo(
-    () => catalog.data?.types ?? [],
-    [catalog.data],
-  );
-
   /* 격자 안에는 **무엇이든** 넣는다 — 무엇을 담을지는 설비 종류를 짜는 사람이 정하지,
      자리가 정하지 않는다(수용 규칙은 걷었다). */
-  const availableTypes = allActiveTypes;
-
-  const free = useMemo(
-    () => freeCells(ASSEMBLY_GRID, gridContext.siblings),
-    [gridContext],
-  );
+  const availableTypes = useMemo(() => catalog.data?.types ?? [], [catalog.data]);
 
   // 카테고리별 그룹핑
   const grouped = useMemo(() => {
@@ -79,10 +58,21 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
     return map;
   }, [availableTypes]);
 
+  /**
+   * 아직 비어 있는 칸 — 누르면 **무엇이 막고 있는지**를 이 목록이 말한다.
+   *
+   * 예전에는 다 채워질 때까지 「추가」를 꺼 두었다. 회색 단추는 왜 안 눌리는지 말해 주지
+   * 못해 막다른 길이 된다 — 이 앱의 대장 화면들이 이미 그러지 않기로 했다(`useEditorGate`).
+   * 같은 규칙을 모달에도 쓴다: 누를 수 있게 두고, 누르면 빠진 것을 짚어 준다.
+   */
+  const missing = [
+    selectedTypeId === '' && '자산 유형',
+    name.trim() === '' && '이름',
+  ].filter((v): v is string => typeof v === 'string');
+
   function handleClose() {
     setSelectedTypeId('');
     setName('');
-    setSelectedSlot('');
     setShowMissing(false);
     onClose();
   }
@@ -95,19 +85,21 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
     const type = availableTypes.find((t) => t.id === selectedTypeId);
     if (!type) return;
 
-    /* 고른 자리는 격자 칸이다 — `열,행` 으로 실어 보낸다(번호는 저장하지 않는다). */
-    const cell = selectedSlot !== '' ? selectedSlot.split(',').map(Number) : null;
-    const placement: Parameters<typeof makeNewAsset>[0]['placement'] = {
-      kind: 'grid',
-      parentAssetId: gridContext.parentAssetId,
-      col: cell ? cell[0]! : null,
-      row: cell ? cell[1]! : null,
-      /* 끌어서 잡은 크기 — 드롭다운으로 자리를 다시 고르면 한 칸이다(그 목록은 칸 단위다). */
-      colSpan: keepsDraggedSize ? presetCell!.colSpan ?? 1 : 1,
-      rowSpan: keepsDraggedSize ? presetCell!.rowSpan ?? 1 : 1,
-    };
-
-    const asset = makeNewAsset({ type, name: name.trim(), substationId, placement });
+    const { cell } = gridContext;
+    const asset = makeNewAsset({
+      type,
+      name: name.trim(),
+      substationId,
+      placement: {
+        kind: 'grid',
+        parentAssetId: gridContext.parentAssetId,
+        col: cell.col,
+        row: cell.row,
+        /* 끌어서 잡은 크기 그대로 — 자리를 되묻지 않으므로 크기가 바뀔 일도 없다. */
+        colSpan: cell.colSpan ?? 1,
+        rowSpan: cell.rowSpan ?? 1,
+      },
+    });
     useV2WorkingCopy.getState().stageAssetCreate(asset);
     handleClose();
   }
@@ -117,20 +109,6 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
     () => effectiveAssets.find((a) => a.id === gridContext.parentAssetId)?.name ?? null,
     [gridContext, effectiveAssets],
   );
-
-  /**
-   * 아직 비어 있는 칸 — 누르면 **무엇이 막고 있는지**를 이 목록이 말한다.
-   *
-   * 예전에는 셋이 다 채워질 때까지 「추가」를 꺼 두었다. 회색 단추는 왜 안 눌리는지 말해 주지
-   * 못해 막다른 길이 된다 — 이 앱의 대장 화면들이 이미 그러지 않기로 했다(`useEditorGate`).
-   * 같은 규칙을 모달에도 쓴다: 누를 수 있게 두고, 누르면 빠진 것을 짚어 준다.
-   */
-  const missing = [
-    selectedTypeId === '' && '자산 유형',
-    name.trim() === '' && '이름',
-    selectedSlot === '' && '자리',
-  ].filter((v): v is string => typeof v === 'string');
-  const [showMissing, setShowMissing] = useState(false);
 
   return (
     <Modal
@@ -151,13 +129,12 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
     >
       <div className="space-y-3">
         {/* 누른 뒤에만 뜬다 — 열자마자 경고가 서면 아직 아무것도 안 한 사람을 나무라는 꼴이다.
-            조사는 붙이지 않는다: 마지막 칸이 무엇이냐에 따라 「을/를」이 갈린다(이름을·자리를). */}
+            조사는 붙이지 않는다: 마지막 칸이 무엇이냐에 따라 「을/를」이 갈린다(이름을·유형을). */}
         {showMissing && missing.length > 0 && (
           <MessageStrip tone="warning">빠진 칸: {missing.join(' · ')}</MessageStrip>
         )}
         {destination && <DetailRow label="위치">{destination}</DetailRow>}
 
-        {/* 타입 선택 */}
         <DetailRow label="자산 유형">
           <Select
             aria-label="자산 유형"
@@ -177,50 +154,18 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
           </Select>
         </DetailRow>
 
-        {/* 이름 입력 */}
         <DetailRow label="이름">
           <Input
             aria-label="이름"
             placeholder="자산 이름 입력"
             value={name}
+            autoFocus
             onChange={(e) => setName(e.currentTarget.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleConfirm();
             }}
           />
         </DetailRow>
-
-        {/* 자리 선택 (설비 격자에 넣는 경우) */}
-        {(
-          <DetailRow label="자리">
-            {/* 끌어서 잡은 크기는 **적어 준다** — 자리만 보이면 몇 칸짜리를 만드는 중인지
-                상자만 보고는 알 수 없다(판에 남은 네모와 같은 것을 말한다). */}
-            {keepsDraggedSize && (presetCell!.colSpan ?? 1) * (presetCell!.rowSpan ?? 1) > 1 && (
-              <span className="mr-2 text-xs text-content-muted">
-                {presetCell!.colSpan ?? 1}×{presetCell!.rowSpan ?? 1} 칸
-              </span>
-            )}
-            {free.length === 0 ? (
-              <p className="text-xs text-content-faint">빈 자리 없음</p>
-            ) : (
-              <Select
-                aria-label="자리"
-                value={selectedSlot}
-                onChange={(e) => setSelectedSlot(e.currentTarget.value)}
-              >
-                <option value="">— 자리 선택 —</option>
-                {free.map((cell) => {
-                  const key = `${cell.col},${cell.row}`;
-                  return (
-                    <option key={key} value={key}>
-                      {cellLabel(cell.col, cell.row)}
-                    </option>
-                  );
-                })}
-              </Select>
-            )}
-          </DetailRow>
-        )}
       </div>
     </Modal>
   );

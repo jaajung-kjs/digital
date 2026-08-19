@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { freeCells, validateGridPlacement } from './gridPlacement.js';
+import { validateGridPlacement } from './gridPlacement.js';
 
 const grid = { cols: 1, rows: 12 };
 const base = { grid, col: 0, row: 0, colSpan: 1, rowSpan: 1, occupants: [] };
@@ -40,33 +40,5 @@ describe('validateGridPlacement', () => {
     const occ = [{ assetId: 'other', col: 0, row: 1, colSpan: 1, rowSpan: 1 }];
     expect(validateGridPlacement({ ...two, col: 1, row: 1, occupants: occ })).toBeNull();
     expect(validateGridPlacement({ ...two, col: 0, row: 1, occupants: occ })).toBe('overlap');
-  });
-});
-
-describe('freeCells', () => {
-  const cell = (col: number, row: number) => ({ col, row });
-
-  it('점유(span 포함) 제외한 빈 칸', () => {
-    expect(
-      freeCells({ cols: 1, rows: 6 }, [
-        { col: 0, row: 0, colSpan: 1, rowSpan: 2 },
-        { col: 0, row: 4, colSpan: 1, rowSpan: 1 },
-      ]),
-    ).toEqual([cell(0, 2), cell(0, 3), cell(0, 5)]);
-  });
-
-  it('span null(=1)인 점유자도 1칸만 차지', () => {
-    expect(freeCells({ cols: 1, rows: 4 }, [{ col: 0, row: 1, colSpan: null, rowSpan: null }]))
-      .toEqual([cell(0, 0), cell(0, 2), cell(0, 3)]);
-  });
-
-  it('자리 없는 점유자는 무시', () => {
-    expect(freeCells({ cols: 1, rows: 3 }, [{ col: null, row: null, colSpan: 2, rowSpan: 2 }]))
-      .toEqual([cell(0, 0), cell(0, 1), cell(0, 2)]);
-  });
-
-  /* 행 우선으로 훑는다 — 자리 번호와 같은 순서라야 고르는 목록이 1·2·3… 으로 읽힌다. */
-  it('여러 열이면 행 우선으로 훑는다', () => {
-    expect(freeCells({ cols: 2, rows: 2 }, [])).toEqual([cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1)]);
   });
 });

@@ -43,14 +43,13 @@ function FieldInput({ isDate, type, ...rest }: InputProps & { isDate: boolean })
 
 export interface AddModalContext {
   parentAssetId: string;
-  siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
   /**
-   * 빈 자리를 눌러(또는 끌어) 열었으면 **그 자리와 크기** — 다시 고르게 하지 않는다.
+   * 눌러(또는 끌어) 잡은 **자리와 크기** — 없이는 열리지 않는다.
    *
    * 크기를 함께 나르지 않던 동안, 여러 칸을 묶어 끌어도 만들어지는 것은 늘 1×1 이었다
    * (모달이 `colSpan: 1` 을 못 박고 있었다). 끌어서 잡은 크기가 조용히 버려진 셈이다.
    */
-  cell?: { col: number; row: number; colSpan?: number; rowSpan?: number };
+  cell: { col: number; row: number; colSpan?: number; rowSpan?: number };
 }
 
 /**
@@ -430,11 +429,11 @@ export function LayoutTab({
             /* 놓인 자산이라 묻는다 — 포트·연결까지 함께 사라진다. */
             onRemove={(part) => void handleDeletePart(part)}
             trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
-            onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, siblings: parts, cell })}
+            onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, cell })}
             /* 무엇을 넣을지 묻는 동안 그 네모는 판에 남는다 — 상자가 가리는 것은 판이지
                방금 그린 자리가 아니어야 한다. */
             pending={
-              addModalCtx?.cell
+              addModalCtx
                 ? {
                     at: {
                       col: addModalCtx.cell.col,

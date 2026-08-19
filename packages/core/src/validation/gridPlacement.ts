@@ -61,24 +61,3 @@ export function validateGridPlacement(args: {
   };
   return args.occupants.some((o) => overlaps(mine, o)) ? 'overlap' : null;
 }
-
-/**
- * 격자에서 비어 있는 칸 — 행 우선으로 훑는다(자리 번호와 같은 순서).
- */
-export function freeCells(
-  grid: Grid,
-  occupants: readonly { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[],
-): GridCell[] {
-  const taken: GridOccupant[] = occupants
-    .filter((o): o is typeof o & { col: number; row: number } => o.col !== null && o.row !== null)
-    .map((o) => ({ assetId: '', col: o.col, row: o.row, colSpan: o.colSpan ?? 1, rowSpan: o.rowSpan ?? 1 }));
-
-  const free: GridCell[] = [];
-  for (let row = 0; row < grid.rows; row++) {
-    for (let col = 0; col < grid.cols; col++) {
-      const cell: GridOccupant = { assetId: '', col, row, colSpan: 1, rowSpan: 1 };
-      if (!taken.some((o) => overlaps(cell, o))) free.push({ col, row });
-    }
-  }
-  return free;
-}
