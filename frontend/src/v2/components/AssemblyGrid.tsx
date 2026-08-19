@@ -648,7 +648,7 @@ export function AssemblyGrid<T extends GridItem>({
           눈금 폭만큼 칸 계산이 밀린다. */}
       <ol
         aria-hidden
-        className="grid shrink-0 gap-0.5 text-right text-[10px] tabular-nums text-content-faint"
+        className="grid shrink-0 gap-0.5 text-right text-xs tabular-nums text-content-faint"
         style={rowRule}
       >
         {Array.from({ length: rows }, (_, r) => (

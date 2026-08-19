@@ -1,17 +1,19 @@
 // ported from frontend/src/features/editor/renderers/gridRenderer.ts (Stage 3)
+import { canvasColor } from './theme';
 
 /**
  * Grid renderer for CAD-style dual grid
  */
 
+/* 색은 토큰에서 온다(`--canvas-*`) — 굵기·간격만 여기 남는다(치수는 색이 아니다). */
 const GRID_CONFIG = {
   majorGrid: {
-    color: '#c0c0c0',
+    get color() { return canvasColor('canvas-grid-major'); },
     lineWidth: 1,
   },
   minorGrid: {
     size: 10,
-    color: '#e8e8e8',
+    get color() { return canvasColor('canvas-grid-minor'); },
     lineWidth: 0.5,
   },
 };
@@ -73,7 +75,7 @@ export function renderGrid(
 
   // Origin marker (0,0)
   if (left <= 0 && right >= 0 && top <= 0 && bottom >= 0) {
-    ctx.strokeStyle = '#ef4444';
+    ctx.strokeStyle = canvasColor('canvas-origin');
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(-10, 0);

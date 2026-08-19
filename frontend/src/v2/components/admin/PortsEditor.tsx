@@ -58,12 +58,11 @@ const kindOf = (p: { medium: string; direction: Direction; positions?: number | 
 
 /** 개수 칸 — 종류 이름 옆에 붙는 작은 숫자 칸. 폼 상자(38px)를 쓰면 줄이 통째로 두꺼워진다. */
 function CountField({
-  label, value, min, disabled, onChange,
+  label, value, min, onChange,
 }: {
   label: string;
   value: number;
   min: number;
-  disabled: boolean;
   onChange: (raw: string) => void;
 }) {
   return (
@@ -72,7 +71,6 @@ function CountField({
       aria-label={label}
       value={String(value)}
       min={min}
-      disabled={disabled}
       onChange={(e) => onChange(e.currentTarget.value)}
       /* 일곱 종류가 한 줄에 들어가야 하므로 폭·높이를 최소로 — `Input`(38px)을 쓰면 이 줄만
          세 줄이 된다. 테두리와 흰 배경으로 「고칠 수 있는 값」임은 남긴다. */
@@ -171,7 +169,6 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                 label={`${label} 개수`}
                 value={row.count}
                 min={0}
-                disabled={false}
                 onChange={(raw) => patch(row, { count: Math.max(Number(raw) || 0, 0) })}
               />
               {/* 심선 수는 다심 종류에만, 그것도 켜져 있을 때만.
@@ -185,7 +182,6 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                     label={`${label} 심선 수`}
                     value={row.positions ?? DEFAULT_CORE_COUNT}
                     min={2}
-                    disabled={false}
                     onChange={(raw) => patch(row, { positions: Math.max(Number(raw) || 2, 2) })}
                   />
                   <span className="text-xs text-content-faint">코어</span>

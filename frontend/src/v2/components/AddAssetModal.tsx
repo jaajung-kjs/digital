@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Input, Modal, Select, DetailRow } from '../../components/ui';
+import { Button, Input, MessageStrip, Modal, Select, DetailRow } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
 import { ASSEMBLY_GRID, cellLabel, freeCells } from '@twin/core';
 import { makeNewAsset } from '../newAsset';
@@ -77,12 +77,17 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
     setSelectedTypeId('');
     setName('');
     setSelectedSlot('');
+    setShowMissing(false);
     onClose();
   }
 
   function handleConfirm() {
+    if (missing.length > 0) {
+      setShowMissing(true);
+      return;
+    }
     const type = availableTypes.find((t) => t.id === selectedTypeId);
-    if (!type || !name.trim()) return;
+    if (!type) return;
 
     /* 고른 자리는 격자 칸이다 — `열,행` 으로 실어 보낸다(번호는 저장하지 않는다). */
     const cell = selectedSlot !== '' ? selectedSlot.split(',').map(Number) : null;
@@ -106,10 +111,19 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
     [gridContext, effectiveAssets],
   );
 
-  const canConfirm =
-    selectedTypeId !== '' &&
-    name.trim() !== '' &&
-    selectedSlot !== '';
+  /**
+   * 아직 비어 있는 칸 — 누르면 **무엇이 막고 있는지**를 이 목록이 말한다.
+   *
+   * 예전에는 셋이 다 채워질 때까지 「추가」를 꺼 두었다. 회색 단추는 왜 안 눌리는지 말해 주지
+   * 못해 막다른 길이 된다 — 이 앱의 대장 화면들이 이미 그러지 않기로 했다(`useEditorGate`).
+   * 같은 규칙을 모달에도 쓴다: 누를 수 있게 두고, 누르면 빠진 것을 짚어 준다.
+   */
+  const missing = [
+    selectedTypeId === '' && '자산 유형',
+    name.trim() === '' && '이름',
+    selectedSlot === '' && '자리',
+  ].filter((v): v is string => typeof v === 'string');
+  const [showMissing, setShowMissing] = useState(false);
 
   return (
     <Modal
@@ -122,13 +136,18 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
           <Button variant="secondary" size="sm" onClick={handleClose}>
             취소
           </Button>
-          <Button size="sm" disabled={!canConfirm} onClick={handleConfirm}>
+          <Button size="sm" onClick={handleConfirm}>
             추가
           </Button>
         </>
       }
     >
       <div className="space-y-3">
+        {/* 누른 뒤에만 뜬다 — 열자마자 경고가 서면 아직 아무것도 안 한 사람을 나무라는 꼴이다.
+            조사는 붙이지 않는다: 마지막 칸이 무엇이냐에 따라 「을/를」이 갈린다(이름을·자리를). */}
+        {showMissing && missing.length > 0 && (
+          <MessageStrip tone="warning">빠진 칸: {missing.join(' · ')}</MessageStrip>
+        )}
         {destination && <DetailRow label="위치">{destination}</DetailRow>}
 
         {/* 타입 선택 */}
@@ -159,7 +178,7 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && canConfirm) handleConfirm();
+              if (e.key === 'Enter') handleConfirm();
             }}
           />
         </DetailRow>

@@ -219,7 +219,9 @@ export function FiberRegisterView({
      값 열은 무엇을 적는 칸인지에 따라 다르다: 날짜 칸에는 달력 아이콘이 함께 들어가므로
      숫자 칸과 같은 폭을 주면 아이콘이 날짜 위에 겹친다. */
   const CORE_WIDTH = 8;
-  const metaWidth = (f: ValueDef) => (f.type === 'date' ? 20 : 10);
+  /* 수 칸은 **여섯 자리까지** 들어갈 만큼 준다(길이 m). 10% 로 뒀더니 네 자리에서 이미
+     끝자리가 잘렸다 — 대국 열은 실측 161px 로 24% 안에 여유가 있어 거기서 2%씩 떼어 온다. */
+  const metaWidth = (f: ValueDef) => (f.type === 'date' ? 20 : 12);
   const metaTotal = metaFields.reduce((sum, f) => sum + metaWidth(f), 0);
   /* 대국 열은 두 홉을 건너간 이름이라 가장 길다 — 성단 열과 같은 몫을 준다. */
   const peerCols = groups.length + 1;

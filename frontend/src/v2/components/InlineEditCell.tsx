@@ -39,6 +39,8 @@ export function InlineEditCell({ value, onCommit, type = 'text' }: InlineEditCel
     <Input
       type={type}
       size="cell"
+      /* 수는 오른쪽으로, 자릿수는 세로로 맞춘다 — 표에서 값을 훑는 눈은 끝자리를 따라간다. */
+      numeric={type === 'number'}
       defaultValue={value}
       className="min-w-0"
       key={value}

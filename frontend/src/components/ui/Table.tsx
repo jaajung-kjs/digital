@@ -86,11 +86,15 @@ interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> 
  * 배경이 **불투명**해야 `sticky` 머리글 아래로 행이 비치지 않는다.
  */
 export function Th({ children, className, align = 'left', unit, onSort, sort = null, ...rest }: ThProps) {
+  /* 단위는 **아랫줄**에 흐리게 — 무엇을 세는 열인지는 이름이 말하고, 단위는 곁들인다.
+     옆에 붙이면 머리글이 그만큼 길어지는데, 열 폭은 `colgroup` 이 못 박아 두므로(고정 레이아웃)
+     길어진 만큼 잘린다: 실제로 「노임단가 원…」·「자재단가…」로 잘려 무슨 열인지 읽을 수
+     없었다. **잘려야 하는 것은 값이지 머리글이 아니다** — 머리글이 잘리면 그 열의 값 전부가
+     뜻을 잃는다. 아래로 내리면 머리줄만 한 줄 높아지고 폭은 이름만큼만 필요해진다. */
   const label = (
     <>
-      {children}
-      {/* 단위는 이름보다 한 단 흐리게 — 무엇을 세는 열인지는 이름이 말하고, 단위는 곁들인다. */}
-      {unit && <span className="ml-1 font-normal text-content-faint">{unit}</span>}
+      <span className="block">{children}</span>
+      {unit && <span className="block font-normal text-content-faint">{unit}</span>}
     </>
   );
   return (

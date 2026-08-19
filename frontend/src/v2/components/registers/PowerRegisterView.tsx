@@ -39,7 +39,16 @@ interface Props {
  * 한때 여기만 `'closed'` 를 직접 적고 있어서 읽기는 선언 기반인데 쓰기만 키를 알았다.
  */
 function ClosedCell({ feederId, portId, closed }: { feederId: string; portId: string | null; closed: boolean | null }) {
-  if (!portId) return <span className="text-content-faint">{EMPTY}</span>;
+  /* 개폐는 **출력 포트에 적힌 값**이다 — 그 포트가 없는 기기(광단말처럼 받기만 하는 것)는
+     켜고 끌 것이 없다. 예전에는 대시만 서서, 같은 열에 토글과 대시가 섞인 이유가 화면에
+     없었다("왜 저건 안 눌리지"). 대시가 스스로 그 까닭을 들고 있게 한다. */
+  if (!portId) {
+    return (
+      <span className="text-content-faint" title="출력 포트가 없어 개폐할 수 없습니다" aria-label="개폐 없음">
+        {EMPTY}
+      </span>
+    );
+  }
   const resolvedPortId: string = portId;
 
   function toggle(next: boolean) {
@@ -204,10 +213,16 @@ export function PowerRegisterView({
           <Th>부하 출력</Th>
         </>
       }
-      trailing={
-        <>
-  {/* 회로 자리에 자산 추가 */}
-        </>
+      note={
+        /* 값 열이 **통째로** 비었을 때만 왜 비었는지 말한다.
+           전원 입력·길이·전압·부하 출력은 모두 이 회로에 물린 케이블에서 나오므로, 케이블이
+           하나도 없으면 넷이 다 대시로 서서 「고장인가 안 이은 건가」를 구별할 수 없다.
+           한 줄이라도 값이 있으면 적지 않는다 — 그때는 대시가 스스로 「이 줄만 없다」는 뜻이다. */
+        filtered.length > 0 && filtered.every((r) => !r.inCell.cableId && !r.outCell.peer) ? (
+          <p className="px-1 pt-2 text-xs text-content-faint">
+            전원 입력 · 부하 출력은 <strong className="font-medium">케이블을 이어야</strong> 채워집니다.
+          </p>
+        ) : null
       }
     >
         {filtered.length === 0 && (

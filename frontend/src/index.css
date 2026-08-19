@@ -49,6 +49,25 @@
   --faceplate-led:rgb(var(--faceplate-led-rgb));
   --lamp-success:rgb(var(--lamp-success-rgb)); --lamp-warning:rgb(var(--lamp-warning-rgb)); --lamp-danger:rgb(var(--lamp-danger-rgb));
 
+  /* 평면도 캔버스 — **여기가 그 색들의 유일한 자리**다.
+     캔버스는 클래스가 아니라 문자열로 색을 칠하므로(`ctx.strokeStyle`) Tailwind 토큰이 닿지
+     않는다. 그래서 색이 TS 파일에 hex 로 흩어져 있었고, 화면의 나머지와 따로 놀았다.
+     `canvas/theme.ts` 가 이 값을 읽어 캔버스에 넘긴다 — 고칠 자리는 여기 하나다. */
+  --canvas-grid-major:#c0c0c0;
+  --canvas-grid-minor:#e8e8e8;
+  --canvas-origin:rgb(var(--lamp-danger-rgb));
+  --canvas-select:rgb(var(--primary-rgb));
+  --canvas-select-fill:#d8e3ef;
+  --canvas-select-point:#0f3050;
+  --plan-door-fill:#fef3c7;      /* amber-100 */
+  --plan-door-stroke:#d97706;    /* amber-600 */
+  --plan-window-fill:#e0f2fe;    /* sky-100 */
+  --plan-window-stroke:#0284c7;  /* sky-600 */
+  /* ISA-101: 설비는 무채색. 색은 상태에만 쓴다. */
+  --plan-rack-fill:#e7e5e4;
+  --plan-rack-stroke:rgb(var(--eq-2-rgb));
+  --plan-rack-text:rgb(var(--eq-1-rgb));
+
   /* 오버레이 스크림 — 모달 백드롭 통일 */
   --overlay: rgb(0 0 0 / 0.45);
   --radius:8px;
@@ -89,6 +108,20 @@ body {
     outline: 2px solid transparent;
     box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 0.2);
   }
+  /* 수 칸의 **스피너를 걷는다**.
+     화살표는 늘 자리를 잡아 두고(값이 짧아도 6px, 길면 20px 넘게) 그만큼 값을 밀어낸다 —
+     선번장 「길이(m)」 칸이 그래서 `8400` 의 끝자리부터 잘렸다. 길이·손실은 화살표로 한 칸씩
+     올릴 값이 아니고(수천 m·소수 dB), 잘못 눌러 값이 바뀌는 사고만 는다. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
   /* 버튼 눌림 — transition(all)로 색+transform 동시 전환, 눌림 시 살짝 축소 */
   .press-btn {
     @apply transition active:scale-[0.97];

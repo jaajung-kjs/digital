@@ -32,8 +32,13 @@ export interface RegisterLayoutProps {
    * 묶음이 없는 계통 표가 통째로 「구역 목록」으로 읽혀 한 행도 그려지지 않았다.
    */
   sections?: { key: string; title: ReactNode; rows: ReactNode }[];
-  /** 표 아래에 딸리는 것(모달 등) — 뷰가 소유한다. */
-  trailing?: ReactNode;
+  /**
+   * 표 **바로 아래**에 붙는 한 줄 — 왜 비었는지 같은 것.
+   *
+   * 화면 맨 아래가 아니라 표 밑에 붙어야 한다: 표를 읽다 「이 대시들은 뭐지」 하는 순간 눈이
+   * 있는 자리가 표의 끝이지 화면의 끝이 아니다(실제로 화면 바닥에 두니 표와 470px 떨어졌다).
+   */
+  note?: ReactNode;
   /**
    * 표 **바깥**을 눌렀을 때 — 고른 것을 놓는다.
    *
@@ -57,7 +62,7 @@ export interface RegisterLayoutProps {
  * 방법도 없다 — 이 컴포넌트는 자리와 건수만 맡는다(`TableSearch` 와 같은 규칙).
  */
 export function RegisterLayout({
-  picker, empty, search, widths, head, children, sections, trailing, onClearSelection,
+  picker, empty, search, widths, head, children, sections, note, onClearSelection,
 }: RegisterLayoutProps) {
   if (picker.options.length === 0) {
     return <EmptyState title={empty.title} description={empty.description} />;
@@ -115,9 +120,9 @@ export function RegisterLayout({
             <tbody>{children}</tbody>
           </TableCard>
         )}
+        {note}
         </div>
       </SelectionScope>
-      {trailing}
     </div>
   );
 }

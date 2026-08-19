@@ -183,14 +183,14 @@ export function PortFaceplate({
                   />
                   {/* 실크스크린 번호 — 작고 흐리게. 포트보다 시선을 끌면 안 된다. */}
                   <span
-                    className="text-[0.5625rem] leading-none tabular-nums"
+                    className="text-xs leading-none tabular-nums"
                     style={{ color: 'var(--faceplate-silk)' }}
                   >
                     {p.index}
                   </span>
                   {count > 1 && (
                     <span
-                      className="absolute -right-1 -top-1 rounded-full px-1 text-[0.5625rem] font-medium leading-tight text-white"
+                      className="absolute -right-1 -top-1 rounded-full px-1 text-xs font-medium leading-tight text-white"
                       style={{ backgroundColor: 'var(--faceplate-led)' }}
                     >
                       {count}
