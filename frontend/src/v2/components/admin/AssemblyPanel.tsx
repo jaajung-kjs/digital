@@ -14,7 +14,7 @@ import { useMemo, useRef, useState } from 'react';
 import { occupantsOf, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
 import { LaborSpecForm } from './LaborSpecForm';
 import {
-  Button, DetailCard, DetailCardHeader, DetailRow, ErrorStrip, Input, Select,
+  Button, DetailCard, DetailCardHeader, DetailRow, Input, Select,
   useDismissOnOutside,
   EMPTY,
 } from '../../../components/ui';
@@ -102,8 +102,10 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         <DetailCard className="flex min-h-0 flex-1 flex-col">
           {/* 「몇 칸 중 몇 칸」은 적지 않는다 — 격자는 배치용 도화지라 쓴 칸 수가 이 설비 품목에
               대해 말해 주는 것이 없다(상세 패널 구성 탭과 같은 판단). */}
+          {/* 구성의 흠(품목 미지정·겹침)은 **여기서 말하지 않는다.** 줄이 떴다 사라지며 판
+              높이를 흔들어, 장비를 놓는 동안 칸이 위아래로 움직였다. 막는 일은 저장이 한다
+              (편집 바가 흠의 수를 세어 잠근다) — 두 번 말할 필요가 없다. */}
           <DetailCardHeader title="구성" />
-          <ErrorStrip message={issueOf(issues, 'items') ?? null} />
           <AssemblyGrid
             grid={ASSEMBLY_GRID}
             fill
