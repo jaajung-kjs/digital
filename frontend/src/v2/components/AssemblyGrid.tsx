@@ -47,7 +47,6 @@ export interface AssemblyGridProps<T extends GridItem> {
 
 export const GRID_ROW_H = 30;
 const GAP = 2;
-const COL_MIN = 44;
 
 const LAMP: Record<BadgeStatus, string> = {
   success: 'bg-lamp-success',
@@ -67,7 +66,26 @@ export function AssemblyGrid<T extends GridItem>({
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
-  const [box, setBox] = useState(0);
+  /**
+   * 판이 앉을 자리 — **판은 상자에 맞춘다. 스크롤을 만들지 않는다.**
+   *
+   * 랙 정면도는 한눈에 들어와야 하는 그림이다. 좌우로 밀거나 아래로 내려야 전부 보이면
+   * 「어디에 무엇이 있나」를 그 순간 잃는다. 그래서 칸 크기를 못 박지 않고 **남는 자리를
+   * 행·열 수로 나눈다** — 20행이든 4행이든 같은 상자를 채운다.
+   */
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  /* 상자가 커지고 줄 때마다 다시 잰다 — 패널 폭은 화면 크기·상세 열림에 따라 바뀐다. */
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry!.contentRect;
+      setBox((cur) => (cur.w === width && cur.h === height ? cur : { w: width, h: height }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /* Esc 로 푼다 — **한 층만** 물린다(안 그러면 바깥 층까지 함께 반응해 편집 화면이 닫힌다). */
   const deselectRef = useRef(onDeselect);
@@ -82,9 +100,8 @@ export function AssemblyGrid<T extends GridItem>({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [selectedId]);
 
-  /* 판이 상자를 채우게 할지(캔버스), 행 높이를 못 박을지(좁은 패널). */
-  const rowH = fill && boxHeight == null ? GRID_ROW_H : GRID_ROW_H;
-  const width = Math.max(box, cols * COL_MIN);
+  const rowH = box.h > 0 ? Math.max((box.h - (rows - 1) * GAP) / rows, 1) : GRID_ROW_H;
+  const width = box.w;
 
   const layout: LayoutItem[] = items
     .filter((i) => i.col != null && i.row != null)
@@ -112,7 +129,8 @@ export function AssemblyGrid<T extends GridItem>({
 
   return (
     <InsetBox
-      className={cn('mt-1 flex gap-1 p-1.5 shadow-inner', fill ? 'min-h-0 flex-1 overflow-auto' : 'overflow-auto')}
+      /* 넘치는 것을 잘라 낸다 — 판이 상자에 맞으므로 넘칠 것이 없다(잘리면 셈이 틀린 것이다). */
+      className={cn('mt-1 flex gap-1 overflow-hidden p-1.5 shadow-inner', fill && 'min-h-0 flex-1')}
       style={boxHeight != null ? { height: boxHeight } : undefined}
       onPointerDown={(e) => { if (e.target === e.currentTarget && selectedId != null) onDeselect?.(); }}
     >
@@ -130,9 +148,8 @@ export function AssemblyGrid<T extends GridItem>({
       {/* 판은 **행 수만큼** 자리를 갖는다 — 내용 높이에 맡기면 마지막 장비 아래로는 끌 수가
           없다(놓인 것이 하나뿐이면 판도 그만큼만 높다). */}
       <div
-        className="relative min-w-0 flex-1"
-        style={{ height: rows * rowH + (rows - 1) * GAP }}
-        ref={(el) => { if (el && el.clientWidth !== box) setBox(el.clientWidth); }}
+        className="relative min-h-0 min-w-0 flex-1"
+        ref={boxRef}
       >
         {/* 빈 칸 — 누르면 그 자리에 만든다. 판 밑에 깔려 있고, 위에 놓인 것은 라이브러리가 그린다. */}
         <div
