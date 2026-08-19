@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { type Grid, cellLabel } from '@twin/core';
-import { cn, SELECTABLE, type BadgeStatus, isCancelKey, InsetBox } from '../../components/ui';
+import { cn, type BadgeStatus, isCancelKey, InsetBox } from '../../components/ui';
 import {
   cellAt, edgeScroll, gridDragTo, gridPlacementChanged, scrollableAncestor, startGridDrag,
   type GridCell, type GridDragKind, type GridDragSession, type GridPlacement,
@@ -383,6 +383,17 @@ export function AssemblyGrid<T extends GridItem>({
   }, [selectedId]);
 
   /**
+   * 손이 얹힌 칸 — **CSS `:hover` 를 쓰지 않는다.**
+   *
+   * 손짓이 끝나는 순간 브라우저는 `:hover` 를 다시 셈하는데, 그 기준이 **캡처를 걸기 전에
+   * 손이 있던 자리**다. 그래서 끌기를 끝내면 처음 누른 칸이 한 박자 반짝였다 — 손은 벌써
+   * 저쪽에 가 있는데 원래 자리가 켜진다. 우리가 이미 손의 자리를 알고 있으므로(같은
+   * `pointermove` 를 받는다) 얹힘도 여기서 정한다. 손짓 중에는 비고, 끝나면 **다음으로
+   * 손이 움직일 때까지** 비어 있다 — 반짝일 자리가 없다.
+   */
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
+
+  /**
    * Tab 으로 닿는 칸은 **하나뿐**이다(roving tabindex) — 판은 하나의 정거장이고 그 안은
    * 화살표로 옮긴다. 손짓과는 다른 길이라 손짓 값에 섞지 않는다.
    */
@@ -396,7 +407,15 @@ export function AssemblyGrid<T extends GridItem>({
 
   function onPointerMove(e: React.PointerEvent) {
     const g = mine(e);
-    if (!g) return;
+    if (!g) {
+      /* 손짓 중이 아니면 **얹힌 칸**만 갱신한다 — 바뀔 때만(칸마다 다시 그리지 않게). */
+      if (gestureRef.current) return;
+      const c = cellFromPointer(e);
+      const key = c ? `${c.col},${c.row}` : null;
+      if (key !== hoverKey) setHoverKey(key);
+      return;
+    }
+    if (hoverKey !== null) setHoverKey(null);
     /* **손을 우리가 못 보는 데서 뗐다.** 창 밖에서 놓거나 다른 앱으로 넘어가면 캡처가 풀려
        `pointerup` 이 오지 않는다. 그러면 손짓이 살아 있는 채로 남아, 돌아왔을 때 버튼을
        누르지도 않았는데 장비가 커서를 따라다녔다. 눌린 버튼이 없다는 사실이 그 신호다. */
@@ -538,6 +557,9 @@ export function AssemblyGrid<T extends GridItem>({
     }
   }
 
+  /* 덮인 칸에 손이 얹혔으면 그 자리에 선 장비가 얹힌 것이다(단추는 시작 칸에만 있다). */
+  const hoveredCell = hoverKey ? ownerOf.get(hoverKey) ?? hoverKey : null;
+
   const cells: ReactNode[] = [];
   /* 놓을 자리의 네모 — 끄는 동안에는 손을 따라가고(`createRect`), 손을 뗀 뒤 무엇을 넣을지
      묻는 동안에는 **그 자리에 남는다**(`pending`). 확정하거나 물릴 때 사라진다. */
@@ -601,22 +623,19 @@ export function AssemblyGrid<T extends GridItem>({
               'group relative flex h-full w-full select-none items-center justify-center overflow-hidden rounded px-1 text-center text-xs',
               // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
               item
-                ? cn('border border-line bg-surface text-content', SELECTABLE)
+                ? cn(
+                    'cursor-pointer select-none border border-line bg-surface text-content transition-colors',
+                    !dragging && hoveredCell === key && selectedId !== item.id && 'bg-surface-3',
+                  )
                 /* 빈 자리는 배경 그대로 두되, 손이 얹히면 **놓을 자리로 보이게** 한다.
                    여기 `+` 글자를 띄우지 않는다: 손짓이 끝나는 순간 커서 아래 칸은 잠깐
                    빈 칸이므로(만든 것이 아직 안 왔다) 그 한 프레임에 `+` 가 번쩍인다.
                    테두리와 바탕이 이미 「누를 수 있는 자리」라고 말하므로 글자는 군더더기다. */
                 : cn(
-                    'border border-dashed border-line/50 text-content-faint',
+                    'cursor-pointer select-none border border-dashed border-line/50 text-content-faint transition-colors',
                     /* 손짓이 벌어지는 동안 빈 칸은 **손을 반기지 않는다** — 지금 하는 일은
-                       옮기기이지 추가가 아니다. 예전에는 `pointer-events-none` 으로 칸을
-                       통째로 죽였는데, 그러면 그 칸이 겨냥 대상에서도 빠져 손짓 판정이
-                       DOM 모양에 딸려 갔다. 켜고 끄는 것은 **보이는 것**뿐이다. */
-                    !dragging &&
-                      cn(
-                        'transition-colors hover:border-solid hover:border-primary hover:bg-info-bg hover:text-primary',
-                        SELECTABLE,
-                      ),
+                       옮기기이지 추가가 아니다. */
+                    !dragging && hoveredCell === key && 'border-solid border-primary bg-info-bg text-primary',
                   ),
               item && 'cursor-grab touch-none active:cursor-grabbing',
               item && selectedId === item.id && 'ring-2 ring-inset ring-primary',
@@ -700,7 +719,20 @@ export function AssemblyGrid<T extends GridItem>({
                 <span className="min-h-0 min-w-0 max-h-full max-w-full truncate">{item.name}</span>
                 {at.rowSpan > 1 && !vertical && trailing?.(item)}
               </span>
-            ) : null}
+            ) : (
+              /* 빈 자리의 `+` — **여기 눌러서 넣는다**는 말이다. 얹힘을 우리가 알므로
+                 손짓이 끝난 자리에서 되살아나지 않는다. */
+              <span
+                className={cn(
+                  'text-base leading-none text-primary transition-opacity',
+                  (!dragging && hoveredCell === key) || activeCell?.col === col && activeCell?.row === row
+                    ? 'opacity-100'
+                    : 'opacity-0',
+                )}
+              >
+                +
+              </span>
+            )}
             {/* 운전 상태 표시등 — **왼쪽 위** 모서리.
                 오른쪽 위는 행동(빼기)의 자리다 — 버튼은 관례대로 오른쪽 위에 둔다.
                 판을 훑는 사람이 먼저 보는 것은 「어느 게 죽었나」다. 이름을 한 줄씩 읽어
@@ -734,8 +766,7 @@ export function AssemblyGrid<T extends GridItem>({
                 className={cn(
                   'absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded',
                   'text-content-faint transition-opacity hover:bg-danger-bg hover:text-danger',
-                  'opacity-0 group-hover:opacity-100',
-                  selectedId === item.id && 'opacity-100',
+                  hoveredCell === key || selectedId === item.id ? 'opacity-100' : 'opacity-0',
                 )}
                 /* 손짓이 아니라 단추다 — 상자가 이 표를 보고 비켜 준다(`data-remove`).
                    **누르는 순간 지우지 않는다**: 잘못 눌렀으면 손가락을 밖으로 빼서 물릴 수
@@ -755,9 +786,8 @@ export function AssemblyGrid<T extends GridItem>({
                 aria-label={`${item.name} 크기 조절`}
                 className={cn(
                   'absolute bottom-0 right-0 h-2.5 w-2.5 cursor-nwse-resize touch-none transition-opacity',
-                  'opacity-0 group-hover:opacity-100',
-                  // 터치에는 hover 가 없다 — 고른 것에는 늘 보인다.
-                  selectedId === item.id && 'opacity-100',
+                  // 터치에는 얹힘이 없다 — 고른 것에는 늘 보인다.
+                  hoveredCell === key || selectedId === item.id ? 'opacity-100' : 'opacity-0',
                 )}
                 /* 손잡이를 잡은 것은 옮기려는 것이 아니다 — 상자가 이 표를 보고 크기 조절로
                    읽는다(`data-resize`). 핸들러를 따로 달면 시작만 다른 주인에게 간다. */
@@ -829,6 +859,7 @@ export function AssemblyGrid<T extends GridItem>({
           className="grid h-full touch-none select-none gap-0.5"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
+          onPointerLeave={() => setHoverKey(null)}
           onPointerUp={(e) => { if (mine(e)) endGesture(inWindow(e)); }}
           onPointerCancel={(e) => { if (mine(e)) endGesture(false); }}
           /* 캡처가 풀리면 그 손짓은 끝난 것이다 — 화면이 다시 그려져 상자가 갈리거나 브라우저가
