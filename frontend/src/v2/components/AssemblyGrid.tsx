@@ -225,10 +225,11 @@ export function AssemblyGrid<T extends GridItem>({
     const item = items.find((i) => i.col != null && i.row != null && overlaps(one, place(i))) ?? null;
     const key = item ? `${item.col},${item.row}` : `${from.col},${from.row}`;
 
-    /* 기본 손짓을 끈다 — 안 끄면 끌기가 **글자 선택**으로도 읽힌다. 초점은 손으로 주되
-       **판을 밀지 않는다**(밀리면 손 아래 칸이 바뀌어 처음부터 어긋난다). */
+    /* 기본 손짓을 끈다 — 안 끄면 끌기가 **글자 선택**으로도 읽힌다.
+       **초점은 주지 않는다.** 마우스로 누른 칸에 초점을 주면 그 테두리가 손짓이 끝난 뒤에도
+       남아, 아무것도 아닌 빈 칸 하나가 「골라진 것」처럼 보인다. 키보드로 훑는 길은 초점이
+       필요하지만 그건 Tab·화살표가 스스로 준다 — 여기서는 **Tab 이 닿을 칸**만 옮겨 둔다. */
     e.preventDefault();
-    boxRef.current?.querySelector<HTMLElement>(`button[data-cell="${key}"]`)?.focus({ preventScroll: true });
     setActiveKey(key);
 
     gestureRef.current = {
@@ -253,11 +254,13 @@ export function AssemblyGrid<T extends GridItem>({
   function onPointerMove(e: React.PointerEvent) {
     const g = mine(e);
     if (!g) {
-      if (!gestureRef.current) {
+      /* **손이 눌린 채면 얹힘이 아니다.** 끄는 중에 빈 칸이 손을 반기면 `+` 가 커서를 따라
+         다닌다 — 손짓이 도중에 죽었을 때도 그렇다. 단추가 눌려 있지 않을 때만 얹힘을 본다. */
+      if (!gestureRef.current && e.buttons === 0) {
         const c = cellFrom(e);
         const k = c ? `${c.col},${c.row}` : null;
         if (k !== hoverKey) setHoverKey(k);
-      }
+      } else if (hoverKey !== null) setHoverKey(null);
       return;
     }
     if (hoverKey !== null) setHoverKey(null);
