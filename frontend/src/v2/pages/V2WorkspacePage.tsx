@@ -6,6 +6,7 @@ import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { StatusTable } from '../components/StatusTable';
 import { SaveBar } from '../components/SaveBar';
 import { confirmDiscard } from '../leaveGuard';
+import { useUnsavedMark } from '../useUnsavedMark';
 import { ReportPanel } from '../components/ReportPanel';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { FloorPlanView } from '../components/floorplan/FloorPlanView';
@@ -55,6 +56,8 @@ export default function V2WorkspacePage() {
   /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 장비. */
   const focusPartId = route.partId;
   const viewMode = route.view;
+  /* 저장 안 한 변경이 있으면 셸이 다른 메뉴로 넘어가는 것을 막는다. */
+  useUnsavedMark(useV2WorkingCopy((st) => st.dirtyCount()));
   /* 뷰 탭과 그 아래 내용이 같은 이름표를 나눠 갖는다 — 스크린리더가 둘을 잇는다. */
   const viewTabs = useTabs(viewMode);
   /**

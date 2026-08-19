@@ -45,6 +45,8 @@ export interface AssemblyGridProps<T extends GridItem> {
 
 export const GRID_ROW_H = 30;
 const GAP = 2;
+/** 이 폭보다 좁으면 가로로 적을 자리가 없다 — 그때는 글씨를 세운다. */
+const LABEL_MIN_W = 56;
 
 const LAMP: Record<BadgeStatus, string> = {
   success: 'bg-lamp-success',
@@ -101,6 +103,7 @@ export function AssemblyGrid<T extends GridItem>({
 
   const rowH = box.h > 0 ? Math.max((box.h - (rows - 1) * GAP) / rows, 1) : GRID_ROW_H;
   const width = box.w;
+  const colW = width > 0 ? (width - (cols - 1) * GAP) / cols : 0;
 
   const layout: LayoutItem[] = items
     .filter((i) => i.col != null && i.row != null)
@@ -298,6 +301,11 @@ export function AssemblyGrid<T extends GridItem>({
           {layout.map((l) => {
             const item = byId.get(l.i)!;
             const tone = toneOf?.(item) ?? null;
+            /* 좁고 세로로 긴 칸이면 **글씨를 세운다** — 랙 실물의 카드 라벨이 그렇게 읽힌다.
+               가로로 적으면 「광단말…」처럼 잘려 아무 말도 못 한다. */
+            const w = l.w * colW + (l.w - 1) * GAP;
+            const h = l.h * rowH + (l.h - 1) * GAP;
+            const vertical = colW > 0 && w < LABEL_MIN_W && h > w;
             return (
               <div
                 key={l.i}
@@ -317,9 +325,17 @@ export function AssemblyGrid<T extends GridItem>({
                   onSelect(item);
                 }}
               >
-                <span className="flex min-w-0 max-w-full flex-col items-center leading-tight">
-                  <span className="min-w-0 max-w-full truncate">{item.name}</span>
-                  {l.h > 1 && trailing?.(item)}
+                <span
+                  className={cn(
+                    'flex min-h-0 min-w-0 max-h-full max-w-full items-center leading-tight',
+                    vertical ? 'flex-row' : 'flex-col',
+                  )}
+                  /* `text-orientation: upright` — 기본값은 영문·숫자를 눕혀서 「광단말 A」의
+                     A 만 옆으로 누웠다. 실물 카드의 짧은 영숫자 꼬리표는 세워서 인쇄된다. */
+                  style={vertical ? { writingMode: 'vertical-rl', textOrientation: 'upright' } : undefined}
+                >
+                  <span className="min-h-0 min-w-0 max-h-full max-w-full truncate">{item.name}</span>
+                  {!vertical && l.h > 1 && trailing?.(item)}
                 </span>
                 {tone && (
                   <span aria-hidden className={cn('pointer-events-none absolute left-1 top-1 h-2 w-2 rounded-full ring-1 ring-content-faint/60', LAMP[tone])} />

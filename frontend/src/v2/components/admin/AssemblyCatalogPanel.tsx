@@ -19,6 +19,7 @@ import {
 import { NEW_ID } from '../../catalogDraft';
 import { useEditorGate } from '../../useEditorGate';
 import { useDraftSelection } from '../../useDraftSelection';
+import { useUnsavedMark } from '../../useUnsavedMark';
 import { AssemblyPanel } from './AssemblyPanel';
 import type { V2Assembly, V2Catalog, V2Category } from '../../types';
 import { useV2Notice } from '../../store/noticeStore';
@@ -65,6 +66,8 @@ export function AssemblyCatalogPanel({
     confirmLeave: leaveIfConfirmed,
   });
   const { selectedId, isNew, original, draft, setDraft, dirty } = sel;
+  /* 저장 안 한 초안이 있으면 셸이 떠나기를 막는다 — 묻는 자리는 셸 하나다. */
+  useUnsavedMark(dirty ? 1 : 0);
 
   const issues = draft ? assemblyIssues(draft, catalog.types) : [];
   /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — `useEditorGate`. */

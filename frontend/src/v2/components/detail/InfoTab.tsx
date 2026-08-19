@@ -5,7 +5,7 @@
  * AssetDetailPanel 에서 추출 — RecordsTab/ConnectionsTab 과 같은 형제 탭 패턴으로 정리했다.
  */
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, occupantsOf, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
 import {
   Button,
@@ -17,15 +17,13 @@ import {
   Modal,
   Select,
   useConfirm,
-  cn,
+  
   EMPTY,
   isCommitKey,
 } from '../../../components/ui';
 import type { GridCell, GridPlacement } from '../../gridDrag';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { makeNewAsset, portsForNewAsset } from '../../newAsset';
-import { cableCountByPortId } from '../../cableSelectors';
-import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { InputProps } from '../../../components/ui';
 import type { V2Asset, V2AssetType, V2Assembly } from '../../types';
@@ -41,25 +39,6 @@ function FieldInput({ isDate, type, ...rest }: InputProps & { isDate: boolean })
   return isDate ? <DateInput {...rest} /> : <Input type={type} {...rest} />;
 }
 
-/**
- * 그 자산의 포트 점유 요약 — `2/2` 처럼.
- *
- * 수용 목록은 이름만 보여줘서, "이 장비 포트가 다 물렸나" 를 보려면 포트 탭으로 옮겨가야 했다.
- * 같은 자식에 대한 정보가 두 탭에 갈려 있던 것을 한 줄로 잇는다. 포트가 없으면 아무것도
- * 적지 않는다(적을 것이 없다).
- */
-function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortIds: ReadonlyMap<string, number> }) {
-  if (asset.ports.length === 0) return null;
-  const used = asset.ports.filter((p) => occupiedPortIds.has(p.id)).length;
-  return (
-    <span
-      className={cn('shrink-0 text-xs tabular-nums', used > 0 ? 'text-success' : 'text-content-faint')}
-      title="연결된 포트 / 전체 포트"
-    >
-      {used}/{asset.ports.length}
-    </span>
-  );
-}
 
 /**
  * 고른 장비 — **설비에서 갈라지는 것만** 적는다.
@@ -417,13 +396,6 @@ export function LayoutTab({
     if (!part.typeId || part.name.trim() === '') useV2WorkingCopy.getState().stageAssetDeleteCascade(part.id);
     setOpenPartId(null);
   }
-  const savedCables = useV2WorkingCopy((st) => st.saved.cables);
-  const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
-  /* 케이블이 물린 포트 — 장비 칸의 포트 요약(n/m)이 읽는다. */
-  const occupiedPortIds = useMemo(
-    () => cableCountByPortId(mergeEffective(savedCables, cableOverlays)),
-    [savedCables, cableOverlays],
-  );
 
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
 
@@ -471,7 +443,8 @@ export function LayoutTab({
             onSelect={(child) => setOpenPartId(child.id)}
             /* 놓인 자산이라 묻는다 — 포트·연결까지 함께 사라진다. */
             onRemove={(part) => void handleDeletePart(part)}
-            trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
+            /* 칸에는 **이름만** 적는다. 포트 수(0/2)는 좁은 칸에서 이름과 자리를 다투고,
+               그것을 보러 온 사람은 포트 탭으로 간다. */
             /* 빈 칸을 누르면 **그 자리에 빈 자산이 생기고** 그 자산의 상자가 열린다.
                한때는 「자산 추가」라는 다른 상자가 떴는데, 그러면 같은 일(무엇을 넣을지 정하기)에
                상자가 둘이었다 — 하나는 만들 때, 하나는 고칠 때. 만들자마자 고치는 것으로 두면

@@ -9,12 +9,13 @@
  *   │  v2 페이지가 자체 OrgTreePanel 보유 → 이중 사이드바 없음           │
  *   └─────────────────────────────────────────────────────────────────────┘
  */
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
 import { Boxes, LogOut } from 'lucide-react';
 import { useV2AuthStore, isAdminRole } from './store/authStore';
 import { useV2Notice } from './store/noticeStore';
-import { ErrorStrip } from '../components/ui';
+import { useUnsaved } from './store/unsavedStore';
+import { ErrorStrip, useConfirm } from '../components/ui';
 import { PRODUCT_NAME } from '../product';
 
 /**
@@ -43,6 +44,33 @@ export function V2Shell() {
   const navigate = useNavigate();
 
   const roleLabel = isAdminRole(user?.role) ? '관리자' : '조회';
+  const { confirm, confirmDialog } = useConfirm();
+  /**
+   * **떠나기 전에 묻는 자리는 하나다.**
+   *
+   * 편집 중인 화면이 「안 저장된 것이 몇 건」인지만 손을 들고(`useUnsaved`), 막는 일은 여기서
+   * 한다. 화면마다 라우터를 가로채면 새 화면이 생길 때마다 빠뜨린다 — 실제로 위쪽 메뉴로
+   * 넘어가는 길에는 아무 데도 물음이 없어서, 고치던 것이 아무 말 없이 사라졌다.
+   */
+  const unsaved = useUnsaved((s) => s.count);
+  const mayLeave = async () => {
+    if (unsaved === 0) return true;
+    return confirm({
+      title: '저장하지 않은 변경',
+      target: null,
+      message: `변경 ${unsaved}건이 사라집니다. 이동할까요?`,
+      confirmLabel: '이동',
+      danger: true,
+    });
+  };
+  /* 창을 닫거나 새로 고칠 때는 브라우저가 대신 묻는다 — 우리 상자를 띄울 수 없는 자리다. */
+  useEffect(() => {
+    if (unsaved === 0) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsaved]);
+
   const notice = useV2Notice((st) => st.error);
   const success = useV2Notice((st) => st.success);
 
@@ -71,6 +99,11 @@ export function V2Shell() {
             <NavLink
               to={item.to}
               end={item.to === '/'}
+              onClick={(e) => {
+                if (unsaved === 0) return;
+                e.preventDefault();
+                void mayLeave().then((ok) => { if (ok) navigate(item.to); });
+              }}
               className={({ isActive }) =>
                 `rounded px-3 py-1.5 text-sm transition-colors ${
                   isActive ? 'bg-surface-2 font-medium text-content' : 'text-content-muted hover:text-content'
@@ -122,6 +155,8 @@ export function V2Shell() {
           {success}
         </div>
       )}
+
+      {confirmDialog}
 
       {/* ── 콘텐츠 영역 ── */}
       <div className="flex min-h-0 flex-1">

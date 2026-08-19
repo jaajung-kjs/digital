@@ -24,6 +24,7 @@ import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID } from '../catalogDraft';
 import { useEditorGate } from '../useEditorGate';
 import type { TypeDraft } from '../catalogDraft';
+import { useUnsavedMark } from '../useUnsavedMark';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { CatalogEditorBar } from '../components/admin/CatalogEditorBar';
@@ -71,6 +72,8 @@ export default function V2AssetTypesPage() {
 
   // dirty 여부
   const dirty = draft != null ? isDraftDirty(draft, original) : false;
+  /* 저장 안 한 초안이 있으면 셸이 떠나기를 막는다 — 묻는 자리는 셸 하나다. */
+  useUnsavedMark(dirty ? 1 : 0);
 
   // 이슈 목록 (저장 시도 또는 실시간 표시)
   const issues = draft != null && catalog != null ? draftIssues(draft, catalog) : [];

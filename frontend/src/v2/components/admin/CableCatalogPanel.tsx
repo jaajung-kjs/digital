@@ -42,6 +42,7 @@ import { LaborSpecForm } from './LaborSpecForm';
 import { TreePanel, type TreeNode } from '../../../components/ui';
 import { useEditorGate } from '../../useEditorGate';
 import { useDraftSelection } from '../../useDraftSelection';
+import { useUnsavedMark } from '../../useUnsavedMark';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useV2Notice } from '../../store/noticeStore';
 
@@ -171,6 +172,8 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     [confirm],
   );
   const sel = useDraftSelection<V2CableGroup, GroupDraft>({ entities: groups, toDraft, confirmLeave: leaveIfConfirmed });
+  /* 저장 안 한 초안이 있으면 셸이 떠나기를 막는다 — 묻는 자리는 셸 하나다. */
+  useUnsavedMark(sel.dirty ? 1 : 0);
   const { selectedId, original, saved, draft, setDraft, dirty } = sel;
   const selectGroup = async (id: string | null) => {
     await sel.select(id);
