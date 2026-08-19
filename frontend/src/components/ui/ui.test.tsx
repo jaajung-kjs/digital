@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
 import { ConfirmModal } from './ConfirmModal';
 import { Tabs, useTabs } from './Tabs';
-import { OverflowMenu } from './OverflowMenu';
+import { OverflowMenu, type OverflowMenuItem } from './OverflowMenu';
 import { SELECTABLE } from './selection';
 import { isCancelKey } from './keyboard';
 import { DetailCard, DetailCardHeader, DetailRow } from './DetailCard';
@@ -330,6 +330,50 @@ describe('Tabs', () => {
     const panel = screen.getByRole('tabpanel');
     expect(panel.getAttribute('aria-labelledby')).toBe(screen.getAllByRole('tab')[1]!.id);
     expect(screen.getAllByRole('tab')[1]!.getAttribute('aria-controls')).toBe(panel.id);
+  });
+
+  /* 이름이 곧 탭이므로 고치는 자리도 탭이다 — 상자를 띄우면 무엇의 이름을 고치는 중인지
+     화면에서 사라진다(시트 탭 어법: Excel·AutoCAD 배치·Figma 페이지). */
+  describe('시트 탭 어법 — 이름과 메뉴', () => {
+    function Editable({ onRename, menu }: { onRename?: (n: string) => void; menu?: OverflowMenuItem[] }) {
+      const [v, setV] = useState<'a' | 'b'>('a');
+      const t = useTabs(v);
+      return (
+        <Tabs
+          {...t.list}
+          items={[{ key: 'a', label: '1층', onRename, menu }, { key: 'b', label: '2층' }]}
+          onChange={setV}
+        />
+      );
+    }
+
+    it('탭을 두 번 누르면 그 자리에 이름 칸이 선다', () => {
+      const onRename = vi.fn();
+      render(<Editable onRename={onRename} />);
+      fireEvent.doubleClick(screen.getByRole('tab', { name: /1층/ }));
+      const field = screen.getByLabelText('1층 이름');
+      expect(field).toHaveFocus();
+      fireEvent.change(field, { target: { value: '지하1층' } });
+      fireEvent.keyDown(field, { key: 'Enter' });
+      expect(onRename).toHaveBeenCalledWith('지하1층');
+    });
+
+    it('고칠 수 없는 탭은 두 번 눌러도 칸이 서지 않는다', () => {
+      render(<Editable />);
+      fireEvent.doubleClick(screen.getByRole('tab', { name: /1층/ }));
+      expect(screen.queryByLabelText('1층 이름')).not.toBeInTheDocument();
+    });
+
+    /* `⋯` 는 **tablist 밖**에 선다 — 탭 목록에는 탭만 담긴다(APG). */
+    it('열린 탭에만 ⋯ 가 서고, 그 안에 「이름 변경」이 있다', () => {
+      render(<Editable onRename={() => {}} menu={[{ label: '층 삭제', danger: true, onSelect: () => {} }]} />);
+      const menuButton = screen.getByRole('button', { name: '1층 더 보기' });
+      expect(within(screen.getByRole('tablist')).queryByRole('button', { name: '1층 더 보기' })).toBeNull();
+      fireEvent.click(menuButton);
+      expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['이름 변경', '층 삭제']);
+      fireEvent.click(screen.getByRole('menuitem', { name: '이름 변경' }));
+      expect(screen.getByLabelText('1층 이름')).toBeInTheDocument();
+    });
   });
 
   it('끝에서 반대쪽으로 감는다', () => {

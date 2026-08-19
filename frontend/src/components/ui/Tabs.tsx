@@ -1,4 +1,6 @@
 import { useId, useRef } from 'react';
+import { OverflowMenu, type OverflowMenuItem } from './OverflowMenu';
+import { useInlineRename } from './useInlineRename';
 import { cn } from './cn';
 
 export interface TabItem<T extends string> {
@@ -9,6 +11,15 @@ export interface TabItem<T extends string> {
    * 없으면 빈 탭인지 안 열어본 탭인지 구분이 안 된다.
    */
   count?: number;
+  /**
+   * 이 탭의 이름을 **그 자리에서** 고친다 — 탭을 두 번 누르거나 열린 탭의 `⋯` 에서.
+   *
+   * 시트 탭 어법이다(Excel·AutoCAD 배치·Figma 페이지). 이름이 곧 탭이므로 고치는 자리도
+   * 탭이어야 한다 — 별도 상자를 띄우면 「무엇의 이름을 고치는 중인지」가 화면에서 사라진다.
+   */
+  onRename?: (name: string) => void;
+  /** 열린 탭의 `⋯` 에 서는 것들 — 되돌릴 수 없는 것은 여기로(§1.7-h). */
+  menu?: OverflowMenuItem[];
 }
 
 interface TabsProps<T extends string> {
@@ -63,6 +74,9 @@ export function useTabs<T extends string>(value: T) {
  */
 export function Tabs<T extends string>({ items, value, onChange, idBase, className }: TabsProps<T>) {
   const list = useRef<HTMLDivElement>(null);
+  /* 이름을 고치는 규칙(빈 이름·그대로면 아무 일 없음, Enter/포커스 잃음=확정, Esc=물림)은
+     앱 공통이다 — 여기서 다시 적지 않는다. */
+  const rename = useInlineRename((key, name) => items.find((t) => t.key === key)?.onRename?.(name));
 
   /** 화살표로 옮긴다 — 끝에서 반대쪽으로 감는다(APG: 목록이 순환한다). */
   function move(from: number, delta: number | 'first' | 'last') {
@@ -77,54 +91,76 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, classNa
     list.current?.querySelectorAll<HTMLElement>('[role="tab"]')[to]?.focus();
   }
 
+  const activeItem = items.find((t) => t.key === value);
+  const menu: OverflowMenuItem[] = [
+    ...(activeItem?.onRename ? [{ label: '이름 변경', onSelect: () => rename.start(activeItem.key, activeItem.label) }] : []),
+    ...(activeItem?.menu ?? []),
+  ];
+
   return (
-    <div ref={list} className={cn('flex items-stretch', className)} role="tablist">
-      {items.map((t, i) => {
-        const active = t.key === value;
-        return (
-          <button
-            key={t.key}
-            type="button"
-            role="tab"
-            id={`${idBase}-tab-${t.key}`}
-            aria-controls={`${idBase}-panel-${t.key}`}
-            aria-selected={active}
-            /* 정거장은 하나 — 고른 탭만 Tab 을 받는다(roving tabindex). */
-            tabIndex={active ? 0 : -1}
-            onClick={() => onChange(t.key)}
-            onKeyDown={(e) => {
-              const d =
-                e.key === 'ArrowRight' ? 1
-                : e.key === 'ArrowLeft' ? -1
-                : e.key === 'Home' ? ('first' as const)
-                : e.key === 'End' ? ('last' as const)
-                : null;
-              if (d === null) return;
-              e.preventDefault();
-              move(i, d);
-            }}
-            className={cn(
-              // 테두리는 항상 존재한다 — 활성 시에만 색을 준다(선택해도 레이아웃이 안 밀린다).
-              'border-b-2 px-3 py-2 text-sm transition-colors focus-ring',
-              active
-                ? 'border-primary font-medium text-primary'
-                : 'border-transparent text-content-muted hover:text-content',
-            )}
-          >
-            {t.label}
-            {t.count != null && (
-              <span
-                className={cn(
-                  'ml-1.5 rounded px-1 text-xs tabular-nums',
-                  active ? 'bg-info-bg text-primary' : 'bg-surface-2 text-content-faint',
-                )}
-              >
-                {t.count}
+    /* `⋯` 는 **tablist 밖**에 선다 — 탭 목록에는 탭만 담긴다(APG). 겉 줄이 테두리를 갖는다. */
+    <div className={cn('flex items-stretch', className)}>
+      <div ref={list} className="flex items-stretch" role="tablist">
+        {items.map((t, i) => {
+          const active = t.key === value;
+          if (rename.isEditing(t.key)) {
+            /* 고치는 동안에는 그 자리에 칸이 선다 — 탭이 그대로 상자가 되는 것처럼 보인다. */
+            return (
+              <span key={t.key} className="flex items-center border-b-2 border-primary px-1 py-1">
+                {rename.field(t.key, t.label, `${t.label} 이름`)}
               </span>
-            )}
-          </button>
-        );
-      })}
+            );
+          }
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              id={`${idBase}-tab-${t.key}`}
+              aria-controls={`${idBase}-panel-${t.key}`}
+              aria-selected={active}
+              /* 정거장은 하나 — 고른 탭만 Tab 을 받는다(roving tabindex). */
+              tabIndex={active ? 0 : -1}
+              onClick={() => onChange(t.key)}
+              /* 두 번 누르면 이름 칸이 선다 — 고칠 수 있는 탭만. */
+              onDoubleClick={() => t.onRename && rename.start(t.key, t.label)}
+              onKeyDown={(e) => {
+                const d =
+                  e.key === 'ArrowRight' ? 1
+                  : e.key === 'ArrowLeft' ? -1
+                  : e.key === 'Home' ? ('first' as const)
+                  : e.key === 'End' ? ('last' as const)
+                  : null;
+                if (d === null) return;
+                e.preventDefault();
+                move(i, d);
+              }}
+              className={cn(
+                // 테두리는 항상 존재한다 — 활성 시에만 색을 준다(선택해도 레이아웃이 안 밀린다).
+                'border-b-2 px-3 py-2 text-sm transition-colors focus-ring',
+                active
+                  ? 'border-primary font-medium text-primary'
+                  : 'border-transparent text-content-muted hover:text-content',
+              )}
+            >
+              {t.label}
+              {t.count != null && (
+                <span
+                  className={cn(
+                    'ml-1.5 rounded px-1 text-xs tabular-nums',
+                    active ? 'bg-info-bg text-primary' : 'bg-surface-2 text-content-faint',
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {menu.length > 0 && activeItem && (
+        <OverflowMenu label={`${activeItem.label} 더 보기`} items={menu} />
+      )}
     </div>
   );
 }

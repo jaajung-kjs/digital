@@ -1357,7 +1357,7 @@ export function FloorPlanView({
    * 그 트리 어디를 어떻게 눌러야 하는지는 스스로 찾아내야 했다 — 빈 화면은 다음에 누를 것을
    * 말해야 한다(`EmptyState`). 층을 더 붙이는 길도 같은 자리(탭 줄 끝)에 둔다.
    */
-  const { createOrgNode } = useOrgMutations();
+  const { createOrgNode, renameOrgNode, deleteOrgNode } = useOrgMutations();
   const [addingFloor, setAddingFloor] = useState(false);
   const [floorError, setFloorError] = useState<string | null>(null);
 
@@ -1373,6 +1373,31 @@ export function FloorPlanView({
       /* 상자를 닫지 않는다 — 닫으면 무엇이 잘못됐는지 볼 자리가 없다(같은 이름의 층 등). */
       setFloorError(apiErrorMessage(err, '층을 만들지 못했습니다'));
     }
+  }
+
+  /** 층마다 그 위에 놓인 것이 몇 개인가 — 지울 수 있는지는 이것이 정한다. */
+  const assetsPerFloor = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of effectiveAssets) if (a.floorId) m.set(a.floorId, (m.get(a.floorId) ?? 0) + 1);
+    return m;
+  }, [effectiveAssets]);
+
+  async function renameFloor(id: string, name: string) {
+    const row = (await renameOrgNode.mutateAsync({ kind: 'floors', id, name })) as V2Floor;
+    useV2WorkingCopy.getState().applyFloor(row);
+  }
+
+  async function deleteFloor(id: string, name: string) {
+    const ok = await confirm({
+      title: '층 삭제',
+      target: name,
+      message: '이 층의 도면과 배경이 함께 사라집니다.',
+      confirmLabel: '삭제',
+      danger: true,
+    });
+    if (!ok) return;
+    await deleteOrgNode.mutateAsync({ kind: 'floors', id });
+    useV2WorkingCopy.getState().removeFloor(id);
   }
 
   const floorPrompt = (
@@ -1407,9 +1432,29 @@ export function FloorPlanView({
       {floorPrompt}
       {/* 층 탭바 */}
       <div className="flex shrink-0 items-center border-b border-line z-sticky">
+        {/* 층은 **탭이 곧 관리 지점**이다 — 두 번 눌러 이름을 고치고, 열린 탭의 `⋯` 에서
+            지운다(시트 탭 어법: Excel·AutoCAD 배치·Figma 페이지). */}
         <Tabs
           {...floorTabs.list}
-          items={floors.map((f) => ({ key: f.id, label: f.name }))}
+          items={floors.map((f) => {
+            const placed = assetsPerFloor.get(f.id) ?? 0;
+            return {
+              key: f.id,
+              label: f.name,
+              onRename: (name: string) => void renameFloor(f.id, name),
+              menu: [
+                {
+                  label: '층 삭제',
+                  danger: true,
+                  /* 그 위에 놓인 것이 있으면 지울 수 없다(서버도 같은 규칙으로 막는다).
+                     못 누르는 이유를 항목이 직접 말한다 — 트리의 분류 삭제와 같은 어법. */
+                  disabled: placed > 0,
+                  disabledReason: `이 층에 놓인 설비가 ${placed}개 있어 지울 수 없습니다`,
+                  onSelect: () => void deleteFloor(f.id, f.name),
+                },
+              ],
+            };
+          })}
           onChange={setActiveFloorId}
           className="-mb-px"
         />

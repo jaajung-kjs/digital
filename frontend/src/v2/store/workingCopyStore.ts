@@ -30,6 +30,7 @@ export interface V2WorkingCopyState {
   loading: boolean;
   load: (substationId: string) => Promise<void>;
   applyFloor: (floor: V2Floor) => void;
+  removeFloor: (floorId: string) => void;
   revert: () => void;
   stageAssetCreate: (asset: V2Asset) => void;
   stageAssetUpdate: (id: string, patch: Partial<V2Asset>) => void;
@@ -109,6 +110,10 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
               : [...s.saved.floors, floor],
           },
         })),
+
+      /** 서버가 지운 층 하나를 saved.floors 에서 뺀다 — `applyFloor` 의 반대. */
+      removeFloor: (floorId) =>
+        set((s) => ({ saved: { ...s.saved, floors: s.saved.floors.filter((f) => f.id !== floorId) } })),
 
       revert: () => {
         const t = v2WorkingCopyStore.temporal.getState();
