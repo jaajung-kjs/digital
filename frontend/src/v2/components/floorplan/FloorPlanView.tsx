@@ -12,7 +12,7 @@
  * `latest` ref 미러(§ latest 정의부 참고)를 통해서만 읽는다 — 클로저에 직접
  * 캡쳐된 state/props를 읽으면 stale-closure 버그가 생긴다.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { portHasRoom, validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
@@ -687,14 +687,32 @@ export function FloorPlanView({
    * 뒤판을 CSS 크기로 잡으면 실제 픽셀의 절반만 그려 놓고 두 배로 늘리는 셈이라 격자와 글자가
    * 뿌옇다. 여기서 `dpr` 배로 잡고, 그리는 쪽은 `setTransform` 으로 CSS 픽셀 좌표를 그대로 쓴다.
    */
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
+  /**
+   * 캔버스가 **화면에 붙는 순간** 크기를 맞추고, 크기를 지켜보고, 휠을 듣는다.
+   *
+   * 이 일들을 `useEffect(…, [])` 에 두면 「이 화면이 처음 설 때 한 번」이 되는데, **캔버스가
+   * 서는 시점은 그때가 아니다** — 층이 하나도 없으면 캔버스 자체가 없고(빈 화면), 층을 만든
+   * 뒤에야 붙는다. 그때 effect 는 이미 지나갔으므로 캔버스는 기본 뒤판(300×150)인 채로 화면
+   * 가득 늘어나고(엄청나게 확대된 채 뿌옇게), 휠 줌도 듣지 않았다.
+   *
+   * **DOM 에 딸린 일은 그 DOM 의 수명에 맡긴다** — ref 콜백이 바로 그 자리다. 붙을 때마다
+   * 서고 떨어질 때마다 걷히므로, 캔버스가 몇 번을 사라졌다 나타나도 어긋날 수가 없다.
+   * ref 는 커밋 단계에서 붙으므로 첫 프레임을 그리기 전에 크기가 맞는다.
+   */
+  const detachCanvas = useRef<(() => void) | null>(null);
 
-    const fit = (cssW: number, cssH: number) => {
+  const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
+    canvasRef.current = canvas;
+    detachCanvas.current?.();
+    detachCanvas.current = null;
+    if (!canvas) return;
+
+    const fit = () => {
+      /* 화면 배율은 창을 다른 모니터로 옮기거나 브라우저를 확대하면 바뀐다 — 그때도 크기
+         변화가 오므로 여기서 매번 다시 읽는다. */
       const dpr = window.devicePixelRatio || 1;
-      const { width, height } = backingSize(cssW, cssH, dpr);
+      const rect = canvas.getBoundingClientRect();
+      const { width, height } = backingSize(rect.width, rect.height, dpr);
       backingScale.current = dpr;
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
@@ -702,43 +720,26 @@ export function FloorPlanView({
       }
       scheduleRender();
     };
+    fit();
 
-    /* **처음 한 번은 그리기 전에** 맞춘다. `<canvas>` 의 기본 뒤판은 300×150 이라, 관찰자가
-       알려 줄 때까지 기다리면 그 작은 그림이 화면 가득 늘어난 첫 프레임이 보인다 — 격자가
-       확대된 채 뿌옇게 나타났다 제자리를 찾는 것이 그것이다. */
-    const rect = container.getBoundingClientRect();
-    fit(rect.width, rect.height);
-
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      /* 화면 배율은 창을 다른 모니터로 옮기거나 브라우저를 확대하면 바뀐다 — 그때도 크기
-         변화가 오므로 여기서 매번 다시 읽는다. */
-      const { width, height } = entry.contentRect;
-      fit(width, height);
-    });
-    ro.observe(container);
-    return () => ro.disconnect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── 휠 줌 (non-passive, cursor-centered) ─────────────────────────────────
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
+    // 커서 아래 도면 위치를 고정한 채 확대/축소 — 계산은 zoomAtPoint 한 곳에 있다.
+    // 브라우저 확대를 막아야 하므로 passive 가 아니어야 한다(React 의 onWheel 은 passive 다).
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
-      const cursorX = e.clientX - rect.left;
-      const cursorY = e.clientY - rect.top;
-
-      // 커서 아래 도면 위치를 고정한 채 확대/축소 — 계산은 zoomAtPoint 한 곳에 있다.
-      setViewport((prev) => zoomAtPoint(prev, e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, cursorX, cursorY));
+      setViewport((prev) =>
+        zoomAtPoint(prev, e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, e.clientX - rect.left, e.clientY - rect.top),
+      );
     };
 
+    const ro = new ResizeObserver(fit);
+    ro.observe(canvas);
     canvas.addEventListener('wheel', onWheel, { passive: false });
-    return () => canvas.removeEventListener('wheel', onWheel);
+    detachCanvas.current = () => {
+      ro.disconnect();
+      canvas.removeEventListener('wheel', onWheel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── 팬: 중클릭 또는 Space+드래그 ─────────────────────────────────────────
@@ -1649,7 +1650,7 @@ export function FloorPlanView({
         data-testid="floorplan-canvas-container"
       >
         <canvas
-          ref={canvasRef}
+          ref={attachCanvas}
           className="absolute inset-0 w-full h-full"
           style={{ display: 'block', cursor: canvasCursor }}
           onMouseDown={onCanvasMouseDown}
