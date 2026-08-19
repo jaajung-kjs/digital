@@ -66,7 +66,7 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
     });
   }
 
-  return <InlineEditCell value={displayValue} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} />;
+  return <InlineEditCell value={displayValue} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} label={field.label} />;
 }
 
 // ── 심선 값 인라인 편집 ───────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ function PortFieldInput({
     useV2WorkingCopy.getState().stageAssetUpdate(resolvedAssetId, { ports });
   }
 
-  return <InlineEditCell value={shown} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} />;
+  return <InlineEditCell value={shown} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} label={field.label} />;
 }
 
 // PeerCell은 공용 컴포넌트로 추출 (M-2 — PowerRegisterView와 공유)
@@ -219,9 +219,11 @@ export function FiberRegisterView({
      값 열은 무엇을 적는 칸인지에 따라 다르다: 날짜 칸에는 달력 아이콘이 함께 들어가므로
      숫자 칸과 같은 폭을 주면 아이콘이 날짜 위에 겹친다. */
   const CORE_WIDTH = 8;
-  /* 수 칸은 **여섯 자리까지** 들어갈 만큼 준다(길이 m). 10% 로 뒀더니 네 자리에서 이미
-     끝자리가 잘렸다 — 대국 열은 실측 161px 로 24% 안에 여유가 있어 거기서 2%씩 떼어 온다. */
-  const metaWidth = (f: ValueDef) => (f.type === 'date' ? 20 : 12);
+  /* 수 칸은 **여섯 자리까지** 들어갈 만큼 준다(길이 m) — 10% 로 뒀더니 네 자리에서 이미
+     끝자리가 잘렸다. 그 몫은 **날짜 칸**에서 떼어 온다: 값은 이제 읽는 줄로 서고 상자는
+     고칠 때만 뜨므로(`InlineEditCell`) 달력 아이콘이 늘 자리를 잡고 있을 이유가 없다.
+     대국 열은 두 자리 번호(`…광단말 A#12`)에서 실측 161px 가 필요하다 — 25% 로 둔다. */
+  const metaWidth = (f: ValueDef) => (f.type === 'date' ? 18 : 12);
   const metaTotal = metaFields.reduce((sum, f) => sum + metaWidth(f), 0);
   /* 대국 열은 두 홉을 건너간 이름이라 가장 길다 — 성단 열과 같은 몫을 준다. */
   const peerCols = groups.length + 1;

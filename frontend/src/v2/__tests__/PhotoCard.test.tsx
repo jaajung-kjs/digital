@@ -80,6 +80,8 @@ describe('PhotoCard', () => {
     setStore([photo('ph-1', 'a-1', { caption: null })]);
     render(<PhotoCard assetId="a-1" />);
 
+    /* 설명도 **누를 때** 상자가 된다 — 표 칸과 같은 어법(`InlineEditCell`). */
+    fireEvent.click(screen.getByRole('button', { name: '설명 고치기' }));
     const captionInput = screen.getByRole('textbox') as HTMLInputElement;
     fireEvent.change(captionInput, { target: { value: '정면 사진' } });
     fireEvent.blur(captionInput);

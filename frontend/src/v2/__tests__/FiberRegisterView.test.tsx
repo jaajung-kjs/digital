@@ -92,11 +92,13 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
         onSelectAsset={vi.fn()}
       />);
 
+    /* 값은 **읽는 줄**로 선다 — 고칠 때만 상자가 된다(`InlineEditCell`). */
     // 길이는 케이블 한 가닥의 값 — 두 코어 행이 **같은** 40 을 본다(예전에는 심선마다 케이블이었다).
-    expect(screen.getAllByDisplayValue('40')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: '길이 고치기' }).filter((b) => b.textContent === '40')).toHaveLength(2);
     // 손실은 코어마다 다르다 — 같은 포트 하나에서 번호로 갈라져 나온다.
-    expect(screen.getByDisplayValue('0.3')).toBeTruthy();
-    expect(screen.getByDisplayValue('0.9')).toBeTruthy();
+    const loss = screen.getAllByRole('button', { name: '손실 고치기' }).map((b) => b.textContent);
+    expect(loss).toContain('0.3');
+    expect(loss).toContain('0.9');
   });
 
   it('코어 손실을 고치면 그 코어 자리만 바뀐다 — 옆 코어 값은 그대로다', () => {
@@ -109,6 +111,8 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
         onSelectAsset={vi.fn()}
       />);
 
+    /* 누르면 그때 상자가 선다 — 조회 화면에 상자 312개가 늘 서 있지 않게. */
+    fireEvent.click(screen.getAllByRole('button', { name: '손실 고치기' }).find((b) => b.textContent === '0.3')!);
     const input = screen.getByDisplayValue('0.3');
     fireEvent.change(input, { target: { value: '1.4' } });
     fireEvent.blur(input);

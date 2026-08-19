@@ -105,7 +105,14 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
   }
 
   const shown = value === null || value === undefined ? '' : String(value);
-  return <InlineEditCell value={shown} onCommit={handleCommit} type={isNumber ? 'number' : field.type === 'date' ? 'date' : undefined} />;
+  return (
+    <InlineEditCell
+      value={shown}
+      onCommit={handleCommit}
+      type={isNumber ? 'number' : field.type === 'date' ? 'date' : undefined}
+      label={field.label}
+    />
+  );
 }
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
