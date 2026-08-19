@@ -175,9 +175,21 @@ export function portFieldsFor(medium: string, positions?: number | null): ValueD
   return isMultiCorePort(positions) ? [...kind.portFields, ...(kind.coreFields ?? [])] : [...kind.portFields];
 }
 
+/**
+ * 이 포트가 나르는 **심선 수** — 안 적었으면 한 가닥이다.
+ *
+ * 이 한 줄이 열세 군데에 흩어져 있었다(`positions ?? 1`). 자산을 놓을 때·판을 그릴 때·
+ * 명세를 읽을 때·서버가 저장할 때가 저마다 같은 기본값을 다시 적었는데, 기본값이 규칙인 이상
+ * 적는 자리는 하나여야 한다 — 한 곳이 어긋나면 같은 포트가 화면에서는 1심, 저장에서는 24심이
+ * 된다.
+ */
+export function coreCount(positions: number | null | undefined): number {
+  return positions ?? 1;
+}
+
 /** 이 포트가 심선을 여러 가닥 나르는가. `positions` 이 없거나 1이면 보통 포트다. */
 export function isMultiCorePort(positions: number | null | undefined): boolean {
-  return (positions ?? 1) > 1;
+  return coreCount(positions) > 1;
 }
 
 /**

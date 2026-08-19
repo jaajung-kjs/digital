@@ -1,3 +1,5 @@
+import { coreCount } from './portKinds.js';
+
 /**
  * 비교에 쓰는 포트 선언 — DB 행과 요청 바디가 **둘 다** 이 모양이다.
  *
@@ -38,7 +40,7 @@ function meaningChanged(before: PortDeclaration, after: PortDeclaration): boolea
     before.direction !== after.direction ||
     before.medium !== after.medium ||
     before.namePattern !== after.namePattern ||
-    (before.positions ?? 1) !== (after.positions ?? 1)
+    coreCount(before.positions) !== coreCount(after.positions)
   );
 }
 

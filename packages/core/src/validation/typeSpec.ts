@@ -1,6 +1,6 @@
 import { WORK_KINDS, MAN_DAY_FIELD, manDaysOf } from '../catalog/laborSpec.js';
 import { PORT_DIRECTIONS } from '../catalog/types.js';
-import { portKind } from '../catalog/portKinds.js';
+import { coreCount, portKind } from '../catalog/portKinds.js';
 import type { AssetTypeSpec } from '../catalog/types.js';
 
 export interface TypeSpecIssue { path: string; message: string }
@@ -40,7 +40,7 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
     if (!ctx.mediumKeys.includes(p.medium)) push(`ports[${i}].medium`, `존재하지 않는 매체입니다: ${p.medium}`);
     if (p.count > 1 && !p.namePattern.includes('{n}')) push(`ports[${i}].namePattern`, "이름 패턴에 '{n}' 이 필요합니다 (count > 1)");
 
-    const positions = p.positions ?? 1;
+    const positions = coreCount(p.positions);
     if (positions < 1) push(`ports[${i}].positions`, '심선 수는 1 이상이어야 합니다');
     /* 다심을 **가질 수 있는지**는 종류가 정한다 — 아무 포트에나 코어 수를 적으면 어휘가
        뜻을 잃는다. 다만 몇 심인지는 포트마다 다르다: 같은 광이라도 성단은 24심이고

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CORE_COUNT, PORT_KINDS, cableFieldsFor, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey } from './portKinds.js';
+import { DEFAULT_CORE_COUNT, PORT_KINDS, cableFieldsFor, coreCount, isMultiCorePort, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -148,5 +148,24 @@ describe('포트 그룹 이름', () => {
   it('어휘에 없는 종류는 그 값을 쓴다 — 빈 이름이 되지 않게', () => {
     const all = [g('X', '미지의매체')];
     expect(portGroupLabel(all[0]!, all)).toBe('미지의매체');
+  });
+});
+
+/* 「심선 수를 안 적었으면 한 가닥」이 열세 군데에 흩어져 있었다(`positions ?? 1`) — 기본값이
+   규칙인 이상 적는 자리는 하나여야 한다. 한 곳이 어긋나면 같은 포트가 화면에서는 1심,
+   저장에서는 24심이 된다. */
+describe('coreCount', () => {
+  it('안 적었으면 한 가닥이다', () => {
+    expect(coreCount(undefined)).toBe(1);
+    expect(coreCount(null)).toBe(1);
+  });
+
+  it('적었으면 그 수다', () => {
+    expect(coreCount(24)).toBe(24);
+  });
+
+  it('「다심인가」도 같은 셈에서 나온다 — 두 규칙이 갈리지 않게', () => {
+    expect(isMultiCorePort(undefined)).toBe(coreCount(undefined) > 1);
+    expect(isMultiCorePort(24)).toBe(coreCount(24) > 1);
   });
 });

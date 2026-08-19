@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { comparePortGroups, instantiatePorts, portGroupLabel } from '@twin/core';
+import { comparePortGroups, coreCount, instantiatePorts, portGroupLabel } from '@twin/core';
 import type { Direction } from '@twin/core';
 import type { V2Port } from '../../types';
 
@@ -47,10 +47,10 @@ export function portSections(
       medium: p.medium,
       namePattern: p.namePattern,
       sortOrder: i,
-      positions: p.positions ?? 1,
+      positions: coreCount(p.positions),
     })),
     'preview',
-  ).map((p, i) => ({ ...p, id: `pv-${i}`, positions: p.positions ?? 1, fieldValues: {} }));
+  ).map((p, i) => ({ ...p, id: `pv-${i}`, positions: coreCount(p.positions), fieldValues: {} }));
 
   const byGroup = new Map<string, V2Port[]>();
   for (const p of ports) byGroup.set(p.group, [...(byGroup.get(p.group) ?? []), p]);
@@ -63,7 +63,7 @@ export function portSections(
     medium: p.medium,
     direction: p.direction,
     sampleName: p.namePattern.replace('{n}', '1'),
-    positions: p.positions ?? 1,
+    positions: coreCount(p.positions),
   }));
 
   return refs

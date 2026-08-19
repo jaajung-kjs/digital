@@ -1,4 +1,4 @@
-import { comparePortStructure, portName, specFromUpsert, validateAssembly, validateTypeSpec } from '@twin/core';
+import { comparePortStructure, coreCount, portName, specFromUpsert, validateAssembly, validateTypeSpec } from '@twin/core';
 import type { PortChange } from '@twin/core';
 import { z } from 'zod';
 import type { TypeUpsertBody } from '@twin/core';
@@ -45,7 +45,7 @@ async function createTypeStructure(
 ): Promise<void> {
   for (const [i, p] of body.ports.entries()) {
     await tx.assetPortTemplate.create({
-      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, sortOrder: i },
+      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: coreCount(p.positions), sortOrder: i },
     });
   }
 }
@@ -113,7 +113,7 @@ async function addPortsToExistingAssets(tx: Prisma.TransactionClient, typeId: st
       const last = have.reduce((m, p) => Math.max(m, p.index), 0);
       /* 심선 수는 **그 자산이 쓰던 값**을 따른다 — 선언 값으로 새 포트만 다르게 만들면
          한 판 안에서 12심과 24심이 섞인다. 그 구획이 처음이면 선언을 쓴다. */
-      const positions = have[0]?.positions ?? add.template.positions ?? 1;
+      const positions = have[0]?.positions ?? coreCount(add.template.positions);
       return Array.from({ length: add.delta }, (_, i) => ({
         assetId: asset.id,
         group: add.group,

@@ -1,4 +1,4 @@
-import { isMultiCorePort, portKind } from '../catalog/portKinds.js';
+import { coreCount, isMultiCorePort, portKind } from '../catalog/portKinds.js';
 import type { Direction, InternalLinkRule, PortRef } from '../catalog/types.js';
 
 /**
@@ -106,7 +106,7 @@ export function internalLinkMap(ports: readonly PortRef[]): Map<string, string[]
       /* 인입 포트 하나가 자기 코어 수만큼만 앞면과 이어진다. 앞면 포트가 더 많아도
          (24심 인입 옆의 48구 판) 없는 코어까지 이어졌다고 하면 안 된다. */
       for (const f of from) {
-        const cores = f.positions ?? 1;
+        const cores = coreCount(f.positions);
         for (const t of to) {
           if (t.index > cores) continue;
           pair(f.id, t.id);

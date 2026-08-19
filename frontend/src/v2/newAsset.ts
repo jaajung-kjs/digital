@@ -1,4 +1,4 @@
-import { DEFAULT_ASSET_STATUS, instantiatePorts, portTemplatesFrom } from '@twin/core';
+import { DEFAULT_ASSET_STATUS, coreCount, instantiatePorts, portTemplatesFrom } from '@twin/core';
 import type { V2Asset, V2AssetType, V2Port } from './types';
 
 /**
@@ -21,7 +21,7 @@ export function portsForNewAsset(
   return instantiatePorts(portTemplatesFrom(type.portTemplates), assetId, portCounts, portPositions).map((p) => ({
     ...p,
     id: crypto.randomUUID(),
-    positions: p.positions ?? 1,
+    positions: coreCount(p.positions),
     // 값은 아직 없다 — 손실·점검일은 놓고 나서 적는다.
     fieldValues: {},
   }));

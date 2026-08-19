@@ -1,3 +1,4 @@
+import { coreCount } from './portKinds.js';
 import type { AssetTypeSpec, Direction, PortTemplate, TypeUpsertBody } from './types.js';
 
 export interface CatalogTypeRow {
@@ -26,7 +27,7 @@ export function portTemplatesFrom(
       direction: p.direction as Direction,
       medium: p.medium,
       namePattern: p.namePattern,
-      positions: p.positions ?? 1,
+      positions: coreCount(p.positions),
     }));
 }
 
@@ -61,6 +62,6 @@ export function specFromUpsert(body: TypeUpsertBody, categoryKey: string): Asset
       relocateManDays: body.relocateManDays,
     },
     // 심선 수는 안 적으면 1 — 두 투영이 같은 spec 을 내야 한다(specFromCatalog 도 같게 채운다).
-    ports: body.ports.map((p) => ({ ...p, positions: p.positions ?? 1 })),
+    ports: body.ports.map((p) => ({ ...p, positions: coreCount(p.positions) })),
   };
 }

@@ -1,5 +1,6 @@
 import type { PortRef, PortTemplate } from './types.js';
 import { portName } from './portStructure.js';
+import { coreCount } from './portKinds.js';
 
 /**
  * 포트 템플릿에서 자산 인스턴스의 포트 목록을 만든다. id 는 부르는 쪽이 붙인다.
@@ -21,7 +22,7 @@ export function instantiatePorts(
 ): Omit<PortRef, 'id'>[] {
   return templates.flatMap((tpl) => {
     const count = countOverrides[tpl.group] ?? tpl.count;
-    const positions = positionsOverrides[tpl.group] ?? tpl.positions ?? 1;
+    const positions = positionsOverrides[tpl.group] ?? coreCount(tpl.positions);
     return Array.from({ length: count }, (_, i) => ({
       assetId,
       group: tpl.group,

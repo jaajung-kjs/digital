@@ -30,7 +30,7 @@
  */
 import { useMemo } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DEFAULT_CORE_COUNT, isMultiCorePort, portGroupLabel, portPresets, uniqueGroupKey } from '@twin/core';
+import { DEFAULT_CORE_COUNT, coreCount, isMultiCorePort, portGroupLabel, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
 import { DetailCard, DetailCardHeader, EmptyState, ErrorStrip, cn, InsetBox } from '../../../components/ui';
 import { useMediumColor, useMediumLabel } from '../../hooks';
@@ -271,7 +271,7 @@ function labelOf(
     medium: r.medium,
     direction: r.direction,
     sampleName: r.namePattern.replace('{n}', '1'),
-    positions: r.positions ?? 1,
+    positions: coreCount(r.positions),
   }));
   const mine = refs.find((r) => r.group === row.group)!;
   return portGroupLabel(mine, refs, mediumLabel);
