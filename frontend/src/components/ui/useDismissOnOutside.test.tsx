@@ -78,4 +78,25 @@ describe('useDismissOnOutside', () => {
     expect(onDismiss).not.toHaveBeenCalled();
     overlay.remove();
   });
+
+  /* 상자 자신도 이 훅으로 바깥 누름을 판정한다 — 제 백드롭을 「위 층」으로 세면 눌러도 안 닫힌다. */
+  it('제 상자의 백드롭을 누른 것은 바깥이다', () => {
+    const onDismiss = vi.fn();
+    function BoxHarness() {
+      const panel = useRef<HTMLDivElement | null>(null);
+      useDismissOnOutside(true, [panel], onDismiss);
+      return (
+        <div data-modal-overlay data-testid="backdrop">
+          <div ref={panel}>
+            <button type="button">상자 안</button>
+          </div>
+        </div>
+      );
+    }
+    render(<BoxHarness />);
+    down(screen.getByRole('button', { name: '상자 안' }));
+    expect(onDismiss).not.toHaveBeenCalled();
+    down(screen.getByTestId('backdrop'));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
 });

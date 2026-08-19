@@ -230,8 +230,11 @@ describe('catalog CRUD', () => {
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
   });
 
-  it('PUT: 인스턴스 존재 + 구조(ports) 변경이면 409 TYPE_IN_USE', async () => {
-    // 다시 인스턴스 생성
+  /* 예전에는 자산이 하나라도 있으면 포트를 **한 개도 더할 수 없었다** — 종류를 잘못 등록하면
+     할 수 있는 일이 「자산을 다 지우고 다시 만들기」뿐이었다. 지금은 세는 것과 뜻이 갈린다:
+     늘리는 것은 아무에게도 해가 없으므로 허용하고, 이미 있는 포트가 **다른 물건이 되는 것**만
+     막는다. */
+  it('PUT: 인스턴스가 있어도 포트를 늘리는 것은 200 — 그 자산에도 달린다', async () => {
     const sub = await nextDb.substation.create({
       data: {
         name: `${uniq}-ss2`,
@@ -241,26 +244,63 @@ describe('catalog CRUD', () => {
     const asset = await nextDb.asset.create({
       data: { name: `${uniq}-asset2`, typeId, substationId: sub.id },
     });
+    const before = await nextDb.port.count({ where: { assetId: asset.id } });
 
-    // 포트 구조 변경 (count 변경: 2 → 4)
-    const changedPorts = [
+    // 개수만 늘린다 (2 → 4)
+    const more = [
       { group: 'fiberIn', count: 4, direction: 'IN' as const, medium: 'fiber', namePattern: '입력 {n}' },
       { group: 'fiberOut', count: 4, direction: 'OUT' as const, medium: 'fiber', namePattern: '출력 {n}' },
     ];
-    const body = makeTypeBody(catId, {
-      name: '수정된 이름',
-      ports: changedPorts,
-    });
+    await request(app)
+      .put(`/api/v2/catalog/types/${typeId}`)
+      .set(admin)
+      .send(makeTypeBody(catId, { name: '수정된 이름', ports: more }))
+      .expect(200);
 
-    const res = await request(app).put(`/api/v2/catalog/types/${typeId}`).set(admin).send(body).expect(409);
-    expect(res.body.error).toBe('TYPE_IN_USE');
+    // 선언만 고치고 말면 정작 그 자산은 그대로다 — 이미 놓인 자산에도 달려야 한다.
+    expect(await nextDb.port.count({ where: { assetId: asset.id } })).toBe(before + 4);
 
     // 정리
+    await nextDb.port.deleteMany({ where: { assetId: asset.id } });
     await nextDb.asset.delete({ where: { id: asset.id } });
     await nextDb.substation.delete({ where: { id: sub.id } });
     const branch = await nextDb.branch.findFirst({ where: { name: `${uniq}-br2` } });
     if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
     const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq2` } });
+    if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
+  });
+
+  it('PUT: 인스턴스가 있으면 이미 있는 포트의 **뜻**을 바꿀 수 없다 — 409 TYPE_IN_USE', async () => {
+    const sub = await nextDb.substation.create({
+      data: {
+        name: `${uniq}-ss2b`,
+        branch: { create: { name: `${uniq}-br2b`, headquarters: { create: { name: `${uniq}-hq2b` } } } },
+      },
+    });
+    const asset = await nextDb.asset.create({
+      data: { name: `${uniq}-asset2b`, typeId, substationId: sub.id },
+    });
+
+    // 같은 구획·같은 개수인데 이름 규칙이 달라진다 — 개수 문제가 아니라 이미 있는 포트가
+    // 다른 물건이 되는 일이다(앞 시험이 개수를 4로 늘려 두었으므로 개수는 그대로 4).
+    const redefined = [
+      { group: 'fiberIn', count: 4, direction: 'IN' as const, medium: 'fiber', namePattern: 'IN {n}' },
+      { group: 'fiberOut', count: 4, direction: 'OUT' as const, medium: 'fiber', namePattern: 'OUT {n}' },
+    ];
+    const res = await request(app)
+      .put(`/api/v2/catalog/types/${typeId}`)
+      .set(admin)
+      .send(makeTypeBody(catId, { name: '수정된 이름', ports: redefined }))
+      .expect(409);
+    expect(res.body.error).toBe('TYPE_IN_USE');
+
+    // 정리
+    await nextDb.port.deleteMany({ where: { assetId: asset.id } });
+    await nextDb.asset.delete({ where: { id: asset.id } });
+    await nextDb.substation.delete({ where: { id: sub.id } });
+    const branch = await nextDb.branch.findFirst({ where: { name: `${uniq}-br2b` } });
+    if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
+    const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq2b` } });
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
   });
 

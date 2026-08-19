@@ -140,6 +140,9 @@ interface OrgKindEntry {
   };
   // 자식 존재 시 DELETE 를 막기 위한 카운트 — kind별로 참조하는 자식 관계가 다르다.
   childCount: (id: string) => Promise<number>;
+  // 막혔을 때 **무엇이** 막았는지 — 「하위 항목이 있습니다」로는 화면에서 아무것도 못 찾는다.
+  // 층은 특히 그렇다: 도면에 안 놓인 자산도 층에 딸려 있어 캔버스는 비어 보인다.
+  childLabel: string;
 }
 
 const orgKinds: OrgKindEntry[] = [
@@ -147,11 +150,13 @@ const orgKinds: OrgKindEntry[] = [
     path: 'headquarters',
     delegate: nextDb.headquarters,
     childCount: (id) => nextDb.branch.count({ where: { headquartersId: id } }),
+    childLabel: '지사',
   },
   {
     path: 'branches',
     delegate: nextDb.branch,
     childCount: (id) => nextDb.substation.count({ where: { branchId: id } }),
+    childLabel: '변전소',
   },
   {
     path: 'substations',
@@ -159,15 +164,17 @@ const orgKinds: OrgKindEntry[] = [
     // 변전소 자식: floor + asset(substationId 직결) — 두 관계 합산
     childCount: async (id) =>
       (await nextDb.floor.count({ where: { substationId: id } })) + (await nextDb.asset.count({ where: { substationId: id } })),
+    childLabel: '층·자산',
   },
   {
     path: 'floors',
     delegate: nextDb.floor,
     childCount: (id) => nextDb.asset.count({ where: { floorId: id } }),
+    childLabel: '자산',
   },
 ];
 
-for (const { path, delegate, childCount } of orgKinds) {
+for (const { path, delegate, childCount, childLabel } of orgKinds) {
   // PATCH /org/<kind>/:id — 이름/정렬 수정 (4종 공통 스켈레톤)
   orgRouter.patch(`/org/${path}/:id`, adminOnly, async (req, res, next) => {
     try {
@@ -192,7 +199,9 @@ for (const { path, delegate, childCount } of orgKinds) {
       if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
       // 자식 확인
       const count = await childCount(id);
-      if (count > 0) throw new HttpError(409, 'HAS_CHILDREN', '하위 항목이 있어 삭제할 수 없습니다');
+      if (count > 0) {
+        throw new HttpError(409, 'HAS_CHILDREN', `${childLabel} ${count}개가 딸려 있어 삭제할 수 없습니다`);
+      }
       await delegate.delete({ where: { id } });
       res.status(204).end();
     } catch (e) {

@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { cn } from './cn';
 import { Card } from './Card';
 import { IconButton } from './IconButton';
+import { useDismissOnOutside } from './useDismissOnOutside';
 
 export interface ModalProps {
   open: boolean;
@@ -112,6 +113,16 @@ export function Modal({
   if (open && !opener.current) opener.current = document.activeElement as HTMLElement | null;
 
   /**
+   * 바깥을 **누르면** 닫는다 — 뗄 때(`click`)가 아니라.
+   *
+   * `click` 은 누른 자리와 뗀 자리의 공통 조상에서 난다. 그래서 상자 안 글자를 끌어 고르다가
+   * 바깥에서 손을 떼면 그 `click` 이 백드롭에 떨어져 **적던 것이 통째로 날아갔다**.
+   * 「바깥을 누르면 풀린다」는 앱 공통 규칙이므로 손으로 다시 적지 않는다 — 층이 쌓였을 때
+   * 위 층 안을 누른 것을 바깥으로 세지 않는 것까지 그 훅이 안다(`useDismissOnOutside`).
+   */
+  useDismissOnOutside(open, [panel], () => closeRef.current());
+
+  /**
    * Esc 로 닫고, 바깥을 누르면 닫고, **Tab 이 상자 밖으로 새지 않게** 한다.
    *
    * 트랩이 없으면 Tab 을 누르는 순간 초점이 뒤에 깔린 화면으로 빠져나간다 — 화면은 막혀
@@ -160,25 +171,9 @@ export function Modal({
       (e.shiftKey ? items[items.length - 1]! : items[0]!).focus();
     };
 
-    /**
-     * 바깥을 **누르면** 닫는다 — 뗄 때(`click`)가 아니라.
-     *
-     * `click` 은 누른 자리와 뗀 자리의 공통 조상에서 난다. 그래서 상자 안 글자를 끌어 고르다가
-     * 바깥에서 손을 떼면 그 `click` 이 백드롭에 떨어져 **적던 것이 통째로 날아갔다**.
-     * 누름으로 판정하면 그 일이 아예 없다(Radix `DismissableLayer`·MUI 와 같은 규칙).
-     */
-    const onPointerDown = (e: PointerEvent) => {
-      if (!isTop()) return;
-      const t = e.target as Node | null;
-      if (!t || panel.current?.contains(t)) return;
-      closeRef.current();
-    };
-
     window.addEventListener('keydown', onKey, true);
-    document.addEventListener('pointerdown', onPointerDown, true);
     return () => {
       window.removeEventListener('keydown', onKey, true);
-      document.removeEventListener('pointerdown', onPointerDown, true);
       syncInert();
       /**
        * 닫힌 뒤에는 **열기 전 있던 자리**로 초점을 돌려준다 — 안 그러면 body 로 튕겨

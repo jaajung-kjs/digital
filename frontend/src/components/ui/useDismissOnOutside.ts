@@ -33,14 +33,19 @@ export function useDismissOnOutside(
       /* 이미 화면에서 떨어져 나간 노드는 「바깥」이 아니다 — 방금 지워진 버튼을 누른 것이라
          그 동작 자체가 이 선택을 다루고 있다. */
       if (!target.isConnected) return;
+      const { within, onDismiss } = latest.current;
       /* **위에 뜬 상자 안을 누른 것은 바깥이 아니다.** 상자는 `body` 밑으로 나가 있으므로
          「안」으로 넘긴 판에는 결코 담기지 않는다 — 그대로 두면 고른 부품을 다루려고 연 상자를
          누르는 순간 그 선택이 풀려, 상자가 무엇을 두고 묻는지가 뒤에서 사라진다. 층이 쌓이면
-         **아래 층은 듣지 않는다**(Esc 와 같은 규칙 — `keyboard.ts`). */
+         **아래 층은 듣지 않는다**(Esc 와 같은 규칙 — `keyboard.ts`).
+
+         단 **제 상자는 예외**다: 상자 자신이 이 훅으로 바깥 누름을 판정하므로, 제 백드롭을
+         누른 것은 「위 층」이 아니라 자기 바깥이다. 그 층이 내 「안」을 품고 있으면 내 층이다. */
       const el = target instanceof Element ? target : target.parentElement;
-      if (el?.closest('[data-modal-overlay]')) return;
-      if (latest.current.within.some((r) => r.current?.contains(target))) return;
-      latest.current.onDismiss();
+      const layer = el?.closest('[data-modal-overlay]');
+      if (layer && !within.some((r) => r.current && layer.contains(r.current))) return;
+      if (within.some((r) => r.current?.contains(target))) return;
+      onDismiss();
     };
     document.addEventListener('pointerdown', onDown, true);
     return () => document.removeEventListener('pointerdown', onDown, true);

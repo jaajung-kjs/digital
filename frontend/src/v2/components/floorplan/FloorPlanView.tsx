@@ -33,7 +33,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useOrgMutations, useTypesById, useV2Catalog } from '../../hooks';
-import { Button, EmptyState, IconButton, PromptModal, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
+import { Button, EmptyState, ErrorStrip, IconButton, PromptModal, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorIdOf } from '../../assetTree';
@@ -1360,6 +1360,8 @@ export function FloorPlanView({
   const { createOrgNode, renameOrgNode, deleteOrgNode } = useOrgMutations();
   const [addingFloor, setAddingFloor] = useState(false);
   const [floorError, setFloorError] = useState<string | null>(null);
+  /** 이름 변경·삭제가 막힌 이유 — 층 줄 아래에 뜬다. */
+  const [floorOpError, setFloorOpError] = useState<string | null>(null);
 
   async function addFloor(name: string) {
     setFloorError(null);
@@ -1375,16 +1377,43 @@ export function FloorPlanView({
     }
   }
 
-  /** 층마다 그 위에 놓인 것이 몇 개인가 — 지울 수 있는지는 이것이 정한다. */
-  const assetsPerFloor = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const a of effectiveAssets) if (a.floorId) m.set(a.floorId, (m.get(a.floorId) ?? 0) + 1);
-    return m;
-  }, [effectiveAssets]);
+  /**
+   * 층마다 그 위에 있는 자산 수 — **저장된 것과 지금 화면의 것을 따로** 센다.
+   *
+   * 층 삭제는 서버가 즉시 하는 일이라(스테이징을 거치지 않는다) 서버가 아는 것만 본다.
+   * 그런데 화면은 스테이징까지 본다. 둘이 갈리면 지우는 단추가 거짓말을 한다:
+   * - 그 층의 설비를 지웠지만 **저장하지 않았으면** 화면은 0, 서버는 2 → 눌리는데 서버가 막는다.
+   * - 그 층에 설비를 놓았지만 **저장하지 않았으면** 화면은 2, 서버는 0 → 층이 지워지고 스테이징한
+   *   설비가 없는 층을 가리켜 저장이 통째로 막힌다.
+   * 그래서 **둘 중 하나라도 있으면 못 지운다**. 무엇이 막았는지는 말이 달라야 하므로 따로 센다.
+   */
+  const floorLoad = useMemo(() => {
+    const count = (list: readonly V2Asset[]) => {
+      const m = new Map<string, number>();
+      for (const a of list) if (a.floorId) m.set(a.floorId, (m.get(a.floorId) ?? 0) + 1);
+      return m;
+    };
+    const onScreen = count(effectiveAssets);
+    const onServer = count(saved.assets);
+    return (floorId: string) => ({ onScreen: onScreen.get(floorId) ?? 0, onServer: onServer.get(floorId) ?? 0 });
+  }, [effectiveAssets, saved.assets]);
+
+  /** 이 층을 못 지우는 이유 — 없으면 `null`. */
+  function floorBlockedReason(floorId: string): string | null {
+    const { onScreen, onServer } = floorLoad(floorId);
+    if (onScreen > 0) return `이 층에 놓인 설비가 ${onScreen}개 있어 지울 수 없습니다`;
+    if (onServer > 0) return `이 층의 설비 ${onServer}개를 지운 것이 아직 저장되지 않았습니다 — 저장한 뒤 지울 수 있습니다`;
+    return null;
+  }
 
   async function renameFloor(id: string, name: string) {
-    const row = (await renameOrgNode.mutateAsync({ kind: 'floors', id, name })) as V2Floor;
-    useV2WorkingCopy.getState().applyFloor(row);
+    setFloorOpError(null);
+    try {
+      const row = (await renameOrgNode.mutateAsync({ kind: 'floors', id, name })) as V2Floor;
+      useV2WorkingCopy.getState().applyFloor(row);
+    } catch (err) {
+      setFloorOpError(apiErrorMessage(err, '층 이름을 바꾸지 못했습니다'));
+    }
   }
 
   async function deleteFloor(id: string, name: string) {
@@ -1396,8 +1425,14 @@ export function FloorPlanView({
       danger: true,
     });
     if (!ok) return;
-    await deleteOrgNode.mutateAsync({ kind: 'floors', id });
-    useV2WorkingCopy.getState().removeFloor(id);
+    setFloorOpError(null);
+    try {
+      await deleteOrgNode.mutateAsync({ kind: 'floors', id });
+      useV2WorkingCopy.getState().removeFloor(id);
+    } catch (err) {
+      /* 막혔으면 **막힌 자리에서** 말한다 — 층 줄 바로 아래. */
+      setFloorOpError(apiErrorMessage(err, '층을 지우지 못했습니다'));
+    }
   }
 
   const floorPrompt = (
@@ -1437,7 +1472,7 @@ export function FloorPlanView({
         <Tabs
           {...floorTabs.list}
           items={floors.map((f) => {
-            const placed = assetsPerFloor.get(f.id) ?? 0;
+            const blocked = floorBlockedReason(f.id);
             return {
               key: f.id,
               label: f.name,
@@ -1446,10 +1481,9 @@ export function FloorPlanView({
                 {
                   label: '층 삭제',
                   danger: true,
-                  /* 그 위에 놓인 것이 있으면 지울 수 없다(서버도 같은 규칙으로 막는다).
-                     못 누르는 이유를 항목이 직접 말한다 — 트리의 분류 삭제와 같은 어법. */
-                  disabled: placed > 0,
-                  disabledReason: `이 층에 놓인 설비가 ${placed}개 있어 지울 수 없습니다`,
+                  /* 못 누르는 이유를 항목이 직접 말한다 — 트리의 분류 삭제와 같은 어법. */
+                  disabled: blocked !== null,
+                  disabledReason: blocked ?? undefined,
                   onSelect: () => void deleteFloor(f.id, f.name),
                 },
               ],
@@ -1470,6 +1504,11 @@ export function FloorPlanView({
           />
         )}
       </div>
+      {floorOpError && (
+        <div className="shrink-0 px-2 py-1">
+          <ErrorStrip message={floorOpError} onDismiss={() => setFloorOpError(null)} />
+        </div>
+      )}
 
       {/* 도구바: 배치 팔레트 + 케이블 도구 */}
       {activeFloorId != null && (assemblies.length > 0 || cableGroups.length > 0) && (
