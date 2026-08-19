@@ -29,6 +29,31 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
   const panel = useRef<HTMLDivElement>(null);
 
   /**
+   * 닫는 손잡이는 **ref 로 쥔다** — 초점을 옮기는 일은 상자가 열리고 닫힐 때만 해야 한다.
+   *
+   * 부르는 쪽은 거의 다 `onClose={() => setModal(null)}` 처럼 그 자리에서 함수를 만든다.
+   * 그것을 아래 effect 의 의존성에 두면 **부모가 다시 그려질 때마다** effect 가 걷혔다
+   * 다시 서고, 그때마다 초점이 옮겨 갔다 — 상자 안 칸에 한 글자를 치면 그 글자가 부모를
+   * 다시 그리고, 초점은 곧바로 머리줄의 「닫기」 단추로 튀었다. 두 번째 글자부터는 아무 데도
+   * 들어가지 않고, 거기서 Enter 나 Space 를 누르면 상자가 닫혔다(Esc 를 누른 것처럼 보인다).
+   *
+   * 손잡이는 **부를 때** 최신이면 되고, effect 가 다시 설 이유는 되지 못한다.
+   */
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  /**
+   * 열기 전에 초점이 있던 자리 — **그리는 동안** 적어 둔다.
+   *
+   * effect 에서 적으면 늦다: React 는 `autoFocus` 를 커밋 단계에서 이미 걸어 놓으므로, 그때
+   * 물어본 「지금 초점」은 상자를 연 단추가 아니라 상자 안 칸이다. 그 자리를 돌려주면 이미
+   * 사라진 칸으로 돌아가려다 초점이 body 로 떨어진다. 그리기는 커밋보다 앞이라 그 전 자리가
+   * 그대로 남아 있다. 되돌려 준 뒤 비운다(다음에 열 때 다시 적는다).
+   */
+  const opener = useRef<HTMLElement | null>(null);
+  if (open && !opener.current) opener.current = document.activeElement as HTMLElement | null;
+
+  /**
    * Esc 로 닫고, **Tab 이 상자 밖으로 새지 않게** 한다.
    *
    * 트랩이 없으면 Tab 을 누르는 순간 초점이 뒤에 깔린 화면으로 빠져나간다 — 화면은 막혀
@@ -37,11 +62,13 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
    */
   useEffect(() => {
     if (!open) return;
-    /* 닫힌 뒤에는 **열기 전 있던 자리**로 초점을 돌려준다 — 안 그러면 body 로 튕겨
-       처음부터 다시 Tab 해야 한다. */
-    const opener = document.activeElement as HTMLElement | null;
-    const first = panel.current?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? panel.current)?.focus();
+    /* 초점은 상자 안으로 들어온다 — 다만 **내용이 스스로 잡았으면 뺏지 않는다**(`autoFocus`
+       를 단 칸이 있으면 그 칸이 주인이다). 뺏으면 이름을 적으러 연 상자에서 초점이 「닫기」에
+       가 있게 된다. 아무도 안 잡았으면 첫 번째 것을, 그것도 없으면 상자 자신을 잡는다
+       (WAI-ARIA APG Dialog). */
+    if (!panel.current?.contains(document.activeElement)) {
+      (panel.current?.querySelector<HTMLElement>(FOCUSABLE) ?? panel.current)?.focus();
+    }
 
     const onKey = (e: KeyboardEvent) => {
       /* 상자가 쌓였으면 **맨 위 것만** 키를 가진다 — 확인 상자가 상자 위에 뜨는 자리가 있다.
@@ -59,7 +86,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
            돈다. 상자가 여럿 쌓였으면 **맨 위 것만** 가져간다(그 아래 것은 그냥 흘려보내
            안쪽 상자가 잡게 둔다). */
         e.stopPropagation();
-        onClose();
+        closeRef.current();
         return;
       }
       if (e.key !== 'Tab' || !panel.current) return;
@@ -73,9 +100,13 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
     window.addEventListener('keydown', onKey, true);
     return () => {
       window.removeEventListener('keydown', onKey, true);
-      opener?.focus?.();
+      /* 닫힌 뒤에는 **열기 전 있던 자리**로 초점을 돌려준다 — 안 그러면 body 로 튕겨
+         처음부터 다시 Tab 해야 한다. */
+      const back = opener.current;
+      opener.current = null;
+      back?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

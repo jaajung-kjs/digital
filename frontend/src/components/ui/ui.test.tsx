@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Button } from './Button';
@@ -139,6 +140,52 @@ describe('Modal', () => {
     window.removeEventListener('keydown', behind);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(behind).not.toHaveBeenCalled();
+  });
+
+  /* 「이름을 적는 상자」가 한 글자만 받고 멈췄다. `onClose` 가 그 자리에서 만들어지는 함수라
+     부모가 다시 그려질 때마다 초점 effect 가 걷혔다 다시 섰고, 그때마다 초점을 머리줄의
+     「닫기」로 끌고 갔다 — 두 번째 글자부터 아무 데도 들어가지 않고, 거기서 Enter 를 누르면
+     상자가 닫혀 Esc 를 누른 것처럼 보였다. */
+  it('글자를 쳐도 초점이 칸에 남는다 — 부모가 다시 그려져도', () => {
+    function Host() {
+      const [v, setV] = useState('');
+      const [open, setOpen] = useState(true);
+      return (
+        <Modal open={open} onClose={() => setOpen(false)} title="본부 추가">
+          <input aria-label="이름" autoFocus value={v} onChange={(e) => setV(e.target.value)} />
+        </Modal>
+      );
+    }
+    render(<Host />);
+    const field = screen.getByLabelText('이름');
+    expect(document.activeElement).toBe(field);
+    fireEvent.change(field, { target: { value: '중' } });
+    expect(document.activeElement).toBe(field);
+    fireEvent.change(field, { target: { value: '중부' } });
+    expect(document.activeElement).toBe(field);
+    expect((field as HTMLInputElement).value).toBe('중부');
+  });
+
+  /* 닫히면 열기 전 자리로 돌아간다 — 안 그러면 body 로 튕겨 처음부터 다시 Tab 해야 한다. */
+  it('닫히면 초점이 상자를 연 자리로 돌아간다', () => {
+    function Host() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>본부 추가</button>
+          <Modal open={open} onClose={() => setOpen(false)} title="본부 추가">
+            <input aria-label="이름" autoFocus />
+          </Modal>
+        </>
+      );
+    }
+    render(<Host />);
+    const opener = screen.getByRole('button', { name: '본부 추가' });
+    opener.focus();
+    fireEvent.click(opener);
+    expect(document.activeElement).toBe(screen.getByLabelText('이름'));
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(document.activeElement).toBe(opener);
   });
 
   it('calls onClose when close button clicked', () => {
