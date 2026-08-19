@@ -14,14 +14,17 @@ import { AssemblyGrid, type GridItem } from './AssemblyGrid';
 
 const items: GridItem[] = [{ id: 'a', name: '광단말 A', col: 0, row: 0, colSpan: 1, rowSpan: 2 }];
 
+/* jsdom 에는 레이아웃이 없다 — 판이 제 크기를 재는 길(`ResizeObserver`)에 크기를 물려 준다.
+   판은 상자에 맞춰 칸 크기를 셈하므로, 크기가 0이면 어느 칸인지도 셈할 수 없다. */
 beforeAll(() => {
-  if (!('ResizeObserver' in globalThis)) {
-    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    };
-  }
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+    constructor(private cb: (entries: { contentRect: { width: number; height: number } }[]) => void) {}
+    observe() {
+      this.cb([{ contentRect: { width: 100, height: 200 } }]);
+    }
+    unobserve() {}
+    disconnect() {}
+  };
 });
 
 function setup(over: Partial<Parameters<typeof AssemblyGrid<GridItem>>[0]> = {}) {
@@ -48,10 +51,29 @@ const item = () => screen.getByRole('button', { name: /광단말 A,/ });
 describe('AssemblyGrid', () => {
   /* 빈 칸은 **놓을 자리**다 — 고른 것이 있어도 누르면 곧바로 채운다(먼저 풀고 다시 누르게
      하면 옆 칸에 하나 더 넣으려던 손짓이 매번 삼켜진다). */
+  /* 빈 칸은 **놓을 자리**다 — 고른 것이 있어도 누르면 곧바로 채운다. 끌면 그만큼 크게 만든다
+     (한 칸씩 만들어 손잡이로 늘리는 것은 같은 일을 두 번 하는 것이다). */
   it('빈 칸을 누르면 그 자리에 만든다', () => {
     const { onAddAtCell } = setup({ selectedId: 'a' });
-    fireEvent.click(emptyCell());
-    expect(onAddAtCell).toHaveBeenCalledWith(expect.objectContaining({ col: expect.any(Number), row: expect.any(Number) }));
+    const layer = emptyCell().parentElement!;
+    /* 칸 셈은 **감싼 상자**의 크기를 그 자리에서 잰다 — jsdom 에는 레이아웃이 없어 물려 준다. */
+    layer.parentElement!.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 100, height: 200 }) as DOMRect;
+    fireEvent(layer, new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 70, clientY: 160 }));
+    fireEvent(window, new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 70, clientY: 160 }));
+    expect(onAddAtCell).toHaveBeenCalledWith(expect.objectContaining({ colSpan: 1, rowSpan: 1 }));
+  });
+
+  it('빈 칸을 여러 개 끌면 그 크기로 만든다', () => {
+    const { onAddAtCell } = setup({ items: [] });
+    const layer = emptyCell().parentElement!;
+    /* 칸 셈은 **감싼 상자**의 크기를 그 자리에서 잰다 — jsdom 에는 레이아웃이 없어 물려 준다. */
+    layer.parentElement!.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 100, height: 200 }) as DOMRect;
+    fireEvent(layer, new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 10, clientY: 10 }));
+    fireEvent(window, new MouseEvent('pointermove', { bubbles: true, cancelable: true, clientX: 70, clientY: 60 }));
+    fireEvent(window, new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 70, clientY: 60 }));
+    const at = onAddAtCell.mock.calls[0]![0];
+    expect(at.colSpan).toBeGreaterThan(1);
+    expect(at.rowSpan).toBeGreaterThan(1);
   });
 
   it('놓인 것을 누르면 고른다', () => {

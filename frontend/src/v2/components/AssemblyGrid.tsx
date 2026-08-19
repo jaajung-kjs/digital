@@ -92,7 +92,8 @@ export function AssemblyGrid<T extends GridItem>({
   deselectRef.current = onDeselect;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!isCancelKey(e) || selectedId == null) return;
+      if (!isCancelKey(e)) return;
+      if (selectedId == null) return;
       e.stopPropagation();
       deselectRef.current?.();
     };
@@ -115,6 +116,81 @@ export function AssemblyGrid<T extends GridItem>({
   const taken = new Set<string>();
   for (const l of layout)
     for (let r = 0; r < l.h; r++) for (let c = 0; c < l.w; c++) taken.add(`${l.x + c},${l.y + r}`);
+
+  /**
+   * 빈 자리를 **끌어서** 만든다 — 한 칸이면 그냥 누른 것이다.
+   *
+   * 이것만 우리 손짓이다(옮기기·크기는 라이브러리의 것). 두 가지만 지킨다:
+   * - **칸은 좌표가 정한다.** 눌린 요소를 거슬러 올라가면 칸 사이 틈과 둥근 모서리에서
+   *   시작조차 안 된다 — 그 자리가 판 전체에 격자무늬로 깔려 있다.
+   * - **손짓 동안은 창이 듣는다.** 포인터 캡처를 쓰면 언제 풀리는지, 그 풀림이 뗌보다 먼저
+   *   오는지를 브라우저·프레임워크마다 따로 맞춰야 한다.
+   */
+  const [draw, setDraw] = useState<GridPlacement | null>(null);
+
+  /**
+   * 이 좌표는 어느 칸인가 — **판의 지금 크기를 그 자리에서 잰다.**
+   *
+   * 재 둔 값(상태)을 쓰면 손짓이 시작된 렌더의 크기에 묶인다. 그 값이 아직 안 왔거나 그사이
+   * 판이 달라졌으면 칸이 통째로 어긋난다(2칸을 끌었는데 8칸이 잡혔다). 크기는 여기서 묻는다.
+   *
+   * 칸 사이 **틈을 셈에 넣는다** — 폭을 열 수로 그냥 나누면 오른쪽으로 갈수록 한 칸씩 밀린다.
+   */
+  const cellAtPoint = (e: { clientX: number; clientY: number }): GridCell | null => {
+    const el = boxRef.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return null;
+    const cw = (r.width - (cols - 1) * GAP) / cols;
+    const ch = (r.height - (rows - 1) * GAP) / rows;
+    const clamp = (v: number, max: number) => Math.min(Math.max(v, 0), max);
+    return {
+      col: clamp(Math.floor((e.clientX - r.left) / (cw + GAP)), cols - 1),
+      row: clamp(Math.floor((e.clientY - r.top) / (ch + GAP)), rows - 1),
+    };
+  };
+
+  const rectFree = (p: GridPlacement) => {
+    for (let r = 0; r < p.rowSpan; r++)
+      for (let c = 0; c < p.colSpan; c++) if (taken.has(`${p.col + c},${p.row + r}`)) return false;
+    return true;
+  };
+
+  function startDraw(e: React.PointerEvent) {
+    if (e.button !== 0) return;
+    const from = cellAtPoint(e);
+    if (!from) return;
+    e.preventDefault();
+    let aim: GridPlacement = { col: from.col, row: from.row, colSpan: 1, rowSpan: 1 };
+    setDraw(aim);
+
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      const to = cellAtPoint(ev);
+      if (!to) return;
+      const next: GridPlacement = {
+        col: Math.min(from.col, to.col), row: Math.min(from.row, to.row),
+        colSpan: Math.abs(to.col - from.col) + 1, rowSpan: Math.abs(to.row - from.row) + 1,
+      };
+      /* **네모는 빈 자리에서만 자란다** — 막히면 그 앞에서 멈춘다. 남의 자리까지 덮게 두면
+         손을 뗄 때 아무 일도 못 하고, 사람 눈에는 「끌었는데 반응 없이 사라졌다」가 된다. */
+      if (!rectFree(next)) return;
+      aim = next;
+      setDraw(next);
+    };
+    const stop = (commit: boolean) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      setDraw(null);
+      if (commit) onAddAtCell(aim);
+    };
+    const up = (ev: PointerEvent) => { if (ev.pointerId === e.pointerId) stop(true); };
+    const cancel = (ev: PointerEvent) => { if (ev.pointerId === e.pointerId) stop(false); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+  }
 
   /** 라이브러리가 준 새 자리 — 우리 규칙에 맞을 때만 받는다. */
   const commit = (l: LayoutItem) => {
@@ -154,20 +230,35 @@ export function AssemblyGrid<T extends GridItem>({
         {/* 빈 칸 — 누르면 그 자리에 만든다. 판 밑에 깔려 있고, 위에 놓인 것은 라이브러리가 그린다. */}
         <div
           className="absolute inset-0 grid"
+          onPointerDown={startDraw}
           style={{
             gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
             gridTemplateRows: `repeat(${rows}, ${rowH}px)`,
             gap: GAP,
           }}
         >
+          {/* 손을 뗀 **뒤**에는 하나의 네모다 — 무엇을 넣을지 묻는 동안 그 자리에 **놓일 장비가
+              그렇게 생긴 채로** 선다(칸칸이 물들어 있으면 아직 고르는 중처럼 보인다). */}
+          {pending && !draw && (
+            <div
+              className="pointer-events-none z-10 flex items-center justify-center rounded border-2 border-primary bg-surface px-1 text-center text-xs font-medium text-primary"
+              style={{
+                gridColumn: `${pending.at.col + 1} / span ${pending.at.colSpan}`,
+                gridRow: `${pending.at.row + 1} / span ${pending.at.rowSpan}`,
+              }}
+            >
+              <span className="truncate">{pending.label}</span>
+            </div>
+          )}
           {Array.from({ length: rows * cols }, (_, n) => {
             const col = n % cols;
             const row = Math.floor(n / cols);
             if (taken.has(`${col},${row}`)) return <span key={n} />;
+            /* 끄는 **동안**에는 칸마다 물든다 — 어느 칸까지 잡혔는지가 그때의 관심이다. */
             const isPending =
-              pending != null &&
-              col >= pending.at.col && col < pending.at.col + pending.at.colSpan &&
-              row >= pending.at.row && row < pending.at.row + pending.at.rowSpan;
+              draw != null &&
+              col >= draw.col && col < draw.col + draw.colSpan &&
+              row >= draw.row && row < draw.row + draw.rowSpan;
             return (
               <button
                 key={n}
@@ -181,7 +272,8 @@ export function AssemblyGrid<T extends GridItem>({
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
                   isPending && 'border-2 border-solid border-primary bg-info-bg',
                 )}
-                onClick={() => onAddAtCell({ col, row })}
+                /* 손짓은 층이 받는다 — 칸은 눌린 자리를 알릴 뿐이다(틈·모서리도 층의 것이다). */
+                tabIndex={-1}
               >
                 <span className="text-base leading-none text-primary opacity-0 transition-opacity group-hover:opacity-100">+</span>
               </button>
