@@ -5,34 +5,41 @@ import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
 
-const CHILD_KIND: Record<FlatOrgNode['kind'], OrgKind | null> = {
+/**
+ * 이 트리가 다루는 것 — **트리에 보이는 것만**.
+ *
+ * 층(`floors`)은 여기 없다. 예전에는 변전소 줄의 `+` 가 층을 만들었는데, **층은 트리에 줄로
+ * 서지 않으므로** 만들어도 화면에 아무 변화가 없었다 — 누른 사람에게는 버그로 보인다.
+ * 만드는 자리는 만든 것이 보이는 자리여야 한다: 층은 평면도의 층 탭 줄에서 만든다.
+ */
+type TreeOrgKind = Exclude<OrgKind, 'floors'>;
+
+const CHILD_KIND: Record<FlatOrgNode['kind'], TreeOrgKind | null> = {
   hq: 'branches',
   branch: 'substations',
-  substation: 'floors',
+  substation: null,
 };
-const SELF_KIND: Record<FlatOrgNode['kind'], OrgKind> = {
+const SELF_KIND: Record<FlatOrgNode['kind'], TreeOrgKind> = {
   hq: 'headquarters',
   branch: 'branches',
   substation: 'substations',
 };
 /** 화면에 쓰는 조직 종류 이름 — 모달 제목이 "추가" 한 마디로 끝나지 않게 한다. */
-const KIND_LABEL: Record<OrgKind, string> = {
+const KIND_LABEL: Record<TreeOrgKind, string> = {
   headquarters: '본부',
   branches: '지사',
   substations: '변전소',
-  floors: '층',
 };
 
-const PARENT_FIELD: Record<OrgKind, string> = {
+const PARENT_FIELD: Record<TreeOrgKind, string> = {
   headquarters: '',
   branches: 'headquartersId',
   substations: 'branchId',
-  floors: 'substationId',
 };
 
 interface ModalState {
   mode: 'create' | 'rename';
-  kind: OrgKind;
+  kind: TreeOrgKind;
   targetId: string;
   initial: string;
 }
@@ -48,12 +55,12 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
 
   /* 접고 펴는 일은 `TreePanel` 이 쥔다 — 트리마다 따로 구현하지 않는다. */
 
-  function openCreateModal(kind: OrgKind, targetId: string) {
+  function openCreateModal(kind: TreeOrgKind, targetId: string) {
     setName('');
     setModal({ mode: 'create', kind, targetId, initial: '' });
   }
 
-  function openRenameModal(kind: OrgKind, targetId: string, current: string) {
+  function openRenameModal(kind: TreeOrgKind, targetId: string, current: string) {
     setName(current);
     setModal({ mode: 'rename', kind, targetId, initial: current });
   }
@@ -95,7 +102,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
           <>
             {CHILD_KIND[n.kind] && (
               <IconButton
-                aria-label={`${n.name} 하위 추가`}
+                aria-label={`${n.name} 에 ${KIND_LABEL[CHILD_KIND[n.kind]!]} 추가`}
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
