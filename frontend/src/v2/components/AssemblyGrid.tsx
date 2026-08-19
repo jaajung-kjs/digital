@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { type Grid, cellLabel } from '@twin/core';
 import { cn, SELECTABLE, type BadgeStatus, isCancelKey, InsetBox } from '../../components/ui';
@@ -178,60 +178,35 @@ export function AssemblyGrid<T extends GridItem>({
      상수(`GRID_ROW_H`)로 셈하면 20행 판에서 글씨를 눕힐지 말지를 잘못 고른다. */
   const rowHeight = fill && boxHeightPx > 0 ? boxHeightPx / rows : GRID_ROW_H;
   /**
-   * 지금 벌어지고 있는 제스처 — **격자 하나가 소유한다**.
+   * 지금 벌어지는 손짓 — **값 하나가 전부다.**
    *
-   * 예전에는 칸마다 pointer 핸들러가 붙고 그 위에 `onClick` 이 따로 있었다. 그래서 한 번의
-   * 손짓이 두 번 해석됐다: 크기 손잡이의 pointerup 이 버튼으로 버블링해 세션이 이미 지워진
-   * 채로 「그냥 누른 것」으로 읽혀 상세 패널로 튀었고, 포인터 캡처가 풀리면 click 이 엉뚱한
-   * 빈 칸에서 나 자산 추가 모달이 열렸다.
+   * 예전에는 한 손짓이 아홉 조각에 흩어져 있었다(무엇을 잡았나·미리보기·그리는 네모·끄는
+   * 중인가·마지막 손 자리·밀기 루프…). 그중 둘은 같은 값을 ref 와 state 에 **이중으로**
+   * 들고 있었다 — 「끝낼 때는 ref 를 읽어야 한다」는 규칙이 필요했던 이유이자, 조각 둘이
+   * 어긋날 때마다 새 버그가 나던 이유다. 고칠 때마다 다른 데가 깨진 것은 그 때문이다.
    *
-   * 손짓의 시작(pointerdown)은 칸이 알리지만, 그 뒤의 이동·끝냄은 격자가 받는다. 끝날 때
-   * **누른 것이었나 끈 것이었나**를 한 곳에서 판정하므로 두 번 해석될 자리가 없다.
+   * 이제 손짓은 **하나의 값**이고 주인도 하나다:
+   * - 겨눈 자리(`aim`)가 이 값 안에 있으므로 그리는 것도 끝내는 것도 같은 것을 읽는다.
+   * - **포인터 하나의 것**이다(`pointerId`). 다른 손가락·다른 포인터가 끼어들어도 이 손짓은
+   *   흔들리지 않는다 — 끼어든 이벤트 하나에 손짓이 조용히 취소되던 것이 그것이다.
+   * - 시작도 상자가 받는다. 칸은 눌린 자리를 표시(`data-cell`)로만 알리고 핸들러를 갖지
+   *   않는다 — 시작은 칸, 나머지는 상자로 갈라 두면 그 사이가 어긋난다.
    */
   interface Gesture {
-    /** `tap` = 끌 수 없는 것을 눌렀다(빈 칸). */
+    /** 이 손짓의 주인. 다른 포인터의 이벤트는 쳐다보지 않는다. */
+    pointerId: number;
     kind: GridDragKind | 'tap';
-    /** 눌러서 시작한 칸 — 끌지 않았으면 이 칸에 대해 행동한다. */
-    cell: GridCell;
+    /** 누른 칸 — 끌지 않았으면 이 칸에 대해 행동하고, 새로 그릴 때는 네모의 한쪽 끝이다. */
+    from: GridCell;
     item: T | null;
+    /** 옮기기·크기 조절의 시작 자리. */
     session: GridDragSession | null;
+    /** 지금 겨눈 자리 — 화면도 이것을 그리고, 끝낼 때도 이것을 쓴다. */
+    aim: GridPlacement | null;
   }
   const gestureRef = useRef<Gesture | null>(null);
-  /**
-   * **손짓이 벌어지고 있는가** — 누른 순간부터 뗄 때까지.
-   *
-   * 예전에는 「미리보기가 생겼는가」로 알았는데, 미리보기는 손이 **다음 칸에 닿아야** 생긴다.
-   * 그 사이(누르고 아직 한 칸도 못 간 동안) 빈 칸은 여전히 손을 반겨 `+` 를 켰다 —
-   * 끌 때마다 `+` 가 반짝인 것이 그것이다. 벌어지는 일은 ref 가 알지만 화면은 상태로만
-   * 다시 그려지므로, 같은 사실을 둘이 나눠 갖는다.
-   */
-  const [dragging, setDragging] = useState(false);
-  /**
-   * 끌고 있는 동안의 미리보기 — 놓기 전에는 저장하지 않는다.
-   *
-   * **손짓이 끝날 때 읽는 값은 상태가 아니라 ref 다.** 상태로 읽으면 마지막 `pointermove` 와
-   * `pointerup` 이 한 작업 안에 몰려 들어왔을 때(빠른 손짓·좌표 합쳐짐) 아직 반영되지 않은
-   * 값을 보고, 끌어 놓은 자리가 조용히 버려진다. 평면도 캔버스가 이미 같은 이유로 드래그
-   * 좌표를 ref 에 둔다(`drawRef`·`movePreviewRef`).
-   */
-  const [preview, setPreviewState] = useState<{ itemId: string; placement: GridPlacement; ok: boolean } | null>(null);
-  const previewRef = useRef<{ itemId: string; placement: GridPlacement; ok: boolean } | null>(null);
-  const setPreview = (v: { itemId: string; placement: GridPlacement; ok: boolean } | null) => {
-    previewRef.current = v;
-    setPreviewState(v);
-  };
-  /**
-   * 빈 칸에서 끌어 **여러 칸을 묶어** 만드는 중.
-   *
-   * 예전에는 한 칸에만 만들 수 있어서, 2×3 짜리 장비를 놓으려면 일단 한 칸에 만든 뒤 크기
-   * 손잡이로 늘려야 했다. 놓을 자리를 눈으로 정하는 판에서 그건 두 번 일하는 것이다.
-   */
-  const [createRect, setCreateRectState] = useState<{ placement: GridPlacement } | null>(null);
-  const createRectRef = useRef<{ placement: GridPlacement } | null>(null);
-  const setCreateRect = (v: { placement: GridPlacement } | null) => {
-    createRectRef.current = v;
-    setCreateRectState(v);
-  };
+  /* 손짓이 바뀌면 다시 그린다 — 값은 ref 하나이고, 이것은 「바뀌었다」는 신호일 뿐이다. */
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
 
   /** 포인터가 가리키는 칸 — 격자 상자 기준 상대 좌표로 셈한다. */
   function cellFromPointer(e: { clientX: number; clientY: number }): GridCell | null {
@@ -241,44 +216,21 @@ export function AssemblyGrid<T extends GridItem>({
     return cellAt({ width: r.width, height: r.height, cols, rows }, e.clientX - r.left, e.clientY - r.top);
   }
 
-  /** 눌렀을 때 — 무엇을 시작하는지만 정하고, 그 뒤는 격자가 받는다. */
-  function beginGesture(kind: GridDragKind | 'tap', item: T | null, cell: GridCell, e: React.PointerEvent) {
-    if (e.button !== 0) return;
-    /* 브라우저의 기본 손짓을 끈다 — 안 끄면 끌기 하나가 **글자 선택**으로도 읽혀서, 판 밖으로
-       나갔다 오면 표와 패널이 파랗게 잡힌 채 돌아온다(네이티브 이미지 끌기도 같이 뜬다).
-       기본 동작에는 「누른 것에 초점 주기」도 들어 있으므로 그것만 손으로 되돌린다 — 키보드로
-       칸을 옮겨 다니는 길(`onKeyDown`)이 초점 위에 서 있다. */
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).closest<HTMLElement>('button')?.focus();
-    const session =
-      item && kind !== 'tap'
-        ? startGridDrag(
-            kind,
-            item.id,
-            { col: item.col ?? 0, row: item.row ?? 0, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1 },
-            cellFromPointer(e) ?? cell,
-          )
-        : null;
-    gestureRef.current = { kind, cell, item, session };
-    setDragging(true);
-    /* 밀 상자는 **손짓 종류와 무관하게** 찾는다 — 새로 그리는 손짓도 화면 밖 행까지 가야 한다. */
-    scrollersRef.current = {
-      y: scrollableAncestor(boxRef.current, 'y'),
-      x: scrollableAncestor(boxRef.current, 'x'),
-    };
-    /* 캡처는 **격자**가 쥔다 — 칸이 쥐면 끌려간 자리에서 다른 칸이 같은 손짓을 또 받는다.
-       못 쥐면 따라갈 수도 없다(그 포인터가 이미 사라졌다는 뜻이다) — 손짓을 세워 두지 않고
-       그 자리에서 접는다. 안 그러면 끝을 알리는 `pointerup` 이 영영 오지 않아, 화면이
-       「끄는 중」인 채로 굳는다. */
-    try {
-      boxRef.current?.setPointerCapture(e.pointerId);
-    } catch {
-      endGesture(false);
+  /** 이 네모가 통째로 비어 있나 — 여러 칸을 묶어 만들 때 놓을 수 있는지 판정한다. */
+  function isFree(p: GridPlacement): boolean {
+    if (p.col + p.colSpan > cols || p.row + p.rowSpan > rows) return false;
+    for (const item of items) {
+      if (item.col == null || item.row == null) continue;
+      const a = { col: item.col, row: item.row, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1 };
+      const hit =
+        p.col < a.col + a.colSpan && a.col < p.col + p.colSpan && p.row < a.row + a.rowSpan && a.row < p.row + p.rowSpan;
+      if (hit) return false;
     }
+    return true;
   }
 
   /**
-   * 손이 있는 자리로 겨눈다 — **손이 움직였을 때도, 판이 밀렸을 때도 같은 계산**이다.
+   * 손이 있는 자리로 겨눈다 — 손이 움직였을 때도, 판이 밀렸을 때도 **같은 계산**이다.
    *
    * 옮기기·크기와 새로 그리기가 여기 함께 있다. 갈래를 나눠 두면 한쪽에만 고침이 들어간다 —
    * 실제로 새로 그리는 손짓은 가장자리 밀기를 못 받아, 화면 밖 행까지 네모를 끌 수 없었다.
@@ -289,44 +241,25 @@ export function AssemblyGrid<T extends GridItem>({
     const target = cellFromPointer(point);
     if (!target) return;
 
-    /**
-     * 빈 칸에서 시작했다 — 시작 칸과 지금 칸이 이루는 네모다.
-     *
-     * **네모는 빈 자리에서만 자란다.** 예전에는 남의 자리까지 덮도록 두고 빨갛게 칠한 뒤,
-     * 손을 떼면 아무 일도 하지 않았다 — 사람 눈에는 「끌었는데 아무 반응 없이 사라졌다」다.
-     * 무엇이 잘못인지 말할 자리도 없다(그리는 중에만 빨갰다). 아예 덮지 못하게 하면 그 상태가
-     * 생기지 않는다: 막히면 그 자리에서 자라기를 멈추므로, 어디까지 되는지가 끄는 동안 보인다.
-     */
     if (!g.session) {
-      const placement = {
-        col: Math.min(g.cell.col, target.col),
-        row: Math.min(g.cell.row, target.row),
-        colSpan: Math.abs(target.col - g.cell.col) + 1,
-        rowSpan: Math.abs(target.row - g.cell.row) + 1,
+      /* **네모는 빈 자리에서만 자란다.** 예전에는 남의 자리까지 덮도록 두고 빨갛게 칠한 뒤
+         손을 떼면 아무 일도 하지 않았다 — 사람 눈에는 「끌었는데 반응 없이 사라졌다」다.
+         막히면 그 앞에서 멈추면 그런 상태가 아예 생기지 않는다. */
+      const next = {
+        col: Math.min(g.from.col, target.col),
+        row: Math.min(g.from.row, target.row),
+        colSpan: Math.abs(target.col - g.from.col) + 1,
+        rowSpan: Math.abs(target.row - g.from.row) + 1,
       };
-      /* 시작 칸은 비어 있었으므로 물러설 자리는 늘 있다(못해도 그 한 칸). */
-      if (isFree(placement)) setCreateRect({ placement });
-      else if (!createRectRef.current) setCreateRect({ placement: { ...g.cell, colSpan: 1, rowSpan: 1 } });
+      if (isFree(next)) { g.aim = next; redraw(); }
       return;
     }
 
-    const session = g.session;
-    const placement = gridDragTo(session, target);
-    session.moved = session.moved || gridPlacementChanged(session.origin, placement);
-    if (!session.moved) return;
-    setPreview({ itemId: session.assetId, placement, ok: canPlace(session.assetId, placement) });
+    const placement = gridDragTo(g.session, target);
+    if (!gridPlacementChanged(g.session.origin, placement) && !g.aim) return;
+    g.aim = placement;
+    redraw();
   }
-
-  /**
-   * Tab 으로 닿는 칸은 **하나뿐**이다(roving tabindex).
-   *
-   * 예전에는 칸마다 `tabIndex=0` 이라, 키보드로 이 판을 지나가려면 Tab 을 **196번** 눌러야
-   * 했다(10×20 에서 빈 칸까지 전부 단추다). 판은 하나의 정거장이고 그 안은 화살표로
-   * 옮긴다 — WAI-ARIA 가 격자·트리에 정한 규약이고, 조직 트리가 이미 그렇게 움직인다.
-   *
-   * 어느 칸이 그 하나인가: 사람이 마지막으로 짚은 칸 → 고른 장비가 놓인 칸 → 첫 칸.
-   */
-  const [activeCell, setActiveCell] = useState<GridCell | null>(null);
 
   /** 마지막으로 손이 있던 자리 — 판이 밀리는 동안에는 이 점이 기준이다. */
   const pointRef = useRef<{ clientX: number; clientY: number } | null>(null);
@@ -334,12 +267,21 @@ export function AssemblyGrid<T extends GridItem>({
   /** 밀 상자 — 손짓을 시작할 때 한 번만 찾는다(매 프레임 조상을 훑으면 스타일 재계산이 는다). */
   const scrollersRef = useRef<{ x: Element | null; y: Element | null }>({ x: null, y: null });
 
+  function stopPump() {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    pointRef.current = null;
+    scrollersRef.current = { x: null, y: null };
+  }
+  // 끌던 중에 화면이 사라져도 루프는 멈춰야 한다.
+  useEffect(() => stopPump, []);
+
   /**
    * 가장자리에 손이 닿아 있는 동안 판을 민다.
    *
    * 20단짜리 판은 좁은 상세 패널에 다 들어가지 않는다. 밀어 주지 않으면 화면 밖 자리로는
    * 아예 끌어다 놓을 수 없다 — 손을 떼면 그 자리에 놓여 버리므로 「끌다 말고 스크롤」도
-   * 못 한다. 밀고 난 뒤에는 같은 손 자리가 다른 칸을 가리키므로 미리보기를 다시 맞춘다.
+   * 못 한다. 밀고 난 뒤에는 같은 손 자리가 다른 칸을 가리키므로 다시 겨눈다.
    */
   function pump() {
     rafRef.current = null;
@@ -353,19 +295,111 @@ export function AssemblyGrid<T extends GridItem>({
     const dx = x ? edgeScroll(x.getBoundingClientRect(), p, EDGE).dx : 0;
     if (dy) y!.scrollTop += dy;
     if (dx) x!.scrollLeft += dx;
-    /* 밀리지 않았으면 겨눈 칸도 그대로다 — 매 프레임 다시 맞추면 화면만 다시 그린다.
-       (손이 움직였을 때는 `onPointerMove` 가 이미 맞춘다.) */
+    /* 밀리지 않았으면 겨눈 칸도 그대로다 — 매 프레임 다시 맞추면 화면만 다시 그린다. */
     if (dx || dy) aimAt(point);
     rafRef.current = requestAnimationFrame(pump);
   }
 
-  function onPointerMove(e: React.PointerEvent) {
+  /**
+   * 눌렀다 — 무엇을 시작하는지 정한다.
+   *
+   * **상자가 받는다.** 눌린 것이 칸인지 손잡이인지 빼기 단추인지는 표(`data-*`)를 보고 안다.
+   * 칸마다 핸들러를 달던 때는 시작과 나머지가 다른 주인에게 있어, 캡처가 풀리거나 칸이 다시
+   * 그려지는 순간 둘이 어긋났다.
+   */
+  function onPointerDown(e: React.PointerEvent) {
+    if (e.button !== 0 || gestureRef.current) return;
+    const el = e.target as HTMLElement;
+    /* 빼기 단추는 손짓이 아니다 — 그 단추가 제 일(누르고 떼기)을 하게 둔다. */
+    if (el.closest('[data-remove]')) return;
+
+    const cellEl = el.closest<HTMLElement>('[data-cell]');
+    if (!cellEl) {
+      /* 상자의 빈 곳(눈금 옆·격자 아래)을 눌렀다 — 「빈 데를 누르면 풀린다」. */
+      if (selectedId != null) onDeselect?.();
+      return;
+    }
+    const [c, r] = cellEl.dataset.cell!.split(',').map(Number);
+    const from = { col: c!, row: r! };
+    const item = items.find((i) => i.col === from.col && i.row === from.row) ?? null;
+    const resizing = el.closest('[data-resize]') != null;
+    const kind: GridDragKind | 'tap' = item ? (resizing ? 'resize' : 'move') : 'tap';
+
+    /* 브라우저의 기본 손짓을 끈다 — 안 끄면 끌기 하나가 **글자 선택**으로도 읽혀서, 판 밖으로
+       나갔다 오면 표와 패널이 파랗게 잡힌 채 돌아온다(네이티브 이미지 끌기도 같이 뜬다).
+       기본 동작에는 「누른 것에 초점 주기」도 들어 있으므로 그것만 손으로 되돌린다 — 다만
+       **판을 밀지 않고**(`preventScroll`): 초점을 주며 판이 스르륵 움직이면 손 아래 칸이
+       바뀌어, 누른 자리와 겨눈 자리가 처음부터 어긋난다. */
+    e.preventDefault();
+    cellEl.focus({ preventScroll: true });
+
+    const origin = item
+      ? { col: item.col ?? 0, row: item.row ?? 0, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1 }
+      : null;
+    gestureRef.current = {
+      pointerId: e.pointerId,
+      kind,
+      from,
+      item,
+      session: item && origin && kind !== 'tap' ? startGridDrag(kind, item.id, origin, cellFromPointer(e) ?? from) : null,
+      aim: null,
+    };
+    /* 밀 상자는 **손짓 종류와 무관하게** 찾는다 — 새로 그리는 손짓도 화면 밖 행까지 가야 한다. */
+    scrollersRef.current = {
+      y: scrollableAncestor(boxRef.current, 'y'),
+      x: scrollableAncestor(boxRef.current, 'x'),
+    };
+    redraw();
+
+    /* 캡처는 **격자**가 쥔다 — 칸이 쥐면 끌려간 자리에서 다른 칸이 같은 손짓을 또 받는다.
+       못 쥐면 따라갈 수도 없다(그 포인터가 이미 사라졌다는 뜻이다) — 손짓을 세워 두지 않고
+       그 자리에서 접는다. 안 그러면 끝을 알리는 `pointerup` 이 영영 오지 않아 화면이 굳는다. */
+    try {
+      boxRef.current?.setPointerCapture(e.pointerId);
+    } catch {
+      endGesture(false);
+    }
+  }
+
+
+  /**
+   * 끌던 것을 물린다 — 평면도의 배치 취소와 같은 어법(Esc).
+   *
+   * 없으면 잘못 잡았을 때 빠져나갈 길이 「원래 칸에 정확히 도로 놓기」뿐이다. 손짓이 값 하나가
+   * 된 뒤로는 물리는 일도 그 값을 비우는 것 하나다.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isCancelKey(e)) return;
+      if (gestureRef.current) {
+        endGesture(false);
+        return;
+      }
+      if (selectedId != null) onDeselectRef.current?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
+  /**
+   * Tab 으로 닿는 칸은 **하나뿐**이다(roving tabindex) — 판은 하나의 정거장이고 그 안은
+   * 화살표로 옮긴다. 손짓과는 다른 길이라 손짓 값에 섞지 않는다.
+   */
+  const [activeCell, setActiveCell] = useState<GridCell | null>(null);
+
+  /** 이 이벤트가 **이 손짓의 것**인가 — 아니면 쳐다보지 않는다. */
+  function mine(e: React.PointerEvent): Gesture | null {
     const g = gestureRef.current;
+    return g && g.pointerId === e.pointerId ? g : null;
+  }
+
+  function onPointerMove(e: React.PointerEvent) {
+    const g = mine(e);
     if (!g) return;
     /* **손을 우리가 못 보는 데서 뗐다.** 창 밖에서 놓거나 다른 앱으로 넘어가면 캡처가 풀려
        `pointerup` 이 오지 않는다. 그러면 손짓이 살아 있는 채로 남아, 돌아왔을 때 버튼을
-       누르지도 않았는데 장비가 커서를 따라다녔다 — 손을 뗀 자리가 어디였는지 알 수 없으므로
-       **물린다**(`pointercancel` 과 같은 뜻이다). 눌린 버튼이 없다는 사실이 그 신호다. */
+       누르지도 않았는데 장비가 커서를 따라다녔다. 눌린 버튼이 없다는 사실이 그 신호다. */
     if (e.buttons === 0) {
       endGesture(false);
       return;
@@ -382,96 +416,42 @@ export function AssemblyGrid<T extends GridItem>({
     if (rafRef.current == null) rafRef.current = requestAnimationFrame(pump);
   }
 
-  function stopPump() {
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    pointRef.current = null;
-    scrollersRef.current = { x: null, y: null };
-  }
-  // 끌던 중에 화면이 사라져도 루프는 멈춰야 한다.
-  useEffect(() => stopPump, []);
-
-  /**
-   * 끌던 것을 물린다 — 평면도의 배치 취소와 같은 어법(ESC).
-   *
-   * 없으면 잘못 잡았을 때 빠져나갈 길이 「원래 칸에 정확히 도로 놓기」뿐이다. 겹치는 자리에서
-   * 손을 떼면 아무 일도 안 일어나긴 하지만, 그것을 알 수가 없어 손이 굳는다.
-   */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!isCancelKey(e)) return;
-      // 끌고 있으면 그 손짓을 물린다. 아니면 고른 것을 푼다 — Esc 는 「지금 것을 취소」다.
-      if (gestureRef.current) {
-        gestureRef.current = null;
-        setDragging(false);
-        stopPump();
-        setPreview(null);
-        setCreateRect(null);
-        return;
-      }
-      if (selectedId != null) onDeselectRef.current?.();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selectedId]);
-
-  /** 이 네모가 통째로 비어 있나 — 여러 칸을 묶어 만들 때 놓을 수 있는지 판정한다. */
-  function isFree(p: GridPlacement): boolean {
-    if (p.col + p.colSpan > cols || p.row + p.rowSpan > rows) return false;
-    for (const item of items) {
-      if (item.col == null || item.row == null) continue;
-      const a = { col: item.col, row: item.row, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1 };
-      const hit =
-        p.col < a.col + a.colSpan && a.col < p.col + p.colSpan && p.row < a.row + a.rowSpan && a.row < p.row + p.rowSpan;
-      if (hit) return false;
-    }
-    return true;
-  }
-
-  /** 눌러서 시작한 칸에 대한 행동 — 고르거나, 빈 자리면 (고른 것을 풀거나) 채운다. */
-  function tap(gesture: Gesture) {
-    if (gesture.item) {
-      onSelect(gesture.item);
+  /** 눌러서 시작한 칸에 대한 행동 — 고르거나, 빈 자리면 채운다. */
+  function tap(g: Gesture) {
+    if (g.item) {
+      onSelect(g.item);
       return;
     }
-    /* **빈 칸을 누르는 것은 곧 채우기다.**
-       한때는 고른 것이 있으면 먼저 풀고, 한 번 더 눌러야 채웠다(「다른 데를 누르면 풀린다」를
-       빈 칸에도 적용). 그런데 이 판에서 빈 칸은 「다른 데」가 아니라 **놓을 자리**다 — 장비를
-       고쳐 놓고 옆 칸에 하나 더 넣으려던 손짓이 매번 삼켜져, 설비 편집기에서는 「드래그가
-       가끔만 먹는다」로 나타났다(고른 것을 지운 뒤의 첫 시도만 성공한다).
-       푸는 길은 따로 있다: Esc, 고른 장비를 다시 누르기, 상세의 「설비 정보」. */
-    onAddAtCell(gesture.cell);
+    /* **빈 칸을 누르는 것은 곧 채우기다.** 한때는 고른 것이 있으면 먼저 풀고 한 번 더 눌러야
+       채웠다. 그런데 이 판에서 빈 칸은 「다른 데」가 아니라 **놓을 자리**다 — 장비를 고쳐 놓고
+       옆 칸에 하나 더 넣으려던 손짓이 매번 삼켜졌다. 푸는 길은 따로 있다(Esc·다시 누르기). */
+    onAddAtCell(g.from);
   }
 
   function endGesture(commit: boolean) {
-    const gesture = gestureRef.current;
+    const g = gestureRef.current;
     gestureRef.current = null;
-    setDragging(false);
     stopPump();
-    /* 상태가 아니라 ref — 위 `setPreview`/`setCreateRect` 주석 참고. */
-    const pv = previewRef.current;
-    const rect = createRectRef.current;
-    setPreview(null);
-    setCreateRect(null);
-    if (!gesture) return;
+    redraw();
+    if (!g) return;
 
-    /* 여러 칸을 묶어 끌었다 — 그 네모에 만든다. 한 칸이면 평소대로 누른 것으로 친다.
+    /* 그리던 네모가 여러 칸이면 그 네모에 만든다. 한 칸이면 평소대로 누른 것으로 친다.
        네모는 빈 자리에서만 자랐으므로 여기서 다시 물을 것이 없다. */
-    if (rect && (rect.placement.colSpan > 1 || rect.placement.rowSpan > 1)) {
-      if (commit) onAddAtCell(rect.placement);
+    if (!g.session) {
+      const rect = g.aim;
+      if (!commit) return;
+      if (rect && (rect.colSpan > 1 || rect.rowSpan > 1)) onAddAtCell(rect);
+      else tap(g);
       return;
     }
 
-    const session = gesture.session;
-    /* 끈 것은 누른 것이 아니다 — 자리를 옮기려던 손짓이 상세 패널을 열거나 추가 모달을
-       띄우면 안 된다. 판정이 여기 한 곳뿐이라 두 번 해석될 자리가 없다. */
-    if (session?.moved) {
-      if (commit && pv?.ok && gridPlacementChanged(session.origin, pv.placement)) {
-        onMove(session.assetId, pv.placement);
-      }
+    /* 끈 것은 누른 것이 아니다 — 자리를 옮기려던 손짓이 상세 패널을 열면 안 된다. */
+    const moved = g.aim != null && gridPlacementChanged(g.session.origin, g.aim);
+    if (!moved) {
+      if (commit) tap(g);
       return;
     }
-    if (commit) tap(gesture);
+    if (commit && g.aim && canPlace(g.session.assetId, g.aim)) onMove(g.session.assetId, g.aim);
   }
 
   /**
@@ -518,6 +498,12 @@ export function AssemblyGrid<T extends GridItem>({
   }
 
   /** `열,행` → 그 칸에서 시작하는 것. */
+  /* 그리는 것은 **손짓 값 하나에서** 나온다 — 따로 보관한 미리보기가 없으므로 어긋날 수 없다. */
+  const g = gestureRef.current;
+  const dragging = g != null;
+  const preview = g?.session && g.aim ? { itemId: g.session.assetId, placement: g.aim, ok: canPlace(g.session.assetId, g.aim) } : null;
+  const createRect = g && !g.session && g.aim ? { placement: g.aim } : null;
+
   const byCell = new Map<string, T>();
   /** 이미 무엇이 덮고 있는 칸 — span 이 지나가는 자리다. */
   const covered = new Set<string>();
@@ -616,8 +602,10 @@ export function AssemblyGrid<T extends GridItem>({
               // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
               item
                 ? cn('border border-line bg-surface text-content', SELECTABLE)
-                /* 빈 자리는 배경 그대로 두되, 손이 얹히면 **놓을 자리로 보이게** 한다 —
-                   예전에는 `+` 만 나타나서 어디까지가 그 칸인지 읽히지 않았다. */
+                /* 빈 자리는 배경 그대로 두되, 손이 얹히면 **놓을 자리로 보이게** 한다.
+                   여기 `+` 글자를 띄우지 않는다: 손짓이 끝나는 순간 커서 아래 칸은 잠깐
+                   빈 칸이므로(만든 것이 아직 안 왔다) 그 한 프레임에 `+` 가 번쩍인다.
+                   테두리와 바탕이 이미 「누를 수 있는 자리」라고 말하므로 글자는 군더더기다. */
                 : cn(
                     'border border-dashed border-line/50 text-content-faint',
                     /* 손짓이 벌어지는 동안 빈 칸은 **손을 반기지 않는다** — 지금 하는 일은
@@ -647,10 +635,8 @@ export function AssemblyGrid<T extends GridItem>({
                 ? `${item.name}, ${cellLabel(at.col, at.row)}`
                 : `${cellLabel(col, row)}, 비어 있음. 눌러서 추가`
             }
-            /* 누름만 알린다 — 이동·끝냄은 격자가 받는다(한 손짓이 두 번 해석되지 않게).
-               `onClick` 은 두지 않는다: 끈 뒤에도 click 이 뒤따라 나서 상세 패널이 열렸다.
-               키보드는 아래 `onKeyDown` 이 맡는다 — 손짓과 다른 길이라 섞이지 않는다. */
-            onPointerDown={(e) => beginGesture(item ? 'move' : 'tap', item ?? null, { col, row }, e)}
+            /* 손짓은 **상자가 통째로** 받는다 — 칸은 눌린 자리를 `data-cell` 로만 알린다.
+               키보드는 아래 `onKeyDown` 이 맡는다(손짓과 다른 길이라 섞이지 않는다). */
             /* 판은 **하나의 정거장**이고 그 안은 화살표로 옮긴다(roving tabindex).
                196칸이 모두 Tab 순서에 들어가면 키보드로는 이 판을 지나갈 수가 없다. */
             data-cell={`${col},${row}`}
@@ -689,7 +675,7 @@ export function AssemblyGrid<T extends GridItem>({
               }
               if (e.key !== 'Enter' && e.key !== ' ') return;
               e.preventDefault();
-              tap({ kind: 'tap', item: item ?? null, cell: { col, row }, session: null });
+              tap({ pointerId: -1, kind: 'tap', item: item ?? null, from: { col, row }, session: null, aim: null });
             }}
           >
             {/* 번호는 칸이 아니라 왼쪽 눈금이 맡는다 — 칸마다 번호를 박으면 4열 12행에서 번호가
@@ -714,11 +700,7 @@ export function AssemblyGrid<T extends GridItem>({
                 <span className="min-h-0 min-w-0 max-h-full max-w-full truncate">{item.name}</span>
                 {at.rowSpan > 1 && !vertical && trailing?.(item)}
               </span>
-            ) : (
-              <span className="text-base leading-none text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                +
-              </span>
-            )}
+            ) : null}
             {/* 운전 상태 표시등 — **왼쪽 위** 모서리.
                 오른쪽 위는 행동(빼기)의 자리다 — 버튼은 관례대로 오른쪽 위에 둔다.
                 판을 훑는 사람이 먼저 보는 것은 「어느 게 죽었나」다. 이름을 한 줄씩 읽어
@@ -755,14 +737,11 @@ export function AssemblyGrid<T extends GridItem>({
                   'opacity-0 group-hover:opacity-100',
                   selectedId === item.id && 'opacity-100',
                 )}
-                /* 칸의 손짓(이동)을 가로챈다 — 지우려고 누른 것이 끌기로 읽히면 안 된다.
-                   다만 **누르는 순간 지우지는 않는다**: 손을 뗄 때 지운다(그래야 잘못 눌렀을 때
-                   손가락을 밖으로 빼서 물릴 수 있다 — 단추의 기본 규칙이다). */
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(item);
-                }}
+                /* 손짓이 아니라 단추다 — 상자가 이 표를 보고 비켜 준다(`data-remove`).
+                   **누르는 순간 지우지 않는다**: 잘못 눌렀으면 손가락을 밖으로 빼서 물릴 수
+                   있어야 한다(단추의 기본 규칙). */
+                data-remove
+                onClick={() => onRemove(item)}
               >
                 <X size={12} />
               </span>
@@ -780,11 +759,9 @@ export function AssemblyGrid<T extends GridItem>({
                   // 터치에는 hover 가 없다 — 고른 것에는 늘 보인다.
                   selectedId === item.id && 'opacity-100',
                 )}
-                onPointerDown={(e) => {
-                  // 손잡이를 잡은 것은 옮기려는 것이 아니다 — 칸의 '이동' 시작을 가로챈다.
-                  e.stopPropagation();
-                  beginGesture('resize', item, { col: at.col, row: at.row }, e);
-                }}
+                /* 손잡이를 잡은 것은 옮기려는 것이 아니다 — 상자가 이 표를 보고 크기 조절로
+                   읽는다(`data-resize`). 핸들러를 따로 달면 시작만 다른 주인에게 간다. */
+                data-resize
               >
                 <span className="block h-full w-full rounded-br bg-primary/50" />
               </span>
@@ -818,10 +795,9 @@ export function AssemblyGrid<T extends GridItem>({
         fill ? 'min-h-0 flex-1 overflow-hidden' : 'overflow-y-auto',
       )}
       style={boxHeight != null ? { height: boxHeight } : undefined}
-      /* 상자의 빈 곳(격자 바깥 여백)을 누르면 푼다 — 「빈 데를 누르면 풀린다」는 판에서
-         가장 흔한 손짓이다. 칸 위에서 시작한 손짓은 칸이 먼저 받으므로 여기 오지 않는다. */
+      /* 상자의 **제 여백**(눈금 옆·격자 아래)을 누르면 푼다 — 「빈 데를 누르면 풀린다」.
+         손짓이 아니라 그 규칙이라 격자의 손짓 배선과 섞지 않는다(격자 안은 격자가 받는다). */
       onPointerDown={(e) => {
-        // 상자의 여백(눈금 옆·격자 아래)을 눌렀을 때. 칸 위에서 시작한 손짓은 칸이 받는다.
         if (e.target === e.currentTarget && selectedId != null) onDeselect?.();
       }}
     >
@@ -846,11 +822,15 @@ export function AssemblyGrid<T extends GridItem>({
           ref={boxRef}
           /* `h-full` 이 있어야 `1fr` 행이 기준을 갖는다 — 높이가 auto 면 `1fr` 은 내용
              높이(최소치)로 접힌다. 행이 많아 넘치면 이 격자가 상자보다 커지고 상자가 스크롤한다. */
-          /* 끌기는 글자를 잡지 않는다 — 칸 안 이름이 잡힌 채로 끌리면 판이 파래진다. */
-          className="grid h-full select-none gap-0.5"
+          /* 끌기는 글자를 잡지 않는다 — 칸 안 이름이 잡힌 채로 끌리면 판이 파래진다.
+             `touch-none`: 이 판에서 끄는 것은 **우리 손짓**이지 화면 굴리기가 아니다. 안 걸면
+             트랙패드·터치에서 브라우저가 도중에 스크롤로 가져가 버리고(`pointercancel`),
+             그때 손짓은 아무 말 없이 사라진다 — 「가끔 드래그가 안 먹는다」가 그것이다. */
+          className="grid h-full touch-none select-none gap-0.5"
+          onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerUp={(e) => endGesture(inWindow(e))}
-          onPointerCancel={() => endGesture(false)}
+          onPointerUp={(e) => { if (mine(e)) endGesture(inWindow(e)); }}
+          onPointerCancel={(e) => { if (mine(e)) endGesture(false); }}
           /* 캡처가 풀리면 그 손짓은 끝난 것이다 — 화면이 다시 그려져 상자가 갈리거나 브라우저가
              가져갈 수 있다. 남겨 두면 미리보기만 붙박여 있고 손짓은 죽어 있는 상태가 된다. */
           onLostPointerCapture={() => { if (gestureRef.current) endGesture(false); }}
