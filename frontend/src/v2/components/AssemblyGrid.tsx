@@ -241,6 +241,17 @@ export function AssemblyGrid<T extends GridItem>({
     setPreview({ itemId: session.assetId, placement, ok: canPlace(session.assetId, placement) });
   }
 
+  /**
+   * Tab 으로 닿는 칸은 **하나뿐**이다(roving tabindex).
+   *
+   * 예전에는 칸마다 `tabIndex=0` 이라, 키보드로 이 판을 지나가려면 Tab 을 **196번** 눌러야
+   * 했다(10×20 에서 빈 칸까지 전부 단추다). 판은 하나의 정거장이고 그 안은 화살표로
+   * 옮긴다 — WAI-ARIA 가 격자·트리에 정한 규약이고, 조직 트리가 이미 그렇게 움직인다.
+   *
+   * 어느 칸이 그 하나인가: 사람이 마지막으로 짚은 칸 → 고른 부품이 놓인 칸 → 첫 칸.
+   */
+  const [activeCell, setActiveCell] = useState<GridCell | null>(null);
+
   /** 마지막으로 손이 있던 자리 — 판이 밀리는 동안에는 이 점이 기준이다. */
   const pointRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -397,10 +408,55 @@ export function AssemblyGrid<T extends GridItem>({
     if (commit) tap(gesture);
   }
 
+  /**
+   * 화살표로 칸을 옮긴다 — 판 밖으로는 나가지 않는다(가장자리에서 멈춘다).
+   *
+   * 옮긴 자리에 **실제 단추가 없을 수 있다**: span 이 덮은 칸은 그리지 않고, 덮은 부품의
+   * 시작 칸 하나만 단추다. 그래서 좌표로 찾지 않고 **그려진 단추 중 가장 가까운 것**으로
+   * 간다 — 안 그러면 2칸짜리 부품 옆에서 화살표가 먹히지 않는다.
+   */
+  function moveActive(d: { dc?: number; dr?: number } | 'first' | 'last', fromCell: GridCell) {
+    const box = boxRef.current;
+    if (!box) return;
+    const focusCell = (key: string) => {
+      const el = box.querySelector<HTMLElement>(`button[data-cell="${key}"]`);
+      if (!el) return false;
+      const [c, r] = key.split(',').map(Number);
+      setActiveCell({ col: c!, row: r! });
+      el.focus();
+      return true;
+    };
+
+    if (d === 'first' || d === 'last') {
+      const els = [...box.querySelectorAll<HTMLElement>('button[data-cell]')];
+      const target = d === 'first' ? els[0] : els[els.length - 1];
+      if (target?.dataset.cell) focusCell(target.dataset.cell);
+      return;
+    }
+
+    /* **누른 방향으로만** 간다. 「가장 가까운 칸」으로 물러서면 위를 눌렀는데 옆으로 새는
+       일이 생긴다(위가 span 에 덮여 단추가 없을 때 실제로 그랬다).
+       한 칸씩 밀어 보다가 **단추가 있는 칸**을 만나면 거기 선다. 덮인 칸을 만나면 그것을
+       덮은 부품의 시작 칸으로 간다 — 10칸짜리 부품 위를 지날 때 그 부품에 서는 것이 맞다.
+       끝까지 없으면 움직이지 않는다(가장자리에서 멈춘다). */
+    const here = `${fromCell.col},${fromCell.row}`;
+    let { col, row } = fromCell;
+    for (;;) {
+      col += d.dc ?? 0;
+      row += d.dr ?? 0;
+      if (col < 0 || row < 0 || col >= cols || row >= rows) return;
+      const key = `${col},${row}`;
+      const target = ownerOf.get(key) ?? key;
+      if (target !== here && focusCell(target)) return;
+    }
+  }
+
   /** `열,행` → 그 칸에서 시작하는 것. */
   const byCell = new Map<string, T>();
   /** 이미 무엇이 덮고 있는 칸 — span 이 지나가는 자리다. */
   const covered = new Set<string>();
+  /** 덮인 칸 → 그것을 덮은 부품의 **시작 칸**(그 자리에만 단추가 있다). */
+  const ownerOf = new Map<string, string>();
   for (const item of items) {
     if (item.col == null || item.row == null) continue;
     byCell.set(`${item.col},${item.row}`, item);
@@ -411,7 +467,12 @@ export function AssemblyGrid<T extends GridItem>({
       ? preview.placement
       : { col: item.col, row: item.row, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1 };
     for (let r = 0; r < at.rowSpan; r++) {
-      for (let c = 0; c < at.colSpan; c++) covered.add(`${at.col + c},${at.row + r}`);
+      for (let c = 0; c < at.colSpan; c++) {
+        covered.add(`${at.col + c},${at.row + r}`);
+        /* 덮인 칸이 **누구의 것인지**까지 적어 둔다 — 화살표가 그 칸을 지나갈 때 그 부품의
+           시작 칸(단추가 있는 자리)으로 가야 한다. */
+        ownerOf.set(`${at.col + c},${at.row + r}`, `${at.col},${at.row}`);
+      }
     }
   }
 
@@ -419,6 +480,16 @@ export function AssemblyGrid<T extends GridItem>({
      옮기는 중에 커서가 지나가는 빈 칸마다 호버가 켜져 「여기 누르면 추가」 표시(+)가
      따라다녔다 — 지금 하는 일은 옮기기이지 추가가 아니다. */
   const dragging = preview != null || createRect != null;
+
+  /* 아직 아무도 짚지 않았고 고른 것도 없을 때 Tab 이 닿을 칸 — 그려지는 첫 칸이다
+     (`0,0` 을 못 박으면 그 자리가 span 에 덮여 단추가 없을 때 정거장이 사라진다). */
+  let firstCellKey: string | null = null;
+  for (let row = 0; row < rows && firstCellKey === null; row++) {
+    for (let col = 0; col < cols; col++) {
+      const k = `${col},${row}`;
+      if (byCell.has(k) || !covered.has(k)) { firstCellKey = k; break; }
+    }
+  }
 
   const cells: ReactNode[] = [];
   /* 끌어 만드는 중인 네모 — 칸 위에 덮어 그린다(자리와 크기를 놓기 전에 눈으로 확인한다). */
@@ -505,9 +576,35 @@ export function AssemblyGrid<T extends GridItem>({
                `onClick` 은 두지 않는다: 끈 뒤에도 click 이 뒤따라 나서 상세 패널이 열렸다.
                키보드는 아래 `onKeyDown` 이 맡는다 — 손짓과 다른 길이라 섞이지 않는다. */
             onPointerDown={(e) => beginGesture(item ? 'move' : 'tap', item ?? null, { col, row }, e)}
+            /* 판은 **하나의 정거장**이고 그 안은 화살표로 옮긴다(roving tabindex).
+               196칸이 모두 Tab 순서에 들어가면 키보드로는 이 판을 지나갈 수가 없다. */
+            data-cell={`${col},${row}`}
+            tabIndex={
+              (activeCell
+                ? activeCell.col === col && activeCell.row === row
+                : selectedId && item
+                  ? selectedId === item.id
+                  : firstCellKey === key)
+                ? 0
+                : -1
+            }
+            onFocus={() => setActiveCell({ col, row })}
             /* 키보드도 **같은 판정**을 거친다(`tap`). 예전에는 여기서 규칙을 다시 써서,
                빈 칸을 눌러 고른 것을 푸는 거동이 손짓에만 있고 키보드에는 없었다. */
             onKeyDown={(e) => {
+              const move: Record<string, { dc?: number; dr?: number }> = {
+                ArrowRight: { dc: 1 }, ArrowLeft: { dc: -1 }, ArrowDown: { dr: 1 }, ArrowUp: { dr: -1 },
+              };
+              if (move[e.key]) {
+                e.preventDefault();
+                moveActive(move[e.key]!, { col, row });
+                return;
+              }
+              if (e.key === 'Home' || e.key === 'End') {
+                e.preventDefault();
+                moveActive(e.key === 'Home' ? 'first' : 'last', { col, row });
+                return;
+              }
               if (e.key !== 'Enter' && e.key !== ' ') return;
               e.preventDefault();
               tap({ kind: 'tap', item: item ?? null, cell: { col, row }, session: null });

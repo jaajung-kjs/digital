@@ -110,6 +110,26 @@ describe('AssemblyGrid 선택 해제', () => {
     expect(onAddAtCell).not.toHaveBeenCalled();
   });
 
+  /* 이것이 「키보드로 이 판을 지나가려면 Tab 을 196번 눌러야 한다」의 회귀 테스트다.
+     판은 **하나의 정거장**이고 그 안은 화살표로 옮긴다(WAI-ARIA roving tabindex). */
+  it('Tab 으로 닿는 칸은 하나뿐이다 — 나머지는 화살표로 온다', () => {
+    setup();
+    const cells = screen.getAllByRole('button').filter((b) => b.hasAttribute('data-cell'));
+    expect(cells.length).toBeGreaterThan(4);
+    expect(cells.filter((b) => b.tabIndex === 0)).toHaveLength(1);
+  });
+
+  it('화살표로 옆 칸에 간다 — 그 칸이 정거장을 이어받는다', () => {
+    setup();
+    const cells = screen.getAllByRole('button').filter((b) => b.hasAttribute('data-cell'));
+    const start = cells.find((b) => b.tabIndex === 0)!;
+    fireEvent.keyDown(start, { key: 'ArrowDown' });
+    const now = screen.getAllByRole('button').filter((b) => b.hasAttribute('data-cell'));
+    const stop = now.filter((b) => b.tabIndex === 0);
+    expect(stop).toHaveLength(1);
+    expect(stop[0]!.dataset.cell).not.toBe(start.dataset.cell);
+  });
+
   /* 상세 패널 구성 탭은 푸는 길을 주지 않는다 — 거기서 빛나는 것은 밖에서 고른 것을 비추는
      표시일 뿐이라 여기서 풀 것이 없다. 그런데도 「먼저 푼다」에 걸리면 추가가 두 번 눌러야
      되는 일이 된다. */
