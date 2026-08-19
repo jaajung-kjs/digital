@@ -254,9 +254,46 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
     }
   }
 
+  /**
+   * 종류가 바뀌면 **포트를 다시 만든다** — 포트는 종류가 정하는 것이라 옛 종류의 포트를
+   * 그대로 두면 그 장비가 무엇인지와 무엇을 꽂을 수 있는지가 어긋난다.
+   *
+   * 막는 것은 **케이블이 물린 포트가 사라질 때**뿐이다(포트를 줄일 때와 같은 규칙) —
+   * 그 연결이 갈 곳을 잃기 때문이다. 어느 포트가 막는지까지 말해 준다.
+   */
+  if (p.typeId !== undefined && p.typeId !== existing.typeId) {
+    const wired = await tx.cable.findMany({
+      where: { OR: [{ aPort: { assetId: u.id } }, { bPort: { assetId: u.id } }] },
+      select: { aPort: { select: { assetId: true, name: true } }, bPort: { select: { assetId: true, name: true } } },
+    });
+    if (wired.length > 0) {
+      const names = wired.map((c) => (c.aPort?.assetId === u.id ? c.aPort.name : c.bPort?.name)).filter(Boolean);
+      const head = [...new Set(names)].slice(0, 3).join(', ');
+      throw new HttpError(
+        409,
+        'PORT_IN_USE',
+        `케이블이 물린 포트가 있어 종류를 바꿀 수 없습니다 — ${existing.name} ${head}${names.length > 3 ? ` 외 ${names.length - 3}건` : ''}`,
+      );
+    }
+    await tx.port.deleteMany({ where: { assetId: u.id } });
+    if (p.typeId) {
+      const { spec } = await loadTypeSpec(tx, p.typeId);
+      const ports = instantiatePorts(spec.ports, u.id);
+      if (ports.length > 0) {
+        await tx.port.createMany({
+          data: ports.map((pt) => {
+            const id = p.portIds?.[`${pt.group}:${pt.index}`];
+            return id ? { ...pt, id } : pt;
+          }),
+        });
+      }
+    }
+  }
+
   await tx.asset.update({
     where: { id: u.id },
     data: {
+      ...(p.typeId !== undefined ? { typeId: p.typeId } : {}),
       ...(p.name !== undefined ? { name: p.name } : {}),
       ...(p.status !== undefined ? { status: p.status } : {}),
       ...(p.floorId !== undefined ? { floorId: p.floorId } : {}),

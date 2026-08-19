@@ -38,7 +38,14 @@ function toAssetPatch(patch: Partial<V2Asset>): V2AssetPatch {
   const { ports, ...rest } = patch;
   const out = rest as V2AssetPatch;
   if (ports) {
-    out.portFieldValues = ports.map((p) => ({ portId: p.id, fieldValues: p.fieldValues ?? {} }));
+    /* 종류가 바뀌었으면 그 포트들은 **새로 만들어지는 것**이다 — 값이 아니라 id 를 보낸다.
+       (서버도 종류가 바뀌면 옛 포트를 걷고 명세대로 다시 만든다. 저장 전에 그 포트에 이어 둔
+       케이블이 저장 뒤에도 같은 포트를 가리켜야 하므로 id 는 화면이 정한 것을 쓴다.) */
+    if (patch.typeId !== undefined) {
+      out.portIds = Object.fromEntries(ports.map((p) => [`${p.group}:${p.index}`, p.id]));
+    } else {
+      out.portFieldValues = ports.map((p) => ({ portId: p.id, fieldValues: p.fieldValues ?? {} }));
+    }
   }
   return out;
 }

@@ -4,8 +4,7 @@ import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2Asset } from '../../types';
 import { withDescendants } from '../../cableSelectors';
-import { AddAssetModal } from '../AddAssetModal';
-import { InfoTab, LayoutTab, type AddModalContext } from './InfoTab';
+import { InfoTab, LayoutTab } from './InfoTab';
 import { PhotoCard } from './PhotoCard';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
@@ -58,12 +57,6 @@ export function AssetDetailPanel({
   /* 설비를 열면 **그 안이 먼저** 보인다 — 현장에서 랙 문을 열면 안이 보이는 것과 같다.
      포트를 지목해 온 경우에만 포트 탭으로 연다(그때는 무엇을 보라는 것인지가 분명하다). */
   const [tab, setTab] = useState<Tab>(focusPortId ? 'connections' : 'layout');
-  const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
-
-  // 자산 전환 시 로컬 상태 리셋 (stale 자식 선택/모달 컨텍스트 방지)
-  useEffect(() => {
-    setAddModalCtx(null);
-  }, [assetId]);
 
   /* 같은 자산 안에서 다른 포트로 옮겨 올 때도 포트 탭이 열려 있어야 한다
      (자산이 바뀌면 패널이 통째로 다시 뜨므로 초기값이 맡는다). */
@@ -251,7 +244,6 @@ export function AssetDetailPanel({
             asset={asset}
             assembliesById={assembliesById}
             parts={parts}
-            typesById={typesById}
             focusPartId={focusPartId}
             /* 부품 상자 안에 앉을 포트 판 — **포트 탭이 쓰는 것과 같은 것**이다.
                판이 하는 일 가운데 **화면 뒤를 바꾸는 둘**(대국 자산으로 옮겨가기, 평면도의
@@ -271,8 +263,8 @@ export function AssetDetailPanel({
                 onConnectPort={onConnectPort && ((portId) => { close(); onConnectPort(portId); })}
               />
             )}
-            addModalCtx={addModalCtx}
-            setAddModalCtx={setAddModalCtx}
+            substationId={substationId}
+            types={catalog.data?.types ?? []}
           />
         )}
 
@@ -329,15 +321,6 @@ export function AssetDetailPanel({
         )}
       </div>
 
-      {/* 자산 추가 모달 (구성 격자의 빈 자리에서 열림) */}
-      {addModalCtx && (
-        <AddAssetModal
-          open={true}
-          onClose={() => setAddModalCtx(null)}
-          substationId={substationId}
-          gridContext={addModalCtx}
-        />
-      )}
     </div>
   );
 }

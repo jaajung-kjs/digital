@@ -48,9 +48,18 @@ const assetCreateSchema = z.object({
 });
 
 const assetPatchSchema = assetCreateSchema
-  .omit({ id: true, typeId: true, assemblyId: true, portCounts: true, portPositions: true })
+  .omit({ id: true, assemblyId: true, portCounts: true, portPositions: true })
   .partial()
   .extend({
+    /**
+     * 자산 종류를 바꾼다 — **포트가 통째로 다시 만들어진다**.
+     *
+     * 예전에는 아예 받지 않았다(`omit`). 그래서 종류를 잘못 고른 장비를 고칠 길이
+     * 「지우고 다시 만들기」뿐이었고, 그러면 점검·고장이력·사진이 함께 사라졌다.
+     * 위험한 것은 **케이블이 물린 포트가 사라지는 것**뿐이므로 그것만 막는다(포트를 줄일
+     * 때와 같은 규칙).
+     */
+    typeId: z.string().uuid().nullish(),
     /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 자산 종류 명세에서 만들어지므로
        생성·삭제는 없고 값만 고친다 — 그래서 자산 패치에 얹는다(별도 OCC 축을 만들지 않음). */
     portFieldValues: z

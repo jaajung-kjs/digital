@@ -2,9 +2,7 @@
  * InfoTab — 상세 패널 1번째 탭 '정보'
  *
  * 기본정보(이름·상태·위치)·커스텀 필드·포트·수용 섹션을 표시/편집한다.
- * AssetDetailPanel 에서 추출(원 위치: L253-444) — RecordsTab/ConnectionsTab 과 같은
- * 형제 탭 패턴으로 정리, 거동은 동일하다. selectedChildId/addModalCtx 는 부모(AssetDetailPanel)가
- * 소유(부모가 자산 전환 시 리셋 + 하단 AddAssetModal 렌더를 관장)하므로 setter 만 prop 으로 받는다.
+ * AssetDetailPanel 에서 추출 — RecordsTab/ConnectionsTab 과 같은 형제 탭 패턴으로 정리했다.
  */
 
 import { useMemo, useState } from 'react';
@@ -22,8 +20,9 @@ import {
   cn,
   EMPTY,
 } from '../../../components/ui';
-import type { GridPlacement } from '../../gridDrag';
+import type { GridCell, GridPlacement } from '../../gridDrag';
 import { AssemblyGrid } from '../AssemblyGrid';
+import { makeNewAsset, portsForNewAsset } from '../../newAsset';
 import { cableCountByPortId } from '../../cableSelectors';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -39,17 +38,6 @@ import type { V2Asset, V2AssetType, V2Assembly } from '../../types';
  */
 function FieldInput({ isDate, type, ...rest }: InputProps & { isDate: boolean }) {
   return isDate ? <DateInput {...rest} /> : <Input type={type} {...rest} />;
-}
-
-export interface AddModalContext {
-  parentAssetId: string;
-  /**
-   * 눌러(또는 끌어) 잡은 **자리와 크기** — 없이는 열리지 않는다.
-   *
-   * 크기를 함께 나르지 않던 동안, 여러 칸을 묶어 끌어도 만들어지는 것은 늘 1×1 이었다
-   * (모달이 `colSpan: 1` 을 못 박고 있었다). 끌어서 잡은 크기가 조용히 버려진 셈이다.
-   */
-  cell: { col: number; row: number; colSpan?: number; rowSpan?: number };
 }
 
 /**
@@ -92,10 +80,11 @@ function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortI
  * 판은 **한 번도 줄지 않는다**(상자가 위에 뜨므로) — 20행이 눌려 글씨가 뭉갤 일이 없다.
  */
 function PartDialog({
-  part, typeName, portBoard, onClose, onDelete,
+  part, types, portBoard, onClose, onDelete,
 }: {
   part: V2Asset;
-  typeName: string;
+  /** 고를 수 있는 자산 종류 — 종류를 여기서 바꾸면 포트가 그 종류대로 다시 만들어진다. */
+  types: V2AssetType[];
   /** 이 부품의 포트 판 — 포트 탭이 쓰는 것과 **같은 판**이다(위에서 만들어 내려온다). */
   portBoard: React.ReactNode;
   onClose: () => void;
@@ -112,7 +101,8 @@ function PartDialog({
     <Modal
       open
       onClose={onClose}
-      title={part.name}
+      /* 갓 만든 자산은 이름이 없다 — 제목이 비면 이 상자가 무엇의 것인지 말하지 못한다. */
+      title={part.name || '새 자산'}
       /* 포트 판이 들어오므로 좁으면 타일이 한 줄에 서너 개밖에 못 선다. */
       size="lg"
       footer={
@@ -128,12 +118,34 @@ function PartDialog({
       }
     >
       <div className="space-y-3">
-      <DetailRow label="종류">{typeName}</DetailRow>
+      {/* **종류도 여기서 고친다.** 예전에는 읽기만 했고, 잘못 고른 장비를 바로잡는 길이
+          「지우고 다시 만들기」뿐이었다 — 그러면 점검·고장이력·사진이 함께 사라진다.
+          종류를 바꾸면 포트는 그 종류대로 다시 만들어진다(포트가 무엇인지는 종류가 정한다).
+          케이블이 물린 포트가 사라지는 경우만 저장할 때 막힌다 — 포트를 줄일 때와 같은 규칙. */}
+      <DetailRow label="종류">
+        <Select
+          aria-label="자산 종류"
+          value={part.typeId ?? ''}
+          size="sm"
+          onChange={(e) => {
+            const next = types.find((t) => t.id === e.currentTarget.value);
+            if (!next) return;
+            commit({ typeId: next.id, ports: portsForNewAsset(next, part.id) });
+          }}
+        >
+          <option value="">— 종류 선택 —</option>
+          {types.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </Select>
+      </DetailRow>
       <DetailRow label="이름">
         <Input
           key={part.id + part.name}
           aria-label="부품 이름"
           defaultValue={part.name}
+          /* 방금 만든 빈 자산이면 이름부터 적는다 — 종류는 판에서 고른 뒤 여기 와 있다. */
+          autoFocus={part.name === ''}
           size="sm"
           onBlur={(e) => {
             const v = e.currentTarget.value.trim();
@@ -194,8 +206,6 @@ interface LayoutTabProps {
   assembliesById: Map<string, V2Assembly>;
   /** 이 설비 안에 놓인 부품들 — 자리 순. */
   parts: V2Asset[];
-  /** 자산 종류 이름을 부품 상자에 적는다. */
-  typesById: Map<string, V2AssetType>;
   /** 밖에서 부품을 지목해 온 경우(현황표에서 부품 행을 눌렀을 때) — 격자에서 빛난다. */
   focusPartId?: string | null;
   /**
@@ -207,9 +217,10 @@ interface LayoutTabProps {
    * 도구를 무장시키면, 그 앞을 가린 상자는 닫혀야 한다.
    */
   renderPortBoard: (partId: string, close: () => void) => React.ReactNode;
-  /** 지금 무엇을 넣을지 묻는 중인가 — 그 자리를 판에 남겨 두려면 값도 알아야 한다. */
-  addModalCtx: AddModalContext | null;
-  setAddModalCtx: (ctx: AddModalContext | null) => void;
+  /** 이 변전소 — 새로 만드는 자산이 어디 것인지. */
+  substationId: string;
+  /** 고를 수 있는 자산 종류 — 상자 안에서 종류를 고른다. */
+  types: V2AssetType[];
 }
 
 export function InfoTab({
@@ -359,17 +370,52 @@ export function LayoutTab({
   asset,
   assembliesById,
   parts,
-  typesById,
   focusPartId,
   renderPortBoard,
-  addModalCtx,
-  setAddModalCtx,
+  substationId,
+  types,
 }: LayoutTabProps) {
   const { confirm, confirmDialog } = useConfirm();
   /** 격자에서 누른 부품 — 대화상자가 뜬다. 판 자체는 그대로다. */
   const [openPartId, setOpenPartId] = useState<string | null>(null);
 
   const openPart = parts.find((p) => p.id === openPartId) ?? null;
+
+  /**
+   * 빈 자리에 **빈 자산을 놓는다** — 종류도 이름도 아직 없다.
+   *
+   * 만들어 두고 고치는 편이 낫다: 판에 그 자산이 실제로 서므로 「지금 무엇을 하는 중인가」가
+   * 화면에 있고, 고르는 상자와 고치는 상자가 하나로 합쳐진다.
+   */
+  function createBlankPart(cell: GridCell & { colSpan?: number; rowSpan?: number }): string {
+    const asset = makeNewAsset({
+      type: null,
+      name: '',
+      substationId,
+      placement: {
+        kind: 'grid',
+        parentAssetId: assetId,
+        col: cell.col,
+        row: cell.row,
+        colSpan: cell.colSpan ?? 1,
+        rowSpan: cell.rowSpan ?? 1,
+      },
+    });
+    useV2WorkingCopy.getState().stageAssetCreate(asset);
+    return asset.id;
+  }
+
+  /**
+   * 상자를 닫는다 — **종류나 이름이 없는 부품은 없는 것**이다.
+   *
+   * 빈 자리를 눌렀다가 마음이 바뀌면 그냥 닫으면 된다. 남겨 두면 손해가 두 겹이다: 무엇인지도
+   * 모르는 줄이 현황표에 늘고, 이름 없는 자산은 **저장 자체가 거절돼**(서버가 이름을 요구한다)
+   * 그 변전소의 다른 변경까지 함께 막힌다.
+   */
+  function closeDialog(part: V2Asset) {
+    if (!part.typeId || part.name.trim() === '') useV2WorkingCopy.getState().stageAssetDeleteCascade(part.id);
+    setOpenPartId(null);
+  }
   const savedCables = useV2WorkingCopy((st) => st.saved.cables);
   const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
   /* 케이블이 물린 포트 — 부품 칸의 포트 요약(n/m)이 읽는다. */
@@ -429,22 +475,11 @@ export function LayoutTab({
             /* 놓인 자산이라 묻는다 — 포트·연결까지 함께 사라진다. */
             onRemove={(part) => void handleDeletePart(part)}
             trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
-            onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, cell })}
-            /* 무엇을 넣을지 묻는 동안 그 네모는 판에 남는다 — 상자가 가리는 것은 판이지
-               방금 그린 자리가 아니어야 한다. */
-            pending={
-              addModalCtx
-                ? {
-                    at: {
-                      col: addModalCtx.cell.col,
-                      row: addModalCtx.cell.row,
-                      colSpan: addModalCtx.cell.colSpan ?? 1,
-                      rowSpan: addModalCtx.cell.rowSpan ?? 1,
-                    },
-                    label: '새 자산',
-                  }
-                : null
-            }
+            /* 빈 칸을 누르면 **그 자리에 빈 자산이 생기고** 그 자산의 상자가 열린다.
+               한때는 「자산 추가」라는 다른 상자가 떴는데, 그러면 같은 일(무엇을 넣을지 정하기)에
+               상자가 둘이었다 — 하나는 만들 때, 하나는 고칠 때. 만들자마자 고치는 것으로 두면
+               상자는 하나이고, 판에는 그 자산이 실제로 놓여 있어 무엇을 하는 중인지가 보인다. */
+            onAddAtCell={(cell) => setOpenPartId(createBlankPart(cell))}
             canPlace={canPlaceInGrid}
             onMove={(id, at) => useV2WorkingCopy.getState().stageAssetUpdate(id, at)}
             /* 칸마다 운전 상태 불 — 색은 어휘가 정한다(정상 초록·예비 노랑·고장 빨강). */
@@ -456,9 +491,9 @@ export function LayoutTab({
       {openPart && (
         <PartDialog
           part={openPart}
-          typeName={typesById.get(openPart.typeId ?? '')?.name ?? EMPTY}
+          types={types}
           portBoard={openPart.ports.length > 0 ? renderPortBoard(openPart.id, () => setOpenPartId(null)) : null}
-          onClose={() => setOpenPartId(null)}
+          onClose={() => closeDialog(openPart)}
           onDelete={() => void handleDeletePart(openPart)}
         />
       )}

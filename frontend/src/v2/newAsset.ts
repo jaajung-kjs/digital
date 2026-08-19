@@ -44,7 +44,13 @@ export type PlacementInput =
  * 존재했다. 그런 자산은 세기만 할 뿐 아무 데서도 만질 수 없다 — 그 길을 없앤다.
  */
 export function makeNewAsset(args: {
-  type: V2AssetType;
+  /**
+   * 무엇인가 — **아직 모를 수 있다**(`null`).
+   *
+   * 빈 자리를 눌러 만든 자산은 종류를 고르기 전이다. 포트는 종류가 정하므로 그때는 비어 있고,
+   * 종류를 고르는 순간 그 명세대로 만들어진다(`portsForNewAsset`).
+   */
+  type: V2AssetType | null;
   name: string;
   substationId: string;
   placement: PlacementInput;
@@ -57,7 +63,7 @@ export function makeNewAsset(args: {
   return {
     id,
     name: args.name,
-    typeId: args.type.id,
+    typeId: args.type?.id ?? null,
     substationId: args.substationId,
     status: DEFAULT_ASSET_STATUS,
     floorId: isFloor ? p.floorId : null,
@@ -72,6 +78,6 @@ export function makeNewAsset(args: {
     rowSpan: isContainer ? p.rowSpan : null,
     fieldValues: {},
     updatedAt: '',
-    ports: portsForNewAsset(args.type, id),
+    ports: args.type ? portsForNewAsset(args.type, id) : [],
   };
 }

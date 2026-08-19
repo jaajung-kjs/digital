@@ -206,8 +206,8 @@ export interface V2AssetCreateInput {
   /** 화면이 정해 둔 포트 id — 키는 `그룹:번호`. 구조는 서버 명세가 정하고 id 만 받는다. */
   portIds?: Record<string, string>;
 }
-export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts' | 'portPositions' | 'portIds'>> & {
-  /** 이 자산 포트에 딸린 값 — 포트는 자산 종류 명세가 만드므로 값만 고친다. */
+export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'portCounts' | 'portPositions'>> & {
+  /** 이 자산 포트에 딸린 값 — 포트는 자산 종류 명세가 만드므로 **값만** 고친다. */
   portFieldValues?: { portId: string; fieldValues: Record<string, unknown> }[];
 };
 export interface V2CableCreateInput { id: string; aPortId: string; bPortId: string; categoryId?: string | null; name?: string | null; pathPoints?: { x: number; y: number }[]; specParams?: Record<string, unknown> }
