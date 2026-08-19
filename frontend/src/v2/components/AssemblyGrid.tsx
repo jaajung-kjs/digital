@@ -581,7 +581,9 @@ export function AssemblyGrid<T extends GridItem>({
             type="button"
             className={cn(
               'group relative flex h-full w-full select-none items-center justify-center overflow-hidden rounded px-1 text-center text-xs',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              /* 초점 테두리는 **칸 안쪽**에 그린다(`ring-inset`) — 밖으로 그리면 칸이 서로
+                 맞붙어 있어 옆 칸을 덮고, 그리는 네모 밑에서도 모서리가 삐져나온다. */
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
               // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
               item
                 ? cn(
