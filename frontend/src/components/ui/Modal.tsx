@@ -100,11 +100,20 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
     window.addEventListener('keydown', onKey, true);
     return () => {
       window.removeEventListener('keydown', onKey, true);
-      /* 닫힌 뒤에는 **열기 전 있던 자리**로 초점을 돌려준다 — 안 그러면 body 로 튕겨
-         처음부터 다시 Tab 해야 한다. */
+      /**
+       * 닫힌 뒤에는 **열기 전 있던 자리**로 초점을 돌려준다 — 안 그러면 body 로 튕겨
+       * 처음부터 다시 Tab 해야 한다.
+       *
+       * 다만 **그 키를 다 쓴 뒤에** 돌려준다. 한 번의 키 누름은 `keydown` 하나가 아니라
+       * `keydown → keypress → keyup` 의 한 묶음이고, 상자를 닫는 일은 대개 `keydown` 에서
+       * 일어난다. 그 안에서 초점을 옮기면 **남은 조각을 새 자리가 받는다** — Enter 로 본부를
+       * 추가하면 상자가 닫히고 초점이 「본부 추가」 단추로 돌아간 뒤, 같은 Enter 의 `keypress`
+       * 가 그 단추를 눌러 빈 상자가 곧바로 다시 열렸다(추가는 됐는데 상자가 안 닫힌 것처럼
+       * 보인다). 한 박자 미루면 그 조각들은 원래 자리에서 끝난다.
+       */
       const back = opener.current;
       opener.current = null;
-      back?.focus?.();
+      setTimeout(() => back?.focus?.(), 0);
     };
   }, [open]);
 

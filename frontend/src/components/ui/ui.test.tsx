@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
@@ -166,8 +166,12 @@ describe('Modal', () => {
     expect((field as HTMLInputElement).value).toBe('중부');
   });
 
-  /* 닫히면 열기 전 자리로 돌아간다 — 안 그러면 body 로 튕겨 처음부터 다시 Tab 해야 한다. */
-  it('닫히면 초점이 상자를 연 자리로 돌아간다', () => {
+  /* 닫히면 열기 전 자리로 돌아간다 — 안 그러면 body 로 튕겨 처음부터 다시 Tab 해야 한다.
+     **다만 그 키를 다 쓴 뒤에** 돌려준다: 한 번의 키 누름은 `keydown → keypress → keyup` 한
+     묶음인데, 상자를 닫는 일은 `keydown` 에서 일어난다. 그 안에서 초점을 옮기면 남은 조각을
+     새 자리가 받는다 — Enter 로 추가하면 상자가 닫히고 초점이 「본부 추가」 단추로 간 뒤 같은
+     Enter 의 `keypress` 가 그 단추를 눌러 빈 상자가 곧바로 다시 열렸다. */
+  it('닫히면 초점이 상자를 연 자리로 돌아간다 — 그 키를 다 쓴 뒤에', async () => {
     function Host() {
       const [open, setOpen] = useState(false);
       return (
@@ -183,9 +187,13 @@ describe('Modal', () => {
     const opener = screen.getByRole('button', { name: '본부 추가' });
     opener.focus();
     fireEvent.click(opener);
-    expect(document.activeElement).toBe(screen.getByLabelText('이름'));
+    const field = screen.getByLabelText('이름');
+    expect(document.activeElement).toBe(field);
+
     fireEvent.keyDown(document.body, { key: 'Escape' });
-    expect(document.activeElement).toBe(opener);
+    // 상자를 닫은 그 키가 아직 끝나지 않았다 — 이 순간 단추가 초점을 갖고 있으면 안 된다.
+    expect(document.activeElement).not.toBe(opener);
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 
   it('calls onClose when close button clicked', () => {
