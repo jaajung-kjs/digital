@@ -326,14 +326,26 @@ export function AssemblyGrid<T extends GridItem>({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!isCancelKey(e)) return;
+      /**
+       * **한 번의 Esc 는 한 층만 물린다.**
+       *
+       * Esc 를 듣는 자리가 여럿인데(격자·목록·트리) 아무도 「내가 먹었다」고 말하지 않으면
+       * 전부 함께 반응한다 — 끌던 것을 물리려고 누른 Esc 가 왼쪽에서 고른 설비 품목까지
+       * 풀어, 편집하던 화면이 통째로 닫혔다. 안쪽이 먼저 잡고(붙잡기 단계) 실제로 무언가를
+       * 물렸으면 거기서 끝낸다. 물릴 것이 없었으면 그냥 흘려보낸다 — 그때는 바깥 층의 몫이다.
+       */
       if (gestureRef.current) {
+        e.stopPropagation();
         endGesture(false);
         return;
       }
-      if (selectedId != null) onDeselectRef.current?.();
+      if (selectedId != null) {
+        e.stopPropagation();
+        onDeselectRef.current?.();
+      }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
