@@ -40,54 +40,33 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
      고른 장비의 이름을 고치다 선택이 풀리면 안 된다. */
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const asideRef = useRef<HTMLElement | null>(null);
-  useDismissOnOutside(selectedItemId != null, [canvasRef, asideRef], () => selectItem(null));
+  useDismissOnOutside(selectedItemId != null, [canvasRef, asideRef], () => setSelectedItemId(null));
 
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
 
   /**
-   * 빈 자리에 **빈 장비를 만들고 그것을 고친다** — 상세 패널 구성 탭과 같은 어법(§1.7-m).
+   * 무엇을 넣을지 정하는 중인 자리 — **아직 장비는 만들지 않는다.**
    *
-   * 예전에는 여기서 「무엇을 넣을지」 묻는 상자가 떴다. 그러면 같은 일에 상자가 둘이 되고
-   * (오른쪽 상세는 이미 고치는 자리다), 그 상자는 제 검색·제 빈 화면을 따로 갖는다 —
-   * 실제로 한 글자만 쳐도 「넣을 수 있는 장비 품목이 없습니다」로 바뀌어 검색칸까지 사라졌다.
-   * 판에 장비가 바로 서면 「지금 무엇을 하는 중인가」가 화면에 있고, 고르는 자리는 하나다.
+   * 한때는 빈 자리를 끌면 그 자리에 **품목 없는 장비**를 실제로 만들어 두고 나중에 고치게 했다.
+   * 그러자 「없는 장비 품목을 가리키는 장비가 있습니다」가 곧바로 뜨고(만들자마자 초안이
+   * 잘못된 상태가 된다), 그것을 치우는 규칙(누가·언제 지우나)이 또 필요했으며, 그 규칙이
+   * 어긋날 때마다 이름 없는 네모가 판에 남았다. 만들지 않으면 치울 것도 없다.
+   *
+   * 그동안 그 네모는 판에 그대로 선다(`pending`) — 무엇을 정하는 중인지가 화면에 있다.
    */
-  function addPartAt(at: { col: number; row: number; colSpan?: number; rowSpan?: number }) {
+  const [pendingAt, setPendingAt] = useState<GridPlacement | null>(null);
+
+  function placePart(typeId: string) {
+    const type = typeById.get(typeId);
+    if (!pendingAt || !type) return;
     const id = newItemId();
-    onChange({
-      /* 새로 만드는 것도 **자리를 옮기는 일**이다 — 앞서 만들다 만 장비는 여기서도 사라진다.
-         안 그러면 품목을 안 고른 채 옆 칸에 또 만들 때마다 이름 없는 네모가 쌓인다. */
-      ...draft,
-      items: [...withoutBlank(), {
-        id, typeId: '', name: '',
-        col: at.col, row: at.row,
-        colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1,
-      }],
-    });
+    onChange({ ...draft, items: [...draft.items, { id, typeId, name: type.name, ...pendingAt }] });
+    setPendingAt(null);
     setSelectedItemId(id);
   }
 
   function updateItem(itemId: string, patch: Partial<AssemblyDraftItem>) {
     onChange({ ...draft, items: draft.items.map((i) => (i.id === itemId ? { ...i, ...patch } : i)) });
-  }
-
-  /**
-   * 고르는 자리를 옮긴다 — **덜 채운 장비는 두고 가지 않는다**.
-   *
-   * 품목을 안 고른 장비는 아무것도 아니다. 판에 남겨 두면 저장이 거절되고(그 이유는 판에서
-   * 보이지 않는다) 격자에 이름 없는 네모만 늘어난다. 만들다 만 것은 손을 떼는 순간 사라진다.
-   */
-  /** 만들다 만 장비를 뺀 목록 — 고른 것이 그것일 때만이다(남의 것을 치우지 않는다). */
-  function withoutBlank(): AssemblyDraftItem[] {
-    return draft.items.filter((i) => !(i.id === selectedItemId && !i.typeId));
-  }
-
-  function selectItem(nextId: string | null) {
-    if (nextId !== selectedItemId) {
-      const pruned = withoutBlank();
-      if (pruned.length !== draft.items.length) onChange({ ...draft, items: pruned });
-    }
-    setSelectedItemId(nextId);
   }
 
   function removePart(itemId: string) {
@@ -131,14 +110,19 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             items={draft.items}
             selectedId={selectedItemId}
             /* 같은 것을 다시 누르면 풀린다 — 상세 패널·포트 탭과 같은 규칙. */
-            onSelect={(part) => selectItem(selectedItemId === part.id ? null : part.id)}
-            onDeselect={() => selectItem(null)}
+            onSelect={(part) => { setPendingAt(null); setSelectedItemId(selectedItemId === part.id ? null : part.id); }}
+            onDeselect={() => { setPendingAt(null); setSelectedItemId(null); }}
             /* 초안이라 저장 전이다 — 묻지 않는다(취소로 통째로 되돌릴 수 있다). */
             onRemove={(part) => removePart(part.id)}
             trailing={(part) => (
               <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? EMPTY}</span>
             )}
-            onAddAtCell={addPartAt}
+            onAddAtCell={(at) => {
+              setSelectedItemId(null);
+              setPendingAt({ col: at.col, row: at.row, colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1 });
+            }}
+            /* 무엇을 넣을지 정하는 동안 그 네모는 판에 남는다. */
+            pending={pendingAt ? { at: pendingAt, label: '새 장비' } : null}
             canPlace={canPlace}
             onMove={updateItem}
           />
@@ -148,13 +132,33 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
       {/* 상세 — **한 자리에서 문맥만 바뀐다.** 아무것도 안 골랐으면 설비 자신, 장비를
           골랐으면 그 장비. 상세 패널과 같은 폭(384px)이라 두 화면이 같은 판으로 읽힌다. */}
       <aside ref={asideRef} className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto">
-        {selected ? (
+        {pendingAt ? (
+          /* 정하는 중 — 묻는 것은 **품목 하나**다. 고르는 순간 판에 선다. */
+          <DetailCard>
+            <DetailCardHeader
+              title="새 장비"
+              actions={
+                <Button variant="ghost" size="sm" onClick={() => setPendingAt(null)}>
+                  그만두기
+                </Button>
+              }
+            />
+            <DetailRow label="품목" required>
+              <Select aria-label="장비 품목" value="" onChange={(e) => placePart(e.currentTarget.value)}>
+                <option value="">— 품목 선택 —</option>
+                {catalog.types.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </Select>
+            </DetailRow>
+          </DetailCard>
+        ) : selected ? (
           <>
             <DetailCard>
               <DetailCardHeader
                 title={selected.name || '새 장비'}
                 actions={
-                  <Button variant="ghost" size="sm" onClick={() => selectItem(null)}>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedItemId(null)}>
                     설비 정보
                   </Button>
                 }

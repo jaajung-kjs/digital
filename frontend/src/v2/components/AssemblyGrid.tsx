@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { type Grid, cellLabel } from '@twin/core';
 import { cn, type BadgeStatus, isCancelKey, InsetBox } from '../../components/ui';
 import {
-  cellAt, edgeScroll, gridDragTo, gridPlacementChanged, scrollableAncestor, startGridDrag,
+  cellAt, gridDragTo, gridPlacementChanged, startGridDrag,
   type GridCell, type GridDragKind, type GridDragSession, type GridPlacement,
 } from '../gridDrag';
 /* 「창 밖은 놓을 자리가 아니다」는 판이든 도면이든 같은 규칙이라 한 곳에 있다. */
@@ -116,7 +116,6 @@ const LAMP: Record<BadgeStatus, string> = {
 };
 
 /** 가장자리에서 판이 밀리기 시작하는 폭(px)과 최대 속도(px/프레임). */
-const EDGE = { margin: 28, maxSpeed: 12 };
 
 /**
  * 열 하나의 최소 폭(px) — 이보다 좁아지면 판이 가로로 넘친다.
@@ -261,45 +260,6 @@ export function AssemblyGrid<T extends GridItem>({
     redraw();
   }
 
-  /** 마지막으로 손이 있던 자리 — 판이 밀리는 동안에는 이 점이 기준이다. */
-  const pointRef = useRef<{ clientX: number; clientY: number } | null>(null);
-  const rafRef = useRef<number | null>(null);
-  /** 밀 상자 — 손짓을 시작할 때 한 번만 찾는다(매 프레임 조상을 훑으면 스타일 재계산이 는다). */
-  const scrollersRef = useRef<{ x: Element | null; y: Element | null }>({ x: null, y: null });
-
-  function stopPump() {
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    pointRef.current = null;
-    scrollersRef.current = { x: null, y: null };
-  }
-  // 끌던 중에 화면이 사라져도 루프는 멈춰야 한다.
-  useEffect(() => stopPump, []);
-
-  /**
-   * 가장자리에 손이 닿아 있는 동안 판을 민다.
-   *
-   * 20단짜리 판은 좁은 상세 패널에 다 들어가지 않는다. 밀어 주지 않으면 화면 밖 자리로는
-   * 아예 끌어다 놓을 수 없다 — 손을 떼면 그 자리에 놓여 버리므로 「끌다 말고 스크롤」도
-   * 못 한다. 밀고 난 뒤에는 같은 손 자리가 다른 칸을 가리키므로 다시 겨눈다.
-   */
-  function pump() {
-    rafRef.current = null;
-    const point = pointRef.current;
-    if (!gestureRef.current || !point) return;
-
-    // 세로·가로가 다른 상자일 수 있다(상세 패널의 세로 상자 안에 격자의 가로 상자).
-    const p = { x: point.clientX, y: point.clientY };
-    const { x, y } = scrollersRef.current;
-    const dy = y ? edgeScroll(y.getBoundingClientRect(), p, EDGE).dy : 0;
-    const dx = x ? edgeScroll(x.getBoundingClientRect(), p, EDGE).dx : 0;
-    if (dy) y!.scrollTop += dy;
-    if (dx) x!.scrollLeft += dx;
-    /* 밀리지 않았으면 겨눈 칸도 그대로다 — 매 프레임 다시 맞추면 화면만 다시 그린다. */
-    if (dx || dy) aimAt(point);
-    rafRef.current = requestAnimationFrame(pump);
-  }
-
   /**
    * 눌렀다 — 무엇을 시작하는지 정한다.
    *
@@ -343,11 +303,6 @@ export function AssemblyGrid<T extends GridItem>({
       item,
       session: item && origin && kind !== 'tap' ? startGridDrag(kind, item.id, origin, cellFromPointer(e) ?? from) : null,
       aim: null,
-    };
-    /* 밀 상자는 **손짓 종류와 무관하게** 찾는다 — 새로 그리는 손짓도 화면 밖 행까지 가야 한다. */
-    scrollersRef.current = {
-      y: scrollableAncestor(boxRef.current, 'y'),
-      x: scrollableAncestor(boxRef.current, 'x'),
     };
     redraw();
 
@@ -424,15 +379,9 @@ export function AssemblyGrid<T extends GridItem>({
       return;
     }
     /* 창 밖에서는 겨누지 않는다 — 손짓은 살아 있으므로 들어오면 그 자리에서 이어진다.
-       겨누기를 이어 가면 겨눈 칸이 가장자리로 붙고(`cellAt`) 가장자리 밀기가 최대 속도로
-       계속 굴러, 손을 다시 들여놓으면 장비가 저 멀리 가 있다. */
-    if (!inWindow(e)) {
-      stopPump();
-      return;
-    }
-    pointRef.current = { clientX: e.clientX, clientY: e.clientY };
+       겨누면 겨눈 칸이 가장자리로 붙어(`cellAt`) 손이 없는 자리를 가리킨다. */
+    if (!inWindow(e)) return;
     aimAt(e);
-    if (rafRef.current == null) rafRef.current = requestAnimationFrame(pump);
   }
 
   /** 눌러서 시작한 칸에 대한 행동 — 고르거나, 빈 자리면 채운다. */
@@ -450,7 +399,6 @@ export function AssemblyGrid<T extends GridItem>({
   function endGesture(commit: boolean) {
     const g = gestureRef.current;
     gestureRef.current = null;
-    stopPump();
     redraw();
     if (!g) return;
 
@@ -621,6 +569,7 @@ export function AssemblyGrid<T extends GridItem>({
             type="button"
             className={cn(
               'group relative flex h-full w-full select-none items-center justify-center overflow-hidden rounded px-1 text-center text-xs',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
               // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
               item
                 ? cn(
@@ -725,9 +674,10 @@ export function AssemblyGrid<T extends GridItem>({
               <span
                 className={cn(
                   'text-base leading-none text-primary transition-opacity',
-                  (!dragging && hoveredCell === key) || activeCell?.col === col && activeCell?.row === row
-                    ? 'opacity-100'
-                    : 'opacity-0',
+                  /* **얹혔을 때만**이다. 초점에도 켜면 끌기를 끝낸 자리에 초점이 남아 있으므로
+                     그 칸이 켜진 채로 남는다 — 「처음 누른 자리가 반짝인다」가 그것이었다.
+                     초점은 테두리(`focus-visible`)가 말한다. */
+                  !dragging && hoveredCell === key ? 'opacity-100' : 'opacity-0',
                 )}
               >
                 +
