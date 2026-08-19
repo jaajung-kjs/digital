@@ -131,6 +131,23 @@ describe('AssemblyGrid 선택 해제', () => {
     expect(onAddAtCell).toHaveBeenCalledWith({ col: 1, row: 0, colSpan: 1, rowSpan: 4 });
   });
 
+  /* 만들기와 **같은 부류**다: 옮기기도 끝날 때 미리보기를 읽는다. 한쪽만 ref 로 고치면
+     다른 쪽이 조용히 남는다. */
+  it('한 작업에 몰려 들어와도 옮긴 자리를 잃지 않는다', () => {
+    const { onMove, grid } = setup();
+    const raw = (type: string, el: Element | Window, col: number, row: number, buttons = 1) =>
+      el.dispatchEvent(new MouseEvent(type, {
+        bubbles: true, cancelable: true, button: 0, buttons,
+        clientX: col * 50 + 25, clientY: row * 50 + 25,
+      }));
+    pointer('pointerdown', item(), 0, 0);
+    act(() => {
+      raw('pointermove', grid, 1, 2);
+      raw('pointerup', grid, 1, 2, 0);
+    });
+    expect(onMove).toHaveBeenCalledWith('a', { col: 1, row: 2, colSpan: 1, rowSpan: 2 });
+  });
+
   /* 여러 칸을 묶어 끌면 **그 크기까지** 부르는 쪽에 간다. 한때 자리(col,row)만 넘겨받고
      크기는 상자가 1×1 로 못 박아, 끌어서 잡은 크기가 조용히 버려졌다. */
   it('여러 칸을 묶어 끌면 그 크기가 함께 간다', () => {
