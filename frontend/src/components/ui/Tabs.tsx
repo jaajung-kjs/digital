@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import { cn } from './cn';
 
 export interface TabItem<T extends string> {
@@ -15,7 +15,38 @@ interface TabsProps<T extends string> {
   items: readonly TabItem<T>[];
   value: T;
   onChange: (key: T) => void;
+  /** 탭과 그 내용을 잇는 이름표 — `useTabs()` 가 만들어 준다. */
+  idBase: string;
   className?: string;
+}
+
+/**
+ * 탭 줄과 **그 내용**을 잇는다 — 둘이 같은 이름표를 나눠 갖는다.
+ *
+ * 화면으로 보는 사람에게는 탭 바로 아래가 그 내용이라는 것이 자명하지만, 화면을 못 보는
+ * 사람에게는 그 자명함이 없다. `role="tab"` 만 붙여 두면 스크린리더는 「탭」이라고 읽고
+ * **그 탭이 무엇을 여는지는 말해 주지 못한다** — 열어 놓고 내용을 찾아 헤매게 된다.
+ * 이어 두면 탭에서 바로 내용으로 건너뛸 수 있다(WAI-ARIA APG Tabs).
+ *
+ *     const t = useTabs(tab);
+ *     <Tabs {...t.list} items={TABS} onChange={setTab} />
+ *     <div {...t.panel}>…</div>
+ *
+ * 내용 상자에 `tabIndex` 는 주지 않는다 — 그 안에 누를 것이 있으면 정거장이 하나 늘 뿐이다
+ * (APG 도 「안에 초점 갈 것이 없을 때만」이라고 적는다).
+ */
+export function useTabs<T extends string>(value: T) {
+  const base = useId();
+  return {
+    /** 탭 줄에 편다. */
+    list: { idBase: base, value },
+    /** 지금 열린 탭의 내용을 담는 자리에 편다. */
+    panel: {
+      role: 'tabpanel',
+      id: `${base}-panel-${value}`,
+      'aria-labelledby': `${base}-tab-${value}`,
+    },
+  } as const;
 }
 
 /**
@@ -30,7 +61,7 @@ interface TabsProps<T extends string> {
  * 바로 열린다(automatic activation): 탭 내용이 이미 다 손에 있어 여는 값이 싸므로, 화살표로
  * 훑는 사람에게 Enter 를 한 번 더 누르게 할 이유가 없다.
  */
-export function Tabs<T extends string>({ items, value, onChange, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ items, value, onChange, idBase, className }: TabsProps<T>) {
   const list = useRef<HTMLDivElement>(null);
 
   /** 화살표로 옮긴다 — 끝에서 반대쪽으로 감는다(APG: 목록이 순환한다). */
@@ -55,6 +86,8 @@ export function Tabs<T extends string>({ items, value, onChange, className }: Ta
             key={t.key}
             type="button"
             role="tab"
+            id={`${idBase}-tab-${t.key}`}
+            aria-controls={`${idBase}-panel-${t.key}`}
             aria-selected={active}
             /* 정거장은 하나 — 고른 탭만 Tab 을 받는다(roving tabindex). */
             tabIndex={active ? 0 : -1}

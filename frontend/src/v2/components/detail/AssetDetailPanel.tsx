@@ -12,7 +12,7 @@ import { ConnectionsTab } from './ConnectionsTab';
 import type { CablePickRequest } from '../../cablePick';
 import type { TraceResult } from '../../traceSelectors';
 import { X } from 'lucide-react';
-import { Button, IconButton, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../../components/ui';
+import { Button, IconButton, PanelHeader, Tabs, cn, SELECTABLE, useTabs, type TabItem } from '../../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'layout' | 'info' | 'photos' | 'records' | 'connections';
@@ -158,6 +158,8 @@ export function AssetDetailPanel({
    */
   /* 격자가 없는 자산에는 「구성」 탭이 없다 — 그때는 정보로 물러선다. */
   const effectiveTab: Tab = tab === 'layout' && !asset.assemblyId ? 'info' : tab;
+  /* 탭 줄과 그 아래 내용이 같은 이름표를 나눠 갖는다 — 스크린리더가 둘을 잇는다. */
+  const tabStrip = useTabs(effectiveTab);
 
   const tabs: TabItem<Tab>[] = [
     /* 설비를 고른 사람이 가장 먼저 보고 싶은 것은 **그 안**이다 — 랙을 들여다보듯.
@@ -226,12 +228,13 @@ export function AssetDetailPanel({
           </>
         }
       />
-      <Tabs items={tabs} value={effectiveTab} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
+      <Tabs {...tabStrip.list} items={tabs} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
 
       {/* 탭 컨텐츠 */}
       {/* 구성 탭은 **스크롤이 생기면 안 된다** — 격자가 남는 높이를 채우고 부품을 고르면
           그만큼 줄어든다. 나머지 탭은 내용만큼 길어지므로 이 상자가 스크롤을 맡는다. */}
       <div
+        {...tabStrip.panel}
         className={cn(
           'flex min-h-0 flex-1 flex-col gap-3 p-3',
           effectiveTab === 'layout' ? 'overflow-hidden' : 'overflow-y-auto',

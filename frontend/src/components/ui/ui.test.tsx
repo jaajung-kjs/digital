@@ -5,7 +5,7 @@ import { Button } from './Button';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
 import { ConfirmModal } from './ConfirmModal';
-import { Tabs } from './Tabs';
+import { Tabs, useTabs } from './Tabs';
 import { OverflowMenu } from './OverflowMenu';
 import { SELECTABLE } from './selection';
 import { isCancelKey } from './keyboard';
@@ -289,7 +289,13 @@ describe('Tabs', () => {
 
   function Host() {
     const [v, setV] = useState<'a' | 'b' | 'c'>('a');
-    return <Tabs items={items} value={v} onChange={setV} />;
+    const t = useTabs(v);
+    return (
+      <>
+        <Tabs {...t.list} items={items} onChange={setV} />
+        <div {...t.panel}>{v} 내용</div>
+      </>
+    );
   }
 
   it('Tab 이 서는 자리는 고른 탭 하나뿐이다', () => {
@@ -306,6 +312,24 @@ describe('Tabs', () => {
     fireEvent.keyDown(tabs[0]!, { key: 'ArrowRight' });
     expect(screen.getAllByRole('tab')[1]).toHaveAttribute('aria-selected', 'true');
     expect(document.activeElement).toBe(screen.getAllByRole('tab')[1]);
+  });
+
+  /* 화면으로 보는 사람에게는 탭 바로 아래가 그 내용이라는 것이 자명하지만, 못 보는 사람에게는
+     그 자명함이 없다 — 이어 두지 않으면 「탭」이라고만 읽히고 무엇을 여는지는 말해 주지 못한다. */
+  it('탭과 그 내용이 서로를 가리킨다', () => {
+    render(<Host />);
+    const tab = screen.getAllByRole('tab')[0]!;
+    const panel = screen.getByRole('tabpanel');
+    expect(tab.getAttribute('aria-controls')).toBe(panel.id);
+    expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
+  });
+
+  it('탭을 옮기면 내용도 그 탭을 가리킨다', () => {
+    render(<Host />);
+    fireEvent.keyDown(screen.getAllByRole('tab')[0]!, { key: 'ArrowRight' });
+    const panel = screen.getByRole('tabpanel');
+    expect(panel.getAttribute('aria-labelledby')).toBe(screen.getAllByRole('tab')[1]!.id);
+    expect(screen.getAllByRole('tab')[1]!.getAttribute('aria-controls')).toBe(panel.id);
   });
 
   it('끝에서 반대쪽으로 감는다', () => {

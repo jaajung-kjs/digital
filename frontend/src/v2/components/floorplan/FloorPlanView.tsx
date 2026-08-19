@@ -32,7 +32,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, IconButton, Select, Tabs, useConfirm, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
+import { Button, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorIdOf } from '../../assetTree';
@@ -1346,6 +1346,8 @@ export function FloorPlanView({
   const handlePortSelectRef = useRef(handlePortSelect);
   handlePortSelectRef.current = handlePortSelect;
 
+  const floorTabs = useTabs(activeFloorId ?? '');
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 층 탭바 */}
@@ -1356,8 +1358,8 @@ export function FloorPlanView({
           </span>
         ) : (
           <Tabs
+            {...floorTabs.list}
             items={floors.map((f) => ({ key: f.id, label: f.name }))}
-            value={activeFloorId ?? ''}
             onChange={setActiveFloorId}
             className="-mb-px"
           />
@@ -1480,7 +1482,8 @@ export function FloorPlanView({
       )}
 
       {/* 캔버스 + (포트 선택 시) 우측 패널 — 나란히 놓아 판이 넓게 펼쳐지게 한다 */}
-      <div className="flex min-h-0 min-w-0 flex-1">
+      {/* 이 자리가 층 탭의 내용이다 — 탭과 이름표를 나눠 갖는다. */}
+      <div {...floorTabs.panel} className="flex min-h-0 min-w-0 flex-1">
       <div
         ref={containerRef}
         className="relative min-h-0 min-w-0 flex-1 bg-surface-2 overflow-hidden"

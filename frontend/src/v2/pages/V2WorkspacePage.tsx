@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CablePickRequest } from '../cablePick';
-import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
+import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { StatusTable } from '../components/StatusTable';
@@ -55,6 +55,8 @@ export default function V2WorkspacePage() {
   /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 부품. */
   const focusPartId = route.partId;
   const viewMode = route.view;
+  /* 뷰 탭과 그 아래 내용이 같은 이름표를 나눠 갖는다 — 스크린리더가 둘을 잇는다. */
+  const viewTabs = useTabs(viewMode);
   /**
    * 「이 포트에서 케이블을 시작해 달라」는 한 번짜리 요청 — 상세 패널 → 평면도.
    *
@@ -271,7 +273,7 @@ export default function V2WorkspacePage() {
                   {selected.name}
                 </span>
                 {inSubstationScope && (
-                  <Tabs items={VIEW_TABS} value={viewMode} onChange={route.setView} className="ml-4 -mb-px" />
+                  <Tabs {...viewTabs.list} items={VIEW_TABS} onChange={route.setView} className="ml-4 -mb-px" />
                 )}
                 <span className="flex-1" />
                 {inSubstationScope && (
@@ -296,7 +298,8 @@ export default function V2WorkspacePage() {
               {loadingWorkingCopy ? (
                 <PageState />
               ) : (
-                <div className="flex min-h-0 flex-1 overflow-hidden">
+                /* 이 자리가 뷰 탭의 내용이다 — 탭과 이름표를 나눠 갖는다. */
+                <div {...viewTabs.panel} className="flex min-h-0 flex-1 overflow-hidden">
                   {/* 평면도 뷰 */}
                   {inSubstationScope && viewMode === '평면도' ? (
                     <FloorPlanView
