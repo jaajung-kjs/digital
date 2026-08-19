@@ -2,7 +2,7 @@
  * FloorPlanView — 평면도 캔버스 뷰
  *
  * 층 탭바 + canvas + ResizeObserver + rAF 렌더 루프 + 뷰포트(zoom/pan) + 클릭 선택
- * + 설비 종류 팔레트 바 + armed drag-to-draw 배치
+ * + 설비 품목 팔레트 바 + armed drag-to-draw 배치
  * + 케이블 도구 (종류 Select, 포트 피커, 캔버스 케이블 렌더)
  *
  * 상태는 3개의 독립적 FSM으로 나뉜다: 뷰포트(pan/zoom, 단일 useState로 충분),
@@ -329,7 +329,7 @@ export function FloorPlanView({
 
   /* 케이블 도구용 렌더 입력 — `traceExpandedIdsRef` 와 같은 부류다(프리컴퓨트한 값을
      rAF 렌더가 읽는다). 위 `latest` 미러에 못 넣는 것은 이 값들이 그보다 아래에서
-     계산되기 때문이다(케이블 종류 → 매체 해석이 먼저 있어야 한다). */
+     계산되기 때문이다(케이블 품목 → 매체 해석이 먼저 있어야 한다). */
   const connectableIdsRef = useRef<Set<string> | null>(null);
   const hoveredAssetIdRef = useRef<string | null>(null);
 
@@ -359,17 +359,17 @@ export function FloorPlanView({
   /** 이동 드래그 후 클릭 오발 방지 플래그 */
   const wasRecentlyMoving = useRef(false);
 
-  // ── catalog (설비 종류 목록, cableGroups) ────────────────────────────
+  // ── catalog (설비 품목 목록, cableGroups) ────────────────────────────
   const catalog = useV2Catalog();
   const cableGroups = useMemo(() => catalog.data?.cableGroups ?? [], [catalog.data]);
-  /* 부품의 포트를 놓는 순간 만들려면 자산 종류가 필요하다 — 저장 전에도 포트가 보여야 한다. */
+  /* 장비의 포트를 놓는 순간 만들려면 장비 품목이 필요하다 — 저장 전에도 포트가 보여야 한다. */
   const typesById = useTypesById(catalog.data?.types);
   /**
-   * 도면에 놓이는 것은 **설비 종류**뿐이다.
+   * 도면에 놓이는 것은 **설비 품목**뿐이다.
    *
-   * 예전에는 「평면도에 배치 가능」 딱지를 단 자산 종류도 함께 놓을 수 있어 팔레트가 두
+   * 예전에는 「평면도에 배치 가능」 딱지를 단 장비 품목도 함께 놓을 수 있어 팔레트가 두
    * 갈래였고, 현황의 「종류」가 때로는 자산·때로는 설비를 가리켰다. 접지함체처럼 단품인
-   * 것도 1칸짜리 설비 종류로 둔다 — 놓는 길은 하나여야 한다.
+   * 것도 1칸짜리 설비 품목으로 둔다 — 놓는 길은 하나여야 한다.
    *
    * 구성이 비어 있어도 뺄 수 없다: 분전반은 회로를 **놓고 나서** 채우는 것이라 처음부터
    * 비어 있다. 예전에는 `items.length > 0` 으로 걸러서 분전반을 도면에 놓을 방법이 아예
@@ -379,13 +379,13 @@ export function FloorPlanView({
     () => catalog.data?.assemblies ?? [],
     [catalog.data],
   );
-  /** 지금 그린 설비 종류 — 모달이 이름을 물을 때 무엇이 함께 생기는지 보여 준다. */
+  /** 지금 그린 설비 품목 — 모달이 이름을 물을 때 무엇이 함께 생기는지 보여 준다. */
   const drawnAssembly = useMemo(
     () => assemblies.find((a) => a.id === (drawModal?.typeId ?? '')) ?? null,
     [assemblies, drawModal],
   );
 
-  /* 배치할 설비 종류 선택 — 도구바는 케이블 도구와 같은 "[도구 버튼] [대상 Select]" 형태다.
+  /* 배치할 설비 품목 선택 — 도구바는 케이블 도구와 같은 "[도구 버튼] [대상 Select]" 형태다.
      예전에는 배치 가능한 것마다 버튼을 하나씩 깔았는데, 종류가 늘어나는 만큼 도구바가
      길어져(시드 7개에서 이미 두 줄) 캔버스를 잡아먹었다. 대장은 사용자가 계속 늘리는
      것이므로 개수에 비례해 커지는 UI 를 쓰면 안 된다. */
@@ -437,9 +437,9 @@ export function FloorPlanView({
       return { step: '2/3', text: '오른쪽 판에서 포트를 고르세요', dimCanvas: true };
     }
     if (cableState.firstEndpoint) {
-      return { step: '3/3', text: '반대쪽 자산을 클릭하세요 (다른 변전소면 대국 검색)', dimCanvas: false };
+      return { step: '3/3', text: '반대쪽 설비를 클릭하세요 (다른 변전소면 대국 검색)', dimCanvas: false };
     }
-    return { step: '1/3', text: '이을 자산을 클릭하세요', dimCanvas: false };
+    return { step: '1/3', text: '이을 설비를 클릭하세요', dimCanvas: false };
   }, [cableState.armed, cableState.picker, cableState.firstEndpoint]);
 
   // ── categoryId → color 맵 (렌더용) ───────────────────────────────────────
@@ -466,7 +466,7 @@ export function FloorPlanView({
   /**
    * 케이블 도구가 켜져 있을 때 **이을 수 있는 설비**의 id.
    *
-   * 매체가 맞고 자리가 남은 포트를 하나라도 가진 것만(안에 든 부품의 포트까지 센다).
+   * 매체가 맞고 자리가 남은 포트를 하나라도 가진 것만(안에 든 장비의 포트까지 센다).
    * 예전에는 아무 설비나 눌렸고, 접지함체를 눌러 놓고 나서야 빈 판을 보고 되돌아왔다.
    * 「누를 수 있는 것」을 색으로 먼저 말하면 그 헛걸음이 없어진다.
    */
@@ -1268,9 +1268,9 @@ export function FloorPlanView({
       all.filter((a) => a.parentAssetId === rootId).reduce((n, c) => n + 1 + countDescendants(c.id), 0);
     const n = countDescendants(selectedAssetId);
     const ok = await confirm({
-      title: '자산 삭제',
+      title: '설비 삭제',
       target: target.name,
-      message: n > 0 ? `하위 자산 ${n}개가 함께 삭제됩니다.` : '이 자산을 삭제합니다.',
+      message: n > 0 ? `딸린 장비 ${n}개가 함께 삭제됩니다.` : '이 설비를 삭제합니다.',
       confirmLabel: '삭제',
       danger: true,
     });
@@ -1550,7 +1550,7 @@ export function FloorPlanView({
                 <Select
                   value={armedTypeId ?? placeTypeId}
                   size="sm"
-                  aria-label="배치할 설비 종류"
+                  aria-label="배치할 설비 품목"
                   onChange={(e) => {
                     const id = e.target.value;
                     setPlaceTypeId(id);
@@ -1586,7 +1586,7 @@ export function FloorPlanView({
               <div className="w-40">
                 <Select
                   value={cableState.categoryId}
-                  aria-label="케이블 종류"
+                  aria-label="케이블 품목"
                   onChange={(e) => cableDispatch({ type: 'SET_CATEGORY', categoryId: e.target.value })}
                   size="sm"
                 >
@@ -1612,8 +1612,8 @@ export function FloorPlanView({
               <IconButton
                 size="sm"
                 tone="danger"
-                aria-label="자산 삭제 (Delete)"
-                title="자산 삭제 (Delete)"
+                aria-label="설비 삭제 (Delete)"
+                title="설비 삭제 (Delete)"
                 onClick={() => void handleDeleteSelectedAsset()}
               >
                 <Trash2 size={15} />
@@ -1789,7 +1789,7 @@ export function FloorPlanView({
       </div>
 
       {/* 평면도 배치 모달 */}
-      {/* 설비 종류를 놓는 중 — 물어볼 것은 현장 이름 하나뿐이다(무엇이 들어가는지는 설비 종류가 안다). */}
+      {/* 설비 품목을 놓는 중 — 물어볼 것은 현장 이름 하나뿐이다(무엇이 들어가는지는 설비 품목이 안다). */}
       {drawModal && drawnAssembly && (
         <PlaceAssemblyModal
           assembly={drawnAssembly}

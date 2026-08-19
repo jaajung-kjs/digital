@@ -1,8 +1,8 @@
 /**
- * V2StandardsPage — 「기준자료」 화면
+ * V2StandardsPage — 「적산 기준」 화면
  *
  * 설계에 쓰는 **바깥에서 오는 표**를 서버에 올려 둔다. 관리자가 반기에 한 번 올리면 전원이
- * 같은 값을 쓴다 — 각자 파일을 들고 있으면 사람마다 다른 설계서가 나온다.
+ * 같은 값을 쓴다 — 각자 파일을 들고 있으면 사람마다 다른 산출 내역가 나온다.
  *
  * 왜 대장이 아니라 별도 화면인가: 대장의 세 탭은 **우리가 만드는 종류**이고, 이것은 받아
  * 오는 표다. 대장 안에 탭으로 넣었더니 그 탭만 왼쪽 목록이 사라져 화면이 덜컹거렸다.
@@ -40,10 +40,10 @@ export default function V2StandardsPage() {
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
           <TreePanel
-            title="기준자료"
+            title="적산 기준"
             nodes={nodes}
             selectedId={view}
-            /* 기준자료는 늘 하나를 보고 있다 — 놓을 것이 없으므로 다시 눌러도 그대로 둔다. */
+            /* 적산 기준는 늘 하나를 보고 있다 — 놓을 것이 없으므로 다시 눌러도 그대로 둔다. */
             onSelect={(n) => n && setView(n.id as View)}
           />
         </aside>

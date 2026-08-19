@@ -32,9 +32,9 @@ interface AssetDetailPanelProps {
    */
   focusPortId?: string | null;
   /**
-   * 밖에서 지목해 온 **부품** — 현황표에서 부품 행을 눌렀을 때.
+   * 밖에서 지목해 온 **장비** — 현황표에서 장비 행을 눌렀을 때.
    *
-   * 부품은 제 패널을 갖지 않는다: 설비 패널을 열고 그 부품을 구성 격자에서 고른 상태로 둔다.
+   * 장비는 제 패널을 갖지 않는다: 설비 패널을 열고 그 장비를 구성 격자에서 고른 상태로 둔다.
    */
   focusPartId?: string | null;
   /** 빈 포트에서 케이블을 잇기 시작한다 — 평면도로 넘어가 그 포트를 첫 끝점으로 무장한다. */
@@ -82,7 +82,7 @@ export function AssetDetailPanel({
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
-  /* 설비 종류로 놓은 설비는 타입이 없다 — 그 분류는 설비 종류다. */
+  /* 설비 품목으로 놓은 설비는 타입이 없다 — 그 분류는 설비 품목이다. */
   const type = asset?.typeId ? typesById.get(asset.typeId) : undefined;
 
   const assembliesById = useMemo(
@@ -90,7 +90,7 @@ export function AssetDetailPanel({
     [catalog.data],
   );
 
-  /* 이 설비 안에 놓인 부품들 — 자리 순(격자가 행 우선이라 번호 순서와 같다). */
+  /* 이 설비 안에 놓인 장비들 — 자리 순(격자가 행 우선이라 번호 순서와 같다). */
   const parts = useMemo(
     () =>
       effectiveAssets
@@ -163,7 +163,7 @@ export function AssetDetailPanel({
 
   const tabs: TabItem<Tab>[] = [
     /* 설비를 고른 사람이 가장 먼저 보고 싶은 것은 **그 안**이다 — 랙을 들여다보듯.
-       부품이 없는 자산(설비 아닌 것)에는 격자가 없으므로 이 탭도 없다. */
+       장비가 없는 자산(설비 아닌 것)에는 격자가 없으므로 이 탭도 없다. */
     ...(asset.assemblyId ? [{ key: 'layout' as const, label: '구성' }] : []),
     { key: 'info', label: '정보' },
     /* 사진은 제 탭을 갖는다 — 예전에는 '정보' 탭 맨 아래 카드였다. 그러면 속성을 보러 온
@@ -180,7 +180,7 @@ export function AssetDetailPanel({
   ];
 
   return (
-    /* 폭·테두리는 **화면이** 정한다(워크스페이스의 상세 레일) — 이 패널이 스스로 자리를
+    /* 폭·테두리는 **화면이** 정한다(설비 관리의 상세 레일) — 이 패널이 스스로 자리를
        만들면 비었을 때 그 자리가 사라져 옆 표가 넓어졌다 좁아졌다 한다. */
     <div className="flex h-full min-h-0 flex-1 flex-col">
       {/* 어느 자산을 보고 있는지는 탭 위에 고정한다.
@@ -231,7 +231,7 @@ export function AssetDetailPanel({
       <Tabs {...tabStrip.list} items={tabs} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
 
       {/* 탭 컨텐츠 */}
-      {/* 구성 탭은 **스크롤이 생기면 안 된다** — 격자가 남는 높이를 채우고 부품을 고르면
+      {/* 구성 탭은 **스크롤이 생기면 안 된다** — 격자가 남는 높이를 채우고 장비를 고르면
           그만큼 줄어든다. 나머지 탭은 내용만큼 길어지므로 이 상자가 스크롤을 맡는다. */}
       <div
         {...tabStrip.panel}
@@ -247,7 +247,7 @@ export function AssetDetailPanel({
             assembliesById={assembliesById}
             parts={parts}
             focusPartId={focusPartId}
-            /* 부품 상자 안에 앉을 포트 판 — **포트 탭이 쓰는 것과 같은 것**이다.
+            /* 장비 상자 안에 앉을 포트 판 — **포트 탭이 쓰는 것과 같은 것**이다.
                판이 하는 일 가운데 **화면 뒤를 바꾸는 둘**(대국 자산으로 옮겨가기, 평면도의
                케이블 도구 무장)은 상자를 먼저 닫는다 — 그 앞을 가린 채로 뒤가 바뀌면
                무엇이 일어났는지 보이지 않는다.
@@ -256,7 +256,7 @@ export function AssetDetailPanel({
             renderPortBoard={(partId, close) => (
               <ConnectionsTab
                 assetId={partId}
-                /* 이 판은 이미 그 부품의 상자 안이다 — 머리줄이 이름을 두 번 말하지 않게. */
+                /* 이 판은 이미 그 장비의 상자 안이다 — 머리줄이 이름을 두 번 말하지 않게. */
                 ownerHeadings={false}
                 onSelectAsset={(id) => { close(); onSelectAsset(id); }}
                 onTrace={onTrace ?? (() => {})}

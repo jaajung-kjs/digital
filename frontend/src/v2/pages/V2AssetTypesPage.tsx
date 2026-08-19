@@ -3,11 +3,11 @@
  *
  * 대장이 정하는 것은 현황표의 **「종류」 열**이다. 그래서 탭 이름도 그 말로 통일한다:
  *
- *   설비 종류 — 도면에 놓이고 현황에 집계되는 단위. 격자 + 구성.
- *   자산 종류 — 설비 안에 들어가는 것. 포트와 공량을 갖는다.
- *   케이블 종류 — 잇는 것.
+ *   설비 품목 — 도면에 놓이고 현황에 집계되는 단위. 격자 + 구성.
+ *   장비 품목 — 설비 안에 들어가는 것. 포트와 공량을 갖는다.
+ *   케이블 품목 — 잇는 것.
  *
- * **목록은 탭이 각자 갖는다.** 예전에는 자산 목록이 화면 왼쪽에 고정돼 있어, 설비 종류
+ * **목록은 탭이 각자 갖는다.** 예전에는 자산 목록이 화면 왼쪽에 고정돼 있어, 설비 품목
  * 탭을 열면 목록이 둘(자산 | 설비) 나란히 뜨고 왼쪽 264px 는 아무 일도 하지 않았다 —
  * 어느 목록이 지금 편집 대상인지 화면이 말해 주지 않았다.
  */
@@ -39,7 +39,7 @@ export default function V2AssetTypesPage() {
   const mutations = useCatalogMutations();
 
   // ── 탭 상태 ──────────────────────────────────────────────────────────────
-  // 대장을 열면 **설비 종류**부터 — 도면에 놓이고 현황에 집계되는 단위가 주인공이다.
+  // 대장을 열면 **설비 품목**부터 — 도면에 놓이고 현황에 집계되는 단위가 주인공이다.
 
   // ── 선택 상태 ────────────────────────────────────────────────────────────
   /* 첫 항목을 열어 둔다 — 세 탭이 같아야 탭을 옮길 때 「갑자기 빈 화면」이 나오지 않는다. */
@@ -57,7 +57,7 @@ export default function V2AssetTypesPage() {
     if (pickedFirstType.current || !catalog || catalog.types.length === 0) return;
     pickedFirstType.current = true;
     /* `selectType` 을 쓰면 안 된다 — 그건 **사용자가 목록에서 고른** 경우라 탭까지 옮긴다
-       (`setActiveTab('type')`). 첫 로드에 그러면 설비 종류 탭으로 들어왔는데 자산 종류로
+       (`setActiveTab('type')`). 첫 로드에 그러면 설비 품목 탭으로 들어왔는데 장비 품목으로
        튕긴다. 여기서는 고른 상태만 세운다. */
     const first = catalog.types[0]!;
     setSelectedTypeId(first.id);
@@ -102,8 +102,8 @@ export default function V2AssetTypesPage() {
   }
 
   // ── 신규 타입 ─────────────────────────────────────────────────────────────
-  /* 새 자산 종류 — 분류는 편집 화면에서 고른다. 예전에는 분류마다 `+` 를 달아 그 자리에서
-     정하게 했는데, 그러면 머리줄의 `+` 는 「분류 추가」가 되어 설비 종류 탭의 `+`(종류 추가)와
+  /* 새 장비 품목 — 분류는 편집 화면에서 고른다. 예전에는 분류마다 `+` 를 달아 그 자리에서
+     정하게 했는데, 그러면 머리줄의 `+` 는 「분류 추가」가 되어 설비 품목 탭의 `+`(종류 추가)와
      같은 자리에서 다른 뜻이 됐다. */
   /** `categoryId` 를 주면 그 분류에 만든다 — 트리에서 분류 줄의 `+` 를 누른 경우. */
   async function handleNewType(categoryId?: string) {
@@ -134,7 +134,7 @@ export default function V2AssetTypesPage() {
         // 신규 생성
         const created = await mutations.createType.mutateAsync(draft);
         setSelectedTypeId(created.id);
-        useV2Notice.getState().showSuccess(`'${draft.name}' 자산 종류를 만들었습니다`);
+        useV2Notice.getState().showSuccess(`'${draft.name}' 장비 품목을 만들었습니다`);
       } else {
         // 수정
         await mutations.updateType.mutateAsync({ id: selectedTypeId!, body: draft });
@@ -166,14 +166,14 @@ export default function V2AssetTypesPage() {
     setSaveError(null);
   }
 
-  // ── 자산 종류 삭제 ────────────────────────────────────────────────────────────
+  // ── 장비 품목 삭제 ────────────────────────────────────────────────────────────
   async function handleDeleteType() {
     if (selectedTypeId == null || isNew) return;
     if (
       !(await confirm({
-        title: '자산 종류 삭제',
+        title: '장비 품목 삭제',
         target: draft?.name ?? '',
-        message: '이 종류로 만든 자산이 있으면 거부됩니다.',
+        message: '이 품목으로 만든 설비가 있으면 거부됩니다.',
         confirmLabel: '삭제',
         danger: true,
       }))
@@ -186,7 +186,7 @@ export default function V2AssetTypesPage() {
       setSelectedTypeId(null);
       setDraft(null);
     } catch (err: unknown) {
-      setSaveError(apiErrorMessage(err, '자산 종류 삭제 실패'));
+      setSaveError(apiErrorMessage(err, '장비 품목 삭제 실패'));
     } finally {
       setIsSaving(false);
     }
@@ -255,18 +255,18 @@ export default function V2AssetTypesPage() {
 
         {/* ── 우측 영역 ───────────────────────────────────────────────── */}
         <div className="flex min-h-0 flex-1 flex-col">
-          {/* ── 자산 종류 탭 ─────────────────────────────────────────── */}
+          {/* ── 장비 품목 탭 ─────────────────────────────────────────── */}
           {(
             <>
               {draft == null ? (
                 <EmptyState
-                  title="선택된 자산 종류가 없습니다"
-                  description="왼쪽에서 고르거나, 분류 줄에 손을 얹고 + 로 새로 만드세요. 자산 종류는 설비 안에 들어가는 것입니다."
+                  title="선택된 장비 품목이 없습니다"
+                  description="왼쪽에서 고르거나, 분류 줄에 손을 얹고 + 로 새로 만드세요. 장비 품목은 설비 안에 들어가는 것입니다."
                 />
               ) : (
                 <IssueReveal.Provider value={gate.showIssues}>
                   <CatalogEditorBar
-                    title={isNew ? '새 자산 종류' : (original?.name ?? '')}
+                    title={isNew ? '새 장비 품목' : (original?.name ?? '')}
                     dirty={dirty}
                     saving={isSaving}
                     issueCount={issues.length}
@@ -274,12 +274,12 @@ export default function V2AssetTypesPage() {
                     error={saveError ?? gate.blockedMessage}
                     onDismissError={() => setSaveError(null)}
                     onDelete={isNew ? undefined : () => void handleDeleteType()}
-                    deleteLabel="종류 삭제"
+                    deleteLabel="품목 삭제"
                     onCancel={handleCancel}
                     onSave={gate.save}
                   />
 
-                  {/* **주인공은 왼쪽, 속성은 오른쪽** — 설비 종류·케이블 종류·워크스페이스
+                  {/* **주인공은 왼쪽, 속성은 오른쪽** — 설비 품목·케이블 품목·설비 관리
                       상세와 같은 배치다. 예전에는 이 화면만 두 단 그리드라 기본정보·공량이
                       **반대편**에 서 있었고, 오른쪽 폭도 화면따라 늘었다 줄었다 했다.
                       화면을 옮길 때 같은 카드를 눈으로 다시 찾아야 하는 이유가 이것이었다. */}
@@ -314,7 +314,7 @@ export default function V2AssetTypesPage() {
       <PromptModal
         open={addCategoryOpen}
         title="분류 추가"
-        hint="자산·설비 종류를 묶는 상위 분류입니다. 이름이 곧 키가 되므로 나중에 바꿀 수 없습니다."
+        hint="설비·장비 품목을 묶는 상위 분류입니다. 이름이 곧 키가 되므로 나중에 바꿀 수 없습니다."
         label="분류 이름"
         placeholder="예: 계측"
         busy={mutations.createCategory.isPending}

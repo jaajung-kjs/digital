@@ -1,5 +1,5 @@
 /**
- * CableCatalogPanel — 대장의 「케이블 종류」 탭
+ * CableCatalogPanel — 대장의 「케이블 품목」 탭
  *
  * 다른 두 탭과 **같은 문장**이다: 왼쪽에서 하나를 고르고, 오른쪽에서 고치고, 저장한다.
  *
@@ -7,13 +7,13 @@
  * 어휘**라 늘지도 줄지도 않는다(포트가 무엇과 이어지는지를 그 키로 판정한다). 고치는 것은
  * 이름·색이고, 늘고 주는 것은 그 안의 **종류**다.
  *
- * 초안이 담는 것은 「그룹 하나와 그 자식들」이다 — 자산 종류의 초안이 포트를 자식으로 안고
+ * 초안이 담는 것은 「그룹 하나와 그 자식들」이다 — 장비 품목의 초안이 포트를 자식으로 안고
  * 한 번의 PUT 으로 나가는 것과 같은 모양이라, 저장 규칙이 세 탭에서 같아진다. 예전에는 이
  * 탭만 거꾸로였다: 그룹의 이름·색만 저장 바를 거치고, 정작 여러 칸짜리 종류는 칸을 떠날
  * 때마다 바로 날아갔다.
  *
  * 오른쪽은 `표 │ 상세` 다. 상세는 **한 자리에서 문맥만 바뀐다** — 아무것도 안 골랐으면 그룹
- * 자신, 종류를 골랐으면 그 종류(설비 종류 탭이 「설비 자신 ↔ 부품」으로 바뀌는 것과 같다).
+ * 자신, 종류를 골랐으면 그 종류(설비 품목 탭이 「설비 자신 ↔ 장비」으로 바뀌는 것과 같다).
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -266,7 +266,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
         <TreePanel
-          title="케이블 종류"
+          title="케이블 품목"
           nodes={nodes}
           selectedId={selectedId}
           onSelect={(n) => void selectGroup(n?.id ?? null)}
@@ -295,15 +295,15 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
               onSave={gate.save}
             />
 
-            {/* `표 │ 상세` — 평면도(도면 │ 상세)·설비 종류(격자 │ 상세)와 같은 배치다.
+            {/* `표 │ 상세` — 평면도(도면 │ 상세)·설비 품목(격자 │ 상세)와 같은 배치다.
                 **표는 읽는 것이고 고치는 일은 오른쪽이 맡는다**: 칸마다 상자를 깔면 「이 칸은
                 고칠 수 있다」는 표시가 아무 말도 못 하고(네 칸이 다 상자다) 훑어 읽기만
                 방해한다. 선번장이 상자를 다는 것은 여섯 칸 중 셋만 편집이라 그 표시가 뜻을
                 갖기 때문이다.
 
-                종류마다 **품셈을 적는다** — 자산 종류·설비 종류와 같은 층이다. 같은 광이라도
+                종류마다 **품셈을 적는다** — 장비 품목·설비 품목과 같은 층이다. 같은 광이라도
                 OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르므로, 그룹 하나로 뭉쳐 두면 그
-                차이가 설계서에서 사라진다. */}
+                차이가 산출 내역에서 사라진다. */}
             <div className="flex min-h-0 flex-1 gap-3 p-4">
               <div ref={tableRef} className="flex min-w-0 flex-1 flex-col gap-2">
                 {/* 「추가」는 표 **위**에 둔다 — 맨 아래 줄에 두면 종류가 늘수록 멀어지고,
@@ -322,10 +322,10 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     {/* 머리글은 스크롤해도 남는다 — 현황표와 같은 규칙. */}
                     <tr className="sticky top-0 z-sticky">
                       <Th>이름</Th>
-                      {/* 코드는 **저장되는 값**, 직종 이름은 기준자료에서 **조회한 값**이다. */}
+                      {/* 코드는 **저장되는 값**, 직종 이름은 적산 기준에서 **조회한 값**이다. */}
                       <Th>코드</Th>
                       <Th>{LABOR_CODE_LABEL}</Th>
-                      {/* **조회 칸**이다 — 저장되는 것은 직종 코드뿐이고 단가는 기준자료가 정한다. */}
+                      {/* **조회 칸**이다 — 저장되는 것은 직종 코드뿐이고 단가는 적산 기준가 정한다. */}
                       <Th align="right" unit={WAGE_UNIT}>{LABOR_WAGE_LABEL}</Th>
                       {/* 열은 어휘가 정한다 — 여기서 칸을 손으로 적지 않는다. */}
                       {SPEC_COLUMNS.map((c) => (
@@ -393,7 +393,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                   <>
                     <DetailCard>
                       <DetailCardHeader
-                        title={selectedRow.name.trim() || '새 종류'}
+                        title={selectedRow.name.trim() || '새 품목'}
                         /* 초안이라 저장 전이다 — 묻지 않는다(취소로 통째로 되돌릴 수 있다). */
                         onDelete={() => removeRow(selectedRow.key)}
                       />
@@ -402,7 +402,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                         issue={selectedIssues?.name ? '이름이 비었거나 같은 그룹 안에서 겹칩니다' : null}
                       >
                         <Input
-                          aria-label="종류 이름"
+                          aria-label="품목 이름"
                           autoFocus={selectedRow.key === focusKey}
                           invalid={selectedIssues?.name}
                           value={selectedRow.name}
@@ -423,7 +423,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                   </>
                 ) : (
                   <DetailCard>
-                    <DetailCardHeader title="그룹" badge={`종류 ${draft.categories.length}`} badgeStatus="neutral" />
+                    <DetailCardHeader title="그룹" badge={`품목 ${draft.categories.length}`} badgeStatus="neutral" />
                     <DetailRow label="이름" required issue={groupNameIssue ? '이름은 비울 수 없습니다' : null}>
                       <Input
                         aria-label="그룹 이름"

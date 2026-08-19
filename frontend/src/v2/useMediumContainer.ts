@@ -17,8 +17,8 @@ export interface MediumContainerPick {
 /**
  * 선번장·계통이 "어느 설비를 보고 있나" 를 정하는 한 곳.
  *
- * 예전에는 표의 단위가 **(자산, 컨테이너)** 였다. 자리를 자산 종류가 선언했고 타입이
- * 컨테이너를 여러 개 가질 수 있었기 때문인데, 이제 자리는 설비 종류의 격자 하나뿐이라 그 축이
+ * 예전에는 표의 단위가 **(자산, 컨테이너)** 였다. 자리를 장비 품목이 선언했고 타입이
+ * 컨테이너를 여러 개 가질 수 있었기 때문인데, 이제 자리는 설비 품목의 격자 하나뿐이라 그 축이
  * 사라졌다 — 단위는 설비 하나다.
  *
  * **「지금 보는 설비」는 하나다.** 예전에는 이 훅이 뷰마다 제 `useState` 를 들고 있어서,
@@ -32,9 +32,9 @@ export interface MediumContainerPick {
 export function useMediumContainer(
   equipments: V2Asset[],
   from: {
-    /** 상위를 거슬러 올라갈 때 쓴다 — 고른 것이 부품이면 그것을 품은 설비를 찾아야 한다. */
+    /** 상위를 거슬러 올라갈 때 쓴다 — 고른 것이 장비이면 그것을 품은 설비를 찾아야 한다. */
     assets: V2Asset[];
-    /** 워크스페이스가 고른 자산(주소의 `asset`). */
+    /** 설비 관리가 고른 자산(주소의 `asset`). */
     selectedAssetId: string | null;
     /** 드롭다운으로 고른 설비(주소의 `eq`). */
     containerId: string | null;
@@ -50,7 +50,7 @@ export function useMediumContainer(
     if (from.selectedAssetId == null) return null;
     const keys = new Set(options.map((o) => o.key));
     const byId = new Map(from.assets.map((a) => [a.id, a]));
-    /* 부품에서 시작해 이 표가 아는 설비가 나올 때까지 올라간다. 이 표에 없는 것(다른 매체의
+    /* 장비에서 시작해 이 표가 아는 설비가 나올 때까지 올라간다. 이 표에 없는 것(다른 매체의
        설비 등)을 고른 상태면 아무것도 못 찾고 끝난다 — 그때는 아래 차례로 넘어간다. */
     let cur = byId.get(from.selectedAssetId) ?? null;
     while (cur) {

@@ -1,13 +1,13 @@
 /**
- * AssemblyPanel — 설비 종류 편집
+ * AssemblyPanel — 설비 품목 편집
  *
- * 부품을 조립해 **한 설비**를 만든다. 격자 크기를 정하고 그 위 아무 자리에나 부품을 놓는다.
+ * 장비를 조립해 **한 설비**를 만든다. 격자 크기를 정하고 그 위 아무 자리에나 장비를 놓는다.
  *
  * 예전에는 「도면에 놓이는 것(랙)」을 먼저 고르고 그 타입이 선언한 자리에 넣어야 했다.
  * 그래서 담기 위한 랙이라는 자산이 필요했고, 자리는 그 타입이 정한 대로만 쓸 수 있었다.
- * 이제 자리는 설비 종류 자신의 것이라 랙이라는 층이 통째로 사라졌다 — 랙은 이 설비 종류의 겉모습이다.
+ * 이제 자리는 설비 품목 자신의 것이라 랙이라는 층이 통째로 사라졌다 — 랙은 이 설비 품목의 겉모습이다.
  *
- * 자리는 상세 패널과 **같은 격자**(`AssemblyGrid`)를 쓴다 — 설비 종류에서 짠 모습이 놓고 나면
+ * 자리는 상세 패널과 **같은 격자**(`AssemblyGrid`)를 쓴다 — 설비 품목에서 짠 모습이 놓고 나면
  * 달라 보이면 짜는 뜻이 없다.
  */
 import { useMemo, useRef, useState } from 'react';
@@ -41,7 +41,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [addQuery, setAddQuery] = useState('');
   /* 바깥을 누르면 풀린다 — 앱 공통 규칙(`useDismissOnOutside`). 「안」은 캔버스와 그 상세다:
-     고른 부품의 이름을 고치다 선택이 풀리면 안 된다. */
+     고른 장비의 이름을 고치다 선택이 풀리면 안 된다. */
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const asideRef = useRef<HTMLElement | null>(null);
   useDismissOnOutside(selectedItemId != null, [canvasRef, asideRef], () => setSelectedItemId(null));
@@ -75,7 +75,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   /**
    * 이 자리에 놓을 수 있는가 — 판정은 core 가 한다(격자 안·겹침).
    *
-   * 화면이 규칙을 다시 쓰면 설비 종류에서는 놓이는데 실제 배치에서 튕기는 조립을 만들 수 있다.
+   * 화면이 규칙을 다시 쓰면 설비 품목에서는 놓이는데 실제 배치에서 튕기는 조립을 만들 수 있다.
    */
   function canPlace(movingId: string, at: GridPlacement): boolean {
     return validateGridPlacement({
@@ -86,7 +86,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   }
 
   const selected = draft.items.find((i) => i.id === selectedItemId) ?? null;
-  /* 무엇을 놓을지는 설비 종류를 짜는 사람이 정한다 — 수용 규칙(컨테이너의 것이었다)은 없다. */
+  /* 무엇을 놓을지는 설비 품목을 짜는 사람이 정한다 — 수용 규칙(컨테이너의 것이었다)은 없다. */
   const addable = useMemo(() => {
     const q = addQuery.trim().toLowerCase();
     return q ? catalog.types.filter((t) => t.name.toLowerCase().includes(q)) : catalog.types;
@@ -103,7 +103,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           1×1 이든 10×20 이든 같은 자리를 차지한다. */}
       <div ref={canvasRef} className="flex min-w-0 flex-1 flex-col">
         <DetailCard className="flex min-h-0 flex-1 flex-col">
-          {/* 「몇 칸 중 몇 칸」은 적지 않는다 — 격자는 배치용 도화지라 쓴 칸 수가 이 설비 종류에
+          {/* 「몇 칸 중 몇 칸」은 적지 않는다 — 격자는 배치용 도화지라 쓴 칸 수가 이 설비 품목에
               대해 말해 주는 것이 없다(상세 패널 구성 탭과 같은 판단). */}
           <DetailCardHeader title="구성" />
           <ErrorStrip message={issueOf(issues, 'items') ?? null} />
@@ -127,7 +127,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
               addCell
                 ? {
                     at: { col: addCell.col, row: addCell.row, colSpan: addCell.colSpan ?? 1, rowSpan: addCell.rowSpan ?? 1 },
-                    label: '새 부품',
+                    label: '새 장비',
                   }
                 : null
             }
@@ -137,14 +137,14 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         </DetailCard>
       </div>
 
-      {/* 상세 — **한 자리에서 문맥만 바뀐다.** 아무것도 안 골랐으면 설비 자신, 부품을
-          골랐으면 그 부품. 상세 패널과 같은 폭(384px)이라 두 화면이 같은 판으로 읽힌다. */}
+      {/* 상세 — **한 자리에서 문맥만 바뀐다.** 아무것도 안 골랐으면 설비 자신, 장비를
+          골랐으면 그 장비. 상세 패널과 같은 폭(384px)이라 두 화면이 같은 판으로 읽힌다. */}
       <aside ref={asideRef} className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto">
         {selected ? (
           <>
             <DetailCard>
               <DetailCardHeader
-                title={selected.name || '부품'}
+                title={selected.name || '장비'}
                 badge={typeById.get(selected.typeId)?.name}
                 badgeStatus="neutral"
                 actions={
@@ -155,7 +155,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
               />
               <DetailRow label="이름">
                 <Input
-                  aria-label="부품 이름"
+                  aria-label="장비 이름"
                   value={selected.name}
                   onChange={(e) => updateItem(selected.id, { name: e.currentTarget.value })}
                 />
@@ -163,13 +163,13 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             </DetailCard>
 
             {/* 넣기 전에 「이걸 넣으면 포트가 뭐가 생기나」를 여기서 본다.
-                카드는 남는 자리를 다 쓴다 — 포트가 둘이든 스물다섯이든 같은 크기여야 부품을
+                카드는 남는 자리를 다 쓴다 — 포트가 둘이든 스물다섯이든 같은 크기여야 장비를
                 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 카드 안에서 스크롤한다. */}
             <PortsPreview
               fill
               ports={typeById.get(selected.typeId)?.portTemplates ?? []}
               title="포트"
-              empty="이 자산 종류에는 포트가 선언돼 있지 않습니다."
+              empty="이 장비 품목에는 포트가 선언돼 있지 않습니다."
             />
           </>
         ) : (
@@ -180,14 +180,14 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
                   부르는 이름이 아니다. 새로 만들 때는 서버가 붙인다. */}
               <DetailRow label="이름" required issue={issueOf(issues, 'name')}>
                 <Input
-                  aria-label="설비 종류 이름"
+                  aria-label="설비 품목 이름"
                   value={draft.name}
                   placeholder="예: 송변전광단말장치"
                   onChange={(e) => onChange({ ...draft, name: e.currentTarget.value })}
                 />
               </DetailRow>
               <DetailRow label="분류" issue={issueOf(issues, 'category')}>
-                {/* 자산 종류와 **같은 분류 체계**다 — 어느 탭에서 분류를 만들든 양쪽에 나타난다. */}
+                {/* 장비 품목과 **같은 분류 체계**다 — 어느 탭에서 분류를 만들든 양쪽에 나타난다. */}
                 <Select
                   aria-label="분류"
                   value={draft.categoryId}
@@ -202,12 +202,12 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
               {/* 행·열 수를 묻지 않는다 — 격자는 **모든 설비가 같은 도화지**다
                   (`ASSEMBLY_GRID`). 그 설비가 어떤 물건인지는 크기가 아니라 안에 무엇이
                   놓였는가가 말한다. 접지함체를 1×1 로 지을 이유가 없다: 판은 그대로 두고
-                  부품을 크게 그리면 된다. */}
+                  장비를 크게 그리면 된다. */}
             </DetailCard>
 
             {/* ── 1식 공량 ───────────────────────────────────────────────
-                설비를 **통째로** 놓거나 걷을 때의 품이다. 완성된 1식에서 부품 하나만
-                걷어내면 그때는 그 자산 종류의 공량을 쓴다 — 어느 쪽인지는 설계서가 변경
+                설비를 **통째로** 놓거나 걷을 때의 품이다. 완성된 1식에서 장비 하나만
+                걷어내면 그때는 그 장비 품목의 공량을 쓴다 — 어느 쪽인지는 산출 내역가 변경
                 집합에서 안다. */}
             <LaborSpecForm
               carrier="assembly"
@@ -230,13 +230,13 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           }
         >
           {addable.length === 0 ? (
-            <EmptyState title="넣을 수 있는 자산 종류가 없습니다" description="상단의 「자산 종류」 에서 먼저 만드세요." />
+            <EmptyState title="넣을 수 있는 장비 품목이 없습니다" description="상단의 「장비 품목」 에서 먼저 만드세요." />
           ) : (
             <>
-              {/* 자산 종류는 스물 몇이라 전폭 버튼으로 늘어놓으면 눈으로 훑어야 한다 —
+              {/* 장비 품목은 스물 몇이라 전폭 버튼으로 늘어놓으면 눈으로 훑어야 한다 —
                   왼쪽 목록이 같은 이유로 이미 검색을 갖고 있다(CONVENTIONS §1.6). */}
               <Input
-                aria-label="자산 종류 검색"
+                aria-label="장비 품목 검색"
                 size="sm"
                 autoFocus
                 placeholder="이름으로 검색"

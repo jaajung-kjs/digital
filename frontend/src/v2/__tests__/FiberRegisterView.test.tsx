@@ -153,6 +153,6 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
         onPickContainer={vi.fn()}
         onSelectAsset={vi.fn()}
       />);
-    expect(screen.getByText(/선번장에 표시할 광 자산이 없습니다/)).toBeTruthy();
+    expect(screen.getByText(/선번장에 표시할 광 설비가 없습니다/)).toBeTruthy();
   });
 });

@@ -8,7 +8,7 @@ const mkType = (id: string, key: string, categoryId: string): V2AssetType => ({
   portTemplates: [],
 });
 
-/* 무엇을 담을 수 있는가는 이제 판정할 것이 없다 — 설비 종류를 짜는 사람이 정한다.
+/* 무엇을 담을 수 있는가는 이제 판정할 것이 없다 — 설비 품목을 짜는 사람이 정한다.
    자리가 타입을 걸러내던 수용 규칙(accepts)은 개념째 걷었다. */
 /* 자산은 반드시 어딘가에 놓인다 — 자리 없는 자산을 만드는 길은 없앴다. */
 const GRID = { kind: 'grid', parentAssetId: 'rack', col: 0, row: 0, colSpan: 1, rowSpan: 1 } as const;

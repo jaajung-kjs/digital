@@ -37,7 +37,7 @@ function renderRoutes(initialPath: string) {
 }
 
 describe('만료 세션 (persisted 인증 + 토큰 없음)', () => {
-  it('/ 진입 → 스토어 리셋 → /login 폼 도달, 워크스페이스 미노출 (루프 없음)', async () => {
+  it('/ 진입 → 스토어 리셋 → /login 폼 도달, 설비 관리 미노출 (루프 없음)', async () => {
     // httpClient 가 refresh 실패로 토큰을 지운 뒤의 상태 재현:
     // localStorage 에 토큰 없음 + persist 는 인증 상태 잔존
     useV2AuthStore.setState({
@@ -74,7 +74,7 @@ describe('만료 세션 (persisted 인증 + 토큰 없음)', () => {
 });
 
 describe('정상 세션 (인증 + 토큰 보유)', () => {
-  it('/login 진입 → / 로 리다이렉트되어 워크스페이스 렌더', async () => {
+  it('/login 진입 → / 로 리다이렉트되어 설비 관리 렌더', async () => {
     tokenStorage.setAccessToken('valid-access');
     tokenStorage.setRefreshToken('valid-refresh');
     useV2AuthStore.setState({
@@ -88,7 +88,7 @@ describe('정상 세션 (인증 + 토큰 보유)', () => {
     expect(screen.queryByRole('button', { name: /로그인/ })).not.toBeInTheDocument();
   });
 
-  it('/ 진입 → 워크스페이스 렌더 유지', async () => {
+  it('/ 진입 → 설비 관리 렌더 유지', async () => {
     tokenStorage.setAccessToken('valid-access');
     tokenStorage.setRefreshToken('valid-refresh');
     useV2AuthStore.setState({

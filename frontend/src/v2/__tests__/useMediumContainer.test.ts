@@ -6,7 +6,7 @@ import type { V2Asset, V2Assembly } from '../types';
 const asset = (id: string, name: string, parentAssetId: string | null = null): V2Asset =>
   ({ id, name, parentAssetId, assemblyId: null }) as unknown as V2Asset;
 
-/** 설비 둘, 그리고 그중 하나(OFD) 안에 든 부품 하나. */
+/** 설비 둘, 그리고 그중 하나(OFD) 안에 든 장비 하나. */
 const OFD = asset('ofd', '판암 OFD');
 const SGC = asset('sgc', '판암 송광치');
 const SLOT = asset('slot', '슬롯 1', 'ofd');
@@ -26,7 +26,7 @@ describe('useMediumContainer — 「지금 보는 설비」는 하나다', () =>
     expect(pick('sgc').activeKey).toBe('sgc');
   });
 
-  it('고른 것이 부품이면 그것을 품은 설비를 본다', () => {
+  it('고른 것이 장비이면 그것을 품은 설비를 본다', () => {
     expect(pick('slot').activeKey).toBe('ofd');
   });
 

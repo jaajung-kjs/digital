@@ -1,7 +1,7 @@
 /**
  * FiberRegisterView — 선번장 뷰
  *
- * 상단: 설비(OPGW 포트를 가진 부품을 담은 것) Select
+ * 상단: 설비(OPGW 포트를 가진 장비를 담은 것) Select
  * 테이블: 슬롯 그룹헤더 행 + 코어별 데이터 행
  *   컬럼: 코어 | {groups 동적} | 길이(m) | 손실(dB) | 점검일
  * 메타 인라인 편집: blur/Enter, 무변경 가드
@@ -74,10 +74,10 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
  * 손실·점검일처럼 **심선마다 다른** 값은 케이블이 아니라 포트에 담긴다.
  *
  * 예전에는 케이블에 담았는데, 그러려면 OPGW 한 가닥을 심선 수만큼 케이블로 복제해야 했고
- * 그 탓에 설계서 공량이 그 배로 부풀었다(40m 4심 → 160m). 그리고 아직 이어지지 않은 심선에는
+ * 그 탓에 산출 내역 공량이 그 배로 부풀었다(40m 4심 → 160m). 그리고 아직 이어지지 않은 심선에는
  * 케이블이 없어 성단 손실을 적을 곳조차 없었다.
  *
- * 포트는 자산 종류 명세가 만드는 것이라 생성·삭제가 없고 값만 바뀐다 — 그래서 자산 패치에 얹는다
+ * 포트는 장비 품목 명세가 만드는 것이라 생성·삭제가 없고 값만 바뀐다 — 그래서 자산 패치에 얹는다
  * (별도 OCC 축을 만들지 않는다).
  */
 function PortFieldInput({
@@ -237,13 +237,13 @@ export function FiberRegisterView({
     <RegisterLayout
       picker={picked}
       empty={{
-        title: '선번장에 표시할 광 자산이 없습니다',
+        title: '선번장에 표시할 광 설비가 없습니다',
         /* 설명은 **무엇을 하면 나타나는가** 한 줄이다 — 왜 그런지는 여기서 설명하지 않는다. */
-        description: '경로슬롯을 담은 설비 종류(OFD 등)를 평면도에 놓으면 나타납니다.',
+        description: '경로슬롯을 담은 설비 품목(OFD 등)를 평면도에 놓으면 나타납니다.',
       }}
       search={{
         'aria-label': '심 검색',
-        placeholder: '슬롯 · 대국 자산 · 포트 검색',
+        placeholder: '슬롯 · 대국 설비 · 포트 검색',
         value: query,
         onChange: setQuery,
         shown: filteredRows.length,

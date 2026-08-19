@@ -9,7 +9,7 @@ export type { PreviewPort };
 export function PortsPreview({
   ports: source,
   title = '포트',
-  empty = '이 자산 종류에는 포트가 선언돼 있지 않습니다.',
+  empty = '이 장비 품목에는 포트가 선언돼 있지 않습니다.',
   fill,
 }: {
   ports: readonly PreviewPort[];

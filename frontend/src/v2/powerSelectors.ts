@@ -6,7 +6,7 @@ export type { PeerInfo } from './peerResolve';
 
 export const POWER_MEDIUM: SeededMediumKey = 'power';
 
-/** 전원 포트를 가진 부품을 담고 있는 설비들 — 이름순. */
+/** 전원 포트를 가진 장비를 담고 있는 설비들 — 이름순. */
 export function powerContainers(assets: V2Asset[]): V2Asset[] {
   return mediumContainers(assets, POWER_MEDIUM);
 }
@@ -18,7 +18,7 @@ export interface PowerCell {
 }
 
 export interface PowerRow {
-  /** 회로 자리 번호(1-based) — 그 설비의 설비 종류의 격자에서 유도한다. 자리가 없으면 null. */
+  /** 회로 자리 번호(1-based) — 그 설비의 설비 품목의 격자에서 유도한다. 자리가 없으면 null. */
   slotNo: number | null;
   /** 비어 있는 회로 자리 — 패널 스케줄의 SPARE. 이 행에는 피더가 없다. */
   feederId: string;
@@ -73,7 +73,7 @@ export function buildPowerRows(
   container: V2Asset,
   assets: V2Asset[],
   cables: V2Cable[],
-  /** 설비 종류가 선언한 격자 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
+  /** 설비 품목이 선언한 격자 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
 ): PowerRow[] {
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
 

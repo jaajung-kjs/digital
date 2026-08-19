@@ -104,10 +104,10 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
    *
    * .key\s*=== 스코프 주의:
    * 프론트엔드는 e.key === 'Enter' / fd.key === 'switchState' 처럼 키보드 이벤트나
-   * FieldDef 조회에 .key 를 정당하게 사용한다 — 자산 종류 분기와 무관.
+   * FieldDef 조회에 .key 를 정당하게 사용한다 — 장비 품목 분기와 무관.
    * 따라서 .key\s*=== 검사는 도메인 서버 코드(backend/src)에만 적용한다.
    */
-  it('backend/src 소스(테스트·generated 제외)에 자산 종류 키 리터럴·role 비교·.key 직접 비교가 없다', () => {
+  it('backend/src 소스(테스트·generated 제외)에 장비 품목 키 리터럴·role 비교·.key 직접 비교가 없다', () => {
     // 시드 타입 키 목록을 SEED_ASSET_TYPES 에서 동적 파생 — 하드코딩 금지.
     const seedKeys = SEED_ASSET_TYPES.map((t) => t.key);
     const keyPattern = seedKeys.map((k) => `["'\`]${k.replace(/-/g, '\\-')}["'\`]`).join('|');
@@ -118,9 +118,9 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
     }
   });
 
-  it('frontend/src 소스(테스트·generated 제외)에 자산 종류 키 리터럴·role 비교가 없다', () => {
+  it('frontend/src 소스(테스트·generated 제외)에 장비 품목 키 리터럴·role 비교가 없다', () => {
     // 프론트엔드는 .key 를 키보드 이벤트·FieldDef 조회에 사용하므로 .key\s*=== 는 제외.
-    // 자산 종류 키 리터럴과 domain role 직접 비교만 금지.
+    // 장비 품목 키 리터럴과 domain role 직접 비교만 금지.
     // asset.key/type.key/typeKey 비교(==/!=)는 구 frontend/src/v2/__tests__/guardrail.test.ts
     // (B-S2, 중복 스캐너)에만 있던 핀 — 단일 홈으로 통합하며 이관.
     const seedKeys = SEED_ASSET_TYPES.map((t) => t.key);
@@ -146,7 +146,7 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
    * 것은 다르다. 이 파일에서 role 비교가 발견되면(현재 0건) 그건 데이터가 아니라
    * 진짜 분기이므로 여전히 걸린다 — 예외는 시드 키 리터럴 패턴에만 적용된다.
    */
-  it('packages/core/src 소스(테스트 제외)에 자산 종류 키 리터럴·role 비교가 없다(시드 데이터 파일 제외)', () => {
+  it('packages/core/src 소스(테스트 제외)에 장비 품목 키 리터럴·role 비교가 없다(시드 데이터 파일 제외)', () => {
     const CORE_SEED_DATA_ALLOWLIST = new Set(['packages/core/src/seed/catalog.ts']);
 
     const seedKeys = SEED_ASSET_TYPES.map((t) => t.key);
@@ -159,7 +159,7 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
       const rel = relToRoot(f);
       expect(src, `${rel}: role 비교 감지`).not.toMatch(roleForbidden);
       if (CORE_SEED_DATA_ALLOWLIST.has(rel)) continue; // 데이터 파일 — 위 JSDoc 참조
-      expect(src, `${rel}: 자산 종류 키 리터럴 감지`).not.toMatch(literalForbidden);
+      expect(src, `${rel}: 장비 품목 키 리터럴 감지`).not.toMatch(literalForbidden);
     }
   });
 });
@@ -338,7 +338,7 @@ describe('v2 가드레일 Stage 7 — 레거시 모델 필드 토큰 재도입 �
   /**
    * 구 모델 잔재 필드:
    *   - sourceRole  : 구 자산 역할 enum 컬럼 (AssetRole 기반) — 완전 제거됨
-   *   - rackModule  : 구 자산 종류별 분기 모델 컬럼 — 완전 제거됨
+   *   - rackModule  : 구 장비 품목별 분기 모델 컬럼 — 완전 제거됨
    *
    * 단어 경계(\b)를 사용해 rackModuleId, sourceRoleLabel 같은 파생 식별자를 구분한다.
    * RackModule(대문자 시작) 타입 선언도 포함 — 구 모델 재선언 방지.
@@ -405,7 +405,7 @@ describe('v2 가드레일 §Minor-5 — 프론트엔드 자산타입 키 리터�
    * 패턴: \.key\s*===\s*['"][A-Z][A-Z0-9-]*['"]
    * 백엔드 가드레일과 달리 프론트엔드는 키보드 이벤트(e.key === 'Enter') 등에서
    * .key 를 정당하게 사용하므로 .key\s*=== 전체 금지는 과잉이다.
-   * 대신 대문자 전용 패턴으로 자산 종류 키 직접 비교(예: type.key === 'RACK')만 차단한다.
+   * 대신 대문자 전용 패턴으로 장비 품목 키 직접 비교(예: type.key === 'RACK')만 차단한다.
    *
    * 현재 트리: 0매치 확인 완료(2026-07-29, Stage 7 Task 5 fix round).
    */
@@ -416,7 +416,7 @@ describe('v2 가드레일 §Minor-5 — 프론트엔드 자산타입 키 리터�
     for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
       expect(
         readFileSync(f, 'utf8'),
-        `${f}: .key === '대문자키' 직접 비교 감지 — 자산 종류 분기는 카탈로그 메타(isPlaceable 등)를 사용하세요 (§Minor-5)`,
+        `${f}: .key === '대문자키' 직접 비교 감지 — 장비 품목 분기는 카탈로그 메타(isPlaceable 등)를 사용하세요 (§Minor-5)`,
       ).not.toMatch(pattern);
     }
   });

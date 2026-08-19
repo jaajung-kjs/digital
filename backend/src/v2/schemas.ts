@@ -13,8 +13,8 @@ export const floorCreateSchema = orgNameSchema.extend({ substationId: z.string()
 const assetCreateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1),
-  /* 도면에 놓이는 것은 둘이다: 설비 종류로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
-     둘 중 하나는 있어야 한다는 판정은 커밋이 한다(설비 종류·타입이 실재하는지도 거기서 본다). */
+  /* 도면에 놓이는 것은 둘이다: 설비 품목으로 만든 **설비**(타입 없음)와 단품 **장비**(타입 있음).
+     둘 중 하나는 있어야 한다는 판정은 커밋이 한다(설비 품목·타입이 실재하는지도 거기서 본다). */
   typeId: z.string().uuid().nullish(),
   /* 상태 어휘는 core 의 ASSET_STATUSES 가 유일한 출처다.
      예전에는 z.string() 이라 어떤 문자열이든 통과했고, 실제로 '점검필요'·'need_check' 같은
@@ -27,7 +27,7 @@ const assetCreateSchema = z.object({
   width: z.number().nullish(),
   height: z.number().nullish(),
   parentAssetId: z.string().uuid().nullish(),
-  /** 이 설비를 만든 설비 종류 — **분류**다. 뿌리에만 적힌다. */
+  /** 이 설비를 만든 설비 품목 — **분류**다. 뿌리에만 적힌다. */
   assemblyId: z.string().uuid().nullish(),
   col: z.number().int().min(0).nullish(),
   row: z.number().int().min(0).nullish(),
@@ -52,7 +52,7 @@ const assetPatchSchema = assetCreateSchema
   .partial()
   .extend({
     /**
-     * 자산 종류를 바꾼다 — **포트가 통째로 다시 만들어진다**.
+     * 장비 품목을 바꾼다 — **포트가 통째로 다시 만들어진다**.
      *
      * 예전에는 아예 받지 않았다(`omit`). 그래서 종류를 잘못 고른 장비를 고칠 길이
      * 「지우고 다시 만들기」뿐이었고, 그러면 점검·고장이력·사진이 함께 사라졌다.
@@ -60,7 +60,7 @@ const assetPatchSchema = assetCreateSchema
      * 때와 같은 규칙).
      */
     typeId: z.string().uuid().nullish(),
-    /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 자산 종류 명세에서 만들어지므로
+    /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 장비 품목 명세에서 만들어지므로
        생성·삭제는 없고 값만 고친다 — 그래서 자산 패치에 얹는다(별도 OCC 축을 만들지 않음). */
     portFieldValues: z
       .array(z.object({ portId: z.string().uuid(), fieldValues: z.record(z.unknown()) }))
@@ -70,7 +70,7 @@ const assetPatchSchema = assetCreateSchema
 /**
  * 기록(점검·고장이력·사진)의 공통 형상.
  *
- * `assetId` 는 **설비**(기록의 주인), `partAssetId` 는 그 안에서 이 기록이 가리키는 부품이다
+ * `assetId` 는 **설비**(기록의 주인), `partAssetId` 는 그 안에서 이 기록이 가리키는 장비다
  * — 「L3 스위치 고장」처럼. 비우면 설비 전체에 대한 기록이다.
  */
 const recordOps = <T extends z.ZodRawShape>(createShape: T) => {
@@ -114,7 +114,7 @@ const portTemplateBodySchema = z.object({
   /** 이 포트가 나르는 심선 수. 안 적으면 1(보통 포트). */
   positions: z.number().int().min(1).optional(),
 });
-/** 설비 종류 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
+/** 설비 품목 장비 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 const assemblyItemSchema = z.object({
   id: z.string().min(1),
   typeId: z.string().uuid(),
@@ -140,7 +140,7 @@ export const assemblyUpsertSchema = z.object({
   removeManDays: z.number().min(0).nullable().default(null),
   relocateManDays: z.number().min(0).nullable().default(null),
   sortOrder: z.number().int(),
-  // 빈 설비 종류도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
+  // 빈 설비 품목도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
   items: z.array(assemblyItemSchema),
 });
 
@@ -161,7 +161,7 @@ export const typeUpsertSchema = z.object({
 export const categoryCreateSchema = z.object({ key: z.string().min(1), name: z.string().trim().min(1), sortOrder: z.number().int() });
 export const categoryPatchSchema = z.object({ name: z.string().trim().min(1).optional(), sortOrder: z.number().int().optional() });
 /*
- * 그룹 하나 **통째로** — 제 이름·색과 그 안의 종류 목록 전체. 자산 종류가 포트를 자식으로
+ * 그룹 하나 **통째로** — 제 이름·색과 그 안의 종류 목록 전체. 장비 품목이 포트를 자식으로
  * 안고 한 번의 PUT 으로 나가는 것과 같은 모양이다. 종류는 그룹 없이 홀로 서지 못하므로 낱개
  * CRUD 를 두지 않는다: 이름 바꾸기·추가·삭제·순서가 각자 다른 길로 나가면 「고치고 → 저장」이
  * 한 화면에서 세 가지 뜻을 갖는다.

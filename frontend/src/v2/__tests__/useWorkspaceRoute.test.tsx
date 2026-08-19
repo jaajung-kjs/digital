@@ -28,11 +28,11 @@ describe('useWorkspaceRoute', () => {
   });
 
   it('없거나 모르는 판 이름은 첫 판으로 — 주소는 남이 손으로 고칠 수 있다', () => {
-    expect(at('/n/sub-1').result.current.view).toBe('현황');
-    expect(at('/n/sub-1?view=없는판').result.current.view).toBe('현황');
+    expect(at('/n/sub-1').result.current.view).toBe('설비 대장');
+    expect(at('/n/sub-1?view=없는판').result.current.view).toBe('설비 대장');
   });
 
-  it('자산을 지우면 부품·포트도 함께 지워진다 — 셋은 한 동작의 결과다', () => {
+  it('자산을 지우면 장비·포트도 함께 지워진다 — 셋은 한 동작의 결과다', () => {
     const { result } = at('/n/sub-1?asset=a1&part=p1&port=po1');
     act(() => result.current.selectAsset(null));
     expect(result.current.assetId).toBeNull();

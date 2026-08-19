@@ -192,12 +192,12 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
         })}
       </InsetBox>
 
-      {/* 결과 — 이 자산 종류를 놓으면 생길 판.
+      {/* 결과 — 이 장비 품목을 놓으면 생길 판.
           판은 **남는 자리를 다 쓴다**: 포트가 둘이든 스물다섯이든 캔버스는 같은 크기여야
           종류를 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 판 안에서 스크롤한다. */}
       {faceplate.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
-          <EmptyState title="포트가 없습니다" description="위에서 종류별 개수를 적으면 판이 여기 나타납니다." />
+          <EmptyState title="포트가 없습니다" description="위에서 포트 종류별 개수를 적으면 판이 여기 나타납니다." />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">

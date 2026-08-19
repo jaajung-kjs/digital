@@ -62,20 +62,20 @@ function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortI
 }
 
 /**
- * 고른 부품 — **설비에서 갈라지는 것만** 적는다.
+ * 고른 장비 — **설비에서 갈라지는 것만** 적는다.
  *
- * 부품마다 다를 수 있는 것은 상태·설치일·담당자다(L3 스위치만 나중에 갈아 끼우면 설치일이
- * 다르다). 사진·점검·고장이력은 **설비의 것**이고, 포트는 설비의 포트 탭이 이미 부품별로
+ * 장비마다 다를 수 있는 것은 상태·설치일·담당자다(L3 스위치만 나중에 갈아 끼우면 설치일이
+ * 다르다). 사진·점검·고장이력은 **설비의 것**이고, 포트는 설비의 포트 탭이 이미 장비별로
  * 묶어 보여준다 — 그래서 여기 다시 두지 않는다.
  */
 /**
- * 격자에서 누른 부품 — **대화상자**로 연다.
+ * 격자에서 누른 장비 — **대화상자**로 연다.
  *
  * 아래에 카드로 펴 봤는데, 그러면 구성 탭이 「판 + 카드」 두 층이 되어 판을 보러 온 사람이
  * 매번 카드에 자리를 내주게 된다. 랙을 보러 왔으면 랙만 보여야 한다.
  *
  * 대화상자인 이유는 **빈 칸이 이미 그렇게 동작하기 때문**이다 — 빈 칸을 누르면 「자산 추가」
- * 상자가 뜬다. 찬 칸을 누르면 그 부품 상자가 뜬다: 한 판에서 누르는 곳에 따라 만들기와
+ * 상자가 뜬다. 찬 칸을 누르면 그 장비 상자가 뜬다: 한 판에서 누르는 곳에 따라 만들기와
  * 고치기가 같은 모양으로 열린다. 카드로 펴면 이 둘이 서로 다른 어법이 된다.
  *
  * 판은 **한 번도 줄지 않는다**(상자가 위에 뜨므로) — 20행이 눌려 글씨가 뭉갤 일이 없다.
@@ -84,9 +84,9 @@ function PartDialog({
   part, types, portBoard, onClose, onDelete,
 }: {
   part: V2Asset;
-  /** 고를 수 있는 자산 종류 — 종류를 여기서 바꾸면 포트가 그 종류대로 다시 만들어진다. */
+  /** 고를 수 있는 장비 품목 — 종류를 여기서 바꾸면 포트가 그 종류대로 다시 만들어진다. */
   types: V2AssetType[];
-  /** 이 부품의 포트 판 — 포트 탭이 쓰는 것과 **같은 판**이다(위에서 만들어 내려온다). */
+  /** 이 장비의 포트 판 — 포트 탭이 쓰는 것과 **같은 판**이다(위에서 만들어 내려온다). */
   portBoard: React.ReactNode;
   onClose: () => void;
   onDelete: () => void;
@@ -103,7 +103,7 @@ function PartDialog({
       open
       onClose={onClose}
       /* 갓 만든 자산은 이름이 없다 — 제목이 비면 이 상자가 무엇의 것인지 말하지 못한다. */
-      title={part.name || '새 자산'}
+      title={part.name || '새 장비'}
       /* 포트 판이 들어오므로 좁으면 타일이 한 줄에 서너 개밖에 못 선다. */
       size="lg"
       footer={
@@ -123,9 +123,9 @@ function PartDialog({
           「지우고 다시 만들기」뿐이었다 — 그러면 점검·고장이력·사진이 함께 사라진다.
           종류를 바꾸면 포트는 그 종류대로 다시 만들어진다(포트가 무엇인지는 종류가 정한다).
           케이블이 물린 포트가 사라지는 경우만 저장할 때 막힌다 — 포트를 줄일 때와 같은 규칙. */}
-      <DetailRow label="종류">
+      <DetailRow label="품목">
         <Select
-          aria-label="자산 종류"
+          aria-label="장비 품목"
           value={part.typeId ?? ''}
           size="sm"
           onChange={(e) => {
@@ -134,7 +134,7 @@ function PartDialog({
             commit({ typeId: next.id, ports: portsForNewAsset(next, part.id) });
           }}
         >
-          <option value="">— 종류 선택 —</option>
+          <option value="">— 품목 선택 —</option>
           {types.map((t) => (
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
@@ -143,7 +143,7 @@ function PartDialog({
       <DetailRow label="이름">
         <Input
           key={part.id + part.name}
-          aria-label="부품 이름"
+          aria-label="장비 이름"
           defaultValue={part.name}
           /* 방금 만든 빈 자산이면 이름부터 적는다 — 종류는 판에서 고른 뒤 여기 와 있다. */
           autoFocus={part.name === ''}
@@ -181,7 +181,7 @@ function PartDialog({
       })}
       </div>
 
-      {/* 포트는 **여기서 본다.** 예전에는 「25개 보기」가 포트 탭으로 보냈는데, 부품 하나를
+      {/* 포트는 **여기서 본다.** 예전에는 「25개 보기」가 포트 탭으로 보냈는데, 장비 하나를
           보러 상자를 연 사람에게 상자를 닫고 다른 탭으로 건너뛰게 하는 일이었다.
           판은 포트 탭이 쓰는 것과 같은 것을 그대로 쓴다 — 포트를 보는 판이 둘이 되면
           「빈 자리가 어디였지」를 화면마다 다시 배워야 한다. */}
@@ -205,22 +205,22 @@ interface LayoutTabProps {
   asset: V2Asset;
   /** 설비의 분류이자 자리 명세 — 격자가 여기서 나온다. */
   assembliesById: Map<string, V2Assembly>;
-  /** 이 설비 안에 놓인 부품들 — 자리 순. */
+  /** 이 설비 안에 놓인 장비들 — 자리 순. */
   parts: V2Asset[];
-  /** 밖에서 부품을 지목해 온 경우(현황표에서 부품 행을 눌렀을 때) — 격자에서 빛난다. */
+  /** 밖에서 장비를 지목해 온 경우(현황표에서 장비 행을 눌렀을 때) — 격자에서 빛난다. */
   focusPartId?: string | null;
   /**
-   * 그 부품의 포트 판 — 상자 안에 그대로 앉는다.
+   * 그 장비의 포트 판 — 상자 안에 그대로 앉는다.
    *
    * 판을 여기서 만들지 않고 받는 이유: 그것은 포트 탭이 쓰는 것과 **같은 판**이어야 하고,
-   * 그 판이 쓰는 것들(추적·대국 이동·케이블 잇기)은 이 탭이 아니라 워크스페이스의 것이다.
+   * 그 판이 쓰는 것들(추적·대국 이동·케이블 잇기)은 이 탭이 아니라 설비 관리의 것이다.
    * `close` 는 **화면 뒤를 바꾸는 일**에 쓴다 — 다른 자산으로 옮겨가거나 평면도의 케이블
    * 도구를 무장시키면, 그 앞을 가린 상자는 닫혀야 한다.
    */
   renderPortBoard: (partId: string, close: () => void) => React.ReactNode;
   /** 이 변전소 — 새로 만드는 자산이 어디 것인지. */
   substationId: string;
-  /** 고를 수 있는 자산 종류 — 상자 안에서 종류를 고른다. */
+  /** 고를 수 있는 장비 품목 — 상자 안에서 종류를 고른다. */
   types: V2AssetType[];
 }
 
@@ -246,13 +246,13 @@ export function InfoTab({
   async function handleDelete() {
     const msg =
       descendantCount > 0
-        ? `${descendantCount}개 하위 자산이 함께 삭제됩니다. 계속하시겠습니까?`
-        : '이 자산을 삭제하시겠습니까?';
-    if (!(await confirm({ title: '자산 삭제', target: asset.name, message: msg, confirmLabel: '삭제', danger: true }))) return;
+        ? `딸린 장비 ${descendantCount}개가 함께 삭제됩니다. 계속하시겠습니까?`
+        : '이 설비를 삭제하시겠습니까?';
+    if (!(await confirm({ title: '설비 삭제', target: asset.name, message: msg, confirmLabel: '삭제', danger: true }))) return;
     useV2WorkingCopy.getState().stageAssetDeleteCascade(assetId);
   }
 
-  /** 부품 하나 걷어내기 — 설비는 그대로 둔다. */
+  /** 장비 하나 걷어내기 — 설비는 그대로 둔다. */
 
   // ── 인라인 편집 핸들러 ─────────────────────────────────────────────────────
   function handleNameCommit(value: string) {
@@ -277,7 +277,7 @@ export function InfoTab({
     <>
       {/* 기본 정보 카드 */}
       <DetailCard>
-        {/* 종류 — 부품은 타입이, 설비 종류로 놓은 설비는 **설비 종류**가 그 분류다. */}
+        {/* 종류 — 장비는 타입이, 설비 품목으로 놓은 설비는 **설비 품목**가 그 분류다. */}
         <DetailCardHeader title={type?.name ?? assembly?.name ?? EMPTY} onDelete={handleDelete} />
 
         {/* 이름 */}
@@ -362,9 +362,9 @@ export function InfoTab({
  * 예전에는 이 격자가 「정보」 탭 안, 기본정보 카드 **아래**에 240px 상자로 있었다. 설비를
  * 고른 사람이 가장 먼저 보고 싶은 것이 그 안인데, 스크롤해야 나왔고 크기도 작았다.
  *
- * **스크롤이 생기지 않는다.** 격자가 남는 높이를 채우고(`fill`), 부품을 고르면 그만큼
- * 줄어들며 아래에 그 부품 카드가 선다 — 포트 탭이 쓰는 어법과 같다(고른 것의 상세는
- * 누른 판 **바로 아래**). 부품을 눌렀다고 다른 탭으로 튕기지 않는다.
+ * **스크롤이 생기지 않는다.** 격자가 남는 높이를 채우고(`fill`), 장비를 고르면 그만큼
+ * 줄어들며 아래에 그 장비 카드가 선다 — 포트 탭이 쓰는 어법과 같다(고른 것의 상세는
+ * 누른 판 **바로 아래**). 장비를 눌렀다고 다른 탭으로 튕기지 않는다.
  */
 export function LayoutTab({
   assetId,
@@ -377,7 +377,7 @@ export function LayoutTab({
   types,
 }: LayoutTabProps) {
   const { confirm, confirmDialog } = useConfirm();
-  /** 격자에서 누른 부품 — 대화상자가 뜬다. 판 자체는 그대로다. */
+  /** 격자에서 누른 장비 — 대화상자가 뜬다. 판 자체는 그대로다. */
   const [openPartId, setOpenPartId] = useState<string | null>(null);
 
   const openPart = parts.find((p) => p.id === openPartId) ?? null;
@@ -407,7 +407,7 @@ export function LayoutTab({
   }
 
   /**
-   * 상자를 닫는다 — **종류나 이름이 없는 부품은 없는 것**이다.
+   * 상자를 닫는다 — **종류나 이름이 없는 장비는 없는 것**이다.
    *
    * 빈 자리를 눌렀다가 마음이 바뀌면 그냥 닫으면 된다. 남겨 두면 손해가 두 겹이다: 무엇인지도
    * 모르는 줄이 현황표에 늘고, 이름 없는 자산은 **저장 자체가 거절돼**(서버가 이름을 요구한다)
@@ -419,7 +419,7 @@ export function LayoutTab({
   }
   const savedCables = useV2WorkingCopy((st) => st.saved.cables);
   const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
-  /* 케이블이 물린 포트 — 부품 칸의 포트 요약(n/m)이 읽는다. */
+  /* 케이블이 물린 포트 — 장비 칸의 포트 요약(n/m)이 읽는다. */
   const occupiedPortIds = useMemo(
     () => cableCountByPortId(mergeEffective(savedCables, cableOverlays)),
     [savedCables, cableOverlays],
@@ -439,7 +439,7 @@ export function LayoutTab({
 
   async function handleDeletePart(part: V2Asset) {
     const ok = await confirm({
-      title: '부품 삭제', target: part.name, message: '이 설비에서 걷어냅니다.',
+      title: '장비 삭제', target: part.name, message: '이 설비에서 걷어냅니다.',
       confirmLabel: '삭제', danger: true,
     });
     if (!ok) return;
@@ -448,10 +448,10 @@ export function LayoutTab({
   }
 
   return (
-    /* 구성 탭에는 **구성뿐**이다 — 부품을 눌러도 아래에 카드가 붙지 않는다(대화상자로 뜬다).
+    /* 구성 탭에는 **구성뿐**이다 — 장비를 눌러도 아래에 카드가 붙지 않는다(대화상자로 뜬다).
        판이 탭을 통째로 쓰므로 스크롤도 생기지 않는다. */
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* 자리는 그 설비 종류의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
+      {/* 자리는 그 설비 품목의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
       {assembly && (
         <DetailCard className="flex min-h-0 flex-1 flex-col">
           {/* 「몇 칸 중 몇 칸」은 적지 않는다 — 격자는 그저 배치용 도화지라, 200칸 중 몇 칸을
@@ -463,10 +463,10 @@ export function LayoutTab({
             /* 상자를 못 박지 않고 **남는 높이를 채운다**(`fill`) — 구성 탭은 스크롤이 생기면 안 된다. */
             fill
             items={parts}
-            /* 밖에서 고른 부품(현황 표·평면도)도 여기서 빛난다 — 대화상자를 열면 그 부품으로 옮겨간다. */
+            /* 밖에서 고른 장비(현황 표·평면도)도 여기서 빛난다 — 대화상자를 열면 그 장비로 옮겨간다. */
             selectedId={openPartId ?? focusPartId ?? null}
-            /* 부품을 누르면 **그 부품 상자**가 뜬다. 패널이 통째로 그 부품으로 바뀌지 않는다:
-               부품마다 다른 것은 이름·상태·설치일·담당자 네 줄뿐인데, 그것을 보려고 맥락(지금
+            /* 장비를 누르면 **그 장비 상자**가 뜬다. 패널이 통째로 그 장비로 바뀌지 않는다:
+               장비마다 다른 것은 이름·상태·설치일·담당자 네 줄뿐인데, 그것을 보려고 맥락(지금
                어느 설비를 보고 있나)이 사라지고 대부분 빈 탭 넷이 다시 떴다. */
             onSelect={(child) => setOpenPartId(child.id)}
             /* 놓인 자산이라 묻는다 — 포트·연결까지 함께 사라진다. */

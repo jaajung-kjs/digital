@@ -16,7 +16,7 @@ import type { V2Port } from './types';
 export interface CablePickRequest {
   /** 포트를 고를 자산 — 상세 패널이 이 자산으로 옮겨 간다. */
   assetId: string;
-  /** 이 매체의 포트만 고를 수 있다(케이블 종류가 정한다). `null` 이면 가리지 않는다. */
+  /** 이 매체의 포트만 고를 수 있다(케이블 품목이 정한다). `null` 이면 가리지 않는다. */
   medium: string | null;
   /** 첫 끝점 — 자기 자신에게 잇는 것을 막고, 안내에 출발점으로 적는다. */
   firstEndpoint: { portId: string; label: string } | null;

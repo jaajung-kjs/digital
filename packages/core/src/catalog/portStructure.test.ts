@@ -13,7 +13,7 @@ describe('comparePortStructure', () => {
     expect(comparePortStructure(before, [...before])).toEqual({ redefined: false, additions: [], removals: [] });
   });
 
-  /* 이것이 「자산 종류를 잘못 등록해 포트 두 개를 더 달아야 하는데 아무것도 못 한다」의
+  /* 이것이 「장비 품목을 잘못 등록해 포트 두 개를 더 달아야 하는데 아무것도 못 한다」의
      회귀 테스트다 — 더하는 쪽은 이미 있는 포트를 건드리지 않는다. */
   it('개수가 늘면 늘어난 만큼만 더한다', () => {
     const d = comparePortStructure(before, [tpl({ group: 'P', count: 4 }), before[1]!]);

@@ -153,7 +153,7 @@ catalogRouter.get('/', async (_req, res, next) => {
         include: { items: { orderBy: { sortOrder: 'asc' } } },
         orderBy: { sortOrder: 'asc' },
       }),
-      /* 적용 중인 기준자료를 **카탈로그에 실어 보낸다** — 노임은 노무유형 드롭다운의
+      /* 적용 중인 적산 기준를 **카탈로그에 실어 보낸다** — 노임은 노무유형 드롭다운의
          어휘이자 설계서의 단가이고, 제비율은 설계서의 요율이다. 조회를 따로 두면 화면마다
          「어느 판을 봤나」가 갈린다. */
       nextDb.laborStandard.findMany({ where: { active: true } }),
@@ -303,7 +303,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
 
     // 중복 확인 (친절한 공통 경로 — 동시성은 아래 P2002 폴백이 방어)
     const existing = await nextDb.assetType.findUnique({ where: { key: body.key } });
-    if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `자산 종류 키가 이미 존재합니다: ${body.key}`);
+    if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `장비 품목 키가 이미 존재합니다: ${body.key}`);
 
     let type;
     try {
@@ -465,7 +465,7 @@ catalogRouter.delete('/types/:id', adminOnly, async (req, res, next) => {
 /**
  * PUT /catalog/cable-groups/:id — 그룹 하나를 통째로 바꾼다(제 이름·색 + 종류 목록).
  *
- * 자산 종류가 포트를 자식으로 안고 한 번의 PUT 으로 나가는 것과 같은 모양이다. 낱개 CRUD 를
+ * 장비 품목이 포트를 자식으로 안고 한 번의 PUT 으로 나가는 것과 같은 모양이다. 낱개 CRUD 를
  * 두지 않는 이유는 `cableGroupPutSchema` 에 적었다.
  *
  * 그룹을 새로 만들거나 지우는 길은 없다 — `key` 가 `PORT_KINDS` 의 어휘이고, 포트가 무엇과
@@ -541,13 +541,13 @@ catalogRouter.put('/cable-groups/:id', adminOnly, async (req, res, next) => {
 });
 
 
-// ── 설비 종류 ────────────────────────────────────────────────────────────────
+// ── 설비 품목 ────────────────────────────────────────────────────────────────
 
 /**
- * 설비 종류는 **덮어쓰기**로 저장한다 — 부품 목록을 통째로 갈아 끼운다.
+ * 설비 품목은 **덮어쓰기**로 저장한다 — 장비 목록을 통째로 갈아 끼운다.
  *
- * 이미 놓인 설비는 놓을 때의 모습을 자산으로 굳혀 두었으므로(스냅샷) 설비 종류를 고쳐도
- * 건드릴 것이 없다. 그래서 자산 종류 명세와 달리 "쓰이는 중이면 잠금" 이 필요 없다.
+ * 이미 놓인 설비는 놓을 때의 모습을 자산으로 굳혀 두었으므로(스냅샷) 설비 품목을 고쳐도
+ * 건드릴 것이 없다. 그래서 장비 품목 명세와 달리 "쓰이는 중이면 잠금" 이 필요 없다.
  */
 async function writeAssemblyItems(
   tx: Prisma.TransactionClient,
@@ -570,7 +570,7 @@ async function writeAssemblyItems(
   }
 }
 
-/** 설비 종류 명세를 코어가 판정할 수 있는 형태로 — 타입 id 를 키로 바꾼다. */
+/** 설비 품목 명세를 코어가 판정할 수 있는 형태로 — 타입 id 를 키로 바꾼다. */
 async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
   const types = await nextDb.assetType.findMany({ where: { id: { in: body.items.map((i) => i.typeId) } } });
   const keyById = new Map(types.map((t) => [t.id, t.key]));
@@ -591,7 +591,7 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
     const body = { ...parsed, key: parsed.key ?? (await nextKey('assembly', 'AS')) };
     const { spec, typeKeys } = await assemblySpecOf(body);
     const issue = validateAssembly(spec, typeKeys);
-    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '설비 종류 명세가 유효하지 않습니다', [{ reason: issue }]);
+    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '설비 품목 명세가 유효하지 않습니다', [{ reason: issue }]);
 
     const created = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.create({
@@ -608,7 +608,7 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
     });
     res.status(201).json(created);
   } catch (e) {
-    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 설비 종류 키입니다'));
+    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 설비 품목 키입니다'));
     next(e);
   }
 });
@@ -620,7 +620,7 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
     const body = { ...parsed, key: parsed.key ?? (await nextKey('assembly', 'AS')) };
     const { spec, typeKeys } = await assemblySpecOf(body);
     const issue = validateAssembly(spec, typeKeys);
-    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '설비 종류 명세가 유효하지 않습니다', [{ reason: issue }]);
+    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '설비 품목 명세가 유효하지 않습니다', [{ reason: issue }]);
 
     const updated = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.update({
@@ -638,8 +638,8 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
     });
     res.json(updated);
   } catch (e) {
-    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '설비 종류를 찾을 수 없습니다'));
-    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 설비 종류 키입니다'));
+    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '설비 품목을 찾을 수 없습니다'));
+    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 설비 품목 키입니다'));
     next(e);
   }
 });
@@ -647,16 +647,16 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
 catalogRouter.delete('/assemblies/:id', adminOnly, async (req, res, next) => {
   try {
     const id = idParamSchema.parse(req.params.id);
-    /* 설비 종류는 이미 놓인 설비의 **분류**다 — 지우면 그 설비들이 무엇인지 말할 수 없게 되고
+    /* 설비 품목은 이미 놓인 설비의 **분류**다 — 지우면 그 설비들이 무엇인지 말할 수 없게 되고
        현황 집계가 깨진다. 안 쓰이게 하려면 `isActive` 를 끄면 된다. */
     const inUse = await nextDb.asset.count({ where: { assemblyId: id } });
     if (inUse > 0) {
-      throw new HttpError(409, 'ASSEMBLY_IN_USE', '이 설비 종류로 놓인 설비가 있습니다', [{ count: inUse }]);
+      throw new HttpError(409, 'ASSEMBLY_IN_USE', '이 설비 품목으로 놓인 설비가 있습니다', [{ count: inUse }]);
     }
     await nextDb.assembly.delete({ where: { id } });
     res.status(204).end();
   } catch (e) {
-    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '설비 종류를 찾을 수 없습니다'));
+    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '설비 품목을 찾을 수 없습니다'));
     next(e);
   }
 });

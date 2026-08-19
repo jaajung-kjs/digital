@@ -1,11 +1,11 @@
 /**
- * TypeListPanel — 「자산 종류」 탭의 목록.
+ * TypeListPanel — 「장비 품목」 탭의 목록.
  *
  * 판은 세 탭이 공유하는 `CatalogList` 가 그린다 — 여기서는 **이 대장에만 있는 것**만 얹는다:
  * 분류를 새로 만들고, 이름을 바꾸고, 비어 있으면 지우는 일. 설비·케이블 탭은 분류를 손대지
  * 않으므로 그 자리에 아무것도 없다.
  *
- * 예전에는 이 파일이 목록 전체(머리줄·묶음·행·선택 표시)를 따로 그렸다. 그래서 설비 종류
+ * 예전에는 이 파일이 목록 전체(머리줄·묶음·행·선택 표시)를 따로 그렸다. 그래서 설비 품목
  * 목록과 미묘하게 달랐고(폭 64 vs 56, 분류 묶음 유무), 검색은 어느 쪽에도 없었다.
  */
 import { useMemo } from 'react';
@@ -25,7 +25,7 @@ interface TypeListPanelProps {
    */
   newDraft?: { categoryId: string; name: string } | null;
   onSelectType: (id: string | null) => void;
-  /** 새 자산 종류 — 분류 줄의 `+` 로 만들면 그 분류로 시작한다. */
+  /** 새 장비 품목 — 분류 줄의 `+` 로 만들면 그 분류로 시작한다. */
   onNewType: (categoryId?: string) => void;
   onRenameCategory: (category: V2Category, newName: string) => void;
   onDeleteCategory: (category: V2Category) => void;
@@ -67,7 +67,7 @@ export function TypeListPanel({
         actions: (
           <>
             <IconButton
-              aria-label={`${cat.name} 에 자산 종류 추가`}
+              aria-label={`${cat.name} 에 장비 품목 추가`}
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
@@ -112,7 +112,7 @@ export function TypeListPanel({
         const typed = newDraft.name.trim();
         out.push({
           id: NEW_ID,
-          label: typed || <span className="text-content-faint">새 자산 종류</span>,
+          label: typed || <span className="text-content-faint">새 장비 품목</span>,
           text: typed,
           depth: 1,
         });
@@ -125,13 +125,13 @@ export function TypeListPanel({
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
       <TreePanel
-        title="자산 종류"
+        title="장비 품목"
         nodes={nodes}
         selectedId={selectedTypeId}
         onSelect={(n) => onSelectType(n?.id ?? null)}
         onAdd={onAddCategory}
         addLabel="분류 추가"
-        emptyText="자산 종류가 없습니다"
+        emptyText="장비 품목이 없습니다"
         escapes
       />
     </aside>

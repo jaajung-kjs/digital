@@ -15,7 +15,7 @@ function toCreateInput(a: V2Asset): V2AssetCreateInput {
     floorId: a.floorId, x: a.x, y: a.y, width: a.width, height: a.height,
     parentAssetId: a.parentAssetId, col: a.col, row: a.row, colSpan: a.colSpan, rowSpan: a.rowSpan,
     fieldValues: a.fieldValues,
-    // 설비 종류로 놓은 것 — 분류(설비 종류 참조)와 포트 오버라이드를 함께 실어 보낸다.
+    // 설비 품목으로 놓은 것 — 분류(설비 품목 참조)와 포트 오버라이드를 함께 실어 보낸다.
     ...(a.assemblyId ? { assemblyId: a.assemblyId } : {}),
     ...(a.portCounts ? { portCounts: a.portCounts } : {}),
     ...(a.portPositions ? { portPositions: a.portPositions } : {}),

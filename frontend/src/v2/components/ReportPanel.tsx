@@ -46,7 +46,7 @@ function ReportRow({ item, laborName }: { item: ReportItem; laborName: (code: st
       <td className="py-1.5 pr-3 align-middle text-sm text-content tabular-nums">
         {item.qty}{item.unit}
       </td>
-      {/* 설계서에 서는 것은 **직종 이름**이다 — 저장된 것은 코드이고, 이름은 적용 중인
+      {/* 산출 내역에 서는 것은 **직종 이름**이다 — 저장된 것은 코드이고, 이름은 적용 중인
           노임단가 판에서 읽는다(판을 갈면 이름도 따라 바뀐다). */}
       <td className="py-1.5 pr-3 align-middle text-sm text-content-muted">
         {laborName(item.laborCode) ?? EMPTY}
@@ -83,7 +83,7 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title="설계서 — 공량 미리보기"
+      title="산출 내역 — 공량 미리보기"
       footer={footer}
       className="max-w-2xl"
     >
@@ -144,7 +144,7 @@ const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
  * 금액 — 물량에서 **총공사비**까지.
  *
  * 사람이 넣는 것은 공사기간 한 칸과 계약방법뿐이다. 공사규모는 직접공사비가 정하고, 요율은
- * 적용 중인 제비율 판이 준다 — 그래서 「기준자료」가 없으면 여기서 멈추고 그렇게 말한다.
+ * 적용 중인 제비율 판이 준다 — 그래서 「적산 기준」가 없으면 여기서 멈추고 그렇게 말한다.
  */
 function EstimateSection({ items }: { items: ReportItem[] }) {
   const catalog = useV2Catalog();
@@ -158,7 +158,7 @@ function EstimateSection({ items }: { items: ReportItem[] }) {
   if (!overhead) {
     return (
       <div className="border-t border-line pt-3 text-xs text-content-faint">
-        금액을 내려면 「설비관리대장 → 기준자료」에서 제비율을 먼저 올리세요.
+        금액을 내려면 「설비관리대장 → 적산 기준」에서 제비율을 먼저 올리세요.
       </div>
     );
   }

@@ -1,15 +1,15 @@
 import { useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-/** 워크스페이스가 보여 줄 수 있는 판. */
-export type ViewMode = '현황' | '평면도' | '선번장' | '계통';
+/** 설비 관리가 보여 줄 수 있는 판. */
+export type ViewMode = '설비 대장' | '평면도' | '선번장' | '계통';
 
-export const VIEW_MODES: readonly ViewMode[] = ['현황', '평면도', '선번장', '계통'];
+export const VIEW_MODES: readonly ViewMode[] = ['설비 대장', '평면도', '선번장', '계통'];
 
 const isView = (v: string | null): v is ViewMode => v != null && (VIEW_MODES as readonly string[]).includes(v);
 
 /**
- * 워크스페이스가 **어디를 보고 있는지는 주소가 안다**.
+ * 설비 관리가 **어디를 보고 있는지는 주소가 안다**.
  *
  * 예전에는 전부 메모리에만 있었다 — 앱 전체가 주소 하나(`/`)였고, 고른 변전소도 탭도
  * 고른 자산도 컴포넌트 상태였다. 그래서 ① 북마크할 수 없고 ② 남에게 보내 줄 수 없고
@@ -19,7 +19,7 @@ const isView = (v: string | null): v is ViewMode => v != null && (VIEW_MODES as 
  *
  * 주소가 담는 것은 **지금 보고 있는 자리**뿐이다:
  *
- *     /n/<조직·변전소 id>?view=선번장&asset=<자산>&part=<부품>&port=<포트>
+ *     /n/<조직·변전소 id>?view=선번장&asset=<자산>&part=<장비>&port=<포트>
  *
  * 케이블을 잇는 중이라거나 추적 결과 같은 **한 번짜리 명령**은 담지 않는다 — 주소에
  * 넣으면 그 링크를 연 사람이 영문 모를 도구가 켜진 화면을 만난다.
@@ -34,7 +34,7 @@ export function useWorkspaceRoute() {
 
   const raw = params.get('view');
   /* 모르는 판 이름이 오면 조용히 첫 판으로 — 주소는 남이 손으로 고칠 수 있다. */
-  const view: ViewMode = isView(raw) ? raw : '현황';
+  const view: ViewMode = isView(raw) ? raw : '설비 대장';
 
   /** 조직을 옮긴다 — 보던 판·자산은 딸려 가지 않는다(그 자산은 저 변전소에 없다). */
   const selectNode = useCallback(
@@ -64,7 +64,7 @@ export function useWorkspaceRoute() {
   /**
    * 자산을 고른다.
    *
-   * `part`·`port` 는 상세 패널이 **어느 부품·어느 포트를 짚은 채로** 열릴지다. 셋을 함께
+   * `part`·`port` 는 상세 패널이 **어느 장비·어느 포트를 짚은 채로** 열릴지다. 셋을 함께
    * 쓰는 이유는 셋이 한 동작의 결과이기 때문 — 따로 두면 자산만 바뀌고 포트가 남는다.
    */
   const selectAsset = useCallback(

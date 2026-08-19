@@ -10,8 +10,8 @@ export interface V2AssetType {
   portTemplates: V2PortTemplate[];
 }
 
-/** 케이블 종류 — **품셈을 갖는다**(미터당). 자산 종류·설비 종류와 같은 층이다. */
-/** 케이블 종류 — 공량·단가는 자산·설비와 **같은 다섯 칸**이다(`LaborSpec`). */
+/** 케이블 품목 — **품셈을 갖는다**(미터당). 장비 품목·설비 품목과 같은 층이다. */
+/** 케이블 품목 — 공량·단가는 자산·설비와 **같은 다섯 칸**이다(`LaborSpec`). */
 export interface V2CableCategory {
   id: string;
   name: string;
@@ -24,7 +24,7 @@ export interface V2CableCategory {
 }
 /** 케이블 그룹 — 포트 종류와 1:1인 고정 어휘. 이름·색만 고친다(품셈은 종류가 갖는다). */
 export interface V2CableGroup { id: string; key: string; name: string; color: string; sortOrder: number; categories: V2CableCategory[] }
-/** 설비 종류를 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
+/** 설비 품목을 이루는 장비 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 export interface V2AssemblyItem {
   id: string;
   typeId: string;
@@ -36,7 +36,7 @@ export interface V2AssemblyItem {
 }
 
 /**
- * 설비 종류 — 부품을 조립해 만든 **한 설비**(「송변전광단말장치 1식」).
+ * 설비 품목 — 장비를 조립해 만든 **한 설비**(「송변전광단말장치 1식」).
  *
  * 고쳐도 이미 놓인 설비는 그대로다(스냅샷) — 놓을 때의 이름을 뿌리 자산에 굳혀 둔다.
  */
@@ -56,7 +56,7 @@ export interface V2Assembly {
   items: V2AssemblyItem[];
 }
 
-/** 설비 종류 저장 바디 — 부품 목록을 통째로 갈아 끼운다(덮어쓰기). */
+/** 설비 품목 저장 바디 — 장비 목록을 통째로 갈아 끼운다(덮어쓰기). */
 export interface AssemblyUpsertBody {
   /** 새로 만들 때는 보내지 않는다 — 서버가 붙인다(참조용 식별자다). */
   key?: string; name: string; categoryId: string;
@@ -117,7 +117,7 @@ export interface V2OverheadStandard {
 
 export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[]; assemblies: V2Assembly[]; wageStandard: V2WageStandard | null; overheadStandard: V2OverheadStandard | null }
 
-/** 올려 둔 기준자료 한 판(목록용 — 내용은 빼고). */
+/** 올려 둔 적산 기준 한 판(목록용 — 내용은 빼고). */
 export interface V2Standard {
   id: string;
   kind: 'wage' | 'overhead';
@@ -152,12 +152,12 @@ export interface V2Port {
 }
 export interface V2Asset {
   id: string; name: string;
-  /** 부품이면 그 타입. **설비 종류로 놓은 설비는 타입이 없다** — 분류는 설비 종류다. */
+  /** 장비이면 그 타입. **설비 품목으로 놓은 설비는 타입이 없다** — 분류는 설비 품목이다. */
   typeId: string | null;
   substationId: string; status: string;
   floorId: string | null; x: number | null; y: number | null; width: number | null; height: number | null;
   parentAssetId: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
-  /** 이 설비를 만든 설비 종류 — **분류**다(글자가 아니라 참조). 뿌리에만 적힌다. */
+  /** 이 설비를 만든 설비 품목 — **분류**다(글자가 아니라 참조). 뿌리에만 적힌다. */
   assemblyId?: string | null;
   /** 만들 때만 쓰는 포트 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
   portCounts?: Record<string, number>;
@@ -165,10 +165,10 @@ export interface V2Asset {
   fieldValues: Record<string, unknown>; updatedAt: string; ports: V2Port[];
 }
 /**
- * 기록의 주인은 **설비**(`assetId`)이고, `partAssetId` 는 그 안에서 이 기록이 가리키는 부품이다
+ * 기록의 주인은 **설비**(`assetId`)이고, `partAssetId` 는 그 안에서 이 기록이 가리키는 장비다
  * — 「L3 스위치 고장」처럼. 비우면 설비 전체에 대한 기록이다.
  *
- * 예전에는 부품에도 따로 매달 수 있어서, 설비 이력을 열면 안의 부품 기록이 보이지 않았다.
+ * 예전에는 장비에도 따로 매달 수 있어서, 설비 이력을 열면 안의 장비 기록이 보이지 않았다.
  */
 export interface V2MaintenanceLog { id: string; assetId: string; partAssetId?: string | null; occurredAt: string; content: string; action: string | null; updatedAt: string }
 export interface V2InspectionLog { id: string; assetId: string; partAssetId?: string | null; inspectedAt: string; content: string; result: string | null; updatedAt: string }
@@ -207,7 +207,7 @@ export interface V2AssetCreateInput {
   portIds?: Record<string, string>;
 }
 export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'portCounts' | 'portPositions'>> & {
-  /** 이 자산 포트에 딸린 값 — 포트는 자산 종류 명세가 만드므로 **값만** 고친다. */
+  /** 이 자산 포트에 딸린 값 — 포트는 장비 품목 명세가 만드므로 **값만** 고친다. */
   portFieldValues?: { portId: string; fieldValues: Record<string, unknown> }[];
 };
 export interface V2CableCreateInput { id: string; aPortId: string; bPortId: string; categoryId?: string | null; name?: string | null; pathPoints?: { x: number; y: number }[]; specParams?: Record<string, unknown> }

@@ -472,13 +472,13 @@ describe('catalog CRUD', () => {
   it('공량·단가 다섯 칸이 세 담체 모두에서 저장·조회된다', async () => {
     const spec = { laborCode: '1086', unitPrice: 12345, installManDays: 1.5, removeManDays: 0.5, relocateManDays: 2.5 };
 
-    // 자산 종류
+    // 장비 품목
     const t = await request(app)
       .post('/api/v2/catalog/types')
       .set(admin)
       .send(makeTypeBody(catId, { key: `${KEY_PREFIX}_SPEC`, ...spec }))
       .expect(201);
-    // 설비 종류
+    // 설비 품목
     const a = await request(app)
       .post('/api/v2/catalog/assemblies')
       .set(admin)
@@ -493,7 +493,7 @@ describe('catalog CRUD', () => {
       expect(row).toMatchObject(spec);
     }
 
-    // 케이블 종류 — 그룹 통째 PUT 으로 간다
+    // 케이블 품목 — 그룹 통째 PUT 으로 간다
     const seeded = await nextDb.cableCategory.findMany({ where: { groupId: cableGroupId }, orderBy: { sortOrder: 'asc' } });
     const body = {
       name: groupName,

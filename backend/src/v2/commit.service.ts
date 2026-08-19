@@ -92,15 +92,15 @@ function resolvePlacement(p: { floorId?: string | null; parentAssetId?: string |
 
 async function loadTypeSpec(tx: Tx, typeId: string) {
   const row = await tx.assetType.findUnique({ where: { id: typeId }, include: TYPE_INCLUDE });
-  if (!row) throw new HttpError(422, 'INVALID_TYPE', '유효하지 않은 자산 종류입니다');
+  if (!row) throw new HttpError(422, 'INVALID_TYPE', '유효하지 않은 장비 품목입니다');
   return { row, spec: typeRowToSpec(row) };
 }
 
 /**
- * 부품을 **설비 격자**에 놓을 수 있는가.
+ * 장비를 **설비 격자**에 놓을 수 있는가.
  *
- * 격자는 설비가 가리키는 설비 종류가 선언한다 — 자산 종류가 아니다. 그래서 부모는 반드시
- * 설비 종류로 놓인 설비여야 한다(부품 안에 부품을 담지 않는다).
+ * 격자는 설비가 가리키는 설비 품목이 선언한다 — 장비 품목이 아니다. 그래서 부모는 반드시
+ * 설비 품목으로 놓인 설비여야 한다(장비 안에 장비를 담지 않는다).
  */
 async function assertGridParent(
   tx: Tx,
@@ -109,7 +109,7 @@ async function assertGridParent(
 ): Promise<void> {
   const parent = await tx.asset.findUnique({ where: { id: parentAssetId }, include: { assembly: true } });
   if (!parent || parent.substationId !== substationId) throw new HttpError(422, 'INVALID_PARENT', '부모 자산이 유효하지 않습니다');
-  if (!parent.assembly) throw new HttpError(422, 'INVALID_PARENT', '부품을 담을 수 있는 것은 설비 종류로 놓은 설비뿐입니다');
+  if (!parent.assembly) throw new HttpError(422, 'INVALID_PARENT', '장비를 담을 수 있는 것은 설비 품목으로 놓은 설비뿐입니다');
 }
 
 /**
@@ -118,7 +118,7 @@ async function assertGridParent(
  * 왜 적용하면서 한 건씩 보지 않는가: 한 건씩 보면 **중간 상태**를 검사하게 된다.
  * 슬롯 넷을 세로에서 가로로 돌려 놓는 것처럼 자리를 서로 맞바꾸는 재배열은 최종 배치가
  * 멀쩡해도 첫 건에서 걸린다 — 그 순간 나머지 셋은 아직 옛 자리에 있기 때문이다.
- * 두 부품의 자리를 맞바꾸는 것도 마찬가지로 늘 걸렸다.
+ * 두 장비의 자리를 맞바꾸는 것도 마찬가지로 늘 걸렸다.
  *
  * 화면은 오버레이를 다 얹은 **최종 상태**로 판정하므로(`validateGridPlacement`), 서버도
  * 같은 것을 봐야 둘의 답이 갈리지 않는다. 실제로 화면에서는 놓이는데 저장만 안 되는
@@ -136,7 +136,7 @@ async function assertGridsValid(tx: Tx, parentIds: Iterable<string>): Promise<vo
 
     for (const mine of placed) {
       const err = validateGridPlacement({
-        /* 격자는 **상수 하나**다 — 설비 종류마다 따로 저장하던 행·열 수를 걷었다. 화면이
+        /* 격자는 **상수 하나**다 — 설비 품목마다 따로 저장하던 행·열 수를 걷었다. 화면이
            그리는 판과 서버가 재는 판이 다르면, 눈으로 놓은 자리가 저장할 때만 튕긴다. */
         grid: ASSEMBLY_GRID,
         col: mine.col,
@@ -159,17 +159,17 @@ async function assertGridsValid(tx: Tx, parentIds: Iterable<string>): Promise<vo
 let touchedGrids = new Set<string>();
 
 async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Promise<void> {
-  /* 도면에 놓이는 것은 둘이다: 설비 종류로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
-     설비는 설비 종류가 분류이므로 타입을 요구하지 않는다. */
+  /* 도면에 놓이는 것은 둘이다: 설비 품목으로 만든 **설비**(타입 없음)와 단품 **장비**(타입 있음).
+     설비는 설비 품목이 분류이므로 타입을 요구하지 않는다. */
   if (!input.typeId && !input.assemblyId) {
-    throw new HttpError(422, 'INVALID_ASSET', '자산 종류나 설비 종류 중 하나는 있어야 합니다');
+    throw new HttpError(422, 'INVALID_ASSET', '장비 품목나 설비 품목 중 하나는 있어야 합니다');
   }
   const spec = input.typeId ? (await loadTypeSpec(tx, input.typeId)).spec : null;
   const placement = resolvePlacement(input);
   if (placement === 'floor') {
-    /* 도면에 놓이는 것은 **설비 하나뿐**이다. 예전에는 자산 종류에 「배치 가능」 딱지를 달아
+    /* 도면에 놓이는 것은 **설비 하나뿐**이다. 예전에는 장비 품목에 「배치 가능」 딱지를 달아
        단품도 따로 놓았는데, 그러면 놓는 길이 둘로 갈리고 현황의 「종류」도 때로는 자산·때로는
-       설비를 가리켰다. 접지함체처럼 단품인 것도 1칸짜리 설비 종류로 만들어 놓는다. */
+       설비를 가리켰다. 접지함체처럼 단품인 것도 1칸짜리 설비 품목으로 만들어 놓는다. */
     if (!input.assemblyId) throw new HttpError(422, 'NOT_PLACEABLE', '도면에는 설비만 놓을 수 있습니다');
     const floor = await tx.floor.findUnique({ where: { id: input.floorId as string } });
     if (!floor || floor.substationId !== substationId) throw new HttpError(422, 'INVALID_FLOOR', '층이 유효하지 않습니다');
@@ -206,7 +206,7 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
     }
     throw e;
   }
-  // 설비 자신은 포트가 없다 — 포트는 부품의 것이다.
+  // 설비 자신은 포트가 없다 — 포트는 장비의 것이다.
   /* 포트 구조는 **명세가 정한다** — 화면이 보낸 것을 그대로 믿지 않는다. 다만 id 는
      화면이 정한 것을 쓴다(자산 id 를 그렇게 하는 것과 같은 어법): 저장 전에 그 포트에
      이어 둔 케이블이 저장 뒤에도 같은 포트를 가리켜야 한다. */
@@ -238,7 +238,7 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
     };
     const placement = resolvePlacement(merged);
     if (placement === 'floor') {
-      // 도면에 놓이는 것은 설비뿐 — 부품을 층으로 끌어낼 수는 없다.
+      // 도면에 놓이는 것은 설비뿐 — 장비를 층으로 끌어낼 수는 없다.
       if (!existing.assemblyId) throw new HttpError(422, 'NOT_PLACEABLE', '도면에는 설비만 놓을 수 있습니다');
       const floor = await tx.floor.findUnique({ where: { id: merged.floorId as string } });
       if (!floor || floor.substationId !== substationId) throw new HttpError(422, 'INVALID_FLOOR', '층이 유효하지 않습니다');
@@ -456,7 +456,7 @@ async function applyCableUpdate(
   // categoryId non-null 설정 시: 존재 확인 + 매체 불일치 검사
   if (p.categoryId != null) {
     const cat = await tx.cableCategory.findUnique({ where: { id: p.categoryId }, include: { group: true } });
-    if (!cat) throw new HttpError(422, 'INVALID_CABLE_CATEGORY', '케이블 종류가 유효하지 않습니다');
+    if (!cat) throw new HttpError(422, 'INVALID_CABLE_CATEGORY', '케이블 품목이 유효하지 않습니다');
     const cableMedium = cat.group?.key;
     const a = existing.aPort;
     const b = existing.bPort;
@@ -467,7 +467,7 @@ async function applyCableUpdate(
       cableMedium,
     );
     if (err === 'medium-mismatch') {
-      throw new HttpError(422, 'CONNECT_MEDIUM_MISMATCH', '케이블 종류와 포트 매체가 일치하지 않습니다');
+      throw new HttpError(422, 'CONNECT_MEDIUM_MISMATCH', '케이블 품목과 포트 매체가 일치하지 않습니다');
     }
   }
 
@@ -518,7 +518,7 @@ async function applyCableCreate(
   let cableMedium: string | undefined;
   if (input.categoryId) {
     const cat = await tx.cableCategory.findUnique({ where: { id: input.categoryId }, include: { group: true } });
-    if (!cat) throw new HttpError(422, 'INVALID_CABLE_CATEGORY', '케이블 종류가 유효하지 않습니다');
+    if (!cat) throw new HttpError(422, 'INVALID_CABLE_CATEGORY', '케이블 품목이 유효하지 않습니다');
     cableMedium = cat.group?.key;
   }
 

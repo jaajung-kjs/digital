@@ -1,5 +1,5 @@
 /**
- * 공량·단가 카드 — **자산 종류·설비 종류·케이블 종류가 같은 것을 쓴다**.
+ * 공량·단가 카드 — **장비 품목·설비 품목·케이블 품목이 같은 것을 쓴다**.
  *
  * 예전에는 세 화면이 각자 폼을 갖고 있었다. 그래서 케이블에만 이설이 없고, 설비에만
  * 자재단가가 없고, 라벨도 제각각이었다. 칸을 늘리거나 줄이려면 세 곳을 손으로 맞춰야 했으니
@@ -8,7 +8,7 @@
  * 칸은 `WORK_KINDS` 가, 단위는 `LABOR_CARRIERS` 가 정한다(`@twin/core` 의 `laborSpec`).
  *
  * **고르는 칸 · 적는 칸 · 따라오는 칸**이 눈으로 갈린다: 노무유형은 고르고, 단가·품은 적고,
- * 노임단가는 기준자료가 정해 글자로만 선다.
+ * 노임단가는 적산 기준가 정해 글자로만 선다.
  */
 import { useEffect, useState } from 'react';
 import { LABOR_CODE_LABEL, LABOR_WAGE_LABEL, laborSpecColumns } from '@twin/core';
@@ -102,7 +102,7 @@ export function LaborSpecForm({
         <LaborTypeSelect value={spec.laborCode} onChange={(laborCode) => onChange({ laborCode })} />
       </DetailRow>
 
-      {/* 코드는 **저장되는 값**, 노임단가는 기준자료가 정하는 **조회 값** — 다른 데이터라 줄을 나눈다. */}
+      {/* 코드는 **저장되는 값**, 노임단가는 적산 기준가 정하는 **조회 값** — 다른 데이터라 줄을 나눈다. */}
       <DetailRow label="코드">
         <span className="text-sm text-content tabular-nums">{spec.laborCode ?? EMPTY}</span>
       </DetailRow>

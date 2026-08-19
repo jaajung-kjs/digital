@@ -7,7 +7,7 @@ import type { V2Category } from './types';
 /**
  * 분류(구조·통신·전원·공조)를 만들고 고치고 지우는 일 — **한 곳**.
  *
- * 분류는 설비 종류와 자산 종류가 **함께 쓰는 체계**다(`AssetCategory` 하나가 둘을 다
+ * 분류는 설비 품목과 장비 품목이 **함께 쓰는 체계**다(`AssetCategory` 하나가 둘을 다
  * 담는다). 그래서 어느 화면에서 만들든 양쪽 목록에 나타나야 하고, 규칙도 하나여야 한다 —
  * 두 화면이 각자 구현하면 오류 문구·성공 처리·정렬 순서가 갈린다.
  */
@@ -40,7 +40,7 @@ export function useCategoryAdmin() {
       <PromptModal
         open={addOpen}
         title="분류 추가"
-        hint="자산·설비 종류를 묶는 상위 분류입니다. 이름이 곧 키가 되므로 나중에 바꿀 수 없습니다."
+        hint="설비·장비 품목을 묶는 상위 분류입니다. 이름이 곧 키가 되므로 나중에 바꿀 수 없습니다."
         label="분류 이름"
         placeholder="예: 계측"
         busy={mutations.createCategory.isPending}

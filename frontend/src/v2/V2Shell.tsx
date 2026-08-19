@@ -3,7 +3,7 @@
  *
  * 구조:
  *   ┌── header (shrink-0, h-12) ──────────────────────────────────────────┐
- *   │  [Boxes] ICT 디지털 트윈  |  워크스페이스  설비관리대장  |  사용자(역할) 로그아웃 │
+ *   │  [Boxes] ICT 디지털 트윈  |  설비 관리  설비관리대장  |  사용자(역할) 로그아웃 │
  *   └─────────────────────────────────────────────────────────────────────┘
  *   ┌── <Outlet/> (flex-1, min-h-0) ─────────────────────────────────────┐
  *   │  v2 페이지가 자체 OrgTreePanel 보유 → 이중 사이드바 없음           │
@@ -20,7 +20,7 @@ import { PRODUCT_NAME } from '../product';
 /**
  * 최상위 화면 셋 — **다루는 것이 다르면 탭이 아니라 화면을 나눈다**.
  *
- * 기준자료는 대장의 「종류」 탭들과 성격이 다르다: 우리가 만드는 것이 아니라 바깥에서
+ * 적산 기준는 대장의 「종류」 탭들과 성격이 다르다: 우리가 만드는 것이 아니라 바깥에서
  * 받아 오는 표다. 대장 안에 넣었더니 그 탭만 왼쪽 목록이 사라져 화면이 덜컹거렸다.
  */
 /**
@@ -30,11 +30,11 @@ import { PRODUCT_NAME } from '../product';
  * 갖는다. 그래도 한 묶음이라는 것은 보여야 해서, 앞뒤로 옅은 구분선을 둔다.
  */
 const MAIN_NAV = [
-  { to: '/', label: '워크스페이스', divideAfter: true },
-  { to: '/assemblies', label: '설비 종류' },
-  { to: '/assets', label: '자산 종류' },
-  { to: '/cables', label: '케이블 종류', divideAfter: true },
-  { to: '/standards', label: '기준자료' },
+  { to: '/', label: '설비 관리', divideAfter: true },
+  { to: '/assemblies', label: '설비 품목' },
+  { to: '/assets', label: '장비 품목' },
+  { to: '/cables', label: '케이블 품목', divideAfter: true },
+  { to: '/standards', label: '적산 기준' },
 ] as const;
 
 export function V2Shell() {

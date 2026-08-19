@@ -9,7 +9,7 @@ const uniq = `t2a-cm-${Date.now()}`;
 const admin = { Authorization: authHeader('admin') };
 let subId: string, floorId: string;
 let pitrTypeId: string, slotTypeId: string, groundingTypeId: string;
-/** 설비는 설비 종류로 놓는다 — 타입이 아니라 설비 종류가 그 분류다. */
+/** 설비는 설비 품목으로 놓는다 — 타입이 아니라 설비 품목이 그 분류다. */
 let optSetId: string, ofdAssemblyId: string;
 
 const commit = (payload: unknown) =>
@@ -38,7 +38,7 @@ afterAll(async () => {
 });
 
 describe('PUT /commit — assets', () => {
-  it('설비+부품 2개를 한 커밋으로 생성(부모가 같은 커밋의 create), 포트 자동 인스턴스화', async () => {
+  it('설비+장비 2개를 한 커밋으로 생성(부모가 같은 커밋의 create), 포트 자동 인스턴스화', async () => {
     const rackId = randomUUID();
     const m1 = randomUUID(), m2 = randomUUID();
     await commit({
@@ -53,7 +53,7 @@ describe('PUT /commit — assets', () => {
     }).expect(200);
     const m1Ports = await nextDb.port.findMany({ where: { assetId: m1 } });
     expect(m1Ports.length).toBe(2); // device 기본 포트 템플릿 (network 2)
-    // 설비 자신에게는 포트가 없다 — 포트를 갖는 것은 안에 든 부품이다.
+    // 설비 자신에게는 포트가 없다 — 포트를 갖는 것은 안에 든 장비다.
     expect(await nextDb.port.count({ where: { assetId: rackId } })).toBe(0);
   });
 
@@ -73,7 +73,7 @@ describe('PUT /commit — assets', () => {
    * 나머지와 겹쳐 늘 `PLACEMENT_OVERLAP` 이 났다. 화면은 오버레이를 다 얹은 최종 상태로
    * 판정하므로 놓이기는 하는데 저장만 안 되는 상태였다(슬롯 넷을 세로→가로로 돌리기).
    */
-  it('두 부품의 자리를 맞바꾸는 커밋이 통과한다 (중간 상태가 아니라 최종 배치를 본다)', async () => {
+  it('두 장비의 자리를 맞바꾸는 커밋이 통과한다 (중간 상태가 아니라 최종 배치를 본다)', async () => {
     const rackId = randomUUID();
     const a = randomUUID(), b = randomUUID();
     await commit({
@@ -101,9 +101,9 @@ describe('PUT /commit — assets', () => {
     expect(after.find((x) => x.id === b)!.row).toBe(0);
   });
 
-  /* 담을 수 있는 것은 설비 종류로 놓은 설비뿐이다 — 부품 안에 부품을 넣을 수는 없다.
-     무엇을 담을지는 설비 종류를 짜는 사람이 정하지, 자리가 정하지 않는다(수용 규칙은 걷었다). */
-  it('부품을 부모로 삼으면 422 INVALID_PARENT', async () => {
+  /* 담을 수 있는 것은 설비 품목으로 놓은 설비뿐이다 — 장비 안에 장비를 넣을 수는 없다.
+     무엇을 담을지는 설비 품목을 짜는 사람이 정하지, 자리가 정하지 않는다(수용 규칙은 걷었다). */
+  it('장비를 부모로 삼으면 422 INVALID_PARENT', async () => {
     const part = await nextDb.asset.findFirstOrThrow({ where: { substationId: subId, name: `${uniq}-m1` } });
     const res = await commit({
       assets: {

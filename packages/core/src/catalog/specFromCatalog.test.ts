@@ -16,9 +16,9 @@ describe('specFromCatalog', () => {
     expect(spec.ports).toHaveLength(1);
   });
 
-  /* 도면 배치는 이제 **설비 종류**의 일이다 — 자산 종류에는 배치 여부도 기본 크기도 없다.
+  /* 도면 배치는 이제 **설비 품목**의 일이다 — 장비 품목에는 배치 여부도 기본 크기도 없다.
      (기본 크기는 저장·편집만 되고 읽는 곳이 한 군데도 없는 죽은 값이기도 했다.) */
-  it('배치에 관한 것은 자산 종류가 말하지 않는다', () => {
+  it('배치에 관한 것은 장비 품목이 말하지 않는다', () => {
     expect('placement' in specFromCatalog(row)).toBe(false);
   });
 });

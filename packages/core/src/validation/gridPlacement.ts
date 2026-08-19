@@ -1,14 +1,14 @@
 /**
- * 설비 격자에 부품을 놓을 수 있는가.
+ * 설비 격자에 장비를 놓을 수 있는가.
  *
- * 예전에는 자산 종류가 자리(컨테이너)를 선언하고 무엇을 받을지(`accepts`)까지 정했다.
+ * 예전에는 장비 품목이 자리(컨테이너)를 선언하고 무엇을 받을지(`accepts`)까지 정했다.
  * 그래서 담기 위한 랙이라는 자산이 따로 있어야 했고, 그 랙이 현황에 올라왔다.
  *
- * 이제 자리는 **설비 종류의 격자** 하나뿐이고, 무엇을 놓을지는 설비 종류를 짜는 사람이 정한다 —
+ * 이제 자리는 **설비 품목의 격자** 하나뿐이고, 무엇을 놓을지는 설비 품목을 짜는 사람이 정한다 —
  * 수용 규칙이 사라진 자리다. 남는 판정은 격자 안에 들어가는가, 서로 겹치지 않는가뿐이다.
  */
 
-/** 부품이 격자에서 차지하는 자리 — 왼쪽 위 모서리 + 크기. */
+/** 장비가 격자에서 차지하는 자리 — 왼쪽 위 모서리 + 크기. */
 export interface GridOccupant {
   assetId: string;
   col: number;
@@ -31,7 +31,7 @@ export interface GridCell {
   row: number;
 }
 
-/** 설비가 가진 격자 — 설비 종류가 선언한다. */
+/** 설비가 가진 격자 — 설비 품목이 선언한다. */
 export interface Grid {
   cols: number;
   rows: number;
@@ -40,7 +40,7 @@ export interface Grid {
 export type GridError = 'out-of-range' | 'overlap';
 
 /**
- * 격자에 놓였을 수도, 안 놓였을 수도 있는 것 — 자산·설비 종류의 부품·DB 행이 다 이 모양이다.
+ * 격자에 놓였을 수도, 안 놓였을 수도 있는 것 — 자산·설비 품목의 장비·DB 행이 다 이 모양이다.
  *
  * `col`·`row` 가 없으면 **격자에 없는 것**이고(도면에 놓인 설비가 그렇다), 크기를 안 적었으면
  * 한 칸이다.
@@ -55,7 +55,7 @@ export interface MaybePlaced {
 /**
  * 그것이 차지하는 자리 — 격자에 없으면 `null`.
  *
- * 이 셈이 **다섯 군데에 흩어져 있었다**(설비 편집기·구성 탭·설비 종류 검증·서버 커밋·격자
+ * 이 셈이 **다섯 군데에 흩어져 있었다**(설비 편집기·구성 탭·설비 품목 검증·서버 커밋·격자
  * 렌더). 저마다 `col != null` 을 걸러 내고 `?? 1` 로 크기를 메우고 `!` 로 타입을 우겼는데,
  * 같은 규칙을 다섯 번 적으면 한 곳이 어긋나도 아무도 모른다.
  */
@@ -93,7 +93,7 @@ export function validateGridPlacement(args: {
   row: number | null;
   colSpan: number;
   rowSpan: number;
-  /** 같은 설비의 다른 부품들(검증 대상 자신은 빼고 준다) */
+  /** 같은 설비의 다른 장비들(검증 대상 자신은 빼고 준다) */
   occupants: readonly GridOccupant[];
 }): GridError | null {
   if (args.colSpan < 1 || args.rowSpan < 1) return 'out-of-range';

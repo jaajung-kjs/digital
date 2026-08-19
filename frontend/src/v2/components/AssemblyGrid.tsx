@@ -8,10 +8,10 @@ import {
 } from '../gridDrag';
 
 /**
- * 격자에 놓이는 것 — **자산이든 설비 종류 부품이든** 이만큼만 있으면 그린다.
+ * 격자에 놓이는 것 — **자산이든 설비 품목 장비가든** 이만큼만 있으면 그린다.
  *
- * 상세 패널은 실제 자산을, 설비 종류 편집기는 아직 자산이 아닌 부품을 놓는다. 둘은 같은 판을
- * 봐야 한다 — 설비 종류에서 짠 모습이 놓고 나면 달라 보이면 짜는 뜻이 없다.
+ * 상세 패널은 실제 자산을, 설비 품목 편집기는 아직 자산이 아닌 장비를 놓는다. 둘은 같은 판을
+ * 봐야 한다 — 설비 품목에서 짠 모습이 놓고 나면 달라 보이면 짜는 뜻이 없다.
  */
 export interface GridItem {
   id: string;
@@ -33,9 +33,9 @@ export interface AssemblyGridProps<T extends GridItem> {
   onMove: (itemId: string, placement: GridPlacement) => void;
   /** 이 자리에 놓을 수 있는가 — 겹침·범위를 부르는 쪽이 판정한다. */
   canPlace: (itemId: string, placement: GridPlacement) => boolean;
-  /** 이름 뒤에 붙는 것 — 자산이면 포트 요약, 설비 종류가면 타입 이름. */
+  /** 이름 뒤에 붙는 것 — 자산이면 포트 요약, 설비 품목이면 타입 이름. */
   trailing?: (item: T) => ReactNode;
-  /** 지금 골라져 있는 것 — 설비 종류 편집기가 고른 부품을 표시할 때 쓴다. */
+  /** 지금 골라져 있는 것 — 설비 품목 편집기가 고른 장비를 표시할 때 쓴다. */
   selectedId?: string | null;
   /**
    * 판이 앉을 **상자의 높이**(px). 주지 않으면 남는 자리를 다 쓴다(`fill`).
@@ -66,14 +66,14 @@ export interface AssemblyGridProps<T extends GridItem> {
    *
    * 무엇이라 적을지는 **부르는 쪽이 준다**(`label`). 끄는 동안에는 `3×2` 처럼 크기를 적는
    * 것이 맞다 — 그때 고르는 것이 크기다. 손을 뗀 뒤에는 크기가 이미 정해졌고 상자가 그것을
-   * 적고 있으므로, 판에는 **무엇이 들어올 자리인지**를 적는다(「새 자산」·「새 부품」).
+   * 적고 있으므로, 판에는 **무엇이 들어올 자리인지**를 적는다(「새 자산」·「새 장비」).
    */
   pending?: { at: GridPlacement; label: string } | null;
   /**
-   * 이 부품을 구성에서 뺀다 — 칸에 얹히는 호버 X.
+   * 이 장비를 구성에서 뺀다 — 칸에 얹히는 호버 X.
    *
    * 없으면 X 가 안 뜬다(읽기 전용 판). 지우기는 되돌리기 어려우므로 확인은 **부르는 쪽**이
-   * 한다 — 설비 종류 초안은 저장 전이라 물을 것이 없고, 놓인 자산은 물어야 한다.
+   * 한다 — 설비 품목 초안은 저장 전이라 물을 것이 없고, 놓인 자산은 물어야 한다.
    */
   onRemove?: (item: T) => void;
   /**
@@ -81,7 +81,7 @@ export interface AssemblyGridProps<T extends GridItem> {
    *
    * 어휘가 정한 빛(`assetStatusTone`)을 그대로 받는다. 여기서 상태값을 보고 색을 고르면
    * (`if (status === 'fault')`) 상태를 하나 늘릴 때 판이 조용히 무색으로 남는다.
-   * 설비 종류 편집기의 부품은 아직 자산이 아니라 상태가 없으므로 이 프롭을 주지 않는다.
+   * 설비 품목 편집기의 장비는 아직 자산이 아니라 상태가 없으므로 이 프롭을 주지 않는다.
    */
   toneOf?: (item: T) => BadgeStatus | null;
 }
@@ -140,7 +140,7 @@ const LABEL_MIN_W = 52;
  * 수 없었는데, 실제 판에는 가로로 나란한 모듈도 있고 세로로 긴 모듈도 있다. 슬롯은 폭이
  * 격자 전체인 1열짜리 격자였을 뿐이라, 격자를 그대로 두면 슬롯은 그 특수한 경우가 된다.
  *
- * 그래서 칸은 **정사각형**이고, 부품은 격자 안 아무 자리에나 놓이며 **두 축 모두** 늘어난다
+ * 그래서 칸은 **정사각형**이고, 장비는 격자 안 아무 자리에나 놓이며 **두 축 모두** 늘어난다
  * (오른쪽 아래 모서리 손잡이). 열이 몇이든 번호는 저장하지 않고 격자에서 유도하므로
  * 자리와 번호가 어긋날 수 없다(행 우선).
  *
@@ -212,7 +212,7 @@ export function AssemblyGrid<T extends GridItem>({
   /**
    * 빈 칸에서 끌어 **여러 칸을 묶어** 만드는 중.
    *
-   * 예전에는 한 칸에만 만들 수 있어서, 2×3 짜리 부품을 놓으려면 일단 한 칸에 만든 뒤 크기
+   * 예전에는 한 칸에만 만들 수 있어서, 2×3 짜리 장비를 놓으려면 일단 한 칸에 만든 뒤 크기
    * 손잡이로 늘려야 했다. 놓을 자리를 눈으로 정하는 판에서 그건 두 번 일하는 것이다.
    */
   const [createRect, setCreateRectState] = useState<{ placement: GridPlacement; ok: boolean } | null>(null);
@@ -278,7 +278,7 @@ export function AssemblyGrid<T extends GridItem>({
    * 했다(10×20 에서 빈 칸까지 전부 단추다). 판은 하나의 정거장이고 그 안은 화살표로
    * 옮긴다 — WAI-ARIA 가 격자·트리에 정한 규약이고, 조직 트리가 이미 그렇게 움직인다.
    *
-   * 어느 칸이 그 하나인가: 사람이 마지막으로 짚은 칸 → 고른 부품이 놓인 칸 → 첫 칸.
+   * 어느 칸이 그 하나인가: 사람이 마지막으로 짚은 칸 → 고른 장비가 놓인 칸 → 첫 칸.
    */
   const [activeCell, setActiveCell] = useState<GridCell | null>(null);
 
@@ -317,7 +317,7 @@ export function AssemblyGrid<T extends GridItem>({
     const g = gestureRef.current;
     /* **손을 우리가 못 보는 데서 뗐다.** 창 밖에서 놓거나 다른 앱으로 넘어가면 캡처가 풀려
        `pointerup` 이 오지 않는다. 그러면 손짓이 살아 있는 채로 남아, 돌아왔을 때 버튼을
-       누르지도 않았는데 부품이 커서를 따라다녔다 — 손을 뗀 자리가 어디였는지 알 수 없으므로
+       누르지도 않았는데 장비가 커서를 따라다녔다 — 손을 뗀 자리가 어디였는지 알 수 없으므로
        **물린다**(`pointercancel` 과 같은 뜻이다). 눌린 버튼이 없다는 사실이 그 신호다. */
     if (g && e.buttons === 0) {
       endGesture(false);
@@ -397,10 +397,10 @@ export function AssemblyGrid<T extends GridItem>({
     }
     /* **빈 칸을 누르는 것은 곧 채우기다.**
        한때는 고른 것이 있으면 먼저 풀고, 한 번 더 눌러야 채웠다(「다른 데를 누르면 풀린다」를
-       빈 칸에도 적용). 그런데 이 판에서 빈 칸은 「다른 데」가 아니라 **놓을 자리**다 — 부품을
+       빈 칸에도 적용). 그런데 이 판에서 빈 칸은 「다른 데」가 아니라 **놓을 자리**다 — 장비를
        고쳐 놓고 옆 칸에 하나 더 넣으려던 손짓이 매번 삼켜져, 설비 편집기에서는 「드래그가
        가끔만 먹는다」로 나타났다(고른 것을 지운 뒤의 첫 시도만 성공한다).
-       푸는 길은 따로 있다: Esc, 고른 부품을 다시 누르기, 상세의 「설비 정보」. */
+       푸는 길은 따로 있다: Esc, 고른 장비를 다시 누르기, 상세의 「설비 정보」. */
     onAddAtCell(gesture.cell);
   }
 
@@ -436,9 +436,9 @@ export function AssemblyGrid<T extends GridItem>({
   /**
    * 화살표로 칸을 옮긴다 — 판 밖으로는 나가지 않는다(가장자리에서 멈춘다).
    *
-   * 옮긴 자리에 **실제 단추가 없을 수 있다**: span 이 덮은 칸은 그리지 않고, 덮은 부품의
+   * 옮긴 자리에 **실제 단추가 없을 수 있다**: span 이 덮은 칸은 그리지 않고, 덮은 장비의
    * 시작 칸 하나만 단추다. 그래서 좌표로 찾지 않고 **그려진 단추 중 가장 가까운 것**으로
-   * 간다 — 안 그러면 2칸짜리 부품 옆에서 화살표가 먹히지 않는다.
+   * 간다 — 안 그러면 2칸짜리 장비 옆에서 화살표가 먹히지 않는다.
    */
   function moveActive(d: { dc?: number; dr?: number } | 'first' | 'last', fromCell: GridCell) {
     const box = boxRef.current;
@@ -462,7 +462,7 @@ export function AssemblyGrid<T extends GridItem>({
     /* **누른 방향으로만** 간다. 「가장 가까운 칸」으로 물러서면 위를 눌렀는데 옆으로 새는
        일이 생긴다(위가 span 에 덮여 단추가 없을 때 실제로 그랬다).
        한 칸씩 밀어 보다가 **단추가 있는 칸**을 만나면 거기 선다. 덮인 칸을 만나면 그것을
-       덮은 부품의 시작 칸으로 간다 — 10칸짜리 부품 위를 지날 때 그 부품에 서는 것이 맞다.
+       덮은 장비의 시작 칸으로 간다 — 10칸짜리 장비 위를 지날 때 그 장비에 서는 것이 맞다.
        끝까지 없으면 움직이지 않는다(가장자리에서 멈춘다). */
     const here = `${fromCell.col},${fromCell.row}`;
     let { col, row } = fromCell;
@@ -480,7 +480,7 @@ export function AssemblyGrid<T extends GridItem>({
   const byCell = new Map<string, T>();
   /** 이미 무엇이 덮고 있는 칸 — span 이 지나가는 자리다. */
   const covered = new Set<string>();
-  /** 덮인 칸 → 그것을 덮은 부품의 **시작 칸**(그 자리에만 단추가 있다). */
+  /** 덮인 칸 → 그것을 덮은 장비의 **시작 칸**(그 자리에만 단추가 있다). */
   const ownerOf = new Map<string, string>();
   for (const item of items) {
     if (item.col == null || item.row == null) continue;
@@ -494,7 +494,7 @@ export function AssemblyGrid<T extends GridItem>({
     for (let r = 0; r < at.rowSpan; r++) {
       for (let c = 0; c < at.colSpan; c++) {
         covered.add(`${at.col + c},${at.row + r}`);
-        /* 덮인 칸이 **누구의 것인지**까지 적어 둔다 — 화살표가 그 칸을 지나갈 때 그 부품의
+        /* 덮인 칸이 **누구의 것인지**까지 적어 둔다 — 화살표가 그 칸을 지나갈 때 그 장비의
            시작 칸(단추가 있는 자리)으로 가야 한다. */
         ownerOf.set(`${at.col + c},${at.row + r}`, `${at.col},${at.row}`);
       }
@@ -647,7 +647,7 @@ export function AssemblyGrid<T extends GridItem>({
             }}
           >
             {/* 번호는 칸이 아니라 왼쪽 눈금이 맡는다 — 칸마다 번호를 박으면 4열 12행에서 번호가
-                48개 흩어지고, 정작 부품이 놓인 칸은 이름과 번호가 자리를 다툰다.
+                48개 흩어지고, 정작 장비가 놓인 칸은 이름과 번호가 자리를 다툰다.
                 랙 정면도의 어법대로 「몇 단」은 눈금이, 「무엇인가」는 칸이 말한다. */}
             {item ? (
               /* 한 칸짜리에는 이름만 — 두 줄을 욱여넣으면 둘 다 못 읽는다. 전체 이름은 툴팁에 있다. */
@@ -696,7 +696,7 @@ export function AssemblyGrid<T extends GridItem>({
 
             {/* 빼기 — 오른쪽 위. 예전에는 고른 뒤 오른쪽 패널까지 가서 눌러야 했다.
                 손잡이와 같은 규칙으로 드러난다: 평소에는 숨고, 얹으면·고르면 보인다
-                (조직 트리·케이블 종류 목록과 같은 어법). */}
+                (조직 트리·케이블 품목 목록과 같은 어법). */}
             {item && onRemove && (
               <span
                 role="button"

@@ -13,7 +13,7 @@ export type ConnectError = 'same-port' | 'port-occupied' | 'medium-mismatch' | '
  *   `BI`(양방향)는 어느 쪽과도 맞는다 — "정해지지 않음" 이지 "같은 쪽" 이 아니다.
  *
  * @param cableCountByPortId 각 포트에 이미 물려 있는 케이블 수. 없으면 0으로 본다.
- * @param cableMedium 케이블 종류. 주면 포트 종류와 일치하는지도 본다.
+ * @param cableMedium 케이블 품목. 주면 포트 종류와 일치하는지도 본다.
  */
 export function validateConnection(
   a: PortRef,

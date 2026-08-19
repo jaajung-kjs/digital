@@ -29,7 +29,7 @@ function climb(
 /**
  * 이 자산이 실제로 놓여 있는 **도면 위의 것** — 자기 자신이거나, 자기를 담은 설비.
  *
- * 부품은 층을 갖지 않는다(층을 가진 것은 그 부품을 담은 설비다). 그래서 「평면도에서 보기」와
+ * 장비는 층을 갖지 않는다(층을 가진 것은 그 장비를 담은 설비다). 그래서 「평면도에서 보기」와
  * 「그 층으로 옮겨 가기」는 둘 다 이 걸음을 거쳐야 한다.
  */
 export function floorAnchorOf(assetId: string, byId: ReadonlyMap<string, V2Asset>): V2Asset | null {

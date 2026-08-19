@@ -176,8 +176,8 @@ export function RemoteEndpointModal({
               같은 검색칸인데 다른 화면과 높이·초점 테가 달랐다. */}
           <Input
             autoFocus
-            aria-label="자산 이름 검색"
-            placeholder="자산 이름 검색…"
+            aria-label="설비 이름 검색"
+            placeholder="설비 이름 검색…"
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
           />

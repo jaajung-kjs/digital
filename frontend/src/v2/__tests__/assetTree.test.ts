@@ -15,7 +15,7 @@ describe('floorAnchorOf', () => {
   const deep = a('deep', { parentAssetId: 'part' });
   const byId = assetsById([rack, part, deep]);
 
-  it('부품은 자기를 담은 설비가 놓인 층의 것이다', () => {
+  it('장비는 자기를 담은 설비가 놓인 층의 것이다', () => {
     expect(floorAnchorOf('deep', byId)?.id).toBe('rack');
     expect(floorIdOf('deep', byId)).toBe('f1');
   });

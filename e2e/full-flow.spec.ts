@@ -15,7 +15,7 @@ import {
 
 /**
  * 마스터 스펙의 검증 계획이 요구한 "한 줄기":
- *   타입 정의 → 배치 → 연결 → 추적 → 선번장 → 설계서
+ *   타입 정의 → 배치 → 연결 → 추적 → 선번장 → 산출 내역
  *
  * 이 테스트가 없어서, 단계마다 "완료" 라고 부르면서 실제로는 브라우저에서 확인하지 않은
  * 상태가 반복됐다. 각 단계는 **눈에 보이는 결과**를 단언한다 — 클릭이 성공했다가 아니라
@@ -85,7 +85,7 @@ test('② 배치 — 평면도에 드래그로 놓으면 현황에 자산이 생
   // 배치는 워킹카피 스테이징이므로 커밋해야 실제 자산이 된다.
   await page.getByRole('button', { name: /저장/ }).first().click();
 
-  await switchView(page, '현황');
+  await switchView(page, '설비 대장');
   await expect(page.getByRole('cell', { name: ASSET_NAME })).toBeVisible();
 });
 
@@ -97,7 +97,7 @@ test('③ 연결 — 케이블을 이으면 저장 대기 변경이 생긴다', 
 
   // 케이블 도구를 켜고 네트워크 종류를 고른다.
   await page.getByRole('button', { name: '케이블', exact: true }).click();
-  await page.getByRole('combobox', { name: '케이블 종류' }).selectOption({ label: 'UTP/S-FTP케이블' });
+  await page.getByRole('combobox', { name: '케이블 품목' }).selectOption({ label: 'UTP/S-FTP케이블' });
 
   // 평면도에 놓인 자산(통신랙 A)을 클릭하면 그 자산과 **자손**의 빈 포트가 뜬다.
   // 랙 자체에는 포트가 없고, 안에 든 통합단말/SCADA RTU 가 네트워크 포트를 갖는다.
@@ -130,7 +130,7 @@ test('③ 연결 — 케이블을 이으면 저장 대기 변경이 생긴다', 
   created.cables = cablesAfter.filter((id) => !cablesBefore.includes(id));
 
   // 커밋 후 연결 탭에서 실제로 케이블이 보여야 한다.
-  await switchView(page, '현황');
+  await switchView(page, '설비 대장');
   await page.getByRole('row', { name: /통합단말/ }).first().click();
   await page.getByRole('tab', { name: /포트/ }).click();
   // 포트 1 의 대국이 SCADA RTU-1 로 보여야 한다 — 케이블이 실제로 붙었다는 증거.
@@ -140,7 +140,7 @@ test('③ 연결 — 케이블을 이으면 저장 대기 변경이 생긴다', 
 test('④ 추적 — 연결된 포트에서 추적하면 경로가 나온다', async ({ page }) => {
   await login(page);
   await selectOrgNode(page, '문막변전소');
-  await switchView(page, '현황');
+  await switchView(page, '설비 대장');
 
   await page.getByRole('row', { name: /통합단말/ }).first().click();
   await page.getByRole('tab', { name: /포트/ }).click();
@@ -164,12 +164,12 @@ test('⑤ 선번장 — 광 함체의 코어 표가 뜬다', async ({ page }) =>
   await expect(page.getByRole('row').nth(1)).toBeVisible();
 });
 
-test('⑥ 설계서 — 변경 공량 미리보기가 열린다', async ({ page }) => {
+test('⑥ 산출 내역 — 변경 공량 미리보기가 열린다', async ({ page }) => {
   await login(page);
   await selectOrgNode(page, '문막변전소');
 
-  await page.getByRole('button', { name: '설계서' }).click();
-  await expect(page.getByText('설계서 — 공량 미리보기')).toBeVisible();
+  await page.getByRole('button', { name: '산출 내역' }).click();
+  await expect(page.getByText('산출 내역 — 공량 미리보기')).toBeVisible();
 });
 
 test('정리 — 이 실행이 만든 자산·케이블·타입을 지운다', async ({ page }) => {

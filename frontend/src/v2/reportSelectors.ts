@@ -14,7 +14,7 @@ interface Overlays {
   inspections: Overlay<V2InspectionLog>;
 }
 
-/** '종류 미지정' 케이블 항목 — categoryId 없거나 group 미해소 시 공량 0 폴백 (M-1: 단일 출처) */
+/** '품목 미지정' 케이블 항목 — categoryId 없거나 group 미해소 시 공량 0 폴백 (M-1: 단일 출처) */
 function unresolvedCableItem(kind: 'cable-install' | 'cable-remove', name: string): ReportItem {
   return {
     kind,
@@ -25,7 +25,7 @@ function unresolvedCableItem(kind: 'cable-install' | 'cable-remove', name: strin
     unit: 'm',
     manDays: 0,
     unitPrice: null,
-    note: '종류 미지정',
+    note: '품목 미지정',
   };
 }
 
@@ -36,7 +36,7 @@ const PLACEMENT_FIELDS_SET = new Set<string>(PLACEMENT_FIELDS);
  * 공량 계산에 쓰는 케이블 길이.
  *
  * 어느 종류든 갖는 공통 값이라 키를 여기 적지 않고 선언에서 가져온다 —
- * 키가 바뀌면 설계서 공량이 조용히 0이 되는 자리다.
+ * 키가 바뀌면 산출 내역 공량이 조용히 0이 되는 자리다.
  */
 function cableLengthM(specParams: unknown): number | null {
   const key = COMMON_CABLE_FIELDS[0]!.key;
@@ -55,7 +55,7 @@ function assemblyLabor(
     'asset-remove': asm.removeManDays,
     'asset-relocate': asm.relocateManDays,
   }[kind];
-  /* 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 부품별로 잡는 일이 흔하다.
+  /* 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 장비별로 잡는 일이 흔하다.
      0 은 「품이 안 든다」는 뜻이므로 적힌 것으로 친다(null 만 「안 적었다」). */
   if (manDays == null) return null;
   /* 이 작업 하나만 담은 공량을 만든다 — 나머지는 0(이 항목이 그 작업을 세지 않는다). */
@@ -97,7 +97,7 @@ export function buildReportItems(args: {
   const assembliesById = new Map(assemblies.map((a) => [a.id, a]));
 
   // categoryId → group 매핑 (categories를 flatten)
-  /* 케이블 종류로 바로 찾아간다 — 품셈이 종류에 있으므로 그룹을 한 번 더 거칠 이유가 없다. */
+  /* 케이블 품목으로 바로 찾아간다 — 품셈이 종류에 있으므로 그룹을 한 번 더 거칠 이유가 없다. */
   const categoryById = new Map<string, V2CableCategory>();
   for (const g of cableGroups) {
     for (const cat of g.categories) {
@@ -117,15 +117,15 @@ export function buildReportItems(args: {
   const items: ReportItem[] = [];
 
   /**
-   * 이 작업의 **단위**가 무엇인가 — 1식인가, 부품 하나인가.
+   * 이 작업의 **단위**가 무엇인가 — 1식인가, 장비 하나인가.
    *
    * 설비를 통째로 놓거나 걷거나 옮기면 단위는 그 설비 하나다(「송광치 1식 설치」). 이미 놓인
-   * 설비에서 L3 스위치 하나만 걷어내면 단위는 그 부품이다. 어느 쪽인지는 **변경 집합이 그대로
+   * 설비에서 L3 스위치 하나만 걷어내면 단위는 그 장비다. 어느 쪽인지는 **변경 집합이 그대로
    * 말한다** — 뿌리 설비가 같이 왔는가. 따로 표시할 것도, 사용자에게 물을 것도 없다.
    *
-   * 1식 공량을 안 적어 둔 설비 종류면 셀 값이 없으므로 **그 설비 안의 자산들**을 대신 센다.
+   * 1식 공량을 안 적어 둔 설비 품목면 셀 값이 없으므로 **그 설비 안의 자산들**을 대신 센다.
    * 「변경 집합 안의 자손」이 아니라 **그 설비의 자손**이어야 한다: 놓고 걷을 때는 자손도 함께
-   * 오지만 **옮길 때는 뿌리만 온다**. 변경 집합만 보면 이설이 설계서에서 통째로 사라진다
+   * 오지만 **옮길 때는 뿌리만 온다**. 변경 집합만 보면 이설이 산출 내역에서 통째로 사라진다
    * (실제로 그랬다).
    *
    * @param resolve  변경 집합의 자산을 찾는 길(신설이면 creates, 철거·이설이면 saved).
@@ -140,7 +140,7 @@ export function buildReportItems(args: {
     const inChange = [...ids];
     /** 단위가 이미 정해진 자산 — 그 자손은 따로 세지 않는다. */
     const covered = new Set<string>();
-    /** 이 설비의 몫으로 세어야 할 부품들(1식 공량이 없어 자손으로 물러선 것). */
+    /** 이 설비의 몫으로 세어야 할 장비들(1식 공량이 없어 자손으로 물러선 것). */
     const expanded: V2Asset[] = [];
 
     for (const id of inChange) {
@@ -220,7 +220,7 @@ export function buildReportItems(args: {
   pushAssetItems(overlays.assets.deletes, (id) => savedAssetsById.get(id), savedDescendants, 'asset-remove');
 
   /* --- assets.updates → 배치 필드가 바뀐 것만 asset-relocate ---
-     이설은 놓인 것을 옮기는 일이라 **뿌리만** 변경 집합에 온다 — 안의 부품은 그대로 딸려 간다. */
+     이설은 놓인 것을 옮기는 일이라 **뿌리만** 변경 집합에 온다 — 안의 장비는 그대로 딸려 간다. */
   const relocatedIds = Object.entries(overlays.assets.updates)
     .filter(([, patch]) => Object.keys(patch).some((k) => PLACEMENT_FIELDS_SET.has(k)))
     .map(([id]) => id);
@@ -228,7 +228,7 @@ export function buildReportItems(args: {
 
   // --- cables.creates → cable-install ---
   for (const cable of Object.values(overlays.cables.creates) as V2Cable[]) {
-    // categoryId 없거나 group 미해소면 '종류 미지정' 공량 0
+    // categoryId 없거나 group 미해소면 '품목 미지정' 공량 0
     if (!cable.categoryId) {
       items.push(unresolvedCableItem('cable-install', '케이블'));
       continue;
@@ -273,11 +273,11 @@ export function buildReportItems(args: {
 /**
  * 물량 → **직접공사비**(재료비 + 직접노무비).
  *
- * 여기가 카탈로그와 기준자료가 만나는 자리다: 수량 × 자재단가, 품(인·일) × 노임단가(원/일).
+ * 여기가 카탈로그와 적산 기준가 만나는 자리다: 수량 × 자재단가, 품(인·일) × 노임단가(원/일).
  * 단가나 노임이 아직 없는 줄은 **0 으로 센다** — 금액이 조용히 부풀지 않게. 무엇이 비었는지는
  * 표의 「노무」 칸과 「단가 없음」이 말한다.
  *
- * 화면에 두지 않는 이유: 설계서 패널·내보내기·나중의 저장이 같은 값을 써야 한다.
+ * 화면에 두지 않는 이유: 산출 내역 패널·내보내기·나중의 저장이 같은 값을 써야 한다.
  */
 export function estimateInput(
   items: readonly ReportItem[],

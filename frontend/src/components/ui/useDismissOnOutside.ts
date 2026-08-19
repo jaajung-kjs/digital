@@ -35,7 +35,7 @@ export function useDismissOnOutside(
       if (!target.isConnected) return;
       const { within, onDismiss } = latest.current;
       /* **위에 뜬 상자 안을 누른 것은 바깥이 아니다.** 상자는 `body` 밑으로 나가 있으므로
-         「안」으로 넘긴 판에는 결코 담기지 않는다 — 그대로 두면 고른 부품을 다루려고 연 상자를
+         「안」으로 넘긴 판에는 결코 담기지 않는다 — 그대로 두면 고른 장비를 다루려고 연 상자를
          누르는 순간 그 선택이 풀려, 상자가 무엇을 두고 묻는지가 뒤에서 사라진다. 층이 쌓이면
          **아래 층은 듣지 않는다**(Esc 와 같은 규칙 — `keyboard.ts`).
 

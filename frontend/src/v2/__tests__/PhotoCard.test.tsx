@@ -59,7 +59,7 @@ describe('PhotoCard', () => {
     const input = screen.getByTestId('photo-upload-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [selectFile()] } });
 
-    await screen.findByAltText('자산 사진');
+    await screen.findByAltText('설비 사진');
 
     expect(mockedUploadPhoto).toHaveBeenCalledTimes(1);
     const created = Object.values(v2WorkingCopyStore.getState().overlays.photos.creates);

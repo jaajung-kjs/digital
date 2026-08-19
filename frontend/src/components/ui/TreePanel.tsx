@@ -48,7 +48,7 @@ export interface TreeNode {
 }
 
 export interface TreePanelProps {
-  /** 머리줄에 적히는 이름 — 「조직」·「설비 종류」. */
+  /** 머리줄에 적히는 이름 — 「조직」·「설비 품목」. */
   title: string;
   nodes: TreeNode[];
   selectedId: string | null;
@@ -97,7 +97,7 @@ export function TreePanel({
   /**
    * Tab 으로 닿는 줄은 **하나뿐**이다(roving tabindex).
    *
-   * 예전에는 모든 줄이 `tabIndex=0` 이라, 자산 종류처럼 스물일곱 줄짜리 트리를 지나가려면
+   * 예전에는 모든 줄이 `tabIndex=0` 이라, 장비 품목처럼 스물일곱 줄짜리 트리를 지나가려면
    * Tab 을 스물일곱 번 눌러야 했다. 줄 사이는 화살표로 옮긴다 — WAI-ARIA Tree View 가
    * 정한 규약이고, 파일 탐색기·메일함이 다 그렇게 움직인다.
    */

@@ -39,7 +39,7 @@ nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
         updatedAt: a.updatedAt,
         substationId: a.substationId,
         substationName: a.substation.name,
-        // 설비 종류로 놓은 설비는 자산 종류가 없다 — 그때는 설비 종류 이름이 곧 종류다.
+        // 설비 품목으로 놓은 설비는 장비 품목이 없다 — 그때는 설비 품목 이름이 곧 종류다.
         typeKey: a.type?.key ?? null,
         typeName: a.assembly?.name ?? a.type?.name ?? '—',
         parentAssetId: a.parentAssetId,

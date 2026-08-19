@@ -7,7 +7,7 @@ const labor = { laborCode: '통신내선공', installManDays: 2, removeManDays: 
 const rackType = { id: 't-rack', key: 'SW', name: 'L3 스위치', categoryId: 'c', sortOrder: 1, ...labor, portTemplates: [] };
 const fiberCat = 'cat-f';
 /* 품셈은 **종류**가 갖는다 — 같은 광이라도 OPGW 가공과 실내 점퍼 결선은 품이 다르다.
-   그룹은 이름·색뿐이고, 설계서의 「종류」 열도 그룹이 아니라 종류 이름을 적는다. */
+   그룹은 이름·색뿐이고, 산출 내역의 「종류」 열도 그룹이 아니라 종류 이름을 적는다. */
 const groups = [{
   id: 'g-f', key: 'fiber', name: '광', color: '#0f0', sortOrder: 1,
   categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1, laborCode: '통신외선공', installManDays: 0.04, removeManDays: 0.02 }],
@@ -60,7 +60,7 @@ describe('buildReportItems', () => {
       cableGroups: groups as never,
     });
     expect(items.some((i) => i.kind === 'asset-relocate')).toBe(false);
-    expect(items.find((i) => i.kind === 'cable-install')).toMatchObject({ manDays: 0, note: '종류 미지정' });
+    expect(items.find((i) => i.kind === 'cable-install')).toMatchObject({ manDays: 0, note: '품목 미지정' });
   });
 
   it('철거: saved에서 타입·labor 해소', () => {
@@ -79,7 +79,7 @@ describe('buildReportItems', () => {
  * 「1식」 공량 — 작업의 **단위**가 무엇인가.
  *
  * 설비를 통째로 놓거나 걷으면 단위는 그 설비 하나다(「송광치 1식 설치」). 이미 놓인 1식에서
- * L3 스위치 하나만 걷어내면 단위는 그 부품이다. 어느 쪽인지는 **변경 집합이 그대로 말한다** —
+ * L3 스위치 하나만 걷어내면 단위는 그 장비다. 어느 쪽인지는 **변경 집합이 그대로 말한다** —
  * 뿌리 설비가 같이 왔는가. 따로 표시할 것도, 사용자에게 물을 것도 없다.
  */
 describe('1식 공량', () => {
@@ -88,12 +88,12 @@ describe('1식 공량', () => {
     sortOrder: 1, items: [],
     laborCode: '통신내선공', installManDays: 40, removeManDays: 20, relocateManDays: 30,
   };
-  /** 1식 공량을 안 적어 둔 설비 종류 — 안에 든 자산의 공량을 합쳐 센다. */
+  /** 1식 공량을 안 적어 둔 설비 품목 — 안에 든 자산의 공량을 합쳐 센다. */
   const bare = { ...optSet, id: 'asm-2', key: 'BARE', name: '무명설비', laborCode: null, installManDays: null, removeManDays: null, relocateManDays: null };
 
   const 설비 = (id: string, name: string, asmId: string) =>
     mkAsset(id, name, { typeId: null, assemblyId: asmId, floorId: 'f1' });
-  const 부품 = (id: string, name: string, parent: string) =>
+  const 장비 = (id: string, name: string, parent: string) =>
     mkAsset(id, name, { parentAssetId: parent, col: 0, row: 0 });
 
   const build = (o: object, saved: object[] = []) =>
@@ -105,10 +105,10 @@ describe('1식 공량', () => {
       cableGroups: groups as never,
     });
 
-  it('1식으로 놓으면 1식 공량 한 건 — 안의 부품은 따로 세지 않는다', () => {
+  it('1식으로 놓으면 1식 공량 한 건 — 안의 장비는 따로 세지 않는다', () => {
     const items = build({
       assets: {
-        creates: { e1: 설비('e1', '송광치 A', 'asm-1'), p1: 부품('p1', 'L3 스위치', 'e1'), p2: 부품('p2', '광단말', 'e1') },
+        creates: { e1: 설비('e1', '송광치 A', 'asm-1'), p1: 장비('p1', 'L3 스위치', 'e1'), p2: 장비('p2', '광단말', 'e1') },
         updates: {}, deletes: [],
       },
     });
@@ -116,15 +116,15 @@ describe('1식 공량', () => {
     expect(items[0]).toMatchObject({ kind: 'asset-install', name: '송광치 A', typeName: '송변전광단말장치 1식', manDays: 40 });
   });
 
-  it('완성된 1식에서 L3 스위치만 철거하면 그 부품 공량만', () => {
-    const saved = [설비('e1', '송광치 A', 'asm-1'), 부품('p1', 'L3 스위치', 'e1')];
+  it('완성된 1식에서 L3 스위치만 철거하면 그 장비 공량만', () => {
+    const saved = [설비('e1', '송광치 A', 'asm-1'), 장비('p1', 'L3 스위치', 'e1')];
     const items = build({ assets: { creates: {}, updates: {}, deletes: ['p1'] } }, saved);
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ kind: 'asset-remove', name: 'L3 스위치', typeName: 'L3 스위치', manDays: 1 });
   });
 
-  it('1식을 통째로 걷으면 1식 철거 공량 — 함께 지워지는 부품은 세지 않는다', () => {
-    const saved = [설비('e1', '송광치 A', 'asm-1'), 부품('p1', 'L3 스위치', 'e1')];
+  it('1식을 통째로 걷으면 1식 철거 공량 — 함께 지워지는 장비는 세지 않는다', () => {
+    const saved = [설비('e1', '송광치 A', 'asm-1'), 장비('p1', 'L3 스위치', 'e1')];
     const items = build({ assets: { creates: {}, updates: {}, deletes: ['e1', 'p1'] } }, saved);
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ kind: 'asset-remove', typeName: '송변전광단말장치 1식', manDays: 20 });
@@ -136,21 +136,21 @@ describe('1식 공량', () => {
     expect(items[0]).toMatchObject({ kind: 'asset-relocate', typeName: '송변전광단말장치 1식', manDays: 30 });
   });
 
-  /* null 은 「안 적었다」 — 그때만 부품 합으로 물러선다. 0 은 「품이 안 든다」라 다르다. */
-  it('1식 공량을 안 적어 두면 부품들이 각자 낸다', () => {
+  /* null 은 「안 적었다」 — 그때만 장비 합으로 물러선다. 0 은 「품이 안 든다」라 다르다. */
+  it('1식 공량을 안 적어 두면 장비들이 각자 낸다', () => {
     const items = build({
       assets: {
-        creates: { e1: 설비('e1', '무명 A', 'asm-2'), p1: 부품('p1', 'L3 스위치', 'e1') },
+        creates: { e1: 설비('e1', '무명 A', 'asm-2'), p1: 장비('p1', 'L3 스위치', 'e1') },
         updates: {}, deletes: [],
       },
     });
     expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치', 2]]);
   });
 
-  /* 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 부품별로 잡는 일이 흔하다. */
-  it('신설만 1식으로 적어 두면 철거는 부품 합으로 센다', () => {
+  /* 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 장비별로 잡는 일이 흔하다. */
+  it('신설만 1식으로 적어 두면 철거는 장비 합으로 센다', () => {
     const half = { ...optSet, id: 'asm-3', name: '반쪽', removeManDays: null };
-    const saved = [mkAsset('e1', '반쪽 A', { typeId: null, assemblyId: 'asm-3', floorId: 'f1' }), 부품('p1', 'L3 스위치', 'e1')];
+    const saved = [mkAsset('e1', '반쪽 A', { typeId: null, assemblyId: 'asm-3', floorId: 'f1' }), 장비('p1', 'L3 스위치', 'e1')];
     const items = buildReportItems({
       saved: { assets: saved as never, cables: [] as never },
       overlays: overlays({ assets: { creates: {}, updates: {}, deletes: ['e1', 'p1'] } }) as never,
@@ -163,10 +163,10 @@ describe('1식 공량', () => {
 });
 
 /**
- * 1식 공량이 없을 때 「부품 합」으로 물러서는 길.
+ * 1식 공량이 없을 때 「장비 합」으로 물러서는 길.
  *
  * 놓고 걷을 때는 자손도 함께 변경 집합에 오지만 **옮길 때는 뿌리만 온다** — 그래서 변경
- * 집합만 보면 이설이 설계서에서 통째로 사라졌다(실제로 그랬다). 자손은 **그 설비**에서 찾는다.
+ * 집합만 보면 이설이 산출 내역에서 통째로 사라졌다(실제로 그랬다). 자손은 **그 설비**에서 찾는다.
  */
 describe('1식 공량이 없을 때의 폴백', () => {
   const bare = {
@@ -175,8 +175,8 @@ describe('1식 공량이 없을 때의 폴백', () => {
     laborCode: null, installManDays: null, removeManDays: null, relocateManDays: null,
   };
   const 설비 = mkAsset('e1', '무명 A', { typeId: null, assemblyId: 'asm-b', floorId: 'f1' });
-  const 부품A = mkAsset('p1', 'L3 스위치 1', { parentAssetId: 'e1', col: 0, row: 0 });
-  const 부품B = mkAsset('p2', 'L3 스위치 2', { parentAssetId: 'e1', col: 0, row: 1 });
+  const 장비A = mkAsset('p1', 'L3 스위치 1', { parentAssetId: 'e1', col: 0, row: 0 });
+  const 장비B = mkAsset('p2', 'L3 스위치 2', { parentAssetId: 'e1', col: 0, row: 1 });
 
   const build = (o: object, saved: object[]) =>
     buildReportItems({
@@ -187,10 +187,10 @@ describe('1식 공량이 없을 때의 폴백', () => {
       cableGroups: groups as never,
     });
 
-  it('옮기면 안의 부품들이 각자 이설 공량을 낸다 — 뿌리만 왔어도', () => {
+  it('옮기면 안의 장비들이 각자 이설 공량을 낸다 — 뿌리만 왔어도', () => {
     const items = build(
       { assets: { creates: {}, updates: { e1: { x: 10, y: 20 } }, deletes: [] } },
-      [설비, 부품A, 부품B],
+      [설비, 장비A, 장비B],
     );
     expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치 1', 3], ['L3 스위치 2', 3]]);
   });
@@ -199,14 +199,14 @@ describe('1식 공량이 없을 때의 폴백', () => {
   it('걷으면 자손을 한 번만 센다', () => {
     const items = build(
       { assets: { creates: {}, updates: {}, deletes: ['e1', 'p1', 'p2'] } },
-      [설비, 부품A, 부품B],
+      [설비, 장비A, 장비B],
     );
     expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치 1', 1], ['L3 스위치 2', 1]]);
   });
 
   it('놓으면 자손을 한 번만 센다', () => {
     const items = build(
-      { assets: { creates: { e1: 설비, p1: 부품A, p2: 부품B }, updates: {}, deletes: [] } },
+      { assets: { creates: { e1: 설비, p1: 장비A, p2: 장비B }, updates: {}, deletes: [] } },
       [],
     );
     expect(items.map((i) => [i.name, i.manDays])).toEqual([['L3 스위치 1', 2], ['L3 스위치 2', 2]]);
@@ -214,9 +214,9 @@ describe('1식 공량이 없을 때의 폴백', () => {
 });
 
 /**
- * 물량 → 직접공사비 — **카탈로그와 기준자료가 만나는 자리**.
+ * 물량 → 직접공사비 — **카탈로그와 적산 기준가 만나는 자리**.
  *
- * 단가나 노임이 아직 없는 줄은 0 으로 센다. 금액이 조용히 부풀면 설계서를 믿을 수 없다.
+ * 단가나 노임이 아직 없는 줄은 0 으로 센다. 금액이 조용히 부풀면 산출 내역를 믿을 수 없다.
  */
 describe('estimateInput', () => {
   const wage: Record<string, number> = { '1086': 284880, '1088': 408942 };

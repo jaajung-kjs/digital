@@ -18,7 +18,7 @@ import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import type { V2Asset, V2AssetType, V2Cable, V2Floor } from '../types';
 import type { CablePickRequest } from '../cablePick';
 
-/* useV2Catalog 만 목킹 — 도면에 놓이는 것은 **설비 종류**뿐이다(자산 종류에는 배치 개념이
+/* useV2Catalog 만 목킹 — 도면에 놓이는 것은 **설비 품목**뿐이다(장비 품목에는 배치 개념이
    없다). 케이블 그룹 1개(카테고리 1개)도 공급한다. */
 const mockTypes: V2AssetType[] = [
   {
@@ -51,7 +51,7 @@ vi.mock('../hooks', () => ({
     },
   }),
   // 포트 피커가 매체 키를 사람이 읽는 이름으로 바꿔 보여준다 — 모의에서는 키를 그대로 돌려준다.
-  // 부품의 포트를 놓는 순간 만들려면 자산 종류가 필요하다(저장 전에도 포트가 보여야 한다).
+  // 장비의 포트를 놓는 순간 만들려면 장비 품목이 필요하다(저장 전에도 포트가 보여야 한다).
   useTypesById: (types?: { id: string }[]) => new Map((types ?? []).map((t) => [t.id, t])),
   useMediumLabel: () => (key: string) => key,
   useMediumColor: () => () => null,
@@ -131,7 +131,7 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
 
     // 케이블 도구 arm
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
-    expect(screen.getByText('이을 자산을 클릭하세요')).toBeTruthy();
+    expect(screen.getByText('이을 설비를 클릭하세요')).toBeTruthy();
 
     // 첫 번째 자산(A) 클릭 → 그 자산에서 고르라는 요청
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
@@ -139,7 +139,7 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     choosePort(pick, 'p-a');
 
     // 첫 끝점 확정 → 안내가 반대쪽 자산 대기로 전환
-    expect(screen.getByText(/반대쪽 자산을 클릭하세요/)).toBeTruthy();
+    expect(screen.getByText(/반대쪽 설비를 클릭하세요/)).toBeTruthy();
 
     // 두 번째 자산(B) 클릭 → 그 자산에서 고르라는 요청
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
@@ -152,7 +152,7 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     expect(creates[0]).toMatchObject({ aPortId: 'p-a', bPortId: 'p-b', categoryId: 'cat1' });
 
     // 도구는 유지(연속 연결) — 다시 첫 끝점 대기 안내로 돌아온다
-    expect(screen.getByText('이을 자산을 클릭하세요')).toBeTruthy();
+    expect(screen.getByText('이을 설비를 클릭하세요')).toBeTruthy();
   });
 
   it('ESC — 첫 끝점 확정 후에도 FSM을 idle로 되돌리고 아무것도 스테이지하지 않는다', () => {
@@ -161,18 +161,18 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
     choosePort(pick, 'p-a');
-    expect(screen.getByText(/반대쪽 자산을 클릭하세요/)).toBeTruthy();
+    expect(screen.getByText(/반대쪽 설비를 클릭하세요/)).toBeTruthy();
 
     fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
 
     // armed 안내가 사라지고, 고르라는 요청도 걷힌다 (idle 복귀) — 부분 상태 잔존 없음
-    expect(screen.queryByText(/반대쪽 자산을 클릭하세요/)).toBeNull();
-    expect(screen.queryByText('이을 자산을 클릭하세요')).toBeNull();
+    expect(screen.queryByText(/반대쪽 설비를 클릭하세요/)).toBeNull();
+    expect(screen.queryByText('이을 설비를 클릭하세요')).toBeNull();
     expect(pick.current).toBeNull();
 
     // 케이블 버튼이 더 이상 armed(primary) 표시가 아님 — 재클릭 시 다시 arm 되어야 함
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
-    expect(screen.getByText('이을 자산을 클릭하세요')).toBeTruthy();
+    expect(screen.getByText('이을 설비를 클릭하세요')).toBeTruthy();
 
     // 아무것도 스테이지되지 않았다
     expect(Object.keys(v2WorkingCopyStore.getState().overlays.cables.creates)).toHaveLength(0);
@@ -204,8 +204,8 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
     fireEvent.mouseMove(window, { clientX: 60, clientY: 60 });
     fireEvent.mouseUp(window, { clientX: 60, clientY: 60 });
 
-    /* 물어볼 것은 **현장 이름 하나뿐**이다 — 무엇이 몇 개 들어가는지는 설비 종류가 이미 안다.
-       예전에는 자산 종류를 다시 고르게 했는데, 그러면 대장에서 짜 둔 뜻이 없다. */
+    /* 물어볼 것은 **현장 이름 하나뿐**이다 — 무엇이 몇 개 들어가는지는 설비 품목이 이미 안다.
+       예전에는 장비 품목을 다시 고르게 했는데, 그러면 대장에서 짜 둔 뜻이 없다. */
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByRole('textbox', { name: '설비 이름' })).toBeTruthy();
     expect(dialog.textContent).toContain('배전반');

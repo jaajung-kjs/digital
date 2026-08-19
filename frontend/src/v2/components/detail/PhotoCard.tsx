@@ -108,7 +108,7 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
               <button type="button" className="block" onClick={() => setEnlargedId(p.id)}>
                 <img
                   src={photoUrl(p.filePath)}
-                  alt={p.caption ?? '자산 사진'}
+                  alt={p.caption ?? '설비 사진'}
                   className="h-20 w-20 rounded border border-line object-cover"
                 />
               </button>
@@ -129,7 +129,7 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
         <Modal open={true} onClose={() => setEnlargedId(null)} title={enlarged.caption ?? '사진'}>
           <img
             src={photoUrl(enlarged.filePath)}
-            alt={enlarged.caption ?? '자산 사진'}
+            alt={enlarged.caption ?? '설비 사진'}
             className="max-h-[70vh] max-w-full"
           />
         </Modal>

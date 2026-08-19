@@ -38,13 +38,13 @@ describe('자산 위치 경로', () => {
     expect(assetLocationPath(rack, build(rack), floors)).toBe('1층');
   });
 
-  it('설비 안의 부품은 층까지 거슬러 올라간다 — 예전에는 층이 사라졌다', () => {
+  it('설비 안의 장비는 층까지 거슬러 올라간다 — 예전에는 층이 사라졌다', () => {
     const rack = asset('rack', '전원랙 A', { floorId: 'f1', typeId: null, assemblyId: 'rack-asm' });
     const ups = asset('ups', 'UPS-1', { parentAssetId: 'rack', col: 0, row: 0 });
     expect(assetLocationPath(ups, build(rack, ups), floors)).toBe('1층 · 전원랙 A · 1행 1열');
   });
 
-  /* 부품이 또 부품을 담지 않는다(평평하다) — OFD 도 도면에 바로 놓이는 설비 종류다.
+  /* 장비가 또 장비를 담지 않는다(평평하다) — OFD 도 도면에 바로 놓이는 설비 품목이다.
      그래도 경로 계산은 깊이를 가정하지 않는다: 데이터가 그렇게 되면 그대로 따라간다. */
   it('자리가 없으면 이름만 붙는다', () => {
     const ofd = asset('ofd', 'OFD-1', { floorId: 'f1', typeId: null, assemblyId: 'rack-asm' });
@@ -59,7 +59,7 @@ describe('자산 위치 경로', () => {
     expect(assetLocationPath(feeder, build(panel, feeder), floors)).toBe('1층 · 분전반 P1 · 1행 2열');
   });
 
-  it('설비 종류를 몰라도 자리는 그대로 읽힌다 — 좌표는 격자 크기와 무관하다', () => {
+  it('설비 품목을 몰라도 자리는 그대로 읽힌다 — 좌표는 격자 크기와 무관하다', () => {
     const rack = asset('rack', '전원랙 A', { floorId: 'f1' });
     const ups = asset('ups', 'UPS-1', { parentAssetId: 'rack', col: 0, row: 0 });
     expect(assetLocationPath(ups, build(rack, ups), floors)).toBe('1층 · 전원랙 A · 1행 1열');

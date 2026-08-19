@@ -1,14 +1,14 @@
 /**
  * ConnectionsTab — 상세 패널의 '포트' 탭.
  *
- * **부품 한 대에 카드 한 장**, 그 안에서 위에서 아래로: 포트 판 → 고른 포트 → 그 포트의
- * 추적 경로. 설비에는 제 포트가 없고 안에 든 부품이 갖는다.
+ * **장비 한 대에 카드 한 장**, 그 안에서 위에서 아래로: 포트 판 → 고른 포트 → 그 포트의
+ * 추적 경로. 설비에는 제 포트가 없고 안에 든 장비가 갖는다.
  *
  * 무엇을 누르든 **답은 누른 자리 바로 아래**에 나온다. 예전에는 고른 포트의 상세도, 추적
- * 결과도, 부품별 연결 목록도 다른 자리에 있었다 — 부품이 열둘이면 판 열두 장을 지나야
+ * 결과도, 장비별 연결 목록도 다른 자리에 있었다 — 장비가 열둘이면 판 열두 장을 지나야
  * 그것들이 나오므로, 누르고도 아무 일이 없는 것처럼 보였다.
  *
- * 부품마다 딸려 있던 **연결 목록은 걷었다**. 스물다섯 줄이 판 밑에 늘어서도 읽는 사람이
+ * 장비마다 딸려 있던 **연결 목록은 걷었다**. 스물다섯 줄이 판 밑에 늘어서도 읽는 사람이
  * 알고 싶은 것은 「내가 누른 이 포트가 어디로 가나」였고, 그건 고른 포트 카드가 말한다.
  */
 
@@ -35,7 +35,7 @@ import type { CablePickRequest } from '../../cablePick';
 import { comparePortGroups, portGroupLabel } from '@twin/core';
 
 /**
- * 부품별 판을 늘어놓는 자리 — 머리줄을 다느냐만 다르다.
+ * 장비별 판을 늘어놓는 자리 — 머리줄을 다느냐만 다르다.
  *
  * 다는 쪽은 `Accordion`(한 번에 하나만 펼친다), 안 다는 쪽은 판을 그대로 앉힌다. 이 갈림을
  * 여기 한 번만 적어, 부르는 쪽은 「머리줄을 달까」만 말하면 되게 한다.
@@ -71,7 +71,7 @@ interface ConnectionsTabProps {
   assetId: string;
   /** 밖에서 골라 준 포트 — 선번장의 한 줄이 포트 하나를 가리킬 때 넘어온다. */
   focusPortId?: string | null;
-  /** 대국·추적 경로에서 다른 자산으로 이동한다 — 워크스페이스의 단일 이동 지점. */
+  /** 대국·추적 경로에서 다른 자산으로 이동한다 — 설비 관리의 단일 이동 지점. */
   onSelectAsset: (id: string) => void;
   onTrace: (result: TraceResult) => void;
   onClearTrace: () => void;
@@ -92,10 +92,10 @@ interface ConnectionsTabProps {
    */
   cablePick?: CablePickRequest | null;
   /**
-   * 부품 이름 머리줄을 달까 — 기본은 단다.
+   * 장비 이름 머리줄을 달까 — 기본은 단다.
    *
-   * 설비의 포트 탭에서는 부품이 열둘이라 **머리줄이 곧 목록**이다(접힌 채로도 `n/m 연결` 이
-   * 보인다). 그런데 부품 상자 안에서는 이 판이 이미 그 부품의 것이라, 머리줄이 상자 제목과
+   * 설비의 포트 탭에서는 장비가 열둘이라 **머리줄이 곧 목록**이다(접힌 채로도 `n/m 연결` 이
+   * 보인다). 그런데 장비 상자 안에서는 이 판이 이미 그 장비의 것이라, 머리줄이 상자 제목과
    * 같은 이름을 두 번 말한다 — 그때는 접을 것도 없으므로 판만 앉힌다.
    */
   ownerHeadings?: boolean;
@@ -110,9 +110,9 @@ export function ConnectionsTab({
   /* 어느 포트에서 추적을 걸었나 — 결과를 **그 포트 밑**에 펴기 위해.
      `TraceResult` 는 출발 포트를 담지 않는다(평면도 강조가 쓰는 형상이라 그럴 이유도 없다). */
   const [tracedPortId, setTracedPortId] = useState<string | null>(null);
-  /* 케이블 종류를 고치는 중인 가닥 — 읽는 줄이 기본이고, 고칠 때만 상자가 선다. */
+  /* 케이블 품목을 고치는 중인 가닥 — 읽는 줄이 기본이고, 고칠 때만 상자가 선다. */
   const [editingCableId, setEditingCableId] = useState<string | null>(null);
-  /* 펼친 부품 — 아래 `openPartId` 가 이 값을 「첫 부품」·「접힘」으로 풀어 읽는다. */
+  /* 펼친 장비 — 아래 `openPartId` 가 이 값을 「첫 장비」·「접힘」으로 풀어 읽는다. */
   const [openPart, setOpenPart] = useState<string | null | undefined>(undefined);
   const rootRef = useRef<HTMLDivElement | null>(null);
   /* 추적 결과 상자 — 뜨면 눈에 들어오게 끌어온다(아래 `useEffect`). */
@@ -123,7 +123,7 @@ export function ConnectionsTab({
   const picking = cablePick && cablePick.assetId === assetId ? cablePick : null;
   const [pickQuery, setPickQuery] = useState('');
   useEffect(() => setPickQuery(''), [picking?.assetId]);
-  // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다. 펼친 부품도 첫 부품으로 돌아간다.
+  // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다. 펼친 장비도 첫 장비로 돌아간다.
   useEffect(() => {
     setSelectedPortId(null);
     setTracedPortId(null);
@@ -150,7 +150,7 @@ export function ConnectionsTab({
   /**
    * 이 판에 뜨는 **모든** 포트 — 이 자산과 자손의 것.
    *
-   * 설비는 제 포트가 없다(포트는 안에 든 부품의 것이다). 그런데 고른 포트·내부 통과·이름을
+   * 설비는 제 포트가 없다(포트는 안에 든 장비의 것이다). 그런데 고른 포트·내부 통과·이름을
    * `asset.ports` 에서만 찾고 있어서, 설비 패널에서 포트를 골라도 **상세 카드가 아예 뜨지
    * 않았다** — 추적·개폐·매체가 통째로 사라진 채 아래 연결 목록의 한 줄만 물들었다.
    */
@@ -286,7 +286,7 @@ export function ConnectionsTab({
   }, [selectedPort, cablesByPortId, portIndex, asset, catalog.data]);
 
   /**
-   * 이 포트에 물릴 수 있는 케이블 종류 — **그 포트의 매체 것만**.
+   * 이 포트에 물릴 수 있는 케이블 품목 — **그 포트의 매체 것만**.
    *
    * 매체 키는 곧 케이블 그룹의 키다(포트 종류 하나당 그룹 하나). 광 어댑터에 전력케이블을
    * 고를 수 있게 두면 저장할 때 서버가 튕기고, 그때는 왜 튕겼는지 화면에 남지 않는다.
@@ -352,9 +352,9 @@ export function ConnectionsTab({
   }
 
   /**
-   * 부품을 펼친다 — 같은 것을 다시 누르면 접힌다(앱 공통 규칙).
+   * 장비를 펼친다 — 같은 것을 다시 누르면 접힌다(앱 공통 규칙).
    *
-   * 펼친 부품이 바뀌면 **고른 포트를 놓는다.** 접힌 카드 안에 선택이 남아 있으면
+   * 펼친 장비가 바뀌면 **고른 포트를 놓는다.** 접힌 카드 안에 선택이 남아 있으면
    * 「지금 무엇을 골랐나」가 화면에서 사라지고, 추적 결과도 안 보이는 자리에 매달린다.
    */
   function handleOpenPart(next: string | null) {
@@ -386,19 +386,19 @@ export function ConnectionsTab({
   useDismissOnOutside(!picking && selectedPortId != null, [rootRef], () => setSelectedPortId(null));
 
   /**
-   * 펼친 부품 — **한 번에 하나**(`Accordion`).
+   * 펼친 장비 — **한 번에 하나**(`Accordion`).
    *
-   * `undefined` = 아직 아무도 고르지 않았다(첫 부품이 펼쳐진다), `null` = 사람이 접었다.
-   * 둘을 구분하지 않으면 「접었다」가 다음 렌더에서 「첫 부품 펼치기」로 되돌아온다.
+   * `undefined` = 아직 아무도 고르지 않았다(첫 장비가 펼쳐진다), `null` = 사람이 접었다.
+   * 둘을 구분하지 않으면 「접었다」가 다음 렌더에서 「첫 장비 펼치기」로 되돌아온다.
    */
   const openPartId = useMemo(() => {
     if (openPart === null) return null;
     if (openPart != null && portOwners.some((o) => o.owner.id === openPart)) return openPart;
-    /* 처음이거나, 펼쳐 둔 부품이 목록에서 사라졌다(고르는 중에는 매체로 걸러진다). */
+    /* 처음이거나, 펼쳐 둔 장비가 목록에서 사라졌다(고르는 중에는 매체로 걸러진다). */
     return portOwners[0]?.owner.id ?? null;
   }, [openPart, portOwners]);
 
-  /* 밖에서 포트를 지목해 오면(선번장의 한 줄, 부품 카드의 「포트 보기」) **그 포트가 든 부품을
+  /* 밖에서 포트를 지목해 오면(선번장의 한 줄, 장비 카드의 「포트 보기」) **그 포트가 든 장비를
      펼친다**. 안 그러면 고른 포트가 접힌 카드 안에 숨어, 표에서 줄을 눌렀는데 패널에는
      아무 일도 안 일어난 것처럼 보인다. */
   useEffect(() => {
@@ -408,7 +408,7 @@ export function ConnectionsTab({
   /**
    * 추적 결과가 뜨면 **보이는 자리로 끌어온다.**
    *
-   * 결과는 누른 포트 바로 아래에 서지만, 그 아래가 화면 밖일 수 있다 — 부품 상자는 키가
+   * 결과는 누른 포트 바로 아래에 서지만, 그 아래가 화면 밖일 수 있다 — 장비 상자는 키가
    * 85vh 로 묶여 있고 포트 탭도 판이 길면 마찬가지다. 누르고도 아무 일이 없는 것처럼 보이는
    * 일이 이 화면에서 되풀이됐으므로, 답이 났으면 답을 보여 준다.
    */
@@ -445,8 +445,8 @@ export function ConnectionsTab({
     }
     return (
       <EmptyState
-        title="이 자산에는 포트가 없습니다"
-        description="상단의 「자산 종류」 에서 이 종류에 포트를 더하세요."
+        title="이 설비에는 포트가 없습니다"
+        description="상단의 「장비 품목」 에서 이 품목에 포트를 더하세요."
         className="py-6"
       />
     );
@@ -494,14 +494,14 @@ export function ConnectionsTab({
           )}
         </DetailCard>
       )}
-      {/* 부품 한 대에 카드 한 장 — 판·고른 포트·연결 내역이 **한 곳에** 모인다.
-          예전에는 판만 여기 있고 「연결」과 「고른 포트 상세」는 맨 아래 따로 있었다. 부품이
+      {/* 장비 한 대에 카드 한 장 — 판·고른 포트·연결 내역이 **한 곳에** 모인다.
+          예전에는 판만 여기 있고 「연결」과 「고른 포트 상세」는 맨 아래 따로 있었다. 장비가
           열둘이면 판 열두 장을 지나야 그것들이 나오므로, 포트를 눌러 놓고도 무엇이 어떻게
           바뀌었는지 보이지 않았다.
 
-          그런데 **장수는 부품 수만큼 늘어난다** — 판암 송광치는 열둘이라 2,945px(화면 5.5장)이
+          그런데 **장수는 장비 수만큼 늘어난다** — 판암 송광치는 열둘이라 2,945px(화면 5.5장)이
           됐고, 상세를 판 밑으로 옮겨 놔도 그 판까지 가는 길이 여전히 스크롤뿐이었다. 그래서
-          한 번에 하나만 펼친다(`Accordion`) — 접힌 머리줄이 곧 부품 목록이고, 이름 옆의
+          한 번에 하나만 펼친다(`Accordion`) — 접힌 머리줄이 곧 장비 목록이고, 이름 옆의
           `n/m 연결` 이 펴 보지 않고도 어느 판을 열지 알려 준다. */}
       <PortOwnerSections
         headings={ownerHeadings}
@@ -510,7 +510,7 @@ export function ConnectionsTab({
         sections={portOwners.map(({ owner, groups }) => {
           const ownerPorts = groups.flatMap((g) => g.ports);
           const connected = ownerPorts.filter((pt) => cablesByPortId.has(pt.id)).length;
-          // 고른 포트가 이 부품 것일 때만 상세를 편다.
+          // 고른 포트가 이 장비 것일 때만 상세를 편다.
           // 고르는 중에는 상세를 열지 않는다 — 지금 하는 일은 「고르기」 하나뿐이다.
           const sel = !picking && selectedPort && selectedPort.assetId === owner.id ? selectedPort : null;
           return {
@@ -604,7 +604,7 @@ export function ConnectionsTab({
                           <DetailRow label="케이블">
                             {editingCableId === peer.cableId ? (
                               <Select
-                                aria-label="케이블 종류"
+                                aria-label="케이블 품목"
                                 size="sm"
                                 autoFocus
                                 value={peer.categoryId ?? ''}
@@ -626,7 +626,7 @@ export function ConnectionsTab({
                               <button
                                 type="button"
                                 className={cn('flex w-full items-center gap-1.5 rounded px-1 text-left', SELECTABLE)}
-                                title="케이블 종류 바꾸기"
+                                title="케이블 품목 바꾸기"
                                 onClick={() => setEditingCableId(peer.cableId)}
                               >
                                 <span className="min-w-0 truncate text-sm text-content">{peer.categoryName ?? EMPTY}</span>
@@ -655,7 +655,7 @@ export function ConnectionsTab({
                     )}
 
                     {/* 추적 결과 — **누른 자리 바로 아래**에 편다.
-                        맨 위 카드에 띄우면 부품이 열둘일 때 결과가 화면 밖으로 나가, 누르고도
+                        맨 위 카드에 띄우면 장비가 열둘일 때 결과가 화면 밖으로 나가, 누르고도
                         아무 일이 없는 것처럼 보였다. 경로는 이 포트에서 출발한 것이므로
                         이 포트 밑이 그 경로의 자리다. */}
                     {tracedPortId === sel.id && traceResult && (

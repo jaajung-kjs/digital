@@ -42,7 +42,7 @@ function ConflictItem({ conflict }: { conflict: V2Conflict }) {
   const label = useConflictLabel(conflict.id);
   const reasonLabel = (reason: V2Conflict['reason']) =>
     reason === 'deleted' ? '서버에서 삭제됨' :
-    reason === 'exists' ? '이미 존재하는 자산(재시도 중복)' :
+    reason === 'exists' ? '이미 존재하는 설비(재시도 중복)' :
     '다른 사용자가 수정함';
 
   return (

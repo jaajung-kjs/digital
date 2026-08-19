@@ -42,7 +42,7 @@ interface StatusTableProps {
    * 표의 주요 동작 — **검색과 같은 줄, 오른쪽 끝**.
    *
    * 예전에는 「자산 추가」가 검색 위 별도 줄 왼쪽에 서서, 표마다 주요 동작이 다른 자리에
-   * 있었다(케이블 종류는 도구바 오른쪽, 기준자료는 카드 머리 오른쪽). 도구바 한 줄에
+   * 있었다(케이블 품목은 도구바 오른쪽, 적산 기준는 카드 머리 오른쪽). 도구바 한 줄에
    * 검색과 동작을 함께 두는 것이 표 UI 의 표준 배치다.
    */
   actions?: ReactNode;
@@ -82,11 +82,11 @@ const SUBSTATION_COL: Column = {
 
 /** 타입 선언과 무관하게 모든 자산이 갖는 것들 — 구조(종류·이름·자리)와 이력·상태. */
 const STRUCTURAL_COLS: Column[] = [
-  { key: 'typeName', label: '종류', weight: 14, value: (r) => r.typeName, render: (r) => r.typeName },
+  { key: 'typeName', label: '품목', weight: 14, value: (r) => r.typeName, render: (r) => r.typeName },
   { key: 'name', label: '이름', weight: 20, value: (r) => r.name, render: (r) => r.name },
   /* 「설치장소」 열은 없앴다 — 자리는 표에서 이미 두 번 말한다. 설비는 이름이 곧 자리이고
-     (「판암 OFD」), 부품은 그 설비 밑에 물려 나오므로 어느 판에 꽂혔는지가 줄의 위치다.
-     `location` 자체는 남는다 — 아래에서 같은 설비의 부품 차례를 정할 때 쓴다. */
+     (「판암 OFD」), 장비는 그 설비 밑에 물려 나오므로 어느 판에 꽂혔는지가 줄의 위치다.
+     `location` 자체는 남는다 — 아래에서 같은 설비의 장비 차례를 정할 때 쓴다. */
 ];
 
 const TRAILING_COLS: Column[] = [
@@ -200,7 +200,7 @@ export function StatusTable({
       list.push(r);
       kids.set(r.assemblyRootId, list);
     }
-    // 한 설비 안의 부품 차례는 자리순 — 판을 위에서 아래로 읽는 순서와 같다.
+    // 한 설비 안의 장비 차례는 자리순 — 판을 위에서 아래로 읽는 순서와 같다.
     for (const list of kids.values()) list.sort((a, b) => a.location.localeCompare(b.location, 'ko'));
 
     const out: StatusRow[] = [];
@@ -213,7 +213,7 @@ export function StatusTable({
   }, [sorted]);
 
   /**
-   * 설비 종류로 놓은 묶음은 **한 줄로 접는다** — 업무에서 세는 단위가 그 설비 하나다.
+   * 설비 품목으로 놓은 묶음은 **한 줄로 접는다** — 업무에서 세는 단위가 그 설비 하나다.
    *
    * 접는 것이지 숨기는 것이 아니다. 점검·고장이력은 여전히 개별 자산에 붙으므로 들어갈
    * 길이 사라지면 안 된다. 그리고 검색 중에는 접지 않는다 — 찾은 것이 안쪽에 있으면
@@ -238,7 +238,7 @@ export function StatusTable({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
       <div className="flex max-w-6xl shrink-0 items-center gap-2">
         <TableSearch
-          aria-label="자산 검색"
+          aria-label="설비 검색"
           placeholder="표에 보이는 값으로 검색"
           value={query}
           onChange={setQuery}
@@ -273,9 +273,9 @@ export function StatusTable({
                     설명을 덧붙이면 같은 말을 두 번 한다. 원래 없을 때만 「무엇을 하면
                     나타나는가」를 적는다. */}
                 {query.trim() ? (
-                  <EmptyState title={`'${query.trim()}' 와 맞는 자산이 없습니다`} />
+                  <EmptyState title={`'${query.trim()}' 와 맞는 설비가 없습니다`} />
                 ) : (
-                  <EmptyState title="자산이 없습니다" description="위의 「자산 추가」 로 만드세요." />
+                  <EmptyState title="설비가 없습니다" description="평면도에서 「배치」 로 놓으세요." />
                 )}
               </td>
             </tr>

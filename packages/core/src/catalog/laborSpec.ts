@@ -1,5 +1,5 @@
 /**
- * 공량·단가의 **유일한 선언** — 자산 종류·설비 종류·케이블 종류가 이것을 함께 쓴다.
+ * 공량·단가의 **유일한 선언** — 장비 품목·설비 품목·케이블 품목이 이것을 함께 쓴다.
  *
  * 왜 한 곳인가: 예전에는 셋이 각자 스키마를 갖고 있었다. 케이블에만 이설이 없고, 설비에만
  * 자재단가가 없고, 케이블 필드만 이름에 단위가 박혀 있었다(`…PerM`). 이름이
@@ -24,14 +24,14 @@ export type WorkKind = (typeof WORK_KINDS)[number]['key'];
  * 공량을 갖는 것들과 그 단위. 단위는 **담체**가 정한다 — 필드 이름에 박지 않는다.
  *
  * `emptyManDays` 는 품 칸을 **비워 뒀을 때의 뜻**이다. 담체마다 다르다: 설비만 안에 든
- * 부품의 공량을 합쳐 세고(`reportSelectors.assemblyLabor`), 자산·케이블은 합칠 것이 없어
+ * 장비의 공량을 합쳐 세고(`reportSelectors.assemblyLabor`), 자산·케이블은 합칠 것이 없어
  * 0 으로 잡힌다(`assetReportItem`·`cableReportItem` 의 `?? 0`). 담체가 선언하므로 화면이
  * `carrier === 'assembly'` 를 알 필요가 없다.
  */
 export const LABOR_CARRIERS = {
-  asset: { label: '자산 종류', unit: '대', emptyManDays: '품 0' },
-  assembly: { label: '설비 종류', unit: '식', emptyManDays: '부품 합산' },
-  cable: { label: '케이블 종류', unit: 'm', emptyManDays: '품 0' },
+  asset: { label: '장비 품목', unit: '대', emptyManDays: '품 0' },
+  assembly: { label: '설비 품목', unit: '식', emptyManDays: '장비 합산' },
+  cable: { label: '케이블 품목', unit: 'm', emptyManDays: '품 0' },
 } as const;
 
 export type LaborCarrier = keyof typeof LABOR_CARRIERS;
@@ -40,10 +40,10 @@ export type LaborCarrier = keyof typeof LABOR_CARRIERS;
  * 한 종류의 공량·단가.
  *
  * **전부 nullable 이고 뜻이 하나다**: `null` = 「안 적었다」(안에 든 것을 합쳐 센다, 없으면
- * 0), `0` = 「품이 안 든다」. 둘을 구별해야 설비 1식 공량과 부품 합계가 갈린다.
+ * 0), `0` = 「품이 안 든다」. 둘을 구별해야 설비 1식 공량과 장비 합계가 갈린다.
  */
 export interface LaborSpec {
-  /** 직종 코드 — 노임단가는 기준자료가 갖는다. */
+  /** 직종 코드 — 노임단가는 적산 기준가 갖는다. */
   laborCode: string | null;
   /** 자재단가(원/단위). */
   unitPrice: number | null;
@@ -99,7 +99,7 @@ export function emptyMeaning(carrier: LaborCarrier, kind: 'price' | 'manDays'): 
  * 직종과 노임단가는 **다른 데이터**다 — 화면이 붙여 놓으면 한 칸에 둘 다 저장되는 것으로 읽힌다.
  *
  * - `laborCode` 는 **카탈로그가 저장**한다(사용자가 고른다).
- * - 노임단가는 **기준자료가 정한다**(임포트가 SSOT). 골라 놓으면 따라오고, 고칠 수 없다.
+ * - 노임단가는 **적산 기준가 정한다**(임포트가 SSOT). 골라 놓으면 따라오고, 고칠 수 없다.
  *
  * 그래서 화면도 두 칸으로 나눈다: 고르는 칸과 따라오는 칸.
  */

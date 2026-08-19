@@ -22,7 +22,7 @@ export async function selectOrgNode(page: Page, name: string) {
 }
 
 /** 변전소 뷰 탭 전환. */
-export async function switchView(page: Page, view: '현황' | '평면도' | '선번장' | '계통') {
+export async function switchView(page: Page, view: '설비 대장' | '평면도' | '선번장' | '계통') {
   await page.getByRole('tab', { name: view, exact: true }).click();
 }
 

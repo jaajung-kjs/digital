@@ -8,7 +8,7 @@ const types = new Map([
   ['t-mod', { id: 't-mod', name: 'PITR', categoryId: 'c-1' } as never],
 ]);
 const categories = new Map([['c-1', '통신']]);
-/* 격자 안의 자리는 행·열로 적는다. 설비 종류로 놓은 설비는 설비 종류가 곧 분류다. */
+/* 격자 안의 자리는 행·열로 적는다. 설비 품목으로 놓은 설비는 설비 품목이 곧 분류다. */
 const assemblies = new Map([['asm-rack', { id: 'asm-rack', name: '송변전광단말장치' } as never]]);
 
 describe('buildStatusRows (변전소 스코프)', () => {
@@ -69,7 +69,7 @@ describe('필드 열 도출', () => {
   });
 });
 
-/* 설비 종류로 놓으면 자산이 여럿 생긴다(랙·송광치·OFD·경로슬롯…). 업무에서 세는 단위는 그
+/* 설비 품목으로 놓으면 자산이 여럿 생긴다(랙·송광치·OFD·경로슬롯…). 업무에서 세는 단위는 그
    묶음 하나이므로 표가 접을 수 있어야 한다 — 어느 행이 어느 묶음에 드는지는 여기서 나온다. */
 describe('설비 묶음', () => {
   const types = new Map([
@@ -79,7 +79,7 @@ describe('설비 묶음', () => {
     ({ id, name: id, typeId: 't', status: 'normal', floorId: null, parentAssetId: null,
        col: null, row: null, fieldValues: {}, ...over });
 
-  /* 설비 종류 이름은 글자로 굳혀 두지 않고 설비 종류를 가리킨다 — 이름은 카탈로그에서 읽는다. */
+  /* 설비 품목 이름은 글자로 굳혀 두지 않고 설비 품목을 가리킨다 — 이름은 카탈로그에서 읽는다. */
   const assembliesById = new Map([['asm-1', { id: 'asm-1', name: '송변전광단말장치 1식' } as never]]);
   const build = (assets: object[]) =>
     buildStatusRows({
@@ -87,7 +87,7 @@ describe('설비 묶음', () => {
       inspectionsByAsset: new Map(), assembliesById,
     }).rows;
 
-  it('뿌리에만 설비 종류 이름이 적히고, 자손은 그 뿌리에 매인다', () => {
+  it('뿌리에만 설비 품목 이름이 적히고, 자손은 그 뿌리에 매인다', () => {
     const rows = build([
       a('root', { floorId: 'f1', typeId: null, assemblyId: 'asm-1' }),
       a('kid', { parentAssetId: 'root', col: 0, row: 1 }),
@@ -100,15 +100,15 @@ describe('설비 묶음', () => {
     ]);
   });
 
-  /* 업무에서 "랙이 몇 개" 는 묻지 않는다 — 뿌리는 설비 종류 이름으로 센다. */
-  /* 설비 종류 이름을 고치면 이미 놓인 설비의 분류도 따라 바뀐다 — 같은 설비 종류가니까.
-     글자로 굳혀 두면 이름을 고치는 순간 같은 설비 종류인데 집계가 둘로 갈린다. */
-  it('뿌리의 종류는 설비 종류를 따라간다 — 이름을 굳혀 두지 않는다', () => {
+  /* 업무에서 "랙이 몇 개" 는 묻지 않는다 — 뿌리는 설비 품목 이름으로 센다. */
+  /* 설비 품목 이름을 고치면 이미 놓인 설비의 분류도 따라 바뀐다 — 같은 설비 품목이니까.
+     글자로 굳혀 두면 이름을 고치는 순간 같은 설비 품목인데 집계가 둘로 갈린다. */
+  it('뿌리의 종류는 설비 품목을 따라간다 — 이름을 굳혀 두지 않는다', () => {
     const rows = build([a('root', { floorId: 'f1', typeId: null, assemblyId: 'asm-1' })]);
     expect(rows[0]!.typeName).toBe('송변전광단말장치 1식');
   });
 
-  it('설비 종류 밖 자산은 매이지 않는다 — 도면에 바로 놓은 단품도 그대로 보인다', () => {
+  it('설비 품목 밖 자산은 매이지 않는다 — 도면에 바로 놓은 단품도 그대로 보인다', () => {
     const rows = build([a('rack', { floorId: 'f1' }), a('dev', { parentAssetId: 'rack', col: 0, row: 0 })]);
     expect(rows.every((r) => r.assemblyRootId === null)).toBe(true);
   });

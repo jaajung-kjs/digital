@@ -101,7 +101,7 @@ export async function deleteCategory(id: string): Promise<void> {
 }
 
 /**
- * 케이블 그룹 — **통째로** 보낸다(자산 종류가 포트를 함께 보내는 것과 같다): 제 이름·색과
+ * 케이블 그룹 — **통째로** 보낸다(장비 품목이 포트를 함께 보내는 것과 같다): 제 이름·색과
  * 종류 목록 전체. 보내지 않은 종류는 지워지고, `id` 없는 줄은 새로 생긴다. 순서는 배열 순서다.
  *
  * 그룹을 새로 만들거나 지우는 길은 없다 — `key` 가 포트 종류의 어휘다.
@@ -126,7 +126,7 @@ export async function putCableGroup(
   return (await api.put(`/v2/catalog/cable-groups/${id}`, body)).data;
 }
 
-// ── 설비 종류 ────────────────────────────────────────────────────────────────
+// ── 설비 품목 ────────────────────────────────────────────────────────────────
 
 export async function createAssembly(body: AssemblyUpsertBody): Promise<{ id: string }> {
   return (await api.post('/v2/catalog/assemblies', body)).data;
@@ -138,7 +138,7 @@ export async function deleteAssembly(id: string): Promise<void> {
   await api.delete(`/v2/catalog/assemblies/${id}`);
 }
 
-// ── 기준자료(노임단가·제비율) ────────────────────────────────────────────────
+// ── 적산 기준(노임단가·제비율) ────────────────────────────────────────────────
 
 /** 미리보기 — 올리기 전에 무엇이 들어오고 지금 대장에 무엇이 걸리는지 보여 준다. */
 export interface WagePreview {
@@ -151,7 +151,7 @@ export interface WagePreview {
   rows: { code: string; name: string; sector: string; marker: string; values: { date: string; wage: number }[] }[];
   /** 이름으로 들어 있던 값 중 코드로 올릴 수 있는 것 — 등록하면 함께 바뀐다. */
   promote: { from: string; toCode: string; toName: string; count: number }[];
-  /** 새 표에 없는 값 — 그대로 두면 설계서에서 「단가 없음」이 된다. */
+  /** 새 표에 없는 값 — 그대로 두면 산출 내역에서 「단가 없음」이 된다. */
   orphans: { value: string; count: number }[];
 }
 
@@ -186,7 +186,7 @@ export async function uploadOverheadStandard(file: File): Promise<{ id: string; 
   return (await api.post('/v2/standards/overhead', filePart(file), MULTIPART)).data;
 }
 
-/** 임포트된 직종 노임 — 회차별로 펼친 표(기준자료 탭 전용). */
+/** 임포트된 직종 노임 — 회차별로 펼친 표(적산 기준 탭 전용). */
 export interface WageRates {
   /** 실제로 들어온 회차들, 최신 우선. */
   dates: string[];

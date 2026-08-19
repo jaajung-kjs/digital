@@ -87,8 +87,8 @@ export function buildTraceInputs(args: {
   const assets: AssetRef[] = [];
   const ports: PortRef[] = [];
   for (const a of args.assets) {
-    /* 설비(설비 종류로 놓은 것)는 타입이 없다 — 포트도 없으므로 추적 그래프에 들어갈 것이 없다.
-       추적은 부품의 포트끼리 잇는 일이다. */
+    /* 설비(설비 품목으로 놓은 것)는 타입이 없다 — 포트도 없으므로 추적 그래프에 들어갈 것이 없다.
+       추적은 장비의 포트끼리 잇는 일이다. */
     const typeKey = a.typeId ? typeKeyById.get(a.typeId) : undefined;
     if (!typeKey) continue;
 

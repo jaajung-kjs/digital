@@ -30,7 +30,7 @@ export default function V2WorkspacePage() {
   const { confirm, confirmDialog } = useConfirm();
   const loadingWorkingCopy = useV2WorkingCopy((st) => st.loading);
   /**
-   * **보고 있는 자리는 주소가 안다** — 고른 조직·판·자산·부품·포트(`useWorkspaceRoute`).
+   * **보고 있는 자리는 주소가 안다** — 고른 조직·판·자산·장비·포트(`useWorkspaceRoute`).
    *
    * 예전에는 전부 이 컴포넌트의 `useState` 였고, 그래서 북마크도 공유도 새로고침 복원도
    * 없었으며 뒤로가기는 앱 밖으로 나갔다.
@@ -45,14 +45,14 @@ export default function V2WorkspacePage() {
   /**
    * 표·도면에서 **켜져 보일 줄** — 누른 것 그 자체다.
    *
-   * 부품을 누르면 패널은 그 부품을 품은 설비를 연다(부품은 제 패널을 갖지 않는다). 그런데
+   * 장비를 누르면 패널은 그 장비를 품은 설비를 연다(장비는 제 패널을 갖지 않는다). 그런데
    * 켜지는 줄까지 설비로 옮겨 버리면, 광단말 B 를 눌렀는데 판암 송광치 줄에 불이 들어온다 —
    * 누른 것과 켜진 것이 다른 화면은 사람이 자기가 뭘 눌렀는지 의심하게 만든다.
    */
   const highlightedAssetId = route.partId ?? route.assetId;
   /** 상세 패널이 열자마자 골라 줄 포트 — 표의 한 줄이 포트 하나를 가리킬 때 쓴다. */
   const focusPortId = route.portId;
-  /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 부품. */
+  /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 장비. */
   const focusPartId = route.partId;
   const viewMode = route.view;
   /* 뷰 탭과 그 아래 내용이 같은 이름표를 나눠 갖는다 — 스크린리더가 둘을 잇는다. */
@@ -85,7 +85,7 @@ export default function V2WorkspacePage() {
 
   const handleSelect = async (n: FlatOrgNode | null) => {
     /* 고른 것을 다시 누르면 놓는다 — 표와 같은 규칙(`selectableRow`). 아무것도 안 고른
-       워크스페이스는 「무엇을 볼지 고르세요」라는 정당한 상태다. */
+       설비 관리는 「무엇을 볼지 고르세요」라는 정당한 상태다. */
     if (n == null) {
       route.selectNode(null);
       setTraceResult(null);
@@ -108,7 +108,7 @@ export default function V2WorkspacePage() {
       );
       if (!mayLeave) return;
     }
-    /* 자산·부품·포트는 딸려 가지 않는다 — 저기 있던 자산이 여기 있을 리 없다. */
+    /* 자산·장비·포트는 딸려 가지 않는다 — 저기 있던 자산이 여기 있을 리 없다. */
     route.selectNode(n.id);
     setTraceResult(null); // 변전소 전환 시 추적 결과 클리어
   };
@@ -133,10 +133,10 @@ export default function V2WorkspacePage() {
    * 같아야 한다 — 안 그러면 표에서 고른 것과 패널이 보여 주는 것이 서로 다른 뜻이 된다.
    */
   const handleSelectAssetId = useCallback((id: string | null, portId?: string | null) => {
-    /* **부품은 제 패널을 갖지 않는다.** 설비 패널을 열고 그 부품을 구성 격자에서 고른 상태로
-       둔다 — 부품마다 다른 것은 상태·설치일·담당자 네 줄뿐인데, 그것을 보려고 패널이 통째로
+    /* **장비는 제 패널을 갖지 않는다.** 설비 패널을 열고 그 장비를 구성 격자에서 고른 상태로
+       둔다 — 장비마다 다른 것은 상태·설치일·담당자 네 줄뿐인데, 그것을 보려고 패널이 통째로
        바뀌면 「지금 어느 설비를 보고 있나」가 사라지고 대부분 빈 탭 넷이 다시 뜬다.
-       (사진·점검·고장이력은 설비의 것이고, 포트는 설비 포트 탭이 부품별로 묶어 보여준다.) */
+       (사진·점검·고장이력은 설비의 것이고, 포트는 설비 포트 탭이 장비별로 묶어 보여준다.) */
     const assets = useV2WorkingCopy.getState().effectiveAssets();
     const target = id ? assets.find((a) => a.id === id) : null;
     const parent = target?.parentAssetId ? assets.find((a) => a.id === target.parentAssetId) : null;
@@ -163,7 +163,7 @@ export default function V2WorkspacePage() {
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
-  /** 설비 종류로 놓은 설비는 설비 종류가 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */
+  /** 설비 품목으로 놓은 설비는 설비 품목이 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */
   const assembliesById = useMemo(
     () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
     [catalog.data],
@@ -277,11 +277,11 @@ export default function V2WorkspacePage() {
                 )}
                 <span className="flex-1" />
                 {inSubstationScope && (
-                  /* 설계서는 지금 스테이징된 변경의 공량을 보는 화면이다. 예전엔 진입점이
+                  /* 산출 내역는 지금 스테이징된 변경의 공량을 보는 화면이다. 예전엔 진입점이
                      저장 바 뿐이라 **변경을 만들어야만 볼 수 있었다**(고친 것이 없으면
                      사라진다). 상시 노출로 옮긴다. */
                   <Button variant="secondary" size="sm" onClick={() => setReportOpen(true)}>
-                    설계서
+                    산출 내역
                   </Button>
                 )}
                 {/* 저장은 대장과 **같은 자리**에 선다 — 고친 것이 있을 때만 나타난다. */}
@@ -373,7 +373,7 @@ export default function V2WorkspacePage() {
                     />
                   ) : (
                     <EmptyState
-                      title="고른 자산이 없습니다"
+                      title="고른 설비가 없습니다"
                       description="표나 도면에서 하나를 누르세요."
                     />
                   )}
@@ -387,7 +387,7 @@ export default function V2WorkspacePage() {
       </div>
 
 
-      {/* 설계서 패널 (조건부 마운트 — 닫힌 상태에서 store 구독/계산 방지) */}
+      {/* 산출 내역 패널 (조건부 마운트 — 닫힌 상태에서 store 구독/계산 방지) */}
       {reportOpen && <ReportPanel open onClose={() => setReportOpen(false)} />}
 
       {/* 충돌 다이얼로그 */}

@@ -1,7 +1,7 @@
 /**
  * PowerRegisterView — 계통 뷰
  *
- * 상단: 설비(전원 포트를 가진 부품을 담은 것) Select
+ * 상단: 설비(전원 포트를 가진 장비를 담은 것) Select
  * 테이블 컬럼: 회로 | 피더 | 상태 | 전원 입력(peer) | 전압 | 부하 출력(peer)
  *   - 개폐: 출력 포트의 `closed` 값을 여닫는 스위치
  *   - 전압: 인라인 Input → stageCableUpdate specParams 병합 (IN 케이블 없으면 EMPTY)
@@ -137,7 +137,7 @@ export function PowerRegisterView({
 
   const containers = useMemo(() => powerContainers(effectiveAssets), [effectiveAssets]);
 
-  /* 어느 설비를 보고 있나 + 그 설비 종류가 선언한 회로 수.
+  /* 어느 설비를 보고 있나 + 그 설비 품목이 선언한 회로 수.
      회로 수가 선언돼 있으면 빈 자리까지 표(패널 스케줄)에 나오고, 자유형이면 있는 것만 나온다.
      "몇 회로짜리인가" 는 타입이 아니라 명세가 말한다 — 코드는 분전반을 모르지 않는다. */
   /* 케이블에 적는 값 — 몇 칸인지는 종류 선언이 정한다(예전에는 전압 하나로 박혀 있었다). */
@@ -192,12 +192,12 @@ export function PowerRegisterView({
     <RegisterLayout
       picker={picked}
       empty={{
-        title: '계통에 표시할 전원 자산이 없습니다',
+        title: '계통에 표시할 전원 설비가 없습니다',
         description: '분전반 등 전원 설비를 평면도에 놓고 그 안에 피더를 넣으면 나타납니다.',
       }}
       search={{
         'aria-label': '회로 검색',
-        placeholder: '피더 · 연결 자산 검색',
+        placeholder: '피더 · 연결 설비 검색',
         value: query,
         onChange: setQuery,
         shown: filtered.length,

@@ -280,13 +280,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
 ];
 
 /**
- * 시드 설비 종류 — **도면에 놓이는 것은 이것들뿐**이다.
+ * 시드 설비 품목 — **도면에 놓이는 것은 이것들뿐**이다.
  *
- * 예전에는 랙·OFD·분전반이 자산 종류였고 그 안에 자리(컨테이너)가 선언돼 있었다. 그래서
+ * 예전에는 랙·OFD·분전반이 장비 품목이었고 그 안에 자리(컨테이너)가 선언돼 있었다. 그래서
  * 담기 위한 자산이 현황에 올라왔고, 자리는 세로 한 줄로만 나뉘었다. 이제 담는 일은 설비
  * 종류의 격자가 하고, 랙 같은 껍데기는 그 겉모습일 뿐이라 자산이 아니다.
  *
- * 접지함체·공조설비처럼 **단품**인 것도 여기 1칸짜리로 둔다. 예전에는 자산 종류에
+ * 접지함체·공조설비처럼 **단품**인 것도 여기 1칸짜리로 둔다. 예전에는 장비 품목에
  * 「평면도에 배치 가능」 딱지를 달아 그것만 따로 놓았는데, 그러면 도면에 놓는 길이 둘로
  * 갈리고 현황의 「종류」도 때로는 자산·때로는 설비를 가리켰다. 놓는 길은 하나여야 한다.
  *
@@ -321,7 +321,7 @@ export const SEED_ASSEMBLIES: {
     items: [{ typeKey: 'HVAC', name: '공조설비', col: 0, row: 0, colSpan: 1, rowSpan: 1 }],
   },
   {
-    /* 「1식」 — 랙 한 대에 들어가는 표준 구성. 랙 자체는 자산이 아니라 이 설비 종류의 겉모습이다.
+    /* 「1식」 — 랙 한 대에 들어가는 표준 구성. 랙 자체는 자산이 아니라 이 설비 품목의 겉모습이다.
      *
      * 격자는 **1행 = 1U, 1열 = 섀시 카드 슬롯 하나**다. 한 판에 두 가지 모양이 섞이기 때문에
      * 이만큼 잘게 나눈다:
@@ -369,7 +369,7 @@ export const SEED_ASSEMBLIES: {
  *
  * 이름·키·순서는 `PORT_KINDS` 가 이미 선언한다(포트 종류 하나 = 케이블 그룹 하나).
  * 품셈은 **종류**가 갖는다(`SEED_CABLE_CATEGORIES`) — 같은 광이라도 OPGW 가공(외선)과
- * 실내 점퍼 결선은 품이 다르고, 자산 종류·설비 종류도 「종류」가 품셈을 갖는다.
+ * 실내 점퍼 결선은 품이 다르고, 장비 품목·설비 품목도 「종류」가 품셈을 갖는다.
  * 그룹에 두면 층이 어긋난다.
  *
  * `Record<PortKindKey, …>` 라 **포트 종류를 늘리면 여기가 빌 때 컴파일이 깨진다**.
@@ -413,7 +413,7 @@ export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
   { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
   { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
   /* 광 4종은 한 그룹이다. 점퍼코드만 한 가닥에 한 심이고 나머지 셋은 다심인데, 그 구분은
-     **포트의 심선 수**(`positions`)가 하지 케이블 종류가 하지 않는다 — 케이블에는 심선 수
+     **포트의 심선 수**(`positions`)가 하지 케이블 품목이 하지 않는다 — 케이블에는 심선 수
      필드가 아예 없다. 종류는 무엇을 깔았는지를 적는 이름일 뿐이다. */
   { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 외선, installManDays: 0.06,  removeManDays: 0.03  },
   { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborCode: 외선, installManDays: 0.06,  removeManDays: 0.03  },
@@ -422,7 +422,7 @@ export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
   { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10, laborCode: 내선, installManDays: 0.02, removeManDays: 0.01 },
   { groupKey: 'ground',  name: '나동연선',              sortOrder: 11, laborCode: 내선, installManDays: 0.02, removeManDays: 0.01 },
   // 제어케이블은 제어 그룹이다 — 예전에는 전원 그룹에 들어가 있어, 제어 포트에 물릴 수 있는
-  // 케이블 종류가 하나도 없었다(포트 종류와 케이블 그룹이 어긋난 자리).
+  // 케이블 품목이 하나도 없었다(포트 종류와 케이블 그룹이 어긋난 자리).
   { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
   { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
   { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
@@ -434,7 +434,7 @@ export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
 /**
  * 시드가 선언한 매체 키의 합집합 타입.
  *
- * 전용 뷰(선번장·계통)는 자산 종류 이름을 모르고 medium 키 문자열로 대상을 찾으므로,
+ * 전용 뷰(선번장·계통)는 장비 품목 이름을 모르고 medium 키 문자열로 대상을 찾으므로,
  * 그 키가 이 화면들의 생명줄이다. 셀렉터의 상수를 이 타입으로 묶어 두면 시드에서
  * 키를 바꾸는 순간 **컴파일이 깨진다** — 런타임에 조용히 빈 화면이 되는 대신.
  */

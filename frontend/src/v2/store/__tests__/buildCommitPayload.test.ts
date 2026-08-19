@@ -106,7 +106,7 @@ describe('buildCommitPayload', () => {
   it('photos만 있을 때 records.photos 로 매핑되고 다른 키는 생략', () => {
     const ph: V2AssetPhoto = { id: 'ph-1', assetId: 'a-1', filePath: 'assets/x.png', caption: null, updatedAt: '' };
     const p = buildCommitPayload(overlays({ photos: { creates: { 'ph-1': ph } } }), {});
-    /* 기록의 주인은 설비(`assetId`)이고 `partAssetId` 는 그 안에서 가리키는 부품이다 —
+    /* 기록의 주인은 설비(`assetId`)이고 `partAssetId` 는 그 안에서 가리키는 장비다 —
        설비 전체에 대한 것이면 비운다. */
     expect(p.records).toEqual({
       photos: { creates: [{ id: 'ph-1', assetId: 'a-1', partAssetId: null, filePath: 'assets/x.png', caption: null }] },
