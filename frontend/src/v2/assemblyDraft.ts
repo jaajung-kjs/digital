@@ -64,7 +64,8 @@ export interface AssemblyIssue {
 }
 
 const ERROR_MESSAGE: Record<AssemblyError, string> = {
-  'unknown-type': '없는 장비 품목을 가리키는 장비가 있습니다',
+  /* 갓 놓은 장비는 품목이 비어 있다 — 「없는 것을 가리킨다」가 아니라 「아직 안 골랐다」다. */
+  'unknown-type': '품목을 고르지 않은 장비가 있습니다',
   'out-of-range': '격자 밖에 놓인 장비가 있습니다',
   overlap: '같은 자리에 겹쳐 놓인 장비가 있습니다',
 };

@@ -124,14 +124,6 @@ describe('AssemblyGrid', () => {
     expect(onDeselect).not.toHaveBeenCalled();
   });
 
-  /* 무엇을 넣을지 정하는 동안 그 네모는 판에 남는다 — 상자가 가리는 것은 판이지 방금 그린
-     자리가 아니어야 한다. */
-  it('묻는 중인 자리는 판에 남는다', () => {
-    setup({ pending: { at: { col: 1, row: 1, colSpan: 1, rowSpan: 1 }, label: '새 장비' } });
-    const cell = screen.getByRole('button', { name: /2행 2열, 비어 있음/ });
-    expect(cell.className).toMatch(/border-primary/);
-  });
-
   /* 「몇 단인가」는 눈금이 말한다 — 칸마다 번호를 박으면 판이 번호로 뒤덮인다. */
   it('단 눈금이 행 수만큼 선다', () => {
     setup();

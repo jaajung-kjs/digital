@@ -45,23 +45,23 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
 
   /**
-   * 무엇을 넣을지 정하는 중인 자리 — **아직 장비는 만들지 않는다.**
+   * 끌기가 끝나면 **그 자리에 장비가 선다** — 임시 자리표가 아니라 진짜다.
    *
-   * 한때는 빈 자리를 끌면 그 자리에 **품목 없는 장비**를 실제로 만들어 두고 나중에 고치게 했다.
-   * 그러자 「없는 장비 품목을 가리키는 장비가 있습니다」가 곧바로 뜨고(만들자마자 초안이
-   * 잘못된 상태가 된다), 그것을 치우는 규칙(누가·언제 지우나)이 또 필요했으며, 그 규칙이
-   * 어긋날 때마다 이름 없는 네모가 판에 남았다. 만들지 않으면 치울 것도 없다.
+   * 한때는 자리만 잡아 두고 품목을 고른 뒤에야 만들었다. 그러면 그 사이가 어중간해진다:
+   * 다른 장비를 한 번 누르기만 해도 잡아 둔 자리가 사라지고, 오른쪽에는 품목 하나만 묻는
+   * 화면이 떠서 이름도 포트도 볼 수 없다. 놓은 순간 판에 서고, 고치는 자리는 늘 같다.
    *
-   * 그동안 그 네모는 판에 그대로 선다(`pending`) — 무엇을 정하는 중인지가 화면에 있다.
+   * 품목을 안 고른 장비는 저장이 거절된다 — 그 말은 판 위 오류 줄이 한다.
    */
-  const [pendingAt, setPendingAt] = useState<GridPlacement | null>(null);
-
-  function placePart(typeId: string) {
-    const type = typeById.get(typeId);
-    if (!pendingAt || !type) return;
+  function addPartAt(at: { col: number; row: number; colSpan?: number; rowSpan?: number }) {
     const id = newItemId();
-    onChange({ ...draft, items: [...draft.items, { id, typeId, name: type.name, ...pendingAt }] });
-    setPendingAt(null);
+    onChange({
+      ...draft,
+      items: [...draft.items, {
+        id, typeId: '', name: '',
+        col: at.col, row: at.row, colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1,
+      }],
+    });
     setSelectedItemId(id);
   }
 
@@ -110,8 +110,8 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             items={draft.items}
             selectedId={selectedItemId}
             /* 같은 것을 다시 누르면 풀린다 — 상세 패널·포트 탭과 같은 규칙. */
-            onSelect={(part) => { setPendingAt(null); setSelectedItemId(selectedItemId === part.id ? null : part.id); }}
-            onDeselect={() => { setPendingAt(null); setSelectedItemId(null); }}
+            onSelect={(part) => setSelectedItemId(selectedItemId === part.id ? null : part.id)}
+            onDeselect={() => setSelectedItemId(null)}
             /* 초안이라 저장 전이다 — 묻지 않는다(취소로 통째로 되돌릴 수 있다). */
             onRemove={(part) => removePart(part.id)}
             /* 품목 이름은 **이름과 다를 때만** 적는다 — 갓 넣은 장비는 이름이 곧 품목 이름이라
@@ -123,12 +123,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
                 <span className="shrink-0 text-xs text-content-faint">{typeName}</span>
               );
             }}
-            onAddAtCell={(at) => {
-              setSelectedItemId(null);
-              setPendingAt({ col: at.col, row: at.row, colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1 });
-            }}
-            /* 무엇을 넣을지 정하는 동안 그 네모는 판에 남는다. */
-            pending={pendingAt ? { at: pendingAt, label: '새 장비' } : null}
+            onAddAtCell={addPartAt}
             canPlace={canPlace}
             onMove={updateItem}
           />
@@ -138,27 +133,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
       {/* 상세 — **한 자리에서 문맥만 바뀐다.** 아무것도 안 골랐으면 설비 자신, 장비를
           골랐으면 그 장비. 상세 패널과 같은 폭(384px)이라 두 화면이 같은 판으로 읽힌다. */}
       <aside ref={asideRef} className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto">
-        {pendingAt ? (
-          /* 정하는 중 — 묻는 것은 **품목 하나**다. 고르는 순간 판에 선다. */
-          <DetailCard>
-            <DetailCardHeader
-              title="새 장비"
-              actions={
-                <Button variant="ghost" size="sm" onClick={() => setPendingAt(null)}>
-                  그만두기
-                </Button>
-              }
-            />
-            <DetailRow label="품목" required>
-              <Select aria-label="장비 품목" value="" onChange={(e) => placePart(e.currentTarget.value)}>
-                <option value="">— 품목 선택 —</option>
-                {catalog.types.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </Select>
-            </DetailRow>
-          </DetailCard>
-        ) : selected ? (
+        {selected ? (
           <>
             <DetailCard>
               <DetailCardHeader
