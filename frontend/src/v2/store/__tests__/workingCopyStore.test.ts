@@ -180,4 +180,22 @@ describe('useV2WorkingCopy', () => {
     expect(s.effectiveCables()).toHaveLength(0);
     expect(s.overlays.cables.deletes).toEqual(['c-1']);
   });
+
+  /* 층은 오버레이 스테이징 대상이 아니라 커밋 경로를 타지 않는다. 그렇다고 전체 재로드를
+     부를 수는 없다 — 그것은 스테이징한 변경과 undo 히스토리를 버린다. 더하는 쪽이 빠져 있어서
+     층을 만들어도 평면도는 「층이 없습니다」인 채였다. */
+  it('applyFloor — 새 층은 더하고, 이미 있는 층은 그 행만 갈아 끼운다', async () => {
+    await useV2WorkingCopy.getState().load('sub-1');
+    const before = useV2WorkingCopy.getState().saved.floors.length;
+
+    useV2WorkingCopy.getState().applyFloor({ id: 'new-floor', name: '지하1층', sortOrder: 9, substationId: 'sub-1' });
+    const added = useV2WorkingCopy.getState().saved.floors;
+    expect(added).toHaveLength(before + 1);
+    expect(added.at(-1)?.name).toBe('지하1층');
+
+    useV2WorkingCopy.getState().applyFloor({ id: 'new-floor', name: '지하2층', sortOrder: 9, substationId: 'sub-1' });
+    const replaced = useV2WorkingCopy.getState().saved.floors;
+    expect(replaced).toHaveLength(before + 1);
+    expect(replaced.find((f) => f.id === 'new-floor')?.name).toBe('지하2층');
+  });
 });

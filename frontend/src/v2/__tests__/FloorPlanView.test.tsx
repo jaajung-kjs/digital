@@ -55,6 +55,12 @@ vi.mock('../hooks', () => ({
   useTypesById: (types?: { id: string }[]) => new Map((types ?? []).map((t) => [t.id, t])),
   useMediumLabel: () => (key: string) => key,
   useMediumColor: () => () => null,
+  /* 층을 만드는 길이 평면도에도 있다(빈 화면 + 탭 줄 끝) — 여기서는 부르지 않는다. */
+  useOrgMutations: () => ({
+    createOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
+    renameOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
+    deleteOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
+  }),
 }));
 
 const floor: V2Floor = { id: 'f1', name: '1층', sortOrder: 1, substationId: 'sub-1' };

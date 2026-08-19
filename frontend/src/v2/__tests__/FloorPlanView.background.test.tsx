@@ -20,6 +20,12 @@ vi.mock('../hooks', () => ({
   useV2Catalog: () => ({ data: { categories: [], types: [], assemblies: [], cableGroups: [] } }),
   // 부품의 포트를 놓는 순간 만들려면 자산 종류가 필요하다(저장 전에도 포트가 보여야 한다).
   useTypesById: () => new Map(),
+  /* 층을 만드는 길이 평면도에도 있다(빈 화면 + 탭 줄 끝) — 여기서는 부르지 않는다. */
+  useOrgMutations: () => ({
+    createOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
+    renameOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
+    deleteOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
+  }),
 }));
 
 vi.mock('../api', async (importOriginal) => {

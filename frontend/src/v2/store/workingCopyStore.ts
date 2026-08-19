@@ -92,13 +92,22 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       },
 
       /**
-       * 서버가 즉시 확정한 층 변경(배경 도면 임포트/제거)의 응답 행을 saved.floors 에 반영한다.
-       * 층은 오버레이 스테이징 대상이 아니므로 커밋 경로를 타지 않는다 — 전체 재로드(load)
-       * 대신 해당 행만 교체해 진행 중인 스테이징과 undo 히스토리를 보존한다.
+       * 서버가 **즉시 확정한** 층 하나를 saved.floors 에 반영한다 — 새 층이면 더하고, 이미
+       * 있으면 그 행만 갈아 끼운다(배경 도면 임포트/제거, 층 추가).
+       *
+       * 층은 오버레이 스테이징 대상이 아니라 커밋 경로를 타지 않는다. 그렇다고 전체 재로드
+       * (`load`)를 부를 수는 없다 — **그것은 스테이징한 변경과 undo 히스토리를 버린다**.
+       * 그래서 그 행만 반영한다. 더하는 쪽이 빠져 있어서, 층을 만들어도 평면도는 「층이
+       * 없습니다」인 채였고 변전소를 다시 고르기 전까지 나타나지 않았다.
        */
       applyFloor: (floor) =>
         set((s) => ({
-          saved: { ...s.saved, floors: s.saved.floors.map((f) => (f.id === floor.id ? floor : f)) },
+          saved: {
+            ...s.saved,
+            floors: s.saved.floors.some((f) => f.id === floor.id)
+              ? s.saved.floors.map((f) => (f.id === floor.id ? floor : f))
+              : [...s.saved.floors, floor],
+          },
         })),
 
       revert: () => {

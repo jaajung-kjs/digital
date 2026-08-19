@@ -14,6 +14,7 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
+import { apiErrorMessage } from '../../apiError';
 import { portHasRoom, validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
 import { renderGrid } from '../../canvas/gridRenderer';
@@ -31,8 +32,8 @@ import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
-import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
+import { useOrgMutations, useTypesById, useV2Catalog } from '../../hooks';
+import { Button, EmptyState, IconButton, PromptModal, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorIdOf } from '../../assetTree';
@@ -1348,22 +1349,74 @@ export function FloorPlanView({
 
   const floorTabs = useTabs(activeFloorId ?? '');
 
+  /**
+   * **층은 여기서도 만든다.**
+   *
+   * 만드는 길이 조직 트리의 변전소 줄에만 있었고, 그 줄의 추가 단추는 **손을 얹어야 나타난다**.
+   * 그래서 변전소를 새로 만든 사람은 평면도에 와서 「조직 트리에서 추가하세요」라는 문장만 보고,
+   * 그 트리 어디를 어떻게 눌러야 하는지는 스스로 찾아내야 했다 — 빈 화면은 다음에 누를 것을
+   * 말해야 한다(`EmptyState`). 층을 더 붙이는 길도 같은 자리(탭 줄 끝)에 둔다.
+   */
+  const { createOrgNode } = useOrgMutations();
+  const [addingFloor, setAddingFloor] = useState(false);
+  const [floorError, setFloorError] = useState<string | null>(null);
+
+  async function addFloor(name: string) {
+    setFloorError(null);
+    try {
+      const created = (await createOrgNode.mutateAsync({ kind: 'floors', body: { name, substationId } })) as V2Floor;
+      /* 서버가 확정한 그 행만 워킹카피에 얹는다 — 전체 재로드는 스테이징한 변경을 버린다. */
+      useV2WorkingCopy.getState().applyFloor(created);
+      setActiveFloorId(created.id);
+      setAddingFloor(false);
+    } catch (err) {
+      /* 상자를 닫지 않는다 — 닫으면 무엇이 잘못됐는지 볼 자리가 없다(같은 이름의 층 등). */
+      setFloorError(apiErrorMessage(err, '층을 만들지 못했습니다'));
+    }
+  }
+
+  const floorPrompt = (
+    <PromptModal
+      open={addingFloor}
+      title="층 추가"
+      label="층 이름"
+      placeholder="예: 1층"
+      busy={createOrgNode.isPending}
+      error={floorError}
+      onConfirm={(name) => void addFloor(name)}
+      onClose={() => { setAddingFloor(false); setFloorError(null); }}
+    />
+  );
+
+  /* 층이 하나도 없으면 판이 없다 — 빈 화면이 **다음에 누를 것**을 말한다. */
+  if (floors.length === 0) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <EmptyState
+          title="이 변전소에는 층이 없습니다"
+          description="층을 만들면 그 위에 설비를 놓을 수 있습니다."
+          action={<Button size="sm" onClick={() => setAddingFloor(true)}>층 추가</Button>}
+        />
+        {floorPrompt}
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {floorPrompt}
       {/* 층 탭바 */}
-      <div className="flex shrink-0 border-b border-line z-sticky">
-        {floors.length === 0 ? (
-          <span className="px-4 py-2 text-xs text-content-faint">
-            층이 없습니다 — 조직 트리에서 추가하세요
-          </span>
-        ) : (
-          <Tabs
-            {...floorTabs.list}
-            items={floors.map((f) => ({ key: f.id, label: f.name }))}
-            onChange={setActiveFloorId}
-            className="-mb-px"
-          />
-        )}
+      <div className="flex shrink-0 items-center border-b border-line z-sticky">
+        <Tabs
+          {...floorTabs.list}
+          items={floors.map((f) => ({ key: f.id, label: f.name }))}
+          onChange={setActiveFloorId}
+          className="-mb-px"
+        />
+        {/* 층을 더 붙이는 길 — 탭 줄 끝(트리의 「본부 추가」와 같은 어법). */}
+        <IconButton aria-label="층 추가" onClick={() => setAddingFloor(true)}>
+          <Plus size={14} />
+        </IconButton>
 
         {isAdmin && (
           <BackgroundImportControls
