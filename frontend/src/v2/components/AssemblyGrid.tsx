@@ -78,6 +78,14 @@ interface Gesture {
   origin: GridPlacement | null;
   /** 지금 겨눈 자리. */
   aim: GridPlacement | null;
+  /**
+   * 손이 **다른 칸까지 갔는가** — 겨눈 자리가 따라갔는지와 별개다.
+   *
+   * 「끈 것은 누른 것이 아니다」는 손이 움직였느냐로 정해야 한다. 겨눈 자리로 판정하면,
+   * 갈 수 있는 자리가 하나도 없어 미리보기가 제자리에 머문 경우에 끌기가 「누른 것」으로
+   * 읽혀 상세가 열린다.
+   */
+  moved: boolean;
 }
 
 const place = (i: GridItem): GridPlacement => ({
@@ -143,6 +151,7 @@ export function AssemblyGrid<T extends GridItem>({
       if (free(next)) { g.aim = next; redraw(); }
       return;
     }
+    if (to.col !== g.from.col || to.row !== g.from.row) g.moved = true;
     const o = g.origin!;
     /* 옮기기는 **잡은 지점과의 거리**를 지킨다(가운데를 잡았으면 가운데가 따라온다).
        크기는 왼쪽 위를 고정하고 오른쪽 아래를 끈다. */
@@ -150,6 +159,16 @@ export function AssemblyGrid<T extends GridItem>({
       ? { ...o, col: o.col + (to.col - g.from.col), row: o.row + (to.row - g.from.row) }
       : { ...o, colSpan: Math.max(to.col - o.col + 1, 1), rowSpan: Math.max(to.row - o.row + 1, 1) };
     if (g.aim && same(g.aim, next)) return;
+    /**
+     * **놓을 수 있는 자리만 겨눈다** — 그리기와 같은 규칙.
+     *
+     * 이것이 「끌면 따라오는데 놓으면 제자리」의 원인이었다. 겨누기는 아무 자리나 따라가고
+     * 확정할 때만 물었으므로, 판을 넘거나 남과 겹치는 자리를 **미리보기가 보여 주고 나서**
+     * 거부했다(7칸짜리를 14행에 두면 21행이 된다). 사람 눈에는 보여 준 대로 놓았는데 아무
+     * 일도 안 일어난 것이다. 막히면 **마지막으로 놓을 수 있던 자리에 머문다** — 그러면
+     * 보이는 것이 곧 되는 것이고, 확정할 때 다시 물을 것이 없다.
+     */
+    if (!canPlace(g.itemId!, next)) return;
     g.aim = next;
     redraw();
   }
@@ -167,13 +186,14 @@ export function AssemblyGrid<T extends GridItem>({
       return;
     }
     /* 끈 것은 누른 것이 아니다 — 옮기려던 손짓이 상세를 열면 안 된다. */
-    const moved = g.aim != null && !same(g.origin!, g.aim);
-    if (!moved) {
+    if (!g.moved) {
       const item = items.find((i) => i.id === g.itemId);
       if (item) onSelect(item);
       return;
     }
-    if (canPlace(g.itemId!, g.aim!)) onMove(g.itemId!, g.aim!);
+    /* 보여 준 자리가 곧 놓는 자리다 — 겨누기가 이미 놓을 수 있는 것만 골랐다.
+       한 칸도 못 간 채 끌기만 했으면(갈 수 있는 자리가 없었다) 그대로 둔다. */
+    if (g.aim && !same(g.origin!, g.aim)) onMove(g.itemId!, g.aim);
   }
 
   /** 이 이벤트가 이 손짓의 것인가. */
@@ -218,6 +238,7 @@ export function AssemblyGrid<T extends GridItem>({
       itemId: item?.id ?? null,
       origin: item ? place(item) : null,
       aim: null,
+      moved: false,
     };
     redraw();
     /* 캡처는 **격자**가 쥔다. 못 쥐면 따라갈 수도 없으므로 그 자리에서 접는다 —
@@ -312,7 +333,6 @@ export function AssemblyGrid<T extends GridItem>({
       const item = startsAt.get(key);
       if (!item && owner.has(key)) continue; // 덮인 칸은 그리지 않는다
       const at = item ? (moving?.id === item.id ? moving.at : place(item)) : { col, row, colSpan: 1, rowSpan: 1 };
-      const bad = moving?.id === item?.id && moving != null && !canPlace(item!.id, moving.at);
       const tone = item ? toneOf?.(item) ?? null : null;
 
       cells.push(
@@ -334,7 +354,6 @@ export function AssemblyGrid<T extends GridItem>({
                 : cn('border border-dashed border-line/50 text-content-faint',
                     !dragging && hovered === key && 'border-solid border-primary bg-info-bg text-primary'),
               item && 'cursor-grab active:cursor-grabbing',
-              bad && 'ring-2 ring-inset ring-danger opacity-70',
             )}
             onFocus={() => setActiveKey(key)}
             onKeyDown={(e) => {
