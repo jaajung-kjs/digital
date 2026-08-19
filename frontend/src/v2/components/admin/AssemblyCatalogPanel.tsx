@@ -63,7 +63,7 @@ export function AssemblyCatalogPanel({
   });
   const { selectedId, isNew, original, draft, setDraft, dirty } = sel;
   /* 저장 안 한 초안이 있으면 셸이 떠나기를 막는다 — 묻는 자리는 셸 하나다. */
-  useUnsavedMark(dirty ? 1 : 0);
+  useUnsavedMark(dirty ? 1 : 0, sel.cancel);
 
   const issues = draft ? assemblyIssues(draft, catalog.types) : [];
   /* 저장이 막혔을 때의 규칙은 세 탭이 같은 것을 쓴다 — `useEditorGate`. */

@@ -14,8 +14,8 @@ import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
 import { Boxes, LogOut } from 'lucide-react';
 import { useV2AuthStore, isAdminRole } from './store/authStore';
 import { useV2Notice } from './store/noticeStore';
-import { useUnsaved } from './store/unsavedStore';
-import { unsavedPrompt } from './leaveGuard';
+import { useUnsaved, unsavedGuard } from './store/unsavedStore';
+import { confirmDiscard, unsavedPrompt } from './leaveGuard';
 import { ErrorStrip, useConfirm } from '../components/ui';
 import { PRODUCT_NAME } from '../product';
 
@@ -49,15 +49,17 @@ export function V2Shell() {
   /**
    * **떠나기 전에 묻는 자리는 하나다.**
    *
-   * 편집 중인 화면이 「안 저장된 것이 몇 건」인지만 손을 들고(`useUnsaved`), 막는 일은 여기서
+   * 편집 중인 화면이 「안 저장된 것이 몇 건」인지 손을 들고(`useUnsaved`), 막는 일은 여기서
    * 한다. 화면마다 라우터를 가로채면 새 화면이 생길 때마다 빠뜨린다 — 실제로 위쪽 메뉴로
    * 넘어가는 길에는 아무 데도 물음이 없어서, 고치던 것이 아무 말 없이 사라졌다.
+   *
+   * **묻고 버리는 일은 함께 간다**(`confirmDiscard` — 변전소를 바꿀 때와 같은 함수다).
+   * 여기가 묻기만 하던 동안, 「변경 N건이 사라집니다」에 「이동」을 눌러도 워킹 카피는 그대로
+   * 남아 있었다. 그래서 설비 관리와 설비 품목 사이를 오갈 때마다 같은 상자가 다시 떴다 —
+   * 사라진 적이 없으니 물을 것도 계속 남는다.
    */
   const unsaved = useUnsaved((s) => s.count);
-  const mayLeave = async () => {
-    if (unsaved === 0) return true;
-    return confirm(unsavedPrompt(unsaved));
-  };
+  const mayLeave = () => confirmDiscard(unsavedGuard, (dirty) => confirm(unsavedPrompt(dirty)));
   /* 창을 닫거나 새로 고칠 때는 브라우저가 대신 묻는다 — 우리 상자를 띄울 수 없는 자리다. */
   useEffect(() => {
     if (unsaved === 0) return;

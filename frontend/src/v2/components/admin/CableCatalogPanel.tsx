@@ -169,7 +169,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
 
   const sel = useDraftSelection<V2CableGroup, GroupDraft>({ entities: groups, toDraft, confirmLeave: leaveIfConfirmed });
   /* 저장 안 한 초안이 있으면 셸이 떠나기를 막는다 — 묻는 자리는 셸 하나다. */
-  useUnsavedMark(sel.dirty ? 1 : 0);
+  useUnsavedMark(sel.dirty ? 1 : 0, sel.cancel);
   const { selectedId, original, saved, draft, setDraft, dirty } = sel;
   const selectGroup = async (id: string | null) => {
     await sel.select(id);

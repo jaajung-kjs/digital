@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { confirmDiscard } from '../leaveGuard';
+import { useUnsaved, unsavedGuard } from '../store/unsavedStore';
 
 const wc = (dirty: number) => {
   let count = dirty;
@@ -33,5 +34,42 @@ describe('confirmDiscard', () => {
     expect(await confirmDiscard(s, async () => true)).toBe(true);
     expect(s.revert).toHaveBeenCalledOnce();
     expect(s.dirtyCount()).toBe(0);
+  });
+});
+
+/**
+ * 셸이 메뉴를 옮길 때 보는 것 — 화면이 손을 든 그 변경이다.
+ *
+ * 셸은 세는 것만 알고 버릴 줄은 몰랐다. 그래서 「변경 N건이 사라집니다」에 「이동」을 눌러도
+ * 워킹 카피(모듈 수준 저장소)는 그대로 남았고, 설비 관리 ↔ 설비 품목을 오갈 때마다 같은
+ * 상자가 다시 떴다. 손드는 화면이 **버리는 방법까지** 함께 맡긴다.
+ */
+describe('unsavedGuard — 화면이 손든 변경', () => {
+  it('아무도 손들지 않았으면 묻지 않는다', async () => {
+    useUnsaved.getState().mark(0, () => {});
+    const ask = vi.fn();
+    expect(await confirmDiscard(unsavedGuard, ask)).toBe(true);
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it('이동하면 그 화면의 방법으로 버린다 — 다시 물을 것이 남지 않는다', async () => {
+    const discard = vi.fn(() => useUnsaved.getState().mark(0, () => {}));
+    useUnsaved.getState().mark(3, discard);
+
+    const ask = vi.fn(async () => true);
+    expect(await confirmDiscard(unsavedGuard, ask)).toBe(true);
+    expect(ask).toHaveBeenCalledWith(3);
+    expect(discard).toHaveBeenCalledOnce();
+    /* 두 번째 길에서는 물을 것이 없다 — 첫 번째에서 정말 버렸으니까. */
+    expect(await confirmDiscard(unsavedGuard, ask)).toBe(true);
+    expect(ask).toHaveBeenCalledOnce();
+  });
+
+  it('취소하면 아무것도 버리지 않는다', async () => {
+    const discard = vi.fn();
+    useUnsaved.getState().mark(2, discard);
+    expect(await confirmDiscard(unsavedGuard, async () => false)).toBe(false);
+    expect(discard).not.toHaveBeenCalled();
+    expect(useUnsaved.getState().count).toBe(2);
   });
 });

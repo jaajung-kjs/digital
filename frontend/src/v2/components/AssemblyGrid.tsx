@@ -47,6 +47,16 @@ export const GRID_ROW_H = 30;
 const GAP = 2;
 /** 이 폭보다 좁으면 가로로 적을 자리가 없다 — 그때는 글씨를 세운다. */
 const LABEL_MIN_W = 56;
+/**
+ * 이만큼까지는 **누른 것**이다 — 손은 누를 때도 조금 흔들린다(브라우저의 클릭 판정도 이 폭이다).
+ */
+const PRESS_SLOP = 4;
+
+/** 손이 있던 자리 — 마우스든 손가락이든 한 점으로 읽는다. */
+function pointOf(e: Event): { x: number; y: number } | null {
+  const t = 'changedTouches' in e ? (e as TouchEvent).changedTouches[0] : (e as MouseEvent);
+  return t && 'clientX' in t ? { x: t.clientX, y: t.clientY } : null;
+}
 
 const LAMP: Record<BadgeStatus, string> = {
   success: 'bg-lamp-success',
@@ -128,6 +138,9 @@ export function AssemblyGrid<T extends GridItem>({
    *   오는지를 브라우저·프레임워크마다 따로 맞춰야 한다.
    */
   const [draw, setDraw] = useState<GridPlacement | null>(null);
+
+  /** 끌기를 시작한 자리 — 끝에서 「손이 움직였나」를 이것과 견준다. */
+  const pressRef = useRef<{ x: number; y: number } | null>(null);
 
   /**
    * 이 좌표는 어느 칸인가 — **판의 지금 크기를 그 자리에서 잰다.**
@@ -300,17 +313,26 @@ export function AssemblyGrid<T extends GridItem>({
            * 읽혀, 자리만 옮겼는데 상세 상자가 떴다. 그렇다고 그 한 번을 표로 걸러 내면 이번엔
            * 진짜 누름이 삼켜진다(표를 언제 내리는지가 또 규칙이 된다).
            *
-           * 문턱을 0으로 두면 **누름도 끌기로 시작**하므로 끝이 늘 온다 — 그 자리에서
-           * 「자리가 달라졌나」만 보면 된다. 격자라 같은 칸으로 끝나면 아무 일도 아니다.
+           * 문턱을 0으로 두면 **누름도 끌기로 시작**하므로 끝이 늘 온다 — 판정은 거기서 한다.
+           *
+           * 가르는 것은 **손이 움직였는가**이지 자리가 달라졌는가가 아니다. 남의 자리로 끌면
+           * 라이브러리가 제자리에 돌려놓는데(겹침 금지), 그것을 「그대로 = 누른 것」으로 읽으면
+           * 막힌 끌기마다 상세 상자가 떴다 — 사람은 옮기려 한 것이지 누른 적이 없다.
            */
           dragConfig={{ enabled: true, bounded: true, cancel: '[data-remove]', threshold: 0 }}
           resizeConfig={{ enabled: true, handles: ['se'] }}
-          onDragStop={(_l, o, n) => {
-            if (!n) return;
-            const item = byId.get(n.i);
-            /* 자리가 그대로면 **누른 것**이다 — 끌었으면 옮기기만 한다. */
-            if (o && o.x === n.x && o.y === n.y) { if (item) onSelect(item); return; }
-            commit(n);
+          onDragStart={(_l, _o, _n, _p, e) => { pressRef.current = pointOf(e); }}
+          onDragStop={(_l, _o, n, _p, e) => {
+            const from = pressRef.current;
+            pressRef.current = null;
+            const to = pointOf(e);
+            const moved = !from || !to || Math.hypot(to.x - from.x, to.y - from.y) > PRESS_SLOP;
+            if (!moved) {
+              const item = n && byId.get(n.i);
+              if (item) onSelect(item);
+              return;
+            }
+            if (n) commit(n);
           }}
           onResizeStop={(_l, _o, n) => n && commit(n)}
         >
