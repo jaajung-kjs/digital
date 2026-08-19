@@ -156,6 +156,17 @@ export function AssemblyGrid<T extends GridItem>({
     return true;
   };
 
+  /**
+   * 무엇을 넣을지 묻는 중인 자리는 **비어 있지 않다.**
+   *
+   * 아직 장비가 아니라 초안에 없으므로 겹침 판정이 그것을 모른다 — 그래서 묻는 동안 다른
+   * 장비를 그 자리로 끌어다 놓을 수 있었고, 품목을 고르는 순간 둘이 겹쳤다.
+   */
+  const overlapsPending = (p: GridPlacement) =>
+    pending != null &&
+    p.col < pending.at.col + pending.at.colSpan && pending.at.col < p.col + p.colSpan &&
+    p.row < pending.at.row + pending.at.rowSpan && pending.at.row < p.row + p.rowSpan;
+
   function startDraw(e: React.PointerEvent) {
     if (e.button !== 0) return;
     const from = cellAtPoint(e);
@@ -199,7 +210,7 @@ export function AssemblyGrid<T extends GridItem>({
     if (!cur) return;
     const was = place(cur);
     if (at.col === was.col && at.row === was.row && at.colSpan === was.colSpan && at.rowSpan === was.rowSpan) return;
-    if (!canPlace(l.i, at)) return;
+    if (!canPlace(l.i, at) || overlapsPending(at)) return;
     onMove(l.i, at);
   };
 
@@ -253,7 +264,7 @@ export function AssemblyGrid<T extends GridItem>({
           {Array.from({ length: rows * cols }, (_, n) => {
             const col = n % cols;
             const row = Math.floor(n / cols);
-            if (taken.has(`${col},${row}`)) return <span key={n} />;
+            if (taken.has(`${col},${row}`)) return null;
             /* 끄는 **동안**에는 칸마다 물든다 — 어느 칸까지 잡혔는지가 그때의 관심이다. */
             const isPending =
               draw != null &&
@@ -263,6 +274,11 @@ export function AssemblyGrid<T extends GridItem>({
               <button
                 key={n}
                 type="button"
+                /* **자리를 못 박는다.** 자동 배치로 두면 그 앞에 자리를 못 박은 것이 하나만
+                   끼어도(무엇을 넣을지 묻는 네모가 그렇다) 뒤의 칸이 전부 한 칸씩 밀린다 —
+                   손을 떼는 순간 판 곳곳에서 호버가 번쩍인 것이 그것이다(커서 아래 칸이
+                   바뀌므로 브라우저가 다른 칸에 호버를 칠한다). */
+                style={{ gridColumn: col + 1, gridRow: row + 1 }}
                 data-cell={`${col},${row}`}
                 aria-label={`${cellLabel(col, row)}, 비어 있음. 눌러서 추가`}
                 title={`${cellLabel(col, row)} (비어 있음)`}
