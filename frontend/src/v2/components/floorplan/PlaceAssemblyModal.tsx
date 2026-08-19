@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, DetailRow, Input, Modal, InsetBox } from '../../../components/ui';
+import { Button, DetailRow, Input, Modal, InsetBox, isCommitKey } from '../../../components/ui';
 import type { V2Assembly } from '../../types';
 
 /**
@@ -37,7 +37,7 @@ export function PlaceAssemblyModal({
             placeholder="예: 통신랙 A"
             onChange={(e) => setName(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && canPlace) onPlace(name.trim());
+              if (isCommitKey(e) && canPlace) onPlace(name.trim());
             }}
           />
         </DetailRow>

@@ -5,6 +5,7 @@ import { cn } from './cn';
 import { Card } from './Card';
 import { IconButton } from './IconButton';
 import { useDismissOnOutside } from './useDismissOnOutside';
+import { isComposing } from './keyboard';
 
 export interface ModalProps {
   open: boolean;
@@ -148,7 +149,8 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => {
       /* 아래 것들은 흘려보낸다(끊지 않고) — 안쪽 상자가 잡게 둔다. */
       if (!isTop()) return;
-      if (e.key === 'Escape') {
+      /* 조합 중인 Esc 는 **IME 의 것**이다 — 한글을 물리려고 누른 것이 상자까지 닫으면 안 된다. */
+      if (e.key === 'Escape' && !isComposing(e)) {
         /* **이 Esc 는 여기서 끝난다.** 뒤에 깔린 화면들도 Esc 를 「고른 것 풀기」로 듣고
            있는데, 상자가 닫히면서 그것들까지 함께 물리면 안 된다 — 구성 격자에서 부품 상자를
            Esc 로 닫으면 고른 자산까지 풀려 상세 패널이 통째로 사라졌다.

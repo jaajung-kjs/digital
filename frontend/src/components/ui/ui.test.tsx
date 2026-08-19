@@ -8,7 +8,7 @@ import { ConfirmModal } from './ConfirmModal';
 import { Tabs, useTabs } from './Tabs';
 import { OverflowMenu, type OverflowMenuItem } from './OverflowMenu';
 import { SELECTABLE } from './selection';
-import { isCancelKey } from './keyboard';
+import { isCancelKey, isCommitKey } from './keyboard';
 import { DetailCard, DetailCardHeader, DetailRow } from './DetailCard';
 
 describe('Button', () => {
@@ -426,6 +426,47 @@ describe('isCancelKey', () => {
       </Modal>,
     );
     expect(isCancelKey(esc())).toBe(false);
+  });
+});
+
+/* 한글을 치다 Enter 를 누르면 keydown 이 **두 번** 온다: 조합을 끝내는 Enter 와 진짜 Enter.
+   가리지 않으면 한 번 누른 것이 두 번 실행된다 — 층을 만들면 「이미 같은 이름이 있습니다」가
+   뜨는데 층은 만들어져 있었다(첫 요청 성공, 둘째가 409). */
+describe('isCommitKey', () => {
+  const key = (init: KeyboardEventInit) => new KeyboardEvent('keydown', { key: 'Enter', ...init });
+
+  it('그냥 Enter 는 확정이다', () => {
+    expect(isCommitKey(key({}))).toBe(true);
+  });
+
+  it('조합을 끝내는 Enter 는 확정이 아니다', () => {
+    expect(isCommitKey(key({ isComposing: true }))).toBe(false);
+  });
+
+  it('`keyCode` 229 로만 알리는 브라우저도 가린다', () => {
+    expect(isCommitKey(key({ keyCode: 229 }))).toBe(false);
+  });
+
+  it('Enter 가 아니면 확정이 아니다', () => {
+    expect(isCommitKey(key({ key: 'a' }))).toBe(false);
+  });
+
+  /* React 합성 이벤트는 `isComposing` 을 겉으로 내주지 않는다 — `nativeEvent` 를 봐야 한다. */
+  it('React 합성 이벤트 모양도 받는다', () => {
+    expect(isCommitKey({ key: 'Enter', nativeEvent: key({ isComposing: true }) })).toBe(false);
+    expect(isCommitKey({ key: 'Enter', nativeEvent: key({}) })).toBe(true);
+  });
+});
+
+/* 조합 중인 Esc 는 IME 의 것이다 — 한글을 물리려고 누른 것이 상자까지 닫으면 안 된다. */
+describe('Modal — 조합 중인 Esc', () => {
+  it('조합 중이면 닫지 않는다', () => {
+    const onClose = vi.fn();
+    render(<Modal open onClose={onClose} title="제목"><input aria-label="이름" /></Modal>);
+    fireEvent.keyDown(screen.getByLabelText('이름'), { key: 'Escape', isComposing: true });
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByLabelText('이름'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

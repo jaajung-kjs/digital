@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from './Button';
 import { ErrorStrip } from './ErrorStrip';
 import { Input } from './Input';
+import { isCommitKey } from './keyboard';
 import { Modal } from './Modal';
 
 interface PromptModalProps {
@@ -85,7 +86,7 @@ export function PromptModal({
             placeholder={placeholder}
             onChange={(e) => setValue(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
+              if (isCommitKey(e)) submit();
             }}
           />
         </label>

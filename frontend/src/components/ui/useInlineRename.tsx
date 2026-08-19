@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Input } from './Input';
+import { isCommitKey } from './keyboard';
 
 /**
  * 제자리 이름 바꾸기 — **목록 항목의 이름을 그 자리에서 고친다**.
@@ -44,7 +45,7 @@ export function useInlineRename(onCommit: (id: string, name: string) => void) {
         onChange={(e) => setDraft(e.currentTarget.value)}
         onBlur={() => commit(id, before)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') commit(id, before);
+          if (isCommitKey(e)) commit(id, before);
           if (e.key === 'Escape') setEditingId(null);
         }}
       />

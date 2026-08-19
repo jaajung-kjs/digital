@@ -12,7 +12,7 @@
  * 여기서 일반화하지 않고 `onCommit` 에 그대로 위임한다.
  */
 import { useState } from 'react';
-import { DateInput, EMPTY, Input, cn, SELECTABLE, formatDate } from '../../components/ui';
+import { DateInput, EMPTY, Input, cn, SELECTABLE, formatDate, isCommitKey } from '../../components/ui';
 
 interface InlineEditCellProps {
   value: string;
@@ -57,7 +57,7 @@ export function InlineEditCell({ value, onCommit, type = 'text', label }: Inline
       setEditing(false);
     },
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') e.currentTarget.blur();
+      if (isCommitKey(e)) e.currentTarget.blur();
       /* Esc 는 **물린다** — 커밋하지 않고 원래 값으로 돌아간다(앱 공통 규칙). */
       if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); }
     },

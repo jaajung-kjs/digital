@@ -12,11 +12,12 @@
  * `latest` ref 미러(§ latest 정의부 참고)를 통해서만 읽는다 — 클로저에 직접
  * 캡쳐된 state/props를 읽으면 stale-closure 버그가 생긴다.
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { apiErrorMessage } from '../../apiError';
 import { portHasRoom, validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
+import { backingSize } from '../../canvas/backingStore';
 import { renderGrid } from '../../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
 import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
@@ -284,6 +285,8 @@ export function FloorPlanView({
 
   // ── canvas ref ────────────────────────────────────────────────────────────
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  /** 지금 화면의 픽셀 배율 — 뒤판을 이 배로 잡고, 그릴 때 그만큼 되돌린다. */
+  const backingScale = useRef(1);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // ── rAF 플래그 (중복 스케줄 방지) ─────────────────────────────────────────
@@ -518,8 +521,12 @@ export function FloorPlanView({
 
       const { zoom, panX, panY } = latest.current.viewport;
       const scale = zoom / 100;
-      const w = canvas.width;
-      const h = canvas.height;
+      /* 뒤판은 **화면 픽셀** 단위이고 그리는 좌표는 **CSS 픽셀** 단위다 — 그 환산을 여기 한 번만
+         건다(`setTransform`). 아래 그리는 코드는 전부 CSS 픽셀 그대로 둔다. */
+      const dpr = backingScale.current;
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // 1. clear
       ctx.clearRect(0, 0, w, h);
@@ -672,19 +679,44 @@ export function FloorPlanView({
   // ── 렌더 트리거: saved/overlays/selectedAssetId/viewport/activeFloor 변경 시
   useEffect(() => { scheduleRender(); });
 
-  // ── ResizeObserver ────────────────────────────────────────────────────────
-  useEffect(() => {
+  // ── 캔버스 크기 ───────────────────────────────────────────────────────────
+  /**
+   * 뒤판을 **화면 픽셀**에 맞춘다 — 안 맞추면 1x 로 그린 그림을 2x 화면에 늘려 보여 준다.
+   *
+   * `<canvas>` 는 두 개의 크기를 갖는다: CSS 가 정하는 **보이는 크기**와 `width`/`height` 가
+   * 정하는 **뒤판 크기**. 둘이 다르면 브라우저가 뒤판을 늘리거나 줄여서 그린다 — 레티나에서
+   * 뒤판을 CSS 크기로 잡으면 실제 픽셀의 절반만 그려 놓고 두 배로 늘리는 셈이라 격자와 글자가
+   * 뿌옇다. 여기서 `dpr` 배로 잡고, 그리는 쪽은 `setTransform` 으로 CSS 픽셀 좌표를 그대로 쓴다.
+   */
+  useLayoutEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
+    const fit = (cssW: number, cssH: number) => {
+      const dpr = window.devicePixelRatio || 1;
+      const { width, height } = backingSize(cssW, cssH, dpr);
+      backingScale.current = dpr;
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      scheduleRender();
+    };
+
+    /* **처음 한 번은 그리기 전에** 맞춘다. `<canvas>` 의 기본 뒤판은 300×150 이라, 관찰자가
+       알려 줄 때까지 기다리면 그 작은 그림이 화면 가득 늘어난 첫 프레임이 보인다 — 격자가
+       확대된 채 뿌옇게 나타났다 제자리를 찾는 것이 그것이다. */
+    const rect = container.getBoundingClientRect();
+    fit(rect.width, rect.height);
+
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
+      /* 화면 배율은 창을 다른 모니터로 옮기거나 브라우저를 확대하면 바뀐다 — 그때도 크기
+         변화가 오므로 여기서 매번 다시 읽는다. */
       const { width, height } = entry.contentRect;
-      canvas.width = Math.max(1, Math.round(width));
-      canvas.height = Math.max(1, Math.round(height));
-      scheduleRender();
+      fit(width, height);
     });
     ro.observe(container);
     return () => ro.disconnect();

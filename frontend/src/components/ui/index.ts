@@ -15,7 +15,7 @@ export { Input } from './Input';
 export { InsetBox } from './InsetBox';
 export { TreePanel } from './TreePanel';
 export type { TreeNode, TreePanelProps } from './TreePanel';
-export { isCancelKey, isTypingTarget } from './keyboard';
+export { isCancelKey, isCommitKey, isComposing, isTypingTarget } from './keyboard';
 export { selectableRow, selectOrToggle } from './rowSelection';
 export { SelectionScope } from './SelectionScope';
 export { MessageStrip } from './MessageStrip';

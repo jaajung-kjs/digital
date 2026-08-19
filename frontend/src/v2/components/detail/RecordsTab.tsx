@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Check, Plus, X } from 'lucide-react';
-import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState, formatDate } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState, formatDate, isCommitKey } from '../../../components/ui';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { mergeEffective } from '../../store/overlay';
 import type { V2MaintenanceLog, V2InspectionLog } from '../../types';
@@ -210,7 +210,7 @@ export function RecordsTab({
               size="sm"
               placeholder="내용 입력"
               onChange={(e) => { const v = e.currentTarget.value; setAddState((s) => ({ ...s, content: v })); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+              onKeyDown={(e) => { if (isCommitKey(e)) handleAdd(); }}
             />
           </DetailRow>
           <DetailRow label={extraLabel}>
@@ -219,7 +219,7 @@ export function RecordsTab({
               size="sm"
               placeholder="(선택)"
               onChange={(e) => { const v = e.currentTarget.value; setAddState((s) => ({ ...s, extra: v })); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+              onKeyDown={(e) => { if (isCommitKey(e)) handleAdd(); }}
             />
           </DetailRow>
           <div className="mt-2 flex justify-end">
@@ -258,7 +258,7 @@ export function RecordsTab({
                   value={editState.content}
                   size="sm"
                   onChange={(e) => { const v = e.currentTarget.value; setEditState((s) => s && ({ ...s, content: v })); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleEditCommit(); }}
+                  onKeyDown={(e) => { if (isCommitKey(e)) handleEditCommit(); }}
                 />
               </DetailRow>
               <DetailRow label={extraLabel}>
@@ -266,7 +266,7 @@ export function RecordsTab({
                   value={editState.extra}
                   size="sm"
                   onChange={(e) => { const v = e.currentTarget.value; setEditState((s) => s && ({ ...s, extra: v })); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleEditCommit(); }}
+                  onKeyDown={(e) => { if (isCommitKey(e)) handleEditCommit(); }}
                 />
               </DetailRow>
               <div className="mt-2 flex justify-end gap-1">

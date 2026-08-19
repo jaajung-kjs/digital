@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button, DetailRow, IconButton, Input, Modal, TreePanel, useConfirm } from '../../components/ui';
+import { Button, DetailRow, IconButton, Input, Modal, TreePanel, useConfirm, isCommitKey } from '../../components/ui';
 import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
@@ -177,7 +177,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleConfirm();
+              if (isCommitKey(e)) handleConfirm();
             }}
             placeholder={modal ? `${KIND_LABEL[modal.kind]} 이름 입력` : '이름'}
           />

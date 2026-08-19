@@ -39,3 +39,30 @@ function modalIsOpen(): boolean {
 export function isCancelKey(e: KeyboardEvent): boolean {
   return e.key === 'Escape' && !isTypingTarget(e.target) && !modalIsOpen();
 }
+
+/**
+ * 조합 중인 키인가 — **한글·일본어·중국어를 치는 중**이면 그 키는 IME 의 것이다.
+ *
+ * 한글을 치다 Enter 를 누르면 keydown 이 **두 번** 온다: 먼저 조합을 끝내는 Enter(그때
+ * `isComposing` 이 참이고, 브라우저에 따라 `keyCode` 가 229 다), 그다음 진짜 Enter.
+ * 둘을 가리지 않으면 **한 번 누른 것이 두 번 실행된다** — 층을 만들면 「이미 같은 이름이
+ * 있습니다」가 뜨는데 층은 만들어져 있었다(첫 요청은 성공하고 둘째가 409 로 돌아온 것이다).
+ * Esc 도 마찬가지다: 조합을 물리려고 누른 Esc 가 상자까지 닫아 버린다.
+ */
+export function isComposing(e: NativeOrReactKey): boolean {
+  const native = 'nativeEvent' in e ? e.nativeEvent : e;
+  return native.isComposing || native.keyCode === 229;
+}
+
+/** React 합성 이벤트와 네이티브 이벤트를 함께 받는다 — 같은 규칙이 양쪽에 필요하다. */
+type NativeOrReactKey = KeyboardEvent | { key: string; nativeEvent: KeyboardEvent };
+
+/**
+ * 「이 Enter 는 **확정**인가」 — 글자를 조합하는 중이면 아니다.
+ *
+ * 값을 확정하는 자리(칸에서 Enter)는 앱에 열세 곳이 있고, 전부 `e.key === 'Enter'` 만 보고
+ * 있었다. 한글을 쓰는 화면에서 그 열세 곳이 모두 두 번 실행되고 있었다는 뜻이다.
+ */
+export function isCommitKey(e: NativeOrReactKey): boolean {
+  return e.key === 'Enter' && !isComposing(e);
+}

@@ -19,6 +19,7 @@ import {
   useConfirm,
   cn,
   EMPTY,
+  isCommitKey,
 } from '../../../components/ui';
 import type { GridCell, GridPlacement } from '../../gridDrag';
 import { AssemblyGrid } from '../AssemblyGrid';
@@ -151,7 +152,7 @@ function PartDialog({
             const v = e.currentTarget.value.trim();
             if (v && v !== part.name) commit({ name: v });
           }}
-          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+          onKeyDown={(e) => { if (isCommitKey(e)) e.currentTarget.blur(); }}
         />
       </DetailRow>
       <DetailRow label="상태">
@@ -173,7 +174,7 @@ function PartDialog({
               defaultValue={str}
               size="sm"
               onBlur={(e) => field(fd.key, e.currentTarget.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+              onKeyDown={(e) => { if (isCommitKey(e)) e.currentTarget.blur(); }}
             />
           </DetailRow>
         );
@@ -286,7 +287,7 @@ export function InfoTab({
             size="sm"
             onBlur={(e) => handleNameCommit(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (isCommitKey(e)) {
                 e.currentTarget.blur();
               }
             }}
@@ -336,7 +337,7 @@ export function InfoTab({
                   size="sm"
                   onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') e.currentTarget.blur();
+                    if (isCommitKey(e)) e.currentTarget.blur();
                   }}
                   key={strVal}
                 />
