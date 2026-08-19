@@ -281,8 +281,15 @@ export function AssemblyGrid<T extends GridItem>({
           width={width}
           /* 판의 치수 — 눈금·빈 칸과 **같은 수**를 쓴다(어긋나면 놓인 것이 칸에서 밀린다). */
           gridConfig={{ cols, rowHeight: rowH, margin: [GAP, GAP], containerPadding: [0, 0], maxRows: rows }}
-          /* 자리는 사람이 정한다 — 밀어내거나 위로 당기지 않는다. */
-          compactor={noCompactor}
+          /**
+           * **자리는 사람이 정하고, 겹치면 못 놓는다.**
+           *
+           * 압축 없음(`noCompactor`) + 충돌 차단(`preventCollision`) — 이 판에 맞는 조합이다.
+           * 압축만 끄면 끌던 것이 남의 자리로 들어갈 때 **그것을 밀어낸다**. 랙에서는 그럴 수
+           * 없다: 이미 꽂힌 장비는 내가 옮기기 전에는 움직이지 않는다. 막히면 끌던 것이
+           * 제자리로 돌아온다(대시보드 타일처럼 자리를 서로 양보하는 판과 다른 점이다).
+           */
+          compactor={{ ...noCompactor, preventCollision: true }}
           dragConfig={{ enabled: true, bounded: true, cancel: '[data-remove]' }}
           resizeConfig={{ enabled: true, handles: ['se'] }}
           onDragStop={(_l, _o, n) => n && commit(n)}
