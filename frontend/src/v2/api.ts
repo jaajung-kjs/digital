@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios';
 import { httpClient as api } from './httpClient';
 import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
@@ -65,7 +66,14 @@ export async function patchOrgNode(kind: OrgKind, id: string, body: { name?: str
   return (await api.patch(`/v2/org/${kind}/${id}`, body)).data;
 }
 export async function deleteOrgNode(kind: OrgKind, id: string): Promise<void> {
-  await api.delete(`/v2/org/${kind}/${id}`);
+  try {
+    await api.delete(`/v2/org/${kind}/${id}`);
+  } catch (err) {
+    /* 지우려는 것이 **이미 없으면 지워진 것이다**(DELETE 는 멱등하다 — RFC 9110). 화면이 낡았을
+       뿐인데 「해당 조직을 찾을 수 없습니다」라고 하면, 정작 그 낡은 줄은 화면에 그대로 남고
+       사람은 같은 것을 또 누른다. 여럿이 함께 쓰는 서버에서는 옆자리가 먼저 지웠을 뿐이다. */
+    if (!isAxiosError(err) || err.response?.status !== 404) throw err;
+  }
 }
 
 // ── 카탈로그 어드민 API ────────────────────────────────────────────────────────

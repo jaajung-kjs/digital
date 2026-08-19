@@ -73,6 +73,26 @@ describe('v2 api 경로', () => {
     expect(api.delete).toHaveBeenCalledWith('/v2/org/floors/id2');
   });
 
+  /* 지우려는 것이 이미 없으면 지워진 것이다(DELETE 는 멱등하다). 화면이 낡았을 뿐인데
+     「찾을 수 없습니다」라고 하면, 정작 그 낡은 줄은 화면에 남고 사람은 또 누른다. */
+  it('deleteOrgNode: 이미 없으면(404) 지워진 것으로 본다', async () => {
+    const notFound = Object.assign(new Error('Not Found'), {
+      isAxiosError: true,
+      response: { status: 404, data: { error: 'NOT_FOUND' } },
+    });
+    (api.delete as ReturnType<typeof vi.fn>).mockRejectedValueOnce(notFound);
+    await expect(deleteOrgNode('floors', 'gone')).resolves.toBeUndefined();
+  });
+
+  it('deleteOrgNode: 막힌 것(409)은 그대로 알린다', async () => {
+    const conflict = Object.assign(new Error('Conflict'), {
+      isAxiosError: true,
+      response: { status: 409, data: { error: 'HAS_CHILDREN' } },
+    });
+    (api.delete as ReturnType<typeof vi.fn>).mockRejectedValueOnce(conflict);
+    await expect(deleteOrgNode('floors', 'busy')).rejects.toBe(conflict);
+  });
+
   it('uploadPhoto: FormData 전송 + Content-Type 미지정(브라우저 boundary)', async () => {
     (api.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { filePath: 'assets/x.png' } });
     const file = new File(['a'], 'a.png', { type: 'image/png' });

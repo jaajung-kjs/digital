@@ -14,7 +14,6 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { apiErrorMessage } from '../../apiError';
 import { portHasRoom, validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
 import { backingSize } from '../../canvas/backingStore';
@@ -34,7 +33,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useOrgMutations, useTypesById, useV2Catalog } from '../../hooks';
-import { Button, EmptyState, ErrorStrip, IconButton, PromptModal, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
+import { Button, EmptyState, IconButton, PromptModal, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorIdOf } from '../../assetTree';
@@ -1391,22 +1390,26 @@ export function FloorPlanView({
    */
   const { createOrgNode, renameOrgNode, deleteOrgNode } = useOrgMutations();
   const [addingFloor, setAddingFloor] = useState(false);
-  const [floorError, setFloorError] = useState<string | null>(null);
-  /** 이름 변경·삭제가 막힌 이유 — 층 줄 아래에 뜬다. */
-  const [floorOpError, setFloorOpError] = useState<string | null>(null);
 
-  async function addFloor(name: string) {
-    setFloorError(null);
-    try {
-      const created = (await createOrgNode.mutateAsync({ kind: 'floors', body: { name, substationId } })) as V2Floor;
-      /* 서버가 확정한 그 행만 워킹카피에 얹는다 — 전체 재로드는 스테이징한 변경을 버린다. */
-      useV2WorkingCopy.getState().applyFloor(created);
-      setActiveFloorId(created.id);
-      setAddingFloor(false);
-    } catch (err) {
-      /* 상자를 닫지 않는다 — 닫으면 무엇이 잘못됐는지 볼 자리가 없다(같은 이름의 층 등). */
-      setFloorError(apiErrorMessage(err, '층을 만들지 못했습니다'));
-    }
+  /**
+   * 만들고 **닫는다** — 실패는 화면 맨 위 띠 하나가 말한다.
+   *
+   * 오류를 여기서 또 그리면 같은 문장이 두 곳에 선다(`hooks.ts` 의 `QUIET` 참고: 「제 화면에
+   * 그리는 쪽이 있으면 그쪽만」). 조직 트리의 본부·지사·변전소 추가가 이미 그렇게 하고 있고,
+   * 층만 다르게 굴 이유가 없다.
+   */
+  function addFloor(name: string) {
+    setAddingFloor(false);
+    createOrgNode.mutate(
+      { kind: 'floors', body: { name, substationId } },
+      {
+        onSuccess: (created) => {
+          /* 서버가 확정한 그 행만 워킹카피에 얹는다 — 전체 재로드는 스테이징한 변경을 버린다. */
+          useV2WorkingCopy.getState().applyFloor(created as V2Floor);
+          setActiveFloorId((created as V2Floor).id);
+        },
+      },
+    );
   }
 
   /**
@@ -1438,14 +1441,11 @@ export function FloorPlanView({
     return null;
   }
 
-  async function renameFloor(id: string, name: string) {
-    setFloorOpError(null);
-    try {
-      const row = (await renameOrgNode.mutateAsync({ kind: 'floors', id, name })) as V2Floor;
-      useV2WorkingCopy.getState().applyFloor(row);
-    } catch (err) {
-      setFloorOpError(apiErrorMessage(err, '층 이름을 바꾸지 못했습니다'));
-    }
+  function renameFloor(id: string, name: string) {
+    renameOrgNode.mutate(
+      { kind: 'floors', id, name },
+      { onSuccess: (row) => useV2WorkingCopy.getState().applyFloor(row as V2Floor) },
+    );
   }
 
   async function deleteFloor(id: string, name: string) {
@@ -1457,14 +1457,10 @@ export function FloorPlanView({
       danger: true,
     });
     if (!ok) return;
-    setFloorOpError(null);
-    try {
-      await deleteOrgNode.mutateAsync({ kind: 'floors', id });
-      useV2WorkingCopy.getState().removeFloor(id);
-    } catch (err) {
-      /* 막혔으면 **막힌 자리에서** 말한다 — 층 줄 바로 아래. */
-      setFloorOpError(apiErrorMessage(err, '층을 지우지 못했습니다'));
-    }
+    deleteOrgNode.mutate(
+      { kind: 'floors', id },
+      { onSuccess: () => useV2WorkingCopy.getState().removeFloor(id) },
+    );
   }
 
   const floorPrompt = (
@@ -1474,9 +1470,8 @@ export function FloorPlanView({
       label="층 이름"
       placeholder="예: 1층"
       busy={createOrgNode.isPending}
-      error={floorError}
-      onConfirm={(name) => void addFloor(name)}
-      onClose={() => { setAddingFloor(false); setFloorError(null); }}
+      onConfirm={addFloor}
+      onClose={() => setAddingFloor(false)}
     />
   );
 
@@ -1508,7 +1503,7 @@ export function FloorPlanView({
             return {
               key: f.id,
               label: f.name,
-              onRename: (name: string) => void renameFloor(f.id, name),
+              onRename: (name: string) => renameFloor(f.id, name),
               menu: [
                 {
                   label: '층 삭제',
@@ -1536,11 +1531,6 @@ export function FloorPlanView({
           />
         )}
       </div>
-      {floorOpError && (
-        <div className="shrink-0 px-2 py-1">
-          <ErrorStrip message={floorOpError} onDismiss={() => setFloorOpError(null)} />
-        </div>
-      )}
 
       {/* 도구바: 배치 팔레트 + 케이블 도구 */}
       {activeFloorId != null && (assemblies.length > 0 || cableGroups.length > 0) && (
