@@ -261,6 +261,34 @@ describe('AssemblyGrid 빼기', () => {
     expect(onAddAtCell).toHaveBeenCalledWith(expect.objectContaining({ col: 0, row: 0, colSpan: 1, rowSpan: 2 }));
   });
 
+  /**
+   * **어느 칸인지는 좌표가 정한다** — 무엇을 눌렀는지가 아니라.
+   *
+   * 칸은 둥근 사각형이고 사이에 틈이 있다. 그 틈과 모서리 곡선 바깥은 **어느 칸도 아니다**
+   * (실측: 틈은 `<ul>`, 모서리는 `<li>` 가 잡힌다). 눌린 요소를 거슬러 올라가 칸을 찾으면
+   * 그 자리에서 손짓이 시작조차 안 되고, 그 자리는 판 전체에 격자무늬로 깔려 있다 —
+   * 「가끔 드래그가 안 먹는다」의 정체가 이것이었다. 겨누는 셈은 처음부터 좌표만 봤으므로
+   * 미리보기는 멀쩡했다(시작만 다른 잣대를 썼다).
+   */
+  it('칸 사이 틈에서 눌러도 손짓은 시작된다', () => {
+    const onAddAtCell = vi.fn();
+    const { grid } = setup({ onAddAtCell });
+    /* 판 자신을 눌렀다 — 칸 단추가 아니라(틈·모서리가 그렇다). 좌표는 3행 1열 한가운데. */
+    pointer('pointerdown', grid, 0, 2);
+    pointer('pointerup', grid, 0, 2);
+    expect(onAddAtCell).toHaveBeenCalledWith(expect.objectContaining({ col: 0, row: 2 }));
+  });
+
+  /* span 이 여러 칸이면 **가운데를 눌러도** 그 장비를 잡는다 — 시작 칸만 보면 한가운데를
+     누른 손짓이 「빈 자리에 새로 그리기」가 된다. */
+  it('여러 칸짜리 장비는 가운데를 눌러도 그 장비를 잡는다', () => {
+    const onSelect = vi.fn();
+    const { grid } = setup({ onSelect });  // 광단말 A = (0,0) 1×2
+    pointer('pointerdown', grid, 0, 1);    // 그 장비가 덮은 아래 칸
+    pointer('pointerup', grid, 0, 1);
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
+  });
+
   /* 지우려고 누른 것이 끌기로 읽히면, 손을 떼는 순간 자리가 바뀌어 있다. */
   it('X 를 누른 것은 칸의 손짓(이동)을 일으키지 않는다', () => {
     const { onMove, onSelect } = setup({ onRemove: vi.fn() });

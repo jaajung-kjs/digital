@@ -182,25 +182,34 @@ export function AssemblyGrid<T extends GridItem>({
     return g && g.pointerId === e.pointerId ? g : null;
   };
 
+  /**
+   * 눌렀다 — 어느 칸인지는 **좌표가 정한다**(무엇을 눌렀는지가 아니라).
+   *
+   * 한때는 눌린 요소를 거슬러 올라가 칸을 찾았다(`closest('[data-cell]')`). 그런데 칸은 둥근
+   * 사각형이고 사이에 틈이 있다 — **틈과 모서리 곡선 바깥은 어느 칸도 아니다.** 거기를 누르면
+   * 손짓이 시작조차 안 됐고, 그 자리가 판 전체에 격자무늬로 깔려 있으니 「가끔 안 먹는다」가
+   * 됐다. 겨누는 셈(`cellFrom`)은 처음부터 좌표만 봤으므로 미리보기는 멀쩡했다 — 시작만
+   * 다른 잣대를 쓰고 있었던 것이다.
+   *
+   * 잡은 것도 **그 칸을 덮은 장비**로 찾는다. 요소로 찾을 때는 단추가 span 을 통째로 덮어
+   * 저절로 맞았지만, 좌표로 보면 가운데를 눌렀을 때 시작 칸이 아니다.
+   */
   function onPointerDown(e: React.PointerEvent) {
     if (e.button !== 0 || gestureRef.current) return;
     const el = e.target as HTMLElement;
     if (el.closest('[data-remove]')) return; // 빼기는 손짓이 아니라 단추다
 
-    const cellEl = el.closest<HTMLElement>('[data-cell]');
-    if (!cellEl) {
-      if (selectedId != null) onDeselect?.();
-      return;
-    }
-    const [c, r] = cellEl.dataset.cell!.split(',').map(Number);
-    const from = { col: c!, row: r! };
-    const item = items.find((i) => i.col === from.col && i.row === from.row) ?? null;
+    const from = cellFrom(e);
+    if (!from) return;
+    const one = { ...from, colSpan: 1, rowSpan: 1 };
+    const item = items.find((i) => i.col != null && i.row != null && overlaps(one, place(i))) ?? null;
+    const key = item ? `${item.col},${item.row}` : `${from.col},${from.row}`;
 
     /* 기본 손짓을 끈다 — 안 끄면 끌기가 **글자 선택**으로도 읽힌다. 초점은 손으로 주되
        **판을 밀지 않는다**(밀리면 손 아래 칸이 바뀌어 처음부터 어긋난다). */
     e.preventDefault();
-    cellEl.focus({ preventScroll: true });
-    setActiveKey(cellEl.dataset.cell!);
+    boxRef.current?.querySelector<HTMLElement>(`button[data-cell="${key}"]`)?.focus({ preventScroll: true });
+    setActiveKey(key);
 
     gestureRef.current = {
       pointerId: e.pointerId,
