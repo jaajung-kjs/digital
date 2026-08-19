@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { AssemblyGrid, type GridItem } from './AssemblyGrid';
 
@@ -99,15 +99,36 @@ describe('AssemblyGrid 선택 해제', () => {
     expect(onDeselect).toHaveBeenCalledTimes(1);
   });
 
-  /* 칸이 상자를 꽉 채우므로 「빈 곳」이라 할 만한 자리가 빈 칸뿐이다. 고른 것이 있으면
-     빈 칸을 누르는 것이 곧 「다른 데를 눌렀다」다. */
-  it('고른 것이 있을 때 빈 칸을 누르면 채우지 않고 푼다', () => {
+  /* 이것이 「설비 편집기에서 드래그가 가끔만 먹는다」의 회귀 테스트다.
+     한때는 고른 것이 있으면 빈 칸을 눌러도 **풀기만** 하고 한 번 더 눌러야 채웠다. 그런데 이
+     판에서 빈 칸은 「다른 데」가 아니라 놓을 자리다 — 부품을 고쳐 놓고 옆 칸에 하나 더 넣으려던
+     손짓이 매번 삼켜졌다. 푸는 길은 따로 있다(Esc·고른 것 다시 누르기). */
+  it('고른 것이 있어도 빈 칸을 누르면 곧바로 채운다', () => {
     const onDeselect = vi.fn();
     const { onAddAtCell, grid } = setup({ selectedId: 'a', onDeselect });
     pointer('pointerdown', emptyCell(), 1, 3);
     pointer('pointerup', grid, 1, 3);
-    expect(onDeselect).toHaveBeenCalledTimes(1);
-    expect(onAddAtCell).not.toHaveBeenCalled();
+    expect(onAddAtCell).toHaveBeenCalledTimes(1);
+    expect(onDeselect).not.toHaveBeenCalled();
+  });
+
+  /* 이것이 「빠르게 끌면 끌어 놓은 자리가 버려진다」의 회귀 테스트다.
+     마지막 `pointermove` 와 `pointerup` 이 **한 작업 안에** 몰려 들어오면(빠른 손짓·좌표
+     합쳐짐) 아직 반영되지 않은 상태를 읽게 된다 — 손짓이 끝날 때 읽는 값은 ref 여야 한다.
+     `fireEvent` 는 하나씩 flush 하므로, 여기서는 둘을 같은 `act` 안에서 보낸다. */
+  it('한 작업에 몰려 들어와도 끌어 놓은 자리를 잃지 않는다', () => {
+    const { onAddAtCell, grid } = setup();
+    const raw = (type: string, el: Element | Window, col: number, row: number, buttons = 1) =>
+      el.dispatchEvent(new MouseEvent(type, {
+        bubbles: true, cancelable: true, button: 0, buttons,
+        clientX: col * 50 + 25, clientY: row * 50 + 25,
+      }));
+    pointer('pointerdown', emptyCell(), 1, 0);
+    act(() => {
+      raw('pointermove', grid, 1, 3);
+      raw('pointerup', grid, 1, 3, 0);
+    });
+    expect(onAddAtCell).toHaveBeenCalledWith({ col: 1, row: 0, colSpan: 1, rowSpan: 4 });
   });
 
   /* 여러 칸을 묶어 끌면 **그 크기까지** 부르는 쪽에 간다. 한때 자리(col,row)만 넘겨받고
@@ -152,16 +173,6 @@ describe('AssemblyGrid 선택 해제', () => {
     expect(stop[0]!.dataset.cell).not.toBe(start.dataset.cell);
   });
 
-  /* 상세 패널 구성 탭은 푸는 길을 주지 않는다 — 거기서 빛나는 것은 밖에서 고른 것을 비추는
-     표시일 뿐이라 여기서 풀 것이 없다. 그런데도 「먼저 푼다」에 걸리면 추가가 두 번 눌러야
-     되는 일이 된다. */
-  it('푸는 길이 없는 판이면 빛나고 있어도 빈 칸은 한 번에 채운다', () => {
-    const { onAddAtCell, grid } = setup({ selectedId: 'a', onDeselect: undefined });
-    pointer('pointerdown', emptyCell(), 1, 3);
-    pointer('pointerup', grid, 1, 3);
-    expect(onAddAtCell).toHaveBeenCalled();
-  });
-
   it('고른 것이 없으면 빈 칸을 누르는 것이 곧 채우기다', () => {
     const onDeselect = vi.fn();
     const { onAddAtCell, grid } = setup({ selectedId: null, onDeselect });
@@ -176,8 +187,8 @@ describe('AssemblyGrid 선택 해제', () => {
     const onDeselect = vi.fn();
     const { onAddAtCell } = setup({ selectedId: 'a', onDeselect });
     fireEvent.keyDown(emptyCell(), { key: 'Enter' });
-    expect(onDeselect).toHaveBeenCalledTimes(1);
-    expect(onAddAtCell).not.toHaveBeenCalled();
+    expect(onAddAtCell).toHaveBeenCalledTimes(1);
+    expect(onDeselect).not.toHaveBeenCalled();
   });
 
   it('칸을 누른 것은 해제가 아니다 — 고르기다', () => {

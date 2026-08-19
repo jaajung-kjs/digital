@@ -195,15 +195,32 @@ export function AssemblyGrid<T extends GridItem>({
     session: GridDragSession | null;
   }
   const gestureRef = useRef<Gesture | null>(null);
-  /** 끌고 있는 동안의 미리보기 — 놓기 전에는 저장하지 않는다. */
-  const [preview, setPreview] = useState<{ itemId: string; placement: GridPlacement; ok: boolean } | null>(null);
+  /**
+   * 끌고 있는 동안의 미리보기 — 놓기 전에는 저장하지 않는다.
+   *
+   * **손짓이 끝날 때 읽는 값은 상태가 아니라 ref 다.** 상태로 읽으면 마지막 `pointermove` 와
+   * `pointerup` 이 한 작업 안에 몰려 들어왔을 때(빠른 손짓·좌표 합쳐짐) 아직 반영되지 않은
+   * 값을 보고, 끌어 놓은 자리가 조용히 버려진다. 평면도 캔버스가 이미 같은 이유로 드래그
+   * 좌표를 ref 에 둔다(`drawRef`·`movePreviewRef`).
+   */
+  const [preview, setPreviewState] = useState<{ itemId: string; placement: GridPlacement; ok: boolean } | null>(null);
+  const previewRef = useRef<{ itemId: string; placement: GridPlacement; ok: boolean } | null>(null);
+  const setPreview = (v: { itemId: string; placement: GridPlacement; ok: boolean } | null) => {
+    previewRef.current = v;
+    setPreviewState(v);
+  };
   /**
    * 빈 칸에서 끌어 **여러 칸을 묶어** 만드는 중.
    *
    * 예전에는 한 칸에만 만들 수 있어서, 2×3 짜리 부품을 놓으려면 일단 한 칸에 만든 뒤 크기
    * 손잡이로 늘려야 했다. 놓을 자리를 눈으로 정하는 판에서 그건 두 번 일하는 것이다.
    */
-  const [createRect, setCreateRect] = useState<{ placement: GridPlacement; ok: boolean } | null>(null);
+  const [createRect, setCreateRectState] = useState<{ placement: GridPlacement; ok: boolean } | null>(null);
+  const createRectRef = useRef<{ placement: GridPlacement; ok: boolean } | null>(null);
+  const setCreateRect = (v: { placement: GridPlacement; ok: boolean } | null) => {
+    createRectRef.current = v;
+    setCreateRectState(v);
+  };
 
   /** 포인터가 가리키는 칸 — 격자 상자 기준 상대 좌표로 셈한다. */
   function cellFromPointer(e: { clientX: number; clientY: number }): GridCell | null {
@@ -378,18 +395,12 @@ export function AssemblyGrid<T extends GridItem>({
       onSelect(gesture.item);
       return;
     }
-    /* 빈 칸을 눌렀다.
-       고른 것이 있으면 **먼저 푼다** — 「다른 데를 누르면 풀린다」가 판에서 가장 흔한 손짓인데,
-       칸이 상자를 꽉 채우므로 「빈 곳」이라 할 만한 자리가 빈 칸뿐이다. 풀린 뒤 한 번 더
-       누르면 그때 채운다(고른 것이 없을 때가 곧 「채우기」 상태다).
-
-       **푸는 길을 주지 않은 판**(`onDeselect` 없음)은 이 단계를 건너뛴다 — 거기서 빛나는 것은
-       밖에서 고른 것을 비추는 표시일 뿐이라 여기서 풀 것이 없는데, 그것 때문에 「추가」가
-       두 번 눌러야 되는 일이 되면 안 된다. */
-    if (onDeselect && selectedId != null) {
-      onDeselect();
-      return;
-    }
+    /* **빈 칸을 누르는 것은 곧 채우기다.**
+       한때는 고른 것이 있으면 먼저 풀고, 한 번 더 눌러야 채웠다(「다른 데를 누르면 풀린다」를
+       빈 칸에도 적용). 그런데 이 판에서 빈 칸은 「다른 데」가 아니라 **놓을 자리**다 — 부품을
+       고쳐 놓고 옆 칸에 하나 더 넣으려던 손짓이 매번 삼켜져, 설비 편집기에서는 「드래그가
+       가끔만 먹는다」로 나타났다(고른 것을 지운 뒤의 첫 시도만 성공한다).
+       푸는 길은 따로 있다: Esc, 고른 부품을 다시 누르기, 상세의 「설비 정보」. */
     onAddAtCell(gesture.cell);
   }
 
@@ -397,8 +408,9 @@ export function AssemblyGrid<T extends GridItem>({
     const gesture = gestureRef.current;
     gestureRef.current = null;
     stopPump();
-    const pv = preview;
-    const rect = createRect;
+    /* 상태가 아니라 ref — 위 `setPreview`/`setCreateRect` 주석 참고. */
+    const pv = previewRef.current;
+    const rect = createRectRef.current;
     setPreview(null);
     setCreateRect(null);
     if (!gesture) return;
