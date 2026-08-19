@@ -1,5 +1,5 @@
 /**
- * StandardsPanel — 대장의 「적산 기준」 탭
+ * StandardsPanel — 대장의 「기준정보」 탭
  *
  * 설계에 쓰는 **바깥에서 오는 표**를 서버에 한 판씩 올린다. 관리자가 반기에 한 번 올리면
  * 전원이 같은 값을 쓴다 — 각자 파일을 들고 있으면 사람마다 다른 산출 내역가 나온다.
@@ -170,7 +170,7 @@ export function StandardHistoryView({ onError }: { onError: (m: string) => void 
 }
 
 /**
- * 적산 기준 한 종류 — 고르기 → 미리보기 → 등록.
+ * 기준정보 한 종류 — 고르기 → 미리보기 → 등록.
  *
  * 종류마다 다른 것은 **무엇을 보여 주느냐**뿐이라 그것만 `renderPreview` 로 받는다.
  */
@@ -294,14 +294,14 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
   return (
     <DetailCard>
       <DetailCardHeader title="올린 기록" badge={String(rows.length)} badgeStatus="neutral" />
-      {/* 두 적산 기준가 적용되는 단위가 다르다 — 상태 칸이 왜 다른지 여기서 한 번 말한다. */}
+      {/* 두 기준정보가 적용되는 단위가 다르다 — 상태 칸이 왜 다른지 여기서 한 번 말한다. */}
       <p className="text-xs text-content-faint">
         제비율은 <b className="font-medium">판</b>을 골라 적용합니다. 노임단가는 올린 값이 회차별로 쌓이고, 직종마다
         가장 최근 값이 쓰입니다 — 고를 판이 없습니다.
       </p>
       {rows.length === 0 ? (
         <EmptyState
-          title="올린 적산 기준가 없습니다"
+          title="올린 기준정보가 없습니다"
           description="위의 「파일 선택」 으로 올리세요."
           className="py-6"
         />

@@ -20,7 +20,7 @@ import { PRODUCT_NAME } from '../product';
 /**
  * 최상위 화면 셋 — **다루는 것이 다르면 탭이 아니라 화면을 나눈다**.
  *
- * 적산 기준는 대장의 「종류」 탭들과 성격이 다르다: 우리가 만드는 것이 아니라 바깥에서
+ * 기준정보는 대장의 「종류」 탭들과 성격이 다르다: 우리가 만드는 것이 아니라 바깥에서
  * 받아 오는 표다. 대장 안에 넣었더니 그 탭만 왼쪽 목록이 사라져 화면이 덜컹거렸다.
  */
 /**
@@ -34,7 +34,7 @@ const MAIN_NAV = [
   { to: '/assemblies', label: '설비 품목' },
   { to: '/assets', label: '장비 품목' },
   { to: '/cables', label: '케이블 품목', divideAfter: true },
-  { to: '/standards', label: '적산 기준' },
+  { to: '/standards', label: '기준정보' },
 ] as const;
 
 export function V2Shell() {

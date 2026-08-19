@@ -1,5 +1,5 @@
 /**
- * 적산 기준 라우트 — 올리면 **전원에게 적용**되고, 카탈로그의 직종 값이 코드로 승격된다.
+ * 기준정보 라우트 — 올리면 **전원에게 적용**되고, 카탈로그의 직종 값이 코드로 승격된다.
  *
  * 승격이 이 테스트의 핵심이다: 시드가 넣은 「통신내선공」이 1086 이 되어야, 나중에 직종
  * 이름이 바뀌어도 카탈로그가 그대로 이어진다.
@@ -15,10 +15,10 @@ const admin = { Authorization: authHeader('admin') };
 const viewer = { Authorization: authHeader('viewer') };
 const hwp = join(__dirname, 'fixtures', 'wage-2026H1.hwp');
 
-describe('적산 기준 — 노임단가', () => {
+describe('기준정보 — 노임단가', () => {
   let created: string[] = [];
   /* 이 테스트는 「적용 중」을 갈아 끼운다 — 끝나면 원래대로 돌려놓는다. 개발 DB 를 공유하므로
-     테스트를 돌렸다고 화면의 적산 기준가 내려가 있으면 안 된다. */
+     테스트를 돌렸다고 화면의 기준정보가 내려가 있으면 안 된다. */
   let wasActive: string[] = [];
 
   beforeAll(async () => {

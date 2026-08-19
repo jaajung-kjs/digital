@@ -60,7 +60,7 @@ export function sananBand(target: number): SananBand {
   return '50억이상';
 }
 
-/** 제비율표 — 적산 기준로 올린 판을 그대로 받는다. */
+/** 제비율표 — 기준정보로 올린 판을 그대로 받는다. */
 export interface OverheadRates {
   byDuration: Record<'간접노무비' | '기타경비', Record<SizeBand, Record<DurationBand, number>>>;
   bySize: Record<'일반관리비' | '이윤', Record<SizeBand, number>>;

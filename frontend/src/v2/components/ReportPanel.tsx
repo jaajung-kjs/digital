@@ -144,7 +144,7 @@ const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
  * 금액 — 물량에서 **총공사비**까지.
  *
  * 사람이 넣는 것은 공사기간 한 칸과 계약방법뿐이다. 공사규모는 직접공사비가 정하고, 요율은
- * 적용 중인 제비율 판이 준다 — 그래서 「적산 기준」가 없으면 여기서 멈추고 그렇게 말한다.
+ * 적용 중인 제비율 판이 준다 — 그래서 「기준정보」가 없으면 여기서 멈추고 그렇게 말한다.
  */
 function EstimateSection({ items }: { items: ReportItem[] }) {
   const catalog = useV2Catalog();
@@ -158,7 +158,7 @@ function EstimateSection({ items }: { items: ReportItem[] }) {
   if (!overhead) {
     return (
       <div className="border-t border-line pt-3 text-xs text-content-faint">
-        금액을 내려면 「설비관리대장 → 적산 기준」에서 제비율을 먼저 올리세요.
+        금액을 내려면 「설비관리대장 → 기준정보」에서 제비율을 먼저 올리세요.
       </div>
     );
   }

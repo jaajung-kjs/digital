@@ -7,8 +7,8 @@
  * 고르는 것은 이름이지만 **저장되는 것은 코드**다(`useWageCatalog`). 그래서 반기마다 판을
  * 갈아도, 직종 이름이 바뀌어도 대장을 손댈 일이 없다.
  *
- * 아직 적산 기준가 없으면 잠긴다 — 대신 저장을 막지는 않는다. 품셈 없이도 종류는 만들 수
- * 있어야 하고, 적산 기준는 나중에 올려도 된다.
+ * 아직 기준정보가 없으면 잠긴다 — 대신 저장을 막지는 않는다. 품셈 없이도 종류는 만들 수
+ * 있어야 하고, 기준정보는 나중에 올려도 된다.
  */
 import { useMemo } from 'react';
 import { Select } from '../../../components/ui';
@@ -28,7 +28,7 @@ export function LaborTypeSelect({
   const empty = wage.rows.length === 0;
 
   /* 지금 판에 없는 코드도 목록에 세운다 — 조용히 빈칸으로 만들면 값이 사라진 줄 모른다.
-     (직종이 폐지됐거나, 적산 기준를 아직 안 올렸거나) */
+     (직종이 폐지됐거나, 기준정보를 아직 안 올렸거나) */
   const unknown = value != null && !wage.known(value);
 
   /* 부문 차례는 표에 나온 순서를 따른다 — 코드순이라 보고서와 같은 차례가 된다. */
@@ -62,7 +62,7 @@ export function LaborTypeSelect({
         ))}
       </Select>
       {empty && (
-        <span className="text-xs text-content-faint">상단의 「적산 기준」 에서 노임단가를 먼저 올리세요</span>
+        <span className="text-xs text-content-faint">상단의 「기준정보」 에서 노임단가를 먼저 올리세요</span>
       )}
       {unknown && !empty && (
         <span className="text-xs text-warning">지금 기준({wage.effective})에 없는 직종입니다</span>

@@ -8,7 +8,7 @@
  * 칸은 `WORK_KINDS` 가, 단위는 `LABOR_CARRIERS` 가 정한다(`@twin/core` 의 `laborSpec`).
  *
  * **고르는 칸 · 적는 칸 · 따라오는 칸**이 눈으로 갈린다: 노무유형은 고르고, 단가·품은 적고,
- * 노임단가는 적산 기준가 정해 글자로만 선다.
+ * 노임단가는 기준정보가 정해 글자로만 선다.
  */
 import { useEffect, useState } from 'react';
 import { LABOR_CODE_LABEL, LABOR_WAGE_LABEL, laborSpecColumns } from '@twin/core';
@@ -102,7 +102,7 @@ export function LaborSpecForm({
         <LaborTypeSelect value={spec.laborCode} onChange={(laborCode) => onChange({ laborCode })} />
       </DetailRow>
 
-      {/* 코드는 **저장되는 값**, 노임단가는 적산 기준가 정하는 **조회 값** — 다른 데이터라 줄을 나눈다. */}
+      {/* 코드는 **저장되는 값**, 노임단가는 기준정보가 정하는 **조회 값** — 다른 데이터라 줄을 나눈다. */}
       <DetailRow label="코드">
         <span className="text-sm text-content tabular-nums">{spec.laborCode ?? EMPTY}</span>
       </DetailRow>

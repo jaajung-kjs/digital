@@ -153,7 +153,7 @@ catalogRouter.get('/', async (_req, res, next) => {
         include: { items: { orderBy: { sortOrder: 'asc' } } },
         orderBy: { sortOrder: 'asc' },
       }),
-      /* 적용 중인 적산 기준를 **카탈로그에 실어 보낸다** — 노임은 노무유형 드롭다운의
+      /* 적용 중인 기준정보를 **카탈로그에 실어 보낸다** — 노임은 노무유형 드롭다운의
          어휘이자 설계서의 단가이고, 제비율은 설계서의 요율이다. 조회를 따로 두면 화면마다
          「어느 판을 봤나」가 갈린다. */
       nextDb.laborStandard.findMany({ where: { active: true } }),

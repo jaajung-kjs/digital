@@ -43,7 +43,7 @@ export type LaborCarrier = keyof typeof LABOR_CARRIERS;
  * 0), `0` = 「품이 안 든다」. 둘을 구별해야 설비 1식 공량과 장비 합계가 갈린다.
  */
 export interface LaborSpec {
-  /** 직종 코드 — 노임단가는 적산 기준가 갖는다. */
+  /** 직종 코드 — 노임단가는 기준정보가 갖는다. */
   laborCode: string | null;
   /** 자재단가(원/단위). */
   unitPrice: number | null;
@@ -99,7 +99,7 @@ export function emptyMeaning(carrier: LaborCarrier, kind: 'price' | 'manDays'): 
  * 직종과 노임단가는 **다른 데이터**다 — 화면이 붙여 놓으면 한 칸에 둘 다 저장되는 것으로 읽힌다.
  *
  * - `laborCode` 는 **카탈로그가 저장**한다(사용자가 고른다).
- * - 노임단가는 **적산 기준가 정한다**(임포트가 SSOT). 골라 놓으면 따라오고, 고칠 수 없다.
+ * - 노임단가는 **기준정보가 정한다**(임포트가 SSOT). 골라 놓으면 따라오고, 고칠 수 없다.
  *
  * 그래서 화면도 두 칸으로 나눈다: 고르는 칸과 따라오는 칸.
  */

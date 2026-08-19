@@ -322,10 +322,10 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     {/* 머리글은 스크롤해도 남는다 — 현황표와 같은 규칙. */}
                     <tr className="sticky top-0 z-sticky">
                       <Th>이름</Th>
-                      {/* 코드는 **저장되는 값**, 직종 이름은 적산 기준에서 **조회한 값**이다. */}
+                      {/* 코드는 **저장되는 값**, 직종 이름은 기준정보에서 **조회한 값**이다. */}
                       <Th>코드</Th>
                       <Th>{LABOR_CODE_LABEL}</Th>
-                      {/* **조회 칸**이다 — 저장되는 것은 직종 코드뿐이고 단가는 적산 기준가 정한다. */}
+                      {/* **조회 칸**이다 — 저장되는 것은 직종 코드뿐이고 단가는 기준정보가 정한다. */}
                       <Th align="right" unit={WAGE_UNIT}>{LABOR_WAGE_LABEL}</Th>
                       {/* 열은 어휘가 정한다 — 여기서 칸을 손으로 적지 않는다. */}
                       {SPEC_COLUMNS.map((c) => (

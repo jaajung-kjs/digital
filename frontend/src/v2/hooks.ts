@@ -26,11 +26,11 @@ import type { V2AssetType, V2WageRow } from './types';
 export function useV2Catalog() {
   return useQuery({ queryKey: ['v2', 'catalog'], queryFn: fetchCatalog, staleTime: 60_000 });
 }
-/** 올려 둔 적산 기준 판 목록 — 「적산 기준」 탭이 쓴다. */
+/** 올려 둔 기준정보 판 목록 — 「기준정보」 탭이 쓴다. */
 export function useStandards() {
   return useQuery({ queryKey: ['v2', 'standards'], queryFn: fetchStandards, staleTime: 60_000 });
 }
-/** 임포트된 직종 노임 전체 — 적산 기준 탭에서만 본다(457행이라 카탈로그에 싣지 않는다). */
+/** 임포트된 직종 노임 전체 — 기준정보 탭에서만 본다(457행이라 카탈로그에 싣지 않는다). */
 export function useWageRates() {
   return useQuery({ queryKey: ['v2', 'wage-rates'], queryFn: fetchWageRates, staleTime: 60_000 });
 }
@@ -134,7 +134,7 @@ export function useMediumColor(): (key: string) => string | null {
  * 카탈로그는 직종 **코드**를 저장한다. 이름과 단가는 판에서 읽으므로, 반기마다 판을 갈아도
  * 대장을 손댈 일이 없고 이름이 바뀌면 화면이 저절로 새 이름을 쓴다.
  *
- * 아직 아무 판도 안 올렸으면 `rows` 가 비어 있다 — 그때 드롭다운은 잠기고 화면이 「적산 기준를
+ * 아직 아무 판도 안 올렸으면 `rows` 가 비어 있다 — 그때 드롭다운은 잠기고 화면이 「기준정보를
  * 먼저 올리세요」라고 말한다. 저장은 막지 않는다(품셈 없이도 종류는 만들 수 있어야 한다).
  */
 export function useWageCatalog() {

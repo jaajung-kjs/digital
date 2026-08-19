@@ -117,7 +117,7 @@ export interface V2OverheadStandard {
 
 export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[]; assemblies: V2Assembly[]; wageStandard: V2WageStandard | null; overheadStandard: V2OverheadStandard | null }
 
-/** 올려 둔 적산 기준 한 판(목록용 — 내용은 빼고). */
+/** 올려 둔 기준정보 한 판(목록용 — 내용은 빼고). */
 export interface V2Standard {
   id: string;
   kind: 'wage' | 'overhead';

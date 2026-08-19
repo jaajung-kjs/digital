@@ -1,5 +1,5 @@
 /**
- * v2 적산 기준 라우트 — 설계에 쓰는 **바깥에서 오는 표**를 서버에 한 판씩 올린다.
+ * v2 기준정보 라우트 — 설계에 쓰는 **바깥에서 오는 표**를 서버에 한 판씩 올린다.
  *
  * 왜 서버에 두나: 노임단가는 전원이 같은 값을 써야 한다. 각자 파일을 들고 있으면 사람마다
  * 다른 설계서가 나온다. 관리자가 반기에 한 번 올리면 그걸로 끝이다.
@@ -37,7 +37,7 @@ function uploadSingle(req: Request, res: Response, next: NextFunction) {
     if (err instanceof MulterError) {
       next(
         err.code === 'LIMIT_FILE_SIZE'
-          ? new HttpError(413, 'FILE_TOO_LARGE', '적산 기준 파일은 20MB 이하만 올릴 수 있습니다')
+          ? new HttpError(413, 'FILE_TOO_LARGE', '기준정보 파일은 20MB 이하만 올릴 수 있습니다')
           : new HttpError(400, 'UPLOAD_FAILED', '파일을 읽지 못했습니다'),
       );
       return;
@@ -244,7 +244,7 @@ standardsRouter.post('/standards/overhead', adminOnly, uploadSingle, async (req,
  * GET /v2/standards/wages — 임포트된 직종 노임을 **회차별로 펼쳐** 돌려준다.
  *
  * 카탈로그에는 코드마다 최신 값 하나만 싣는다(모든 화면이 그것만 쓰므로). 여기서는 무엇이
- * 들어왔는지·추이가 어떤지 보려는 것이라 회차를 다 준다 — 적산 기준 탭만 부른다.
+ * 들어왔는지·추이가 어떤지 보려는 것이라 회차를 다 준다 — 기준정보 탭만 부른다.
  */
 standardsRouter.get('/standards/wages', async (_req, res, next) => {
   try {
@@ -288,7 +288,7 @@ standardsRouter.post('/standards/:id/activate', adminOnly, async (req, res, next
   try {
     const id = req.params.id;
     const row = await nextDb.laborStandard.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '적산 기준를 찾을 수 없습니다');
+    if (!row) throw new HttpError(404, 'NOT_FOUND', '기준정보를 찾을 수 없습니다');
     if (row.kind === 'wage') {
       throw new HttpError(409, 'NOT_VERSIONED', '노임단가는 판을 갈아 끼우지 않습니다 — 직종마다 가장 최근 값이 쓰입니다');
     }

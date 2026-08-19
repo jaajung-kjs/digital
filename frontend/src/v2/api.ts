@@ -138,7 +138,7 @@ export async function deleteAssembly(id: string): Promise<void> {
   await api.delete(`/v2/catalog/assemblies/${id}`);
 }
 
-// ── 적산 기준(노임단가·제비율) ────────────────────────────────────────────────
+// ── 기준정보(노임단가·제비율) ────────────────────────────────────────────────
 
 /** 미리보기 — 올리기 전에 무엇이 들어오고 지금 대장에 무엇이 걸리는지 보여 준다. */
 export interface WagePreview {
@@ -186,7 +186,7 @@ export async function uploadOverheadStandard(file: File): Promise<{ id: string; 
   return (await api.post('/v2/standards/overhead', filePart(file), MULTIPART)).data;
 }
 
-/** 임포트된 직종 노임 — 회차별로 펼친 표(적산 기준 탭 전용). */
+/** 임포트된 직종 노임 — 회차별로 펼친 표(기준정보 탭 전용). */
 export interface WageRates {
   /** 실제로 들어온 회차들, 최신 우선. */
   dates: string[];
