@@ -6,6 +6,8 @@ import {
   cellAt, edgeScroll, gridDragTo, gridPlacementChanged, scrollableAncestor, startGridDrag,
   type GridCell, type GridDragKind, type GridDragSession, type GridPlacement,
 } from '../gridDrag';
+/* 「창 밖은 놓을 자리가 아니다」는 판이든 도면이든 같은 규칙이라 한 곳에 있다. */
+import { inWindow } from '../canvas/drag';
 
 /**
  * 격자에 놓이는 것 — **자산이든 설비 품목 장비가든** 이만큼만 있으면 그린다.
@@ -196,6 +198,15 @@ export function AssemblyGrid<T extends GridItem>({
   }
   const gestureRef = useRef<Gesture | null>(null);
   /**
+   * **손짓이 벌어지고 있는가** — 누른 순간부터 뗄 때까지.
+   *
+   * 예전에는 「미리보기가 생겼는가」로 알았는데, 미리보기는 손이 **다음 칸에 닿아야** 생긴다.
+   * 그 사이(누르고 아직 한 칸도 못 간 동안) 빈 칸은 여전히 손을 반겨 `+` 를 켰다 —
+   * 끌 때마다 `+` 가 반짝인 것이 그것이다. 벌어지는 일은 ref 가 알지만 화면은 상태로만
+   * 다시 그려지므로, 같은 사실을 둘이 나눠 갖는다.
+   */
+  const [dragging, setDragging] = useState(false);
+  /**
    * 끌고 있는 동안의 미리보기 — 놓기 전에는 저장하지 않는다.
    *
    * **손짓이 끝날 때 읽는 값은 상태가 아니라 ref 다.** 상태로 읽으면 마지막 `pointermove` 와
@@ -249,22 +260,48 @@ export function AssemblyGrid<T extends GridItem>({
           )
         : null;
     gestureRef.current = { kind, cell, item, session };
-    if (session) {
-      scrollersRef.current = {
-        y: scrollableAncestor(boxRef.current, 'y'),
-        x: scrollableAncestor(boxRef.current, 'x'),
-      };
+    setDragging(true);
+    /* 밀 상자는 **손짓 종류와 무관하게** 찾는다 — 새로 그리는 손짓도 화면 밖 행까지 가야 한다. */
+    scrollersRef.current = {
+      y: scrollableAncestor(boxRef.current, 'y'),
+      x: scrollableAncestor(boxRef.current, 'x'),
+    };
+    /* 캡처는 **격자**가 쥔다 — 칸이 쥐면 끌려간 자리에서 다른 칸이 같은 손짓을 또 받는다.
+       못 쥐면 따라갈 수도 없다(그 포인터가 이미 사라졌다는 뜻이다) — 손짓을 세워 두지 않고
+       그 자리에서 접는다. 안 그러면 끝을 알리는 `pointerup` 이 영영 오지 않아, 화면이
+       「끄는 중」인 채로 굳는다. */
+    try {
+      boxRef.current?.setPointerCapture(e.pointerId);
+    } catch {
+      endGesture(false);
     }
-    /* 캡처는 **격자**가 쥔다 — 칸이 쥐면 끌려간 자리에서 다른 칸이 같은 손짓을 또 받는다. */
-    boxRef.current?.setPointerCapture(e.pointerId);
   }
 
-  /** 손이 있는 자리로 미리보기를 맞춘다 — 손이 움직였을 때도, 판이 밀렸을 때도 같은 계산이다. */
+  /**
+   * 손이 있는 자리로 겨눈다 — **손이 움직였을 때도, 판이 밀렸을 때도 같은 계산**이다.
+   *
+   * 옮기기·크기와 새로 그리기가 여기 함께 있다. 갈래를 나눠 두면 한쪽에만 고침이 들어간다 —
+   * 실제로 새로 그리는 손짓은 가장자리 밀기를 못 받아, 화면 밖 행까지 네모를 끌 수 없었다.
+   */
   function aimAt(point: { clientX: number; clientY: number }) {
-    const session = gestureRef.current?.session;
-    if (!session) return;
+    const g = gestureRef.current;
+    if (!g) return;
     const target = cellFromPointer(point);
     if (!target) return;
+
+    /* 빈 칸에서 시작했다 — 시작 칸과 지금 칸이 이루는 네모다. */
+    if (!g.session) {
+      const placement = {
+        col: Math.min(g.cell.col, target.col),
+        row: Math.min(g.cell.row, target.row),
+        colSpan: Math.abs(target.col - g.cell.col) + 1,
+        rowSpan: Math.abs(target.row - g.cell.row) + 1,
+      };
+      setCreateRect({ placement, ok: isFree(placement) });
+      return;
+    }
+
+    const session = g.session;
     const placement = gridDragTo(session, target);
     session.moved = session.moved || gridPlacementChanged(session.origin, placement);
     if (!session.moved) return;
@@ -298,7 +335,7 @@ export function AssemblyGrid<T extends GridItem>({
   function pump() {
     rafRef.current = null;
     const point = pointRef.current;
-    if (!gestureRef.current?.session || !point) return;
+    if (!gestureRef.current || !point) return;
 
     // 세로·가로가 다른 상자일 수 있다(상세 패널의 세로 상자 안에 격자의 가로 상자).
     const p = { x: point.clientX, y: point.clientY };
@@ -315,31 +352,22 @@ export function AssemblyGrid<T extends GridItem>({
 
   function onPointerMove(e: React.PointerEvent) {
     const g = gestureRef.current;
+    if (!g) return;
     /* **손을 우리가 못 보는 데서 뗐다.** 창 밖에서 놓거나 다른 앱으로 넘어가면 캡처가 풀려
        `pointerup` 이 오지 않는다. 그러면 손짓이 살아 있는 채로 남아, 돌아왔을 때 버튼을
        누르지도 않았는데 장비가 커서를 따라다녔다 — 손을 뗀 자리가 어디였는지 알 수 없으므로
        **물린다**(`pointercancel` 과 같은 뜻이다). 눌린 버튼이 없다는 사실이 그 신호다. */
-    if (g && e.buttons === 0) {
+    if (e.buttons === 0) {
       endGesture(false);
       return;
     }
-    /* 빈 칸에서 시작한 손짓 — 시작 칸과 지금 칸이 이루는 네모를 미리 보여 준다. */
-    if (g && !g.item) {
-      const to = cellFromPointer(e);
-      if (to) {
-        const col = Math.min(g.cell.col, to.col);
-        const row = Math.min(g.cell.row, to.row);
-        const placement = {
-          col,
-          row,
-          colSpan: Math.abs(to.col - g.cell.col) + 1,
-          rowSpan: Math.abs(to.row - g.cell.row) + 1,
-        };
-        setCreateRect({ placement, ok: isFree(placement) });
-      }
+    /* 창 밖에서는 겨누지 않는다 — 손짓은 살아 있으므로 들어오면 그 자리에서 이어진다.
+       겨누기를 이어 가면 겨눈 칸이 가장자리로 붙고(`cellAt`) 가장자리 밀기가 최대 속도로
+       계속 굴러, 손을 다시 들여놓으면 장비가 저 멀리 가 있다. */
+    if (!inWindow(e)) {
+      stopPump();
       return;
     }
-    if (!g?.session) return;
     pointRef.current = { clientX: e.clientX, clientY: e.clientY };
     aimAt(e);
     if (rafRef.current == null) rafRef.current = requestAnimationFrame(pump);
@@ -366,8 +394,10 @@ export function AssemblyGrid<T extends GridItem>({
       // 끌고 있으면 그 손짓을 물린다. 아니면 고른 것을 푼다 — Esc 는 「지금 것을 취소」다.
       if (gestureRef.current) {
         gestureRef.current = null;
+        setDragging(false);
         stopPump();
         setPreview(null);
+        setCreateRect(null);
         return;
       }
       if (selectedId != null) onDeselectRef.current?.();
@@ -407,6 +437,7 @@ export function AssemblyGrid<T extends GridItem>({
   function endGesture(commit: boolean) {
     const gesture = gestureRef.current;
     gestureRef.current = null;
+    setDragging(false);
     stopPump();
     /* 상태가 아니라 ref — 위 `setPreview`/`setCreateRect` 주석 참고. */
     const pv = previewRef.current;
@@ -501,11 +532,6 @@ export function AssemblyGrid<T extends GridItem>({
     }
   }
 
-  /* 손짓이 벌어지는 동안 빈 칸은 **반응하지 않는다**.
-     옮기는 중에 커서가 지나가는 빈 칸마다 호버가 켜져 「여기 누르면 추가」 표시(+)가
-     따라다녔다 — 지금 하는 일은 옮기기이지 추가가 아니다. */
-  const dragging = preview != null || createRect != null;
-
   /* 아직 아무도 짚지 않았고 고른 것도 없을 때 Tab 이 닿을 칸 — 그려지는 첫 칸이다
      (`0,0` 을 못 박으면 그 자리가 span 에 덮여 단추가 없을 때 정거장이 사라진다). */
   let firstCellKey: string | null = null;
@@ -584,12 +610,15 @@ export function AssemblyGrid<T extends GridItem>({
                    예전에는 `+` 만 나타나서 어디까지가 그 칸인지 읽히지 않았다. */
                 : cn(
                     'border border-dashed border-line/50 text-content-faint',
-                    dragging
-                      ? 'pointer-events-none'
-                      : cn(
-                          'transition-colors hover:border-solid hover:border-primary hover:bg-info-bg hover:text-primary',
-                          SELECTABLE,
-                        ),
+                    /* 손짓이 벌어지는 동안 빈 칸은 **손을 반기지 않는다** — 지금 하는 일은
+                       옮기기이지 추가가 아니다. 예전에는 `pointer-events-none` 으로 칸을
+                       통째로 죽였는데, 그러면 그 칸이 겨냥 대상에서도 빠져 손짓 판정이
+                       DOM 모양에 딸려 갔다. 켜고 끄는 것은 **보이는 것**뿐이다. */
+                    !dragging &&
+                      cn(
+                        'transition-colors hover:border-solid hover:border-primary hover:bg-info-bg hover:text-primary',
+                        SELECTABLE,
+                      ),
                   ),
               item && 'cursor-grab touch-none active:cursor-grabbing',
               item && selectedId === item.id && 'ring-2 ring-inset ring-primary',
@@ -800,7 +829,7 @@ export function AssemblyGrid<T extends GridItem>({
           /* 끌기는 글자를 잡지 않는다 — 칸 안 이름이 잡힌 채로 끌리면 판이 파래진다. */
           className="grid h-full select-none gap-0.5"
           onPointerMove={onPointerMove}
-          onPointerUp={() => endGesture(true)}
+          onPointerUp={(e) => endGesture(inWindow(e))}
           onPointerCancel={() => endGesture(false)}
           /* 캡처가 풀리면 그 손짓은 끝난 것이다 — 화면이 다시 그려져 상자가 갈리거나 브라우저가
              가져갈 수 있다. 남겨 두면 미리보기만 붙박여 있고 손짓은 죽어 있는 상태가 된다. */

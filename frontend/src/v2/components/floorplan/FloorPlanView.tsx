@@ -23,7 +23,7 @@ import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from
 import { insertionAt, insertPathPoint, movePathPoint, removePathPoint } from '../../canvas/cablePath';
 import { CableWaypointHandles } from './CableWaypointHandles';
 import { findAssetAt, type PlacedAsset } from '../../canvas/hitTest';
-import { createDragSession, dragDelta, isThresholdMet } from '../../canvas/drag';
+import { createDragSession, dragDelta, inWindow, isThresholdMet } from '../../canvas/drag';
 import type { DragSession } from '../../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../../floorPlacement';
 import { placedAssetsOf } from '../../floorPlanSelectors';
@@ -885,7 +885,7 @@ export function FloorPlanView({
         scheduleRender();
       };
 
-      stopDrawRef.current = (_me: MouseEvent) => {
+      stopDrawRef.current = (me: MouseEvent) => {
         if (!isDrawing.current) return;
         isDrawing.current = false;
         window.removeEventListener('mousemove', onDrawMoveRef.current);
@@ -896,7 +896,9 @@ export function FloorPlanView({
         drawRef.current = null;
         scheduleRender();
 
-        if (!start || !end || !capturedFloorId) return;
+        /* 창 밖에서 뗀 손은 **놓은 것이 아니다** — 그 좌표는 사람이 겨눈 자리가 아니다
+           (`inWindow`). 그리다 창을 벗어나 놓으면 그린 것을 물린다. */
+        if (!start || !end || !capturedFloorId || !inWindow(me)) return;
         const rectNorm = normalizeRect(start, end);
         if (!isDrawLargeEnough(rectNorm)) return;
 
@@ -952,7 +954,8 @@ export function FloorPlanView({
         moveDragRef.current = null;
         movePreviewRef.current = null;
 
-        if (!session || !session.moved) {
+        /* 창 밖에서 뗀 손은 놓은 것이 아니다 — 미리보기만 걷고 자리는 그대로 둔다. */
+        if (!session || !session.moved || !inWindow(me)) {
           scheduleRender();
           return;
         }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { snapToGrid, screenToWorld } from '../transform';
 import { findAssetAt, hitTestAsset } from '../hitTest';
-import { createDragSession, dragDelta, isThresholdMet } from '../drag';
+import { createDragSession, dragDelta, inWindow, isThresholdMet } from '../drag';
 
 const rect = { left: 100, top: 50 } as DOMRect;
 const a = (id: string, x: number, y: number, w = 60, h = 80) => ({ id, name: id, x, y, width: w, height: h });
@@ -41,5 +41,22 @@ describe('drag', () => {
     const s = createDragSession(a('r', 100, 100), { x: 10, y: 10 });
     const snap = (x: number, y: number) => snapToGrid(x, y, 10);
     expect(dragDelta(s, { x: 33, y: 17 }, (p) => snap(p.x, p.y))).toEqual({ x: 120, y: 110 });
+  });
+});
+
+/* 단추를 누른 채로는 창을 벗어나도 좌표가 계속 온다. 그 좌표로 끝맺으면 **손을 뗀 적 없는
+   자리**에 놓인다 — 판을 벗어났다 돌아오면 물건이 엉뚱한 데 가 있는 것이 그것이다. */
+describe('inWindow', () => {
+  it('창 안이면 놓을 자리다', () => {
+    expect(inWindow({ clientX: 10, clientY: 10 })).toBe(true);
+    expect(inWindow({ clientX: 0, clientY: 0 })).toBe(true);
+    expect(inWindow({ clientX: window.innerWidth, clientY: window.innerHeight })).toBe(true);
+  });
+
+  it('창 밖이면 놓을 자리가 아니다', () => {
+    expect(inWindow({ clientX: -1, clientY: 10 })).toBe(false);
+    expect(inWindow({ clientX: 10, clientY: -1 })).toBe(false);
+    expect(inWindow({ clientX: window.innerWidth + 1, clientY: 10 })).toBe(false);
+    expect(inWindow({ clientX: 10, clientY: window.innerHeight + 1 })).toBe(false);
   });
 });

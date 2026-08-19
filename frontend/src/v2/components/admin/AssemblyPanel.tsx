@@ -11,10 +11,10 @@
  * 달라 보이면 짜는 뜻이 없다.
  */
 import { useMemo, useRef, useState } from 'react';
-import { occupantsOf, validateGridPlacement, ASSEMBLY_GRID, cellLabel } from '@twin/core';
+import { occupantsOf, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
 import { LaborSpecForm } from './LaborSpecForm';
 import {
-  Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
+  Button, DetailCard, DetailCardHeader, DetailRow, ErrorStrip, Input, Select,
   useDismissOnOutside,
   EMPTY,
 } from '../../../components/ui';
@@ -35,36 +35,52 @@ const issueOf = (issues: AssemblyIssue[], path: AssemblyIssue['path']) =>
   issues.find((i) => i.path === path)?.message;
 
 export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPanelProps) {
-  /** 어느 칸에 무엇을 넣을지 고르는 중. */
-  /** 어느 자리에 무엇을 넣을지 고르는 중 — 여러 칸을 끌었으면 그 크기까지 온다. */
-  const [addCell, setAddCell] = useState<{ col: number; row: number; colSpan?: number; rowSpan?: number } | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [addQuery, setAddQuery] = useState('');
   /* 바깥을 누르면 풀린다 — 앱 공통 규칙(`useDismissOnOutside`). 「안」은 캔버스와 그 상세다:
      고른 장비의 이름을 고치다 선택이 풀리면 안 된다. */
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const asideRef = useRef<HTMLElement | null>(null);
-  useDismissOnOutside(selectedItemId != null, [canvasRef, asideRef], () => setSelectedItemId(null));
+  useDismissOnOutside(selectedItemId != null, [canvasRef, asideRef], () => selectItem(null));
 
   const typeById = useMemo(() => new Map(catalog.types.map((t) => [t.id, t])), [catalog.types]);
 
-  function addPart(typeId: string) {
-    if (!addCell) return;
-    const type = typeById.get(typeId);
-    if (!type) return;
+  /**
+   * 빈 자리에 **빈 장비를 만들고 그것을 고친다** — 상세 패널 구성 탭과 같은 어법(§1.7-m).
+   *
+   * 예전에는 여기서 「무엇을 넣을지」 묻는 상자가 떴다. 그러면 같은 일에 상자가 둘이 되고
+   * (오른쪽 상세는 이미 고치는 자리다), 그 상자는 제 검색·제 빈 화면을 따로 갖는다 —
+   * 실제로 한 글자만 쳐도 「넣을 수 있는 장비 품목이 없습니다」로 바뀌어 검색칸까지 사라졌다.
+   * 판에 장비가 바로 서면 「지금 무엇을 하는 중인가」가 화면에 있고, 고르는 자리는 하나다.
+   */
+  function addPartAt(at: { col: number; row: number; colSpan?: number; rowSpan?: number }) {
+    const id = newItemId();
     onChange({
       ...draft,
       items: [...draft.items, {
-        id: newItemId(), typeId, name: type.name,
-        col: addCell.col, row: addCell.row,
-        colSpan: addCell.colSpan ?? 1, rowSpan: addCell.rowSpan ?? 1,
+        id, typeId: '', name: '',
+        col: at.col, row: at.row,
+        colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1,
       }],
     });
-    setAddCell(null);
+    setSelectedItemId(id);
   }
 
   function updateItem(itemId: string, patch: Partial<AssemblyDraftItem>) {
     onChange({ ...draft, items: draft.items.map((i) => (i.id === itemId ? { ...i, ...patch } : i)) });
+  }
+
+  /**
+   * 고르는 자리를 옮긴다 — **덜 채운 장비는 두고 가지 않는다**.
+   *
+   * 품목을 안 고른 장비는 아무것도 아니다. 판에 남겨 두면 저장이 거절되고(그 이유는 판에서
+   * 보이지 않는다) 격자에 이름 없는 네모만 늘어난다. 만들다 만 것은 손을 떼는 순간 사라진다.
+   */
+  function selectItem(nextId: string | null) {
+    const blank = draft.items.find((i) => i.id === selectedItemId && !i.typeId);
+    if (blank && blank.id !== nextId) {
+      onChange({ ...draft, items: draft.items.filter((i) => i.id !== blank.id) });
+    }
+    setSelectedItemId(nextId);
   }
 
   function removePart(itemId: string) {
@@ -86,11 +102,6 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   }
 
   const selected = draft.items.find((i) => i.id === selectedItemId) ?? null;
-  /* 무엇을 놓을지는 설비 품목을 짜는 사람이 정한다 — 수용 규칙(컨테이너의 것이었다)은 없다. */
-  const addable = useMemo(() => {
-    const q = addQuery.trim().toLowerCase();
-    return q ? catalog.types.filter((t) => t.name.toLowerCase().includes(q)) : catalog.types;
-  }, [catalog.types, addQuery]);
 
   return (
     /* **평면도의 어법**: 왼쪽은 캔버스, 오른쪽은 상세 패널.
@@ -113,24 +124,14 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             items={draft.items}
             selectedId={selectedItemId}
             /* 같은 것을 다시 누르면 풀린다 — 상세 패널·포트 탭과 같은 규칙. */
-            onSelect={(part) => setSelectedItemId((cur) => (cur === part.id ? null : part.id))}
-            onDeselect={() => setSelectedItemId(null)}
+            onSelect={(part) => selectItem(selectedItemId === part.id ? null : part.id)}
+            onDeselect={() => selectItem(null)}
             /* 초안이라 저장 전이다 — 묻지 않는다(취소로 통째로 되돌릴 수 있다). */
             onRemove={(part) => removePart(part.id)}
             trailing={(part) => (
               <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? EMPTY}</span>
             )}
-            onAddAtCell={setAddCell}
-            /* 무엇을 넣을지 묻는 동안 그 네모는 판에 남는다 — 상자가 가리는 것은 판이지
-               방금 그린 자리가 아니어야 한다. */
-            pending={
-              addCell
-                ? {
-                    at: { col: addCell.col, row: addCell.row, colSpan: addCell.colSpan ?? 1, rowSpan: addCell.rowSpan ?? 1 },
-                    label: '새 장비',
-                  }
-                : null
-            }
+            onAddAtCell={addPartAt}
             canPlace={canPlace}
             onMove={updateItem}
           />
@@ -144,15 +145,33 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           <>
             <DetailCard>
               <DetailCardHeader
-                title={selected.name || '장비'}
-                badge={typeById.get(selected.typeId)?.name}
-                badgeStatus="neutral"
+                title={selected.name || '새 장비'}
                 actions={
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedItemId(null)}>
+                  <Button variant="ghost" size="sm" onClick={() => selectItem(null)}>
                     설비 정보
                   </Button>
                 }
               />
+              {/* **품목을 여기서 고른다.** 예전에는 읽기만 하는 배지였고, 고르는 일은 별도
+                  상자가 맡았다 — 잘못 고른 장비를 바로잡는 길이 「빼고 다시 넣기」뿐이었다.
+                  이름을 아직 안 적었으면 품목 이름을 그대로 쓴다(대개 그게 맞는 이름이다). */}
+              <DetailRow label="품목" required>
+                <Select
+                  aria-label="장비 품목"
+                  value={selected.typeId}
+                  onChange={(e) => {
+                    const next = typeById.get(e.currentTarget.value);
+                    if (!next) return;
+                    const keepName = selected.name && selected.name !== typeById.get(selected.typeId)?.name;
+                    updateItem(selected.id, { typeId: next.id, name: keepName ? selected.name : next.name });
+                  }}
+                >
+                  <option value="">— 품목 선택 —</option>
+                  {catalog.types.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </Select>
+              </DetailRow>
               <DetailRow label="이름">
                 <Input
                   aria-label="장비 이름"
@@ -219,46 +238,6 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         )}
       </aside>
 
-      {addCell && (
-        <Modal
-          open
-          onClose={() => { setAddCell(null); setAddQuery(''); }}
-          title={
-            addCell.colSpan && addCell.colSpan * (addCell.rowSpan ?? 1) > 1
-              ? `${cellLabel(addCell.col, addCell.row)} 부터 ${addCell.colSpan}×${addCell.rowSpan} 에 넣기`
-              : `${cellLabel(addCell.col, addCell.row)} 에 넣기`
-          }
-        >
-          {addable.length === 0 ? (
-            <EmptyState title="넣을 수 있는 장비 품목이 없습니다" description="상단의 「장비 품목」 에서 먼저 만드세요." />
-          ) : (
-            <>
-              {/* 장비 품목은 스물 몇이라 전폭 버튼으로 늘어놓으면 눈으로 훑어야 한다 —
-                  왼쪽 목록이 같은 이유로 이미 검색을 갖고 있다(CONVENTIONS §1.6). */}
-              <Input
-                aria-label="장비 품목 검색"
-                size="sm"
-                autoFocus
-                placeholder="이름으로 검색"
-                value={addQuery}
-                onChange={(e) => setAddQuery(e.currentTarget.value)}
-              />
-              <ul className="mt-2 max-h-80 space-y-1 overflow-y-auto">
-                {addable.length === 0 && (
-                  <li className="px-2 py-3 text-xs text-content-faint">검색 결과가 없습니다</li>
-                )}
-                {addable.map((t) => (
-                  <li key={t.id}>
-                    <Button variant="secondary" size="sm" className="w-full justify-start" onClick={() => addPart(t.id)}>
-                      {t.name}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </Modal>
-      )}
     </div>
   );
 }
