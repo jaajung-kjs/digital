@@ -127,8 +127,11 @@ export function AssemblyGrid<T extends GridItem>({
         ))}
       </ol>
 
+      {/* 판은 **행 수만큼** 자리를 갖는다 — 내용 높이에 맡기면 마지막 장비 아래로는 끌 수가
+          없다(놓인 것이 하나뿐이면 판도 그만큼만 높다). */}
       <div
         className="relative min-w-0 flex-1"
+        style={{ height: rows * rowH + (rows - 1) * GAP }}
         ref={(el) => { if (el && el.clientWidth !== box) setBox(el.clientWidth); }}
       >
         {/* 빈 칸 — 누르면 그 자리에 만든다. 판 밑에 깔려 있고, 위에 놓인 것은 라이브러리가 그린다. */}
@@ -171,7 +174,10 @@ export function AssemblyGrid<T extends GridItem>({
 
         {/* 놓인 것 — 끌기·크기·겹침은 전부 라이브러리가 맡는다. */}
         <GridLayout
-          className="relative"
+          /* 이 판은 빈 칸 위에 겹쳐 있다 — **판 자신은 손짓을 통과시키고** 놓인 타일만 받는다.
+             안 그러면 빈 곳을 눌러도 이 판이 먹어 호버도 클릭도 없다. */
+          className="pointer-events-none absolute inset-0"
+          autoSize={false}
           layout={layout}
           width={width}
           /* 판의 치수 — 눈금·빈 칸과 **같은 수**를 쓴다(어긋나면 놓인 것이 칸에서 밀린다). */
@@ -190,7 +196,7 @@ export function AssemblyGrid<T extends GridItem>({
               <div
                 key={l.i}
                 className={cn(
-                  'group relative flex cursor-grab select-none items-center justify-center overflow-hidden rounded border border-line bg-surface px-1 text-center text-xs text-content active:cursor-grabbing',
+                  'pointer-events-auto group relative flex cursor-grab select-none items-center justify-center overflow-hidden rounded border border-line bg-surface px-1 text-center text-xs text-content active:cursor-grabbing',
                   selectedId === item.id && 'ring-2 ring-inset ring-primary',
                 )}
                 role="button"
