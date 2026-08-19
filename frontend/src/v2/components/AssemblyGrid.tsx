@@ -226,9 +226,9 @@ export function AssemblyGrid<T extends GridItem>({
    * 예전에는 한 칸에만 만들 수 있어서, 2×3 짜리 장비를 놓으려면 일단 한 칸에 만든 뒤 크기
    * 손잡이로 늘려야 했다. 놓을 자리를 눈으로 정하는 판에서 그건 두 번 일하는 것이다.
    */
-  const [createRect, setCreateRectState] = useState<{ placement: GridPlacement; ok: boolean } | null>(null);
-  const createRectRef = useRef<{ placement: GridPlacement; ok: boolean } | null>(null);
-  const setCreateRect = (v: { placement: GridPlacement; ok: boolean } | null) => {
+  const [createRect, setCreateRectState] = useState<{ placement: GridPlacement } | null>(null);
+  const createRectRef = useRef<{ placement: GridPlacement } | null>(null);
+  const setCreateRect = (v: { placement: GridPlacement } | null) => {
     createRectRef.current = v;
     setCreateRectState(v);
   };
@@ -289,7 +289,14 @@ export function AssemblyGrid<T extends GridItem>({
     const target = cellFromPointer(point);
     if (!target) return;
 
-    /* 빈 칸에서 시작했다 — 시작 칸과 지금 칸이 이루는 네모다. */
+    /**
+     * 빈 칸에서 시작했다 — 시작 칸과 지금 칸이 이루는 네모다.
+     *
+     * **네모는 빈 자리에서만 자란다.** 예전에는 남의 자리까지 덮도록 두고 빨갛게 칠한 뒤,
+     * 손을 떼면 아무 일도 하지 않았다 — 사람 눈에는 「끌었는데 아무 반응 없이 사라졌다」다.
+     * 무엇이 잘못인지 말할 자리도 없다(그리는 중에만 빨갰다). 아예 덮지 못하게 하면 그 상태가
+     * 생기지 않는다: 막히면 그 자리에서 자라기를 멈추므로, 어디까지 되는지가 끄는 동안 보인다.
+     */
     if (!g.session) {
       const placement = {
         col: Math.min(g.cell.col, target.col),
@@ -297,7 +304,9 @@ export function AssemblyGrid<T extends GridItem>({
         colSpan: Math.abs(target.col - g.cell.col) + 1,
         rowSpan: Math.abs(target.row - g.cell.row) + 1,
       };
-      setCreateRect({ placement, ok: isFree(placement) });
+      /* 시작 칸은 비어 있었으므로 물러설 자리는 늘 있다(못해도 그 한 칸). */
+      if (isFree(placement)) setCreateRect({ placement });
+      else if (!createRectRef.current) setCreateRect({ placement: { ...g.cell, colSpan: 1, rowSpan: 1 } });
       return;
     }
 
@@ -446,9 +455,10 @@ export function AssemblyGrid<T extends GridItem>({
     setCreateRect(null);
     if (!gesture) return;
 
-    /* 여러 칸을 묶어 끌었다 — 그 네모에 만든다. 한 칸이면 평소대로 누른 것으로 친다. */
+    /* 여러 칸을 묶어 끌었다 — 그 네모에 만든다. 한 칸이면 평소대로 누른 것으로 친다.
+       네모는 빈 자리에서만 자랐으므로 여기서 다시 물을 것이 없다. */
     if (rect && (rect.placement.colSpan > 1 || rect.placement.rowSpan > 1)) {
-      if (commit && rect.ok) onAddAtCell(rect.placement);
+      if (commit) onAddAtCell(rect.placement);
       return;
     }
 
@@ -546,9 +556,9 @@ export function AssemblyGrid<T extends GridItem>({
   /* 놓을 자리의 네모 — 끄는 동안에는 손을 따라가고(`createRect`), 손을 뗀 뒤 무엇을 넣을지
      묻는 동안에는 **그 자리에 남는다**(`pending`). 확정하거나 물릴 때 사라진다. */
   const rectShown = createRect
-    ? { placement: createRect.placement, ok: createRect.ok, text: `${createRect.placement.colSpan}×${createRect.placement.rowSpan}` }
+    ? { placement: createRect.placement, text: `${createRect.placement.colSpan}×${createRect.placement.rowSpan}` }
     : pending
-      ? { placement: pending.at, ok: true, text: pending.label }
+      ? { placement: pending.at, text: pending.label }
       : null;
   if (rectShown) {
     const { col, row, colSpan, rowSpan } = rectShown.placement;
@@ -561,7 +571,7 @@ export function AssemblyGrid<T extends GridItem>({
         <div
           className={cn(
             'flex h-full w-full items-center justify-center rounded border-2 text-xs font-medium',
-            rectShown.ok ? 'border-primary bg-info-bg text-primary' : 'border-danger bg-danger-bg text-danger',
+            'border-primary bg-info-bg text-primary',
           )}
         >
           {/* 좁은 자리에는 글자를 넣지 않는다 — 한 칸(28px)에 「새 자산」을 욱여넣으면
@@ -670,6 +680,13 @@ export function AssemblyGrid<T extends GridItem>({
                 moveActive(e.key === 'Home' ? 'first' : 'last', { col, row });
                 return;
               }
+              /* 뺄 수 있는 것은 **키보드로도** 뺀다 — 빼기 단추는 손이 얹혀야 나타나므로
+                 그것만으로는 키보드로 닿는 길이 없다(현황표·트리의 Delete 와 같은 어법). */
+              if ((e.key === 'Delete' || e.key === 'Backspace') && item && onRemove) {
+                e.preventDefault();
+                onRemove(item);
+                return;
+              }
               if (e.key !== 'Enter' && e.key !== ' ') return;
               e.preventDefault();
               tap({ kind: 'tap', item: item ?? null, cell: { col, row }, session: null });
@@ -738,8 +755,11 @@ export function AssemblyGrid<T extends GridItem>({
                   'opacity-0 group-hover:opacity-100',
                   selectedId === item.id && 'opacity-100',
                 )}
-                /* 칸의 손짓(이동)을 가로챈다 — 지우려고 누른 것이 끌기로 읽히면 안 된다. */
-                onPointerDown={(e) => {
+                /* 칸의 손짓(이동)을 가로챈다 — 지우려고 누른 것이 끌기로 읽히면 안 된다.
+                   다만 **누르는 순간 지우지는 않는다**: 손을 뗄 때 지운다(그래야 잘못 눌렀을 때
+                   손가락을 밖으로 빼서 물릴 수 있다 — 단추의 기본 규칙이다). */
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
                   e.stopPropagation();
                   onRemove(item);
                 }}

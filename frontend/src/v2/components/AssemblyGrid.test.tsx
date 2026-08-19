@@ -219,14 +219,46 @@ describe('AssemblyGrid 선택 해제', () => {
 });
 
 describe('AssemblyGrid 빼기', () => {
-  it('호버 X 를 누르면 그 장비를 뺀다', () => {
+  /* **누르는 순간 지우지 않는다** — 잘못 눌렀으면 손가락을 밖으로 빼서 물릴 수 있어야 한다
+     (단추의 기본 규칙). 누름은 끌기를 가로채기만 하고, 지우는 것은 뗄 때다. */
+  it('호버 X 는 눌러도 아직 안 지우고, 떼야 뺀다', () => {
     const onRemove = vi.fn();
     setup({ onRemove });
-    fireEvent(
-      screen.getByRole('button', { name: '광단말 A 빼기' }),
-      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
-    );
+    const x = screen.getByRole('button', { name: '광단말 A 빼기' });
+    fireEvent(x, new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
+    expect(onRemove).not.toHaveBeenCalled();
+    fireEvent.click(x);
     expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
+  });
+
+  /* 빼기 단추는 손이 얹혀야 나타난다 — 키보드에는 그 길이 없으므로 고른 칸에서 Delete 로 뺀다. */
+  it('고른 칸에서 Delete 로도 뺀다', () => {
+    const onRemove = vi.fn();
+    setup({ onRemove });
+    fireEvent.keyDown(screen.getByRole('button', { name: /광단말 A,/ }), { key: 'Delete' });
+    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
+  });
+
+  /**
+   * **네모는 빈 자리에서만 자란다.**
+   *
+   * 예전에는 남의 자리까지 덮도록 두고 빨갛게 칠한 뒤, 손을 떼면 아무 일도 하지 않았다 —
+   * 사람 눈에는 「끌었는데 아무 반응 없이 사라졌다」이고, 무엇이 잘못인지 말할 자리도 없었다.
+   */
+  it('빈 칸에서 끌다 다른 장비를 만나면 그 앞에서 멈춘다 — 아무 일도 없는 경우는 없다', () => {
+    const onAddAtCell = vi.fn();
+    const { grid } = setup({
+      onAddAtCell,
+      /* 광단말 A 를 3행에 세운다 — 아래로 끌면 그것을 만난다. */
+      items: [{ id: 'a', name: '광단말 A', col: 0, row: 2, colSpan: 1, rowSpan: 1 }],
+    });
+    /* 1행 1열에서 눌러 아래로 끈다: 2행까지는 비었고 3행은 막혀 있다. */
+    pointer('pointerdown', screen.getByRole('button', { name: /1행 1열, 비어 있음/ }), 0, 0);
+    pointer('pointermove', grid, 0, 1);
+    pointer('pointermove', grid, 0, 3);
+    pointer('pointerup', grid, 0, 3);
+    /* 막힌 칸을 덮지 않은 네모(1×2)로 만든다 — 조용히 사라지지 않는다. */
+    expect(onAddAtCell).toHaveBeenCalledWith(expect.objectContaining({ col: 0, row: 0, colSpan: 1, rowSpan: 2 }));
   });
 
   /* 지우려고 누른 것이 끌기로 읽히면, 손을 떼는 순간 자리가 바뀌어 있다. */

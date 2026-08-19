@@ -55,8 +55,10 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   function addPartAt(at: { col: number; row: number; colSpan?: number; rowSpan?: number }) {
     const id = newItemId();
     onChange({
+      /* 새로 만드는 것도 **자리를 옮기는 일**이다 — 앞서 만들다 만 장비는 여기서도 사라진다.
+         안 그러면 품목을 안 고른 채 옆 칸에 또 만들 때마다 이름 없는 네모가 쌓인다. */
       ...draft,
-      items: [...draft.items, {
+      items: [...withoutBlank(), {
         id, typeId: '', name: '',
         col: at.col, row: at.row,
         colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1,
@@ -75,10 +77,15 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
    * 품목을 안 고른 장비는 아무것도 아니다. 판에 남겨 두면 저장이 거절되고(그 이유는 판에서
    * 보이지 않는다) 격자에 이름 없는 네모만 늘어난다. 만들다 만 것은 손을 떼는 순간 사라진다.
    */
+  /** 만들다 만 장비를 뺀 목록 — 고른 것이 그것일 때만이다(남의 것을 치우지 않는다). */
+  function withoutBlank(): AssemblyDraftItem[] {
+    return draft.items.filter((i) => !(i.id === selectedItemId && !i.typeId));
+  }
+
   function selectItem(nextId: string | null) {
-    const blank = draft.items.find((i) => i.id === selectedItemId && !i.typeId);
-    if (blank && blank.id !== nextId) {
-      onChange({ ...draft, items: draft.items.filter((i) => i.id !== blank.id) });
+    if (nextId !== selectedItemId) {
+      const pruned = withoutBlank();
+      if (pruned.length !== draft.items.length) onChange({ ...draft, items: pruned });
     }
     setSelectedItemId(nextId);
   }
