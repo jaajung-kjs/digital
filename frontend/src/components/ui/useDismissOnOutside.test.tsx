@@ -63,4 +63,19 @@ describe('useDismissOnOutside', () => {
     down(orphan);
     expect(onDismiss).not.toHaveBeenCalled();
   });
+
+  /* 상자는 `body` 밑으로 나가 있어 「안」으로 넘긴 판에는 결코 담기지 않는다. 그대로 두면
+     고른 부품을 다루려고 연 상자를 누르는 순간 그 선택이 풀려, 상자가 무엇을 두고 묻는지가
+     뒤에서 사라진다 — 층이 쌓이면 아래 층은 듣지 않는다. */
+  it('위에 뜬 상자 안을 누른 것은 바깥이 아니다', () => {
+    const onDismiss = vi.fn();
+    render(<Harness active onDismiss={onDismiss} />);
+    const overlay = document.createElement('div');
+    overlay.setAttribute('data-modal-overlay', '');
+    overlay.innerHTML = '<button type="button">상자 안 단추</button>';
+    document.body.append(overlay);
+    down(overlay.querySelector('button')!);
+    expect(onDismiss).not.toHaveBeenCalled();
+    overlay.remove();
+  });
 });

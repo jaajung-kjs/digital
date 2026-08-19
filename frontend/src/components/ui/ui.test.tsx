@@ -4,6 +4,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
+import { ConfirmModal } from './ConfirmModal';
+import { Tabs } from './Tabs';
+import { OverflowMenu } from './OverflowMenu';
 import { SELECTABLE } from './selection';
 import { isCancelKey } from './keyboard';
 import { DetailCard, DetailCardHeader, DetailRow } from './DetailCard';
@@ -205,6 +208,137 @@ describe('Modal', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: '닫기' }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* 바깥을 **누르면** 닫는다 — 뗄 때가 아니라. `click` 은 누른 자리와 뗀 자리의 공통 조상에서
+   나므로, 상자 안 글자를 끌어 고르다 바깥에서 손을 떼면 적던 것이 통째로 날아갔다. */
+describe('Modal — 바깥 누름', () => {
+  const down = (el: Element) =>
+    fireEvent(el, new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
+
+  it('바깥을 누르면 닫는다', () => {
+    const onClose = vi.fn();
+    render(<Modal open onClose={onClose} title="제목"><p>본문</p></Modal>);
+    down(document.querySelector('[data-modal-overlay]')!);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('안에서 눌러 바깥에서 떼는 것은 「바깥 누름」이 아니다', () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} title="제목">
+        <input aria-label="이름" defaultValue="적던 값" />
+      </Modal>,
+    );
+    down(screen.getByLabelText('이름'));
+    // 글자를 끌어 고르다 백드롭에서 손을 뗀다 → 브라우저는 공통 조상에 click 을 떨어뜨린다.
+    fireEvent.click(document.querySelector('[data-modal-overlay]')!);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+/* 열자마자 「닫기」가 초점을 쥐고 있으면 Enter 한 번에 상자가 사라진다. 상자 자신이 받고,
+   커서를 어디 둘지는 내용이 말한다(Radix `DialogContent` 기본값). */
+describe('Modal — 초점과 잠금', () => {
+  it('내용이 초점을 안 잡으면 상자 자신이 받는다 — 「닫기」가 아니라', () => {
+    render(<Modal open onClose={() => {}} title="제목"><p>본문</p></Modal>);
+    expect(document.activeElement).toBe(screen.getByRole('dialog'));
+  });
+
+  /* Tab 을 순환시키는 것만으로는 뒤 화면을 못 막는다 — 주소창을 찍었다 돌아오면 초점은
+     문서 맨 앞에서 다시 시작한다. 뒤 화면을 통째로 들어낸다. */
+  it('열려 있는 동안 뒤 화면은 inert 다', () => {
+    const { unmount } = render(<Modal open onClose={() => {}} title="제목"><p>본문</p></Modal>);
+    const overlay = document.querySelector('[data-modal-overlay]')!;
+    const others = [...document.body.children].filter((c) => c !== overlay);
+    expect(others.length).toBeGreaterThan(0);
+    expect(others.every((c) => (c as HTMLElement).inert)).toBe(true);
+    unmount();
+    expect([...document.body.children].every((c) => !(c as HTMLElement).inert)).toBe(true);
+  });
+});
+
+/* 묻는 상자에서 Enter·Space 는 반사적으로 눌린다 — 지우는 상자에서 그 반사가 삭제가 되면
+   안 된다(APG: 가장 덜 파괴적인 곳에 초점). */
+describe('ConfirmModal', () => {
+  const props = { open: true, title: '조직 삭제', target: '판암변전소', message: '되돌릴 수 없습니다.' };
+
+  it('되돌릴 수 없는 물음은 alertdialog 이고 본문이 함께 읽힌다', () => {
+    render(<ConfirmModal {...props} danger confirmLabel="삭제" onConfirm={() => {}} onClose={() => {}} />);
+    const box = screen.getByRole('alertdialog');
+    const described = document.getElementById(box.getAttribute('aria-describedby')!);
+    expect(described?.textContent).toContain('되돌릴 수 없습니다.');
+    expect(described?.textContent).toContain('판암변전소');
+  });
+
+  it('지우는 물음은 「취소」가 초점을 받는다', () => {
+    render(<ConfirmModal {...props} danger confirmLabel="삭제" onConfirm={() => {}} onClose={() => {}} />);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '취소' }));
+  });
+
+  it('되돌릴 수 있는 물음은 「확인」이 초점을 받는다', () => {
+    render(<ConfirmModal {...props} onConfirm={() => {}} onClose={() => {}} />);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '확인' }));
+  });
+});
+
+/* 탭 줄은 **하나의 정거장**이다(§1.7-k, APG Tabs) — Tab 은 한 번만 서고 안은 화살표로 옮긴다. */
+describe('Tabs', () => {
+  const items = [{ key: 'a', label: '정보' }, { key: 'b', label: '포트' }, { key: 'c', label: '연결' }] as const;
+
+  function Host() {
+    const [v, setV] = useState<'a' | 'b' | 'c'>('a');
+    return <Tabs items={items} value={v} onChange={setV} />;
+  }
+
+  it('Tab 이 서는 자리는 고른 탭 하나뿐이다', () => {
+    render(<Host />);
+    const stops = screen.getAllByRole('tab').filter((t) => t.tabIndex === 0);
+    expect(stops).toHaveLength(1);
+    expect(stops[0]).toHaveTextContent('정보');
+  });
+
+  it('→ 로 다음 탭이 열리고 초점도 함께 간다', () => {
+    render(<Host />);
+    const tabs = screen.getAllByRole('tab');
+    tabs[0]!.focus();
+    fireEvent.keyDown(tabs[0]!, { key: 'ArrowRight' });
+    expect(screen.getAllByRole('tab')[1]).toHaveAttribute('aria-selected', 'true');
+    expect(document.activeElement).toBe(screen.getAllByRole('tab')[1]);
+  });
+
+  it('끝에서 반대쪽으로 감는다', () => {
+    render(<Host />);
+    fireEvent.keyDown(screen.getAllByRole('tab')[0]!, { key: 'ArrowLeft' });
+    expect(screen.getAllByRole('tab')[2]).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+/* 메뉴 단추(APG): 열면 초점이 안으로 들어가고, Esc 로 닫으면 `⋯` 로 돌아온다. 없으면 열어
+   놓고 갈 데가 없다 — Tab 은 메뉴를 지나쳐 뒤 화면으로 가 버린다. */
+describe('OverflowMenu', () => {
+  const items = [
+    { label: '종류 삭제', onSelect: () => {}, danger: true },
+    { label: '복제', onSelect: () => {} },
+  ];
+
+  it('열면 첫 항목이 초점을 받고 ↓ 로 옮긴다', () => {
+    render(<OverflowMenu items={items} />);
+    fireEvent.click(screen.getByRole('button', { name: '더 보기' }));
+    const entries = screen.getAllByRole('menuitem');
+    expect(document.activeElement).toBe(entries[0]);
+    fireEvent.keyDown(entries[0]!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(entries[1]);
+  });
+
+  it('Esc 로 닫으면 초점이 ⋯ 로 돌아온다', () => {
+    render(<OverflowMenu items={items} />);
+    const trigger = screen.getByRole('button', { name: '더 보기' });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getAllByRole('menuitem')[0]!, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(trigger);
   });
 });
 

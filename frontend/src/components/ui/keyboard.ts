@@ -23,10 +23,11 @@ export function isTypingTarget(target: EventTarget | null): boolean {
  *
  * 「Esc 는 가장 위 층의 것」은 층이 쌓이는 화면의 표준(WAI-ARIA APG Dialog)이므로, 층을
  * 세는 일을 **여기 한 번만** 적는다. `<dialog>` 가 아니라 div 로 그리므로 `:modal` 대신
- * 상자가 스스로 붙이는 표(`role="dialog" aria-modal`)를 본다.
+ * 상자가 스스로 붙이는 표(`data-modal-overlay`)를 본다 — `role` 로 보면 묻는 상자
+ * (`alertdialog`)를 놓친다.
  */
 function modalIsOpen(): boolean {
-  return typeof document !== 'undefined' && document.querySelector('[role="dialog"][aria-modal="true"]') != null;
+  return typeof document !== 'undefined' && document.querySelector('[data-modal-overlay]') != null;
 }
 
 /**
