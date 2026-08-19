@@ -424,12 +424,10 @@ export function LayoutTab({
        판이 탭을 통째로 쓰므로 스크롤도 생기지 않는다. */
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 자리는 그 설비 품목의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
+      {/* **판만 선다.** 「구성」이라는 탭 안에 다시 「구성」이라는 제목이 있고 그것을 카드가
+          감싸고 있었다 — 같은 말을 세 겹으로 하면서 정작 판이 그만큼 좁아졌다. 탭 이름이 이미
+          무엇인지 말하므로 여기서는 판을 크게 편다. */}
       {assembly && (
-        <DetailCard className="flex min-h-0 flex-1 flex-col">
-          {/* 「몇 칸 중 몇 칸」은 적지 않는다 — 격자는 그저 배치용 도화지라, 200칸 중 몇 칸을
-              썼는지는 이 설비에 대해 아무것도 말해 주지 않는다(꽉 채워 그린 접지함체가 촘촘히
-              그린 랙보다 「찼다」고 읽힐 이유가 없다). */}
-          <DetailCardHeader title="구성" />
           <AssemblyGrid
             grid={ASSEMBLY_GRID}
             /* 상자를 못 박지 않고 **남는 높이를 채운다**(`fill`) — 구성 탭은 스크롤이 생기면 안 된다. */
@@ -455,7 +453,6 @@ export function LayoutTab({
             /* 칸마다 운전 상태 불 — 색은 어휘가 정한다(정상 초록·예비 노랑·고장 빨강). */
             toneOf={(part) => assetStatusTone(part.status)}
           />
-        </DetailCard>
       )}
 
       {openPart && (
