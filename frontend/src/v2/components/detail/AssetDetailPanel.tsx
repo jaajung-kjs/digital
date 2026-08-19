@@ -228,7 +228,8 @@ export function AssetDetailPanel({
           </>
         }
       />
-      <Tabs {...tabStrip.list} items={tabs} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
+      {/* 패널 폭을 가득 쓴다 — 제 폭만 차지하면 오른쪽이 빈 채로 남는다. */}
+      <Tabs {...tabStrip.list} items={tabs} onChange={setTab} fill className="shrink-0 border-b border-line z-sticky" />
 
       {/* 탭 컨텐츠 */}
       {/* 구성 탭은 **스크롤이 생기면 안 된다** — 격자가 남는 높이를 채우고 장비를 고르면

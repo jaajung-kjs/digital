@@ -28,6 +28,14 @@ interface TabsProps<T extends string> {
   onChange: (key: T) => void;
   /** 탭과 그 내용을 잇는 이름표 — `useTabs()` 가 만들어 준다. */
   idBase: string;
+  /**
+   * 줄 **가득** 편다 — 탭이 폭을 똑같이 나눠 갖는다.
+   *
+   * 제 폭만 차지하게 두면 좁은 패널에서 오른쪽이 빈 채로 남는다(쓰지 않는 자리다). 반대로
+   * 다른 것과 한 줄에 선 탭(머리줄의 뷰 전환, 층 탭 옆의 `+`)은 늘어나면 안 되므로 기본은
+   * 제 폭이다.
+   */
+  fill?: boolean;
   className?: string;
 }
 
@@ -72,7 +80,7 @@ export function useTabs<T extends string>(value: T) {
  * 바로 열린다(automatic activation): 탭 내용이 이미 다 손에 있어 여는 값이 싸므로, 화살표로
  * 훑는 사람에게 Enter 를 한 번 더 누르게 할 이유가 없다.
  */
-export function Tabs<T extends string>({ items, value, onChange, idBase, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ items, value, onChange, idBase, fill, className }: TabsProps<T>) {
   const list = useRef<HTMLDivElement>(null);
   /* 이름을 고치는 규칙(빈 이름·그대로면 아무 일 없음, Enter/포커스 잃음=확정, Esc=물림)은
      앱 공통이다 — 여기서 다시 적지 않는다. */
@@ -99,8 +107,8 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, classNa
 
   return (
     /* `⋯` 는 **tablist 밖**에 선다 — 탭 목록에는 탭만 담긴다(APG). 겉 줄이 테두리를 갖는다. */
-    <div className={cn('flex items-stretch', className)}>
-      <div ref={list} className="flex items-stretch" role="tablist">
+    <div className={cn('flex items-stretch', fill && 'w-full', className)}>
+      <div ref={list} className={cn('flex items-stretch', fill && 'flex-1')} role="tablist">
         {items.map((t, i) => {
           const active = t.key === value;
           if (rename.isEditing(t.key)) {
@@ -138,6 +146,8 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, classNa
               className={cn(
                 // 테두리는 항상 존재한다 — 활성 시에만 색을 준다(선택해도 레이아웃이 안 밀린다).
                 'border-b-2 px-3 py-2 text-sm transition-colors focus-ring',
+                // 줄을 가득 채울 때는 탭이 폭을 똑같이 나눠 갖는다.
+                fill && 'flex-1 justify-center whitespace-nowrap',
                 active
                   ? 'border-primary font-medium text-primary'
                   : 'border-transparent text-content-muted hover:text-content',
