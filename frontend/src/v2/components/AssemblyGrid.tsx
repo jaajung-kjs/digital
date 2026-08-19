@@ -293,9 +293,25 @@ export function AssemblyGrid<T extends GridItem>({
            * 제자리로 돌아온다(대시보드 타일처럼 자리를 서로 양보하는 판과 다른 점이다).
            */
           compactor={{ ...noCompactor, preventCollision: true }}
-          dragConfig={{ enabled: true, bounded: true, cancel: '[data-remove]' }}
+          /**
+           * **누른 것인지 끈 것인지는 손짓의 끝에서 한 번만 판정한다.**
+           *
+           * `onClick` 을 따로 두면 끌기가 끝난 뒤 브라우저가 얹는 `click` 까지 「눌렀다」로
+           * 읽혀, 자리만 옮겼는데 상세 상자가 떴다. 그렇다고 그 한 번을 표로 걸러 내면 이번엔
+           * 진짜 누름이 삼켜진다(표를 언제 내리는지가 또 규칙이 된다).
+           *
+           * 문턱을 0으로 두면 **누름도 끌기로 시작**하므로 끝이 늘 온다 — 그 자리에서
+           * 「자리가 달라졌나」만 보면 된다. 격자라 같은 칸으로 끝나면 아무 일도 아니다.
+           */
+          dragConfig={{ enabled: true, bounded: true, cancel: '[data-remove]', threshold: 0 }}
           resizeConfig={{ enabled: true, handles: ['se'] }}
-          onDragStop={(_l, _o, n) => n && commit(n)}
+          onDragStop={(_l, o, n) => {
+            if (!n) return;
+            const item = byId.get(n.i);
+            /* 자리가 그대로면 **누른 것**이다 — 끌었으면 옮기기만 한다. */
+            if (o && o.x === n.x && o.y === n.y) { if (item) onSelect(item); return; }
+            commit(n);
+          }}
           onResizeStop={(_l, _o, n) => n && commit(n)}
         >
           {layout.map((l) => {
@@ -317,7 +333,6 @@ export function AssemblyGrid<T extends GridItem>({
                 tabIndex={0}
                 aria-label={`${item.name}, ${cellLabel(l.x, l.y)}`}
                 title={`${item.name} · ${cellLabel(l.x, l.y)}`}
-                onClick={() => onSelect(item)}
                 onKeyDown={(e) => {
                   if ((e.key === 'Delete' || e.key === 'Backspace') && onRemove) { e.preventDefault(); onRemove(item); return; }
                   if (e.key !== 'Enter' && e.key !== ' ') return;
