@@ -44,8 +44,13 @@ function FieldInput({ isDate, type, ...rest }: InputProps & { isDate: boolean })
 export interface AddModalContext {
   parentAssetId: string;
   siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
-  /** 빈 자리를 눌러 열었으면 그 칸 — 모달에서 다시 고르게 하지 않는다. */
-  cell?: { col: number; row: number };
+  /**
+   * 빈 자리를 눌러(또는 끌어) 열었으면 **그 자리와 크기** — 다시 고르게 하지 않는다.
+   *
+   * 크기를 함께 나르지 않던 동안, 여러 칸을 묶어 끌어도 만들어지는 것은 늘 1×1 이었다
+   * (모달이 `colSpan: 1` 을 못 박고 있었다). 끌어서 잡은 크기가 조용히 버려진 셈이다.
+   */
+  cell?: { col: number; row: number; colSpan?: number; rowSpan?: number };
 }
 
 /**
@@ -203,6 +208,8 @@ interface LayoutTabProps {
    * 도구를 무장시키면, 그 앞을 가린 상자는 닫혀야 한다.
    */
   renderPortBoard: (partId: string, close: () => void) => React.ReactNode;
+  /** 지금 무엇을 넣을지 묻는 중인가 — 그 자리를 판에 남겨 두려면 값도 알아야 한다. */
+  addModalCtx: AddModalContext | null;
   setAddModalCtx: (ctx: AddModalContext | null) => void;
 }
 
@@ -356,6 +363,7 @@ export function LayoutTab({
   typesById,
   focusPartId,
   renderPortBoard,
+  addModalCtx,
   setAddModalCtx,
 }: LayoutTabProps) {
   const { confirm, confirmDialog } = useConfirm();
@@ -423,6 +431,21 @@ export function LayoutTab({
             onRemove={(part) => void handleDeletePart(part)}
             trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
             onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, siblings: parts, cell })}
+            /* 무엇을 넣을지 묻는 동안 그 네모는 판에 남는다 — 상자가 가리는 것은 판이지
+               방금 그린 자리가 아니어야 한다. */
+            pending={
+              addModalCtx?.cell
+                ? {
+                    at: {
+                      col: addModalCtx.cell.col,
+                      row: addModalCtx.cell.row,
+                      colSpan: addModalCtx.cell.colSpan ?? 1,
+                      rowSpan: addModalCtx.cell.rowSpan ?? 1,
+                    },
+                    label: '새 자산',
+                  }
+                : null
+            }
             canPlace={canPlaceInGrid}
             onMove={(id, at) => useV2WorkingCopy.getState().stageAssetUpdate(id, at)}
             /* 칸마다 운전 상태 불 — 색은 어휘가 정한다(정상 초록·예비 노랑·고장 빨강). */

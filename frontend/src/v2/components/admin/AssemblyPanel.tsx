@@ -123,6 +123,16 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
               <span className="shrink-0 text-xs text-content-faint">{typeById.get(part.typeId)?.name ?? EMPTY}</span>
             )}
             onAddAtCell={setAddCell}
+            /* 무엇을 넣을지 묻는 동안 그 네모는 판에 남는다 — 상자가 가리는 것은 판이지
+               방금 그린 자리가 아니어야 한다. */
+            pending={
+              addCell
+                ? {
+                    at: { col: addCell.col, row: addCell.row, colSpan: addCell.colSpan ?? 1, rowSpan: addCell.rowSpan ?? 1 },
+                    label: '새 부품',
+                  }
+                : null
+            }
             canPlace={canPlace}
             onMove={updateItem}
           />

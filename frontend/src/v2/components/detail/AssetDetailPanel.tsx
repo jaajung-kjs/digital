@@ -271,6 +271,7 @@ export function AssetDetailPanel({
                 onConnectPort={onConnectPort && ((portId) => { close(); onConnectPort(portId); })}
               />
             )}
+            addModalCtx={addModalCtx}
             setAddModalCtx={setAddModalCtx}
           />
         )}

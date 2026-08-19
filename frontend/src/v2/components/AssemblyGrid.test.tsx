@@ -33,7 +33,7 @@ function setup(over: Partial<Parameters<typeof AssemblyGrid<GridItem>>[0]> = {})
   const onSelect = vi.fn();
   const onAddAtCell = vi.fn();
   const onMove = vi.fn();
-  render(
+  const { container } = render(
     <AssemblyGrid
       grid={{ cols: 2, rows: 4 }}
       items={items}
@@ -47,7 +47,7 @@ function setup(over: Partial<Parameters<typeof AssemblyGrid<GridItem>>[0]> = {})
   const grid = screen.getByRole('list');
   /* jsdom 은 레이아웃이 없어 getBoundingClientRect 가 전부 0 이다 — 칸을 셈하려면 크기를 준다. */
   grid.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 100, height: 200 }) as DOMRect;
-  return { onSelect, onAddAtCell, onMove, grid };
+  return { onSelect, onAddAtCell, onMove, grid, container };
 }
 
 const item = () => screen.getByRole('button', { name: /광단말 A/ });
@@ -108,6 +108,28 @@ describe('AssemblyGrid 선택 해제', () => {
     pointer('pointerup', grid, 1, 3);
     expect(onDeselect).toHaveBeenCalledTimes(1);
     expect(onAddAtCell).not.toHaveBeenCalled();
+  });
+
+  /* 여러 칸을 묶어 끌면 **그 크기까지** 부르는 쪽에 간다. 한때 자리(col,row)만 넘겨받고
+     크기는 상자가 1×1 로 못 박아, 끌어서 잡은 크기가 조용히 버려졌다. */
+  it('여러 칸을 묶어 끌면 그 크기가 함께 간다', () => {
+    const { onAddAtCell, grid } = setup();
+    /* `emptyCell()` 은 첫 빈 칸(1,0)이다 — 시작 칸은 좌표가 아니라 그 칸이 알린다. */
+    pointer('pointerdown', emptyCell(), 1, 0);
+    pointer('pointermove', grid, 1, 3);
+    pointer('pointerup', grid, 1, 3);
+    expect(onAddAtCell).toHaveBeenCalledWith({ col: 1, row: 0, colSpan: 1, rowSpan: 4 });
+  });
+
+  /* 무엇을 넣을지 묻는 동안 그 네모는 판에 남는다 — 상자가 「어디에, 얼마만 한 크기로」를
+     묻는데 정작 그 답이 화면에서 사라지면 기억에 의존하게 된다. */
+  it('묻는 중인 자리는 판에 남는다', () => {
+    /* 글자는 칸이 넓을 때만 들어간다(jsdom 에는 레이아웃이 없어 늘 좁은 쪽으로 떨어진다) —
+       여기서 재는 것은 **그 네모가 그 자리에 그 크기로 남아 있는가**다. */
+    const { container } = setup({ pending: { at: { col: 2, row: 1, colSpan: 2, rowSpan: 3 }, label: '새 자산' } });
+    const rect = container.querySelector('li[style*="span 2"][style*="span 3"]');
+    expect(rect).toBeTruthy();
+    expect(rect!.getAttribute('style')).toContain('3 / span 2'); // 3열(1-based)에서 두 칸
   });
 
   /* 이것이 「키보드로 이 판을 지나가려면 Tab 을 196번 눌러야 한다」의 회귀 테스트다.

@@ -57,6 +57,19 @@ export interface AssemblyGridProps<T extends GridItem> {
    */
   onDeselect?: () => void;
   /**
+   * **지금 무엇을 넣을지 묻는 중인 자리** — 그동안 그 네모가 판에 남는다.
+   *
+   * 끌어서 크기를 잡고 손을 떼면 상자가 뜨는데, 그때 미리보기를 지우면 상자가 「어디에,
+   * 얼마만 한 크기로」 넣을지 묻는 동안 정작 그 답이 화면에서 사라진다 — 무엇을 넣고 있는
+   * 중인지 기억에 의존하게 된다. 확정하거나 물릴 때까지 그림은 남아 있는 것이 도면 편집기의
+   * 어법이다.
+   *
+   * 무엇이라 적을지는 **부르는 쪽이 준다**(`label`). 끄는 동안에는 `3×2` 처럼 크기를 적는
+   * 것이 맞다 — 그때 고르는 것이 크기다. 손을 뗀 뒤에는 크기가 이미 정해졌고 상자가 그것을
+   * 적고 있으므로, 판에는 **무엇이 들어올 자리인지**를 적는다(「새 자산」·「새 부품」).
+   */
+  pending?: { at: GridPlacement; label: string } | null;
+  /**
    * 이 부품을 구성에서 뺀다 — 칸에 얹히는 호버 X.
    *
    * 없으면 X 가 안 뜬다(읽기 전용 판). 지우기는 되돌리기 어려우므로 확인은 **부르는 쪽**이
@@ -135,7 +148,7 @@ const LABEL_MIN_W = 52;
  */
 export function AssemblyGrid<T extends GridItem>({
   grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf, boxHeight, fill,
-  onDeselect, onRemove,
+  onDeselect, onRemove, pending,
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
@@ -492,9 +505,15 @@ export function AssemblyGrid<T extends GridItem>({
   }
 
   const cells: ReactNode[] = [];
-  /* 끌어 만드는 중인 네모 — 칸 위에 덮어 그린다(자리와 크기를 놓기 전에 눈으로 확인한다). */
-  if (createRect) {
-    const { col, row, colSpan, rowSpan } = createRect.placement;
+  /* 놓을 자리의 네모 — 끄는 동안에는 손을 따라가고(`createRect`), 손을 뗀 뒤 무엇을 넣을지
+     묻는 동안에는 **그 자리에 남는다**(`pending`). 확정하거나 물릴 때 사라진다. */
+  const rectShown = createRect
+    ? { placement: createRect.placement, ok: createRect.ok, text: `${createRect.placement.colSpan}×${createRect.placement.rowSpan}` }
+    : pending
+      ? { placement: pending.at, ok: true, text: pending.label }
+      : null;
+  if (rectShown) {
+    const { col, row, colSpan, rowSpan } = rectShown.placement;
     cells.push(
       <li
         key="create-preview"
@@ -504,10 +523,15 @@ export function AssemblyGrid<T extends GridItem>({
         <div
           className={cn(
             'flex h-full w-full items-center justify-center rounded border-2 text-xs font-medium',
-            createRect.ok ? 'border-primary bg-info-bg text-primary' : 'border-danger bg-danger-bg text-danger',
+            rectShown.ok ? 'border-primary bg-info-bg text-primary' : 'border-danger bg-danger-bg text-danger',
           )}
         >
-          {colSpan}×{rowSpan}
+          {/* 좁은 자리에는 글자를 넣지 않는다 — 한 칸(28px)에 「새 자산」을 욱여넣으면
+              「새…」가 되어 아무 말도 못 한다. 그때는 물든 네모 자체가 「여기」라고 말한다
+              (칸 안 이름이 좁을 때 눕히거나 접는 것과 같은 판단, `LABEL_MIN_W`). */}
+          {colWidth > 0 && colSpan * colWidth >= LABEL_MIN_W && (
+            <span className="truncate px-1">{rectShown.text}</span>
+          )}
         </div>
       </li>,
     );

@@ -19,11 +19,15 @@ interface AddAssetModalProps {
    */
   gridContext: {
     parentAssetId: string;
-    /** 그 설비의 격자 — 설비 종류가 정한 자리다. */
     /** 현재 형제들 — 빈 자리 계산용 */
     siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
-    /** 빈 자리를 눌러 열었으면 그 칸 — 사용자가 방금 고른 것을 다시 묻지 않는다. */
-    cell?: { col: number; row: number };
+  /**
+     * 빈 자리를 눌러(또는 끌어) 열었으면 **그 자리와 크기** — 다시 고르게 하지 않는다.
+     *
+     * 크기를 함께 나르지 않던 동안, 여러 칸을 묶어 끌어도 만들어지는 것은 늘 1×1 이었다
+     * (모달이 `colSpan: 1` 을 못 박고 있었다). 끌어서 잡은 크기가 조용히 버려진 셈이다.
+     */
+    cell?: { col: number; row: number; colSpan?: number; rowSpan?: number };
   };
 }
 
@@ -36,6 +40,8 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
   // 빈 자리를 눌러 열었으면 그 칸을 미리 고른 상태로 연다.
   const presetCell = gridContext?.cell;
   const presetKey = presetCell ? `${presetCell.col},${presetCell.row}` : undefined;
+  /** 끌어서 잡은 크기를 그대로 쓰는가 — 자리를 손으로 다시 고르면 그 크기는 뜻을 잃는다. */
+  const keepsDraggedSize = presetKey !== undefined && selectedSlot === presetKey;
   useEffect(() => {
     if (presetKey !== undefined) setSelectedSlot(presetKey);
   }, [presetKey]);
@@ -96,8 +102,9 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
       parentAssetId: gridContext.parentAssetId,
       col: cell ? cell[0]! : null,
       row: cell ? cell[1]! : null,
-      colSpan: 1,
-      rowSpan: 1,
+      /* 끌어서 잡은 크기 — 드롭다운으로 자리를 다시 고르면 한 칸이다(그 목록은 칸 단위다). */
+      colSpan: keepsDraggedSize ? presetCell!.colSpan ?? 1 : 1,
+      rowSpan: keepsDraggedSize ? presetCell!.rowSpan ?? 1 : 1,
     };
 
     const asset = makeNewAsset({ type, name: name.trim(), substationId, placement });
@@ -186,6 +193,13 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
         {/* 자리 선택 (설비 격자에 넣는 경우) */}
         {(
           <DetailRow label="자리">
+            {/* 끌어서 잡은 크기는 **적어 준다** — 자리만 보이면 몇 칸짜리를 만드는 중인지
+                상자만 보고는 알 수 없다(판에 남은 네모와 같은 것을 말한다). */}
+            {keepsDraggedSize && (presetCell!.colSpan ?? 1) * (presetCell!.rowSpan ?? 1) > 1 && (
+              <span className="mr-2 text-xs text-content-muted">
+                {presetCell!.colSpan ?? 1}×{presetCell!.rowSpan ?? 1} 칸
+              </span>
+            )}
             {free.length === 0 ? (
               <p className="text-xs text-content-faint">빈 자리 없음</p>
             ) : (

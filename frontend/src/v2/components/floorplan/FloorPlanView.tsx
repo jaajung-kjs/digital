@@ -211,6 +211,14 @@ interface LatestRenderInputs {
   firstEndpoint: { portId: string; assetId: string } | null;
   /** 케이블 도구 FSM에서 미러 — scheduleRender(rAF)의 선택 케이블 강조 렌더용 */
   selectedCableId: string | null;
+  /**
+   * 이름을 묻는 동안 **그 자리에 남아 있는 네모** — 끌어서 크기를 잡고 손을 뗀 자리다.
+   *
+   * 예전에는 손을 떼는 순간 미리보기를 지웠다. 그러면 상자가 「무엇을, 얼마만 한 크기로」
+   * 놓는지 묻는데 정작 그 답이 화면에서 사라져, 이름을 적는 사람이 자기가 방금 그린 것을
+   * 기억에 의존해야 했다. 그림은 확정될 때까지 남아 있는 것이 도면 편집기의 어법이다.
+   */
+  placingRect: DrawModalState['rect'] | null;
 }
 
 export function FloorPlanView({
@@ -308,11 +316,14 @@ export function FloorPlanView({
     viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets,
     firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
+    placingRect: null,
   });
   latest.current = {
     viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets,
     firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
+    /* 지금 보는 층의 것만 그린다 — 층을 옮겨 놓고도 남의 층 네모가 떠 있으면 안 된다. */
+    placingRect: drawModal && drawModal.floorId === activeFloor?.id ? drawModal.rect : null,
   };
 
   /* 케이블 도구용 렌더 입력 — `traceExpandedIdsRef` 와 같은 부류다(프리컴퓨트한 값을
@@ -641,9 +652,18 @@ export function FloorPlanView({
         }
       }
 
-      // 7. draw 미리보기 (armed 상태 + 드래그 중)
-      if (drawRef.current) {
-        renderDrawPreview(ctx, drawRef.current.start, drawRef.current.end);
+      /* 7. 놓을 자리의 네모 — 끄는 동안에는 손을 따라가고(`drawRef`), 손을 뗀 뒤 이름을
+         묻는 동안에는 **그 자리에 남는다**(`placingRect`). 확정하거나 물릴 때 사라진다. */
+      const drawing = drawRef.current;
+      const pending = latest.current.placingRect;
+      if (drawing) {
+        renderDrawPreview(ctx, drawing.start, drawing.end);
+      } else if (pending) {
+        renderDrawPreview(
+          ctx,
+          { x: pending.x, y: pending.y },
+          { x: pending.x + pending.width, y: pending.y + pending.height },
+        );
       }
 
       ctx.restore();
