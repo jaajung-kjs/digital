@@ -11,7 +11,7 @@
  * 달라 보이면 짜는 뜻이 없다.
  */
 import { useMemo, useRef, useState } from 'react';
-import { validateGridPlacement, ASSEMBLY_GRID, cellLabel } from '@twin/core';
+import { occupantsOf, validateGridPlacement, ASSEMBLY_GRID, cellLabel } from '@twin/core';
 import { LaborSpecForm } from './LaborSpecForm';
 import {
   Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, ErrorStrip, Input, Modal, Select,
@@ -81,9 +81,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
     return validateGridPlacement({
       grid: ASSEMBLY_GRID,
       ...at,
-      occupants: draft.items
-        .filter((i) => i.id !== movingId && i.col != null && i.row != null)
-        .map((i) => ({ assetId: i.id, col: i.col!, row: i.row!, colSpan: i.colSpan ?? 1, rowSpan: i.rowSpan ?? 1 })),
+      occupants: occupantsOf(draft.items, movingId),
     }) === null;
   }
 

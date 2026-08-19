@@ -1,6 +1,6 @@
 import type { AssetTypeSpec, PortRef } from './types.js';
 import { instantiatePorts } from './instantiatePorts.js';
-import { validateGridPlacement } from '../validation/gridPlacement.js';
+import { placementAt, validateGridPlacement, type GridOccupant } from '../validation/gridPlacement.js';
 
 /**
  * 설비 종류 — **격자 하나에 부품을 놓아 만든 한 설비**.
@@ -47,22 +47,14 @@ export function validateAssembly(
   spec: AssemblySpec,
   typeKeys: ReadonlySet<string>,
 ): AssemblyError | null {
-  const placed: { assetId: string; col: number; row: number; colSpan: number; rowSpan: number }[] = [];
+  /* 하나씩 얹으며 본다 — 앞서 놓인 것들이 곧 그 다음 것의 점유다. */
+  const placed: GridOccupant[] = [];
   for (const item of spec.items) {
     if (!typeKeys.has(item.typeKey)) return 'unknown-type';
-    const issue = validateGridPlacement({
-      grid: ASSEMBLY_GRID,
-      col: item.col,
-      row: item.row,
-      colSpan: item.colSpan ?? 1,
-      rowSpan: item.rowSpan ?? 1,
-      occupants: placed,
-    });
+    const at = placementAt(item);
+    const issue = validateGridPlacement({ grid: ASSEMBLY_GRID, ...(at ?? { col: null, row: null, colSpan: 1, rowSpan: 1 }), occupants: placed });
     if (issue) return issue;
-    placed.push({
-      assetId: item.id, col: item.col!, row: item.row!,
-      colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1,
-    });
+    placed.push({ assetId: item.id, ...at! });
   }
   return null;
 }

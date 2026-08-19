@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
+import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, occupantsOf, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
 import {
   Button,
   DetailCard,
@@ -431,11 +431,7 @@ export function LayoutTab({
       validateGridPlacement({
         grid: ASSEMBLY_GRID,
         ...at,
-        occupants: parts
-          .filter((a) => a.id !== movingId && a.col != null && a.row != null)
-          .map((a) => ({
-            assetId: a.id, col: a.col!, row: a.row!, colSpan: a.colSpan ?? 1, rowSpan: a.rowSpan ?? 1,
-          })),
+        occupants: occupantsOf(parts, movingId),
       }) === null
     );
   }

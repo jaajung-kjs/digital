@@ -1,5 +1,5 @@
 import {
-  instantiatePorts, validateConnection, validateGridPlacement, PLACEMENT_FIELDS, DEFAULT_ASSET_STATUS,
+  instantiatePorts, occupantsOf, validateConnection, validateGridPlacement, PLACEMENT_FIELDS, DEFAULT_ASSET_STATUS,
   ASSEMBLY_GRID,
 } from '@twin/core';
 import type { Direction } from '@twin/core';
@@ -132,9 +132,7 @@ async function assertGridsValid(tx: Tx, parentIds: Iterable<string>): Promise<vo
       where: { parentAssetId: parentId },
       select: { id: true, col: true, row: true, colSpan: true, rowSpan: true },
     });
-    const placed = children
-      .filter((c) => c.col !== null && c.row !== null)
-      .map((c) => ({ assetId: c.id, col: c.col as number, row: c.row as number, colSpan: c.colSpan ?? 1, rowSpan: c.rowSpan ?? 1 }));
+    const placed = occupantsOf(children);
 
     for (const mine of placed) {
       const err = validateGridPlacement({

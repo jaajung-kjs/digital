@@ -35,6 +35,7 @@ import { useTypesById, useV2Catalog } from '../../hooks';
 import { Button, IconButton, Select, Tabs, useConfirm, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
+import { assetsById, floorIdOf } from '../../assetTree';
 import { assemblyToAssets } from '../../placeAssembly';
 import { AssetResizeHandles } from './AssetResizeHandles';
 import { RemoteEndpointModal } from './RemoteEndpointModal';
@@ -254,10 +255,7 @@ export function FloorPlanView({
   useEffect(() => {
     if (!selectedAssetId) return;
     const all = useV2WorkingCopy.getState().effectiveAssets();
-    const byId = new Map(all.map((a) => [a.id, a]));
-    let cur = byId.get(selectedAssetId);
-    while (cur && cur.floorId == null && cur.parentAssetId != null) cur = byId.get(cur.parentAssetId);
-    const floorId = cur?.floorId ?? null;
+    const floorId = floorIdOf(selectedAssetId, assetsById(all));
     if (floorId && floorId !== activeFloorId && floors.some((f) => f.id === floorId)) {
       setActiveFloorId(floorId);
     }

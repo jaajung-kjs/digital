@@ -4,6 +4,7 @@ import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2Asset } from '../../types';
 import { withDescendants } from '../../cableSelectors';
+import { assetsById, floorAnchorOf } from '../../assetTree';
 import { InfoTab, LayoutTab } from './InfoTab';
 import { PhotoCard } from './PhotoCard';
 import { RecordsTab } from './RecordsTab';
@@ -99,12 +100,10 @@ export function AssetDetailPanel({
   );
 
   // 자신이 놓였거나, 놓인 상위가 있으면 평면도에서 찾아갈 수 있다.
-  const placedAncestorExists = useMemo(() => {
-    const byId = new Map(effectiveAssets.map((a) => [a.id, a]));
-    let cur = byId.get(assetId);
-    while (cur && cur.floorId == null && cur.parentAssetId != null) cur = byId.get(cur.parentAssetId);
-    return cur?.floorId != null;
-  }, [effectiveAssets, assetId]);
+  const placedAncestorExists = useMemo(
+    () => floorAnchorOf(assetId, assetsById(effectiveAssets)) != null,
+    [effectiveAssets, assetId],
+  );
 
   /* 포트 수 = 이 자산 + **자손**의 포트. 랙·함체 자체에는 포트가 없고 안에 든 장비가
      갖는데, 자기 포트만 세면 랙에는 포트 탭이 아예 뜨지 않아 "안에 무엇이 어디에 물려

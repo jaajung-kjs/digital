@@ -14,18 +14,11 @@ export interface GridBox {
   rows: number;
 }
 
-export interface GridCell {
-  col: number;
-  row: number;
-}
-
-/** 자산이 격자에서 차지하는 자리. */
-export interface GridPlacement {
-  col: number;
-  row: number;
-  colSpan: number;
-  rowSpan: number;
-}
+/* 자리와 칸의 **모양은 core 가 정한다** — 격자의 규칙(놓였는가·겹치는가·크기는 몇 칸인가)이
+   거기 있고, 서버도 같은 것을 본다. 여기는 「손이 어디를 잡았고 어디로 갔나」의 셈만 맡는다.
+   한때 같은 형을 여기서 다시 선언했는데, 그러면 같은 이름의 다른 형이 둘 생긴다. */
+import type { GridCell, GridPlacement } from '@twin/core';
+export type { GridCell, GridPlacement };
 
 /**
  * 격자 상자 안의 상대 좌표가 어느 칸인가.
