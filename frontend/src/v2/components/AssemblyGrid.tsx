@@ -196,12 +196,6 @@ export function AssemblyGrid<T extends GridItem>({
     if (g.aim && !same(g.origin!, g.aim)) onMove(g.itemId!, g.aim);
   }
 
-  /** 이 이벤트가 이 손짓의 것인가. */
-  const mine = (e: React.PointerEvent) => {
-    const g = gestureRef.current;
-    return g && g.pointerId === e.pointerId ? g : null;
-  };
-
   /**
    * 눌렀다 — 어느 칸인지는 **좌표가 정한다**(무엇을 눌렀는지가 아니라).
    *
@@ -242,32 +236,59 @@ export function AssemblyGrid<T extends GridItem>({
       moved: false,
     };
     redraw();
-    /* 캡처는 **격자**가 쥔다. 못 쥐면 따라갈 수도 없으므로 그 자리에서 접는다 —
-       안 그러면 끝을 알리는 `pointerup` 이 영영 오지 않아 화면이 굳는다. */
-    try {
-      boxRef.current?.setPointerCapture(e.pointerId);
-    } catch {
-      end(false);
-    }
+
+    /**
+     * 손짓이 벌어지는 동안은 **창이 듣는다** — 포인터 캡처를 쓰지 않는다.
+     *
+     * 캡처는 「이 요소가 이 포인터를 계속 받는다」는 편리한 장치지만, 그 대가로 상태가 하나 더
+     * 는다: 언제 풀리는지(요소가 사라지거나, 브라우저가 가져가거나, 손을 뗄 때), 풀림이
+     * `pointerup` 보다 먼저 오는지 나중인지가 브라우저와 프레임워크에 달려 있다. 실측에서
+     * React 를 거치면 `lostpointercapture` 가 `pointerup` **보다 먼저** 왔고, 그것을 「물린다」
+     * 로 받고 있어서 **모든 끌기가 취소로 끝났다** — 미리보기는 옮겨 놓고 손을 떼면 제자리로
+     * 돌아가던 것이 그것이다.
+     *
+     * 창에 직접 달면 그 물음이 통째로 사라진다: 손을 뗄 때까지 좌표가 오고, 뗄 때 끝난다.
+     * 평면도 캔버스가 이미 같은 방식이다.
+     */
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      if (ev.buttons === 0) { finish(false); return; }
+      if (inWindow(ev)) aim(ev);
+    };
+    const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      finish(inWindow(ev));
+    };
+    const cancel = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      finish(false);
+    };
+    const finish = (commit: boolean) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      endRef.current = null;
+      end(commit);
+    };
+    endRef.current = finish;
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
   }
 
-  function onPointerMove(e: React.PointerEvent) {
-    const g = mine(e);
-    if (!g) {
-      /* **손이 눌린 채면 얹힘이 아니다.** 끄는 중에 빈 칸이 손을 반기면 `+` 가 커서를 따라
-         다닌다 — 손짓이 도중에 죽었을 때도 그렇다. 단추가 눌려 있지 않을 때만 얹힘을 본다. */
-      if (!gestureRef.current && e.buttons === 0) {
-        const c = cellFrom(e);
-        const k = c ? `${c.col},${c.row}` : null;
-        if (k !== hoverKey) setHoverKey(k);
-      } else if (hoverKey !== null) setHoverKey(null);
+  /** 손짓을 끝내는 손잡이 — Esc 가 이것으로 물린다(창 리스너까지 함께 걷는다). */
+  const endRef = useRef<((commit: boolean) => void) | null>(null);
+
+  /** 판 위에서 손이 어디 있는가 — **얹힘만** 본다(손짓은 창이 듣는다). */
+  function onHoverMove(e: React.PointerEvent) {
+    /* 손이 눌린 채면 얹힘이 아니다 — 끄는 중에 빈 칸이 손을 반기면 `+` 가 따라다닌다. */
+    if (gestureRef.current || e.buttons !== 0) {
+      if (hoverKey !== null) setHoverKey(null);
       return;
     }
-    if (hoverKey !== null) setHoverKey(null);
-    /* 눌린 버튼이 없으면 **우리가 못 본 데서 손을 뗀 것**이다 — 물린다. */
-    if (e.buttons === 0) { end(false); return; }
-    /* 창 밖은 놓을 자리가 아니다 — 겨누지 않고, 들어오면 그 자리에서 이어진다. */
-    if (inWindow(e)) aim(e);
+    const c = cellFrom(e);
+    const k = c ? `${c.col},${c.row}` : null;
+    if (k !== hoverKey) setHoverKey(k);
   }
 
   /* Esc — **한 층만** 물린다. 물렸으면 거기서 끝낸다(안 그러면 바깥 층까지 함께 반응해,
@@ -275,7 +296,7 @@ export function AssemblyGrid<T extends GridItem>({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!isCancelKey(e)) return;
-      if (gestureRef.current) { e.stopPropagation(); end(false); return; }
+      if (gestureRef.current) { e.stopPropagation(); (endRef.current ?? end)(false); return; }
       if (selectedId != null) { e.stopPropagation(); onDeselectRef.current?.(); }
     };
     window.addEventListener('keydown', onKey, true);
@@ -461,11 +482,8 @@ export function AssemblyGrid<T extends GridItem>({
              트랙패드·터치에서 브라우저가 도중에 가져가고(`pointercancel`) 손짓이 말없이 사라진다. */
           className="grid h-full touch-none select-none gap-0.5"
           onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
+          onPointerMove={onHoverMove}
           onPointerLeave={() => setHoverKey(null)}
-          onPointerUp={(e) => { if (mine(e)) end(inWindow(e)); }}
-          onPointerCancel={(e) => { if (mine(e)) end(false); }}
-          onLostPointerCapture={() => { if (gestureRef.current) end(false); }}
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, minWidth: cols * GRID_COL_MIN, ...rowRule }}
         >
           {cells}
