@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { assetReportItem, cableReportItem, computeReport } from './computeReport.js';
+import { assetReportItem, cableReportItem, computeReport, materialCostOf } from './computeReport.js';
+import type { ReportItem } from './computeReport.js';
 
 const labor = { laborCode: '통신내선공', installManDays: 2, removeManDays: 1, relocateManDays: 3 };
 const fiberGroup = { name: '광', laborCode: '통신외선공', installManDays: 0.04, removeManDays: 0.02 };
@@ -38,5 +39,41 @@ describe('computeReport', () => {
       { laborCode: '통신외선공', totalManDays: 2 },
     ]);
     expect(s.items).toHaveLength(4);
+  });
+});
+
+/**
+ * 자재는 **살 때만** 값이 붙는다.
+ *
+ * 이 규칙이 없던 동안 철거·이설 줄에도 단가가 곱해졌다 — 철거 공사의 재료비가 신설과 똑같이
+ * 잡히고, 그 값이 일반관리비·이윤·부가세까지 밀고 올라갔다.
+ */
+describe('materialCostOf', () => {
+  const item = (over: Partial<ReportItem>): ReportItem => ({
+    kind: 'asset-install', name: 'x', typeName: 't', laborCode: null,
+    qty: 1, unit: '대', manDays: 0, unitPrice: null, ...over,
+  });
+
+  it('신설은 수량 × 단가', () => {
+    expect(materialCostOf(item({ qty: 3, unitPrice: 1_200_000 }))).toBe(3_600_000);
+    expect(materialCostOf(item({ kind: 'cable-install', unit: 'm', qty: 120, unitPrice: 3_400 }))).toBe(408_000);
+  });
+
+  it('철거·이설은 사는 것이 없다 — 단가가 적혀 있어도 0', () => {
+    expect(materialCostOf(item({ kind: 'asset-remove', unitPrice: 1_200_000 }))).toBe(0);
+    expect(materialCostOf(item({ kind: 'asset-relocate', unitPrice: 1_200_000 }))).toBe(0);
+    expect(materialCostOf(item({ kind: 'cable-remove', unit: 'm', qty: 120, unitPrice: 3_400 }))).toBe(0);
+  });
+
+  it('단가를 안 적었으면 0 이다', () => {
+    expect(materialCostOf(item({ qty: 5, unitPrice: null }))).toBe(0);
+  });
+
+  it('합계는 신설만 센다', () => {
+    const r = computeReport([
+      item({ qty: 2, unitPrice: 1_000_000 }),
+      item({ kind: 'asset-remove', qty: 1, unitPrice: 9_000_000 }),
+    ]);
+    expect(r.totalMaterialCost).toBe(2_000_000);
   });
 });

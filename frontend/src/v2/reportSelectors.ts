@@ -1,4 +1,4 @@
-import { assetReportItem, cableReportItem, COMMON_CABLE_FIELDS, PLACEMENT_FIELDS } from '@twin/core';
+import { assetReportItem, cableReportItem, materialCostOf, COMMON_CABLE_FIELDS, PLACEMENT_FIELDS } from '@twin/core';
 import type { LaborSpec, ReportItem } from '@twin/core';
 import { MAN_DAY_FIELD } from '@twin/core';
 import { mergeEffective } from './store/overlay';
@@ -286,7 +286,8 @@ export function estimateInput(
   let materialCost = 0;
   let directLaborCost = 0;
   for (const it of items) {
-    materialCost += it.qty * (it.unitPrice ?? 0);
+    /* 재료비의 셈은 표의 「자재비」 칸과 **같은 함수**여야 한다 — 갈리면 합계가 안 맞는다. */
+    materialCost += materialCostOf(it);
     directLaborCost += it.manDays * (wageOf(it.laborCode) ?? 0);
   }
   return { materialCost, directLaborCost };

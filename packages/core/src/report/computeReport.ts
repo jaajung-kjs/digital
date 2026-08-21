@@ -19,6 +19,23 @@ export interface ReportSummary {
   items: ReportItem[];
   byLaborType: { laborCode: string; totalManDays: number }[]; // laborCode null 제외, 이름순
   totalManDays: number;
+  /** 이 변경이 사는 자재의 값 — 신설 줄만 더한 것이다(`materialCostOf`). */
+  totalMaterialCost: number;
+}
+
+/**
+ * 이 줄이 **사는 자재의 값** — 수량 × 자재단가.
+ *
+ * **신설만 산다.** 철거는 걷어내는 일이고, 이설은 있던 것을 옮기는 일이라 새로 사는 자재가
+ * 없다. 그런데 금액 셈은 모든 줄에 단가를 곱하고 있었다 — 철거만 잔뜩 있는 공사에서
+ * 재료비가 신설과 똑같이 잡혔고, 그 값이 일반관리비·이윤·부가세까지 밀고 올라갔다.
+ * 화면에 자재비 칸이 서기 전에는 아무도 그것을 볼 수 없었다.
+ *
+ * 판정은 여기 한 번만 적는다 — 표의 칸과 금액의 모수가 갈리면 「합계가 안 맞는」 설계서가 된다.
+ */
+export function materialCostOf(item: ReportItem): number {
+  if (item.kind !== 'asset-install' && item.kind !== 'cable-install') return 0;
+  return item.qty * (item.unitPrice ?? 0);
 }
 
 export function assetReportItem(
@@ -105,5 +122,6 @@ export function computeReport(items: ReportItem[]): ReportSummary {
     items,
     byLaborType,
     totalManDays,
+    totalMaterialCost: items.reduce((sum, item) => sum + materialCostOf(item), 0),
   };
 }

@@ -234,6 +234,19 @@ describe('estimateInput', () => {
     ...over,
   });
 
+  /* 철거·이설은 새로 사는 자재가 없다 — 그 판정은 `materialCostOf` 하나가 쥔다. */
+  it('사는 것이 없는 줄은 재료비에 들어가지 않는다', () => {
+    const out = estimateInput(
+      [
+        item({ kind: 'asset-remove', qty: 1, unitPrice: 9_000_000, manDays: 1, laborCode: '1086' }),
+        item({ kind: 'asset-relocate', qty: 1, unitPrice: 9_000_000, manDays: 1, laborCode: '1086' }),
+      ],
+      wageOf,
+    );
+    expect(out.materialCost).toBe(0);
+    expect(out.directLaborCost).toBeCloseTo(2 * 284880, 4);
+  });
+
   it('수량 × 자재단가, 품 × 노임단가를 각각 더한다', () => {
     const out = estimateInput(
       [

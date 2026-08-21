@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { computeEstimate, computeReport } from '@twin/core';
+import { computeEstimate, computeReport, materialCostOf } from '@twin/core';
 import type { ReportItem, ReportKind } from '@twin/core';
 import { Badge, Button, Input, Select, Modal, EMPTY, cn } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
@@ -40,7 +40,17 @@ interface ReportPanelProps {
   onClose: () => void;
 }
 
+/**
+ * 한 줄 — **무엇을 몇 개, 얼마에, 몇 품에**.
+ *
+ * 자재비 칸이 없던 동안 왼쪽은 공량만 세고 금액은 오른쪽 합계에만 있었다. 그래서 「이 설비가
+ * 얼마인가」를 물으면 답할 데가 없었고, 재료비 합계가 맞는지도 따라갈 수 없었다.
+ *
+ * 사는 것이 없는 줄(철거·이설)은 단가가 적혀 있어도 비워 둔다 — 판정은 `materialCostOf` 하나다.
+ */
 function ReportRow({ item, laborName }: { item: ReportItem; laborName: (code: string | null) => string | null }) {
+  const material = materialCostOf(item);
+  const buys = item.kind === 'asset-install' || item.kind === 'cable-install';
   return (
     <tr className="border-b border-line last:border-0">
       <td className="py-1.5 pr-3 align-middle">
@@ -53,8 +63,15 @@ function ReportRow({ item, laborName }: { item: ReportItem; laborName: (code: st
         )}
       </td>
       <td className="py-1.5 pr-3 align-middle text-sm text-content-muted">{item.typeName}</td>
-      <td className="py-1.5 pr-3 align-middle text-sm text-content tabular-nums">
+      <td className="py-1.5 pr-3 align-middle text-sm text-content tabular-nums text-right">
         {item.qty}{item.unit}
+      </td>
+      {/* 단가는 **적혀 있으면 늘 보인다** — 철거 줄에서도, 그것이 그 물건의 값이다. */}
+      <td className="py-1.5 pr-3 align-middle text-sm text-content-muted tabular-nums text-right">
+        {item.unitPrice == null ? EMPTY : won(item.unitPrice)}
+      </td>
+      <td className="py-1.5 pr-3 align-middle text-sm text-content tabular-nums text-right">
+        {buys ? won(material) : EMPTY}
       </td>
       {/* 산출 내역에 서는 것은 **직종 이름**이다 — 저장된 것은 코드이고, 이름은 적용 중인
           노임단가 판에서 읽는다(판을 갈면 이름도 따라 바뀐다). */}
@@ -121,7 +138,9 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
                   <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">구분</th>
                   <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">이름</th>
                   <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">타입/그룹</th>
-                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">수량</th>
+                  <th className="bg-surface pb-1.5 pr-3 text-right text-xs text-content-muted font-medium">수량</th>
+                  <th className="bg-surface pb-1.5 pr-3 text-right text-xs text-content-muted font-medium">단가</th>
+                  <th className="bg-surface pb-1.5 pr-3 text-right text-xs text-content-muted font-medium">자재비</th>
                   <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">노무</th>
                   <th className="bg-surface pb-1.5 text-xs text-content-muted font-medium text-right">공량(인)</th>
                 </tr>
