@@ -8,7 +8,22 @@ export const SEED_CATEGORIES = [
   { key: '공조', name: '공조', sortOrder: 4 },
 ] as const;
 
-const NO_LABOR = { laborCode: null, unitPrice: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 };
+/* 품셈은 **종류마다** 다르다. 같은 광이라도 OPGW 는 외선 가공이고 점퍼코드는 실내 결선이다.
+   예전에는 그룹이 하나로 뭉쳐 갖고 있어 그 차이가 설계서에서 사라졌다. */
+const 내선 = '통신내선공';
+const 외선 = '통신외선공';
+
+/**
+ * 품셈은 **임시값이다** — 실제 표준품셈·자재단가로 갈아 끼울 자리다.
+ *
+ * 그전까지 대부분의 종류가 0 이었는데, 그러면 산출 내역이 늘 「0.000인 / 0원」이라 설계서가
+ * 무엇을 보여 주려는 화면인지 알 수가 없었다(무엇이 안 잡혔는지도 보이지 않는다). 자리를
+ * 채워 두면 **셈이 도는 모습**이 보이고, 값이 틀렸다는 것도 눈에 띈다.
+ *
+ * 값은 통신내선공 기준의 어림수다. 확정 전에는 이 표만 고치면 된다 — 화면·서버는 손대지 않는다.
+ */
+const labor = (installManDays: number, removeManDays: number, relocateManDays: number, unitPrice: number | null) =>
+  ({ laborCode: 내선, unitPrice, installManDays, removeManDays, relocateManDays });
 
 export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   // ── 구 role: slot ──
@@ -17,7 +32,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '광슬롯',
     categoryKey: '통신',
     sortOrder: 21,
-    labor: NO_LABOR,
+    labor: labor(0.5, 0.25, 0.5, 350_000),
     /*
      * 성단 판 한 장의 실제 모습: 뒤로 OPGW **한 가닥**이 들어와 그 안의 24심이 어댑터에
      * 성단되고, 앞에서는 어댑터마다 점퍼 한 가닥이 장비로 나간다.
@@ -38,7 +53,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '피더',
     categoryKey: '전원',
     sortOrder: 33,
-    labor: NO_LABOR,
+    labor: labor(0.3, 0.15, 0.3, 120_000),
     ports: [
       { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
       { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
@@ -50,7 +65,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '접지함체',
     categoryKey: '구조',
     sortOrder: 31,
-    labor: NO_LABOR,
+    labor: labor(0.4, 0.2, 0.4, 180_000),
     ports: [
       { group: 'BUS', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지 부스바' },
     ],
@@ -60,7 +75,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '공조설비',
     categoryKey: '공조',
     sortOrder: 32,
-    labor: NO_LABOR,
+    labor: labor(2.0, 1.0, 2.0, 3_500_000),
     ports: [],
   },
   // ── 구 role: device ──
@@ -69,7 +84,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'SCADA RTU',
     categoryKey: '통신',
     sortOrder: 50,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 4.0, removeManDays: 2.0, relocateManDays: 5.0 },
+    labor: labor(4.0, 2.0, 5.0, 7_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       // 현장 기기와 잇는 직렬 회선 — 방향을 따지지 않는다(널모뎀 배선이 실제로 있다).
@@ -83,7 +98,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '충전기',
     categoryKey: '전원',
     sortOrder: 70,
-    labor: NO_LABOR,
+    labor: labor(2.0, 1.0, 2.0, 4_200_000),
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력' },
@@ -95,7 +110,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'UPS',
     categoryKey: '전원',
     sortOrder: 80,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 1.0, removeManDays: 0.5, relocateManDays: 1.5 },
+    labor: labor(1.0, 0.5, 1.5, 3_000_000),
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}' },
@@ -107,7 +122,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '축전지',
     categoryKey: '전원',
     sortOrder: 90,
-    labor: NO_LABOR,
+    labor: labor(3.0, 1.5, 3.0, 6_500_000),
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '충전 입력' },
       { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '방전 출력' },
@@ -120,7 +135,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '통합단말',
     categoryKey: '통신',
     sortOrder: 61,
-    labor: NO_LABOR,
+    labor: labor(2.0, 1.0, 2.5, 8_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       { group: 'COM', count: 1, direction: 'BI', medium: 'control', namePattern: 'COM1' },
@@ -133,7 +148,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '송변전광단말장치',
     categoryKey: '통신',
     sortOrder: 63,
-    labor: NO_LABOR,
+    labor: labor(2.5, 1.2, 3.0, 12_000_000),
     ports: [
       { group: 'OPT', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -146,7 +161,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'PCM',
     categoryKey: '통신',
     sortOrder: 64,
-    labor: NO_LABOR,
+    labor: labor(1.5, 0.8, 2.0, 5_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -157,7 +172,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'PITR-2000',
     categoryKey: '통신',
     sortOrder: 41,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 3.0, removeManDays: 1.5, relocateManDays: 0 },
+    labor: labor(3.0, 1.5, 3.5, 9_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -167,7 +182,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'PITR-5000',
     categoryKey: '통신',
     sortOrder: 42,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 3.0, removeManDays: 1.5, relocateManDays: 0 },
+    labor: labor(3.0, 1.5, 3.5, 13_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -178,7 +193,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'SCADA',
     categoryKey: '통신',
     sortOrder: 51,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 4.0, removeManDays: 2.0, relocateManDays: 5.0 },
+    labor: labor(4.0, 2.0, 5.0, 20_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -188,7 +203,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '네트워크스위치',
     categoryKey: '통신',
     sortOrder: 104,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 0.5, removeManDays: 0.3, relocateManDays: 0 },
+    labor: labor(0.5, 0.3, 0.6, 1_800_000),
     ports: [
       { group: 'P', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
@@ -199,7 +214,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '서지보호기',
     categoryKey: '통신',
     sortOrder: 105,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 0.3, removeManDays: 0.15, relocateManDays: 0 },
+    labor: labor(0.3, 0.15, 0.3, 250_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -209,7 +224,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'UTM',
     categoryKey: '통신',
     sortOrder: 108,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 1.0, removeManDays: 0.5, relocateManDays: 0 },
+    labor: labor(1.0, 0.5, 1.2, 6_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -219,7 +234,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'NAC',
     categoryKey: '통신',
     sortOrder: 109,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 1.0, removeManDays: 0.5, relocateManDays: 0 },
+    labor: labor(1.0, 0.5, 1.2, 5_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -229,7 +244,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '전원(AC)',
     categoryKey: '통신',
     sortOrder: 113,
-    labor: NO_LABOR,
+    labor: labor(0.8, 0.4, 0.8, 900_000),
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}' },
@@ -241,7 +256,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '전원(DC)',
     categoryKey: '통신',
     sortOrder: 114,
-    labor: NO_LABOR,
+    labor: labor(0.8, 0.4, 0.8, 1_100_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -252,7 +267,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '권역망전송장치',
     categoryKey: '통신',
     sortOrder: 60,
-    labor: NO_LABOR,
+    labor: labor(3.0, 1.5, 3.5, 15_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -262,7 +277,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '광스위치',
     categoryKey: '통신',
     sortOrder: 145,
-    labor: { laborCode: '통신내선공', unitPrice: null, installManDays: 0.5, removeManDays: 0.3, relocateManDays: 0 },
+    labor: labor(0.5, 0.3, 0.6, 2_000_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -272,7 +287,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '광컨버터',
     categoryKey: '통신',
     sortOrder: 146,
-    labor: NO_LABOR,
+    labor: labor(0.4, 0.2, 0.4, 300_000),
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -397,38 +412,35 @@ export interface SeedCableCategory {
   sortOrder: number;
   /** 이 종류의 품셈 — 미터당. 설계서 공량의 근거다(품셈 × 길이). */
   laborCode: string;
+  /** 자재단가(원/m) — 자산 종류와 같은 뜻이다. 이 값도 임시값이다(`labor` 주석 참고). */
+  unitPrice: number;
   installManDays: number;
   removeManDays: number;
 }
 
-/* 품셈은 **종류마다** 다르다. 같은 광이라도 OPGW 는 외선 가공이고 점퍼코드는 실내 결선이다.
-   예전에는 그룹이 하나로 뭉쳐 갖고 있어 그 차이가 설계서에서 사라졌다. */
-const 내선 = '통신내선공';
-const 외선 = '통신외선공';
-
 export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
-  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1, laborCode: 내선, installManDays: 0.03,  removeManDays: 0.015 },
-  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2, laborCode: 내선, installManDays: 0.035, removeManDays: 0.018 },
-  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3, laborCode: 내선, installManDays: 0.03,  removeManDays: 0.015 },
-  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
-  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1, laborCode: 내선, unitPrice: 4_800, installManDays: 0.03,  removeManDays: 0.015 },
+  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2, laborCode: 내선, unitPrice: 6_200, installManDays: 0.035, removeManDays: 0.018 },
+  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3, laborCode: 내선, unitPrice: 3_900, installManDays: 0.03,  removeManDays: 0.015 },
+  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4, laborCode: 내선, unitPrice: 900, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5, laborCode: 내선, unitPrice: 700, installManDays: 0.02,  removeManDays: 0.01  },
   /* 광 4종은 한 그룹이다. 점퍼코드만 한 가닥에 한 심이고 나머지 셋은 다심인데, 그 구분은
      **포트의 심선 수**(`positions`)가 하지 케이블 품목이 하지 않는다 — 케이블에는 심선 수
      필드가 아예 없다. 종류는 무엇을 깔았는지를 적는 이름일 뿐이다. */
-  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 외선, installManDays: 0.06,  removeManDays: 0.03  },
-  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborCode: 외선, installManDays: 0.06,  removeManDays: 0.03  },
-  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8, laborCode: 외선, installManDays: 0.06,  removeManDays: 0.03  },
-  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9, laborCode: 내선, installManDays: 0.04,  removeManDays: 0.02  },
-  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10, laborCode: 내선, installManDays: 0.02, removeManDays: 0.01 },
-  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11, laborCode: 내선, installManDays: 0.02, removeManDays: 0.01 },
+  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 외선, unitPrice: 12_000, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborCode: 외선, unitPrice: 3_400, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8, laborCode: 외선, unitPrice: 5_600, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9, laborCode: 내선, unitPrice: 2_100, installManDays: 0.04,  removeManDays: 0.02  },
+  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10, laborCode: 내선, unitPrice: 1_500, installManDays: 0.02, removeManDays: 0.01 },
+  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11, laborCode: 내선, unitPrice: 2_600, installManDays: 0.02, removeManDays: 0.01 },
   // 제어케이블은 제어 그룹이다 — 예전에는 전원 그룹에 들어가 있어, 제어 포트에 물릴 수 있는
   // 케이블 품목이 하나도 없었다(포트 종류와 케이블 그룹이 어긋난 자리).
-  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
-  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
-  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
-  { groupKey: 'control', name: '동축케이블',            sortOrder: 15, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
-  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16, laborCode: 내선, installManDays: 0.02,  removeManDays: 0.01  },
-  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17, laborCode: 내선, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12, laborCode: 내선, unitPrice: 2_800, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13, laborCode: 내선, unitPrice: 1_200, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14, laborCode: 내선, unitPrice: 2_400, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'control', name: '동축케이블',            sortOrder: 15, laborCode: 내선, unitPrice: 3_100, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16, laborCode: 내선, unitPrice: 1_800, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17, laborCode: 내선, unitPrice: 2_200, installManDays: 0.025, removeManDays: 0.012 },
 ];
 
 /**

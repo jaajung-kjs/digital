@@ -58,6 +58,7 @@ async function main() {
         categoryId: category.id,
         sortOrder: t.sortOrder,
         laborCode: t.labor.laborCode,
+        unitPrice: t.labor.unitPrice,
         installManDays: t.labor.installManDays,
         removeManDays: t.labor.removeManDays,
         relocateManDays: t.labor.relocateManDays,
@@ -111,7 +112,8 @@ async function main() {
         update: { sortOrder: cat.sortOrder },
         create: {
           groupId: group.id, name: cat.name, sortOrder: cat.sortOrder,
-          laborCode: cat.laborCode, installManDays: cat.installManDays, removeManDays: cat.removeManDays,
+          laborCode: cat.laborCode, unitPrice: cat.unitPrice,
+          installManDays: cat.installManDays, removeManDays: cat.removeManDays,
         },
       });
     }
