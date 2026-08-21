@@ -1,11 +1,21 @@
 import { useMemo, useState } from 'react';
 import { computeEstimate, computeReport } from '@twin/core';
 import type { ReportItem, ReportKind } from '@twin/core';
-import { Badge, Button, Input, Select, Modal, EMPTY } from '../../components/ui';
+import { Badge, Button, Input, Select, Modal, EMPTY, cn } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import { buildReportItems, estimateInput } from '../reportSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog, useWageCatalog } from '../hooks';
+
+/**
+ * 두 칸이 각자 구르는 높이 — 상자는 내용만큼만 크고(최대 85vh) 이 높이에서 멈춘다.
+ *
+ * 상자를 늘 85vh 로 세우면 세 줄짜리 산출에도 빈 판이 절반이다. 칸에 한도를 두면 짧으면
+ * 짧은 대로 앉고, 길어지면 **그 칸만** 구른다 — 항목이 백 줄이어도 금액은 제자리에 있다.
+ *
+ * 8.75rem 은 상자에서 칸이 못 쓰는 자리다 — 머리줄(49) + 본문 여백(32) + 단추줄(57).
+ */
+const COLUMN_H = 'max-h-[calc(85vh-8.75rem)]';
 
 // kind → 구분 라벨
 const KIND_LABEL: Record<ReportKind, string> = {
@@ -79,29 +89,41 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
     </Button>
   );
 
+  const empty = report.items.length === 0;
+
   return (
+    /**
+     * **한눈에 보는 상자다** — 무엇을 얼마나 세었고 그래서 얼마인가가 같은 화면에 선다.
+     *
+     * 예전에는 좁은 상자에 표·공량 합계·금액을 위에서 아래로 쌓았다. 그래서 「총 공사비」를
+     * 보려면 항목 스무 줄을 지나 굴러야 했고, 금액을 보는 동안 그 금액이 무엇에서 나왔는지는
+     * 화면 밖이었다. 항목은 길고(변경 수만큼) 금액은 길이가 정해져 있으니 **옆으로 나눈다** —
+     * 구르는 것은 항목뿐이고 요약은 늘 제자리에 있다.
+     *
+     * 산출할 것이 없으면 높이를 채우지 않는다 — 한 줄짜리 말에 85vh 짜리 빈 판은 어색하다.
+     */
     <Modal
       open={open}
       onClose={onClose}
       title="산출 내역 — 공량 미리보기"
       footer={footer}
-      className="max-w-2xl"
+      size={empty ? 'md' : 'xl'}
     >
-      {report.items.length === 0 ? (
+      {empty ? (
         <p className="text-sm text-content-muted">산출할 변경이 없습니다.</p>
       ) : (
-        <div className="flex flex-col gap-4">
-          {/* 항목 테이블 */}
-          <div className="overflow-x-auto">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          {/* 항목 — 길면 여기만 구른다. 머리줄은 붙어 있어 무슨 열인지 잃지 않는다. */}
+          <div className={cn(COLUMN_H, 'overflow-auto')}>
             <table className="w-full text-left">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-surface">
                 <tr className="border-b border-line">
-                  <th className="pb-1.5 pr-3 text-xs text-content-muted font-medium">구분</th>
-                  <th className="pb-1.5 pr-3 text-xs text-content-muted font-medium">이름</th>
-                  <th className="pb-1.5 pr-3 text-xs text-content-muted font-medium">타입/그룹</th>
-                  <th className="pb-1.5 pr-3 text-xs text-content-muted font-medium">수량</th>
-                  <th className="pb-1.5 pr-3 text-xs text-content-muted font-medium">노무</th>
-                  <th className="pb-1.5 text-xs text-content-muted font-medium text-right">공량(인)</th>
+                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">구분</th>
+                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">이름</th>
+                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">타입/그룹</th>
+                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">수량</th>
+                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">노무</th>
+                  <th className="bg-surface pb-1.5 text-xs text-content-muted font-medium text-right">공량(인)</th>
                 </tr>
               </thead>
               <tbody>
@@ -112,25 +134,28 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
             </table>
           </div>
 
-          {/* 하단 합계 */}
-          <div className="border-t border-line pt-3">
-            {report.byLaborType.length > 0 && (
-              <div className="mb-2 flex flex-col gap-0.5">
-                {report.byLaborType.map(({ laborCode, totalManDays }) => (
-                  <div key={laborCode} className="flex justify-between text-xs text-content-muted">
-                    <span>{laborName(laborCode) ?? laborCode}</span>
-                    <span className="tabular-nums">{totalManDays.toFixed(3)}인</span>
-                  </div>
-                ))}
+          {/* 요약 — 공량 합계와 금액. 좁은 화면에서는 표 아래로 내려온다. */}
+          <div className={cn(COLUMN_H, 'flex flex-col overflow-auto border-t border-line pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0')}>
+            <div>
+              {report.byLaborType.length > 0 && (
+                <div className="mb-2 flex flex-col gap-0.5">
+                  {report.byLaborType.map(({ laborCode, totalManDays }) => (
+                    <div key={laborCode} className="flex justify-between text-xs text-content-muted">
+                      <span>{laborName(laborCode) ?? laborCode}</span>
+                      <span className="tabular-nums">{totalManDays.toFixed(3)}인</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* 공량의 결론도 늘 보인다 — 위로 붙어 남는다(금액의 결론은 아래로 붙는다). */}
+              <div className="sticky top-0 flex justify-between border-t border-line bg-surface pb-0.5 pt-1.5 text-sm font-semibold text-content">
+                <span>총 공량</span>
+                <span className="tabular-nums">{report.totalManDays.toFixed(3)}인</span>
               </div>
-            )}
-            <div className="flex justify-between text-sm font-semibold text-content">
-              <span>총 공량</span>
-              <span className="tabular-nums">{report.totalManDays.toFixed(3)}인</span>
             </div>
-          </div>
 
-          <EstimateSection items={report.items} />
+            <EstimateSection items={report.items} />
+          </div>
         </div>
       )}
     </Modal>
@@ -169,19 +194,21 @@ function EstimateSection({ items }: { items: ReportItem[] }) {
     sanjaeBasis: '한전',
   });
 
+  /* 금액은 **절대 잘리지 않는다** — 좁아지면 근거(요율)가 먼저 줄어든다. */
   const Row = ({ label, value, note }: { label: string; value: number; note?: string }) => (
-    <div className="flex items-baseline justify-between py-0.5">
-      <span className="text-sm text-content">
+    <div className="flex items-baseline justify-between gap-2 py-0.5">
+      <span className="min-w-0 truncate text-sm text-content">
         {label}
         {note && <span className="ml-1.5 text-xs text-content-faint">{note}</span>}
       </span>
-      <span className="text-sm text-content tabular-nums">{won(value)}</span>
+      <span className="shrink-0 text-sm text-content tabular-nums">{won(value)}</span>
     </div>
   );
 
   return (
     <div className="border-t border-line pt-3">
-      <div className="mb-2 flex items-center gap-2">
+      {/* 좁은 칸에서는 이름줄과 손잡이줄이 두 줄로 앉는다 — 한 줄에 우겨 넣으면 칸이 찌그러진다. */}
+      <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-sm font-semibold text-content">금액</span>
         <span className="text-xs text-content-faint">
           {est.sizeBand} · 기준 {overhead.effective}
@@ -220,7 +247,8 @@ function EstimateSection({ items }: { items: ReportItem[] }) {
       <Row label={est.overheadAdmin.label} value={est.overheadAdmin.amount} note={`${est.overheadAdmin.basis} × ${pct(est.overheadAdmin.rate)}`} />
       <Row label={est.profit.label} value={est.profit.amount} note={`${est.profit.basis} × ${pct(est.profit.rate)}`} />
       <Row label="부가세" value={est.vat} note="합계 × 10%" />
-      <div className="mt-1 flex items-baseline justify-between border-t border-line pt-1.5">
+      {/* 결론은 **늘 보인다** — 칸이 구르더라도 맨 아래에 붙어 남는다. */}
+      <div className="sticky bottom-0 mt-1 flex items-baseline justify-between border-t border-line bg-surface pt-1.5">
         <span className="text-sm font-semibold text-content">총 공사비</span>
         <span className="text-sm font-semibold text-content tabular-nums">{won(est.total)}</span>
       </div>

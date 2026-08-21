@@ -526,7 +526,11 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 `src/v2/components/InlineEditCell.tsx` — 선번장·계통 뷰처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.
 
 ### 대화상자 → `Modal`
-Esc 닫기·백드롭 클릭 닫기·`size="sm"/"md"` 폭 고정을 내장. 자체 오버레이(`fixed inset-0` 직접 구현)를 새로 만들지 말고 이걸 재사용한다.
+Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버레이(`fixed inset-0` 직접 구현)를 새로 만들지 말고 이걸 재사용한다.
+
+**폭은 `size` 로만 정한다** — `sm`(360) / `md`(448, 기본) / `lg`(672, 판을 담을 때) / `xl`(1024, 표와 요약을 나란히). 부르는 쪽에서 `className="max-w-…"` 를 주면 두 폭이 한 요소에 겹쳐 어느 쪽이 이길지 CSS 순서가 정한다(실제로 무시된 적이 있다).
+
+**안이 길면 상자를 키우지 말고 나눈다.** 상자는 내용만큼 크고 최대 85vh 다. 길이가 들쭉날쭉한 표와 길이가 정해진 요약을 함께 담을 때는 옆으로 나누고 **각 칸에 `max-h` 를 걸어 따로 구르게** 한다(`ReportPanel`). 결론 줄(합계·총액)은 `sticky` 로 붙여 굴러도 남게 한다 — 결론을 보려고 항목 스무 줄을 지나가게 두지 않는다.
 
 ### 저장 대기 바(작업 중 변경사항) → `CommitBar`
 `dirty`(대기 건수)·`onCommit`·`onRevert` 를 받는 고정 바. 워킹카피 편집 화면 상단에서 재사용.

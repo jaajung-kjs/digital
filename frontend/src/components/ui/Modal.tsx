@@ -13,8 +13,12 @@ export interface ModalProps {
   title?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
-  /** 패널 최대 폭 — md(기본, 448px) / sm(360px) / lg(672px, 판을 담을 때). 폭 매직넘버의 단일 소스. */
-  size?: 'sm' | 'md' | 'lg';
+  /**
+   * 패널 최대 폭 — sm(360px) / md(기본, 448px) / lg(672px, 판을 담을 때) / xl(1024px, 표와
+   * 요약을 나란히 놓을 때). 폭 매직넘버의 단일 소스다 — 부르는 쪽에서 `max-w-…` 를 주면
+   * 두 폭이 한 요소에 겹쳐 어느 쪽이 이길지 CSS 순서가 정한다(실제로 무시된 적이 있다).
+   */
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   /**
    * 되돌릴 수 없는 일을 두고 **묻는** 상자면 `alertdialog` — 스크린리더가 열리는 즉시 본문을
    * 읽는다(경고는 찾아 읽는 것이 아니라 들리는 것이어야 한다). 나머지는 전부 `dialog` 다.
@@ -26,7 +30,7 @@ export interface ModalProps {
   className?: string;
 }
 
-const SIZE = { sm: 'max-w-[360px]', md: 'max-w-md', lg: 'max-w-2xl' } as const;
+const SIZE = { sm: 'max-w-[360px]', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl' } as const;
 
 /**
  * 초점이 갈 수 있는 것들 — 트랩이 순환시킬 대상(focus-trap·Radix 가 쓰는 목록과 같다).
