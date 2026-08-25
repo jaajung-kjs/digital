@@ -1,6 +1,7 @@
 import { assetReportItem, cableReportItem, materialCostOf, COMMON_CABLE_FIELDS, PLACEMENT_FIELDS } from '@twin/core';
 import type { LaborSpec, ReportItem } from '@twin/core';
 import { MAN_DAY_FIELD } from '@twin/core';
+import { withDescendants } from './assetTree';
 import { mergeEffective } from './store/overlay';
 import { buildPortIndex, cableEndpointName } from './peerResolve';
 import type { V2Assembly, V2Asset, V2AssetType, V2Cable, V2CableCategory, V2CableGroup, V2InspectionLog, V2MaintenanceLog } from './types';
@@ -180,31 +181,8 @@ export function buildReportItems(args: {
     }
   }
 
-  /** 어느 상태에서 「이 설비 안의 자산들」을 찾는가 — 뿌리부터 아래로 전부. */
-  function descendantsIn(all: V2Asset[]): (rootId: string) => V2Asset[] {
-    const byParent = new Map<string, V2Asset[]>();
-    for (const a of all) {
-      if (a.parentAssetId == null) continue;
-      const list = byParent.get(a.parentAssetId) ?? [];
-      list.push(a);
-      byParent.set(a.parentAssetId, list);
-    }
-    return (rootId) => {
-      const out: V2Asset[] = [];
-      const stack = [rootId];
-      const seen = new Set<string>(); // 데이터가 순환해도 멈추게 한다
-      while (stack.length > 0) {
-        const id = stack.pop()!;
-        if (seen.has(id)) continue;
-        seen.add(id);
-        for (const child of byParent.get(id) ?? []) {
-          out.push(child);
-          stack.push(child.id);
-        }
-      }
-      return out;
-    };
-  }
+  /** 어느 상태에서 「이 설비 안의 자산들」을 찾는가 — 걷는 일은 `assetTree` 하나가 한다. */
+  const descendantsIn = (all: V2Asset[]) => (rootId: string) => withDescendants(all, rootId).slice(1);
 
   // --- assets.creates → asset-install ---
   const createdById = new Map(Object.entries(overlays.assets.creates) as [string, V2Asset][]);

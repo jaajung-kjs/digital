@@ -27,8 +27,9 @@ import { createDragSession, dragDelta, inWindow, isThresholdMet } from '../../ca
 import type { DragSession } from '../../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../../floorPlacement';
 import { placedAssetsOf } from '../../floorPlanSelectors';
-import { cableCountByPortId, cableSegments, distanceToPolyline, withDescendants } from '../../cableSelectors';
-import { mergeEffective } from '../../store/overlay';
+import { cableCountByPortId, cableSegments, distanceToPolyline } from '../../cableSelectors';
+import { descendantCount, withDescendants } from '../../assetTree';
+import { useEffectiveAssets, useEffectiveCables, useEffectiveFloors } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
@@ -227,26 +228,10 @@ export function FloorPlanView({
   substationId, selectedAssetId, onSelectAsset, traceResult, cableStartPortId, onCableStartConsumed, onPickPort,
 }: Props) {
   const { confirm, confirmDialog } = useConfirm();
-  // ── 반응형 슬라이스 구독 (함수 참조 구독 금지) ─────────────────────────────
-  const saved = useV2WorkingCopy((s) => s.saved);
-  const overlays = useV2WorkingCopy((s) => s.overlays);
-
-  // ── effective assets / cables (useMemo, 반응형) ──────────────────────────────────────
-  const effectiveAssets = useMemo(
-    () => mergeEffective(saved.assets, overlays.assets),
-    [saved.assets, overlays.assets],
-  );
-  const effectiveCables = useMemo(
-    () => mergeEffective(saved.cables, overlays.cables),
-    [saved.cables, overlays.cables],
-  );
-
-  // ── 층 목록 (sortOrder 순) ────────────────────────────────────────────────
-  /* 층도 워킹카피의 것이다 — 저장 전 층·이름·배경이 저장된 것과 나란히 선다. */
-  const floors = useMemo(
-    () => mergeEffective(saved.floors, overlays.floors).sort((a, b) => a.sortOrder - b.sortOrder),
-    [saved.floors, overlays.floors],
-  );
+  /* 화면이 보는 것 — 저장한 것과 저장 안 한 것을 합치는 일은 한 곳에서만 한다. */
+  const effectiveAssets = useEffectiveAssets();
+  const effectiveCables = useEffectiveCables();
+  const floors = useEffectiveFloors();
 
   // ── 활성 층 로컬 state ────────────────────────────────────────────────────
   const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
@@ -1160,7 +1145,6 @@ export function FloorPlanView({
         return;
       }
 
-      const substationId = saved.substation?.id ?? '';
       const categoryId = cableState.categoryId || null;
 
       useV2WorkingCopy.getState().stageCableCreate({
@@ -1205,7 +1189,6 @@ export function FloorPlanView({
       return;
     }
 
-    const substationId = saved.substation?.id ?? '';
     const categoryId = cableState.categoryId || null;
 
     useV2WorkingCopy.getState().stageCableCreate({
@@ -1279,9 +1262,8 @@ export function FloorPlanView({
     const all = useV2WorkingCopy.getState().effectiveAssets();
     const target = all.find((a) => a.id === selectedAssetId);
     if (!target) return;
-    const countDescendants = (rootId: string): number =>
-      all.filter((a) => a.parentAssetId === rootId).reduce((n, c) => n + 1 + countDescendants(c.id), 0);
-    const n = countDescendants(selectedAssetId);
+    /* 함께 사라지는 것이 몇인가 — 걷는 일은 `assetTree` 하나가 한다(순환해도 멈춘다). */
+    const n = descendantCount(all, selectedAssetId);
     const ok = await confirm({
       title: '설비 삭제',
       target: target.name,

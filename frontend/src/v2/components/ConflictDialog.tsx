@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Button, Modal } from '../../components/ui';
 import type { V2Conflict } from '../types';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { mergeEffective } from '../store/overlay';
+import { useEffectiveAssets, useEffectiveCables } from '../store/useWorkingCopy';
 
 interface ConflictDialogProps {
   conflicts: V2Conflict[];
@@ -12,11 +12,9 @@ interface ConflictDialogProps {
 
 /** 충돌 id가 effective 케이블로 해소되면 "케이블: {a자산}↔{b자산}", 아니면 축약 id */
 function useConflictLabel(conflictId: string): string {
-  const saved = useV2WorkingCopy((s) => s.saved);
-  const overlays = useV2WorkingCopy((s) => s.overlays);
+  const effectiveAssets = useEffectiveAssets();
+  const effectiveCables = useEffectiveCables();
   return useMemo(() => {
-    const effectiveAssets = mergeEffective(saved.assets, overlays.assets);
-    const effectiveCables = mergeEffective(saved.cables, overlays.cables);
     const cable = effectiveCables.find((c) => c.id === conflictId);
     if (cable) {
       // 포트 → 자산 해소
@@ -35,7 +33,7 @@ function useConflictLabel(conflictId: string): string {
     if (asset) return asset.name;
     // 미해소 → 축약 id
     return conflictId.slice(0, 8);
-  }, [conflictId, saved, overlays]);
+  }, [conflictId, effectiveAssets, effectiveCables]);
 }
 
 function ConflictItem({ conflict }: { conflict: V2Conflict }) {

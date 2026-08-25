@@ -151,37 +151,6 @@ export function cableSegments(
   return result;
 }
 
-// ──────────────────────────────────────────────
-// withDescendants
-// ──────────────────────────────────────────────
-
-/**
- * rootId 자산과 그 모든 전이적 자식(parentAssetId 체인)을 반환한다.
- * 루트가 맨 앞, 이후 자식은 이름 기준 안정 정렬.
- * rootId 에 해당하는 자산이 없으면 빈 배열.
- */
-export function withDescendants(assets: V2Asset[], rootId: string): V2Asset[] {
-  const root = assets.find((a) => a.id === rootId);
-  if (!root) return [];
-
-  const result: V2Asset[] = [root];
-  // 픽스포인트 루프: 직전 라운드에서 추가된 id 집합의 자식을 찾는다
-  let frontier = new Set<string>([rootId]);
-  while (frontier.size > 0) {
-    const next: V2Asset[] = [];
-    for (const a of assets) {
-      if (a.parentAssetId != null && frontier.has(a.parentAssetId)) {
-        next.push(a);
-      }
-    }
-    if (next.length === 0) break;
-    // 이름 기준 안정 정렬
-    next.sort((a, b) => a.name.localeCompare(b.name));
-    for (const a of next) result.push(a);
-    frontier = new Set(next.map((a) => a.id));
-  }
-  return result;
-}
 
 // ──────────────────────────────────────────────
 // distanceToPolyline

@@ -11,7 +11,7 @@
 import { useMemo, useState } from 'react';
 import { Th, Toggle, cn, SELECTABLE, SELECTED, EMPTY, selectableRow } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
-import { mergeEffective } from '../../store/overlay';
+import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { powerContainers, buildPowerRows, POWER_MEDIUM } from '../../powerSelectors';
 import { cableFieldsFor, portFieldsFor, setPortValueAt, type ValueDef } from '@twin/core';
@@ -123,17 +123,8 @@ export function PowerRegisterView({
   onPickContainer,
   onSelectAsset,
 }: Props) {
-  const saved = useV2WorkingCopy((s) => s.saved);
-  const overlays = useV2WorkingCopy((s) => s.overlays);
-
-  const effectiveAssets = useMemo(
-    () => mergeEffective(saved.assets, overlays.assets),
-    [saved, overlays],
-  );
-  const effectiveCables = useMemo(
-    () => mergeEffective(saved.cables, overlays.cables),
-    [saved, overlays],
-  );
+  const effectiveAssets = useEffectiveAssets();
+  const effectiveCables = useEffectiveCables();
 
   const containers = useMemo(() => powerContainers(effectiveAssets), [effectiveAssets]);
 

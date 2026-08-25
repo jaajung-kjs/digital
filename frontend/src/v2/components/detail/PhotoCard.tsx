@@ -3,17 +3,17 @@
  *
  * 업로드(파일 선택 → POST /v2/photos → stagePhotoCreate)·썸네일 그리드·캡션
  * 인라인 편집(InlineEditCell)·삭제·클릭 확대(Modal). 표시 대상 계산은
- * RecordsTab.tsx 와 동일한 형태(반응형 슬라이스 구독 + mergeEffective 인라인) —
+ * RecordsTab.tsx 와 같은 형태(워킹카피가 보여 주는 것을 그대로 읽는다) —
  * 스토어에 함수참조 셀렉터를 새로 추가하지 않는다(maintenance/inspections 의
  * effective*For 는 RecordsTab 이 실제로 쓰지 않는 죽은 셀렉터라 그 형태를
  * 새로 반복하지 않는다).
  */
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { DetailCardHeader, Button, DetailCard, IconButton, Modal } from '../../../components/ui';
 import { apiErrorMessage } from '../../apiError';
 import { photoUrl, uploadPhoto } from '../../api';
-import { mergeEffective } from '../../store/overlay';
+import { useEffectivePhotos } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2AssetPhoto } from '../../types';
 import { InlineEditCell } from '../InlineEditCell';
@@ -23,14 +23,7 @@ interface PhotoCardProps {
 }
 
 export function PhotoCard({ assetId }: PhotoCardProps) {
-  // ── 반응형 슬라이스 구독 (RecordsTab 과 동일 패턴, 함수참조 구독 금지) ──────
-  const saved = useV2WorkingCopy((s) => s.saved);
-  const overlays = useV2WorkingCopy((s) => s.overlays);
-
-  const photos = useMemo(
-    () => mergeEffective(saved.photos, overlays.photos).filter((p) => p.assetId === assetId),
-    [saved, overlays, assetId],
-  );
+  const photos = useEffectivePhotos(assetId);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);

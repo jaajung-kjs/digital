@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Check, Plus, X } from 'lucide-react';
 import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState, formatDate, isCommitKey } from '../../../components/ui';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { mergeEffective } from '../../store/overlay';
+import { useEffectiveInspections, useEffectiveMaintenance } from '../../store/useWorkingCopy';
 import type { V2MaintenanceLog, V2InspectionLog } from '../../types';
 
 // ── ISO 변환 헬퍼 ─────────────────────────────────────────────────────────────
@@ -74,15 +74,10 @@ export function RecordsTab({
   emptyMessage,
 }: RecordsTabProps) {
   const { confirm, confirmDialog } = useConfirm();
-  const saved = useV2WorkingCopy((s) => s.saved);
-  const overlays = useV2WorkingCopy((s) => s.overlays);
-
-  const records = useMemo<AnyRecord[]>(() => {
-    if (kind === 'maintenance') {
-      return mergeEffective(saved.maintenanceLogs, overlays.maintenance).filter((r) => r.assetId === assetId);
-    }
-    return mergeEffective(saved.inspectionLogs, overlays.inspections).filter((r) => r.assetId === assetId);
-  }, [kind, saved, overlays, assetId]);
+  /* 두 갈래를 다 구독한다 — 훅은 갈래를 골라 부를 수 없다(그것이 훅의 규칙이다). */
+  const maintenance = useEffectiveMaintenance(assetId);
+  const inspections = useEffectiveInspections(assetId);
+  const records: AnyRecord[] = kind === 'maintenance' ? maintenance : inspections;
 
   const sorted = useMemo(
     () => [...records].sort((a, b) => (fieldOf(b, dateField) ?? '').localeCompare(fieldOf(a, dateField) ?? '')),

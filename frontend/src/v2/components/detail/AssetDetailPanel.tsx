@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useV2Catalog, useTypesById } from '../../hooks';
-import { mergeEffective } from '../../store/overlay';
+import { useEffectiveAssets, useEffectiveInspections, useEffectiveMaintenance, useEffectivePhotos } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2Asset } from '../../types';
-import { withDescendants } from '../../cableSelectors';
+import { withDescendants } from '../../assetTree';
 import { assetsById, floorAnchorOf } from '../../assetTree';
 import { InfoTab, LayoutTab } from './InfoTab';
 import { PhotoCard } from './PhotoCard';
@@ -71,12 +71,8 @@ export function AssetDetailPanel({
   }, [cablePick]);
 
 
-  // ── 반응형 슬라이스 구독 (effectiveAssets() 함수 ref 구독 금지)
   const substationId = useV2WorkingCopy((s) => s.substationId) ?? '';
-  const saved = useV2WorkingCopy((s) => s.saved);
-  const overlays = useV2WorkingCopy((s) => s.overlays);
-
-  const effectiveAssets = useMemo(() => mergeEffective(saved.assets, overlays.assets), [saved, overlays]);
+  const effectiveAssets = useEffectiveAssets();
   const asset = useMemo(() => effectiveAssets.find((a) => a.id === assetId), [effectiveAssets, assetId]);
 
 
@@ -131,19 +127,10 @@ export function AssetDetailPanel({
     if (!hasPorts) setTab((t) => (t === 'connections' ? 'info' : t));
   }, [hasPorts]);
 
-  /* 탭에 적을 개수 — 저장분과 스테이지된 변경을 합쳐 센다(화면에 보이는 것과 같게). */
-  const inspectionCount = useMemo(
-    () => mergeEffective(saved.inspectionLogs, overlays.inspections).filter((r) => r.assetId === assetId).length,
-    [saved.inspectionLogs, overlays.inspections, assetId],
-  );
-  const logCount = useMemo(
-    () => mergeEffective(saved.maintenanceLogs, overlays.maintenance).filter((r) => r.assetId === assetId).length,
-    [saved.maintenanceLogs, overlays.maintenance, assetId],
-  );
-  const photoCount = useMemo(
-    () => mergeEffective(saved.photos, overlays.photos).filter((r) => r.assetId === assetId).length,
-    [saved.photos, overlays.photos, assetId],
-  );
+  /* 탭에 적을 개수 — 화면이 보는 것을 그대로 센다(저장 여부로 갈라지지 않는다). */
+  const inspectionCount = useEffectiveInspections(assetId).length;
+  const logCount = useEffectiveMaintenance(assetId).length;
+  const photoCount = useEffectivePhotos(assetId).length;
 
   if (!asset) return null;
 

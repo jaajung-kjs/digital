@@ -19,7 +19,7 @@ import { buildStatusRows, type StatusRowsResult } from '../statusRows';
 
 /** 스코프 밖일 때의 빈 결과 — 매번 새 객체를 만들면 useMemo 아래가 헛되이 다시 계산된다. */
 const EMPTY_ROWS: StatusRowsResult = { rows: [], fieldColumns: [] };
-import { mergeEffective } from '../store/overlay';
+import { useAllInspections, useEffectiveAssets, useEffectiveFloors } from '../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useCommit } from '../store/useCommit';
 import type { TraceResult } from '../traceSelectors';
@@ -165,10 +165,12 @@ export default function V2WorkspacePage() {
     [catalog.data],
   );
 
-  // ── 변전소 스코프: working copy effective state (반응형 슬라이스 구독) ──
+  // ── 변전소 스코프: 화면이 보는 것(저장한 것 + 아직 저장 안 한 것) ──
   const substationId = useV2WorkingCopy((s) => s.substationId);
-  const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
+  const effectiveAssets = useEffectiveAssets();
+  const floors = useEffectiveFloors();
+  const inspections = useAllInspections();
 
   // 스테이지 발생(overlays 변경) 시 stale 추적 클리어
   useEffect(() => {
@@ -179,21 +181,20 @@ export default function V2WorkspacePage() {
 
   const substationRows = useMemo<StatusRowsResult>(() => {
     if (selected?.kind !== 'substation' || substationId !== selected.id) return EMPTY_ROWS;
-    const assets = useV2WorkingCopy.getState().effectiveAssets();
     const inspectionsByAsset = new Map<string, string[]>();
-    for (const log of mergeEffective(saved.inspectionLogs, overlays.inspections)) {
+    for (const log of inspections) {
       const list = inspectionsByAsset.get(log.assetId);
       if (list) list.push(log.inspectedAt);
       else inspectionsByAsset.set(log.assetId, [log.inspectedAt]);
     }
     return buildStatusRows({
-      assets,
-      floors: saved.floors,
+      assets: effectiveAssets,
+      floors,
       typesById,
       inspectionsByAsset,
       assembliesById,
     });
-  }, [selected, substationId, saved, overlays, typesById, assembliesById]);
+  }, [selected, substationId, effectiveAssets, floors, inspections, typesById, assembliesById]);
 
   // ── 노드 스코프 (본부/지사): useV2NodeAssets ────────────────────────────
   const isNodeScope = selected != null && selected.kind !== 'substation';
@@ -244,7 +245,7 @@ export default function V2WorkspacePage() {
   const showDetailPanel =
     selected?.kind === 'substation' &&
     selectedAssetId != null &&
-    mergeEffective(saved.assets, overlays.assets).some((a) => a.id === selectedAssetId);
+    effectiveAssets.some((a) => a.id === selectedAssetId);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">

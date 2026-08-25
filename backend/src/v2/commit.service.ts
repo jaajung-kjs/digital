@@ -27,15 +27,16 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
     const assets = payload.assets ?? {};
     const cables = payload.cables ?? {};
     const floors = payload.floors ?? {};
-    touchedGrids = new Set<string>();
+    /* 이번 커밋에서 자리를 건드린 설비 — 다 적용한 뒤 그 격자만 검사한다. */
+    const touchedGrids = new Set<string>();
     await applyCableDeletes(tx, substationId, cables.deletes ?? []);
     await assertNoAttachedCables(tx, assets.deletes ?? []);
     await applyDeletes(tx, substationId, assets.deletes ?? []);
     /* 층은 **자산보다 먼저 생긴다** — 새 층에 놓은 자산이 그 층을 가리킨다. */
     await applyFloorCreates(tx, substationId, floors.creates ?? []);
     for (const u of floors.updates ?? []) await applyFloorUpdate(tx, substationId, u);
-    for (const u of assets.updates ?? []) await applyUpdate(tx, substationId, u);
-    for (const c of orderCreates(assets.creates ?? [])) await applyCreate(tx, substationId, c);
+    for (const u of assets.updates ?? []) await applyUpdate(tx, substationId, u, touchedGrids);
+    for (const c of orderCreates(assets.creates ?? [])) await applyCreate(tx, substationId, c, touchedGrids);
     /* 층은 **자산이 다 치워진 뒤** 지운다 — 같은 커밋에서 그 층의 설비를 함께 걷어내는 일이
        흔하다(층을 지우려면 먼저 비워야 하니까). 순서가 반대면 그 커밋은 늘 막힌다. */
     await applyFloorDeletes(tx, substationId, floors.deletes ?? []);
@@ -225,14 +226,19 @@ async function assertGridsValid(tx: Tx, parentIds: Iterable<string>): Promise<vo
 }
 
 /**
- * 이번 커밋에서 자리를 건드린 설비들 — 다 적용한 뒤 그 격자만 검사한다.
+ * 자리를 건드린 설비를 적어 두는 곳 — **부르는 쪽이 만들어 넘긴다.**
  *
- * 트랜잭션 하나가 한 번 쓰고 버리는 값이라 모듈 수준에 둔다(커밋은 변전소 단위
- * advisory lock 아래에서 직렬화되므로 두 커밋이 겹치지 않는다).
+ * 모듈 수준의 `let` 하나였다. 「advisory lock 이 커밋을 직렬화하니 겹치지 않는다」는 근거로
+ * 그렇게 두었는데, 그 잠금은 **변전소 단위**다. 다른 변전소의 커밋 둘은 같은 프로세스에서
+ * 나란히 돈다 — `await` 마다 서로 끼어들 수 있고, 뒤에 시작한 쪽이 그 Set 을 새로 만드는
+ * 순간 앞선 커밋이 적어 둔 격자가 통째로 사라진다. 그러면 **겹쳐 놓은 자리가 검사도 없이
+ * 저장된다**(반대로 남의 격자를 검사해 엉뚱한 커밋이 튕기기도 한다).
+ *
+ * 인자로 받으면 그 일이 일어날 수 없다 — 트랜잭션 하나가 제 것만 본다.
  */
-let touchedGrids = new Set<string>();
+type TouchedGrids = Set<string>;
 
-async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Promise<void> {
+async function applyCreate(tx: Tx, substationId: string, input: AssetCreate, touchedGrids: TouchedGrids): Promise<void> {
   /* 도면에 놓이는 것은 둘이다: 설비 품목으로 만든 **설비**(타입 없음)와 단품 **장비**(타입 있음).
      설비는 설비 품목이 분류이므로 타입을 요구하지 않는다. */
   if (!input.typeId && !input.assemblyId) {
@@ -295,7 +301,7 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
   }
 }
 
-async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promise<void> {
+async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate, touchedGrids: TouchedGrids): Promise<void> {
   const existing = await tx.asset.findUnique({ where: { id: u.id }, include: { type: { include: TYPE_INCLUDE } } });
   if (!existing || existing.substationId !== substationId) throw new HttpError(422, 'INVALID_ASSET', '수정 대상 자산이 유효하지 않습니다');
 

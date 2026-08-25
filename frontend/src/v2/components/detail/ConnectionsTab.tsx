@@ -21,9 +21,9 @@ import {
   type BadgeStatus,
   InsetBox,
 } from '../../../components/ui';
-import { mergeEffective } from '../../store/overlay';
+import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
-import { withDescendants } from '../../cableSelectors';
+import { withDescendants } from '../../assetTree';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
@@ -133,11 +133,8 @@ export function ConnectionsTab({
   useEffect(() => {
     if (focusPortId) setSelectedPortId(focusPortId);
   }, [focusPortId]);
-  const saved = useV2WorkingCopy((s) => s.saved);
-  const overlays = useV2WorkingCopy((s) => s.overlays);
-
-  const effectiveAssets = useMemo(() => mergeEffective(saved.assets, overlays.assets), [saved, overlays]);
-  const effectiveCables = useMemo(() => mergeEffective(saved.cables, overlays.cables), [saved, overlays]);
+  const effectiveAssets = useEffectiveAssets();
+  const effectiveCables = useEffectiveCables();
 
   const catalog = useV2Catalog();
   const mediumColor = useMediumColor();

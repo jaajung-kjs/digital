@@ -37,6 +37,20 @@ function screenFiles(): string[] {
 }
 
 describe('저장 여부로 갈라서지 않는다', () => {
+  /**
+   * **합치는 일은 한 곳에서만 한다.**
+   *
+   * 「저장된 것 + 아직 저장 안 한 것」을 화면마다 손으로 합치고 있었다(아홉 파일에 스무 번).
+   * 같은 규칙을 스무 번 적으면 한 곳이 어긋나도 아무도 모른다 — 도면만 제 나름의 조건을
+   * 하나 더 걸고 있던 것이 바로 그 케이블 버그였다. 합치기는 `store/useWorkingCopy` 의
+   * 훅들이 하고, 화면은 그것을 읽기만 한다.
+   */
+  it('화면이 워킹카피를 손으로 다시 합치지 않는다', () => {
+    const files = screenFiles().filter((f) => !f.endsWith('reportSelectors.ts'));
+    const offenders = files.filter((f) => /mergeEffective\s*\(/.test(readFileSync(f, 'utf8')));
+    expect(offenders, `손으로 합친 곳: ${offenders.join(', ')}`).toEqual([]);
+  });
+
   it('화면 코드에 「아직 저장 안 됨」 분기가 없다', () => {
     const files = screenFiles();
     expect(files.length, '스캔 대상 0개 — 가드가 무력화된 상태다').toBeGreaterThan(0);
