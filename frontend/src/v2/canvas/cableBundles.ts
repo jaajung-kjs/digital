@@ -9,12 +9,21 @@ export interface CableLine {
   color: string;
   points: Point[];
   selected: boolean;
+  /**
+   * 종류 말고도 **묶으면 안 되는 이유**가 있을 때 — 나가는 회선의 목적지가 그렇다.
+   *
+   * 같은 자리에서 같은 종류로 나가더라도 춘천행과 신탄진행은 한 다발이 아니다. 합치면
+   * 꼬리표 하나에 `×2` 만 남아 어디로 가는 회선인지가 지워진다.
+   */
+  bundleKey?: string;
 }
 
 export interface CableBundle {
   /** 이 묶음을 대표하는 케이블(선택·히트테스트 기준). */
   id: string;
   color: string;
+  /** 대표의 묶음 열쇠 — 나가는 회선이면 꼬리표를 여기서 읽는다. */
+  bundleKey?: string;
   /** 겹치는 묶음끼리 어긋나게 그린 뒤의 점들. */
   points: Point[];
   /** 묶인 케이블 수 — 2 이상이면 선 위에 ×N 을 적는다. */
@@ -66,7 +75,7 @@ export function bundleCables(lines: readonly CableLine[]): CableBundle[] {
     // ② 같은 자리 안에서 종류별로 나눈다
     const byCategory = new Map<string, CableLine[]>();
     for (const line of group) {
-      const key = line.categoryId ?? '';
+      const key = `${line.categoryId ?? ''}\u0000${line.bundleKey ?? ''}`;
       const list = byCategory.get(key);
       if (list) list.push(line);
       else byCategory.set(key, [line]);
@@ -83,6 +92,7 @@ export function bundleCables(lines: readonly CableLine[]): CableBundle[] {
       result.push({
         id: head.id,
         color: head.color,
+        bundleKey: head.bundleKey,
         points: offset === 0 ? head.points : offsetPolyline(head.points, offset),
         count: sameCategory.length,
         selected: sameCategory.some((c) => c.selected),

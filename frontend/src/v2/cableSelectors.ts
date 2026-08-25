@@ -71,12 +71,26 @@ export interface CableSegment {
   categoryId: string | null;
   points: { x: number; y: number }[];
   aAssetId: string;
-  bAssetId: string;
+  /** 반대쪽이 이 층에 없으면 `null` — 나가는 회선이다(`outgoing`). */
+  bAssetId: string | null;
+  /**
+   * **이 도면을 떠나는 회선** — 반대쪽 끝이 이 층에 없다(다른 변전소이거나 다른 층).
+   *
+   * 도면에 안 그리면 선번장에만 있고 도면에는 없는 회선이 된다: OPGW 로 나가는 광이
+   * 그랬다. 실무 도면은 그런 회선을 **인출선 + 행선지 꼬리표**로 적는다(도면 밖으로
+   * 나가는 짧은 선). 그러면 도면만 보고도 「이 국에서 몇 회선이 나가는가」를 읽는다.
+   */
+  outgoing?: { label: string };
 }
 
+/** 나가는 회선을 도면 밖으로 뽑는 길이(월드 단위) — 설비 한 칸쯤. */
+const OUTGOING_STUB = 80;
+/** 한 설비에서 **행선지가 여럿**이면 부채꼴로 갈라 뽑는 각도(라디안, 약 26°). */
+const OUTGOING_FAN = 0.45;
+
 /**
- * 주어진 층(floorId)에 양끝 자산이 모두 배치된 케이블의 세그먼트 목록.
- * points = [a자산 중심, ...pathPoints, b자산 중심]
+ * 주어진 층(floorId)에 그려질 케이블 — 양 끝이 다 있는 것과 **나가는 것**.
+ * points = [a자산 중심, ...pathPoints, b자산 중심 | 인출선 끝]
  *
  * 자식(비배치) 포트 → parentAssetId 체인을 따라 배치 조상을 찾아 해소.
  */
@@ -85,6 +99,8 @@ export function cableSegments(
   assets: V2Asset[],
   floorId: string,
 ): CableSegment[] {
+  /* 이 워킹카피의 변전소 — 나가는 회선이 「다른 국」인지 「같은 국 다른 층」인지 가른다. */
+  const thisSubstationId = assets[0]?.substationId ?? null;
   // 배치 여부 판별 헬퍼
   const isPlaced = (a: V2Asset) =>
     a.floorId === floorId &&
@@ -126,28 +142,98 @@ export function cableSegments(
   };
 
   const result: CableSegment[] = [];
+  const centerOf = (a: V2Asset) => ({ x: a.x! + a.width! / 2, y: a.y! + a.height! / 2 });
+
+  /* 나가는 회선이 향할 쪽 — 도면 **바깥**이다. 놓인 것들의 한가운데에서 멀어지는 방향으로
+     뽑으면 어느 배치에서도 회선이 안쪽을 가로지르지 않는다. 하나뿐이면 오른쪽으로 뽑는다. */
+  const placed = assets.filter(isPlaced);
+  const hub = placed.length > 0
+    ? placed.reduce((acc, a) => { const c = centerOf(a); return { x: acc.x + c.x / placed.length, y: acc.y + c.y / placed.length }; }, { x: 0, y: 0 })
+    : { x: 0, y: 0 };
+
+  /**
+   * 인출선의 끝점 — 그린 경로가 있으면 그 방향으로, 없으면 도면 바깥으로.
+   *
+   * @param spread 부채꼴로 갈라지는 각(라디안) — 같은 설비에서 행선지가 여럿일 때만 0이 아니다.
+   */
+  const exitPoint = (from: { x: number; y: number }, path: readonly { x: number; y: number }[], spread = 0) => {
+    const tail = path.length > 0 ? path[path.length - 1]! : from;
+    const prev = path.length > 1 ? path[path.length - 2]! : (path.length === 1 ? from : hub);
+    let dx = tail.x - prev.x;
+    let dy = tail.y - prev.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) { dx = 1; dy = 0; } else { dx /= len; dy /= len; }
+    const cos = Math.cos(spread);
+    const sin = Math.sin(spread);
+    const rx = dx * cos - dy * sin;
+    const ry = dx * sin + dy * cos;
+    return { x: tail.x + rx * OUTGOING_STUB, y: tail.y + ry * OUTGOING_STUB };
+  };
+
+  /** 나가는 회선의 꼬리표 — 다른 변전소면 그 국 이름, 같은 국이면 그 장비 이름. */
+  const peerLabel = (cable: V2Cable, farPortId: string): string => {
+    const ref = cable.aPortId === farPortId ? cable.aRef : cable.bRef;
+    const owner = portToOwner.get(farPortId);
+    if (ref && ref.substationId !== thisSubstationId) return ref.substationName;
+    return owner?.name ?? ref?.assetName ?? '연결';
+  };
+
+  /* 나가는 회선은 **두 번에 나눠** 만든다: 먼저 모아 놓고(행선지가 몇 갈래인지 알아야 한다),
+     그 다음에 방향을 준다. 한 설비에서 여러 국으로 나가는 것이 보통이라(OFD 하나에 OPGW
+     여러 가닥) 전부 같은 방향으로 뽑으면 선도 꼬리표도 한자리에 겹쳐 읽을 수 없다. */
+  const outgoing: { cable: V2Cable; near: V2Asset; label: string; path: { x: number; y: number }[] }[] = [];
+
   for (const cable of cables) {
     const aAsset = resolvePlaced(cable.aPortId);
     const bAsset = resolvePlaced(cable.bPortId);
-    if (!aAsset || !bAsset) continue;
+    /* 양 끝이 다 이 층 밖이면 이 도면의 선이 아니다. */
+    if (!aAsset && !bAsset) continue;
 
-    const aCenter = {
-      x: aAsset.x! + aAsset.width! / 2,
-      y: aAsset.y! + aAsset.height! / 2,
-    };
-    const bCenter = {
-      x: bAsset.x! + bAsset.width! / 2,
-      y: bAsset.y! + bAsset.height! / 2,
-    };
+    if (aAsset && bAsset) {
+      result.push({
+        id: cable.id,
+        categoryId: cable.categoryId,
+        points: [centerOf(aAsset), ...cable.pathPoints, centerOf(bAsset)],
+        aAssetId: aAsset.id,
+        bAssetId: bAsset.id,
+      });
+      continue;
+    }
 
+    const near = (aAsset ?? bAsset)!;
+    const farPortId = aAsset ? cable.bPortId : cable.aPortId;
+    /* 경로는 늘 a→b 순서로 저장되므로, 이 층 끝이 b 쪽이면 거꾸로 따라간다. */
+    const path = aAsset ? cable.pathPoints : [...cable.pathPoints].reverse();
+    outgoing.push({ cable, near, label: peerLabel(cable, farPortId), path });
+  }
+
+  /* 설비마다 **행선지 목록** — 같은 곳으로 가는 것은 한 갈래(그래서 한 다발로 묶인다).
+     이름순으로 세워 두면 자료가 바뀌어도 같은 국은 늘 같은 자리에서 나간다. */
+  const fanOf = new Map<string, string[]>();
+  for (const o of outgoing) {
+    if (o.path.length > 0) continue; // 사람이 그은 것은 그 방향이 답이다
+    const list = fanOf.get(o.near.id) ?? [];
+    if (!list.includes(o.label)) list.push(o.label);
+    fanOf.set(o.near.id, list);
+  }
+  for (const list of fanOf.values()) list.sort((a, b) => a.localeCompare(b));
+
+  for (const o of outgoing) {
+    const start = centerOf(o.near);
+    const fan = fanOf.get(o.near.id);
+    const i = fan ? fan.indexOf(o.label) : -1;
+    /* 가운데를 기준으로 좌우 대칭이 되게 갈라진다(한 갈래면 0 → 제자리). */
+    const spread = i >= 0 && fan ? (i - (fan.length - 1) / 2) * OUTGOING_FAN : 0;
     result.push({
-      id: cable.id,
-      categoryId: cable.categoryId,
-      points: [aCenter, ...cable.pathPoints, bCenter],
-      aAssetId: aAsset.id,
-      bAssetId: bAsset.id,
+      id: o.cable.id,
+      categoryId: o.cable.categoryId,
+      points: [start, ...o.path, exitPoint(start, o.path, spread)],
+      aAssetId: o.near.id,
+      bAssetId: null,
+      outgoing: { label: o.label },
     });
   }
+
   return result;
 }
 
