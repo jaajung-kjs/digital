@@ -35,6 +35,45 @@ describe('cableToolReducer', () => {
   });
 });
 
+/**
+ * 경로는 **그리는 김에 그린다**.
+ *
+ * 예전에는 이을 곳 둘만 고르면 케이블이 그 사이를 곧게 질렀다. 실제 도면에서 케이블은 벽을
+ * 타고 트레이를 따라 도니, 곧은 선은 「어디로 가는 케이블인지」를 지운다.
+ */
+describe('cableToolReducer — 경로 그리기', () => {
+  const armedWithFirst = {
+    ...initialCableToolState,
+    armed: true,
+    firstEndpoint: { portId: 'p1', assetId: 'a1' },
+  };
+
+  it('첫 끝점이 정해진 뒤에만 꺾는다 — 어디서 시작하는지 모르면 그릴 것이 없다', () => {
+    const noStart = cableToolReducer({ ...initialCableToolState, armed: true }, { type: 'ADD_WAYPOINT', point: { x: 10, y: 10 } });
+    expect(noStart.draftPath).toEqual([]);
+
+    const one = cableToolReducer(armedWithFirst, { type: 'ADD_WAYPOINT', point: { x: 10, y: 10 } });
+    const two = cableToolReducer(one, { type: 'ADD_WAYPOINT', point: { x: 10, y: 40 } });
+    expect(two.draftPath).toEqual([{ x: 10, y: 10 }, { x: 10, y: 40 }]);
+  });
+
+  it('마지막 꺾은점을 하나씩 물린다 — 물릴 것이 없으면 같은 객체다', () => {
+    const two = { ...armedWithFirst, draftPath: [{ x: 1, y: 1 }, { x: 2, y: 2 }] };
+    expect(cableToolReducer(two, { type: 'UNDO_WAYPOINT' }).draftPath).toEqual([{ x: 1, y: 1 }]);
+    expect(cableToolReducer(armedWithFirst, { type: 'UNDO_WAYPOINT' })).toBe(armedWithFirst);
+  });
+
+  it('그리던 경로는 손짓이 끝나면 사라진다 — 다음 케이블에 새어들지 않는다', () => {
+    const drawn = { ...armedWithFirst, draftPath: [{ x: 1, y: 1 }] };
+    expect(cableToolReducer(drawn, { type: 'CABLE_STAGED' }).draftPath).toEqual([]);
+    expect(cableToolReducer(drawn, { type: 'REMOTE_CABLE_STAGED' }).draftPath).toEqual([]);
+    expect(cableToolReducer(drawn, { type: 'DISARM' }).draftPath).toEqual([]);
+    expect(cableToolReducer(drawn, { type: 'ABORT_TO_ARMED' }).draftPath).toEqual([]);
+    /* 첫 끝점을 새로 정하는 것도 새 손짓이다. */
+    expect(cableToolReducer(drawn, { type: 'CONFIRM_FIRST_ENDPOINT', endpoint: { portId: 'p9', assetId: 'a9' } }).draftPath).toEqual([]);
+  });
+});
+
 describe('connectableAssetIds', () => {
   /* 설비는 제 포트가 없고 안에 든 장비가 갖는다 — 그래서 자손까지 세어야 한다. */
   const rack = asset('rack', []);

@@ -227,6 +227,12 @@ export function FloorPlanView({
      계산되기 때문이다(케이블 품목 → 매체 해석이 먼저 있어야 한다). */
   const connectableIdsRef = useRef<Set<string> | null>(null);
   const hoveredAssetIdRef = useRef<string | null>(null);
+  /* 지금 그리고 있는 경로와 손끝 자리 — 마우스가 움직일 때마다 React 렌더를 돌리지 않는다. */
+  const draftPathRef = useRef<{ x: number; y: number }[]>([]);
+  const cursorWorldRef = useRef<{ x: number; y: number } | null>(null);
+  draftPathRef.current = cableState.draftPath;
+  /** 마지막 꺾은점을 물린다 — 물릴 것이 있었으면 `true`(창 키 리스너가 삼킬지 정한다). */
+  const cableUndoRef = useRef<() => boolean>(() => false);
 
   // ── 추적 자산 확장 집합 (per-frame 계산 제거 — traceResult 변경 시 1회 프리컴퓨트) ──
   const traceExpandedIdsRef = useRef<Set<string>>(new Set());
@@ -332,10 +338,18 @@ export function FloorPlanView({
       return { step: '2/3', text: '오른쪽 판에서 포트를 고르세요', dimCanvas: true };
     }
     if (cableState.firstEndpoint) {
-      return { step: '3/3', text: '반대쪽 설비를 클릭하세요 (다른 변전소면 대국 검색)', dimCanvas: false };
+      /* 경로를 그릴 수 있다는 것은 **그릴 수 있을 때** 말한다 — 꺾은점이 생기면 무르는 길도 함께. */
+      const drawn = cableState.draftPath.length;
+      return {
+        step: '3/3',
+        text: drawn > 0
+          ? `꺾은점 ${drawn}개 · 이어서 도면을 누르면 더 꺾고, 반대쪽 설비를 누르면 잇습니다 (⌫ 되돌리기)`
+          : '도면을 눌러 경로를 그리고, 반대쪽 설비를 클릭하세요 (다른 변전소면 대국 검색)',
+        dimCanvas: false,
+      };
     }
     return { step: '1/3', text: '이을 설비를 클릭하세요', dimCanvas: false };
-  }, [cableState.armed, cableState.picker, cableState.firstEndpoint]);
+  }, [cableState.armed, cableState.picker, cableState.firstEndpoint, cableState.draftPath]);
 
   // ── categoryId → color 맵 (렌더용) ───────────────────────────────────────
   const categoryColorMap = useMemo(() => {
@@ -537,6 +551,38 @@ export function FloorPlanView({
         }
       }
 
+      /* 6.6 그리고 있는 케이블 — 첫 끝점에서 꺾은점들을 지나 손끝까지.
+         저장된 케이블과 같은 꺾은선이되 점선이다: **아직 놓이지 않았다**는 것이 보여야 한다. */
+      if (firstEp) {
+        const from = latest.current.placedAssets.find((a) => a.id === firstEp.assetId);
+        const cursor = cursorWorldRef.current;
+        if (from) {
+          const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
+          const pts = [start, ...draftPathRef.current, ...(cursor ? [cursor] : [])];
+          if (pts.length > 1) {
+            ctx.save();
+            ctx.strokeStyle = SELECTION_STYLES.stroke;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 4]);
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(pts[0]!.x, pts[0]!.y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y);
+            ctx.stroke();
+            ctx.restore();
+          }
+          /* 찍어 둔 꺾은점 — 「여기서 꺾었다」를 눈으로 확인하고 지울 수 있어야 한다. */
+          for (const p of draftPathRef.current) {
+            ctx.save();
+            ctx.fillStyle = SELECTION_STYLES.stroke;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
+
       /* 7. 놓을 자리의 네모 — 끄는 동안에는 손을 따라가고(`drawRef`), 손을 뗀 뒤 이름을
          묻는 동안에는 **그 자리에 남는다**(`placingRect`). 확정하거나 물릴 때 사라진다. */
       const drawing = drawRef.current;
@@ -717,6 +763,13 @@ export function FloorPlanView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  cableUndoRef.current = () => {
+    if (cableState.draftPath.length === 0) return false;
+    cableDispatch({ type: 'UNDO_WAYPOINT' });
+    scheduleRender();
+    return true;
+  };
+
   // ── 캔버스 mousedown: armed → draw, 중클릭/Space → 팬, 일반 → 선택 ──────
   const onCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     // Clear stale pan/move flags at the top of mousedown (any new gesture starts fresh)
@@ -867,8 +920,9 @@ export function FloorPlanView({
    */
   const onCanvasHover = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!connectableIdsRef.current) {
-      if (hoveredAssetIdRef.current !== null) {
+      if (hoveredAssetIdRef.current !== null || cursorWorldRef.current !== null) {
         hoveredAssetIdRef.current = null;
+        cursorWorldRef.current = null;
         scheduleRender();
       }
       return;
@@ -880,7 +934,13 @@ export function FloorPlanView({
     const world = screenToWorld(e.clientX, e.clientY, rect, panX, panY, zoom);
     const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
     const next = hit && connectableIdsRef.current.has(hit.id) ? hit.id : null;
-    if (next === hoveredAssetIdRef.current) return;
+    /* 경로를 그리는 중이면 손끝까지 선이 따라온다 — 그래서 자리가 같아도 다시 그린다. */
+    const drawingPath = latest.current.firstEndpoint != null;
+    if (drawingPath) cursorWorldRef.current = snapToGrid(world.x, world.y, SNAP_GRID);
+    if (next === hoveredAssetIdRef.current) {
+      if (drawingPath) scheduleRender();
+      return;
+    }
     hoveredAssetIdRef.current = next;
     /* 커서는 **직접** 바꾼다 — 이 손짓은 rAF 캔버스 렌더만 돌리지 React 렌더를 돌리지
        않는다(마우스가 움직일 때마다 리렌더하지 않으려는 것이 애초에 ref 를 쓴 이유다).
@@ -915,6 +975,13 @@ export function FloorPlanView({
     // ── 케이블 도구 armed ──────────────────────────────────────────────────
     if (cableState.armed) {
       const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
+      /* 첫 끝점을 정한 뒤 **빈 도면을 누르면 거기서 꺾는다** — 케이블은 벽을 타고 트레이를
+         따라 돌지 두 점을 곧게 지르지 않는다. 자산 위를 누르는 것은 여전히 「반대쪽」이다. */
+      if (!hit && cableState.firstEndpoint) {
+        cableDispatch({ type: 'ADD_WAYPOINT', point: snapToGrid(world.x, world.y, SNAP_GRID) });
+        scheduleRender();
+        return;
+      }
       // 흐리게 그린 것은 눌러도 열리지 않는다 — 보이는 것과 되는 것이 같아야 한다.
       if (hit && connectableIdsRef.current?.has(hit.id) !== false) {
         // 자산 객체 찾기 (V2Asset 형태)
@@ -1026,7 +1093,8 @@ export function FloorPlanView({
         aPortId: first.portId,
         bPortId: port.id,
         categoryId,
-        pathPoints: [],
+        /* 그리며 찍은 꺾은점 그대로 놓는다 — **보이던 그 모양**이 저장된다. */
+        pathPoints: cableState.draftPath,
         specParams: {},
         updatedAt: '',
       });
@@ -1070,7 +1138,7 @@ export function FloorPlanView({
       aPortId: first.portId,
       bPortId: port.id,
       categoryId,
-      pathPoints: [],
+      pathPoints: cableState.draftPath,
       specParams: {},
       updatedAt: '',
     });
@@ -1159,7 +1227,11 @@ export function FloorPlanView({
   }
 
   /**
-   * Delete / Backspace 로 고른 것을 지운다.
+   * Delete / Backspace — **가장 좁은 의도부터** 듣는다.
+   *
+   * 그리는 중이면 그 꺾은점, 케이블을 골랐으면 그 케이블, 아니면 고른 설비. 한 키의 뜻을
+   * 두 리스너가 나눠 가지면 둘 다 듣는다 — 실제로 경로를 그리다 ⌫ 를 누르면 꺾은점이
+   * 물리면서 **설비 삭제 상자까지** 떴다(다른 리스너에서 `preventDefault` 를 해도 소용없다).
    *
    * 도구바 버튼만 두면 "선택 → 시선을 도구바로 옮김 → 클릭" 을 매번 반복해야 한다.
    * 캔버스 편집기에서 Delete 는 관례이고, 어떤 키인지는 버튼 라벨에 함께 적어 알린다.
@@ -1176,6 +1248,11 @@ export function FloorPlanView({
       if (e.code !== 'Delete' && e.code !== 'Backspace') return;
       const t = e.target as HTMLElement | null;
       if (isTypingTarget(t)) return;
+      /* 그리는 중이면 그 손짓의 것이다 — 마지막 꺾은점을 무른다(ESC 는 손짓 전체를 무른다). */
+      if (cableUndoRef.current()) {
+        e.preventDefault();
+        return;
+      }
       // 케이블을 고른 것이 자산 선택보다 좁은 의도다 — 둘 다면 케이블을 지운다.
       if (latest.current.selectedCableId !== null) {
         e.preventDefault();
