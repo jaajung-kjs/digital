@@ -133,6 +133,8 @@ export interface V2Floor {
   name: string;
   sortOrder: number;
   substationId: string;
+  /** 서버가 아는 마지막 시각 — 저장 전 층은 빈 문자열이다(자산·케이블과 같은 어법). */
+  updatedAt: string;
   /** DWG/DXF 가져오기 후 서버가 저장한 배경 도면 (없으면 null) */
   backgroundDrawing?: import('@twin/core').BackgroundDrawing | null;
   /** 배경 도면 불투명도 0~1 (기본 0.4) */
@@ -213,7 +215,15 @@ export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'portCounts' 
 export interface V2CableCreateInput { id: string; aPortId: string; bPortId: string; categoryId?: string | null; name?: string | null; pathPoints?: { x: number; y: number }[]; specParams?: Record<string, unknown> }
 export type V2CablePatch = Partial<Omit<V2CableCreateInput, 'id'>>
 export interface V2RecordOps<TCreate, TPatch> { creates?: TCreate[]; updates?: { id: string; patch: TPatch }[]; deletes?: string[] }
+/** 층에 고칠 수 있는 것 — 이름·순서와 배경 도면. 변전소는 안 바뀐다(층이 옮겨 다니지 않는다). */
+export type V2FloorPatch = {
+  name?: string;
+  sortOrder?: number;
+  backgroundDrawing?: import('@twin/core').BackgroundDrawing | null;
+  backgroundOpacity?: number;
+};
 export interface V2CommitPayload {
+  floors?: { creates?: { id: string; name: string; sortOrder: number }[]; updates?: { id: string; patch: V2FloorPatch }[]; deletes?: string[] };
   assets?: { creates?: V2AssetCreateInput[]; updates?: { id: string; patch: V2AssetPatch }[]; deletes?: string[] };
   cables?: { creates?: V2CableCreateInput[]; updates?: { id: string; patch: V2CablePatch }[]; deletes?: string[] };
   records?: {

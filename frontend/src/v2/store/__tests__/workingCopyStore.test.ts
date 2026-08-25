@@ -154,24 +154,39 @@ describe('useV2WorkingCopy', () => {
     expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
   });
 
-  it('applyFloor: 해당 층 행만 교체하고 진행 중인 스테이징·undo 히스토리는 보존한다', () => {
+  /**
+   * 층도 **쌓였다가 저장 때 나간다** — 자산·케이블과 같은 규칙 하나.
+   *
+   * 예전에는 층만 즉시 쓰기라 서버가 확정한 행을 `saved.floors` 에 얹었다. 그래서 되돌리기가
+   * 층에 듣지 않았고, 그 층의 설비를 지워도 저장 전에는 층을 못 지웠다(서버는 아직 있다고 본다).
+   */
+  it('층을 만들면 화면에 서고, 되돌리기가 듣는다', () => {
     const s = useV2WorkingCopy.getState();
-    s.stageAssetUpdate('a-rack', { name: '작업중' }); // 저장 안 된 편집
-    s.applyFloor({
-      id: 'f-1', name: '1층', sortOrder: 1, substationId: 'sub-1',
+    const before = s.effectiveFloors().length;
+    s.stageFloorCreate({ id: 'f-new', name: '지하1층', sortOrder: 9, substationId: 'sub-1', updatedAt: '' });
+
+    const next = useV2WorkingCopy.getState();
+    expect(next.effectiveFloors()).toHaveLength(before + 1);
+    expect(next.dirtyCount()).toBe(1);
+
+    useV2WorkingCopy.temporal.getState().undo();
+    expect(useV2WorkingCopy.getState().effectiveFloors()).toHaveLength(before);
+  });
+
+  it('배경 도면도 저장 전 그림이다 — 층 patch 로 쌓인다', () => {
+    const s = useV2WorkingCopy.getState();
+    s.stageFloorUpdate('f-1', {
       backgroundDrawing: {
         source: { fileName: 'plan.dwg', importedAt: '2026-08-04T00:00:00.000Z', fileType: 'DWG' },
         bounds: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
         layers: [], paths: [], texts: [], filled: [],
       },
     });
-
     const next = useV2WorkingCopy.getState();
-    expect(next.saved.floors[0]!.backgroundDrawing?.source.fileName).toBe('plan.dwg');
-    // 층 갱신이 워킹카피 전체를 리셋하지 않는다 (load() 재로드였다면 스테이징이 사라진다)
+    expect(next.effectiveFloors()[0]!.backgroundDrawing?.source.fileName).toBe('plan.dwg');
+    /* 서버가 아는 것은 아직 그대로다 — 저장이 보내는 것이지 여기서 가는 것이 아니다. */
+    expect(next.saved.floors[0]!.backgroundDrawing).toBeUndefined();
     expect(next.dirtyCount()).toBe(1);
-    useV2WorkingCopy.temporal.getState().undo();
-    expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
   });
 
   it('cascade: 자산 삭제 시 그 포트의 케이블도 삭제 스테이지', () => {
@@ -181,21 +196,4 @@ describe('useV2WorkingCopy', () => {
     expect(s.overlays.cables.deletes).toEqual(['c-1']);
   });
 
-  /* 층은 오버레이 스테이징 대상이 아니라 커밋 경로를 타지 않는다. 그렇다고 전체 재로드를
-     부를 수는 없다 — 그것은 스테이징한 변경과 undo 히스토리를 버린다. 더하는 쪽이 빠져 있어서
-     층을 만들어도 평면도는 「층이 없습니다」인 채였다. */
-  it('applyFloor — 새 층은 더하고, 이미 있는 층은 그 행만 갈아 끼운다', async () => {
-    await useV2WorkingCopy.getState().load('sub-1');
-    const before = useV2WorkingCopy.getState().saved.floors.length;
-
-    useV2WorkingCopy.getState().applyFloor({ id: 'new-floor', name: '지하1층', sortOrder: 9, substationId: 'sub-1' });
-    const added = useV2WorkingCopy.getState().saved.floors;
-    expect(added).toHaveLength(before + 1);
-    expect(added.at(-1)?.name).toBe('지하1층');
-
-    useV2WorkingCopy.getState().applyFloor({ id: 'new-floor', name: '지하2층', sortOrder: 9, substationId: 'sub-1' });
-    const replaced = useV2WorkingCopy.getState().saved.floors;
-    expect(replaced).toHaveLength(before + 1);
-    expect(replaced.find((f) => f.id === 'new-floor')?.name).toBe('지하2층');
-  });
 });

@@ -13,7 +13,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
-import { emptyOverlay } from '../store/overlay';
+import { emptyOverlays } from '../store/workingCopyStore';
 import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import type { V2Asset, V2AssetType, V2Cable, V2Floor } from '../types';
 import type { CablePickRequest } from '../cablePick';
@@ -82,7 +82,7 @@ function setStore(assets: V2Asset[], cables: V2Cable[] = []) {
       substation: { id: 'sub-1', name: '변전소', branchId: 'b1', sortOrder: 1 },
       floors: [floor], assets, maintenanceLogs: [], inspectionLogs: [], cables, photos: [],
     },
-    overlays: { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() },
+    overlays: emptyOverlays(),
     baseVersions: {},
   });
 }

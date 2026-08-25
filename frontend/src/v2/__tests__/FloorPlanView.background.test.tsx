@@ -3,7 +3,10 @@
  *
  * FloorPlanView.test.tsx 와 동일한 방식: 실제 컴포넌트 + 실제 워킹카피 스토어를
  * `v2WorkingCopyStore.setState` 로 시딩하고, `useV2Catalog` 만 목킹한다.
- * api 는 `uploadBackground`/`deleteBackground` 만 목킹 — 나머지는 실물.
+ * api 는 `parseBackground`(파일 읽기) 만 목킹 — 나머지는 실물.
+ *
+ * 읽은 도면은 **워킹카피에 쌓인다**(서버로 가는 것은 저장할 때다). 그래서 단언도 `saved` 가
+ * 아니라 지금 화면이 보는 것(`effectiveFloors`)을 본다 — 자산·케이블과 같은 규칙 하나다.
  * 관리자 판정은 프로덕션과 동일하게 인증 스토어(`useV2AuthStore`)의 user.role 로 결정된다.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,7 +14,7 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import type { BackgroundDrawing } from '@twin/core';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { useV2AuthStore } from '../store/authStore';
-import { emptyOverlay } from '../store/overlay';
+import { emptyOverlays } from '../store/workingCopyStore';
 import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import type { V2Floor } from '../types';
 
@@ -30,12 +33,11 @@ vi.mock('../hooks', () => ({
 
 vi.mock('../api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api')>();
-  return { ...actual, uploadBackground: vi.fn(), deleteBackground: vi.fn() };
+  return { ...actual, parseBackground: vi.fn() };
 });
-import { uploadBackground, deleteBackground } from '../api';
+import { parseBackground } from '../api';
 
-const mockedUpload = vi.mocked(uploadBackground);
-const mockedDelete = vi.mocked(deleteBackground);
+const mockedParse = vi.mocked(parseBackground);
 
 const drawing = (fileName: string): BackgroundDrawing => ({
   source: { fileName, importedAt: '2026-08-04T00:00:00.000Z', fileType: 'DWG' },
@@ -53,7 +55,7 @@ function setFloors(floors: V2Floor[]) {
       substation: { id: 'sub-1', name: '변전소', branchId: 'b1', sortOrder: 1 },
       floors, assets: [], maintenanceLogs: [], inspectionLogs: [], cables: [], photos: [],
     },
-    overlays: { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() },
+    overlays: emptyOverlays(),
     baseVersions: {},
   });
 }
@@ -63,7 +65,7 @@ function setRole(role: string) {
 }
 
 const floor = (extra: Partial<V2Floor> = {}): V2Floor =>
-  ({ id: 'f1', name: '1층', sortOrder: 1, substationId: 'sub-1', ...extra });
+  ({ id: 'f1', name: '1층', sortOrder: 1, substationId: 'sub-1', updatedAt: 'v1', ...extra });
 
 function renderFloorPlan() {
   return render(
@@ -77,8 +79,7 @@ function selectFile(name: string): File {
 
 describe('FloorPlanView — 배경 도면 임포트', () => {
   beforeEach(() => {
-    mockedUpload.mockReset();
-    mockedDelete.mockReset();
+    mockedParse.mockReset();
     setFloors([floor()]);
   });
 
@@ -105,27 +106,28 @@ describe('FloorPlanView — 배경 도면 임포트', () => {
     expect(screen.queryByTestId('background-import-button')).toBeNull();
   });
 
-  it('파일을 고르면 활성 층 id 로 업로드하고, 응답 층이 워킹카피에 반영된다', async () => {
+  it('파일을 고르면 읽어서 그 층에 얹는다 — 서버로 가는 것은 저장할 때다', async () => {
     setRole('admin');
-    mockedUpload.mockResolvedValue(floor({ backgroundDrawing: drawing('plan.dwg') }));
+    mockedParse.mockResolvedValue(drawing('plan.dwg'));
     renderFloorPlan();
 
     const input = screen.getByTestId('background-import-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [selectFile('plan.dwg')] } });
 
-    // 업로드 성공 → 반환된 층이 적용되어 제거 버튼이 나타난다
+    // 읽기 성공 → 그 층에 얹혀 제거 버튼이 나타난다
     expect(await screen.findByTestId('background-remove-button')).toBeTruthy();
 
-    expect(mockedUpload).toHaveBeenCalledTimes(1);
-    expect(mockedUpload.mock.calls[0][0]).toBe('f1');
-    expect(v2WorkingCopyStore.getState().saved.floors[0].backgroundDrawing).toMatchObject({
-      source: { fileName: 'plan.dwg' },
-    });
+    expect(mockedParse).toHaveBeenCalledTimes(1);
+    const st = v2WorkingCopyStore.getState();
+    expect(st.effectiveFloors()[0]!.backgroundDrawing).toMatchObject({ source: { fileName: 'plan.dwg' } });
+    /* 아직 서버의 것은 아니다 — 저장할 것이 한 건 쌓였을 뿐이다. */
+    expect(st.saved.floors[0]!.backgroundDrawing).toBeUndefined();
+    expect(st.dirtyCount()).toBe(1);
   });
 
-  it('업로드 실패 시 서버 메시지를 표시하고 워킹카피는 그대로다', async () => {
+  it('읽기 실패 시 서버 메시지를 표시하고 워킹카피는 그대로다', async () => {
     setRole('admin');
-    mockedUpload.mockRejectedValue({
+    mockedParse.mockRejectedValue({
       isAxiosError: true,
       response: { status: 400, data: { error: 'UNSUPPORTED_FORMAT', message: '.pdf 는 지원하지 않습니다' } },
     });
@@ -135,7 +137,7 @@ describe('FloorPlanView — 배경 도면 임포트', () => {
     fireEvent.change(input, { target: { files: [selectFile('plan.pdf')] } });
 
     expect(await screen.findByText('.pdf 는 지원하지 않습니다')).toBeTruthy();
-    expect(v2WorkingCopyStore.getState().saved.floors[0].backgroundDrawing).toBeUndefined();
+    expect(v2WorkingCopyStore.getState().dirtyCount()).toBe(0);
   });
 
   it('배경이 없는 층에는 제거 버튼이 없고, 있는 층에만 나온다', async () => {
@@ -149,17 +151,19 @@ describe('FloorPlanView — 배경 도면 임포트', () => {
     expect(await screen.findByTestId('background-remove-button')).toBeTruthy();
   });
 
-  it('제거 버튼 → deleteBackground 호출 후 배경이 사라진다', async () => {
+  it('제거 버튼 → 배경이 화면에서 사라지고, 없앤다는 것이 저장할 것으로 쌓인다', async () => {
     setRole('admin');
     setFloors([floor({ backgroundDrawing: drawing('plan.dwg') })]);
-    mockedDelete.mockResolvedValue(floor({ backgroundDrawing: null }));
     renderFloorPlan();
 
     fireEvent.click(screen.getByTestId('background-remove-button'));
 
     await waitFor(() => expect(screen.queryByTestId('background-remove-button')).toBeNull());
 
-    expect(mockedDelete).toHaveBeenCalledWith('f1');
-    expect(v2WorkingCopyStore.getState().saved.floors[0].backgroundDrawing).toBeNull();
+    const st = v2WorkingCopyStore.getState();
+    expect(st.effectiveFloors()[0]!.backgroundDrawing).toBeNull();
+    /* 서버가 아는 것은 아직 그대로다 — 되돌리기가 듣는다는 뜻이다. */
+    expect(st.saved.floors[0]!.backgroundDrawing).toMatchObject({ source: { fileName: 'plan.dwg' } });
+    expect(st.dirtyCount()).toBe(1);
   });
 });

@@ -69,8 +69,8 @@ describe('v2 api 경로', () => {
     expect(api.post).toHaveBeenCalledWith('/v2/org/branches', { headquartersId: 'h', name: 'n' });
     await patchOrgNode('substations', 'id1', { name: 'x' });
     expect(api.patch).toHaveBeenCalledWith('/v2/org/substations/id1', { name: 'x' });
-    await deleteOrgNode('floors', 'id2');
-    expect(api.delete).toHaveBeenCalledWith('/v2/org/floors/id2');
+    await deleteOrgNode('substations', 'id2');
+    expect(api.delete).toHaveBeenCalledWith('/v2/org/substations/id2');
   });
 
   /* 지우려는 것이 이미 없으면 지워진 것이다(DELETE 는 멱등하다). 화면이 낡았을 뿐인데
@@ -81,7 +81,7 @@ describe('v2 api 경로', () => {
       response: { status: 404, data: { error: 'NOT_FOUND' } },
     });
     (api.delete as ReturnType<typeof vi.fn>).mockRejectedValueOnce(notFound);
-    await expect(deleteOrgNode('floors', 'gone')).resolves.toBeUndefined();
+    await expect(deleteOrgNode('substations', 'gone')).resolves.toBeUndefined();
   });
 
   it('deleteOrgNode: 막힌 것(409)은 그대로 알린다', async () => {
@@ -90,7 +90,7 @@ describe('v2 api 경로', () => {
       response: { status: 409, data: { error: 'HAS_CHILDREN' } },
     });
     (api.delete as ReturnType<typeof vi.fn>).mockRejectedValueOnce(conflict);
-    await expect(deleteOrgNode('floors', 'busy')).rejects.toBe(conflict);
+    await expect(deleteOrgNode('substations', 'busy')).rejects.toBe(conflict);
   });
 
   it('uploadPhoto: FormData 전송 + Content-Type 미지정(브라우저 boundary)', async () => {

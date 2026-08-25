@@ -32,7 +32,7 @@ import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
-import { useOrgMutations, useTypesById, useV2Catalog } from '../../hooks';
+import { useTypesById, useV2Catalog } from '../../hooks';
 import { Button, EmptyState, IconButton, PromptModal, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
@@ -242,9 +242,10 @@ export function FloorPlanView({
   );
 
   // ── 층 목록 (sortOrder 순) ────────────────────────────────────────────────
+  /* 층도 워킹카피의 것이다 — 저장 전 층·이름·배경이 저장된 것과 나란히 선다. */
   const floors = useMemo(
-    () => [...saved.floors].sort((a, b) => a.sortOrder - b.sortOrder),
-    [saved.floors],
+    () => mergeEffective(saved.floors, overlays.floors).sort((a, b) => a.sortOrder - b.sortOrder),
+    [saved.floors, overlays.floors],
   );
 
   // ── 활성 층 로컬 state ────────────────────────────────────────────────────
@@ -1403,64 +1404,51 @@ export function FloorPlanView({
    * 그 트리 어디를 어떻게 눌러야 하는지는 스스로 찾아내야 했다 — 빈 화면은 다음에 누를 것을
    * 말해야 한다(`EmptyState`). 층을 더 붙이는 길도 같은 자리(탭 줄 끝)에 둔다.
    */
-  const { createOrgNode, renameOrgNode, deleteOrgNode } = useOrgMutations();
   const [addingFloor, setAddingFloor] = useState(false);
+  /* 같은 이름을 막았다는 말 — 층 이름은 변전소 안에서 하나뿐이다(서버도 같은 규칙). */
+  const [floorError, setFloorError] = useState<string | null>(null);
 
-  /**
-   * 만들고 **닫는다** — 실패는 화면 맨 위 띠 하나가 말한다.
-   *
-   * 오류를 여기서 또 그리면 같은 문장이 두 곳에 선다(`hooks.ts` 의 `QUIET` 참고: 「제 화면에
-   * 그리는 쪽이 있으면 그쪽만」). 조직 트리의 본부·지사·변전소 추가가 이미 그렇게 하고 있고,
-   * 층만 다르게 굴 이유가 없다.
-   */
+  /** 만들고 **닫는다** — 이름이 겹치면 그 자리에서 말한다. */
   function addFloor(name: string) {
+    /* 이름은 변전소 안에서 하나뿐이다 — 저장 때 서버도 같은 규칙으로 막지만, 그때 알면 늦다. */
+    if (floors.some((f) => f.name === name)) {
+      setFloorError(`이미 있는 층 이름입니다: ${name}`);
+      return;
+    }
     setAddingFloor(false);
-    createOrgNode.mutate(
-      { kind: 'floors', body: { name, substationId } },
-      {
-        onSuccess: (created) => {
-          /* 서버가 확정한 그 행만 워킹카피에 얹는다 — 전체 재로드는 스테이징한 변경을 버린다. */
-          useV2WorkingCopy.getState().applyFloor(created as V2Floor);
-          setActiveFloorId((created as V2Floor).id);
-        },
-      },
-    );
+    setFloorError(null);
+    const id = crypto.randomUUID();
+    const sortOrder = Math.max(0, ...floors.map((f) => f.sortOrder)) + 1;
+    useV2WorkingCopy.getState().stageFloorCreate({ id, name, sortOrder, substationId, updatedAt: '' });
+    setActiveFloorId(id);
   }
 
   /**
-   * 층마다 그 위에 있는 자산 수 — **저장된 것과 지금 화면의 것을 따로** 센다.
+   * 이 층에 놓인 자산 수 — **지금 화면의 것**만 센다.
    *
-   * 층 삭제는 서버가 즉시 하는 일이라(스테이징을 거치지 않는다) 서버가 아는 것만 본다.
-   * 그런데 화면은 스테이징까지 본다. 둘이 갈리면 지우는 단추가 거짓말을 한다:
-   * - 그 층의 설비를 지웠지만 **저장하지 않았으면** 화면은 0, 서버는 2 → 눌리는데 서버가 막는다.
-   * - 그 층에 설비를 놓았지만 **저장하지 않았으면** 화면은 2, 서버는 0 → 층이 지워지고 스테이징한
-   *   설비가 없는 층을 가리켜 저장이 통째로 막힌다.
-   * 그래서 **둘 중 하나라도 있으면 못 지운다**. 무엇이 막았는지는 말이 달라야 하므로 따로 센다.
+   * 예전에는 저장된 것과 화면의 것을 따로 셌다. 층 삭제만 서버가 즉시 하는 일이라, 그 층의
+   * 설비를 지워도 저장 전에는 서버가 막았기 때문이다 — 「저장한 뒤 지울 수 있습니다」.
+   * 층도 워킹카피의 것이 되면서 그 갈림이 사라졌다: 같은 저장에 자산 삭제와 층 삭제가 함께
+   * 나가고, 서버는 자산을 먼저 치운 뒤 층을 지운다.
    */
   const floorLoad = useMemo(() => {
-    const count = (list: readonly V2Asset[]) => {
-      const m = new Map<string, number>();
-      for (const a of list) if (a.floorId) m.set(a.floorId, (m.get(a.floorId) ?? 0) + 1);
-      return m;
-    };
-    const onScreen = count(effectiveAssets);
-    const onServer = count(saved.assets);
-    return (floorId: string) => ({ onScreen: onScreen.get(floorId) ?? 0, onServer: onServer.get(floorId) ?? 0 });
-  }, [effectiveAssets, saved.assets]);
+    const m = new Map<string, number>();
+    for (const a of effectiveAssets) if (a.floorId) m.set(a.floorId, (m.get(a.floorId) ?? 0) + 1);
+    return (floorId: string) => m.get(floorId) ?? 0;
+  }, [effectiveAssets]);
 
   /** 이 층을 못 지우는 이유 — 없으면 `null`. */
   function floorBlockedReason(floorId: string): string | null {
-    const { onScreen, onServer } = floorLoad(floorId);
-    if (onScreen > 0) return `이 층에 놓인 설비가 ${onScreen}개 있어 지울 수 없습니다`;
-    if (onServer > 0) return `이 층의 설비 ${onServer}개를 지운 것이 아직 저장되지 않았습니다 — 저장한 뒤 지울 수 있습니다`;
-    return null;
+    const onScreen = floorLoad(floorId);
+    return onScreen > 0 ? `이 층에 놓인 설비가 ${onScreen}개 있어 지울 수 없습니다` : null;
   }
 
   function renameFloor(id: string, name: string) {
-    renameOrgNode.mutate(
-      { kind: 'floors', id, name },
-      { onSuccess: (row) => useV2WorkingCopy.getState().applyFloor(row as V2Floor) },
-    );
+    if (floors.some((f) => f.id !== id && f.name === name)) {
+      setFloorError(`이미 있는 층 이름입니다: ${name}`);
+      return;
+    }
+    useV2WorkingCopy.getState().stageFloorUpdate(id, { name });
   }
 
   async function deleteFloor(id: string, name: string) {
@@ -1472,21 +1460,19 @@ export function FloorPlanView({
       danger: true,
     });
     if (!ok) return;
-    deleteOrgNode.mutate(
-      { kind: 'floors', id },
-      { onSuccess: () => useV2WorkingCopy.getState().removeFloor(id) },
-    );
+    useV2WorkingCopy.getState().stageFloorDelete(id);
   }
 
+  /* 겹친 이름은 **상자를 닫지 않고** 그 자리에서 말한다 — 다시 열어 다시 적게 하지 않는다. */
   const floorPrompt = (
     <PromptModal
       open={addingFloor}
       title="층 추가"
       label="층 이름"
       placeholder="예: 1층"
-      busy={createOrgNode.isPending}
+      error={floorError}
       onConfirm={addFloor}
-      onClose={() => setAddingFloor(false)}
+      onClose={() => { setAddingFloor(false); setFloorError(null); }}
     />
   );
 

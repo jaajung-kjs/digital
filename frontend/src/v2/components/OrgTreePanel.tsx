@@ -8,11 +8,12 @@ import { useOrgMutations, useV2OrgTree } from '../hooks';
 /**
  * 이 트리가 다루는 것 — **트리에 보이는 것만**.
  *
- * 층(`floors`)은 여기 없다. 예전에는 변전소 줄의 `+` 가 층을 만들었는데, **층은 트리에 줄로
- * 서지 않으므로** 만들어도 화면에 아무 변화가 없었다 — 누른 사람에게는 버그로 보인다.
- * 만드는 자리는 만든 것이 보이는 자리여야 한다: 층은 평면도의 층 탭 줄에서 만든다.
+ * 층은 여기 없다. 예전에는 변전소 줄의 `+` 가 층을 만들었는데, **층은 트리에 줄로 서지
+ * 않으므로** 만들어도 화면에 아무 변화가 없었다 — 누른 사람에게는 버그로 보인다. 만드는
+ * 자리는 만든 것이 보이는 자리여야 한다: 층은 평면도의 층 탭 줄에서 만들고, 그 층은 자산과
+ * 같은 채널로 저장된다(조직이 아니라 **변전소 안의 내용**이다).
  */
-type TreeOrgKind = Exclude<OrgKind, 'floors'>;
+type TreeOrgKind = OrgKind;
 
 const CHILD_KIND: Record<FlatOrgNode['kind'], TreeOrgKind | null> = {
   hq: 'branches',

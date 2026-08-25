@@ -1,7 +1,8 @@
-import type { V2Asset, V2AssetCreateInput, V2AssetPatch, V2AssetPhoto, V2Cable, V2CableCreateInput, V2CablePatch, V2CommitPayload, V2InspectionLog, V2MaintenanceLog } from '../types';
+import type { V2Asset, V2AssetCreateInput, V2AssetPatch, V2AssetPhoto, V2Cable, V2CableCreateInput, V2CablePatch, V2CommitPayload, V2Floor, V2FloorPatch, V2InspectionLog, V2MaintenanceLog } from '../types';
 import type { Overlay } from './overlay';
 
 interface OverlaysIn {
+  floors: Overlay<V2Floor>;
   assets: Overlay<V2Asset>;
   maintenance: Overlay<V2MaintenanceLog>;
   inspections: Overlay<V2InspectionLog>;
@@ -76,6 +77,19 @@ export function buildCommitPayload(
   const payload: V2CommitPayload = {};
   const deletedAssets = new Set(overlays.assets.deletes);
 
+  /* 층 — 자산과 같은 세 갈래. 만드는 층은 이름·순서만 보내고(자산은 그 층 id 를 가리킨다),
+     고치는 것은 이름·순서·배경이다. */
+  const deletedFloors = new Set(overlays.floors.deletes);
+  const floorCreates = Object.values(overlays.floors.creates).map((f) => ({ id: f.id, name: f.name, sortOrder: f.sortOrder }));
+  const floorUpdates = Object.entries(overlays.floors.updates)
+    .filter(([id]) => !deletedFloors.has(id))
+    .map(([id, patch]) => {
+      const { id: _i, substationId: _s, updatedAt: _u, ...rest } = patch as Record<string, unknown>;
+      return { id, patch: rest as V2FloorPatch };
+    });
+  const floorsBlock = pruneEmpty(floorCreates, floorUpdates, overlays.floors.deletes);
+  if (floorsBlock) payload.floors = floorsBlock;
+
   const creates = Object.values(overlays.assets.creates).map(toCreateInput);
   const updates = Object.entries(overlays.assets.updates)
     .filter(([id]) => !deletedAssets.has(id))
@@ -85,7 +99,7 @@ export function buildCommitPayload(
   if (assetsBlock) payload.assets = assetsBlock;
 
   const bv: Record<string, string> = {};
-  for (const id of [...updates.map((u) => u.id), ...deletes]) {
+  for (const id of [...updates.map((u) => u.id), ...deletes, ...floorUpdates.map((u) => u.id), ...overlays.floors.deletes]) {
     if (baseVersions[id]) bv[id] = baseVersions[id]!;
   }
 

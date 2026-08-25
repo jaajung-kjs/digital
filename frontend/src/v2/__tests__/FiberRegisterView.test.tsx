@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
-import { emptyOverlay } from '../store/overlay';
+import { emptyOverlays } from '../store/workingCopyStore';
 import { FiberRegisterView } from '../components/registers/FiberRegisterView';
 import type { V2Asset, V2AssetType, V2Cable } from '../types';
 
@@ -71,7 +71,7 @@ function setStore(assets: V2Asset[], cables: V2Cable[]) {
   v2WorkingCopyStore.setState({
     substationId: 'sub-1',
     saved: { substation: null, floors: [], assets, maintenanceLogs: [], inspectionLogs: [], cables, photos: [] },
-    overlays: { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() },
+    overlays: emptyOverlays(),
     baseVersions: {},
   });
 }

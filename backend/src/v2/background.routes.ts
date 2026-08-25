@@ -1,19 +1,13 @@
 /**
- * v2 층 배경 도면 임포트 라우트.
+ * v2 배경 도면 **읽기** 라우트 — DWG/DXF 를 우리가 그릴 수 있는 모양으로 옮긴다.
  *
- * 층은 조직(org) 엔티티이고 조직 편집은 즉시 쓰기다 — 배경 도면도 워킹카피
- * 커밋 채널을 거치지 않는다(사진과 다른 점: 사진은 자산에 속한 레코드라
- * 자산 편집 세션과 함께 움직여야 했지만, 배경은 층의 속성이다).
+ * 이 라우트는 DB 를 건드리지 않는다. 읽은 결과는 화면이 받아 층에 붙이고, 서버로 가는 것은
+ * 저장할 때다(`commitPayloadSchema.floors`) — 자산·케이블과 같은 규칙 하나로 움직인다.
  * 참고: docs/superpowers/specs/2026-08-03-background-drawing-import-design.md §4
- *
- * org.routes.ts 에 넣지 않은 이유: 그 파일은 4종 조직의 일반 CRUD 스켈레톤이라
- * multipart 파싱 엔드포인트를 끼우면 대칭이 깨진다.
  */
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import multer, { MulterError } from 'multer';
-import { Prisma } from '../generated/next-client/index.js';
 import { authenticate, adminOnly } from './auth.middleware.js';
-import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import { parseBackground } from './background/parse.js';
 
@@ -47,38 +41,25 @@ function uploadSingle(req: Request, res: Response, next: NextFunction) {
   });
 }
 
+/**
+ * 도면 파일 → **읽은 결과만** 돌려준다. 층에 붙이는 일은 저장이 한다.
+ *
+ * 예전에는 여기서 곧장 층 행을 고쳤다. 그러면 배경만 「누르는 즉시」 반영돼, 같은 화면의
+ * 자산·케이블과 규칙이 갈렸다 — 되돌리기도 듣지 않았다(서버엔 이미 들어갔으니까).
+ * 사진이 이미 이 어법을 쓴다: 파일은 올리고, **레코드는 워킹카피가 들고 있다가 저장 때 간다.**
+ */
 backgroundRouter.post(
-  '/floors/:id/background',
+  '/background/parse',
   authenticate,
   adminOnly,
   uploadSingle,
   async (req, res, next) => {
-    // 층 존재는 update 의 P2025 로만 판정한다 — 사전 findUnique 를 두면 같은 판단이
-    // 두 곳에 생기고(그 사이 삭제되는 TOCTOU 도 그대로 남는다) 쿼리만 하나 늘어난다.
     try {
       const file = req.file;
       if (!file) throw new HttpError(400, 'INVALID_UPLOAD', '도면 파일이 없습니다');
-
-      const drawing = await parseBackground(file.buffer, file.originalname);
-      const updated = await nextDb.floor.update({
-        where: { id: req.params.id },
-        data: { backgroundDrawing: drawing as unknown as Prisma.InputJsonValue },
-      });
-      res.json(updated);
+      res.json(await parseBackground(file.buffer, file.originalname));
     } catch (e) {
-      next(isPrismaError(e, 'P2025') ? new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다') : e);
+      next(e);
     }
   },
 );
-
-backgroundRouter.delete('/floors/:id/background', authenticate, adminOnly, async (req, res, next) => {
-  try {
-    const updated = await nextDb.floor.update({
-      where: { id: req.params.id },
-      data: { backgroundDrawing: Prisma.DbNull },
-    });
-    res.json(updated);
-  } catch (e) {
-    next(isPrismaError(e, 'P2025') ? new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다') : e);
-  }
-});

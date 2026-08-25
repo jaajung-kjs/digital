@@ -8,6 +8,8 @@ import type { V2Asset, V2AssetPhoto, V2Cable, V2Floor, V2InspectionLog, V2Mainte
 import { emptyOverlay, mergeEffective, overlayDirtyCount, stageCreate, stageDelete, stageUpdate, type Overlay } from './overlay';
 
 interface Overlays {
+  /** 층도 워킹카피의 것이다 — 저장해야 서버로 간다(자산·케이블과 같은 규칙 하나). */
+  floors: Overlay<V2Floor>;
   assets: Overlay<V2Asset>;
   maintenance: Overlay<V2MaintenanceLog>;
   inspections: Overlay<V2InspectionLog>;
@@ -17,8 +19,9 @@ interface Overlays {
 
 const EMPTY_SAVED = { substation: null as V2Workingcopy['substation'] | null, floors: [] as V2Workingcopy['floors'], assets: [] as V2Asset[], maintenanceLogs: [] as V2MaintenanceLog[], inspectionLogs: [] as V2InspectionLog[], cables: [] as V2Cable[], photos: [] as V2AssetPhoto[] };
 
-function emptyOverlays(): Overlays {
-  return { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() };
+/** 빈 오버레이 한 벌 — **한 곳에서만 만든다**(종류가 하나 늘 때 빠뜨릴 자리를 없앤다). */
+export function emptyOverlays(): Overlays {
+  return { floors: emptyOverlay(), assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() };
 }
 
 export interface V2WorkingCopyState {
@@ -29,9 +32,10 @@ export interface V2WorkingCopyState {
   /** 워킹카피 조회 진행 중 — 이 앱에서 가장 무거운 조회다(배경도면 포함 시 수백 KB). */
   loading: boolean;
   load: (substationId: string) => Promise<void>;
-  applyFloor: (floor: V2Floor) => void;
-  removeFloor: (floorId: string) => void;
   revert: () => void;
+  stageFloorCreate: (floor: V2Floor) => void;
+  stageFloorUpdate: (id: string, patch: Partial<V2Floor>) => void;
+  stageFloorDelete: (id: string) => void;
   stageAssetCreate: (asset: V2Asset) => void;
   stageAssetUpdate: (id: string, patch: Partial<V2Asset>) => void;
   stageAssetDeleteCascade: (id: string) => void;
@@ -47,6 +51,7 @@ export interface V2WorkingCopyState {
   stageCableCreate: (cable: V2Cable) => void;
   stageCableUpdate: (id: string, patch: Partial<V2Cable>) => void;
   stageCableDelete: (id: string) => void;
+  effectiveFloors: () => V2Floor[];
   effectiveAssets: () => V2Asset[];
   effectiveCables: () => V2Cable[];
   effectiveMaintenanceFor: (assetId: string) => V2MaintenanceLog[];
@@ -79,6 +84,7 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
             baseVersions: {
               ...Object.fromEntries(wc.assets.map((a) => [a.id, a.updatedAt])),
               ...Object.fromEntries(wc.cables.map((c) => [c.id, c.updatedAt])),
+              ...Object.fromEntries(wc.floors.map((f) => [f.id, f.updatedAt])),
             },
           });
           t.clear();
@@ -92,29 +98,6 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
         }
       },
 
-      /**
-       * 서버가 **즉시 확정한** 층 하나를 saved.floors 에 반영한다 — 새 층이면 더하고, 이미
-       * 있으면 그 행만 갈아 끼운다(배경 도면 임포트/제거, 층 추가).
-       *
-       * 층은 오버레이 스테이징 대상이 아니라 커밋 경로를 타지 않는다. 그렇다고 전체 재로드
-       * (`load`)를 부를 수는 없다 — **그것은 스테이징한 변경과 undo 히스토리를 버린다**.
-       * 그래서 그 행만 반영한다. 더하는 쪽이 빠져 있어서, 층을 만들어도 평면도는 「층이
-       * 없습니다」인 채였고 변전소를 다시 고르기 전까지 나타나지 않았다.
-       */
-      applyFloor: (floor) =>
-        set((s) => ({
-          saved: {
-            ...s.saved,
-            floors: s.saved.floors.some((f) => f.id === floor.id)
-              ? s.saved.floors.map((f) => (f.id === floor.id ? floor : f))
-              : [...s.saved.floors, floor],
-          },
-        })),
-
-      /** 서버가 지운 층 하나를 saved.floors 에서 뺀다 — `applyFloor` 의 반대. */
-      removeFloor: (floorId) =>
-        set((s) => ({ saved: { ...s.saved, floors: s.saved.floors.filter((f) => f.id !== floorId) } })),
-
       revert: () => {
         const t = v2WorkingCopyStore.temporal.getState();
         t.pause();
@@ -122,6 +105,19 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
         t.clear();
         t.resume();
       },
+
+      /**
+       * 층 — **다른 것과 똑같이** 쌓았다가 저장할 때 나간다.
+       *
+       * 예전에는 층만 즉시 쓰기였다(조직 CRUD 를 같이 썼다). 한 화면에서 규칙이 둘 돌면 그
+       * 경계마다 예외가 생긴다: 그 층의 설비를 지워도 저장 전에는 층을 못 지웠고(서버는 아직
+       * 설비가 있다고 본다), 되돌리기는 층에 듣지 않았으며, 배경 도면은 물린 즉시 확정됐다.
+       */
+      stageFloorCreate: (floor) => set((s) => ({ overlays: { ...s.overlays, floors: stageCreate(s.overlays.floors, floor.id, floor) } })),
+      stageFloorUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, floors: stageUpdate(s.overlays.floors, id, patch) } })),
+      /* 층에 딸린 자산까지 걷어내지는 않는다 — 비어 있을 때만 지울 수 있다는 것을 화면이 먼저
+         말하고(`floorBlockedReason`), 서버도 같은 규칙으로 막는다. */
+      stageFloorDelete: (id) => set((s) => ({ overlays: { ...s.overlays, floors: stageDelete(s.overlays.floors, id) } })),
 
       stageAssetCreate: (asset) => set((s) => ({ overlays: { ...s.overlays, assets: stageCreate(s.overlays.assets, asset.id, asset) } })),
       stageAssetUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, assets: stageUpdate(s.overlays.assets, id, patch) } })),
@@ -160,7 +156,7 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
               cables = stageDelete(cables, cable.id);
             }
           }
-          return { overlays: { assets, maintenance, inspections, cables, photos } };
+          return { overlays: { ...st.overlays, assets, maintenance, inspections, cables, photos } };
         });
       },
 
@@ -178,13 +174,14 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       stageCableUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, cables: stageUpdate(s.overlays.cables, id, patch) } })),
       stageCableDelete: (id) => set((s) => ({ overlays: { ...s.overlays, cables: stageDelete(s.overlays.cables, id) } })),
 
+      effectiveFloors: () => mergeEffective(get().saved.floors, get().overlays.floors).sort((a, b) => a.sortOrder - b.sortOrder),
       effectiveAssets: () => mergeEffective(get().saved.assets, get().overlays.assets),
       effectiveCables: () => mergeEffective(get().saved.cables, get().overlays.cables),
       effectiveMaintenanceFor: (assetId) => mergeEffective(get().saved.maintenanceLogs, get().overlays.maintenance).filter((r) => r.assetId === assetId),
       effectiveInspectionsFor: (assetId) => mergeEffective(get().saved.inspectionLogs, get().overlays.inspections).filter((r) => r.assetId === assetId),
       dirtyCount: () => {
         const o = get().overlays;
-        return overlayDirtyCount(o.assets) + overlayDirtyCount(o.maintenance) + overlayDirtyCount(o.inspections) + overlayDirtyCount(o.cables) + overlayDirtyCount(o.photos);
+        return overlayDirtyCount(o.floors) + overlayDirtyCount(o.assets) + overlayDirtyCount(o.maintenance) + overlayDirtyCount(o.inspections) + overlayDirtyCount(o.cables) + overlayDirtyCount(o.photos);
       },
       isTempId: (id) => id in get().overlays.assets.creates,
     }),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { V2Asset, V2AssetPhoto, V2Cable, V2MaintenanceLog } from '../../types';
+import type { V2Asset, V2AssetPhoto, V2Cable, V2Floor, V2MaintenanceLog } from '../../types';
 import { emptyOverlay, type Overlay } from '../overlay';
 import { buildCommitPayload } from '../buildCommitPayload';
 import { isoToLocalInput } from '../../components/detail/RecordsTab';
@@ -11,8 +11,9 @@ const baseAsset: V2Asset = {
   fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [],
 };
 
-function overlays(partial: { assets?: Partial<Overlay<V2Asset>>; maintenance?: Partial<Overlay<V2MaintenanceLog>>; cables?: Partial<Overlay<V2Cable>>; photos?: Partial<Overlay<V2AssetPhoto>> }) {
+function overlays(partial: { floors?: Partial<Overlay<V2Floor>>; assets?: Partial<Overlay<V2Asset>>; maintenance?: Partial<Overlay<V2MaintenanceLog>>; cables?: Partial<Overlay<V2Cable>>; photos?: Partial<Overlay<V2AssetPhoto>> }) {
   return {
+    floors: { ...emptyOverlay<V2Floor>(), ...partial.floors },
     assets: { ...emptyOverlay<V2Asset>(), ...partial.assets },
     maintenance: { ...emptyOverlay<V2MaintenanceLog>(), ...partial.maintenance },
     inspections: emptyOverlay<never>(),
@@ -91,7 +92,7 @@ describe('buildCommitPayload', () => {
   it('cables: create 서버필드 제외 + baseVersions는 updates/deletes만 + 삭제 케이블 update 드랍', () => {
     const cable = { id: 'c-1', name: null, substationId: 's', aPortId: 'pa', bPortId: 'pb', categoryId: 'cat', pathPoints: [], specParams: {}, updatedAt: 'v' };
     const p = buildCommitPayload(
-      { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), photos: emptyOverlay(),
+      { floors: emptyOverlay(), assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), photos: emptyOverlay(),
         cables: { creates: { 'c-1': cable }, updates: { 'c-2': { pathPoints: [{ x: 1, y: 2 }] }, 'c-3': { name: 'x' } }, deletes: ['c-3'] } },
       { 'c-2': 'v2', 'c-3': 'v3' },
     );
@@ -124,5 +125,36 @@ describe('isoToLocalInput', () => {
 
   it('반환값은 정확히 16자', () => {
     expect(isoToLocalInput('2026-07-25T10:00:00.000Z')).toHaveLength(16);
+  });
+});
+
+/**
+ * 층도 같은 채널로 나간다 — **저장해야 서버로 간다**.
+ *
+ * 예전에는 층만 즉시 쓰기라 이 페이로드에 실릴 것이 없었다. 그래서 한 화면에서 규칙이 둘
+ * 돌았고, 그 경계마다 예외가 생겼다(저장 전에는 층을 못 지웠고 되돌리기도 안 들었다).
+ */
+describe('buildCommitPayload — 층', () => {
+  const floor: V2Floor = { id: 'f-1', name: '지하1층', sortOrder: 3, substationId: 's-1', updatedAt: '' };
+
+  it('만든 층은 이름·순서만 보낸다 — 변전소는 주소가 정한다', () => {
+    const p = buildCommitPayload(overlays({ floors: { creates: { 'f-1': floor } } }), {});
+    expect(p.floors!.creates).toEqual([{ id: 'f-1', name: '지하1층', sortOrder: 3 }]);
+  });
+
+  it('고친 층은 patch 로, 지운 층은 id 로 — baseVersions 는 그 둘만', () => {
+    const p = buildCommitPayload(
+      overlays({ floors: { updates: { 'f-2': { name: '2층' }, 'f-3': { backgroundOpacity: 0.3 } }, deletes: ['f-3'] } }),
+      { 'f-1': 'v1', 'f-2': 'v2', 'f-3': 'v3' },
+    );
+    /* 지울 층의 update 는 실리지 않는다 — 자산·케이블과 같은 규칙. */
+    expect(p.floors!.updates).toEqual([{ id: 'f-2', patch: { name: '2층' } }]);
+    expect(p.floors!.deletes).toEqual(['f-3']);
+    expect(p.baseVersions).toEqual({ 'f-2': 'v2', 'f-3': 'v3' });
+  });
+
+  it('배경 도면을 뗀 것도 그냥 patch 다 — null 이 「없앤다」는 뜻이다', () => {
+    const p = buildCommitPayload(overlays({ floors: { updates: { 'f-1': { backgroundDrawing: null } } } }), {});
+    expect(p.floors!.updates).toEqual([{ id: 'f-1', patch: { backgroundDrawing: null } }]);
   });
 });

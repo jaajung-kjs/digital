@@ -30,37 +30,41 @@ afterAll(async () => {
   await sweepTestFixtures();
 });
 
-describe('POST /api/v2/floors/:id/background', () => {
-  it('관리자가 DWG 를 올리면 파싱 결과가 층에 저장되고 갱신된 층이 반환된다', async () => {
+/**
+ * 도면 읽기는 **DB 를 건드리지 않는다** — 읽은 결과를 돌려줄 뿐이고, 층에 붙이는 일은 저장이 한다.
+ *
+ * 예전에는 이 라우트가 층 행을 바로 고쳤다. 그래서 배경만 「누르는 즉시」 반영돼 같은 화면의
+ * 자산·케이블과 규칙이 갈렸다(되돌리기도 듣지 않았다). 이제는 사진과 같은 어법이다.
+ */
+describe('POST /api/v2/background/parse', () => {
+  it('관리자가 DWG 를 올리면 읽은 도면이 돌아온다 — 저장하지는 않는다', async () => {
     const res = await request(app)
-      .post(`/api/v2/floors/${floorId}/background`)
+      .post('/api/v2/background/parse')
       .set(admin)
       .attach('file', dwg, { filename: 'plan-sample.dwg' })
       .expect(200);
 
-    expect(res.body.id).toBe(floorId);
-    expect(res.body.backgroundDrawing).toBeTruthy();
-    expect(res.body.backgroundDrawing.source.fileType).toBe('DWG');
-    expect(res.body.backgroundDrawing.paths.length).toBeGreaterThan(0);
+    expect(res.body.source.fileType).toBe('DWG');
+    expect(res.body.paths.length).toBeGreaterThan(0);
 
-    // DB 에 실제로 저장되었는지 확인한다(응답만 맞고 저장이 빠지는 실수 방지).
+    /* 층은 그대로다 — 서버로 가는 것은 커밋이다(`commitPayloadSchema.floors`). */
     const row = await nextDb.floor.findUnique({ where: { id: floorId } });
-    expect(row?.backgroundDrawing).toBeTruthy();
+    expect(row?.backgroundDrawing ?? null).toBeNull();
   });
 
-  it('DGN 을 올리면 파싱 결과가 층에 저장된다', async () => {
+  it('DGN 도 읽는다', async () => {
     const dgnBytes = fs.readFileSync(path.join(__dirname, 'fixtures', 'test_dgnv8.dgn'));
     const res = await request(app)
-      .post(`/api/v2/floors/${floorId}/background`)
+      .post('/api/v2/background/parse')
       .set(admin)
       .attach('file', dgnBytes, { filename: 'test_dgnv8.dgn' })
       .expect(200);
-    expect(res.body.backgroundDrawing.source.fileType).toBe('DGN');
+    expect(res.body.source.fileType).toBe('DGN');
   });
 
   it('미지원 확장자는 400 UNSUPPORTED_FORMAT', async () => {
     const res = await request(app)
-      .post(`/api/v2/floors/${floorId}/background`)
+      .post('/api/v2/background/parse')
       .set(admin)
       .attach('file', Buffer.from('%PDF-1.4'), { filename: 'drawing.pdf' })
       .expect(400);
@@ -68,91 +72,31 @@ describe('POST /api/v2/floors/:id/background', () => {
     expect(res.body.message).toMatch(/DXF/);
   });
 
-  it('없는 층은 404', async () => {
-    const res = await request(app)
-      .post('/api/v2/floors/00000000-0000-0000-0000-000000000000/background')
-      .set(admin)
-      .attach('file', dwg, { filename: 'plan-sample.dwg' })
-      .expect(404);
-    expect(res.body.error).toBe('NOT_FOUND');
-  });
-
   // 권한 검사는 파싱 이전에 끝난다 — 실제 도면을 실을 이유가 없다. 197KB 본문을
   // 올리면 서버가 본문을 다 읽기 전에 거절해 클라이언트가 EPIPE 로 깨진다(산발적 실패).
   const tiny = Buffer.from('x');
 
   it('비관리자는 403', async () => {
-    await request(app)
-      .post(`/api/v2/floors/${floorId}/background`)
-      .set(viewer)
-      .attach('file', tiny, { filename: 'plan-sample.dwg' })
-      .expect(403);
+    await request(app).post('/api/v2/background/parse').set(viewer).attach('file', tiny, { filename: 'plan-sample.dwg' }).expect(403);
   });
 
   it('미인증은 401', async () => {
-    await request(app)
-      .post(`/api/v2/floors/${floorId}/background`)
-      .attach('file', tiny, { filename: 'plan-sample.dwg' })
-      .expect(401);
+    await request(app).post('/api/v2/background/parse').attach('file', tiny, { filename: 'plan-sample.dwg' }).expect(401);
   });
 });
 
-describe('POST /api/v2/floors/:id/background — 한글 파일명 mojibake 복구 (M-1)', () => {
-  it('한글 파일명이 source.fileName 에 정확히 복원되어 저장된다', async () => {
+describe('POST /api/v2/background/parse — 한글 파일명 mojibake 복구 (M-1)', () => {
+  it('한글 파일명이 source.fileName 에 정확히 복원된다', async () => {
     // supertest 의 .attach 는 실제 브라우저처럼 UTF-8 바이트를 multipart 파일명에
     // 싣는다 — busboy(멀터 내부)가 이를 latin1 로 잘못 디코드하는 실제 경로를
     // 그대로 재현한다(직접 확인함: 우회 없이 라우트 코드 경로를 그대로 탄다).
     const koreanName = 'A08평면도B1.dwg';
     const res = await request(app)
-      .post(`/api/v2/floors/${floorId}/background`)
+      .post('/api/v2/background/parse')
       .set(admin)
       .attach('file', dwg, { filename: koreanName })
       .expect(200);
 
-    expect(res.body.backgroundDrawing.source.fileName).toBe(koreanName);
-
-    const row = await nextDb.floor.findUnique({ where: { id: floorId } });
-    const saved = row?.backgroundDrawing as { source?: { fileName?: string } } | null;
-    expect(saved?.source?.fileName).toBe(koreanName);
-  });
-});
-
-describe('DELETE /api/v2/floors/:id/background', () => {
-  it('없는 층은 404 — update 의 P2025 가 유일한 존재 판정이다', async () => {
-    const res = await request(app)
-      .delete('/api/v2/floors/00000000-0000-0000-0000-000000000000/background')
-      .set(admin)
-      .expect(404);
-    expect(res.body.error).toBe('NOT_FOUND');
-  });
-
-  it('배경을 제거하면 null 이 되고 갱신된 층이 반환된다', async () => {
-    await request(app)
-      .post(`/api/v2/floors/${floorId}/background`)
-      .set(admin)
-      .attach('file', dwg, { filename: 'plan-sample.dwg' })
-      .expect(200);
-
-    const res = await request(app)
-      .delete(`/api/v2/floors/${floorId}/background`)
-      .set(admin)
-      .expect(200);
-
-    expect(res.body.backgroundDrawing).toBeNull();
-    const row = await nextDb.floor.findUnique({ where: { id: floorId } });
-    expect(row?.backgroundDrawing).toBeNull();
-
-    // Prisma 의 일반 조회는 SQL NULL 과 JSON null 리터럴을 구분하지 않고 둘 다 JS null 로
-    // 돌려준다. 여기서는 raw 로 실제 컬럼 값을 확인해, 삭제가 "새로 만든 층"과 같은
-    // 표현(SQL NULL, Prisma.DbNull)을 쓰는지 검증한다 — JSON null 리터럴(Prisma.JsonNull)
-    // 이었다면 이 단언이 실패한다.
-    const [raw] = await nextDb.$queryRaw<{ is_sql_null: boolean }[]>`
-      SELECT "backgroundDrawing" IS NULL AS is_sql_null FROM "Floor" WHERE id = ${floorId}
-    `;
-    expect(raw.is_sql_null).toBe(true);
-  });
-
-  it('비관리자는 403', async () => {
-    await request(app).delete(`/api/v2/floors/${floorId}/background`).set(viewer).expect(403);
+    expect(res.body.source.fileName).toBe(koreanName);
   });
 });

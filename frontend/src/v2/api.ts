@@ -1,6 +1,7 @@
 import { isAxiosError } from 'axios';
 import { httpClient as api } from './httpClient';
-import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+import type { BackgroundDrawing } from '@twin/core';
+import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
 
@@ -37,20 +38,20 @@ export async function uploadPhoto(file: File): Promise<{ filePath: string }> {
 }
 
 /** 층 배경 도면 임포트 — DWG/DXF 를 서버가 파싱해 층에 저장하고 갱신된 층을 돌려준다 */
-export async function uploadBackground(floorId: string, file: File): Promise<V2Floor> {
+/**
+ * 도면 파일을 **읽기만** 한다 — 층에 붙이는 일은 화면이, 서버로 보내는 일은 저장이 한다.
+ *
+ * 사진과 같은 어법이다(파일은 올리고 레코드는 워킹카피가 들고 있다가 저장 때 간다).
+ */
+export async function parseBackground(file: File): Promise<BackgroundDrawing> {
   const formData = new FormData();
   formData.append('file', file);
   // Content-Type을 명시하지 않는다 — 브라우저가 multipart boundary를 채워야 하는데,
   // httpClient 인스턴스 기본 헤더가 application/json이라 여기서 undefined로 덮어써
   // axios가 FormData를 JSON으로 오인(stringify)하지 않도록 한다.
-  return (await api.post(`/v2/floors/${floorId}/background`, formData, {
+  return (await api.post('/v2/background/parse', formData, {
     headers: { 'Content-Type': undefined },
   })).data;
-}
-
-/** 층 배경 도면 제거 — backgroundDrawing 이 null 인 갱신된 층을 돌려준다 */
-export async function deleteBackground(floorId: string): Promise<V2Floor> {
-  return (await api.delete(`/v2/floors/${floorId}/background`)).data;
 }
 
 export function photoUrl(filePath: string): string {
@@ -58,7 +59,8 @@ export function photoUrl(filePath: string): string {
   return `/api/v2/photos/${name}`;
 }
 
-export type OrgKind = 'headquarters' | 'branches' | 'substations' | 'floors';
+/* 층은 여기 없다 — **워킹카피의 것**이라 저장할 때 커밋으로 간다(`stageFloorCreate` 등). */
+export type OrgKind = 'headquarters' | 'branches' | 'substations';
 export async function createOrgNode(kind: OrgKind, body: Record<string, string>) {
   return (await api.post(`/v2/org/${kind}`, body)).data;
 }

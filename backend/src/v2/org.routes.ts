@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { adminOnly, authenticate } from './auth.middleware.js';
 import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
-import { branchCreateSchema, floorCreateSchema, idParamSchema, orgNameSchema, orgPatchSchema, substationCreateSchema } from './schemas.js';
+import { branchCreateSchema, idParamSchema, orgNameSchema, orgPatchSchema, substationCreateSchema } from './schemas.js';
 
 export const orgRouter = Router();
 
@@ -106,33 +106,16 @@ orgRouter.post('/org/substations', adminOnly, async (req, res, next) => {
   }
 });
 
-// POST /org/floors — 층 생성
-orgRouter.post('/org/floors', adminOnly, async (req, res, next) => {
-  try {
-    const { substationId, name } = floorCreateSchema.parse(req.body);
-    // 부모 존재 검증
-    const parent = await nextDb.substation.findUnique({ where: { id: substationId } });
-    if (!parent) throw new HttpError(422, 'INVALID_PARENT', '상위 조직이 없습니다');
-    // 해당 부모 범위의 max sortOrder
-    const max = await nextDb.floor.aggregate({
-      _max: { sortOrder: true },
-      where: { substationId },
-    });
-    const row = await nextDb.floor.create({
-      data: { substationId, name, sortOrder: (max._max.sortOrder ?? 0) + 1 },
-    });
-    res.status(201).json(row);
-  } catch (e) {
-    next(asDuplicateName(e));
-  }
-});
+/* 층을 만들고 고치고 지우는 길은 여기 없다 — **층은 워킹카피의 것**이다(커밋 채널).
+   조직 셋과 달리 층은 변전소 **안의 내용**이라, 같은 화면에서 자산과 함께 편집된다.
+   즉시 쓰기로 두면 한 화면에 규칙이 둘 돌아 그 경계마다 예외가 생겼다(`commitPayloadSchema`). */
 
-// 본부/지점/변전소/층 4종의 PATCH·DELETE 핸들러는 델리게이트만 다른 동일 스켈레톤이므로
-// 고정 4종 테이블(kind → 델리게이트·자식카운트 함수)로 파라미터화한다.
+// 본부/지점/변전소 3종의 PATCH·DELETE 핸들러는 델리게이트만 다른 동일 스켈레톤이므로
+// 고정 3종 테이블(kind → 델리게이트·자식카운트 함수)로 파라미터화한다.
 // 주의: 변전소는 자식이 두 관계(floor + asset)에 걸쳐 있어 childCount 함수가 다른 3종과 모양이 다르다 —
 // 이 비대칭은 문자열 분기가 아니라 테이블 값(함수) 차이로만 표현한다.
 interface OrgKindEntry {
-  path: 'headquarters' | 'branches' | 'substations' | 'floors';
+  path: 'headquarters' | 'branches' | 'substations';
   delegate: {
     findUnique: (args: { where: { id: string } }) => Promise<{ id: string } | null>;
     update: (args: { where: { id: string }; data: { name?: string; sortOrder?: number } }) => Promise<unknown>;
@@ -165,12 +148,6 @@ const orgKinds: OrgKindEntry[] = [
     childCount: async (id) =>
       (await nextDb.floor.count({ where: { substationId: id } })) + (await nextDb.asset.count({ where: { substationId: id } })),
     childLabel: '층·자산',
-  },
-  {
-    path: 'floors',
-    delegate: nextDb.floor,
-    childCount: (id) => nextDb.asset.count({ where: { floorId: id } }),
-    childLabel: '자산',
   },
 ];
 

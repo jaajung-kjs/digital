@@ -281,3 +281,99 @@ describe('PUT /commit — 화면이 정한 포트 id', () => {
     expect(await nextDb.port.count({ where: { assetId: slotId } })).toBe(25);
   });
 });
+
+/**
+ * 층도 이 채널로 온다 — **저장 하나로 층과 그 위의 설비가 함께 움직인다.**
+ *
+ * 층만 즉시 쓰기이던 동안 한 화면에 규칙이 둘이었고, 그 경계마다 예외가 생겼다: 그 층의
+ * 설비를 지워도 저장 전에는 층을 못 지웠고(서버는 아직 있다고 본다), 되돌리기도 안 들었다.
+ */
+describe('PUT /commit — 층', () => {
+  it('새 층과 그 위의 설비가 한 저장에 들어간다 — 층이 먼저다', async () => {
+    const newFloor = randomUUID(), assetId = randomUUID();
+    await commit({
+      floors: { creates: [{ id: newFloor, name: `${uniq}-신설층`, sortOrder: 9 }] },
+      assets: { creates: [{ id: assetId, name: `${uniq}-on-new`, assemblyId: ofdAssemblyId, floorId: newFloor, x: 0, y: 0, width: 40, height: 40 }] },
+    }).expect(200);
+
+    const row = await nextDb.asset.findUniqueOrThrow({ where: { id: assetId } });
+    expect(row.floorId).toBe(newFloor);
+  });
+
+  it('그 층의 설비를 걷어내는 것과 층을 지우는 것이 한 저장에 들어간다', async () => {
+    const floor2 = randomUUID(), assetId = randomUUID();
+    await commit({
+      floors: { creates: [{ id: floor2, name: `${uniq}-지울층`, sortOrder: 8 }] },
+      assets: { creates: [{ id: assetId, name: `${uniq}-doomed`, assemblyId: ofdAssemblyId, floorId: floor2, x: 0, y: 0, width: 40, height: 40 }] },
+    }).expect(200);
+
+    const [f, a] = await Promise.all([
+      nextDb.floor.findUniqueOrThrow({ where: { id: floor2 } }),
+      nextDb.asset.findUniqueOrThrow({ where: { id: assetId } }),
+    ]);
+    /* 설비 삭제가 먼저 적용되고 그 다음 층이 지워진다 — 순서를 화면이 걱정하지 않는다. */
+    await commit({
+      assets: { deletes: [assetId] },
+      floors: { deletes: [floor2] },
+      baseVersions: { [floor2]: f.updatedAt.toISOString(), [assetId]: a.updatedAt.toISOString() },
+    }).expect(200);
+
+    expect(await nextDb.floor.findUnique({ where: { id: floor2 } })).toBeNull();
+  });
+
+  it('아직 설비가 남은 층은 지울 수 없다 — 무엇이 막았는지 말한다', async () => {
+    const floor3 = randomUUID(), assetId = randomUUID();
+    await commit({
+      floors: { creates: [{ id: floor3, name: `${uniq}-찬층`, sortOrder: 7 }] },
+      assets: { creates: [{ id: assetId, name: `${uniq}-stay`, assemblyId: ofdAssemblyId, floorId: floor3, x: 0, y: 0, width: 40, height: 40 }] },
+    }).expect(200);
+    const f = await nextDb.floor.findUniqueOrThrow({ where: { id: floor3 } });
+
+    const res = await commit({
+      floors: { deletes: [floor3] },
+      baseVersions: { [floor3]: f.updatedAt.toISOString() },
+    }).expect(409);
+    expect(res.body.error).toBe('HAS_CHILDREN');
+    expect(res.body.message).toMatch(/자산 1개/);
+  });
+
+  it('배경 도면은 층의 값일 뿐이다 — 저장으로 붙고 저장으로 떨어진다', async () => {
+    const drawing = {
+      source: { fileName: 'plan.dwg', importedAt: '2026-08-04T00:00:00.000Z', fileType: 'DWG' },
+      bounds: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+      layers: [], paths: [], texts: [], filled: [],
+    };
+    const before = await nextDb.floor.findUniqueOrThrow({ where: { id: floorId } });
+    await commit({
+      floors: { updates: [{ id: floorId, patch: { backgroundDrawing: drawing } }] },
+      baseVersions: { [floorId]: before.updatedAt.toISOString() },
+    }).expect(200);
+    const withBg = await nextDb.floor.findUniqueOrThrow({ where: { id: floorId } });
+    expect((withBg.backgroundDrawing as { source: { fileName: string } }).source.fileName).toBe('plan.dwg');
+
+    await commit({
+      floors: { updates: [{ id: floorId, patch: { backgroundDrawing: null } }] },
+      baseVersions: { [floorId]: withBg.updatedAt.toISOString() },
+    }).expect(200);
+    /* 지운 자리는 새 층과 **같은 표현**이어야 한다(SQL NULL) — JSON null 리터럴이면 이 단언이 깨진다. */
+    const [raw] = await nextDb.$queryRaw<{ is_sql_null: boolean }[]>`
+      SELECT "backgroundDrawing" IS NULL AS is_sql_null FROM "Floor" WHERE id = ${floorId}
+    `;
+    expect(raw!.is_sql_null).toBe(true);
+  });
+
+  it('같은 이름의 층은 만들 수 없다 — 변전소 안에서 이름은 하나다', async () => {
+    const res = await commit({
+      floors: { creates: [{ id: randomUUID(), name: `${uniq}-1층`, sortOrder: 5 }] },
+    }).expect(409);
+    expect(res.body.error).toBe('DUPLICATE_NAME');
+  });
+
+  it('남이 고친 층은 덮어쓰지 않는다 — 자산·케이블과 같은 저울', async () => {
+    const res = await commit({
+      floors: { updates: [{ id: floorId, patch: { name: `${uniq}-바뀐이름` } }] },
+      baseVersions: { [floorId]: '2020-01-01T00:00:00.000Z' },
+    }).expect(409);
+    expect(res.body.error).toBe('CONFLICT');
+  });
+});

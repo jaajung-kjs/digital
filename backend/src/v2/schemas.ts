@@ -8,7 +8,6 @@ export const orgPatchSchema = z
   .refine((p) => p.name !== undefined || p.sortOrder !== undefined, { message: '변경할 필드가 없습니다' });
 export const branchCreateSchema = orgNameSchema.extend({ headquartersId: z.string().uuid() });
 export const substationCreateSchema = orgNameSchema.extend({ branchId: z.string().uuid() });
-export const floorCreateSchema = orgNameSchema.extend({ substationId: z.string().uuid() });
 
 const assetCreateSchema = z.object({
   id: z.string().uuid(),
@@ -189,7 +188,36 @@ export const cableGroupPutSchema = z.object({
   ),
 });
 
+/**
+ * 층도 **워킹카피의 것**이다 — 저장해야 서버로 간다.
+ *
+ * 예전에는 층만 즉시 쓰기였다(조직 CRUD 를 같이 썼다). 그래서 한 화면에서 두 가지 규칙이
+ * 돌았다: 자산은 저장해야 반영되고 층은 누르는 즉시 반영됐다. 「저장 안 한 것」과 「저장한
+ * 것」이 다르게 움직이면 그 경계마다 예외가 생긴다 — 그 층의 설비를 지워도 저장 전에는 층을
+ * 못 지웠고(서버는 아직 설비가 있다고 본다), 되돌리기는 층에 듣지 않았다.
+ */
+const commitFloorCreateSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(1),
+  sortOrder: z.number().int(),
+});
+
+const floorPatchSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  sortOrder: z.number().int().optional(),
+  /** 배경 도면 — 파싱 결과 그대로. `null` 이면 제거다. 구조는 파서가 정한다(`parseBackground`). */
+  backgroundDrawing: z.unknown().nullable().optional(),
+  backgroundOpacity: z.number().min(0).max(1).optional(),
+});
+
 export const commitPayloadSchema = z.object({
+  floors: z
+    .object({
+      creates: z.array(commitFloorCreateSchema).optional(),
+      updates: z.array(z.object({ id: z.string().uuid(), patch: floorPatchSchema })).optional(),
+      deletes: z.array(z.string().uuid()).optional(),
+    })
+    .optional(),
   assets: z
     .object({
       creates: z.array(assetCreateSchema).optional(),

@@ -12,6 +12,8 @@ import type { CommitPayload } from './schemas.js';
 type Tx = Prisma.TransactionClient;
 type AssetCreate = NonNullable<NonNullable<CommitPayload['assets']>['creates']>[number];
 type AssetUpdate = NonNullable<NonNullable<CommitPayload['assets']>['updates']>[number];
+type FloorCreate = NonNullable<NonNullable<CommitPayload['floors']>['creates']>[number];
+type FloorUpdate = NonNullable<NonNullable<CommitPayload['floors']>['updates']>[number];
 
 
 export async function commitSubstation(substationId: string, payload: CommitPayload): Promise<{ committedAt: string }> {
@@ -24,12 +26,19 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
 
     const assets = payload.assets ?? {};
     const cables = payload.cables ?? {};
+    const floors = payload.floors ?? {};
     touchedGrids = new Set<string>();
     await applyCableDeletes(tx, substationId, cables.deletes ?? []);
     await assertNoAttachedCables(tx, assets.deletes ?? []);
     await applyDeletes(tx, substationId, assets.deletes ?? []);
+    /* 층은 **자산보다 먼저 생긴다** — 새 층에 놓은 자산이 그 층을 가리킨다. */
+    await applyFloorCreates(tx, substationId, floors.creates ?? []);
+    for (const u of floors.updates ?? []) await applyFloorUpdate(tx, substationId, u);
     for (const u of assets.updates ?? []) await applyUpdate(tx, substationId, u);
     for (const c of orderCreates(assets.creates ?? [])) await applyCreate(tx, substationId, c);
+    /* 층은 **자산이 다 치워진 뒤** 지운다 — 같은 커밋에서 그 층의 설비를 함께 걷어내는 일이
+       흔하다(층을 지우려면 먼저 비워야 하니까). 순서가 반대면 그 커밋은 늘 막힌다. */
+    await applyFloorDeletes(tx, substationId, floors.deletes ?? []);
     // 자리 검사는 **다 놓은 뒤** 한 번 — 중간 상태를 검사하면 재배열이 늘 걸린다.
     await assertGridsValid(tx, touchedGrids);
     for (const u of cables.updates ?? []) await applyCableUpdate(tx, substationId, u);
@@ -45,14 +54,17 @@ async function checkVersions(tx: Tx, payload: CommitPayload): Promise<void> {
   const base = payload.baseVersions ?? {};
   const assetIds = [...new Set([...(payload.assets?.updates ?? []).map((u) => u.id), ...(payload.assets?.deletes ?? [])])];
   const cableIds = [...new Set([...(payload.cables?.updates ?? []).map((u) => u.id), ...(payload.cables?.deletes ?? [])])];
-  if (assetIds.length === 0 && cableIds.length === 0) return;
-  const [assetRows, cableRows] = await Promise.all([
+  /* 층도 워킹카피의 것이므로 같은 저울을 탄다 — 남이 이름을 바꾼 층을 덮어쓰지 않는다. */
+  const floorIds = [...new Set([...(payload.floors?.updates ?? []).map((u) => u.id), ...(payload.floors?.deletes ?? [])])];
+  if (assetIds.length === 0 && cableIds.length === 0 && floorIds.length === 0) return;
+  const [assetRows, cableRows, floorRows] = await Promise.all([
     assetIds.length ? tx.asset.findMany({ where: { id: { in: assetIds } }, select: { id: true, updatedAt: true } }) : [],
     cableIds.length ? tx.cable.findMany({ where: { id: { in: cableIds } }, select: { id: true, updatedAt: true } }) : [],
+    floorIds.length ? tx.floor.findMany({ where: { id: { in: floorIds } }, select: { id: true, updatedAt: true } }) : [],
   ]);
-  const server = new Map([...assetRows, ...cableRows].map((r) => [r.id, r.updatedAt.toISOString()]));
+  const server = new Map([...assetRows, ...cableRows, ...floorRows].map((r) => [r.id, r.updatedAt.toISOString()]));
   type Conflict = { id: string; reason: 'deleted' } | { id: string; reason: 'modified'; serverUpdatedAt: string };
-  const conflicts: Conflict[] = [...assetIds, ...cableIds].flatMap((id): Conflict[] => {
+  const conflicts: Conflict[] = [...assetIds, ...cableIds, ...floorIds].flatMap((id): Conflict[] => {
     const now = server.get(id);
     if (!now) return [{ id, reason: 'deleted' }];
     if (base[id] !== now) return [{ id, reason: 'modified', serverUpdatedAt: now }];
@@ -61,6 +73,68 @@ async function checkVersions(tx: Tx, payload: CommitPayload): Promise<void> {
   if (conflicts.length > 0) {
     throw new HttpError(409, 'CONFLICT', '다른 변경과 충돌했습니다. 새로고침 후 다시 시도하세요.', conflicts);
   }
+}
+
+/**
+ * 층 — 만들기·고치기·지우기. **워킹카피의 것**이라 여기로 온다.
+ *
+ * 이름은 변전소 안에서 하나뿐이다(DB `@@unique`). 그 판정을 여기서 다시 세지 않고 DB 가
+ * 튕기는 것을 받아 옮긴다 — 두 곳에서 세면 경합에서 갈린다.
+ */
+async function applyFloorCreates(tx: Tx, substationId: string, creates: FloorCreate[]): Promise<void> {
+  for (const f of creates) {
+    try {
+      await tx.floor.create({ data: { id: f.id, substationId, name: f.name, sortOrder: f.sortOrder } });
+    } catch (e) {
+      throw asFloorNameConflict(e, f.name);
+    }
+  }
+}
+
+async function applyFloorUpdate(tx: Tx, substationId: string, u: FloorUpdate): Promise<void> {
+  const existing = await tx.floor.findUnique({ where: { id: u.id } });
+  if (!existing || existing.substationId !== substationId) {
+    throw new HttpError(422, 'INVALID_FLOOR', '수정 대상 층이 유효하지 않습니다');
+  }
+  const p = u.patch;
+  try {
+    await tx.floor.update({
+      where: { id: u.id },
+      data: {
+        ...(p.name !== undefined ? { name: p.name } : {}),
+        ...(p.sortOrder !== undefined ? { sortOrder: p.sortOrder } : {}),
+        /* 배경은 파서가 만든 그대로 담는다 — 서버가 그 속을 읽는 곳은 없다(그리는 것은 화면이다). */
+        ...(p.backgroundDrawing !== undefined
+          ? { backgroundDrawing: (p.backgroundDrawing ?? Prisma.DbNull) as Prisma.InputJsonValue }
+          : {}),
+        ...(p.backgroundOpacity !== undefined ? { backgroundOpacity: p.backgroundOpacity } : {}),
+      },
+    });
+  } catch (e) {
+    throw asFloorNameConflict(e, p.name ?? '');
+  }
+}
+
+async function applyFloorDeletes(tx: Tx, substationId: string, ids: string[]): Promise<void> {
+  for (const id of ids) {
+    const floor = await tx.floor.findUnique({ where: { id } });
+    if (!floor || floor.substationId !== substationId) {
+      throw new HttpError(422, 'INVALID_FLOOR', '삭제 대상 층이 유효하지 않습니다');
+    }
+    /* 도면에 안 놓인 자산도 층에 딸려 있다 — 캔버스가 비어 보여도 여기서 걸린다. */
+    const left = await tx.asset.count({ where: { floorId: id } });
+    if (left > 0) {
+      throw new HttpError(409, 'HAS_CHILDREN', `자산 ${left}개가 딸려 있어 삭제할 수 없습니다`);
+    }
+    await tx.floor.delete({ where: { id } });
+  }
+}
+
+function asFloorNameConflict(e: unknown, name: string): unknown {
+  if (isPrismaError(e, 'P2002')) {
+    return new HttpError(409, 'DUPLICATE_NAME', `이미 있는 층 이름입니다: ${name}`);
+  }
+  return e;
 }
 
 /** 같은 커밋 내 부모(create)가 자식보다 먼저 삽입되도록 위상정렬. */

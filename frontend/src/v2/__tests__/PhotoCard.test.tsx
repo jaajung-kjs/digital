@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
-import { emptyOverlay } from '../store/overlay';
+import { emptyOverlays } from '../store/workingCopyStore';
 import { PhotoCard } from '../components/detail/PhotoCard';
 import type { V2Asset, V2AssetPhoto } from '../types';
 
@@ -37,7 +37,7 @@ function setStore(photos: V2AssetPhoto[]) {
   v2WorkingCopyStore.setState({
     substationId: 'sub-1',
     saved: { substation: null, floors: [], assets: [asset('a-1', '자산1')], maintenanceLogs: [], inspectionLogs: [], cables: [], photos },
-    overlays: { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() },
+    overlays: emptyOverlays(),
     baseVersions: {},
   });
 }

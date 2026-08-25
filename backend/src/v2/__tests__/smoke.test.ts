@@ -22,7 +22,10 @@ describe('v2 전체 흐름 스모크', () => {
     const hqId = (await request(app).post('/api/v2/org/headquarters').set(admin).send({ name: `${uniq}-hq` }).expect(201)).body.id;
     const brId = (await request(app).post('/api/v2/org/branches').set(admin).send({ headquartersId: hqId, name: `${uniq}-br` }).expect(201)).body.id;
     const subId = (await request(app).post('/api/v2/org/substations').set(admin).send({ branchId: brId, name: `${uniq}-ss` }).expect(201)).body.id;
-    const floorId = (await request(app).post('/api/v2/org/floors').set(admin).send({ substationId: subId, name: `${uniq}-1층` }).expect(201)).body.id;
+    /* 층은 변전소 **안의 내용**이라 커밋으로 만든다 — 자산과 같은 채널, 같은 저장. */
+    const floorId = randomUUID();
+    await request(app).put(`/api/v2/substations/${subId}/commit`).set(admin)
+      .send({ floors: { creates: [{ id: floorId, name: `${uniq}-1층`, sortOrder: 1 }] } }).expect(200);
 
     const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
     const typeId = (key: string) => catalog.types.find((t: { key: string }) => t.key === key).id;
@@ -61,6 +64,11 @@ describe('v2 전체 흐름 스모크', () => {
       .set(admin)
       .send({ assets: { deletes: [rackId, moduleId] }, baseVersions: bv })
       .expect(200);
-    expect((await request(app).get(`/api/v2/substations/${subId}/workingcopy`).set(admin).expect(200)).body.assets).toHaveLength(0);
+    const after = (await request(app).get(`/api/v2/substations/${subId}/workingcopy`).set(admin).expect(200)).body;
+    expect(after.assets).toHaveLength(0);
+    /* 층도 같은 커밋으로 걷힌다 — 자산을 먼저 치우고 층을 지우는 순서는 서버가 쥔다. */
+    await request(app).put(`/api/v2/substations/${subId}/commit`).set(admin)
+      .send({ floors: { deletes: [floorId] }, baseVersions: { [floorId]: after.floors[0].updatedAt } }).expect(200);
+    expect((await request(app).get(`/api/v2/substations/${subId}/workingcopy`).set(admin).expect(200)).body.floors).toHaveLength(0);
   });
 });

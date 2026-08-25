@@ -8,7 +8,8 @@
  */
 import { useRef, useState } from 'react';
 import { Button } from '../../../components/ui';
-import { deleteBackground, uploadBackground } from '../../api';
+import type { BackgroundDrawing } from '@twin/core';
+import { parseBackground } from '../../api';
 import { apiErrorMessage } from '../../apiError';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 
@@ -24,17 +25,15 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** 업로드/제거 공통 — 두 경로의 차이는 호출할 API 와 실패 문구뿐이다. */
-  async function run(action: () => Promise<Awaited<ReturnType<typeof uploadBackground>>>, fallback: string) {
-    setError(null);
-    setBusy(true);
-    try {
-      useV2WorkingCopy.getState().applyFloor(await action());
-    } catch (err) {
-      setError(apiErrorMessage(err, fallback));
-    } finally {
-      setBusy(false);
-    }
+  /**
+   * 읽은 것을 **층에 얹는다** — 서버로 가는 것은 저장할 때다.
+   *
+   * 예전에는 서버가 그 자리에서 층 행을 고쳤다(즉시 쓰기). 그래서 배경만 다른 규칙으로
+   * 움직였다: 되돌리기가 듣지 않고, 잘못 물린 도면도 이미 들어가 있었다.
+   */
+  function stage(drawing: BackgroundDrawing | null) {
+    if (floorId == null) return;
+    useV2WorkingCopy.getState().stageFloorUpdate(floorId, { backgroundDrawing: drawing });
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -43,7 +42,12 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
     const file = input.files?.[0] ?? null;
     input.value = ''; // 같은 파일 재선택 허용
     if (!file || floorId == null) return;
-    void run(() => uploadBackground(floorId, file), '배경 도면 임포트에 실패했습니다');
+    setError(null);
+    setBusy(true);
+    void parseBackground(file)
+      .then(stage)
+      .catch((err) => setError(apiErrorMessage(err, '배경 도면을 읽지 못했습니다')))
+      .finally(() => setBusy(false));
   }
 
   return (
@@ -72,10 +76,7 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
           size="sm"
           disabled={busy}
           data-testid="background-remove-button"
-          onClick={() => {
-            if (floorId == null) return;
-            void run(() => deleteBackground(floorId), '배경 도면 제거에 실패했습니다');
-          }}
+          onClick={() => stage(null)}
         >
           배경 제거
         </Button>
