@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { portHasRoom, validateConnection } from '@twin/core';
+import { validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
 import { backingSize } from '../../canvas/backingStore';
 import { renderGrid } from '../../canvas/gridRenderer';
@@ -28,13 +28,15 @@ import type { DragSession } from '../../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../../floorPlacement';
 import { placedAssetsOf } from '../../floorPlanSelectors';
 import { cableCountByPortId, cableSegments, distanceToPolyline } from '../../cableSelectors';
-import { descendantCount, withDescendants } from '../../assetTree';
+import { cableToolReducer, connectErrorLabel, connectableAssetIds, initialCableToolState } from './cableTool';
+import { useFloorAdmin } from './useFloorAdmin';
+import { descendantCount } from '../../assetTree';
 import { useEffectiveAssets, useEffectiveCables, useEffectiveFloors } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, EmptyState, IconButton, PromptModal, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
+import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorIdOf } from '../../assetTree';
@@ -72,99 +74,6 @@ interface DrawModalState {
   floorId: string;
   rect: { x: number; y: number; width: number; height: number };
   typeId: string;
-}
-
-/** 케이블 포트 피커 상태 */
-interface PickerState {
-  asset: V2Asset;
-  /** viewport client 좌표 (fixed 팝오버용) */
-  screenPos: { x: number; y: number };
-  /** 첫 끝점이 이미 확정된 경우 */
-  firstEndpoint: { portId: string; assetId: string } | null;
-  /** 사전 연결 검증 에러 (한글) — 있으면 스테이지 대신 안내 표시 */
-  validationError?: string | null;
-}
-
-// ── 케이블 도구 FSM ───────────────────────────────────────────────────────────
-// 상태: idle(armed=false) → armed(자산 클릭 대기) → picker 열림(포트 대기)
-//       → 첫 끝점 확정(armed 유지, 두 번째 자산 대기) → 스테이지 완료(armed 유지, 연속 연결)
-//       원격(대국) 경로는 picker 대신 remoteModalOpen 을 통해 같은 firstEndpoint 를 소비한다.
-interface CableToolState {
-  armed: boolean;
-  categoryId: string;
-  picker: PickerState | null;
-  firstEndpoint: { portId: string; assetId: string } | null;
-  selectedCableId: string | null;
-  remoteModalOpen: boolean;
-  remoteError: string | null;
-}
-
-const initialCableToolState: CableToolState = {
-  armed: false,
-  categoryId: '',
-  picker: null,
-  firstEndpoint: null,
-  selectedCableId: null,
-  remoteModalOpen: false,
-  remoteError: null,
-};
-
-type CableToolAction =
-  | { type: 'ARM' }
-  | { type: 'DISARM' }
-  | { type: 'SET_CATEGORY'; categoryId: string }
-  | { type: 'OPEN_PICKER'; picker: PickerState }
-  | { type: 'CLOSE_PICKER' }
-  | { type: 'SET_PICKER_ERROR'; error: string }
-  | { type: 'CONFIRM_FIRST_ENDPOINT'; endpoint: { portId: string; assetId: string } }
-  | { type: 'ABORT_TO_ARMED' }
-  | { type: 'CABLE_STAGED' }
-  | { type: 'OPEN_REMOTE_MODAL' }
-  | { type: 'CLOSE_REMOTE_MODAL' }
-  | { type: 'SET_REMOTE_ERROR'; error: string | null }
-  | { type: 'REMOTE_CABLE_STAGED' }
-  | { type: 'SELECT_CABLE'; id: string }
-  | { type: 'DESELECT_CABLE' };
-
-function cableToolReducer(state: CableToolState, action: CableToolAction): CableToolState {
-  switch (action.type) {
-    case 'ARM':
-      return { ...state, armed: true, firstEndpoint: null, picker: null };
-    case 'DISARM':
-      return !state.armed && state.picker === null && state.firstEndpoint === null
-        ? state
-        : { ...state, armed: false, firstEndpoint: null, picker: null };
-    case 'SET_CATEGORY':
-      return state.categoryId === action.categoryId ? state : { ...state, categoryId: action.categoryId };
-    case 'OPEN_PICKER':
-      return { ...state, picker: action.picker };
-    case 'CLOSE_PICKER':
-      return state.picker === null ? state : { ...state, picker: null };
-    case 'SET_PICKER_ERROR':
-      return state.picker ? { ...state, picker: { ...state.picker, validationError: action.error } } : state;
-    case 'CONFIRM_FIRST_ENDPOINT':
-      return { ...state, firstEndpoint: action.endpoint, picker: null };
-    case 'ABORT_TO_ARMED':
-      // 첫 끝점 포트를 effective 자산에서 못 찾은 경우 — 무검증 스테이지 금지, armed 는 유지
-      return { ...state, firstEndpoint: null, picker: null };
-    case 'CABLE_STAGED':
-      // 도구 유지(연속 연결), 첫 끝점만 초기화
-      return { ...state, firstEndpoint: null, picker: null };
-    case 'OPEN_REMOTE_MODAL':
-      return { ...state, remoteModalOpen: true, remoteError: null };
-    case 'CLOSE_REMOTE_MODAL':
-      return { ...state, remoteModalOpen: false, remoteError: null };
-    case 'SET_REMOTE_ERROR':
-      return { ...state, remoteError: action.error };
-    case 'REMOTE_CABLE_STAGED':
-      return { ...state, firstEndpoint: null, remoteModalOpen: false, picker: null, remoteError: null };
-    case 'SELECT_CABLE':
-      return { ...state, selectedCableId: action.id };
-    case 'DESELECT_CABLE':
-      return state.selectedCableId === null ? state : { ...state, selectedCableId: null };
-    default:
-      return state;
-  }
 }
 
 // ── 배치(armed/draw) FSM ─────────────────────────────────────────────────────
@@ -449,45 +358,19 @@ export function FloorPlanView({
     return undefined;
   }, [cableGroups, cableState.categoryId]);
 
-  /**
-   * 케이블 도구가 켜져 있을 때 **이을 수 있는 설비**의 id.
-   *
-   * 매체가 맞고 자리가 남은 포트를 하나라도 가진 것만(안에 든 장비의 포트까지 센다).
-   * 예전에는 아무 설비나 눌렸고, 접지함체를 눌러 놓고 나서야 빈 판을 보고 되돌아왔다.
-   * 「누를 수 있는 것」을 색으로 먼저 말하면 그 헛걸음이 없어진다.
-   */
-  const connectableAssetIds = useMemo(() => {
+  /** 케이블 도구가 켜져 있을 때 **이을 수 있는 설비** — 판정은 도구가 안다. */
+  const connectableIds = useMemo(() => {
     if (!cableState.armed) return null;
-    const counts = cableCountByPortId(effectiveCables);
-    const usable = (a: V2Asset) =>
-      a.ports.some(
-        (p) =>
-          (selectedGroupKey == null || p.medium === selectedGroupKey) &&
-          p.id !== cableState.firstEndpoint?.portId &&
-          portHasRoom(p.medium, counts.get(p.id) ?? 0),
-      );
-    const ids = new Set<string>();
-    for (const placed of placedAssets) {
-      /**
-       * **저장 전 자산도 이을 수 있다.**
-       *
-       * 여기 「저장된 것만」이라는 조건이 있었다. 서버가 커밋 때 포트를 만들던 시절의 사실을
-       * 그대로 옮겨 적은 것인데, 포트는 이제 **놓는 순간 화면이 만들고**(`portsForNewAsset`)
-       * 그 id 를 저장할 때 함께 보내 서버가 그대로 쓴다 — 저장 전에 이어 둔 케이블이 저장
-       * 뒤에도 같은 포트를 가리키라고 그렇게 해 둔 것이다(`applyCreate` 의 `portIds`).
-       *
-       * 그래서 화면이 스스로 어긋나 있었다: 포트 탭은 그 자산의 빈 포트를 보여 주며 「케이블
-       * 연결로 이을 수 있습니다」라고 적고 거기서 시작도 되는데, 도면에서는 같은 자산이 흐리게
-       * 그려져 눌리지 않았다. 방금 놓은 설비에 케이블을 물리려면 **한 번 저장하고 와야** 했다.
-       */
-      if (withDescendants(effectiveAssets, placed.id).some(usable)) {
-        ids.add(placed.id);
-      }
-    }
-    return ids;
+    return connectableAssetIds({
+      assets: effectiveAssets,
+      placed: placedAssets,
+      cables: effectiveCables,
+      mediumKey: selectedGroupKey,
+      firstPortId: cableState.firstEndpoint?.portId,
+    });
   }, [cableState.armed, cableState.firstEndpoint, effectiveCables, effectiveAssets, placedAssets, selectedGroupKey]);
 
-  connectableIdsRef.current = connectableAssetIds;
+  connectableIdsRef.current = connectableIds;
 
   // ── disarm 헬퍼 ──────────────────────────────────────────────────────────
   const disarm = useCallback(() => {
@@ -1100,17 +983,6 @@ export function FloorPlanView({
     onSelectAsset(null);
   };
 
-  // ── 연결 검증 에러 → 한글 메시지 ─────────────────────────────────────────
-  const connectErrorLabel = (code: string): string => {
-    if (code === 'same-port') return '같은 포트';
-    if (code === 'port-occupied') return '이미 연결됨';
-    if (code === 'medium-mismatch') return '매체 불일치';
-    if (code === 'direction-mismatch') return '같은 방향끼리 연결할 수 없음';
-    // 24심 성단을 1심 어댑터에 물릴 수는 없다 — 왜 안 되는지까지 적는다.
-    if (code === 'core-count-mismatch') return '심선 수가 다름 (다심은 다심끼리)';
-    return code;
-  };
-
   // ── 포트 선택 핸들러 ──────────────────────────────────────────────────────
   const handlePortSelect = (port: V2Port) => {
     const state = cableState.picker;
@@ -1377,6 +1249,14 @@ export function FloorPlanView({
   handlePortSelectRef.current = handlePortSelect;
 
   const floorTabs = useTabs(activeFloorId ?? '');
+  /* 층을 만들고·고치고·지우는 일은 탭 줄의 것이다 — 캔버스와 나눠 갖는 것이 없다. */
+  const { tabItems: floorTabItems, startAdd: startAddFloor, floorPrompt } = useFloorAdmin({
+    substationId,
+    floors,
+    assets: effectiveAssets,
+    confirm,
+    onCreated: setActiveFloorId,
+  });
 
   /**
    * **층은 여기서도 만든다.**
@@ -1386,78 +1266,6 @@ export function FloorPlanView({
    * 그 트리 어디를 어떻게 눌러야 하는지는 스스로 찾아내야 했다 — 빈 화면은 다음에 누를 것을
    * 말해야 한다(`EmptyState`). 층을 더 붙이는 길도 같은 자리(탭 줄 끝)에 둔다.
    */
-  const [addingFloor, setAddingFloor] = useState(false);
-  /* 같은 이름을 막았다는 말 — 층 이름은 변전소 안에서 하나뿐이다(서버도 같은 규칙). */
-  const [floorError, setFloorError] = useState<string | null>(null);
-
-  /** 만들고 **닫는다** — 이름이 겹치면 그 자리에서 말한다. */
-  function addFloor(name: string) {
-    /* 이름은 변전소 안에서 하나뿐이다 — 저장 때 서버도 같은 규칙으로 막지만, 그때 알면 늦다. */
-    if (floors.some((f) => f.name === name)) {
-      setFloorError(`이미 있는 층 이름입니다: ${name}`);
-      return;
-    }
-    setAddingFloor(false);
-    setFloorError(null);
-    const id = crypto.randomUUID();
-    const sortOrder = Math.max(0, ...floors.map((f) => f.sortOrder)) + 1;
-    useV2WorkingCopy.getState().stageFloorCreate({ id, name, sortOrder, substationId, updatedAt: '' });
-    setActiveFloorId(id);
-  }
-
-  /**
-   * 이 층에 놓인 자산 수 — **지금 화면의 것**만 센다.
-   *
-   * 예전에는 저장된 것과 화면의 것을 따로 셌다. 층 삭제만 서버가 즉시 하는 일이라, 그 층의
-   * 설비를 지워도 저장 전에는 서버가 막았기 때문이다 — 「저장한 뒤 지울 수 있습니다」.
-   * 층도 워킹카피의 것이 되면서 그 갈림이 사라졌다: 같은 저장에 자산 삭제와 층 삭제가 함께
-   * 나가고, 서버는 자산을 먼저 치운 뒤 층을 지운다.
-   */
-  const floorLoad = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const a of effectiveAssets) if (a.floorId) m.set(a.floorId, (m.get(a.floorId) ?? 0) + 1);
-    return (floorId: string) => m.get(floorId) ?? 0;
-  }, [effectiveAssets]);
-
-  /** 이 층을 못 지우는 이유 — 없으면 `null`. */
-  function floorBlockedReason(floorId: string): string | null {
-    const onScreen = floorLoad(floorId);
-    return onScreen > 0 ? `이 층에 놓인 설비가 ${onScreen}개 있어 지울 수 없습니다` : null;
-  }
-
-  function renameFloor(id: string, name: string) {
-    if (floors.some((f) => f.id !== id && f.name === name)) {
-      setFloorError(`이미 있는 층 이름입니다: ${name}`);
-      return;
-    }
-    useV2WorkingCopy.getState().stageFloorUpdate(id, { name });
-  }
-
-  async function deleteFloor(id: string, name: string) {
-    const ok = await confirm({
-      title: '층 삭제',
-      target: name,
-      message: '이 층의 도면과 배경이 함께 사라집니다.',
-      confirmLabel: '삭제',
-      danger: true,
-    });
-    if (!ok) return;
-    useV2WorkingCopy.getState().stageFloorDelete(id);
-  }
-
-  /* 겹친 이름은 **상자를 닫지 않고** 그 자리에서 말한다 — 다시 열어 다시 적게 하지 않는다. */
-  const floorPrompt = (
-    <PromptModal
-      open={addingFloor}
-      title="층 추가"
-      label="층 이름"
-      placeholder="예: 1층"
-      error={floorError}
-      onConfirm={addFloor}
-      onClose={() => { setAddingFloor(false); setFloorError(null); }}
-    />
-  );
-
   /* 층이 하나도 없으면 판이 없다 — 빈 화면이 **다음에 누를 것**을 말한다. */
   if (floors.length === 0) {
     return (
@@ -1465,7 +1273,7 @@ export function FloorPlanView({
         <EmptyState
           title="이 변전소에는 층이 없습니다"
           description="층을 만들면 그 위에 설비를 놓을 수 있습니다."
-          action={<Button size="sm" onClick={() => setAddingFloor(true)}>층 추가</Button>}
+          action={<Button size="sm" onClick={startAddFloor}>층 추가</Button>}
         />
         {floorPrompt}
       </div>
@@ -1477,33 +1285,14 @@ export function FloorPlanView({
       {floorPrompt}
       {/* 층 탭바 */}
       <div className="flex shrink-0 items-center border-b border-line z-sticky">
-        {/* 층은 **탭이 곧 관리 지점**이다 — 두 번 눌러 이름을 고치고, 열린 탭의 `⋯` 에서
-            지운다(시트 탭 어법: Excel·AutoCAD 배치·Figma 페이지). */}
         <Tabs
           {...floorTabs.list}
-          items={floors.map((f) => {
-            const blocked = floorBlockedReason(f.id);
-            return {
-              key: f.id,
-              label: f.name,
-              onRename: (name: string) => renameFloor(f.id, name),
-              menu: [
-                {
-                  label: '층 삭제',
-                  danger: true,
-                  /* 못 누르는 이유를 항목이 직접 말한다 — 트리의 분류 삭제와 같은 어법. */
-                  disabled: blocked !== null,
-                  disabledReason: blocked ?? undefined,
-                  onSelect: () => void deleteFloor(f.id, f.name),
-                },
-              ],
-            };
-          })}
+          items={floorTabItems}
           onChange={setActiveFloorId}
           className="-mb-px"
         />
         {/* 층을 더 붙이는 길 — 탭 줄 끝(트리의 「본부 추가」와 같은 어법). */}
-        <IconButton aria-label="층 추가" onClick={() => setAddingFloor(true)}>
+        <IconButton aria-label="층 추가" onClick={startAddFloor}>
           <Plus size={14} />
         </IconButton>
 
