@@ -3,7 +3,13 @@ import { httpClient as api } from './httpClient';
 import type { BackgroundDrawing } from '@twin/core';
 import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
-export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
+/**
+ * 검색으로 찾은 자산 — **이 도면 밖의 끝점**을 고를 때 쓴다.
+ *
+ * 어디 있는 것인지(`substationName · floorName`)가 함께 와야 한다: 이름이 같은 1층 슬롯과
+ * 2층 슬롯을 이름만으로는 가릴 수 없다. 도면에 놓인 조상이 없으면 층은 `null` 이다.
+ */
+export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; floorName: string | null; typeName: string }
 
 export async function searchAssets(q: string): Promise<AssetSearchResult[]> {
   return (await api.get('/v2/search/assets', { params: { q } })).data;

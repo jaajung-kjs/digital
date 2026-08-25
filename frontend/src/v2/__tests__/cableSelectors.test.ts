@@ -52,8 +52,11 @@ describe('cableSegments', () => {
       const segs = cableSegments([cable('c2', 'p1', 'p3')] as never, [a1, a2, a3] as never, 'f1');
       expect(segs).toHaveLength(1);
       expect(segs[0]!.bAssetId).toBeNull();
-      /* 같은 국이면 그 장비 이름을 적는다(다른 국이면 국 이름 — `substationName`). */
+      /* 같은 국이면 **어느 층으로 가는지**를 적는다 — 장비 이름은 그 층에 가면 보인다.
+         (다른 국이면 국 이름 — `substationName`. 층을 모르면 장비 이름으로 물러선다.) */
       expect(segs[0]!.outgoing?.label).toBe('a3');
+      const withFloors = cableSegments([cable('c2', 'p1', 'p3')] as never, [a1, a2, a3] as never, 'f1', [{ id: 'f2', name: '2층' }]);
+      expect(withFloors[0]!.outgoing?.label).toBe('2층');
       /* 인출선은 도면 **바깥**을 향한다: a1 은 한가운데(x=60)의 왼쪽이므로 왼쪽으로 뽑힌다. */
       const pts = segs[0]!.points;
       expect(pts[0]).toEqual({ x: 10, y: 10 });

@@ -24,6 +24,11 @@ export interface CablePickRequest {
   error: string | null;
   onSelect: (port: V2Port) => void;
   onCancel: () => void;
-  /** 대국(다른 변전소)에서 찾기 — 첫 끝점이 정해진 뒤에만 있다. */
+  /**
+   * **이 도면 밖에서 찾기** — 첫 끝점이 정해진 뒤에만 있다.
+   *
+   * 다른 변전소(OPGW)만이 아니라 **같은 국의 다른 층**도 여기로 온다: 층을 옮기면 고르던
+   * 끝점이 따라가 버려 층 넘는 케이블은 도면만으로는 만들 수가 없다.
+   */
   onSearchRemote?: () => void;
 }

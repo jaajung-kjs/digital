@@ -1,7 +1,11 @@
 /**
- * RemoteEndpointModal — 다른 변전소 자산 검색 + 포트 선택 모달.
+ * RemoteEndpointModal — **이 도면 밖의 끝점**을 찾아 고르는 상자.
  *
- * 1. 검색 Input (300ms 디바운스) → 결과 리스트 (이름·변전소명·타입)
+ * 케이블은 도면을 눌러 잇지만 반대쪽이 이 도면에 없으면 누를 것이 없다. 다른 변전소로 나가는
+ * OPGW 가 그렇고, **같은 국의 다른 층**도 그렇다 — 층을 옮기면 고르던 끝점이 따라가 버려서
+ * 층 넘는 케이블은 아예 만들 수가 없었다. 찾는 문은 하나로 두고 「변전소 · 층」을 함께 적는다.
+ *
+ * 1. 검색 Input (300ms 디바운스) → 결과 리스트 (이름 · 변전소 · 층 · 품목)
  * 2. 자산 선택 → 포트 리스트 (가득 찬 포트 제외 + medium 필터 + excludePortId 제외)
  * 3. 포트 선택 → onSelectPort 콜백
  *
@@ -13,6 +17,9 @@ import { Button, Input, Modal } from '../../../components/ui';
 import { searchAssets, fetchAssetPorts } from '../../api';
 import type { AssetSearchResult } from '../../api';
 import type { V2Port } from '../../types';
+
+/** 어디 있는 것인가 — 「변전소 · 층」. 도면에 안 놓인 것은 국 이름만 적는다. */
+const placeOf = (a: AssetSearchResult) => (a.floorName ? `${a.substationName} · ${a.floorName}` : a.substationName);
 
 interface Props {
   open: boolean;
@@ -125,7 +132,7 @@ export function RemoteEndpointModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="다른 변전소에서 포트 선택"
+      title="다른 층·변전소에서 포트 선택"
       size="md"
     >
       {selectedAsset ? (
@@ -137,7 +144,7 @@ export function RemoteEndpointModal({
             </Button>
             <div>
               <p className="text-sm font-semibold text-content">{selectedAsset.name}</p>
-              <p className="text-xs text-content-muted">{selectedAsset.substationName} · {selectedAsset.typeName}</p>
+              <p className="text-xs text-content-muted">{placeOf(selectedAsset)} · {selectedAsset.typeName}</p>
             </div>
           </div>
 
@@ -202,7 +209,7 @@ export function RemoteEndpointModal({
                   >
                     <div className="text-left">
                       <p className="text-sm text-content">{asset.name}</p>
-                      <p className="text-xs text-content-muted">{asset.substationName} · {asset.typeName}</p>
+                      <p className="text-xs text-content-muted">{placeOf(asset)} · {asset.typeName}</p>
                     </div>
                   </Button>
                 </li>

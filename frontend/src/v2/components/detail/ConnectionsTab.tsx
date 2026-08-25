@@ -430,7 +430,7 @@ export function ConnectionsTab({
           <div className="flex justify-center gap-2">
             {picking.onSearchRemote && (
               <Button variant="secondary" size="sm" onClick={picking.onSearchRemote}>
-                다른 변전소에서 찾기
+                다른 층·변전소에서 찾기
               </Button>
             )}
             <Button variant="secondary" size="sm" onClick={picking.onCancel}>
@@ -486,7 +486,7 @@ export function ConnectionsTab({
           />
           {picking.onSearchRemote && (
             <Button variant="secondary" size="sm" onClick={picking.onSearchRemote}>
-              다른 변전소에서 찾기
+              다른 층·변전소에서 찾기
             </Button>
           )}
         </DetailCard>

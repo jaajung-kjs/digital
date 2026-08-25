@@ -119,6 +119,8 @@ interface LatestRenderInputs {
   traceResult: TraceResult | null;
   effectiveCables: V2Cable[];
   effectiveAssets: V2Asset[];
+  /** 이 변전소의 층들 — 다른 층으로 나가는 회선의 꼬리표가 「2층」이 되게 한다. */
+  floors: V2Floor[];
   /** 케이블 도구 FSM에서 미러 — scheduleRender(rAF)의 첫 끝점 강조 렌더용 */
   firstEndpoint: { portId: string; assetId: string } | null;
   /** 케이블 도구 FSM에서 미러 — scheduleRender(rAF)의 선택 케이블 강조 렌더용 */
@@ -210,13 +212,13 @@ export function FloorPlanView({
   // 그릴 위험이 있기 때문.
   const latest = useRef<LatestRenderInputs>({
     viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
-    effectiveCables, effectiveAssets,
+    effectiveCables, effectiveAssets, floors,
     firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
     placingRect: null,
   });
   latest.current = {
     viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
-    effectiveCables, effectiveAssets,
+    effectiveCables, effectiveAssets, floors,
     firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
     /* 지금 보는 층의 것만 그린다 — 층을 옮겨 놓고도 남의 층 네모가 떠 있으면 안 된다. */
     placingRect: drawModal && drawModal.floorId === activeFloor?.id ? drawModal.rect : null,
@@ -461,7 +463,7 @@ export function FloorPlanView({
               c.id === preview.id ? { ...c, pathPoints: preview.points } : c,
             )
           : latest.current.effectiveCables;
-        const segs = cableSegments(cablesForRender, latest.current.effectiveAssets, floorId);
+        const segs = cableSegments(cablesForRender, latest.current.effectiveAssets, floorId, latest.current.floors);
         if (traceRes) {
           // 추적 결과 있음: 추적 케이블은 선택 스타일, 나머지는 alpha 0.3
           const tracedSegs = segs.filter((s) => traceRes.cableIds.has(s.id));
@@ -1018,7 +1020,7 @@ export function FloorPlanView({
     // ── 케이블 히트 테스트 (자산 미히트 시에만) ───────────────────────────
     const floorId = latest.current.activeFloor?.id ?? null;
     if (floorId) {
-      const segs = cableSegments(latest.current.effectiveCables, latest.current.effectiveAssets, floorId);
+      const segs = cableSegments(latest.current.effectiveCables, latest.current.effectiveAssets, floorId, latest.current.floors);
       const threshold = CABLE_HIT_THRESHOLD / scale;
       for (let i = segs.length - 1; i >= 0; i--) {
         const seg = segs[i]!;

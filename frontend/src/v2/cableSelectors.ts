@@ -3,6 +3,7 @@
  */
 
 import { portHasRoom } from '@twin/core';
+import { endpointRef } from './peerResolve';
 import type { V2Asset, V2Cable, V2Port } from './types';
 
 // ──────────────────────────────────────────────
@@ -98,6 +99,8 @@ export function cableSegments(
   cables: V2Cable[],
   assets: V2Asset[],
   floorId: string,
+  /** 이 변전소의 층들 — 같은 국 다른 층으로 나가는 회선의 꼬리표가 「2층」이 되게 한다. */
+  floors: readonly { id: string; name: string }[] = [],
 ): CableSegment[] {
   /* 이 워킹카피의 변전소 — 나가는 회선이 「다른 국」인지 「같은 국 다른 층」인지 가른다. */
   const thisSubstationId = assets[0]?.substationId ?? null;
@@ -170,13 +173,34 @@ export function cableSegments(
     return { x: tail.x + rx * OUTGOING_STUB, y: tail.y + ry * OUTGOING_STUB };
   };
 
-  /** 나가는 회선의 꼬리표 — 다른 변전소면 그 국 이름, 같은 국이면 그 장비 이름. */
+  /**
+   * 나가는 회선의 꼬리표 — 다른 변전소면 그 국 이름, 같은 국이면 그 장비 이름.
+   *
+   * 끝점 ref 를 꺼내는 일은 `peerResolve` 한 곳의 것이다(가드레일 §6-4) — 여기서 다시
+   * 「a 냐 b 냐」를 가르면 같은 규칙이 두 벌이 된다.
+   */
+  const floorNames = new Map(floors.map((f) => [f.id, f.name]));
   const peerLabel = (cable: V2Cable, farPortId: string): string => {
-    const ref = cable.aPortId === farPortId ? cable.aRef : cable.bRef;
+    const ref = endpointRef(cable, farPortId);
     const owner = portToOwner.get(farPortId);
     if (ref && ref.substationId !== thisSubstationId) return ref.substationName;
-    return owner?.name ?? ref?.assetName ?? '연결';
+    /* 같은 국이면 **어느 층으로 가는지**가 알고 싶은 것이다 — 장비 이름은 그 층에 가면 보인다. */
+    const peerFloor = owner ? floorIdOfPlaced(owner) : null;
+    const named = peerFloor ? floorNames.get(peerFloor) : undefined;
+    return named ?? owner?.name ?? ref?.assetName ?? '연결';
   };
+
+  /** 그 자산이 놓인 층 — 자기가 놓였으면 자기 것, 아니면 놓인 조상의 것. */
+  function floorIdOfPlaced(from: V2Asset): string | null {
+    const seen = new Set<string>();
+    let cur: V2Asset | undefined = from;
+    while (cur && !seen.has(cur.id)) {
+      if (cur.floorId) return cur.floorId;
+      seen.add(cur.id);
+      cur = cur.parentAssetId ? assetById.get(cur.parentAssetId) : undefined;
+    }
+    return null;
+  }
 
   /* 나가는 회선은 **두 번에 나눠** 만든다: 먼저 모아 놓고(행선지가 몇 갈래인지 알아야 한다),
      그 다음에 방향을 준다. 한 설비에서 여러 국으로 나가는 것이 보통이라(OFD 하나에 OPGW
