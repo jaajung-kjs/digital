@@ -482,8 +482,19 @@ export function FloorPlanView({
       );
     const ids = new Set<string>();
     for (const placed of placedAssets) {
-      // 저장 전 자산은 서버 포트가 없다 — 이을 수 없다는 사실을 도면에서 미리 말한다.
-      if (withDescendants(effectiveAssets, placed.id).some((a) => a.updatedAt !== '' && usable(a))) {
+      /**
+       * **저장 전 자산도 이을 수 있다.**
+       *
+       * 여기 「저장된 것만」이라는 조건이 있었다. 서버가 커밋 때 포트를 만들던 시절의 사실을
+       * 그대로 옮겨 적은 것인데, 포트는 이제 **놓는 순간 화면이 만들고**(`portsForNewAsset`)
+       * 그 id 를 저장할 때 함께 보내 서버가 그대로 쓴다 — 저장 전에 이어 둔 케이블이 저장
+       * 뒤에도 같은 포트를 가리키라고 그렇게 해 둔 것이다(`applyCreate` 의 `portIds`).
+       *
+       * 그래서 화면이 스스로 어긋나 있었다: 포트 탭은 그 자산의 빈 포트를 보여 주며 「케이블
+       * 연결로 이을 수 있습니다」라고 적고 거기서 시작도 되는데, 도면에서는 같은 자산이 흐리게
+       * 그려져 눌리지 않았다. 방금 놓은 설비에 케이블을 물리려면 **한 번 저장하고 와야** 했다.
+       */
+      if (withDescendants(effectiveAssets, placed.id).some(usable)) {
         ids.add(placed.id);
       }
     }

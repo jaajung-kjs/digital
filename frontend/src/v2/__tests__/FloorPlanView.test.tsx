@@ -111,7 +111,8 @@ function renderFloorPlan(onSelectAsset: (id: string | null) => void = vi.fn()) {
 function choosePort(pick: { current: CablePickRequest | null }, portId: string) {
   const req = pick.current;
   if (!req) throw new Error('포트를 고르라는 요청이 오지 않았다');
-  const target = v2WorkingCopyStore.getState().saved.assets
+  /* 저장 전 자산의 포트도 고를 수 있어야 하므로 **워킹카피 전체**에서 찾는다. */
+  const target = v2WorkingCopyStore.getState().effectiveAssets()
     .flatMap((a) => a.ports)
     .find((p) => p.id === portId);
   if (!target) throw new Error(`포트 ${portId} 없음`);
@@ -153,6 +154,34 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
 
     // 도구는 유지(연속 연결) — 다시 첫 끝점 대기 안내로 돌아온다
     expect(screen.getByText('이을 설비를 클릭하세요')).toBeTruthy();
+  });
+
+  /**
+   * **저장 전 설비에도 케이블을 잇는다.**
+   *
+   * 도면이 「이을 수 있는 것」을 고를 때 저장된 것만 세던 시절이 있었다. 그때 방금 놓은 설비는
+   * 흐리게 그려지고 눌러도 열리지 않았다 — 포트 탭은 같은 자산의 빈 포트를 보여 주며 「이을 수
+   * 있습니다」라고 적고 있는데도. 포트는 놓는 순간 화면이 만들고 그 id 로 저장되므로
+   * (`portsForNewAsset` · 서버 `portIds`), 저장은 잇기의 전제가 아니다.
+   */
+  it('방금 놓은(저장 전) 설비도 끝점이 된다', () => {
+    const fresh = asset('n', 400, 0, { updatedAt: '' });
+    act(() => v2WorkingCopyStore.getState().stageAssetCreate(fresh));
+    const { pick } = renderFloorPlan();
+
+    fireEvent.click(screen.getByRole('button', { name: '케이블' }));
+    /* 첫 끝점이 저장 전 자산 — 도면에서 눌리는가. */
+    fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 425, clientY: 25 });
+    expect(pick.current?.assetId).toBe('n');
+    choosePort(pick, 'p-n');
+
+    fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
+    expect(pick.current?.assetId).toBe('a');
+    choosePort(pick, 'p-a');
+
+    const creates = Object.values(v2WorkingCopyStore.getState().overlays.cables.creates);
+    expect(creates).toHaveLength(1);
+    expect(creates[0]).toMatchObject({ aPortId: 'p-n', bPortId: 'p-a' });
   });
 
   it('ESC — 첫 끝점 확정 후에도 FSM을 idle로 되돌리고 아무것도 스테이지하지 않는다', () => {
