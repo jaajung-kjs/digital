@@ -22,6 +22,7 @@ import {
   InsetBox,
 } from '../../../components/ui';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
+import { buildTraceTree, type TraceTreeNode } from '@twin/core';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../assetTree';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -293,13 +294,14 @@ export function ConnectionsTab({
     [catalog.data, selectedPort],
   );
 
-  // hop → 표시용 텍스트 (portIndex 단일 조회 — portById/assetByPortId 수제 맵 제거)
-  function hopText(hop: import('../../traceSelectors').TraceResult['hops'][number]): string {
-    if (hop.kind === 'internal') {
-      return '↔ 내부';
-    }
-    // cable hop: portIndex에서 toPort의 asset명 + port명 조회
-    const entry = portIndex.get(hop.toPortId);
+  /**
+   * 추적 마디의 이름 — **닿은 포트가 어디인가**.
+   *
+   * 예전에는 홉 하나를 한 줄로 적었고 「↔ 내부」 라는 줄이 사이사이 끼었다. 그것은 장비 안에서
+   * 포트가 바뀐 것이지 어디로 간 것이 아니다 — 이제 그 통과는 트리에서 접힌다(`buildTraceTree`).
+   */
+  function portLabel(portId: string): string {
+    const entry = portIndex.get(portId);
     if (entry) {
       return endpointLabel({
         assemblyName: entry.assemblyName,
@@ -308,11 +310,10 @@ export function ConnectionsTab({
         portIndex: entry.port.index,
       });
     }
-    // 로컬 미해소 포트 — 해당 케이블 saved refs로 표기 (끝점 자신의 ref — endpointRef 한 곳 규칙)
-    // 추적 경로의 한 홉은 케이블 하나를 따라간 것이므로 첫 가닥으로 이름을 짓는다.
-    const cableEntry = cablesByPortId.get(hop.toPortId)?.[0];
+    // 로컬 미해소 포트 — 그 케이블의 saved refs 로 이름을 짓는다(끝점 해소는 `endpointRef` 한 곳).
+    const cableEntry = cablesByPortId.get(portId)?.[0];
     if (cableEntry) {
-      const ref = endpointRef(cableEntry.cable, hop.toPortId);
+      const ref = endpointRef(cableEntry.cable, portId);
       if (ref) {
         // 변전소는 **다른 국일 때만** 적는다 — 지금 보고 있는 국 이름을 덧붙이면 군더더기다.
         const remote = asset != null && ref.substationId !== asset.substationId;
@@ -322,6 +323,12 @@ export function ConnectionsTab({
     }
     return `포트 —`;
   }
+
+  /* 평평한 홉 목록을 트리로 — 장비 안의 통과는 접힌다(마디는 케이블로 닿은 자리뿐). */
+  const traceTree = useMemo(
+    () => buildTraceTree(traceResult?.hops ?? [], tracedPortId ?? ''),
+    [traceResult, tracedPortId],
+  );
 
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
@@ -659,36 +666,20 @@ export function ConnectionsTab({
                       <div ref={traceRef} className="border-t border-line pt-1.5">
                         <div className="mb-0.5 flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-content-muted">
-                            {traceResult.hops.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
+                            {traceTree.children.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
                           </span>
                           <Button variant="secondary" size="sm" onClick={clearTrace}>
                             지우기
                           </Button>
                         </div>
-                        <ol className="space-y-0.5">
-                          {traceResult.hops.map((hop, i) => {
-                            // 경로에 나온 자산은 눌러서 그리로 갈 수 있어야 한다 — 예전에는 글자일
-                            // 뿐이라 그 장비를 찾으려면 표에서 다시 검색해야 했다.
-                            const target = hop.kind === 'internal' ? undefined : portIndex.get(hop.toPortId)?.asset;
-                            return (
-                              <li key={i} className="flex items-baseline gap-1 text-sm text-content">
-                                <span className="shrink-0 text-xs tabular-nums text-content-faint">{i + 1}.</span>
-                                {target ? (
-                                  <button
-                                    type="button"
-                                    className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
-                                    title={`${target.name} 으로 이동`}
-                                    onClick={() => onSelectAsset(target.id)}
-                                  >
-                                    {hopText(hop)}
-                                  </button>
-                                ) : (
-                                  <span className="min-w-0 flex-1 truncate px-1 text-content-muted">{hopText(hop)}</span>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ol>
+                        {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
+                        <TraceBranches
+                          nodes={traceTree.children}
+                          depth={0}
+                          label={portLabel}
+                          assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                          onSelectAsset={onSelectAsset}
+                        />
                       </div>
                     )}
                   </InsetBox>
@@ -708,5 +699,56 @@ export function ConnectionsTab({
       )}
       {confirmDialog}
     </div>
+  );
+}
+
+/**
+ * 추적 트리 한 켜 — **갈래는 들여쓰기와 이음선으로** 말한다.
+ *
+ * 예전에는 번호 붙은 한 줄짜리 목록이었다. 그러면 분전반 한 대에서 나가는 열 회로가 2·3·4…
+ * 로 줄줄이 서서 **직렬로 읽힌다** — 실제로는 같은 자리에서 갈라지는 형제인데.
+ *
+ * 마디는 눌러서 그 장비로 갈 수 있다(글자로만 두면 표에서 다시 찾아야 한다).
+ */
+function TraceBranches({
+  nodes, depth, label, assetOf, onSelectAsset,
+}: {
+  nodes: readonly TraceTreeNode[];
+  depth: number;
+  label: (portId: string) => string;
+  assetOf: (portId: string) => { id: string; name: string } | null;
+  onSelectAsset: (id: string) => void;
+}) {
+  if (nodes.length === 0) return null;
+  return (
+    <ul className={cn('space-y-0.5', depth > 0 && 'ml-3 border-l border-line pl-2')}>
+      {nodes.map((node, i) => {
+        const target = assetOf(node.portId);
+        const text = label(node.portId);
+        /* 마지막 갈래는 꺾여 끝나고(└), 그 위는 계속 이어진다(├) — 형제가 몇인지 눈에 잡힌다. */
+        const last = i === nodes.length - 1;
+        return (
+          <li key={node.portId} className="text-sm text-content">
+            <div className="flex items-baseline gap-1">
+              {/* 갈라지는 자리를 눈으로 잡아 주는 이음선 — 깊이는 들여쓰기가 말한다. */}
+              <span aria-hidden className="shrink-0 text-xs text-content-faint">{last ? '└' : '├'}</span>
+              {target ? (
+                <button
+                  type="button"
+                  className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
+                  title={`${target.name} 으로 이동`}
+                  onClick={() => onSelectAsset(target.id)}
+                >
+                  {text}
+                </button>
+              ) : (
+                <span className="min-w-0 flex-1 truncate px-1 text-content-muted">{text}</span>
+              )}
+            </div>
+            <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
+          </li>
+        );
+      })}
+    </ul>
   );
 }
