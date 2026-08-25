@@ -17,6 +17,7 @@ import { Minus, Plus, Trash2 } from 'lucide-react';
 import { validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
 import { backingSize } from '../../canvas/backingStore';
+import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { renderGrid } from '../../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
 import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
@@ -650,6 +651,8 @@ export function FloorPlanView({
         canvas.height = height;
       }
       scheduleRender();
+      /* 캔버스가 이제야 크기를 안다 — 아직 못 맞춘 층이면 여기서 맞춘다. */
+      maybeFitRef.current();
     };
     fit();
 
@@ -672,6 +675,36 @@ export function FloorPlanView({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * **처음 열 때 놓인 것들이 한눈에 들어오게** 맞춘다 — 층마다 한 번.
+   *
+   * 예전에는 늘 원점(0,0)·100% 에서 시작했다. 자산 좌표는 배경 도면에 맞춰 놓이므로 원점
+   * 근처에 있으리라는 보장이 없다 — 어떤 변전소는 설비가 (2600, 2600) 에 모여 있어 평면도를
+   * 열면 **빈 격자만** 보였고, 어디로 밀어야 하는지도 화면이 말해 주지 않았다.
+   *
+   * **한 번만** 맞춘다: 사람이 밀거나 확대해 둔 화면을 자료가 바뀔 때마다 도로 당기면, 보던
+   * 자리를 잃는다. 내용이 아직 없으면(조회 전) 맞추지 않고 다음 기회를 기다린다.
+   */
+  const fittedFloors = useRef(new Set<string>());
+  useEffect(() => { fittedFloors.current = new Set(); }, [substationId]);
+
+  const maybeFitRef = useRef(() => {});
+  maybeFitRef.current = () => {
+    const floorId = activeFloorId;
+    const canvas = canvasRef.current;
+    if (!floorId || !canvas || fittedFloors.current.has(floorId)) return;
+    const rect = canvas.getBoundingClientRect();
+    const segs = cableSegments(effectiveCables, effectiveAssets, floorId, floors);
+    const next = fitViewport(
+      contentBounds(placedAssets, segs.flatMap((seg) => seg.points)),
+      { width: rect.width, height: rect.height },
+    );
+    if (!next) return; // 아직 놓인 것이 없거나 캔버스가 크기를 모른다
+    fittedFloors.current.add(floorId);
+    setViewport(next);
+  };
+  useEffect(() => { maybeFitRef.current(); });
 
   // ── 팬: 중클릭 또는 Space+드래그 ─────────────────────────────────────────
   // Space key state ref
@@ -1285,7 +1318,11 @@ export function FloorPlanView({
     setViewport((prev) => zoomAtPoint(prev, factor, cx, cy));
   }, []);
 
-  const resetZoom = useCallback(() => setViewport({ zoom: 100, panX: 0, panY: 0 }), []);
+  /** 배율 단추 — **놓인 것들에 다시 맞춘다**(100% 로 되돌리면 아무것도 없는 원점으로 갈 수 있다). */
+  const refit = useCallback(() => {
+    if (activeFloorId) fittedFloors.current.delete(activeFloorId);
+    maybeFitRef.current();
+  }, [activeFloorId]);
 
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
   const canvasCursor = (armedTypeId !== null || cableState.armed) ? 'crosshair' : undefined;
@@ -1627,9 +1664,9 @@ export function FloorPlanView({
           </IconButton>
           <button
             type="button"
-            title="100% 로 되돌리기"
+            title="놓인 설비에 맞추기"
             className="min-w-12 rounded px-1 text-xs tabular-nums text-content-muted hover:bg-surface-2"
-            onClick={resetZoom}
+            onClick={refit}
           >
             {Math.round(viewport.zoom)}%
           </button>
