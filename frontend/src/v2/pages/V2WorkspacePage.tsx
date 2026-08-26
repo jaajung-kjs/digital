@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { assetFieldDefs } from '@twin/core';
+import { useNavigate } from 'react-router-dom';
 import type { CablePickRequest } from '../cablePick';
 import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
@@ -56,6 +58,7 @@ export default function V2WorkspacePage() {
   /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 장비. */
   const focusPartId = route.partId;
   const viewMode = route.view;
+  const navigate = useNavigate();
   /* 저장 안 한 변경이 있으면 셸이 다른 메뉴로 넘어가는 것을 막는다 — 「이동」을 고르면
      셸이 이 `revert` 로 버린다. 묻기만 하고 안 버리면 상자가 거짓말을 한다. */
   useUnsavedMark(useV2WorkingCopy((st) => st.dirtyCount()), useV2WorkingCopy((st) => st.revert));
@@ -128,6 +131,28 @@ export default function V2WorkspacePage() {
    * 선번장의 한 줄은 심선 하나라, 그 줄을 누르면 포트 판에서 그 포트를 직접 누른 것과
    * 같아야 한다 — 안 그러면 표에서 고른 것과 패널이 보여 주는 것이 서로 다른 뜻이 된다.
    */
+  /**
+   * 본부·지사 현황에서 개체를 누르면 — **그 변전소로 데려가며 그 설비를 연다.**
+   *
+   * 상세 패널은 워킹 카피를 읽고, 워킹 카피는 **한 변전소의 것**이다(저장도 그 단위다).
+   * 그래서 남의 변전소 자산을 그 자리에서 열면 「지금 무엇을 고치는 중인가」가 흐려진다.
+   * 대신 그 변전소로 옮겨 주고 같은 화면(설비 현황)에서 패널을 연다 — 누른 것이 열린다는
+   * 약속은 지키면서, 무엇을 보고 있는지는 화면이 계속 말한다.
+   */
+  const openInSubstation = useCallback(
+    (id: string) => {
+      const row = (nodeAssetsRef.current ?? []).find((r) => r.id === id);
+      if (!row) return;
+      /* 장비는 제 패널을 갖지 않는다 — 그 설비를 열고 그 장비를 고른 상태로 둔다. */
+      const rootId = row.parentAssetId ?? row.id;
+      const partId = row.parentAssetId ? row.id : null;
+      const params = new URLSearchParams({ view: viewMode, asset: rootId });
+      if (partId) params.set('part', partId);
+      navigate(`/n/${row.substationId}?${params.toString()}`);
+    },
+    [navigate, viewMode],
+  );
+
   const handleSelectAssetId = useCallback((id: string | null, portId?: string | null) => {
     /* **장비는 제 패널을 갖지 않는다.** 설비 패널을 열고 그 장비를 구성 격자에서 고른 상태로
        둔다 — 장비마다 다른 것은 상태·설치일·담당자 네 줄뿐인데, 그것을 보려고 패널이 통째로
@@ -205,9 +230,13 @@ export default function V2WorkspacePage() {
   // ── 노드 스코프 (본부/지사): useV2NodeAssets ────────────────────────────
   const isNodeScope = selected != null && selected.kind !== 'substation';
   const nodeAssetsQuery = useV2NodeAssets(isNodeScope ? selected.id : null);
+  /* 누른 개체가 어느 변전소의 것인지는 이 목록만 안다 — 콜백이 매번 새로 만들어지지 않게 ref 로 읽는다. */
+  const nodeAssetsRef = useRef(nodeAssetsQuery.data);
+  nodeAssetsRef.current = nodeAssetsQuery.data;
 
-  /* 본부·지사 표는 서버 요약(자산 목록)만 받는다 — 커스텀 필드 값은 거기 없으므로 필드 열도 없다.
-     예전에는 `installDate: null, manager: null` 을 채워 넣어 `—` 만 늘어선 죽은 열 두 개가 떴다. */
+  /* 본부·지사도 **변전소와 같은 것을 본다** — 설치일·담당자·마지막 점검일까지 서버가 함께
+     싣는다. 예전에는 그 값들이 없어 본부 현황에만 열이 통째로 비었고, 같은 화면이 범위만
+     바뀐다는 규칙이 거기서 깨졌다. */
   const nodeRows = useMemo<StatusRowsResult>(() => {
     if (!isNodeScope) return EMPTY_ROWS;
     const rows = (nodeAssetsQuery.data ?? []).map((r) => ({
@@ -222,12 +251,12 @@ export default function V2WorkspacePage() {
       lastInspectedAt: r.lastInspectedAt,
       status: r.status,
       substationName: r.substationName,
-      fieldValues: {},
+      fieldValues: r.fieldValues,
       // 본부·지사 표는 서버 요약이라 설비 묶음을 알 수 없다 — 접을 것이 없다.
       assemblyRootId: null,
       depth: 0,
     }));
-    return { rows, fieldColumns: [] };
+    return { rows, fieldColumns: assetFieldDefs() };
   }, [isNodeScope, nodeAssetsQuery.data]);
 
   const { rows, fieldColumns } = selected?.kind === 'substation' ? substationRows : nodeRows;
@@ -343,7 +372,8 @@ export default function V2WorkspacePage() {
                         rows={rows}
                         fieldColumns={fieldColumns}
                         selectedId={highlightedAssetId}
-                        onSelectAsset={handleSelectAssetId}
+                        /* 본부·지사에서는 그 변전소로 데려가며 연다 — 워킹 카피가 변전소 단위라서다. */
+                        onSelectAsset={nodeScope ? (id) => id && openInSubstation(id) : handleSelectAssetId}
                         nodeScope={nodeScope}
                       />
                       </div>

@@ -198,6 +198,7 @@ export interface V2NodeAssetRow {
   typeKey: string; typeName: string; parentAssetId: string | null; parentName: string | null; floorId: string | null;
   /* 현황은 분류로 접고 점검을 센다 — 변전소 스코프와 **같은 집계**가 되려면 서버도 이 둘을 준다. */
   categoryName: string | null; isAssembly: boolean; lastInspectedAt: string | null;
+  fieldValues: Record<string, unknown>;
 }
 export interface V2Conflict { id: string; reason: 'modified' | 'deleted' | 'exists'; serverUpdatedAt?: string }
 

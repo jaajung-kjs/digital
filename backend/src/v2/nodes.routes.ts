@@ -49,6 +49,9 @@ nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
         /* 도면에 놓이는 것은 설비뿐이라, 설비 품목이 붙어 있으면 그것이 설비다. */
         isAssembly: a.assemblyId != null,
         lastInspectedAt: a.inspections[0]?.inspectedAt ?? null,
+        /* 설치일·담당자 — **변전소 현황과 같은 것을 보여 주려면** 여기서도 실어 보낸다.
+           예전에는 없어서 본부·지사 현황에만 그 열이 통째로 비어 있었다. */
+        fieldValues: a.fieldValues ?? {},
         parentAssetId: a.parentAssetId,
         parentName: a.parentAsset?.name ?? null,
         floorId: a.floorId,

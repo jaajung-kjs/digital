@@ -126,6 +126,18 @@ describe('GET /api/v2/nodes/:id/assets', () => {
     expect(rows[0]).toHaveProperty('typeName');
   });
 
+  it('본부 현황이 **변전소 현황과 같은 것**을 볼 수 있게 — 분류·설치일·담당자·점검일도 함께 온다', async () => {
+    const rows = (await request(app).get(`/api/v2/nodes/${hqId}/assets`).set(admin).expect(200)).body;
+    const row = rows.find((r: { name: string }) => r.name === `${uniq}-a1`);
+
+    /* 이 넷이 없어서 본부 화면에만 열이 통째로 비어 있었다 — 같은 화면이 범위만 바뀐다는
+       규칙이 거기서 깨졌다. */
+    expect(row).toHaveProperty('categoryName');
+    expect(row).toHaveProperty('isAssembly');
+    expect(row).toHaveProperty('lastInspectedAt');
+    expect(row.fieldValues).toBeTypeOf('object');
+  });
+
   it('지사 스코프: 산하 두 변전소 자산 모두', async () => {
     const rows = (await request(app).get(`/api/v2/nodes/${brId}/assets`).set(admin).expect(200)).body;
     const names = rows.map((r: { name: string }) => r.name);
