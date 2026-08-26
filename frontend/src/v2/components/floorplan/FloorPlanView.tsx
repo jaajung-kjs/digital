@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
 import { backingSize } from '../../canvas/backingStore';
+import { cableLineWidth } from '../../canvas/cableStyle';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { renderGrid } from '../../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
@@ -602,7 +603,7 @@ export function FloorPlanView({
             ctx.save();
             ctx.strokeStyle = SELECTION_STYLES.stroke;
             /* 놓인 케이블과 **같은 굵기**로 그린다 — 지금 긋고 있는 것이 그 케이블이니까. */
-            ctx.lineWidth = 2.5 / scale;
+            ctx.lineWidth = cableLineWidth(scale) / scale;
             ctx.setLineDash([6 / scale, 4 / scale]);
             ctx.lineJoin = 'round';
             ctx.beginPath();

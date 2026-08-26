@@ -31,7 +31,12 @@ export interface CableBundle {
   selected: boolean;
 }
 
-/** 같은 자리에 겹친 묶음들을 서로 떼어 놓는 간격(월드 단위). */
+/**
+ * 같은 자리에 겹친 묶음들을 서로 떼어 놓는 기본 간격(월드 단위).
+ *
+ * 부르는 쪽이 **화면 px 기준으로 환산해 넘긴다**(`BUNDLE_GAP_PX / scale`) — 월드로 못 박으면
+ * 확대할수록 벌어져 한 다발이 여러 줄로 흩어지고, 축소하면 붙어 한 줄로 뭉친다.
+ */
 const BUNDLE_GAP = 5;
 
 /**
@@ -59,7 +64,7 @@ function geometryKey(points: readonly Point[]): string {
  * - **같은 선 + 다른 종류** → 합치지 않는다. 종류마다 색이 다른데 합치면 그 정보가 사라진다.
  *   대신 선에 수직으로 조금씩 어긋나게 놓아 나란히 보이게 한다.
  */
-export function bundleCables(lines: readonly CableLine[]): CableBundle[] {
+export function bundleCables(lines: readonly CableLine[], gap = BUNDLE_GAP): CableBundle[] {
   // ① 같은 기하 → 같은 자리에 그려질 것들
   const byGeometry = new Map<string, CableLine[]>();
   for (const line of lines) {
@@ -83,10 +88,10 @@ export function bundleCables(lines: readonly CableLine[]): CableBundle[] {
 
     const bundles = [...byCategory.values()];
     // 가운데를 기준으로 좌우 대칭이 되게 어긋난다(1개면 0 → 제자리).
-    const start = -((bundles.length - 1) / 2) * BUNDLE_GAP;
+    const start = -((bundles.length - 1) / 2) * gap;
 
     bundles.forEach((sameCategory, i) => {
-      const offset = start + i * BUNDLE_GAP;
+      const offset = start + i * gap;
       // 선택된 케이블이 있으면 그것을 대표로 삼는다 — 선택 표시가 사라지지 않게.
       const head = sameCategory.find((c) => c.selected) ?? sameCategory[0]!;
       result.push({

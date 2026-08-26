@@ -3,6 +3,7 @@
 import { SELECTION_STYLES, ELEMENT_COLORS } from './constants';
 import type { PlacedAsset } from './hitTest';
 import { bundleCables, polylineMidpoint } from './cableBundles';
+import { BUNDLE_GAP_PX, cableLineWidth } from './cableStyle';
 
 // ============================================
 // Asset 렌더링 (V2 필드: x/y/width/height, rotation 없음)
@@ -129,16 +130,6 @@ export interface CableRenderSegment {
  * 색상·선택 여부는 호출부(FloorPlanView)가 categoryId → group.color 맵핑 후 전달.
  * 선택 시 SELECTION_STYLES stroke 색으로 두껍게 표시.
  */
-/**
- * 케이블 선 굵기(**화면 px**) — 배율이 달라져도 같은 굵기로 보인다.
- *
- * 예전에는 1.5 를 월드 단위로 그렸다. 그러면 축소할수록 실처럼 가늘어져, 설비를 한눈에 담으려
- * 줌아웃한 순간 정작 **무엇이 무엇과 이어졌는지**가 사라진다(도면을 여는 기본 배율이 그렇다).
- * CAD 가 선 굵기를 화면 기준으로 잡는 이유가 이것이다 — 여기서도 `scale` 로 나눠 맞춘다.
- */
-const CABLE_WIDTH = 2.5;
-const CABLE_WIDTH_SELECTED = 4;
-
 export function renderCables(
   ctx: CanvasRenderingContext2D,
   segments: CableRenderSegment[],
@@ -147,6 +138,7 @@ export function renderCables(
 ): void {
   /* 같은 자리에 겹치는 케이블은 묶어서 그린다 — 함체 사이 케이블은 양 끝 자산 중심을
      잇는 같은 선이 되므로, 4본이든 1본처럼 보였다. 묶는 규칙은 cableBundles 참고. */
+  /* 굵기도 다발 간격도 **화면 기준**이다 — 배율은 `cableStyle` 이 정한 만큼만 탄다. */
   for (const b of bundleCables(segments.map((s) => ({
     id: s.id,
     categoryId: s.categoryId,
@@ -155,10 +147,10 @@ export function renderCables(
     selected: s.selected,
     /* 같은 자리·같은 종류라도 **가는 곳이 다르면** 한 다발이 아니다. */
     bundleKey: s.outgoingLabel,
-  })))) {
+  })), BUNDLE_GAP_PX / scale)) {
     ctx.save();
     ctx.strokeStyle = b.selected ? SELECTION_STYLES.stroke : b.color;
-    ctx.lineWidth = (b.selected ? CABLE_WIDTH_SELECTED : CABLE_WIDTH) / scale;
+    ctx.lineWidth = cableLineWidth(scale, b.selected) / scale;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.beginPath();
