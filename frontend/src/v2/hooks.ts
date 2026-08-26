@@ -101,6 +101,19 @@ export function useOrgMutations() {
       mutationFn: (v: { kind: OrgKind; id: string }) => deleteOrgNode(v.kind, v.id),
       onSuccess: invalidate,
     }),
+    /**
+     * 순서 바꾸기 — 새 순서를 **통째로** 번호로 적는다(0,1,2…).
+     *
+     * 「끌어 온 것 하나만 고친다」로는 안 된다: 서버는 `sortOrder` 오름차순으로 내주므로,
+     * 사이에 끼우려면 뒤엣것들의 번호도 함께 밀려야 한다. 통째로 다시 매기면 그 셈이
+     * 필요 없고, 화면이 본 순서가 그대로 서버의 순서가 된다.
+     */
+    reorderOrgNodes: useMutation({
+      mutationFn: async (v: { kind: OrgKind; order: string[] }) => {
+        for (const [i, id] of v.order.entries()) await patchOrgNode(v.kind, id, { sortOrder: i });
+      },
+      onSuccess: invalidate,
+    }),
   };
 }
 

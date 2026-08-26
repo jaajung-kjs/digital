@@ -72,6 +72,13 @@ export interface TreeKind {
   rename?: boolean;
   /** 지울 수 있는가. 되돌릴 수 없으므로 묻는 일은 부르는 쪽이 한다. */
   remove?: boolean;
+  /**
+   * 끌어서 순서를 바꿀 수 있는가 — **같은 부모 안에서만**.
+   *
+   * 다른 부모 밑으로 옮기는 것은 순서 바꾸기가 아니라 소속을 바꾸는 일이라 서버 계약도
+   * 다르다(지금은 이름·순서만 고친다). 그래서 남의 자식들 사이에는 놓이지 않는다.
+   */
+  reorder?: boolean;
 }
 
 export interface TreePanelProps {
@@ -106,6 +113,13 @@ export interface TreePanelProps {
   onRename?: (node: TreeNode, name: string) => void | Promise<void>;
   /** 지운다 — **묻는 일은 부르는 쪽**이 한다(무엇을 지우는지 아는 쪽이다). */
   onRemove?: (node: TreeNode) => void;
+  /**
+   * 순서를 바꿨다 — `order` 는 **그 부모의 자식들 전체**를 새 순서로 늘어놓은 id 다.
+   *
+   * 「이 줄을 저 줄 앞에」가 아니라 결과를 통째로 준다: 부르는 쪽은 그대로 번호를 매기면
+   * 되고(0,1,2…), 트리가 세는 방법과 서버가 세는 방법이 어긋날 일이 없다.
+   */
+  onReorder?: (at: { node: TreeNode; parentId: string | null; order: string[] }) => void | Promise<void>;
   emptyText?: string;
   /** Esc 로도 푼다 — 이 트리가 그 화면의 주인일 때만 준다(`SelectionScope`). */
   escapes?: boolean;
@@ -138,6 +152,7 @@ export function TreePanel({
   onCreate,
   onRename,
   onRemove,
+  onReorder,
   emptyText,
   escapes = false,
 }: TreePanelProps) {
@@ -241,6 +256,55 @@ export function TreePanel({
         }}
       />
     );
+  }
+
+  /**
+   * 지금 끌고 있는 줄과, 놓으면 들어갈 자리.
+   *
+   * `over` 는 「이 줄의 **위**에 놓는다」는 뜻이다(마지막 줄 아래는 `end`).
+   */
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<{ id: string; where: 'before' | 'after' } | null>(null);
+
+  /** 이 줄의 부모 — 평평한 목록에서 위로 훑어 한 층 얕은 첫 줄이다. */
+  function parentOf(id: string): string | null {
+    const i = nodes.findIndex((n) => n.id === id);
+    if (i < 0) return null;
+    for (let j = i - 1; j >= 0; j--) {
+      if (nodes[j]!.depth < nodes[i]!.depth) return nodes[j]!.id;
+    }
+    return null;
+  }
+
+  /** 같은 부모의 자식들 — 순서 바꾸기는 이 안에서만 일어난다. */
+  function siblingsOf(id: string): TreeNode[] {
+    const me = nodes.find((n) => n.id === id);
+    if (!me) return [];
+    const parent = parentOf(id);
+    return nodes.filter((n) => n.depth === me.depth && parentOf(n.id) === parent);
+  }
+
+  /** 저 줄 자리에 놓을 수 있나 — 같은 부모의 같은 층끼리만. */
+  function canDropOn(target: TreeNode): boolean {
+    if (!dragId || dragId === target.id) return false;
+    const me = nodes.find((n) => n.id === dragId);
+    if (!me || me.depth !== target.depth) return false;
+    return parentOf(dragId) === parentOf(target.id);
+  }
+
+  /** 놓았다 — 새 순서를 통째로 알린다. */
+  function drop() {
+    const at = dropAt;
+    const id = dragId;
+    setDragId(null);
+    setDropAt(null);
+    if (!at || !id) return;
+    const order = siblingsOf(id).map((n) => n.id).filter((x) => x !== id);
+    const i = order.indexOf(at.id);
+    if (i < 0) return;
+    order.splice(at.where === 'before' ? i : i + 1, 0, id);
+    const node = nodes.find((n) => n.id === id)!;
+    void onReorder?.({ node, parentId: parentOf(id), order });
   }
 
   /** 치던 것을 접는다 — 오류도 함께 사라진다(그 오류는 이 줄의 것이었다). */
@@ -348,7 +412,9 @@ export function TreePanel({
   const rows = useMemo(() => {
     if (!creating) return shown;
     const row: TreeNode = { id: CREATE_ROW, label: '', text: '', depth: creating.depth };
-    if (creating.parentId === null) return [row, ...shown];
+    /* 뿌리에 만드는 줄은 **맨 아래**에 선다 — 누른 자리(바닥의 「새 …」)와 같은 자리이고,
+       새로 만든 것이 실제로 목록 끝에 붙기 때문이다(정렬 순서 = 만든 순). */
+    if (creating.parentId === null) return [...shown, row];
     const i = shown.findIndex((n) => n.id === creating.parentId);
     if (i < 0) return shown;
     return [...shown.slice(0, i + 1), row, ...shown.slice(i + 1)];
@@ -379,14 +445,6 @@ export function TreePanel({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-3">
         <span className="flex-1 truncate text-xs font-medium text-content-muted">{title}</span>
-        {kindAt(0)?.create && (
-          /* 머리줄의 `+` 는 **뿌리 안에 하나 더**다 — 줄의 `+` 와 같은 규칙이라 따로 배울
-             것이 없다. 무엇이 만들어지는지는 이름에 적고(「새 본부」), 누르면 그 이름이
-             채워진 줄이 그 자리에 바로 선다. */
-          <IconButton aria-label={`새 ${kindAt(0)!.label}`} onClick={() => startCreate(null)}>
-            <Plus size={14} />
-          </IconButton>
-        )}
       </div>
 
       {/* 검색은 **모든 트리에 있다.** 예전에는 「항목이 스무 개를 넘는 트리에만」이라는
@@ -427,10 +485,36 @@ export function TreePanel({
             <div
               data-selectable=""
               data-id={n.id}
+              /* 끌 수 있는 줄인가 — 이름을 치는 중에는 끌지 않는다(글자를 고르는 중이다). */
+              draggable={kindAt(n.depth)?.reorder === true && !creating && !renaming}
+              onDragStart={(e) => {
+                setDragId(n.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setDropAt(null);
+              }}
+              onDragOver={(e) => {
+                if (!canDropOn(n)) return;
+                e.preventDefault(); // 놓을 수 있는 자리라고 브라우저에 알린다
+                const box = e.currentTarget.getBoundingClientRect();
+                setDropAt({ id: n.id, where: e.clientY < box.top + box.height / 2 ? 'before' : 'after' });
+              }}
+              onDrop={(e) => {
+                if (!canDropOn(n)) return;
+                e.preventDefault();
+                drop();
+              }}
               className={cn(
                 'group flex items-center gap-1 px-2 py-1 text-sm',
                 SELECTABLE,
                 selectedId === n.id ? SELECTED : 'text-content',
+                /* 놓일 자리를 **선 하나**로 보여 준다 — 줄을 통째로 물들이면 어느 쪽에
+                   들어가는지(위·아래) 말하지 못한다. */
+                dropAt?.id === n.id && dropAt.where === 'before' && 'border-t-2 border-primary',
+                dropAt?.id === n.id && dropAt.where === 'after' && 'border-b-2 border-primary',
+                dragId === n.id && 'opacity-40',
               )}
               style={{ paddingLeft: 8 + n.depth * 14 }}
               role="treeitem"
@@ -557,7 +641,27 @@ export function TreePanel({
             </Fragment>
           );
         })}
+
+        {kindAt(0)?.create && !creating && (
+          /**
+           * **최상위를 만드는 자리는 마지막 줄 바로 아래다.**
+           *
+           * 예전에는 머리줄의 아이콘 `+` 하나였다 — 무엇이 만들어지는지 글자가 없어 아무도
+           * 찾지 못했다. 그렇다고 패널 **바닥에 못 박으면** 줄이 넷뿐인 트리에서 저 아래
+           * 홀로 떠 있어 목록과 상관없는 것처럼 보인다. 목록의 끝에 붙여 함께 흐르게 한다
+           * (사이드바의 「새 페이지」·「채널 추가」가 있는 자리).
+           */
+          <button
+            type="button"
+            className="flex w-full items-center gap-1 px-3 py-1.5 text-left text-xs text-content-faint hover:bg-surface-2 hover:text-content"
+            onClick={() => startCreate(null)}
+          >
+            <Plus size={12} />
+            새 {kindAt(0)!.label}
+          </button>
+        )}
       </SelectionScope>
+
     </div>
   );
 }

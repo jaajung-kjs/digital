@@ -10,6 +10,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TreePanel, type TreeKind, type TreeNode } from './TreePanel';
 
+/* 브라우저가 끌기에 딸려 주는 것 — jsdom 은 만들어 주지 않는다. */
+const dataTransfer = { effectAllowed: '', setData: () => {}, getData: () => '' };
+
 const ORG: TreeKind[] = [
   { label: '본부', create: 'inline', rename: true, remove: true },
   { label: '전력지사', create: 'inline', rename: true, remove: true },
@@ -26,10 +29,19 @@ const row = (over: Partial<TreeNode> & { id: string; text: string }): TreeNode =
 });
 
 describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한다', () => {
-  it('머리줄의 `+` 는 뿌리 안에 하나 — 무엇이 만들어지는지 이름에 적힌다', () => {
+  it('최상위를 만드는 자리는 **목록 바닥의 글자 줄**이다 — 머리줄에는 아무것도 없다', () => {
     render(<TreePanel title="조직" kinds={ORG} nodes={[]} selectedId={null} onSelect={() => {}} />);
 
-    expect(screen.getByRole('button', { name: '새 본부' })).toBeTruthy();
+    /* 글자가 있어 설명이 필요 없다 — 예전의 머리줄 아이콘 `+` 는 아무도 찾지 못했다. */
+    expect(screen.getByRole('button', { name: '새 본부' }).textContent).toContain('새 본부');
+  });
+
+  it('만들 수 없는 층이면 그 줄도 서지 않는다', () => {
+    render(
+      <TreePanel title="케이블 품목" kinds={[{ label: '케이블 그룹' }]} nodes={[]} selectedId={null} onSelect={() => {}} />,
+    );
+
+    expect(screen.queryByRole('button', { name: /새 / })).toBeNull();
   });
 
   it('줄의 `+` 는 **그 안에** 하나 — 다음 층의 것이 만들어진다', () => {
@@ -203,5 +215,57 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
 
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByLabelText('새 분류 이름')).toBeNull();
+  });
+
+  it('끌어서 순서를 바꾸면 **그 부모의 자식 전체**를 새 순서로 알린다', () => {
+    const onReorder = vi.fn();
+    const KINDS: TreeKind[] = [{ label: '본부', create: 'inline', reorder: true }];
+    render(
+      <TreePanel title="조직" kinds={KINDS} selectedId={null} onSelect={() => {}} onReorder={onReorder}
+        nodes={[row({ id: 'a', text: '가' }), row({ id: 'b', text: '나' }), row({ id: 'c', text: '다' })]} />,
+    );
+
+    const rows = screen.getAllByRole('treeitem');
+    /* 줄의 **어느 쪽 절반**에 놓았는지가 위·아래를 가른다 — jsdom 은 크기를 안 재므로 준다. */
+    const rect = { top: 0, height: 20, bottom: 20, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => ({}) };
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect as DOMRect);
+
+    fireEvent.dragStart(rows[2]!, { dataTransfer });   // 「다」를 집어
+    /* jsdom 에는 DragEvent 가 없어 clientY 가 실리지 않는다 — 마우스 이벤트로 직접 보낸다. */
+    fireEvent(rows[0]!, new MouseEvent('dragover', { bubbles: true, cancelable: true, clientY: 2 }));
+    fireEvent.drop(rows[0]!);
+
+    expect(onReorder).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: null, order: ['c', 'a', 'b'] }),
+    );
+
+    /* 아랫절반이면 그 **뒤**로 간다. */
+    onReorder.mockClear();
+    fireEvent.dragStart(rows[2]!, { dataTransfer });
+    fireEvent(rows[0]!, new MouseEvent('dragover', { bubbles: true, cancelable: true, clientY: 18 }));
+    fireEvent.drop(rows[0]!);
+    expect(onReorder).toHaveBeenCalledWith(expect.objectContaining({ order: ['a', 'c', 'b'] }));
+  });
+
+  it('남의 자식들 사이에는 놓이지 않는다 — 순서 바꾸기는 같은 부모 안의 일이다', () => {
+    const onReorder = vi.fn();
+    const KINDS: TreeKind[] = [
+      { label: '본부', reorder: true },
+      { label: '전력지사', reorder: true },
+    ];
+    render(
+      <TreePanel title="조직" kinds={KINDS} selectedId={null} onSelect={() => {}} onReorder={onReorder}
+        nodes={[
+          row({ id: 'hq1', text: '강원' }), row({ id: 'b1', text: '직할', depth: 1 }),
+          row({ id: 'hq2', text: '중부' }), row({ id: 'b2', text: '중부지사', depth: 1 }),
+        ]} />,
+    );
+
+    const rows = screen.getAllByRole('treeitem');
+    fireEvent.dragStart(rows[1]!, { dataTransfer });            // 강원의 「직할」을
+    fireEvent(rows[3]!, new MouseEvent('dragover', { bubbles: true, cancelable: true, clientY: 2 })); // 중부의 「중부지사」 자리로
+    fireEvent.drop(rows[3]!);
+
+    expect(onReorder).not.toHaveBeenCalled();
   });
 });
