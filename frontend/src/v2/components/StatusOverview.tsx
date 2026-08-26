@@ -1,10 +1,11 @@
 import { Fragment, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
 import {
   EMPTY,
   EmptyState,
+  IconButton,
   StatusDot,
   TableCard,
   TableSearch,
@@ -41,6 +42,13 @@ interface Props {
   onSelectAsset: (id: string | null) => void;
   /** 본부·지사를 고른 상태인가 — 「어디에」가 변전소를 가리킨다(변전소면 층). */
   nodeScope?: boolean;
+  /**
+   * 「그 변전소에서 열기」 — 본부·지사에서만 준다.
+   *
+   * 누르는 것만으로 화면을 옮기지 않는다: 표를 훑다가 한 줄을 짚어 보는 일이 훨씬 잦은데
+   * 그때마다 다른 변전소로 끌려가면 보던 자리를 잃는다. 옮기는 것은 **또렷한 한 번**이다.
+   */
+  onOpenElsewhere?: (id: string) => void;
   actions?: ReactNode;
 }
 
@@ -63,7 +71,7 @@ const NO_FILTER: Filter = { kind: '전부', status: null, neverInspected: false 
  * 세는 것은 사실뿐이다(개수·상태·점검 이력 없음). 「몇 달 지난 점검」 같은 기준은 두지
  * 않는다 — 몇 달이 맞는지 이 코드는 알 수 없고, 그런 기준은 화면마다 다른 숫자를 만든다.
  */
-export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, nodeScope, actions }: Props) {
+export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, nodeScope, onOpenElsewhere, actions }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>(NO_FILTER);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -249,14 +257,32 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                             key={r.id}
                             {...selectableRow(selectedId, r.id, onSelectAsset)}
                             className={cn(
-                              'border-b border-line focus-visible:outline-none focus-ring-input',
+                              'group border-b border-line focus-visible:outline-none focus-ring-input',
                               SELECTABLE,
                               r.id === selectedId && SELECTED,
                             )}
                           >
                             {/* 펼친 줄은 **그 품목이 실제로 어떤 것들인지**다 — 저장된 이름·상태·자리.
                                 열의 뜻은 그대로다(개수 칸은 비운다 — 하나짜리에 「1」은 군더더기다). */}
-                            <td className="truncate px-3 py-1.5 pl-10 text-content">{r.name}</td>
+                            <td className="px-3 py-1.5 pl-10 text-content">
+                              <span className="flex items-center gap-1">
+                                <span className="min-w-0 truncate">{r.name}</span>
+                                {onOpenElsewhere && (
+                                  /* 손이 닿을 때 드러난다 — 트리의 줄 손잡이와 같은 어법. */
+                                  <IconButton
+                                    size="sm"
+                                    aria-label={`${r.name} 이 있는 변전소에서 열기`}
+                                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onOpenElsewhere(r.id);
+                                    }}
+                                  >
+                                    <ExternalLink size={12} />
+                                  </IconButton>
+                                )}
+                              </span>
+                            </td>
                             <td />
                             <td className="px-3 py-1.5">
                               <StatusDot status={assetStatusTone(r.status)}>{assetStatusLabel(r.status)}</StatusDot>

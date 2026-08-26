@@ -372,9 +372,11 @@ export default function V2WorkspacePage() {
                         rows={rows}
                         fieldColumns={fieldColumns}
                         selectedId={highlightedAssetId}
-                        /* 본부·지사에서는 그 변전소로 데려가며 연다 — 워킹 카피가 변전소 단위라서다. */
-                        onSelectAsset={nodeScope ? (id) => id && openInSubstation(id) : handleSelectAssetId}
+                        onSelectAsset={handleSelectAssetId}
                         nodeScope={nodeScope}
+                        /* 본부·지사에서는 **누른다고 옮기지 않는다** — 옮기는 것은 또렷한 한 번이다.
+                           (상세 패널은 워킹 카피를 읽고, 그것은 한 변전소의 것이다.) */
+                        onOpenElsewhere={nodeScope ? openInSubstation : undefined}
                       />
                       </div>
                     </div>

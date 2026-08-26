@@ -145,4 +145,25 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
     expect(screen.getByRole('button', { name: /설비 2/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /미점검 1/ })).toBeTruthy();
   });
+
+  it('본부에서는 **누른다고 옮기지 않는다** — 고르기만 하고, 옮기는 것은 또렷한 한 번이다', () => {
+    const onSelectAsset = vi.fn();
+    const onOpenElsewhere = vi.fn();
+    show(ROWS, { nodeScope: true, onSelectAsset, onOpenElsewhere });
+    fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
+
+    fireEvent.click(screen.getByText('L3 스위치 1'));
+    expect(onSelectAsset).toHaveBeenCalledWith('a');
+    expect(onOpenElsewhere).not.toHaveBeenCalled();   // 보던 자리를 잃지 않는다
+
+    fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 1 이 있는 변전소에서 열기' }));
+    expect(onOpenElsewhere).toHaveBeenCalledWith('a');
+  });
+
+  it('변전소 안에서는 그 단추가 없다 — 옮길 곳이 없다', () => {
+    show();
+    fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
+
+    expect(screen.queryByRole('button', { name: /변전소에서 열기/ })).toBeNull();
+  });
 });
