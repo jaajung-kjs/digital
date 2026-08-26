@@ -19,13 +19,13 @@ const cable = (id: string, a: string, b: string) =>
 
 describe('cableToolReducer', () => {
   it('켜면 첫 끝점부터 다시 받는다 — 지난 손짓이 남지 않는다', () => {
-    const mid = { ...initialCableToolState, armed: true, firstEndpoint: { portId: 'p1', assetId: 'a1' } };
-    expect(cableToolReducer(mid, { type: 'ARM' })).toMatchObject({ armed: true, firstEndpoint: null, picker: null });
+    const mid = { ...initialCableToolState, armed: true, firstPortId: 'p1' };
+    expect(cableToolReducer(mid, { type: 'ARM' })).toMatchObject({ armed: true, firstPortId: null, picker: null });
   });
 
   it('이으면 도구는 그대로 두고 끝점만 비운다 — 연이어 잇는다', () => {
-    const mid = { ...initialCableToolState, armed: true, firstEndpoint: { portId: 'p1', assetId: 'a1' } };
-    expect(cableToolReducer(mid, { type: 'CABLE_STAGED' })).toMatchObject({ armed: true, firstEndpoint: null });
+    const mid = { ...initialCableToolState, armed: true, firstPortId: 'p1' };
+    expect(cableToolReducer(mid, { type: 'CABLE_STAGED' })).toMatchObject({ armed: true, firstPortId: null });
   });
 
   it('바뀔 것이 없으면 **같은 객체**를 돌려준다 — 헛된 다시 그리기를 만들지 않는다', () => {
@@ -45,7 +45,7 @@ describe('cableToolReducer — 경로 그리기', () => {
   const armedWithFirst = {
     ...initialCableToolState,
     armed: true,
-    firstEndpoint: { portId: 'p1', assetId: 'a1' },
+    firstPortId: 'p1',
   };
 
   it('첫 끝점이 정해진 뒤에만 꺾는다 — 어디서 시작하는지 모르면 그릴 것이 없다', () => {
@@ -70,7 +70,7 @@ describe('cableToolReducer — 경로 그리기', () => {
     expect(cableToolReducer(drawn, { type: 'DISARM' }).draftPath).toEqual([]);
     expect(cableToolReducer(drawn, { type: 'ABORT_TO_ARMED' }).draftPath).toEqual([]);
     /* 첫 끝점을 새로 정하는 것도 새 손짓이다. */
-    expect(cableToolReducer(drawn, { type: 'CONFIRM_FIRST_ENDPOINT', endpoint: { portId: 'p9', assetId: 'a9' } }).draftPath).toEqual([]);
+    expect(cableToolReducer(drawn, { type: 'CONFIRM_FIRST_ENDPOINT', portId: 'p9' }).draftPath).toEqual([]);
   });
 });
 

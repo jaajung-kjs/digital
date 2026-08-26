@@ -14,7 +14,6 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
 import { backingSize } from '../../canvas/backingStore';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
@@ -30,8 +29,9 @@ import { normalizeRect, isDrawLargeEnough } from '../../floorPlacement';
 import { placedAssetsOf } from '../../floorPlanSelectors';
 import { cableCountByPortId, cableSegments, distanceToPolyline } from '../../cableSelectors';
 import { cableToolReducer, connectErrorLabel, connectableAssetIds, initialCableToolState } from './cableTool';
+import { connectCable } from '../../cableActions';
+import { deleteAssetWithConfirm, deleteCableWithConfirm } from '../../deleteActions';
 import { useFloorAdmin } from './useFloorAdmin';
-import { descendantCount } from '../../assetTree';
 import { useEffectiveAssets, useEffectiveCables, useEffectiveFloors } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
@@ -40,7 +40,7 @@ import { useTypesById, useV2Catalog } from '../../hooks';
 import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
-import { assetsById, floorIdOf } from '../../assetTree';
+import { assetsById, floorAnchorOf, floorIdOf } from '../../assetTree';
 import { assemblyToAssets } from '../../placeAssembly';
 import { AssetResizeHandles } from './AssetResizeHandles';
 import { RemoteEndpointModal } from './RemoteEndpointModal';
@@ -122,8 +122,13 @@ interface LatestRenderInputs {
   effectiveAssets: V2Asset[];
   /** 이 변전소의 층들 — 다른 층으로 나가는 회선의 꼬리표가 「2층」이 되게 한다. */
   floors: V2Floor[];
-  /** 케이블 도구 FSM에서 미러 — scheduleRender(rAF)의 첫 끝점 강조 렌더용 */
-  firstEndpoint: { portId: string; assetId: string } | null;
+  /**
+   * 첫 끝점이 매달린 **놓인 설비** — 강조와 경로 미리보기가 여기서 출발한다.
+   *
+   * 포트는 대개 설비 **안의 장비**의 것이라(슬롯·광단말) 도면에 그리려면 놓인 조상까지
+   * 올라가야 한다. 그 걸음을 렌더마다 하지 않도록 한 번 풀어 미러에 둔다.
+   */
+  firstAnchorId: string | null;
   /** 케이블 도구 FSM에서 미러 — scheduleRender(rAF)의 선택 케이블 강조 렌더용 */
   selectedCableId: string | null;
   /**
@@ -204,6 +209,18 @@ export function FloorPlanView({
   const armedTypeId = placementState.mode !== 'idle' ? placementState.typeId : null;
   const drawModal = placementState.mode === 'modal' ? placementState.modal : null;
 
+  /**
+   * 첫 끝점이 매달린 **놓인 설비** — 포트에서 거슬러 올라가 한 번만 푼다(`floorAnchorOf`).
+   *
+   * 도면은 놓인 설비로만 그림을 그린다. 포트는 대개 그 안의 장비 것이라(슬롯·광단말) 이
+   * 걸음이 없으면 첫 끝점 강조도 경로 미리보기도 나올 자리가 없다.
+   */
+  const firstAnchorId = useMemo(() => {
+    if (!cableState.firstPortId) return null;
+    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === cableState.firstPortId));
+    return owner ? (floorAnchorOf(owner.id, assetsById(effectiveAssets))?.id ?? null) : null;
+  }, [cableState.firstPortId, effectiveAssets]);
+
   // ── render 함수(rAF)·네이티브 리스너가 읽는 "최신 렌더 입력값" 단일 미러 ────
   // 7개 개별 ref(viewportRef/placedAssetsRef/selectedAssetIdRef/activeFloorRef/
   // traceResultRef/effectiveCablesRef/effectiveAssetsRef)를 하나의 객체로 통합.
@@ -214,13 +231,13 @@ export function FloorPlanView({
   const latest = useRef<LatestRenderInputs>({
     viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
-    firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
+    firstAnchorId, selectedCableId: cableState.selectedCableId,
     placingRect: null,
   });
   latest.current = {
     viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
-    firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
+    firstAnchorId, selectedCableId: cableState.selectedCableId,
     /* 지금 보는 층의 것만 그린다 — 층을 옮겨 놓고도 남의 층 네모가 떠 있으면 안 된다. */
     placingRect: drawModal && drawModal.floorId === activeFloor?.id ? drawModal.rect : null,
   };
@@ -319,16 +336,32 @@ export function FloorPlanView({
    */
   useEffect(() => {
     if (!cableStartPortId) return;
-    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === cableStartPortId));
-    const port = owner?.ports.find((p) => p.id === cableStartPortId);
-    if (owner && port) {
-      const medium = cableGroups.find((g) => g.key === port.medium)?.categories[0];
-      if (medium) cableDispatch({ type: 'SET_CATEGORY', categoryId: medium.id });
-      cableDispatch({ type: 'ARM' });
-      cableDispatch({ type: 'CONFIRM_FIRST_ENDPOINT', endpoint: { portId: port.id, assetId: owner.id } });
-    }
+    startConnectionRef.current(cableStartPortId);
     onCableStartConsumed?.();
-  }, [cableStartPortId, effectiveAssets, cableGroups, onCableStartConsumed]);
+  }, [cableStartPortId, onCableStartConsumed]);
+  /**
+   * **케이블 잇기를 시작하는 자리는 하나다** — 어디서 눌렀든 같은 일이 일어난다.
+   *
+   * 문이 둘이라 각자 상태를 세우고 있었다: 도면에서 설비를 눌러 고른 포트와, 포트 탭의
+   * 「케이블 연결」 단추. 그래서 같은 연결인데 뒤쪽 길로 시작하면 첫 끝점 강조도 경로
+   * 미리보기도 안 보였다(넣는 자산이 서로 달랐다). 시작하는 일은 여기 한 번만 적는다.
+   */
+  const startConnectionRef = useRef<(portId: string) => void>(() => {});
+  startConnectionRef.current = (portId: string) => {
+    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === portId));
+    const port = owner?.ports.find((p) => p.id === portId);
+    if (!owner || !port) return;
+    /* 종류는 **그 포트의 매체 것**이어야 한다 — 광 포트에서 시작했는데 도구가 전원케이블을
+       들고 있으면 두 번째 끝점에서 튕기고, 왜 튕겼는지가 화면에 남지 않는다. 이미 같은
+       매체를 골라 두었으면 그대로 둔다(사람이 고른 품목을 덮지 않는다). */
+    if (selectedGroupKey !== port.medium) {
+      const first = cableGroups.find((g) => g.key === port.medium)?.categories[0];
+      if (first) cableDispatch({ type: 'SET_CATEGORY', categoryId: first.id });
+    }
+    cableDispatch({ type: 'ARM' });
+    cableDispatch({ type: 'CONFIRM_FIRST_ENDPOINT', portId });
+  };
+
   /**
    * 케이블 도구가 지금 어느 단계인가 — 안내 문구와 딤을 여기 한 곳에서 정한다.
    *
@@ -340,7 +373,7 @@ export function FloorPlanView({
     if (cableState.picker) {
       return { step: '2/3', text: '오른쪽 판에서 포트를 고르세요', dimCanvas: true };
     }
-    if (cableState.firstEndpoint) {
+    if (cableState.firstPortId) {
       /* 경로를 그릴 수 있다는 것은 **그릴 수 있을 때** 말한다 — 꺾은점이 생기면 무르는 길도 함께. */
       const drawn = cableState.draftPath.length;
       return {
@@ -352,7 +385,7 @@ export function FloorPlanView({
       };
     }
     return { step: '1/3', text: '이을 설비를 클릭하세요', dimCanvas: false };
-  }, [cableState.armed, cableState.picker, cableState.firstEndpoint, cableState.draftPath]);
+  }, [cableState.armed, cableState.picker, cableState.firstPortId, cableState.draftPath]);
 
   // ── categoryId → color 맵 (렌더용) ───────────────────────────────────────
   const categoryColorMap = useMemo(() => {
@@ -383,9 +416,9 @@ export function FloorPlanView({
       placed: placedAssets,
       cables: effectiveCables,
       mediumKey: selectedGroupKey,
-      firstPortId: cableState.firstEndpoint?.portId,
+      firstPortId: cableState.firstPortId ?? undefined,
     });
-  }, [cableState.armed, cableState.firstEndpoint, effectiveCables, effectiveAssets, placedAssets, selectedGroupKey]);
+  }, [cableState.armed, cableState.firstPortId, effectiveCables, effectiveAssets, placedAssets, selectedGroupKey]);
 
   connectableIdsRef.current = connectableIds;
 
@@ -544,9 +577,9 @@ export function FloorPlanView({
       }
 
       // 6.5 케이블 첫 끝점 자산 강조 (점선 스트로크 — 일반 선택과 구분)
-      const firstEp = latest.current.firstEndpoint;
-      if (firstEp) {
-        const feAsset = latest.current.placedAssets.find((a) => a.id === firstEp.assetId);
+      const firstAnchorId = latest.current.firstAnchorId;
+      if (firstAnchorId) {
+        const feAsset = latest.current.placedAssets.find((a) => a.id === firstAnchorId);
         if (feAsset) {
           ctx.save();
           ctx.strokeStyle = SELECTION_STYLES.stroke;
@@ -559,8 +592,8 @@ export function FloorPlanView({
 
       /* 6.6 그리고 있는 케이블 — 첫 끝점에서 꺾은점들을 지나 손끝까지.
          저장된 케이블과 같은 꺾은선이되 점선이다: **아직 놓이지 않았다**는 것이 보여야 한다. */
-      if (firstEp) {
-        const from = latest.current.placedAssets.find((a) => a.id === firstEp.assetId);
+      if (firstAnchorId) {
+        const from = latest.current.placedAssets.find((a) => a.id === firstAnchorId);
         const cursor = cursorWorldRef.current;
         if (from) {
           const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
@@ -973,7 +1006,7 @@ export function FloorPlanView({
     const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
     const next = hit && connectableIdsRef.current.has(hit.id) ? hit.id : null;
     /* 경로를 그리는 중이면 손끝까지 선이 따라온다 — 그래서 자리가 같아도 다시 그린다. */
-    const drawingPath = latest.current.firstEndpoint != null;
+    const drawingPath = latest.current.firstAnchorId != null;
     if (drawingPath) cursorWorldRef.current = snapToGrid(world.x, world.y, SNAP_GRID);
     if (next === hoveredAssetIdRef.current) {
       if (drawingPath) scheduleRender();
@@ -1015,7 +1048,7 @@ export function FloorPlanView({
       const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
       /* 첫 끝점을 정한 뒤 **빈 도면을 누르면 거기서 꺾는다** — 케이블은 벽을 타고 트레이를
          따라 돌지 두 점을 곧게 지르지 않는다. 자산 위를 누르는 것은 여전히 「반대쪽」이다. */
-      if (!hit && cableState.firstEndpoint) {
+      if (!hit && cableState.firstPortId) {
         cableDispatch({ type: 'ADD_WAYPOINT', point: snapToGrid(world.x, world.y, SNAP_GRID) });
         scheduleRender();
         return;
@@ -1032,7 +1065,7 @@ export function FloorPlanView({
           picker: {
             asset: fullAsset,
             screenPos: { x: e.clientX, y: e.clientY },
-            firstEndpoint: cableState.firstEndpoint,
+            firstPortId: cableState.firstPortId,
           },
         });
       }
@@ -1093,94 +1126,59 @@ export function FloorPlanView({
     const state = cableState.picker;
     if (!state) return;
 
-    if (!state.firstEndpoint) {
-      // 첫 끝점 확정
-      cableDispatch({ type: 'CONFIRM_FIRST_ENDPOINT', endpoint: { portId: port.id, assetId: state.asset.id } });
+    if (!state.firstPortId) {
+      // 첫 끝점 확정 — 시작하는 일은 한 곳에서만 한다.
+      startConnectionRef.current(port.id);
       scheduleRender();
-    } else {
-      // 두 번째 끝점 — 사전 검증 후 스테이지
-      const first = state.firstEndpoint;
-
-      // 첫 끝점 포트 ref 찾기 (전체 effective assets에서)
-      const aPort = latest.current.effectiveAssets
-        .flatMap((a) => a.ports)
-        .find((p) => p.id === first.portId);
-      const bPort = port;
-
-      if (!aPort) {
-        // 첫 끝점 포트를 effective에서 못 찾음 — 무검증 스테이지 금지
-        // firstEndpoint + picker 모두 초기화해 원격 버튼 무동작 방지
-        cableDispatch({ type: 'ABORT_TO_ARMED' });
-        return;
-      }
-
-      const counts = cableCountByPortId(latest.current.effectiveCables);
-      const err = validateConnection(aPort, bPort, counts, selectedGroupKey);
-      if (err) {
-        // 검증 실패 → 피커 내 안내 텍스트, 스테이지 금지
-        cableDispatch({ type: 'SET_PICKER_ERROR', error: connectErrorLabel(err) });
-        return;
-      }
-
-      const categoryId = cableState.categoryId || null;
-
-      useV2WorkingCopy.getState().stageCableCreate({
-        id: crypto.randomUUID(),
-        name: null,
-        substationId,
-        aPortId: first.portId,
-        bPortId: port.id,
-        categoryId,
-        /* 그리며 찍은 꺾은점 그대로 놓는다 — **보이던 그 모양**이 저장된다. */
-        pathPoints: cableState.draftPath,
-        specParams: {},
-        updatedAt: '',
-      });
-
-      // 도구 유지 (연속 연결), 첫 끝점 초기화
-      cableDispatch({ type: 'CABLE_STAGED' });
-      scheduleRender();
+      return;
     }
+
+    /* 두 번째 끝점 — 잇는 일은 `connectCable` 한 곳이고, 여기서는 **까닭을 어디에 적을지**만 정한다. */
+    const err = connectCable({
+      firstPortId: state.firstPortId,
+      toPort: port,
+      assets: latest.current.effectiveAssets,
+      cables: latest.current.effectiveCables,
+      substationId,
+      categoryId: cableState.categoryId || null,
+      mediumKey: selectedGroupKey,
+      pathPoints: cableState.draftPath,
+    });
+    if (err === 'no-first') {
+      // 첫 끝점을 잃었다 — picker 까지 걷어 원격 단추가 헛돌지 않게 한다.
+      cableDispatch({ type: 'ABORT_TO_ARMED' });
+      return;
+    }
+    if (err) {
+      cableDispatch({ type: 'SET_PICKER_ERROR', error: connectErrorLabel(err) });
+      return;
+    }
+    // 도구 유지 (연속 연결), 첫 끝점 초기화
+    cableDispatch({ type: 'CABLE_STAGED' });
+    scheduleRender();
   };
 
   // ── 대국 모달에서 포트 선택 → 두 번째 끝점으로 처리 ──────────────────────
   const handleRemotePortSelect = (port: V2Port, _asset: AssetSearchResult) => {
-    const first = cableState.firstEndpoint;
-    if (!first) return;
-
-    const aPort = latest.current.effectiveAssets
-      .flatMap((a) => a.ports)
-      .find((p) => p.id === first.portId);
-    const bPort = port;
-
-    if (!aPort) {
-      // 첫 끝점을 effective에서 못 찾음 — 모달 유지 + 에러 표기 (침묵 금지)
+    const err = connectCable({
+      firstPortId: cableState.firstPortId,
+      toPort: port,
+      assets: latest.current.effectiveAssets,
+      cables: latest.current.effectiveCables,
+      substationId,
+      categoryId: cableState.categoryId || null,
+      mediumKey: selectedGroupKey,
+      pathPoints: cableState.draftPath,
+    });
+    if (err === 'no-first') {
+      // 침묵하지 않는다 — 모달은 열어 두고 왜 안 됐는지 적는다.
       cableDispatch({ type: 'SET_REMOTE_ERROR', error: '첫 끝점을 확인할 수 없습니다 — 다시 선택하세요' });
       return;
     }
-
-    const counts = cableCountByPortId(latest.current.effectiveCables);
-    const err = validateConnection(aPort, bPort, counts, selectedGroupKey);
     if (err) {
-      // 검증 실패 — 모달 유지 + 모달 내 에러 표기 (첫 끝점 유지)
       cableDispatch({ type: 'SET_REMOTE_ERROR', error: connectErrorLabel(err) });
       return;
     }
-
-    const categoryId = cableState.categoryId || null;
-
-    useV2WorkingCopy.getState().stageCableCreate({
-      id: crypto.randomUUID(),
-      name: null,
-      substationId,
-      aPortId: first.portId,
-      bPortId: port.id,
-      categoryId,
-      pathPoints: cableState.draftPath,
-      specParams: {},
-      updatedAt: '',
-    });
-
     cableDispatch({ type: 'REMOTE_CABLE_STAGED' });
     scheduleRender();
   };
@@ -1236,30 +1234,26 @@ export function FloorPlanView({
 
   // ── 선택 자산 삭제 ────────────────────────────────────────────────────────
   async function handleDeleteSelectedAsset() {
+    const selectedAssetId = latest.current.selectedAssetId;
     if (!selectedAssetId) return;
     const all = useV2WorkingCopy.getState().effectiveAssets();
     const target = all.find((a) => a.id === selectedAssetId);
     if (!target) return;
-    /* 함께 사라지는 것이 몇인가 — 걷는 일은 `assetTree` 하나가 한다(순환해도 멈춘다). */
-    const n = descendantCount(all, selectedAssetId);
-    const ok = await confirm({
-      title: '설비 삭제',
-      target: target.name,
-      message: n > 0 ? `딸린 장비 ${n}개가 함께 삭제됩니다.` : '이 설비를 삭제합니다.',
-      confirmLabel: '삭제',
-      danger: true,
-    });
-    if (!ok) return;
-    useV2WorkingCopy.getState().stageAssetDeleteCascade(selectedAssetId);
+    /* 묻는 말과 지우는 일은 한 곳에서 — 상세 패널의 삭제와 같은 말이어야 한다. */
+    if (!(await deleteAssetWithConfirm({ asset: target, assets: all, confirm }))) return;
     onSelectAsset(null);
     scheduleRender();
   }
 
   // ── 선택 케이블 삭제 ──────────────────────────────────────────────────────
-  function handleDeleteSelectedCable() {
+  async function handleDeleteSelectedCable() {
     const id = latest.current.selectedCableId;
     if (id === null) return;
-    useV2WorkingCopy.getState().stageCableDelete(id);
+    /* 예전에는 여기서만 **묻지 않고** 지웠다 — 포트 탭에서는 물었는데. 한 규칙으로 모은다. */
+    const peer = cableSegments(latest.current.effectiveCables, latest.current.effectiveAssets, latest.current.activeFloor?.id ?? '')
+      .find((seg) => seg.id === id);
+    const target = peer?.outgoing?.label ?? '이 케이블';
+    if (!(await deleteCableWithConfirm({ cableId: id, target, confirm }))) return;
     cableDispatch({ type: 'DESELECT_CABLE' });
     scheduleRender();
   }
@@ -1339,27 +1333,27 @@ export function FloorPlanView({
    */
   const pickAsset = cableState.picker?.asset ?? null;
   const firstEndpointLabel = useMemo(() => {
-    const first = cableState.picker?.firstEndpoint ?? cableState.firstEndpoint;
-    if (!first) return null;
-    const owner = effectiveAssets.find((a) => a.id === first.assetId);
-    const port = owner?.ports.find((p) => p.id === first.portId);
+    const portId = cableState.picker?.firstPortId ?? cableState.firstPortId;
+    if (!portId) return null;
+    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === portId));
+    const port = owner?.ports.find((p) => p.id === portId);
     return owner && port ? `${owner.name}#${port.index}` : null;
-  }, [cableState.picker, cableState.firstEndpoint, effectiveAssets]);
+  }, [cableState.picker, cableState.firstPortId, effectiveAssets]);
 
   useEffect(() => {
     if (!pickAsset) {
       onPickPort?.(null);
       return;
     }
-    const first = cableState.picker?.firstEndpoint ?? null;
+    const firstPortId = cableState.picker?.firstPortId ?? null;
     onPickPort?.({
       assetId: pickAsset.id,
       medium: selectedGroupKey ?? null,
-      firstEndpoint: first ? { portId: first.portId, label: firstEndpointLabel ?? '' } : null,
+      firstEndpoint: firstPortId ? { portId: firstPortId, label: firstEndpointLabel ?? '' } : null,
       error: cableState.picker?.validationError ?? null,
       onSelect: (port) => handlePortSelectRef.current(port),
       onCancel: () => cableDispatch({ type: 'CLOSE_PICKER' }),
-      onSearchRemote: first ? () => cableDispatch({ type: 'OPEN_REMOTE_MODAL' }) : undefined,
+      onSearchRemote: firstPortId ? () => cableDispatch({ type: 'OPEN_REMOTE_MODAL' }) : undefined,
     });
   }, [pickAsset, cableState.picker, selectedGroupKey, firstEndpointLabel, onPickPort]);
 
@@ -1616,7 +1610,7 @@ export function FloorPlanView({
           open={cableState.remoteModalOpen}
           onClose={() => cableDispatch({ type: 'CLOSE_REMOTE_MODAL' })}
           mediumFilter={selectedGroupKey}
-          excludePortId={cableState.firstEndpoint?.portId}
+          excludePortId={cableState.firstPortId ?? undefined}
           cableCountByPortId={cableCounts}
           onSelectPort={handleRemotePortSelect}
           errorText={cableState.remoteError}

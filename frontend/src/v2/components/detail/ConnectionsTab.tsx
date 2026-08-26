@@ -25,6 +25,7 @@ import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCo
 import { buildTraceTree, type TraceTreeNode } from '@twin/core';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../assetTree';
+import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
@@ -336,18 +337,10 @@ export function ConnectionsTab({
     setTracedPortId(portId);
   }
 
-  /** 가닥 하나를 지운다 — 되돌릴 수 있는 스테이지이지만, 지우면 경로점까지 사라지므로 묻는다. */
+  /** 가닥 하나를 지운다 — 묻는 말도 지우는 일도 도면과 **같은 문**이다. */
   async function handleDeleteCable(peer: { cableId: string; label: string }) {
-    const ok = await confirm({
-      title: '케이블 삭제',
-      target: `${peer.label} 으로 가는 케이블`,
-      message: '저장 전에는 되돌릴 수 있습니다.',
-      confirmLabel: '삭제',
-      danger: true,
-    });
-    if (!ok) return;
-    useV2WorkingCopy.getState().stageCableDelete(peer.cableId);
-    setEditingCableId(null);
+    const ok = await deleteCableWithConfirm({ cableId: peer.cableId, target: `${peer.label} 으로 가는 케이블`, confirm });
+    if (ok) setEditingCableId(null);
   }
 
   function clearTrace() {

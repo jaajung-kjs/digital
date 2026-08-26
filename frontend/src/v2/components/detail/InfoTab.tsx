@@ -24,7 +24,7 @@ import {
 import type { GridCell, GridPlacement } from '../../gridDrag';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { makeNewAsset, portsForNewAsset } from '../../newAsset';
-import { descendantCount } from '../../assetTree';
+import { deleteAssetWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { InputProps } from '../../../components/ui';
 import type { V2Asset, V2AssetType, V2Assembly } from '../../types';
@@ -215,17 +215,9 @@ export function InfoTab({
   /* 종류 이름을 짓는 데만 쓴다 — 격자는 「구성」 탭이 맡는다. */
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
 
-  /** 함께 사라지는 것이 몇인가 — 삭제 확인 문구가 쓴다(걷는 일은 `assetTree` 가 한다). */
-  const descendants = descendantCount(effectiveAssets, assetId);
-
-  // ── 삭제 핸들러 ────────────────────────────────────────────────────────────
+  // ── 삭제 핸들러 — 묻는 말도 지우는 일도 도면과 **같은 문**이다. ───────────
   async function handleDelete() {
-    const msg =
-      descendants > 0
-        ? `딸린 장비 ${descendants}개가 함께 삭제됩니다. 계속하시겠습니까?`
-        : '이 설비를 삭제하시겠습니까?';
-    if (!(await confirm({ title: '설비 삭제', target: asset.name, message: msg, confirmLabel: '삭제', danger: true }))) return;
-    useV2WorkingCopy.getState().stageAssetDeleteCascade(assetId);
+    await deleteAssetWithConfirm({ asset, assets: effectiveAssets, confirm });
   }
 
   /** 장비 하나 걷어내기 — 설비는 그대로 둔다. */

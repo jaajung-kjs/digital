@@ -36,6 +36,31 @@ function screenFiles(): string[] {
   );
 }
 
+/**
+ * **같은 일에는 문이 하나다.**
+ *
+ * 화면마다 문이 있어도(도면 · 포트 탭 · 대국 검색) 그 문 뒤에서 하는 일은 하나여야 한다.
+ * 문마다 글을 따로 적으면 반드시 갈린다 — 실제로 갈렸다: 케이블을 도면에서는 **묻지도 않고**
+ * 지웠는데 포트 탭에서는 물었고, 첫 끝점에 넣는 자산이 문마다 달라 미리보기가 한쪽에서만
+ * 나왔다. 잇고 지우는 일은 `cableActions`·`deleteActions` 에서만 한다.
+ */
+describe('같은 일에는 문이 하나다', () => {
+  const OWNERS: Record<string, string> = {
+    'stageCableCreate': 'cableActions.ts',
+    'stageCableDelete': 'deleteActions.ts',
+  };
+
+  it('케이블을 잇고 지우는 일은 그 한 곳에서만 한다', () => {
+    const files = screenFiles();
+    for (const [call, owner] of Object.entries(OWNERS)) {
+      const offenders = files.filter(
+        (f) => !f.endsWith(owner) && new RegExp(`\\.${call}\\(`).test(readFileSync(f, 'utf8')),
+      );
+      expect(offenders, `${call} 을 ${owner} 밖에서 부른 곳: ${offenders.join(', ')}`).toEqual([]);
+    }
+  });
+});
+
 describe('저장 여부로 갈라서지 않는다', () => {
   /**
    * **합치는 일은 한 곳에서만 한다.**

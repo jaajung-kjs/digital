@@ -16,8 +16,8 @@ export interface PickerState {
   asset: V2Asset;
   /** viewport client 좌표 (fixed 팝오버용) */
   screenPos: { x: number; y: number };
-  /** 첫 끝점이 이미 확정된 경우 */
-  firstEndpoint: { portId: string; assetId: string } | null;
+  /** 첫 끝점이 이미 정해졌으면 그 포트 */
+  firstPortId: string | null;
   /** 사전 연결 검증 에러 (한글) — 있으면 스테이지 대신 안내 표시 */
   validationError?: string | null;
 }
@@ -30,7 +30,17 @@ export interface CableToolState {
   armed: boolean;
   categoryId: string;
   picker: PickerState | null;
-  firstEndpoint: { portId: string; assetId: string } | null;
+  /**
+   * 첫 끝점 — **포트 하나뿐**이다.
+   *
+   * 예전에는 포트와 함께 자산 id 도 들고 있었는데, **두 진입점이 서로 다른 자산을 넣었다**:
+   * 도면에서 시작하면 놓인 설비(OFD)가, 포트 탭의 「케이블 연결」로 시작하면 그 포트를 가진
+   * 장비(슬롯)가 들어갔다. 도면은 놓인 설비로만 그림을 그리므로, 뒤쪽 길로 시작하면 첫 끝점
+   * 강조도 경로 미리보기도 **아무것도 안 나왔다** — 같은 일인데 들어온 문에 따라 달랐다.
+   *
+   * 무엇에 매달린 포트인지는 자료가 이미 안다(포트 → 장비 → 놓인 조상). 들고 다니지 않는다.
+   */
+  firstPortId: string | null;
   /**
    * 지금 그리고 있는 **경로의 꺾은점** — 첫 끝점이 정해진 뒤 도면을 누른 자리들.
    *
@@ -48,7 +58,7 @@ export const initialCableToolState: CableToolState = {
   armed: false,
   categoryId: '',
   picker: null,
-  firstEndpoint: null,
+  firstPortId: null,
   draftPath: [],
   selectedCableId: null,
   remoteModalOpen: false,
@@ -62,7 +72,7 @@ export type CableToolAction =
   | { type: 'OPEN_PICKER'; picker: PickerState }
   | { type: 'CLOSE_PICKER' }
   | { type: 'SET_PICKER_ERROR'; error: string }
-  | { type: 'CONFIRM_FIRST_ENDPOINT'; endpoint: { portId: string; assetId: string } }
+  | { type: 'CONFIRM_FIRST_ENDPOINT'; portId: string }
   | { type: 'ADD_WAYPOINT'; point: { x: number; y: number } }
   | { type: 'UNDO_WAYPOINT' }
   | { type: 'ABORT_TO_ARMED' }
@@ -77,11 +87,11 @@ export type CableToolAction =
 export function cableToolReducer(state: CableToolState, action: CableToolAction): CableToolState {
   switch (action.type) {
     case 'ARM':
-      return { ...state, armed: true, firstEndpoint: null, picker: null, draftPath: [] };
+      return { ...state, armed: true, firstPortId: null, picker: null, draftPath: [] };
     case 'DISARM':
-      return !state.armed && state.picker === null && state.firstEndpoint === null
+      return !state.armed && state.picker === null && state.firstPortId === null
         ? state
-        : { ...state, armed: false, firstEndpoint: null, picker: null, draftPath: [] };
+        : { ...state, armed: false, firstPortId: null, picker: null, draftPath: [] };
     case 'SET_CATEGORY':
       return state.categoryId === action.categoryId ? state : { ...state, categoryId: action.categoryId };
     case 'OPEN_PICKER':
@@ -92,18 +102,18 @@ export function cableToolReducer(state: CableToolState, action: CableToolAction)
       return state.picker ? { ...state, picker: { ...state.picker, validationError: action.error } } : state;
     case 'CONFIRM_FIRST_ENDPOINT':
       /* 첫 끝점이 정해지는 순간부터 경로를 그린다 — 지난 손짓의 꺾은점은 남기지 않는다. */
-      return { ...state, firstEndpoint: action.endpoint, picker: null, draftPath: [] };
+      return { ...state, firstPortId: action.portId, picker: null, draftPath: [] };
     case 'ADD_WAYPOINT':
       /* 첫 끝점 없이는 그릴 경로가 없다(어디서 시작하는지 모른다). */
-      return state.firstEndpoint ? { ...state, draftPath: [...state.draftPath, action.point] } : state;
+      return state.firstPortId ? { ...state, draftPath: [...state.draftPath, action.point] } : state;
     case 'UNDO_WAYPOINT':
       return state.draftPath.length === 0 ? state : { ...state, draftPath: state.draftPath.slice(0, -1) };
     case 'ABORT_TO_ARMED':
       // 첫 끝점 포트를 effective 자산에서 못 찾은 경우 — 무검증 스테이지 금지, armed 는 유지
-      return { ...state, firstEndpoint: null, picker: null, draftPath: [] };
+      return { ...state, firstPortId: null, picker: null, draftPath: [] };
     case 'CABLE_STAGED':
       // 도구 유지(연속 연결), 첫 끝점과 그리던 경로만 초기화
-      return { ...state, firstEndpoint: null, picker: null, draftPath: [] };
+      return { ...state, firstPortId: null, picker: null, draftPath: [] };
     case 'OPEN_REMOTE_MODAL':
       return { ...state, remoteModalOpen: true, remoteError: null };
     case 'CLOSE_REMOTE_MODAL':
@@ -111,7 +121,7 @@ export function cableToolReducer(state: CableToolState, action: CableToolAction)
     case 'SET_REMOTE_ERROR':
       return { ...state, remoteError: action.error };
     case 'REMOTE_CABLE_STAGED':
-      return { ...state, firstEndpoint: null, remoteModalOpen: false, picker: null, remoteError: null, draftPath: [] };
+      return { ...state, firstPortId: null, remoteModalOpen: false, picker: null, remoteError: null, draftPath: [] };
     case 'SELECT_CABLE':
       return { ...state, selectedCableId: action.id };
     case 'DESELECT_CABLE':

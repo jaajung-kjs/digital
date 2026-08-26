@@ -94,7 +94,10 @@ function setStore(assets: V2Asset[], cables: V2Cable[] = []) {
  * 그래서 테스트도 그 계약을 그대로 친다: 마지막 요청을 붙잡아 두고, 거기 실려 온
  * `onSelect` 에 포트를 넘겨 다음 전이를 일으킨다. 판을 여기서 다시 그리지 않는다.
  */
-function renderFloorPlan(onSelectAsset: (id: string | null) => void = vi.fn()) {
+function renderFloorPlan(
+  onSelectAsset: (id: string | null) => void = vi.fn(),
+  extra: { cableStartPortId?: string | null } = {},
+) {
   const pick: { current: CablePickRequest | null } = { current: null };
   const utils = render(
     <FloorPlanView
@@ -102,6 +105,7 @@ function renderFloorPlan(onSelectAsset: (id: string | null) => void = vi.fn()) {
       selectedAssetId={null}
       onSelectAsset={onSelectAsset}
       onPickPort={(req) => { pick.current = req; }}
+      {...extra}
     />,
   );
   return { ...utils, pick };
@@ -182,6 +186,29 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     const creates = Object.values(v2WorkingCopyStore.getState().overlays.cables.creates);
     expect(creates).toHaveLength(1);
     expect(creates[0]).toMatchObject({ aPortId: 'p-n', bPortId: 'p-a' });
+  });
+
+  /**
+   * **문이 둘이어도 같은 일이 일어나야 한다.**
+   *
+   * 케이블 잇기를 시작하는 길은 둘이다: 도면에서 설비를 눌러 포트를 고르는 길과, 포트 탭의
+   * 「케이블 연결」 단추(`cableStartPortId`). 예전에는 각자 상태를 세워서, 뒤쪽 길로 시작하면
+   * 첫 끝점에 **장비**(슬롯)가 들어갔다 — 도면은 놓인 설비로만 그림을 그리므로 강조도
+   * 경로 미리보기도 아무것도 안 나왔다. 시작하는 일은 한 곳에서만 한다.
+   */
+  it('포트 탭에서 시작해도 도면에서 시작한 것과 같은 상태가 된다', () => {
+    const fromPanel = renderFloorPlan(vi.fn(), { cableStartPortId: 'p-a' });
+    /* 도구가 켜지고 첫 끝점이 정해진 자리 — 도면에서 두 번 눌러 온 것과 같은 안내다. */
+    expect(fromPanel.getByText(/반대쪽 설비를 클릭하세요|도면을 눌러 경로를 그리고/)).toBeTruthy();
+
+    /* 이어서 반대쪽을 고르면 그대로 스테이지된다 — 첫 끝점이 제대로 서 있다는 뜻이다. */
+    fireEvent.click(fromPanel.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
+    expect(fromPanel.pick.current?.assetId).toBe('b');
+    choosePort(fromPanel.pick, 'p-b');
+
+    const creates = Object.values(v2WorkingCopyStore.getState().overlays.cables.creates);
+    expect(creates).toHaveLength(1);
+    expect(creates[0]).toMatchObject({ aPortId: 'p-a', bPortId: 'p-b' });
   });
 
   it('ESC — 첫 끝점 확정 후에도 FSM을 idle로 되돌리고 아무것도 스테이지하지 않는다', () => {
