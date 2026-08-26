@@ -109,3 +109,24 @@ describe('떠나기 전에 묻는 자리', () => {
     expect(offenders, `셸 밖에서 beforeunload 를 등록한 곳: ${offenders.join(', ')}`).toEqual([]);
   });
 });
+
+/**
+ * **같은 판을 쓰면 같은 것을 할 수 있어야 한다.**
+ *
+ * 트리 넷이 한 판(`TreePanel`)을 쓰는데 순서 바꾸기가 조직에만 켜져 있었다 — 같은 목록처럼
+ * 보이는데 어떤 것은 끌리고 어떤 것은 안 끌린다. 그런 갈림은 쓰는 사람이 **매번 물어야**
+ * 알 수 있고, 물어서 하나씩 켜는 동안 또 다른 트리가 생긴다.
+ *
+ * 그래서 「끌 수 있다」는 기본값이고(`TreeKind.reorder` 는 끄는 데만 쓴다), 순서를 저장하는
+ * 문도 하나다(`putOrder`). 여기서는 **손잡이가 서는 트리라면 순서도 바꿀 수 있는지**만 본다.
+ */
+describe('같은 판을 쓰면 같은 것을 할 수 있다', () => {
+  it('층을 선언한 트리는 순서 바꾸기도 붙인다', () => {
+    const offenders = screenFiles().filter((f) => {
+      const src = readFileSync(f, 'utf8');
+      /* `kinds` 를 준다 = 만들고·고치고·지우는 트리다. 보기만 하는 트리는 여기 없다. */
+      return /<TreePanel/.test(src) && /\bkinds=\{/.test(src) && !/\bonReorder=\{/.test(src);
+    });
+    expect(offenders, `순서를 못 바꾸는 트리: ${offenders.join(', ')}`).toEqual([]);
+  });
+});

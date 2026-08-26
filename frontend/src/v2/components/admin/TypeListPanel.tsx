@@ -11,6 +11,7 @@
 import { useMemo } from 'react';
 import { TreePanel, type TreeKind, type TreeNode } from '../../../components/ui';
 import { NEW_ID } from '../../catalogDraft';
+import { useReorder } from '../../hooks';
 import type { V2Catalog, V2Category } from '../../types';
 
 interface TypeListPanelProps {
@@ -59,6 +60,7 @@ export function TypeListPanel({
   onNewType,
   category,
 }: TypeListPanelProps) {
+  const reorder = useReorder();
   /**
    * 분류 → 종류 2단을 **한 줄짜리 목록**으로 편다 — 트리는 층을 `depth` 로만 안다.
    *
@@ -108,6 +110,10 @@ export function TypeListPanel({
         onCreate={({ level, parentId, name }) => (level === 0 ? category.add(name!) : onNewType(parentId!))}
         onRename={(node, name) => category.rename(byId(node.id), name)}
         onRemove={(node) => category.remove(byId(node.id))}
+        /* 순서는 조직 트리와 **같은 문**으로 저장된다 — 층에 따라 무엇의 순서인지만 다르다. */
+        onReorder={({ node, order }) =>
+          reorder.mutateAsync({ kind: node.depth === 0 ? 'categories' : 'types', ids: order }).then(() => undefined)
+        }
         emptyText="장비 품목이 없습니다"
         escapes
       />

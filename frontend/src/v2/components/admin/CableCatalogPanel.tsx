@@ -39,7 +39,8 @@ import type { V2Catalog, V2CableGroup } from '../../types';
 import { useCatalogMutations, useWageCatalog } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
 import { LaborSpecForm } from './LaborSpecForm';
-import { TreePanel, type TreeNode } from '../../../components/ui';
+import { TreePanel, type TreeKind, type TreeNode } from '../../../components/ui';
+import { useReorder } from '../../hooks';
 import { useEditorGate } from '../../useEditorGate';
 import { useDraftSelection } from '../../useDraftSelection';
 import { unsavedPrompt } from '../../leaveGuard';
@@ -140,8 +141,12 @@ function issuesOf(g: GroupDraft | null): { flags: Map<string, RowIssues>; groupN
   return { flags, groupName, count };
 }
 
+/** 한 층짜리 트리 — 그룹은 고정 어휘라 만들거나 지울 수 없고, 순서만 바꾼다. */
+const KINDS = [{ label: '케이블 그룹' }] as const satisfies ReadonlyArray<TreeKind>;
+
 export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   const mutations = useCatalogMutations();
+  const reorder = useReorder();
   const { confirm, confirmDialog } = useConfirm();
   const wage = useWageCatalog();
   const groups = catalog.cableGroups;
@@ -266,9 +271,13 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
       <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
         <TreePanel
           title="케이블 품목"
+          /* 그룹은 만들거나 지울 수 없다(key 가 포트 종류의 어휘다) — 그래서 그 선언이 비어
+             있다. 순서는 바꿀 수 있고, 그 문은 조직·대장과 같은 것이다. */
+          kinds={KINDS}
           nodes={nodes}
           selectedId={selectedId}
           onSelect={(n) => void selectGroup(n?.id ?? null)}
+          onReorder={({ order }) => reorder.mutateAsync({ kind: 'cable-groups', ids: order }).then(() => undefined)}
           emptyText="케이블 그룹이 없습니다"
           escapes
         />

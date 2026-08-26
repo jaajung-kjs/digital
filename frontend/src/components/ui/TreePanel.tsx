@@ -73,10 +73,14 @@ export interface TreeKind {
   /** 지울 수 있는가. 되돌릴 수 없으므로 묻는 일은 부르는 쪽이 한다. */
   remove?: boolean;
   /**
-   * 끌어서 순서를 바꿀 수 있는가 — **같은 부모 안에서만**.
+   * 끌어서 순서를 바꿀 수 있는가 — **기본은 그렇다**(`onReorder` 를 준 트리라면).
    *
-   * 다른 부모 밑으로 옮기는 것은 순서 바꾸기가 아니라 소속을 바꾸는 일이라 서버 계약도
-   * 다르다(지금은 이름·순서만 고친다). 그래서 남의 자식들 사이에는 놓이지 않는다.
+   * 기본을 「된다」로 둔 이유: 같은 판을 쓰는데 트리마다 켜고 끄면 반드시 어긋난다 —
+   * 실제로 조직에서만 끌리고 대장에서는 안 끌렸다. 순서가 없는 층(날짜순 목록 같은 것)만
+   * `false` 로 끈다.
+   *
+   * 옮기는 것은 **같은 부모 안에서만**이다. 다른 부모 밑으로 가는 것은 순서가 아니라
+   * 소속을 바꾸는 일이라 서버 계약도 다르다(지금은 이름·순서만 고친다).
    */
   reorder?: boolean;
 }
@@ -287,6 +291,7 @@ export function TreePanel({
   /** 저 줄 자리에 놓을 수 있나 — 같은 부모의 같은 층끼리만. */
   function canDropOn(target: TreeNode): boolean {
     if (!dragId || dragId === target.id) return false;
+    if (kindAt(target.depth)?.reorder === false) return false;
     const me = nodes.find((n) => n.id === dragId);
     if (!me || me.depth !== target.depth) return false;
     return parentOf(dragId) === parentOf(target.id);
@@ -486,7 +491,7 @@ export function TreePanel({
               data-selectable=""
               data-id={n.id}
               /* 끌 수 있는 줄인가 — 이름을 치는 중에는 끌지 않는다(글자를 고르는 중이다). */
-              draggable={kindAt(n.depth)?.reorder === true && !creating && !renaming}
+              draggable={onReorder != null && kindAt(n.depth)?.reorder !== false && !creating && !renaming}
               onDragStart={(e) => {
                 setDragId(n.id);
                 e.dataTransfer.effectAllowed = 'move';

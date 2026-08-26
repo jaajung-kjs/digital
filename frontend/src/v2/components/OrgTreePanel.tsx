@@ -3,7 +3,7 @@ import { TreePanel, useConfirm, type TreeKind, type TreeNode } from '../../compo
 import { type OrgKind } from '../api';
 import { apiErrorMessage } from '../apiError';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
-import { useOrgMutations, useV2OrgTree } from '../hooks';
+import { useOrgMutations, useReorder, useV2OrgTree } from '../hooks';
 
 /**
  * 이 트리가 다루는 것 — **트리에 보이는 것만**.
@@ -22,9 +22,9 @@ type TreeOrgKind = OrgKind;
  * 흩어져 있었고, 줄마다 「지사 추가」 같은 문구를 손으로 적었다.
  */
 const KINDS = [
-  { key: 'headquarters', label: '본부', create: 'inline', rename: true, remove: true, reorder: true },
-  { key: 'branches', label: '전력지사', create: 'inline', rename: true, remove: true, reorder: true },
-  { key: 'substations', label: '변전소', create: 'inline', rename: true, remove: true, reorder: true },
+  { key: 'headquarters', label: '본부', create: 'inline', rename: true, remove: true },
+  { key: 'branches', label: '전력지사', create: 'inline', rename: true, remove: true },
+  { key: 'substations', label: '변전소', create: 'inline', rename: true, remove: true },
 ] as const satisfies ReadonlyArray<TreeKind & { key: TreeOrgKind }>;
 
 /** 이 층의 것이 매달리는 곳 — 본부는 매달릴 곳이 없다. */
@@ -37,7 +37,8 @@ const PARENT_FIELD: Record<TreeOrgKind, string> = {
 export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node: FlatOrgNode | null) => void }) {
   const { confirm, confirmDialog } = useConfirm();
   const { data: tree } = useV2OrgTree();
-  const { createOrgNode: createMut, renameOrgNode: renameMut, deleteOrgNode: deleteMut, reorderOrgNodes: reorderMut } = useOrgMutations();
+  const { createOrgNode: createMut, renameOrgNode: renameMut, deleteOrgNode: deleteMut } = useOrgMutations();
+  const reorderMut = useReorder();
 
   const nodes = tree ? flattenTree(tree) : [];
 
@@ -89,7 +90,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
         }
         onRemove={(node) => void remove(node)}
         /* 끌어서 순서를 바꾼다 — 화면이 본 순서를 그대로 번호로 적는다. */
-        onReorder={({ node, order }) => reorderMut.mutateAsync({ kind: KINDS[node.depth]!.key, order }).then(() => undefined)}
+        onReorder={({ node, order }) => reorderMut.mutateAsync({ kind: KINDS[node.depth]!.key, ids: order }).then(() => undefined)}
       />
       {confirmDialog}
     </div>

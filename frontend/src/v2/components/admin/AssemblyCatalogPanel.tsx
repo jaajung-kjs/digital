@@ -10,7 +10,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { EmptyState, TreePanel, useConfirm, IssueReveal, type TreeKind, type TreeNode } from '../../../components/ui';
 import { CatalogEditorBar } from './CatalogEditorBar';
-import { useCatalogMutations } from '../../hooks';
+import { useCatalogMutations, useReorder } from '../../hooks';
 import {
   assemblyIssues, assemblyToDraft, draftToAssemblyBody, emptyAssemblyDraft,
   type AssemblyDraft,
@@ -52,6 +52,7 @@ export function AssemblyCatalogPanel({
   catalog, category,
 }: AssemblyCatalogPanelProps) {
   const { confirm, confirmDialog } = useConfirm();
+  const reorder = useReorder();
   const m = useCatalogMutations();
 
   /* 첫 항목을 열어 둔다 — 케이블 탭이 이미 그렇게 하고 있었다. 기본 탭이 설비 품목이라,
@@ -162,6 +163,10 @@ export function AssemblyCatalogPanel({
           onCreate={({ level, parentId, name }) => (level === 0 ? category.add(name!) : newInto(parentId!))}
           onRename={(node, name) => category.rename(byId(node.id), name)}
           onRemove={(node) => category.remove(byId(node.id))}
+          /* 순서는 조직 트리와 **같은 문**으로 저장된다. */
+          onReorder={({ node, order }) =>
+            reorder.mutateAsync({ kind: node.depth === 0 ? 'categories' : 'assemblies', ids: order }).then(() => undefined)
+          }
           emptyText="설비 품목이 없습니다"
           escapes
         />

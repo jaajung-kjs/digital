@@ -108,6 +108,20 @@ export async function deleteType(id: string): Promise<void> {
   await api.delete(`/v2/catalog/types/${id}`);
 }
 
+/**
+ * 순서 저장 — **목록 단위로, 한 문**(조직·대장 모두 이 길을 쓴다).
+ *
+ * 「그 부모의 자식 전체가 이 순서다」를 그대로 보낸다. 하나만 고쳐 보내면 뒤엣것들의 번호를
+ * 부르는 쪽이 셈해야 하고, 화면이 본 순서와 서버의 순서가 어긋난다.
+ */
+export type OrderKind =
+  | 'headquarters' | 'branches' | 'substations'
+  | 'categories' | 'types' | 'assemblies' | 'cable-groups';
+
+export async function putOrder(kind: OrderKind, ids: string[]): Promise<void> {
+  await api.patch('/v2/order', { kind, ids });
+}
+
 // 분류(category)
 export async function createCategory(body: { key: string; name: string; sortOrder: number }): Promise<{ id: string }> {
   return (await api.post('/v2/catalog/categories', body)).data;

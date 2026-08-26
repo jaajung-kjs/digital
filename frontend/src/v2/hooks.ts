@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import {
+  putOrder,
+  type OrderKind,
   createAssembly,
   createCategory,
   createOrgNode,
@@ -101,19 +103,6 @@ export function useOrgMutations() {
       mutationFn: (v: { kind: OrgKind; id: string }) => deleteOrgNode(v.kind, v.id),
       onSuccess: invalidate,
     }),
-    /**
-     * 순서 바꾸기 — 새 순서를 **통째로** 번호로 적는다(0,1,2…).
-     *
-     * 「끌어 온 것 하나만 고친다」로는 안 된다: 서버는 `sortOrder` 오름차순으로 내주므로,
-     * 사이에 끼우려면 뒤엣것들의 번호도 함께 밀려야 한다. 통째로 다시 매기면 그 셈이
-     * 필요 없고, 화면이 본 순서가 그대로 서버의 순서가 된다.
-     */
-    reorderOrgNodes: useMutation({
-      mutationFn: async (v: { kind: OrgKind; order: string[] }) => {
-        for (const [i, id] of v.order.entries()) await patchOrgNode(v.kind, id, { sortOrder: i });
-      },
-      onSuccess: invalidate,
-    }),
   };
 }
 
@@ -124,6 +113,26 @@ export function useOrgMutations() {
  * 두 곳에 복제되면 한쪽만 고쳐져 화면마다 다른 말이 나온다(실제로 포트 목록은 키를
  * 그대로 보여주고 있었다).
  */
+/**
+ * 순서 바꾸기 — **모든 트리가 같은 것을 쓴다**(조직 · 분류 · 품목 · 케이블 그룹).
+ *
+ * 예전에는 조직만 제 손으로 순서를 고쳤고, 같은 트리 판을 쓰는 대장들은 못 했다. 종류마다
+ * 길을 따로 내면 그렇게 갈린다 — 문은 하나고(`putOrder`), 무엇의 순서인지만 다르다.
+ */
+export function useReorder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { kind: OrderKind; ids: string[] }) => putOrder(v.kind, v.ids),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['v2', 'org-tree'] }),
+        qc.invalidateQueries({ queryKey: ['v2', 'catalog'] }),
+      ]);
+    },
+    meta: QUIET, // 실패는 트리가 그 자리에서 말한다
+  });
+}
+
 export function useMediumLabel(): (key: string) => string {
   const catalog = useV2Catalog();
   const groups = catalog.data?.cableGroups;
