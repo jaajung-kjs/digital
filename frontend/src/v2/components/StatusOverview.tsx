@@ -75,6 +75,15 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>(NO_FILTER);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  /** 접어 둔 분류 — 「통신은 접고 구조만 보기」. 기본은 전부 펼친 상태다. */
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+
+  const toggle = (set: ReadonlySet<string>, key: string): ReadonlySet<string> => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  };
 
   /** 검색과 필터는 **개체에 걸린다** — 그러고 나서 남은 것을 센다(집계가 늘 진실이 되게). */
   const shown = useMemo(() => {
@@ -165,7 +174,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
         <TableCard fill widths={widths}>
           <thead>
             <tr className="sticky top-0 z-sticky">
-              <Th>분류 · 품목</Th>
+              <Th>항목</Th>
               <Th align="right">개수</Th>
               <Th>상태</Th>
               {/* 집계 줄은 **어디에 몇 개**, 개체 줄은 **그것이 있는 자리**. 한 열의 두 겹이다. */}
@@ -193,16 +202,36 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
 
             {summary.groups.map((group) => (
               <Fragment key={group.categoryName}>
-                {/* 분류 줄 — 「통신 21」. 무엇이 많은지가 현황에서 먼저 궁금하다. */}
-                <tr className="border-b border-line bg-surface-2">
-                  <td className="px-3 py-1.5 text-xs font-semibold text-content">{group.categoryName}</td>
-                  <td className="px-3 py-1.5 text-right text-xs font-semibold tabular-nums text-content">
-                    {group.count}
+                {/**
+                 * 분류 줄 — **본문의 한 줄**이지 머리글이 아니다.
+                 *
+                 * 계층은 들여쓰기 · 셰브런 · 굵기로 말한다(자료표의 통용 방식 — AG Grid 의
+                 * 그룹 줄, 엑셀의 윤곽). 배경을 채워 구분하려 들면 머리글과 같은 옷이 되어
+                 * 「어디까지가 머리글인가」가 흐려진다 — 색은 마지막 수단이다.
+                 */}
+                <tr
+                  className={cn('border-t border-line', SELECTABLE)}
+                  onClick={() => setCollapsed((prev) => toggle(prev, group.categoryName))}
+                >
+                  <td className="px-3 py-2 text-content">
+                    <span className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label={`${group.categoryName} ${collapsed.has(group.categoryName) ? '펼치기' : '접기'}`}
+                        aria-expanded={!collapsed.has(group.categoryName)}
+                        className="shrink-0 text-content-faint hover:text-content"
+                      >
+                        {collapsed.has(group.categoryName) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                      <span className="truncate font-semibold">{group.categoryName}</span>
+                    </span>
                   </td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-content">{group.count}</td>
                   <td colSpan={colCount - 2} />
                 </tr>
 
-                {group.items.map((item) => {
+                {!collapsed.has(group.categoryName) &&
+                  group.items.map((item) => {
                   const open = expanded.has(item.key);
                   const bad = Object.entries(item.byStatus).filter(([v]) => v !== OK_STATUS);
                   return (
@@ -218,7 +247,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                           })
                         }
                       >
-                        <td className="truncate px-3 py-2 text-content">
+                        <td className="truncate px-3 py-2 pl-8 text-content">
                           <span className="flex items-center gap-1">
                             <button
                               type="button"
@@ -264,7 +293,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                           >
                             {/* 펼친 줄은 **그 품목이 실제로 어떤 것들인지**다 — 저장된 이름·상태·자리.
                                 열의 뜻은 그대로다(개수 칸은 비운다 — 하나짜리에 「1」은 군더더기다). */}
-                            <td className="px-3 py-1.5 pl-10 text-content">
+                            <td className="px-3 py-1.5 pl-14 text-content">
                               <span className="flex items-center gap-1">
                                 <span className="min-w-0 truncate">{r.name}</span>
                                 {onOpenElsewhere && (

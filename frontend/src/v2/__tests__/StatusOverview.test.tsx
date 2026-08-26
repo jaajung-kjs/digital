@@ -166,4 +166,30 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
 
     expect(screen.queryByRole('button', { name: /변전소에서 열기/ })).toBeNull();
   });
+
+  it('분류를 접으면 그 아래 품목이 사라진다 — 「통신은 접고 구조만 보기」', () => {
+    show();
+    expect(screen.getByText('L3 스위치')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '통신 접기' }));
+
+    expect(screen.queryByText('L3 스위치')).toBeNull();
+    /* 분류 줄 자체와 그 개수는 남는다 — 접은 것이지 숨긴 것이 아니다. */
+    expect(within(lineOf('통신')).getByText('3')).toBeTruthy();
+    /* 다른 분류는 그대로 펼쳐져 있다. */
+    expect(screen.getByText('분전반')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '통신 펼치기' }));
+    expect(screen.getByText('L3 스위치')).toBeTruthy();
+  });
+
+  it('머리글은 하나뿐이다 — 분류 줄은 **본문의 한 줄**이지 머리글이 아니다', () => {
+    show();
+
+    /* 계층은 들여쓰기·셰브런·굵기로 말한다. 분류 줄이 머리글 옷(th)을 입으면 어디까지가
+       머리글인지 흐려진다. */
+    expect(document.querySelectorAll('thead tr').length).toBe(1);
+    expect(lineOf('통신').closest('thead')).toBeNull();
+    expect(lineOf('통신').querySelectorAll('th').length).toBe(0);
+  });
 });
