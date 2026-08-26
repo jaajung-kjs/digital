@@ -212,6 +212,15 @@ export function TreePanel({
     onChange: (v: string) => void;
     commit: (name: string) => void;
     cancel: () => void;
+    /**
+     * 딴 데를 누르면 확정인가, 없던 일인가.
+     *
+     * **만들 때는 없던 일이다.** 이름이 미리 채워져 있지만 그것은 우리가 넣은 것이지 사람이
+     * 정한 것이 아니다 — 손도 대지 않고 딴 데를 눌렀는데 「새 본부」가 생겨 있으면, 만든 적
+     * 없는 것을 지우는 일이 남는다. **고칠 때는 확정이다.** 그건 이미 있는 것이고, 고르고
+     * 글자를 친 것 자체가 뜻이다(탐색기·Finder 도 그렇게 한다). 둘 다 Esc 는 물림이다.
+     */
+    commitOnBlur: boolean;
   }): ReactNode {
     return (
       <Input
@@ -224,7 +233,7 @@ export function TreePanel({
         onFocus={(e) => e.currentTarget.select()}
         onClick={(e) => e.stopPropagation()}
         onChange={(e) => props.onChange(e.currentTarget.value)}
-        onBlur={() => props.commit(props.value)}
+        onBlur={() => (props.commitOnBlur ? props.commit(props.value) : props.cancel())}
         onKeyDown={(e) => {
           e.stopPropagation(); // 트리의 화살표·Enter 규칙이 글자 치는 것을 가로채지 않게
           if (isCommitKey(e)) props.commit(props.value);
@@ -499,6 +508,7 @@ export function TreePanel({
               <span className="min-w-0 flex-1 truncate">
                 {n.id === CREATE_ROW && creating
                   ? nameField({
+                      commitOnBlur: false, // 만들다 만 것은 만들지 않는다
                       label: `새 ${creating.label} 이름`,
                       value: creating.value,
                       onChange: (v) => setCreating((c) => (c ? { ...c, value: v } : c)),
@@ -514,6 +524,7 @@ export function TreePanel({
                     })
                   : renaming?.id === n.id
                     ? nameField({
+                        commitOnBlur: true, // 이미 있는 것을 고치는 중이다
                         label: `${n.text} 이름`,
                         value: renaming.value,
                         onChange: (v) => setRenaming((r) => (r ? { ...r, value: v } : r)),

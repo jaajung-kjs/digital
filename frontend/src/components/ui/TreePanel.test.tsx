@@ -97,6 +97,32 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
     expect(onCreate).not.toHaveBeenCalled();
   });
 
+  it('만들다 말고 딴 데를 누르면 **없던 일이 된다** — 채워 둔 이름은 우리가 넣은 것이다', () => {
+    const onCreate = vi.fn();
+    render(<TreePanel title="조직" kinds={ORG} nodes={[]} selectedId={null} onSelect={() => {}} onCreate={onCreate} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '새 본부' }));
+    fireEvent.blur(screen.getByLabelText('새 본부 이름'));
+
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('새 본부 이름')).toBeNull();
+  });
+
+  it('이름을 고치다 딴 데를 누르면 **확정된다** — 이미 있는 것을 고르고 친 것이다', () => {
+    const onRename = vi.fn();
+    render(
+      <TreePanel title="조직" kinds={ORG} selectedId={null} onSelect={() => {}} onRename={onRename}
+        nodes={[row({ id: 'hq', text: '강원본부' })]} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 바꾸기' }));
+    const field = screen.getByLabelText('강원본부 이름');
+    fireEvent.change(field, { target: { value: '중부본부' } });
+    fireEvent.blur(field);
+
+    expect(onRename).toHaveBeenCalledWith(expect.objectContaining({ id: 'hq' }), '중부본부');
+  });
+
   it('이름만으로 서지 않는 층(품목)은 줄을 세우지 않고 **초안을 연다**', () => {
     const onCreate = vi.fn();
     render(
