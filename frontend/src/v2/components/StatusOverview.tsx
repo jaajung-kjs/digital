@@ -117,6 +117,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
     nodeScope ? [r.where, r.location].filter((v) => v && v !== EMPTY).join(' · ') : r.location || r.where || EMPTY;
 
   const summary = useMemo(() => summarize(shown), [shown]);
+  const allCollapsed = summary.groups.length > 0 && summary.groups.every((g) => collapsed.has(g.categoryName));
   /** 칩의 숫자는 **거르기 전 전체**다 — 걸러 놓고 그 숫자를 다시 세면 칩이 늘 0 이 된다. */
   const all = useMemo(() => summarize(rows), [rows]);
 
@@ -174,7 +175,27 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
         <TableCard fill widths={widths}>
           <thead>
             <tr className="sticky top-0 z-sticky">
-              <Th>항목</Th>
+              <Th>
+                {/* **모두 접기/펴기는 그 계층을 쥔 열의 머리글에** — 엑셀의 윤곽 단추, AG Grid 의
+                    그룹 열 머리글이 같은 자리다. 다 접으면 그것이 곧 분류별 요약표가 된다. */}
+                <span className="flex items-center gap-2">
+                  항목
+                  {summary.groups.length > 0 && (
+                    <button
+                      type="button"
+                      className="rounded px-1 font-normal text-content-faint hover:bg-surface-3 hover:text-content"
+                      onClick={() => {
+                        if (allCollapsed) return setCollapsed(new Set());
+                        /* 접을 때는 품목까지 함께 — 반쯤 펼쳐진 채로 남으면 「모두」가 거짓말이 된다. */
+                        setExpanded(new Set());
+                        setCollapsed(new Set(summary.groups.map((g) => g.categoryName)));
+                      }}
+                    >
+                      {allCollapsed ? '모두 펴기' : '모두 접기'}
+                    </button>
+                  )}
+                </span>
+              </Th>
               <Th align="right">개수</Th>
               <Th>상태</Th>
               {/* 집계 줄은 **어디에 몇 개**, 개체 줄은 **그것이 있는 자리**. 한 열의 두 겹이다. */}

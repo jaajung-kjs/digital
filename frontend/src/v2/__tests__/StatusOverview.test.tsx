@@ -192,4 +192,21 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
     expect(lineOf('통신').closest('thead')).toBeNull();
     expect(lineOf('통신').querySelectorAll('th').length).toBe(0);
   });
+
+  it('「모두 접기」 → 분류만 남는다(그게 곧 분류별 요약표다), 다시 누르면 펴진다', () => {
+    show();
+    fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
+    expect(screen.getByText('L3 스위치 1')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '모두 접기' }));
+
+    /* 품목도 개체도 없고 분류와 그 개수만 남는다 — 반쯤 펼쳐진 채면 「모두」가 거짓말이 된다. */
+    expect(screen.queryByText('L3 스위치')).toBeNull();
+    expect(screen.queryByText('L3 스위치 1')).toBeNull();
+    expect(within(lineOf('통신')).getByText('3')).toBeTruthy();
+    expect(within(lineOf('전원')).getByText('1')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '모두 펴기' }));
+    expect(screen.getByText('L3 스위치')).toBeTruthy();
+  });
 });
