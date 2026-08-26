@@ -24,10 +24,13 @@ nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
     const assets = await nextDb.asset.findMany({
       where: { substationId: { in: substationIds } },
       include: {
-        type: true,
+        /* 분류는 **설비 품목·장비 품목 둘 다** 갖는다 — 현황이 그것으로 접는다. */
+        type: { include: { category: { select: { name: true } } } },
         substation: { select: { name: true } },
         parentAsset: { select: { name: true } },
-        assembly: true,
+        assembly: { include: { category: { select: { name: true } } } },
+        /* 마지막 점검 하나면 된다 — 목록에 적을 값이지 이력을 보여 주는 자리가 아니다. */
+        inspections: { orderBy: { inspectedAt: 'desc' }, take: 1, select: { inspectedAt: true } },
       },
       orderBy: [{ substation: { name: 'asc' } }, { name: 'asc' }],
     });
@@ -42,6 +45,10 @@ nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
         // 설비 품목으로 놓은 설비는 장비 품목이 없다 — 그때는 설비 품목 이름이 곧 종류다.
         typeKey: a.type?.key ?? null,
         typeName: a.assembly?.name ?? a.type?.name ?? '—',
+        categoryName: a.assembly?.category?.name ?? a.type?.category?.name ?? null,
+        /* 도면에 놓이는 것은 설비뿐이라, 설비 품목이 붙어 있으면 그것이 설비다. */
+        isAssembly: a.assemblyId != null,
+        lastInspectedAt: a.inspections[0]?.inspectedAt ?? null,
         parentAssetId: a.parentAssetId,
         parentName: a.parentAsset?.name ?? null,
         floorId: a.floorId,

@@ -7,6 +7,17 @@ type FieldDef = ReturnType<typeof assetFieldDefs>[number];
 export interface StatusRow {
   id: string;
   typeName: string;
+  /**
+   * 이 자산이 속한 **분야** — 설비든 장비든 같은 축이다(통신·전원·구조·공조).
+   *
+   * 현황은 이것으로 접는다: 「통신 21개, 그중 L3 스위치 2대」. 품목이 스스로 들고 있는
+   * 값이라 여기서 짐작하지 않는다(설비 품목·장비 품목 둘 다 categoryId 를 갖는다).
+   */
+  categoryName: string;
+  /** 도면에 놓인 설비인가, 그 안의 장비인가. 놓이는 것은 설비뿐이다(FloorPlanView). */
+  kind: '설비' | '장비';
+  /** 「어디에」 한 마디 — 고른 곳이 본부·지사면 변전소 이름, 변전소면 층 이름. */
+  where: string;
   name: string;
   location: string;
   lastInspectedAt: string | null;
@@ -43,6 +54,8 @@ export function buildStatusRows(args: {
   inspectionsByAsset: Map<string, string[]>;
   /** 설비 품목 id → 설비 품목. 설비 품목으로 놓은 설비는 **설비 품목이 곧 분류**다. */
   assembliesById: Map<string, V2Assembly>;
+  /** 분류 id → 이름. 설비 품목·장비 품목이 같은 분류 체계를 쓴다. */
+  categoryNames: Map<string, string>;
 }): StatusRowsResult {
   const floorName = new Map(args.floors.map((f) => [f.id, f.name]));
   const assetById = new Map(args.assets.map((a) => [a.id, a]));
@@ -71,8 +84,15 @@ export function buildStatusRows(args: {
     const type = a.typeId ? args.typesById.get(a.typeId) : undefined;
     const inspections = args.inspectionsByAsset.get(a.id) ?? [];
     const inAssembly = assemblyRootOf(a);
+    const assembly = a.assemblyId ? args.assembliesById.get(a.assemblyId) : undefined;
+    const categoryId = assembly?.categoryId ?? type?.categoryId ?? null;
+    /* 층은 그 자산의 것이 아닐 수 있다 — 장비는 제 설비가 놓인 층에 있다. */
+    const rootFloorId = inAssembly ? (assetById.get(inAssembly.rootId)?.floorId ?? null) : a.floorId;
     return {
       id: a.id,
+      categoryName: (categoryId && args.categoryNames.get(categoryId)) || '',
+      kind: a.assemblyId ? ('설비' as const) : ('장비' as const),
+      where: (rootFloorId && floorName.get(rootFloorId)) || '',
       /* 설비 품목으로 놓은 설비는 **설비 품목이 곧 분류**다 — 업무에서 "랙이 몇 개" 는 묻지 않는다.
          이름을 글자로 굳히지 않고 설비 품목을 가리키므로, 설비 품목 이름을 고치면 여기도 따라 바뀐다. */
       typeName: (a.assemblyId && args.assembliesById.get(a.assemblyId)?.name) || type?.name || '—',

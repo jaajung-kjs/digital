@@ -196,6 +196,8 @@ export interface V2Workingcopy {
 export interface V2NodeAssetRow {
   id: string; name: string; status: string; updatedAt: string; substationId: string; substationName: string;
   typeKey: string; typeName: string; parentAssetId: string | null; parentName: string | null; floorId: string | null;
+  /* 현황은 분류로 접고 점검을 센다 — 변전소 스코프와 **같은 집계**가 되려면 서버도 이 둘을 준다. */
+  categoryName: string | null; isAssembly: boolean; lastInspectedAt: string | null;
 }
 export interface V2Conflict { id: string; reason: 'modified' | 'deleted' | 'exists'; serverUpdatedAt?: string }
 

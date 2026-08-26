@@ -28,8 +28,10 @@ describe('useWorkspaceRoute', () => {
   });
 
   it('없거나 모르는 판 이름은 첫 판으로 — 주소는 남이 손으로 고칠 수 있다', () => {
-    expect(at('/n/sub-1').result.current.view).toBe('설비 대장');
-    expect(at('/n/sub-1?view=없는판').result.current.view).toBe('설비 대장');
+    expect(at('/n/sub-1').result.current.view).toBe('설비 현황');
+    expect(at('/n/sub-1?view=없는판').result.current.view).toBe('설비 현황');
+    /* 이름만 바뀐 옛 주소는 **그 화면으로 받아 준다** — 북마크가 엉뚱한 탭으로 떨어지지 않게. */
+    expect(at('/n/sub-1?view=설비 대장').result.current.view).toBe('설비 현황');
   });
 
   it('자산을 지우면 장비·포트도 함께 지워진다 — 셋은 한 동작의 결과다', () => {

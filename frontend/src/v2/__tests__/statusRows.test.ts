@@ -24,6 +24,7 @@ describe('buildStatusRows (변전소 스코프)', () => {
       typesById: types,
       inspectionsByAsset: new Map([['a-1', ['2026-06-01T00:00:00.000Z', '2026-07-01T00:00:00.000Z']]]),
       assembliesById: assemblies,
+      categoryNames: new Map([['c-1', '통신']]),
     });
     expect(rows[0]).toMatchObject({ id: 'a-1', typeName: '송변전광단말장치', location: '1층', lastInspectedAt: '2026-07-01T00:00:00.000Z', status: 'normal' });
     expect(rows[0]?.fieldValues).toMatchObject({ installDate: '2026-01-01', manager: '홍길동' });
@@ -43,6 +44,7 @@ describe('buildStatusRows (변전소 스코프)', () => {
       typesById: types,
       inspectionsByAsset: new Map(),
       assembliesById: assemblies,
+      categoryNames: new Map([['c-1', '통신']]),
     });
 
     expect(rows.map((r) => r.id)).toEqual(['a-1', 'tmp-1']);
@@ -60,7 +62,7 @@ describe('필드 열 도출', () => {
   const build = (assets: object[], typesById: Map<string, never>) =>
     buildStatusRows({
       assets: assets as never, floors: [] as never, typesById,
-      inspectionsByAsset: new Map(), assembliesById: new Map(),
+      inspectionsByAsset: new Map(), assembliesById: new Map(), categoryNames: new Map(),
     }).fieldColumns.map((f) => f.key);
 
   it('타입이 섞여도 열은 같다 — 자산 속성은 종류를 가리지 않는다', () => {
@@ -84,7 +86,7 @@ describe('설비 묶음', () => {
   const build = (assets: object[]) =>
     buildStatusRows({
       assets: assets as never, floors: [] as never, typesById: types as never,
-      inspectionsByAsset: new Map(), assembliesById,
+      inspectionsByAsset: new Map(), assembliesById, categoryNames: new Map(),
     }).rows;
 
   it('뿌리에만 설비 품목 이름이 적히고, 자손은 그 뿌리에 매인다', () => {

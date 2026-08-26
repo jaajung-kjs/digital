@@ -3,7 +3,7 @@ import type { CablePickRequest } from '../cablePick';
 import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
-import { StatusTable } from '../components/StatusTable';
+import { StatusOverview } from '../components/StatusOverview';
 import { SaveBar } from '../components/SaveBar';
 import { confirmDiscard, unsavedPrompt } from '../leaveGuard';
 import { useUnsavedMark } from '../useUnsavedMark';
@@ -159,6 +159,11 @@ export default function V2WorkspacePage() {
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
+  /* 분류 이름은 카탈로그가 안다 — 현황이 그것으로 접는다(설비·장비 같은 축). */
+  const categoryNames = useMemo(
+    () => new Map((catalog.data?.categories ?? []).map((c) => [c.id, c.name])),
+    [catalog.data?.categories],
+  );
   /** 설비 품목으로 놓은 설비는 설비 품목이 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */
   const assembliesById = useMemo(
     () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
@@ -193,8 +198,9 @@ export default function V2WorkspacePage() {
       typesById,
       inspectionsByAsset,
       assembliesById,
+      categoryNames,
     });
-  }, [selected, substationId, effectiveAssets, floors, inspections, typesById, assembliesById]);
+  }, [selected, substationId, effectiveAssets, floors, inspections, typesById, assembliesById, categoryNames]);
 
   // ── 노드 스코프 (본부/지사): useV2NodeAssets ────────────────────────────
   const isNodeScope = selected != null && selected.kind !== 'substation';
@@ -207,9 +213,13 @@ export default function V2WorkspacePage() {
     const rows = (nodeAssetsQuery.data ?? []).map((r) => ({
       id: r.id,
       typeName: r.typeName,
+      categoryName: r.categoryName ?? '',
+      kind: (r.isAssembly ? '설비' : '장비') as '설비' | '장비',
+      /* 본부·지사에서 「어디에」는 변전소다 — 층은 그 변전소로 들어가서 본다. */
+      where: r.substationName,
       name: r.name,
       location: r.parentName ?? EMPTY,
-      lastInspectedAt: null,
+      lastInspectedAt: r.lastInspectedAt,
       status: r.status,
       substationName: r.substationName,
       fieldValues: {},
@@ -329,7 +339,7 @@ export default function V2WorkspacePage() {
                        도구바(검색)까지 함께 쓸려 올라간다. */
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-                      <StatusTable
+                      <StatusOverview
                         rows={rows}
                         fieldColumns={fieldColumns}
                         selectedId={highlightedAssetId}
