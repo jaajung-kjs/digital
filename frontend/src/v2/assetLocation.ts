@@ -1,4 +1,3 @@
-import { cellLabel } from '@twin/core';
 import type { V2Asset } from './types';
 
 /**
@@ -11,7 +10,8 @@ import type { V2Asset } from './types';
  * 같은 계산이 현황표와 상세 패널에 각각 복제돼 있었다(한쪽만 고치면 두 화면이 달라진다).
  * 여기 한 곳에 둔다.
  *
- * 격자 안의 자리는 **행·열**로 적는다 — 좌표를 번호 하나로 접지 않는다.
+ * **격자 안의 칸(행·열)은 적지 않는다.** 현황이 묻는 「어디에 있나」는 층과 어느 설비까지다 —
+ * 몇 번째 칸인지는 그 설비를 열면 구성 격자가 보여 주고, 목록에서는 줄만 길게 한다.
  */
 export function assetLocationPath(
   asset: V2Asset,
@@ -34,14 +34,7 @@ export function assetLocationPath(
       break;
     }
     const parent: V2Asset | undefined = assetById.get(cur.parentAssetId);
-    /* 자리는 "그 상위의 어느 칸인가" 이므로 상위 이름 뒤에 붙인다. 칸은 **행·열로 말한다** —
-       예전에는 `row × cols + col + 1` 로 접어 「자리 4」라고 불렀는데, 도화지 좌표에 이름을
-       붙인 것일 뿐이라 도화지가 촘촘해지면 뜻이 없어진다. */
-    const slot =
-      cur.col != null && cur.row != null
-        ? ` · ${cellLabel(cur.col, cur.row)}`
-        : '';
-    parts.unshift(`${parent?.name ?? '—'}${slot}`);
+    parts.unshift(parent?.name ?? '—');
     cur = parent;
   }
 

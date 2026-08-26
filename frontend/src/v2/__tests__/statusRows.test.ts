@@ -28,8 +28,9 @@ describe('buildStatusRows (변전소 스코프)', () => {
     });
     expect(rows[0]).toMatchObject({ id: 'a-1', typeName: '송변전광단말장치', location: '1층', lastInspectedAt: '2026-07-01T00:00:00.000Z', status: 'normal' });
     expect(rows[0]?.fieldValues).toMatchObject({ installDate: '2026-01-01', manager: '홍길동' });
-    // 위치는 층까지 거슬러 올라간다 — 예전에는 '랙1 · 4행 1열' 라서 몇 층인지 알 수 없었다.
-    expect(rows[1]).toMatchObject({ id: 'a-2', location: '1층 · 랙1 · 4행 1열', lastInspectedAt: null });
+    /* 위치는 층까지 거슬러 올라가되 **칸은 적지 않는다** — 몇 번째 칸인지는 그 설비를 열면
+       구성 격자가 보여 준다(예전에는 '랙1 · 4행 1열' 이라 몇 층인지도 알 수 없었다). */
+    expect(rows[1]).toMatchObject({ id: 'a-2', location: '1층 · 랙1', lastInspectedAt: null });
     expect(rows[2]).toMatchObject({ id: 'a-3', location: '미배치', status: 'standby', lastInspectedAt: null });
   });
 
