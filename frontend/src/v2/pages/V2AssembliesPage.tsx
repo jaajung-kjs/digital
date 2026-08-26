@@ -9,7 +9,7 @@
  *
  * 판은 앱의 다른 화면과 같다 — `트리 │ 캔버스`.
  */
-import { ErrorStrip, PageState } from '../../components/ui';
+import { PageState } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
 import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import { useCategoryAdmin } from '../useCategoryAdmin';
@@ -25,20 +25,10 @@ export default function V2AssembliesPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ErrorStrip
-        message={category.error}
-        onDismiss={category.clearError}
-        className="shrink-0 border-b border-line bg-surface px-4 py-1"
-      />
       <div className="flex min-h-0 flex-1">
-        <AssemblyCatalogPanel
-          catalog={catalog}
-          onRenameCategory={category.rename}
-          onDeleteCategory={(cat) => void category.remove(cat)}
-          onAddCategory={category.openAdd}
-        />
+        <AssemblyCatalogPanel catalog={catalog} onManageCategories={category.open} />
       </div>
-      {category.modal(catalog.categories)}
+      {category.dialog}
     </div>
   );
 }

@@ -13,8 +13,6 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import {
-  ErrorStrip,
-  PromptModal,
   useConfirm,
   EmptyState,
   IssueReveal,
@@ -25,13 +23,14 @@ import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID } from '../c
 import { useEditorGate } from '../useEditorGate';
 import type { TypeDraft } from '../catalogDraft';
 import { useUnsavedMark } from '../useUnsavedMark';
+import { useCategoryAdmin } from '../useCategoryAdmin';
 import { unsavedPrompt } from '../leaveGuard';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { CatalogEditorBar } from '../components/admin/CatalogEditorBar';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { PortsEditor } from '../components/admin/PortsEditor';
-import type { V2AssetType, V2Category } from '../types';
+import type { V2AssetType } from '../types';
 import { useV2Notice } from '../store/noticeStore';
 
 export default function V2AssetTypesPage() {
@@ -48,8 +47,8 @@ export default function V2AssetTypesPage() {
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+  /* 분류는 설비 품목 화면과 **같은 문**을 쓴다 — 여기서 다시 적으면 두 화면이 갈린다. */
+  const category = useCategoryAdmin();
   const [isSaving, setIsSaving] = useState(false);
 
   /* 카탈로그가 도착하면 첫 항목을 연다 — 한 번만. 그 뒤에 고른 것을 지우거나 「+」 로
@@ -184,48 +183,12 @@ export default function V2AssetTypesPage() {
     }
   }
 
-  // ── 분류 관리 콜백 ────────────────────────────────────────────────────────
-  async function handleRenameCategory(cat: V2Category, newName: string) {
-    setCategoryError(null);
-    try {
-      await mutations.patchCategory.mutateAsync({ id: cat.id, body: { name: newName } });
-    } catch (err: unknown) {
-      setCategoryError(apiErrorMessage(err, '분류 이름 변경 실패'));
-    }
-  }
-
-  async function handleDeleteCategory(cat: V2Category) {
-    setCategoryError(null);
-    try {
-      await mutations.deleteCategory.mutateAsync(cat.id);
-    } catch (err: unknown) {
-      setCategoryError(apiErrorMessage(err, '분류 삭제 실패'));
-    }
-  }
-
-  async function handleAddCategory(name: string) {
-    setCategoryError(null);
-    const maxOrder = Math.max(0, ...(catalog?.categories.map((c) => c.sortOrder) ?? [0]));
-    try {
-      await mutations.createCategory.mutateAsync({ name, key: name, sortOrder: maxOrder + 1 });
-      setAddCategoryOpen(false); // 성공했을 때만 닫는다 — 실패하면 오류를 모달 안에서 보여준다
-    } catch (err: unknown) {
-      setCategoryError(apiErrorMessage(err, '분류 추가 실패'));
-    }
-  }
-
   // ── 렌더 ─────────────────────────────────────────────────────────────────
   if (catalogQuery.isLoading) return <PageState />;
   if (catalogQuery.isError || catalog == null) return <PageState error="카탈로그를 불러오지 못했습니다" />;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      {/* 분류 관리 오류 배너 */}
-      <ErrorStrip
-        message={categoryError}
-        onDismiss={() => setCategoryError(null)}
-        className="shrink-0 border-b border-line bg-surface px-4 py-1"
-      />
       <div className="flex min-h-0 flex-1">
         {/* 목록은 탭이 각자 갖는다 — 지금 편집하는 것 옆에만 그 목록이 선다.
             폭·테두리·검색은 `TreePanel` 이 소유한다(조직 트리와 같은 판). */}
@@ -236,12 +199,7 @@ export default function V2AssetTypesPage() {
             newDraft={isNew && draft ? { categoryId: draft.categoryId, name: draft.name } : null}
             onSelectType={selectType}
             onNewType={handleNewType}
-            onRenameCategory={handleRenameCategory}
-            onDeleteCategory={handleDeleteCategory}
-            onAddCategory={() => {
-              setCategoryError(null);
-              setAddCategoryOpen(true);
-            }}
+            onManageCategories={category.open}
           />
         )}
 
@@ -303,17 +261,7 @@ export default function V2AssetTypesPage() {
           )}
         </div>
       </div>
-      <PromptModal
-        open={addCategoryOpen}
-        title="분류 추가"
-        hint="설비·장비 품목을 묶는 상위 분류입니다. 이름이 곧 키가 되므로 나중에 바꿀 수 없습니다."
-        label="분류 이름"
-        placeholder="예: 계측"
-        busy={mutations.createCategory.isPending}
-        error={categoryError}
-        onConfirm={handleAddCategory}
-        onClose={() => setAddCategoryOpen(false)}
-      />
+      {category.dialog}
       {confirmDialog}
     </div>
   );

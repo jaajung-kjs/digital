@@ -9,10 +9,10 @@
  * 목록과 미묘하게 달랐고(폭 64 vs 56, 분류 묶음 유무), 검색은 어느 쪽에도 없었다.
  */
 import { useMemo } from 'react';
-import { IconButton, TreePanel, useInlineRename, type TreeNode } from '../../../components/ui';
+import { IconButton, TreePanel, type TreeNode } from '../../../components/ui';
 import { NEW_ID } from '../../catalogDraft';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
-import type { V2Catalog, V2Category } from '../../types';
+import { Plus } from 'lucide-react';
+import type { V2Catalog } from '../../types';
 
 interface TypeListPanelProps {
   catalog: V2Catalog;
@@ -27,9 +27,8 @@ interface TypeListPanelProps {
   onSelectType: (id: string | null) => void;
   /** 새 장비 품목 — 분류 줄의 `+` 로 만들면 그 분류로 시작한다. */
   onNewType: (categoryId?: string) => void;
-  onRenameCategory: (category: V2Category, newName: string) => void;
-  onDeleteCategory: (category: V2Category) => void;
-  onAddCategory: () => void;
+  /** 분류를 만들고 고치는 일은 **상자 하나**가 한다 — 여기서는 그 문을 열 뿐이다. */
+  onManageCategories: () => void;
 }
 
 export function TypeListPanel({
@@ -38,16 +37,9 @@ export function TypeListPanel({
   newDraft,
   onSelectType,
   onNewType,
-  onRenameCategory,
-  onDeleteCategory,
-  onAddCategory,
+  onManageCategories,
 }: TypeListPanelProps) {
   /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
-  const rename = useInlineRename((id, name) => {
-    const cat = catalog.categories.find((c) => c.id === id);
-    if (cat) onRenameCategory(cat, name);
-  });
-
   /**
    * 분류 → 종류 2단을 **한 줄짜리 목록**으로 편다 — 트리는 층을 `depth` 로만 안다.
    *
@@ -60,7 +52,7 @@ export function TypeListPanel({
       const items = catalog.types.filter((t) => t.categoryId === cat.id);
       out.push({
         id: cat.id,
-        label: rename.isEditing(cat.id) ? rename.field(cat.id, cat.name, `${cat.name} 이름 편집`) : cat.name,
+        label: cat.name,
         text: cat.name,
         depth: 0,
         selectable: false,
@@ -75,32 +67,6 @@ export function TypeListPanel({
               }}
             >
               <Plus size={12} />
-            </IconButton>
-            <IconButton
-              aria-label={`${cat.name} 이름 변경`}
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                rename.start(cat.id, cat.name);
-              }}
-            >
-              <Pencil size={12} />
-            </IconButton>
-            {/* 빈 분류만 지울 수 있다 — 종류가 남아 있으면 서버가 거부하므로 아예 막고,
-                왜 못 지우는지 그 자리에서 말한다. */}
-            <IconButton
-              aria-label={`${cat.name} 분류 삭제`}
-              size="sm"
-              disabled={items.length > 0}
-              disabledReason={
-                items.length > 0 ? `이 분류에 ${items.length}개가 들어 있어 지울 수 없습니다` : undefined
-              }
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteCategory(cat);
-              }}
-            >
-              <Trash2 size={12} />
             </IconButton>
           </>
         ),
@@ -120,7 +86,7 @@ export function TypeListPanel({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.categories, catalog.types, rename, newDraft]);
+  }, [catalog.categories, catalog.types, newDraft]);
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
@@ -129,8 +95,8 @@ export function TypeListPanel({
         nodes={nodes}
         selectedId={selectedTypeId}
         onSelect={(n) => onSelectType(n?.id ?? null)}
-        onAdd={onAddCategory}
-        addLabel="분류 추가"
+        onAdd={onManageCategories}
+        addLabel="분류 관리"
         emptyText="장비 품목이 없습니다"
         escapes
       />

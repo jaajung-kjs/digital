@@ -48,13 +48,18 @@ describe('같은 일에는 문이 하나다', () => {
   const OWNERS: Record<string, string> = {
     'stageCableCreate': 'cableActions.ts',
     'stageCableDelete': 'deleteActions.ts',
+    /* 분류는 설비 품목과 장비 품목이 **함께 쓰는 체계**다. 두 화면이 각자 적고 있었고,
+       그래서 한쪽만 확인을 묻고 오류 문구도 갈렸다. 문은 상자 하나다. */
+    'createCategory.mutateAsync': 'useCategoryAdmin.tsx',
+    'patchCategory.mutateAsync': 'useCategoryAdmin.tsx',
+    'deleteCategory.mutateAsync': 'useCategoryAdmin.tsx',
   };
 
-  it('케이블을 잇고 지우는 일은 그 한 곳에서만 한다', () => {
+  it('케이블을 잇고 지우는 일, 분류를 고치는 일은 그 한 곳에서만 한다', () => {
     const files = screenFiles();
     for (const [call, owner] of Object.entries(OWNERS)) {
       const offenders = files.filter(
-        (f) => !f.endsWith(owner) && new RegExp(`\\.${call}\\(`).test(readFileSync(f, 'utf8')),
+        (f) => !f.endsWith(owner) && new RegExp(`\\.${call.replace('.', '\\.')}\\(`).test(readFileSync(f, 'utf8')),
       );
       expect(offenders, `${call} 을 ${owner} 밖에서 부른 곳: ${offenders.join(', ')}`).toEqual([]);
     }

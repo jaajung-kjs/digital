@@ -8,8 +8,8 @@
  * 그래서 장비 품목과 달리 "쓰이는 중이면 구조 잠금" 이 없다.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { EmptyState, IconButton, TreePanel, useConfirm, useInlineRename, IssueReveal, type TreeNode } from '../../../components/ui';
+import { Plus } from 'lucide-react';
+import { EmptyState, IconButton, TreePanel, useConfirm, IssueReveal, type TreeNode } from '../../../components/ui';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
 import {
@@ -22,20 +22,19 @@ import { useDraftSelection } from '../../useDraftSelection';
 import { unsavedPrompt } from '../../leaveGuard';
 import { useUnsavedMark } from '../../useUnsavedMark';
 import { AssemblyPanel } from './AssemblyPanel';
-import type { V2Assembly, V2Catalog, V2Category } from '../../types';
+import type { V2Assembly, V2Catalog } from '../../types';
 import { useV2Notice } from '../../store/noticeStore';
 
 interface AssemblyCatalogPanelProps {
   catalog: V2Catalog;
-  /* 분류는 **장비 품목과 같은 체계**(AssetCategory)다 — 관리 로직은 한 곳(페이지)에 두고
+  /* 분류는 **장비 품목과 같은 체계**(AssetCategory)다 — 고치는 일은 상자 하나가 하고(`useCategoryAdmin`)
      두 탭이 같은 것을 부른다. 어느 탭에서 만들든 양쪽 목록에 나타난다. */
-  onRenameCategory: (category: V2Category, newName: string) => void;
-  onDeleteCategory: (category: V2Category) => void;
-  onAddCategory: () => void;
+  /** 분류를 만들고 고치는 일은 **상자 하나**가 한다 — 여기서는 그 문을 열 뿐이다. */
+  onManageCategories: () => void;
 }
 
 export function AssemblyCatalogPanel({
-  catalog, onRenameCategory, onDeleteCategory, onAddCategory,
+  catalog, onManageCategories,
 }: AssemblyCatalogPanelProps) {
   const { confirm, confirmDialog } = useConfirm();
   const m = useCatalogMutations();
@@ -44,11 +43,6 @@ export function AssemblyCatalogPanel({
      대장을 열면 빈 화면이 먼저 나오고 탭을 옮기면 갑자기 내용이 차 있어 어긋나 보였다. */
   const [saveError, setSaveError] = useState<string | null>(null);
   /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
-  const rename = useInlineRename((id, name) => {
-    const cat = catalog.categories.find((c) => c.id === id);
-    if (cat) onRenameCategory(cat, name);
-  });
-
   /* 고른 것·초안·떠나기 전 묻기는 세 탭이 같은 셸을 쓴다 — `useDraftSelection`. */
   const leaveIfConfirmed = useCallback(
     /* 묻는 말은 앱에 한 벌뿐이다 — `unsavedPrompt`. */
@@ -114,11 +108,9 @@ export function AssemblyCatalogPanel({
       void sel.startNew({ ...emptyAssemblyDraft(), categoryId });
     for (const cat of catalog.categories) {
       const items = catalog.assemblies.filter((a) => a.categoryId === cat.id);
-      /* 빈 분류만 지울 수 있다 — 장비 품목 탭과 같은 규칙이다(같은 분류를 지운다). */
-      const inUse = items.length > 0 || catalog.types.some((t) => t.categoryId === cat.id);
       out.push({
         id: cat.id,
-        label: rename.isEditing(cat.id) ? rename.field(cat.id, cat.name, `${cat.name} 이름 편집`) : cat.name,
+        label: cat.name,
         text: cat.name,
         depth: 0,
         selectable: false,
@@ -133,28 +125,6 @@ export function AssemblyCatalogPanel({
               }}
             >
               <Plus size={12} />
-            </IconButton>
-            <IconButton
-              aria-label={`${cat.name} 이름 변경`}
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                rename.start(cat.id, cat.name);
-              }}
-            >
-              <Pencil size={12} />
-            </IconButton>
-            <IconButton
-              aria-label={`${cat.name} 분류 삭제`}
-              size="sm"
-              disabled={inUse}
-              disabledReason={inUse ? '이 분류에 들어 있는 것이 있어 지울 수 없습니다' : undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteCategory(cat);
-              }}
-            >
-              <Trash2 size={12} />
             </IconButton>
           </>
         ),
@@ -173,7 +143,7 @@ export function AssemblyCatalogPanel({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.assemblies, catalog.categories, catalog.types, rename, onDeleteCategory, isNew, draft]);
+  }, [catalog.assemblies, catalog.categories, isNew, draft]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -183,8 +153,8 @@ export function AssemblyCatalogPanel({
           nodes={nodes}
           selectedId={selectedId}
           onSelect={(n) => void sel.select(n?.id ?? null)}
-          onAdd={onAddCategory}
-          addLabel="분류 추가"
+          onAdd={onManageCategories}
+          addLabel="분류 관리"
           emptyText="설비 품목이 없습니다"
           escapes
         />
