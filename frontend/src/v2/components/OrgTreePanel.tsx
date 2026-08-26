@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { TreePanel, useConfirm, type TreeKind, type TreeNode } from '../../components/ui';
 import { type OrgKind } from '../api';
+import { apiErrorMessage } from '../apiError';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
 
@@ -71,12 +72,21 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
           const n = t ? nodes.find((x) => x.id === t.id) : null;
           props.onSelect(n ?? null);
         }}
+        /* 실패는 **치던 자리**에서 말한다 — 던지면 트리가 그 줄을 붙잡아 둔다. */
         onCreate={({ level, parentId, name }) => {
           const kind = KINDS[level]!.key;
           const field = PARENT_FIELD[kind];
-          createMut.mutate({ kind, body: { name: name!, ...(field && parentId ? { [field]: parentId } : {}) } });
+          return createMut
+            .mutateAsync({ kind, body: { name: name!, ...(field && parentId ? { [field]: parentId } : {}) } })
+            .then(() => undefined)
+            .catch((err: unknown) => { throw new Error(apiErrorMessage(err, '만들지 못했습니다')); });
         }}
-        onRename={(node, name) => renameMut.mutate({ kind: KINDS[node.depth]!.key, id: node.id, name })}
+        onRename={(node, name) =>
+          renameMut
+            .mutateAsync({ kind: KINDS[node.depth]!.key, id: node.id, name })
+            .then(() => undefined)
+            .catch((err: unknown) => { throw new Error(apiErrorMessage(err, '이름을 바꾸지 못했습니다')); })
+        }
         onRemove={(node) => void remove(node)}
       />
       {confirmDialog}

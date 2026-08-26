@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { IconButton } from './IconButton';
 import { Input } from './Input';
@@ -97,10 +97,13 @@ export interface TreePanelProps {
    *
    * `name` 은 `create: 'inline'` 인 층에서만 온다. `editor` 인 층은 이름 없이 불리고,
    * 부르는 쪽이 오른쪽 초안을 연다.
+   *
+   * **실패하면 던진다**(사람이 읽을 문구를 담아서). 그러면 치던 줄이 사라지지 않고 그대로
+   * 남아 그 자리에서 이유를 말한다 — 이름만 고쳐 다시 확정하면 된다.
    */
-  onCreate?: (at: { level: number; parentId: string | null; name?: string }) => void;
-  /** 이름을 고쳤다. */
-  onRename?: (node: TreeNode, name: string) => void;
+  onCreate?: (at: { level: number; parentId: string | null; name?: string }) => void | Promise<void>;
+  /** 이름을 고쳤다. 실패하면 던진다(만들 때와 같다). */
+  onRename?: (node: TreeNode, name: string) => void | Promise<void>;
   /** 지운다 — **묻는 일은 부르는 쪽**이 한다(무엇을 지우는지 아는 쪽이다). */
   onRemove?: (node: TreeNode) => void;
   emptyText?: string;
@@ -157,6 +160,13 @@ export function TreePanel({
    * 아무 일도 하지 않는다(실수로 지우거나 이름 없는 것을 만드는 길을 두지 않는다).
    */
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
+  /**
+   * 방금 확정한 것이 거절당한 이유 — **치던 그 자리에** 뜬다.
+   *
+   * 예전에는 줄이 사라지고 화면 맨 위 띠에 떴다. 「이미 같은 이름이 있습니다」를 읽고
+   * 돌아오면 치던 이름은 사라져 처음부터 다시 쳐야 했고, 그 띠는 다른 화면까지 따라다녔다.
+   */
+  const [failed, setFailed] = useState<string | null>(null);
   const [creating, setCreating] = useState<
     { parentId: string | null; level: number; depth: number; label: string; value: string } | null
   >(null);
@@ -224,6 +234,29 @@ export function TreePanel({
     );
   }
 
+  /** 치던 것을 접는다 — 오류도 함께 사라진다(그 오류는 이 줄의 것이었다). */
+  function cancelEditing() {
+    setCreating(null);
+    setRenaming(null);
+    setFailed(null);
+  }
+
+  /**
+   * 확정한다 — 되면 줄을 접고, 거절당하면 **그 줄을 붙잡아 둔다**.
+   *
+   * 서버가 거절하는 이유(같은 이름·권한·참조)는 고쳐서 다시 낼 수 있는 것들이다.
+   * 그래서 치던 이름을 지우지 않는다.
+   */
+  async function settle(run: () => void | Promise<void>, done: () => void) {
+    setFailed(null);
+    try {
+      await run();
+      done();
+    } catch (e) {
+      setFailed(e instanceof Error ? e.message : '저장하지 못했습니다');
+    }
+  }
+
   /** 이 층에 서는 것 — 없으면 그 층은 트리가 다루지 않는다. */
   const kindAt = (level: number): TreeKind | undefined => kinds?.[level];
 
@@ -247,6 +280,7 @@ export function TreePanel({
       });
     }
     setRenaming(null);
+    setFailed(null);
     /* 이름을 미리 채워 둔다 — 그대로 Enter 해도 쓸 수 있는 이름이어야 한다. */
     setCreating({ parentId: parent?.id ?? null, level, depth: level, label: kind.label, value: `새 ${kind.label}` });
   }
@@ -276,6 +310,7 @@ export function TreePanel({
           aria-label={`${n.text} 이름 바꾸기`}
           onClick={() => {
             setCreating(null);
+            setFailed(null);
             setRenaming({ id: n.id, value: n.text });
           }}
         >
@@ -376,9 +411,11 @@ export function TreePanel({
         {rows.map((n) => {
           const branch = n.branch ?? hasChildren.has(n.id);
           const isCollapsed = !searching && collapsed.has(n.id);
+          /* 지금 이 줄에서 이름을 치고 있나 — 거절당한 이유는 그 줄 아래에 붙는다. */
+          const editingHere = n.id === CREATE_ROW || renaming?.id === n.id;
           return (
+            <Fragment key={n.id}>
             <div
-              key={n.id}
               data-selectable=""
               data-id={n.id}
               className={cn(
@@ -467,10 +504,13 @@ export function TreePanel({
                       onChange: (v) => setCreating((c) => (c ? { ...c, value: v } : c)),
                       commit: (name) => {
                         const trimmed = name.trim();
-                        setCreating(null);
-                        if (trimmed) onCreate?.({ level: creating.level, parentId: creating.parentId, name: trimmed });
+                        if (!trimmed) return cancelEditing();
+                        void settle(
+                          () => onCreate?.({ level: creating.level, parentId: creating.parentId, name: trimmed }),
+                          () => setCreating(null),
+                        );
                       },
-                      cancel: () => setCreating(null),
+                      cancel: cancelEditing,
                     })
                   : renaming?.id === n.id
                     ? nameField({
@@ -479,10 +519,10 @@ export function TreePanel({
                         onChange: (v) => setRenaming((r) => (r ? { ...r, value: v } : r)),
                         commit: (name) => {
                           const trimmed = name.trim();
-                          setRenaming(null);
-                          if (trimmed && trimmed !== n.text) onRename?.(n, trimmed);
+                          if (!trimmed || trimmed === n.text) return cancelEditing();
+                          void settle(() => onRename?.(n, trimmed), () => setRenaming(null));
                         },
-                        cancel: () => setRenaming(null),
+                        cancel: cancelEditing,
                       })
                     : n.label}
               </span>
@@ -497,6 +537,13 @@ export function TreePanel({
                 </span>
               )}
             </div>
+            {editingHere && failed && (
+              /* 이름을 치던 자리 바로 아래 — 고쳐서 다시 확정하면 되는 것들이다. */
+              <p role="alert" className="px-2 pb-1 text-xs text-danger" style={{ paddingLeft: 8 + n.depth * 14 + 16 }}>
+                {failed}
+              </p>
+            )}
+            </Fragment>
           );
         })}
       </SelectionScope>

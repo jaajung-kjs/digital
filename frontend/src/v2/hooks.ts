@@ -85,13 +85,17 @@ export function useOrgMutations() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['v2', 'org-tree'] });
 
   return {
+    /* 만들기·이름 바꾸기는 **트리 안에서** 벌어지고 실패도 그 자리에서 말한다 — 전역 띠까지
+       울리면 같은 문장이 화면 두 곳에 겹친다(`meta.quiet`). 삭제는 말할 자리가 없어 띠로 간다. */
     createOrgNode: useMutation({
       mutationFn: (v: { kind: OrgKind; body: Record<string, string> }) => createOrgNode(v.kind, v.body),
       onSuccess: invalidate,
+      meta: QUIET,
     }),
     renameOrgNode: useMutation({
       mutationFn: (v: { kind: OrgKind; id: string; name: string }) => patchOrgNode(v.kind, v.id, { name: v.name }),
       onSuccess: invalidate,
+      meta: QUIET,
     }),
     deleteOrgNode: useMutation({
       mutationFn: (v: { kind: OrgKind; id: string }) => deleteOrgNode(v.kind, v.id),

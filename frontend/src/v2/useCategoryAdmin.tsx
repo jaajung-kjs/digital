@@ -37,22 +37,22 @@ export function useCategoryAdmin() {
     );
   }
 
+  /**
+   * 만들고 고치는 일은 **트리 안에서 벌어진다** — 그래서 실패도 그 자리에서 말한다.
+   *
+   * 던지면 트리가 치던 줄을 붙잡아 두고 이유를 그 아래에 적는다(`TreePanel`). 예전에는
+   * 화면 맨 위 띠로 보냈는데, 줄은 사라지고 띠만 남아 이름을 처음부터 다시 쳐야 했다.
+   */
   async function add(name: string) {
-    try {
-      const maxOrder = Math.max(0, ...(catalog?.categories ?? []).map((c) => c.sortOrder));
-      // 이름이 곧 키다 — 만든 뒤 키는 바꿀 수 없다(이름만 바뀐다).
-      await mutations.createCategory.mutateAsync({ name, key: name, sortOrder: maxOrder + 1 });
-    } catch (err: unknown) {
-      fail(err, '분류 추가 실패');
-    }
+    const maxOrder = Math.max(0, ...(catalog?.categories ?? []).map((c) => c.sortOrder));
+    // 이름이 곧 키다 — 만든 뒤 키는 바꿀 수 없다(이름만 바뀐다).
+    await mutations.createCategory.mutateAsync({ name, key: name, sortOrder: maxOrder + 1 })
+      .catch((err: unknown) => { throw new Error(apiErrorMessage(err, '분류를 만들지 못했습니다')); });
   }
 
   async function rename(cat: V2Category, name: string) {
-    try {
-      await mutations.patchCategory.mutateAsync({ id: cat.id, body: { name } });
-    } catch (err: unknown) {
-      fail(err, '분류 이름 변경 실패');
-    }
+    await mutations.patchCategory.mutateAsync({ id: cat.id, body: { name } })
+      .catch((err: unknown) => { throw new Error(apiErrorMessage(err, '이름을 바꾸지 못했습니다')); });
   }
 
   async function remove(cat: V2Category) {
@@ -72,8 +72,8 @@ export function useCategoryAdmin() {
   }
 
   return {
-    add: (name: string) => void add(name),
-    rename: (cat: V2Category, name: string) => void rename(cat, name),
+    add,
+    rename,
     remove: (cat: V2Category) => void remove(cat),
     /** 지금 지울 수 있나 — 든 것이 있으면 서버가 거부한다. 아예 막고 왜인지 그 자리에서 말한다. */
     removeBlocked: (cat: V2Category) => {

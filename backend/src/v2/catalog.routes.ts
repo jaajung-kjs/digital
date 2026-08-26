@@ -219,12 +219,12 @@ catalogRouter.post('/categories', adminOnly, async (req, res, next) => {
     const { key, name, sortOrder } = categoryCreateSchema.parse(req.body);
     // key 중복 확인 (친절한 공통 경로 — 동시성은 아래 P2002 폴백이 방어)
     const existing = await nextDb.assetCategory.findUnique({ where: { key } });
-    if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `카테고리 키가 이미 존재합니다: ${key}`);
+    if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `'${key}' 분류가 이미 있습니다`);
     try {
       const row = await nextDb.assetCategory.create({ data: { key, name, sortOrder } });
       res.status(201).json(row);
     } catch (e) {
-      if (isPrismaError(e, 'P2002')) throw new HttpError(409, 'DUPLICATE_KEY', `카테고리 키가 이미 존재합니다: ${key}`);
+      if (isPrismaError(e, 'P2002')) throw new HttpError(409, 'DUPLICATE_KEY', `'${key}' 분류가 이미 있습니다`);
       throw e;
     }
   } catch (e) {
@@ -303,7 +303,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
 
     // 중복 확인 (친절한 공통 경로 — 동시성은 아래 P2002 폴백이 방어)
     const existing = await nextDb.assetType.findUnique({ where: { key: body.key } });
-    if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `장비 품목 키가 이미 존재합니다: ${body.key}`);
+    if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `'${body.key}' 장비 품목이 이미 있습니다`);
 
     let type;
     try {
@@ -327,7 +327,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
         return created;
       });
     } catch (e) {
-      if (isPrismaError(e, 'P2002')) throw new HttpError(409, 'DUPLICATE_KEY', `타입 키가 이미 존재합니다: ${body.key}`);
+      if (isPrismaError(e, 'P2002')) throw new HttpError(409, 'DUPLICATE_KEY', `'${body.key}' 장비 품목이 이미 있습니다`);
       throw e;
     }
 

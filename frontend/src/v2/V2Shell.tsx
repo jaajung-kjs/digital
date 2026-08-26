@@ -10,7 +10,7 @@
  *   └─────────────────────────────────────────────────────────────────────┘
  */
 import { Fragment, useEffect } from 'react';
-import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Boxes, LogOut } from 'lucide-react';
 import { useV2AuthStore, isAdminRole } from './store/authStore';
 import { useV2Notice } from './store/noticeStore';
@@ -69,6 +69,17 @@ export function V2Shell() {
   }, [unsaved]);
 
   const notice = useV2Notice((st) => st.error);
+  /**
+   * 화면을 옮기면 **그 화면의 오류는 두고 간다.**
+   *
+   * 띠는 「사용자가 닫을 때까지 남는다」가 규칙인데, 그것이 화면 밖까지 따라다니면 아무
+   * 상관없는 곳에서 「'구조' 분류가 이미 있습니다」를 계속 보게 된다 — 조치할 자리가 없는
+   * 곳에 남은 경고는 읽히지 않고, 읽히지 않는 경고는 다음 경고까지 가린다.
+   */
+  const { pathname } = useLocation();
+  useEffect(() => {
+    useV2Notice.getState().clearError();
+  }, [pathname]);
   const success = useV2Notice((st) => st.success);
 
   const handleLogout = async () => {

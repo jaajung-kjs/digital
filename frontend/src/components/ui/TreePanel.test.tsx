@@ -148,4 +148,34 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
     expect(screen.queryByRole('button', { name: /광케이블/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^새 / })).toBeNull();
   });
+
+  it('거절당하면 **치던 줄이 그대로 남고** 그 자리에서 이유를 말한다', async () => {
+    const onCreate = vi.fn().mockRejectedValue(new Error("'구조' 분류가 이미 있습니다"));
+    render(<TreePanel title="장비 품목" kinds={CATALOG} nodes={[]} selectedId={null} onSelect={() => {}} onCreate={onCreate} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '새 분류' }));
+    const field = screen.getByLabelText('새 분류 이름') as HTMLInputElement;
+    fireEvent.change(field, { target: { value: '구조' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', "'구조' 분류가 이미 있습니다");
+    /* 치던 이름이 남아 있어야 한다 — 고쳐서 다시 내면 되는 일이다. */
+    expect((screen.getByLabelText('새 분류 이름') as HTMLInputElement).value).toBe('구조');
+  });
+
+  it('Esc 로 접으면 그 이유도 함께 사라진다 — 그 줄의 것이었다', async () => {
+    const onCreate = vi.fn().mockRejectedValue(new Error('이미 있습니다'));
+    render(<TreePanel title="장비 품목" kinds={CATALOG} nodes={[]} selectedId={null} onSelect={() => {}} onCreate={onCreate} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '새 분류' }));
+    const field = screen.getByLabelText('새 분류 이름');
+    fireEvent.change(field, { target: { value: '구조' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await screen.findByRole('alert');
+
+    fireEvent.keyDown(screen.getByLabelText('새 분류 이름'), { key: 'Escape' });
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByLabelText('새 분류 이름')).toBeNull();
+  });
 });
