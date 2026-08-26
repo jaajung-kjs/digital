@@ -512,7 +512,7 @@ export function FloorPlanView({
             color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
             selected: false,
             outgoingLabel: seg.outgoing?.label,
-          })));
+          })), scale);
           ctx.restore();
           // 추적 케이블 강조
           renderCables(ctx, tracedSegs.map((seg) => ({
@@ -522,7 +522,7 @@ export function FloorPlanView({
             color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
             selected: true,
             outgoingLabel: seg.outgoing?.label,
-          })));
+          })), scale);
         } else {
           const cableRenderSegs = segs.map((seg) => ({
             id: seg.id,
@@ -532,7 +532,7 @@ export function FloorPlanView({
             selected: seg.id === latest.current.selectedCableId,
             outgoingLabel: seg.outgoing?.label,
           }));
-          renderCables(ctx, cableRenderSegs);
+          renderCables(ctx, cableRenderSegs, scale);
         }
       }
 
@@ -601,8 +601,9 @@ export function FloorPlanView({
           if (pts.length > 1) {
             ctx.save();
             ctx.strokeStyle = SELECTION_STYLES.stroke;
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([5, 4]);
+            /* 놓인 케이블과 **같은 굵기**로 그린다 — 지금 긋고 있는 것이 그 케이블이니까. */
+            ctx.lineWidth = 2.5 / scale;
+            ctx.setLineDash([6 / scale, 4 / scale]);
             ctx.lineJoin = 'round';
             ctx.beginPath();
             ctx.moveTo(pts[0]!.x, pts[0]!.y);
@@ -615,7 +616,7 @@ export function FloorPlanView({
             ctx.save();
             ctx.fillStyle = SELECTION_STYLES.stroke;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, 4 / scale, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
           }
