@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUNDLE_GAP_PX, cableLineWidth } from '../canvas/cableStyle';
 import { bundleCables } from '../canvas/cableBundles';
-import { orderForRender } from '../canvas/renderers';
 
 /**
  * 케이블 굵기는 **배율을 조금만** 탄다.
@@ -56,24 +55,34 @@ describe('다발 간격', () => {
  * (자산 위로 올리지는 않는다 — 케이블이 설비를 가리면 도면이 아니다.)
  */
 describe('그리는 차례', () => {
-  const seg = (id: string, selected = false) => ({
-    id, categoryId: 'c1', color: '#000', selected,
+  const seg = (id: string, categoryId: string, selected = false) => ({
+    id, categoryId, color: '#000', selected,
     points: [{ x: 0, y: 0 }, { x: 10, y: 10 }],
   });
 
-  it('고른 것이 목록의 끝으로 간다 — 그린 순서가 곧 위아래다', () => {
-    const out = orderForRender([seg('a'), seg('sel', true), seg('b')]);
-    expect(out.map((s) => s.id)).toEqual(['a', 'b', 'sel']);
+  /**
+   * 고른 다발은 **맨 나중에** 그려져야 한다 — 그린 순서가 곧 위아래다.
+   *
+   * 목록 순서만 바꾸는 것으로는 모자랐다: 다발은 자리(기하)로 먼저 묶이므로, **같은 자리를
+   * 지나는 다른 종류**가 앞서 있으면 그 자리 전체가 앞 차례로 잡혀 고른 선까지 일찍 그려진다.
+   */
+  it('같은 자리에 다른 종류가 함께 있어도 고른 것이 맨 나중이다', () => {
+    const out = bundleCables([seg('power', 'c1'), seg('fiber', 'c2', true)]);
+    expect(out.map((b) => b.id)).toEqual(['power', 'fiber']);
+
+    /* 고른 것이 목록 앞에 있어도 마찬가지다. */
+    const reversed = bundleCables([seg('fiber', 'c2', true), seg('power', 'c1')]);
+    expect(reversed.map((b) => b.id)).toEqual(['power', 'fiber']);
   });
 
-  it('나머지 차례는 흐트러뜨리지 않는다', () => {
-    const out = orderForRender([seg('a'), seg('b'), seg('c')]);
-    expect(out.map((s) => s.id)).toEqual(['a', 'b', 'c']);
+  it('자리가 다른 케이블끼리도 고른 것이 맨 나중이다', () => {
+    const far = { ...seg('far', 'c1'), points: [{ x: 0, y: 5 }, { x: 10, y: 5 }] };
+    const out = bundleCables([seg('near', 'c1', true), far]);
+    expect(out.map((b) => b.id)).toEqual(['far', 'near']);
   });
 
-  it('원본을 건드리지 않는다 — 부르는 쪽 목록은 그대로다', () => {
-    const input = [seg('sel', true), seg('a')];
-    orderForRender(input);
-    expect(input.map((s) => s.id)).toEqual(['sel', 'a']);
+  it('아무것도 안 골랐으면 차례를 흔들지 않는다', () => {
+    const far = { ...seg('far', 'c1'), points: [{ x: 0, y: 5 }, { x: 10, y: 5 }] };
+    expect(bundleCables([seg('a', 'c1'), far]).map((b) => b.id)).toEqual(['a', 'far']);
   });
 });

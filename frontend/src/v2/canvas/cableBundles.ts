@@ -104,6 +104,14 @@ export function bundleCables(lines: readonly CableLine[], gap = BUNDLE_GAP): Cab
       });
     });
   }
+  /**
+   * **고른 다발이 맨 나중에 그려진다** — 그린 순서가 곧 위아래다.
+   *
+   * 목록 순서를 바꾸는 것만으로는 모자랐다: 다발은 **자리(기하)로 먼저 묶이므로**, 같은 자리를
+   * 지나는 다른 종류가 앞서 있으면 그 자리 전체가 앞 차례로 잡혀 고른 선까지 일찍 그려진다 —
+   * 종류가 다른 케이블에 가려 토막나 보이던 까닭이 이것이다. 다 묶은 **뒤에** 한 번 세운다.
+   */
+  result.sort((a, b) => Number(a.selected) - Number(b.selected));
   return result;
 }
 

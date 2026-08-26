@@ -925,6 +925,7 @@ export function FloorPlanView({
       const { zoom, panX, panY } = latest.current.viewport;
       const world = screenToWorld(e.clientX, e.clientY, canvasRect, panX, panY, zoom);
       const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
+      if (!hit && startBendDrag(e, world)) return;
       if (!hit) {
         /* 빈 곳 좌드래그 = 도면 이동.
            예전에는 가운데 버튼이나 Space+드래그뿐이었는데, 트랙패드에는 가운데 버튼이 없고
@@ -983,6 +984,65 @@ export function FloorPlanView({
       window.addEventListener('mouseup', onMoveUp);
     }
   };
+
+  /**
+   * **고른 케이블의 선을 끌면 그 자리에서 꺾인다** — 누르는 것만으로는 아무 일도 없다.
+   *
+   * 예전에는 고른 선을 한 번 더 누르면 꺾임이 생겼다. 그런데 「다시 고르려고 누른 것」과
+   * 구별할 길이 없어 **의도하지 않은 꺾임**이 계속 생겼다(지우려면 점을 찾아 더블클릭해야
+   * 한다). 끄는 손짓은 뜻이 하나다: 끌어간 그 자리가 꺾는 자리다(지도 앱의 경로 편집과 같다).
+   *
+   * @returns 이 손짓을 케이블이 가져갔는가 — `false` 면 부르는 쪽이 하던 대로 한다(팬).
+   */
+  function startBendDrag(e: React.MouseEvent<HTMLCanvasElement>, world: { x: number; y: number }): boolean {
+    const cableId = latest.current.selectedCableId;
+    const floorId = latest.current.activeFloor?.id ?? null;
+    if (!cableId || !floorId) return false;
+    const scale = latest.current.viewport.zoom / 100;
+    const segs = cableSegments(latest.current.effectiveCables, latest.current.effectiveAssets, floorId, latest.current.floors);
+    const seg = segs.find((x) => x.id === cableId);
+    const cable = latest.current.effectiveCables.find((c) => c.id === cableId);
+    if (!seg || !cable) return false;
+    const threshold = CABLE_HIT_THRESHOLD / scale;
+    if (distanceToPolyline(world, seg.points) > threshold) return false;
+    const spot = insertionAt(seg.points, world, threshold);
+    if (!spot) return false;
+
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return false;
+    /* 손을 뗄 때까지는 **스테이지하지 않는다** — 움직이지 않았으면 꺾은 적이 없는 것이다. */
+    const base = insertPathPoint(cable.pathPoints, spot.index, snapToGrid(spot.point.x, spot.point.y, SNAP_GRID));
+    let moved = false;
+    let points = base;
+
+    const onMove = (me: MouseEvent) => {
+      const r = canvas.getBoundingClientRect();
+      const { zoom: z, panX: px, panY: py } = latest.current.viewport;
+      const w = screenToWorld(me.clientX, me.clientY, r, px, py, z);
+      const snapped = snapToGrid(w.x, w.y, SNAP_GRID);
+      if (Math.abs(me.clientX - e.clientX) > 2 || Math.abs(me.clientY - e.clientY) > 2) moved = true;
+      points = movePathPoint(base, spot.index, snapped);
+      cablePathPreviewRef.current = { id: cableId, points };
+      setCablePathPreview(points);
+      scheduleRender();
+    };
+    const onUp = (me: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      cablePathPreviewRef.current = null;
+      setCablePathPreview(null);
+      /* 창 밖에서 뗀 손은 놓은 것이 아니다 — 미리보기만 걷는다(자산 이동과 같은 규칙). */
+      if (moved && inWindow(me)) {
+        wasRecentlyMoving.current = true; // 뒤따르는 click 이 선택을 흔들지 않게
+        useV2WorkingCopy.getState().stageCableUpdate(cableId, { pathPoints: points });
+      }
+      scheduleRender();
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return true;
+  }
 
   // ── 클릭: 케이블 도구 / 자산 선택 / 케이블 선택 ─────────────────────────
   /**
@@ -1093,20 +1153,9 @@ export function FloorPlanView({
       for (let i = segs.length - 1; i >= 0; i--) {
         const seg = segs[i]!;
         if (distanceToPolyline(world, seg.points) <= threshold) {
-          /* 이미 고른 케이블을 다시 누르면 그 자리에 꺾임을 만든다.
-             선택과 경로 편집을 한 동작에 섞지 않으려고 "선택 → 다시 클릭" 두 단계로 둔다. */
-          if (latest.current.selectedCableId === seg.id) {
-            const spot = insertionAt(seg.points, world, threshold);
-            const cable = latest.current.effectiveCables.find((c) => c.id === seg.id);
-            if (spot && cable) {
-              const snapped = snapToGrid(spot.point.x, spot.point.y, SNAP_GRID);
-              useV2WorkingCopy.getState().stageCableUpdate(seg.id, {
-                pathPoints: insertPathPoint(cable.pathPoints, spot.index, snapped),
-              });
-              scheduleRender();
-              return;
-            }
-          }
+          /* 누르는 것은 **고르는 일**뿐이다 — 꺾는 것은 끄는 손짓이다(`startBendDrag`).
+             한때는 고른 선을 다시 누르면 그 자리에 꺾임이 생겼는데, 다시 고르려고 누른 것과
+             구별할 길이 없어 **의도하지 않은 꺾임**이 계속 생겼다. */
           cableDispatch({ type: 'SELECT_CABLE', id: seg.id });
           onSelectAsset(null); // 케이블 선택 시 자산 선택 해제
           scheduleRender();
@@ -1512,7 +1561,7 @@ export function FloorPlanView({
             <>
               <span className="h-4 w-px bg-line mx-1" />
               {/* 경로 편집 방법을 알려주지 않으면 선을 눌러도 아무 일이 없다고 여긴다. */}
-              <span className="text-xs text-content-muted">선을 눌러 꺾임 추가 · 점 더블클릭으로 삭제</span>
+              <span className="text-xs text-content-muted">선을 끌어 꺾기 · 점 더블클릭으로 삭제</span>
               <IconButton
                 size="sm"
                 tone="danger"
