@@ -303,7 +303,13 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                             </span>
                           )}
                         </td>
-                        {/* 접힌 줄은 **얼마나 · 성한가**만 말한다 — 자리는 펼치면 순서대로 나온다. */}
+                        {/* 접힌 줄은 **얼마나 · 성한가**만 말한다 — 자리는 펼치면 순서대로 나온다.
+                            비어 있어도 **칸은 낸다**: 셀이 없으면 그 자리는 줄에 속하지 않아
+                            손이 닿아도 칠해지지 않는다(호버가 설치일 앞에서 끊겼다). */}
+                        <td />
+                        {fieldColumns.map((fd) => (
+                          <td key={fd.key} />
+                        ))}
                         <td />
                       </tr>
 

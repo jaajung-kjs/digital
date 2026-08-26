@@ -231,4 +231,22 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
     fireEvent.click(screen.getByRole('button', { name: '모두 펴기' }));
     expect(screen.getByText('L3 스위치')).toBeTruthy();
   });
+
+  it('모든 줄이 **열 수만큼 칸을 낸다** — 칸이 없으면 그 자리는 줄에 속하지 않는다(호버가 끊긴다)', () => {
+    const fields = [{ key: 'installDate', label: '설치일', type: 'date' as const }, { key: 'manager', label: '담당자', type: 'text' as const }];
+    show(ROWS, { fieldColumns: fields });
+    fireEvent.click(screen.getByRole('button', { name: 'OFD 펼치기' }));
+
+    const cols = document.querySelectorAll('thead th').length;
+    const span = (tr: Element) =>
+      [...tr.querySelectorAll('td')].reduce((n, td) => n + (Number(td.getAttribute('colspan')) || 1), 0);
+
+    expect(span(lineOf('통신'))).toBe(cols);        // 분류 줄
+    expect(span(lineOf('OFD'))).toBe(cols);         // 품목 줄
+    /* 개체 줄 — 이름이 위치 칸에도 나오므로(「판암 OFD」) 첫 칸으로 집는다. */
+    const assetRow = [...document.querySelectorAll('tbody tr')].find(
+      (tr) => tr.querySelector('td')?.textContent?.trim() === '판암 OFD',
+    )!;
+    expect(span(assetRow)).toBe(cols);
+  });
 });
