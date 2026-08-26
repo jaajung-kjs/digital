@@ -82,9 +82,23 @@ describe('설비 현황 — 개수가 먼저다', () => {
     expect(cells.at(-1)).toBe('2026-03-01');
   });
 
-  it('품목 줄에 **어디에 몇 개**가 적힌다 — 펼치지 않고도 분포를 본다', () => {
+  it('접힌 줄은 **얼마나 · 성한가**만 말한다 — 자리는 비워 둔다(펼치면 순서대로 나온다)', () => {
     show();
-    expect(within(lineOf('L3 스위치')).getByText('1층 1 · 2층 1')).toBeTruthy();
+
+    const cells = [...lineOf('L3 스위치').querySelectorAll('td')].map((td) => td.textContent?.trim());
+    expect(cells[1]).toBe('2');   // 개수
+    expect(cells[3]).toBe('');    // 위치 — 접힌 줄에서는 비어 있다
+  });
+
+  it('펼친 개체는 **자리 순**으로 선다 — 어디에 몇 개인지가 순서로 읽힌다', () => {
+    show([
+      row({ id: 'b', name: '나중', status: 'normal', where: '2층' }),
+      row({ id: 'a', name: '먼저', status: 'normal', where: '1층' }),
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
+
+    const names = [...document.querySelectorAll('tbody tr')].map((r) => r.querySelector('td')?.textContent?.trim());
+    expect(names.filter((n) => n === '먼저' || n === '나중')).toEqual(['먼저', '나중']);
   });
 
   it('성한 것은 세지 않는다 — 손볼 것만 상태로 선다', () => {

@@ -22,8 +22,13 @@ export interface SummaryItem {
   byStatus: Record<string, number>;
   /** 점검 이력이 하나도 없는 것 — 임의의 기간 기준 없이 말할 수 있는 사실이다. */
   neverInspected: number;
-  /** 어디에 몇 개 — 고른 곳이 본부·지사면 변전소별, 변전소면 층별(`StatusRow.where`). */
-  where: { label: string; count: number }[];
+  /**
+   * 이 품목의 개체들 — **자리 순**으로.
+   *
+   * 집계 줄에는 「어디에 몇 개」를 적지 않는다: 펼치면 그 자리들이 순서대로 나오므로 같은
+   * 말을 두 번 하는 셈이고, 접힌 줄에 분포를 욱여넣으면 긴 목록에서 줄이 길어져 개수가
+   * 묻힌다. 접힌 줄은 **얼마나 · 성한가**만 말한다.
+   */
   rows: StatusRow[];
 }
 
@@ -44,9 +49,6 @@ export interface Summary {
 
 /** 이름 없는 자리 — 층이 없거나(미배치) 분류가 비었을 때. */
 export const UNSET = '미지정';
-
-const byCountThenName = (a: { count: number; label: string }, b: { count: number; label: string }) =>
-  b.count - a.count || a.label.localeCompare(b.label, 'ko');
 
 /**
  * 개체 줄들을 **분류 ▸ 품목**으로 접는다.
@@ -71,7 +73,6 @@ export function summarize(rows: StatusRow[]): Summary {
       count: 0,
       byStatus: {} as Record<string, number>,
       neverInspected: 0,
-      where: [] as { label: string; count: number }[],
       rows: [] as StatusRow[],
     };
     item.count += 1;
@@ -86,16 +87,9 @@ export function summarize(rows: StatusRow[]): Summary {
     if (r.lastInspectedAt == null) neverInspected += 1;
   }
 
-  /* 「어디에」는 줄들이 이미 들고 있다 — 집계는 그것을 세기만 한다. */
+  /* 펼쳤을 때 **같은 자리 것끼리 붙어** 보이게 — 어디에 몇 개인지가 순서로 읽힌다. */
   for (const item of items.values()) {
-    /* 펼쳤을 때 **같은 자리 것끼리 붙어** 보이게 — 「서홍천 4」를 눈으로 다시 세지 않게 한다. */
     item.rows.sort((a, b) => (a.where || '').localeCompare(b.where || '', 'ko') || a.name.localeCompare(b.name, 'ko'));
-    const counts = new Map<string, number>();
-    for (const r of item.rows) {
-      const label = r.where || UNSET;
-      counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-    item.where = [...counts].map(([label, count]) => ({ label, count })).sort(byCountThenName);
   }
 
   const groups = new Map<string, SummaryGroup>();

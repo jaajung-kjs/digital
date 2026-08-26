@@ -239,9 +239,8 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                             </span>
                           )}
                         </td>
-                        <td className="truncate px-3 py-2 text-xs text-content-muted">
-                          {item.where.map((w) => `${w.label} ${w.count}`).join(' · ')}
-                        </td>
+                        {/* 접힌 줄은 **얼마나 · 성한가**만 말한다 — 자리는 펼치면 순서대로 나온다. */}
+                        <td />
                       </tr>
 
                       {open &&
