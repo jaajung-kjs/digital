@@ -130,6 +130,19 @@ export interface CableRenderSegment {
  * 색상·선택 여부는 호출부(FloorPlanView)가 categoryId → group.color 맵핑 후 전달.
  * 선택 시 SELECTION_STYLES stroke 색으로 두껍게 표시.
  */
+/**
+ * **고른 것은 케이블들 중 맨 나중에 그린다** — 자산 아래라는 자리는 그대로 두고.
+ *
+ * 케이블끼리 교차하면 나중에 그린 선이 앞선 선을 덮는다. 고른 선이 먼저 그려져 있으면 다른
+ * 선이 지날 때마다 토막토막 끊겨 보여서, 파랗게 칠해 놓고도 **어디서 어디로 가는 선인지**
+ * 읽을 수가 없다. 그린 순서가 곧 위아래이므로, 강조된 것을 목록의 끝으로 보낸다.
+ *
+ * 자산 위로 올리지는 않는다 — 케이블이 설비를 가리면 도면이 아니다.
+ */
+export function orderForRender(segments: readonly CableRenderSegment[]): CableRenderSegment[] {
+  return [...segments].sort((a, b) => Number(a.selected) - Number(b.selected));
+}
+
 export function renderCables(
   ctx: CanvasRenderingContext2D,
   segments: CableRenderSegment[],
@@ -139,7 +152,7 @@ export function renderCables(
   /* 같은 자리에 겹치는 케이블은 묶어서 그린다 — 함체 사이 케이블은 양 끝 자산 중심을
      잇는 같은 선이 되므로, 4본이든 1본처럼 보였다. 묶는 규칙은 cableBundles 참고. */
   /* 굵기도 다발 간격도 **화면 기준**이다 — 배율은 `cableStyle` 이 정한 만큼만 탄다. */
-  for (const b of bundleCables(segments.map((s) => ({
+  for (const b of bundleCables(orderForRender(segments).map((s) => ({
     id: s.id,
     categoryId: s.categoryId,
     color: s.color,

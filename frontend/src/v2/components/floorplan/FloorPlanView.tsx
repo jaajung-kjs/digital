@@ -19,7 +19,7 @@ import { backingSize } from '../../canvas/backingStore';
 import { cableLineWidth } from '../../canvas/cableStyle';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { renderGrid } from '../../canvas/gridRenderer';
-import { renderPlacedAssets, renderDrawPreview, renderCables, type CableRenderSegment } from '../../canvas/renderers';
+import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
 import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
 import { insertionAt, insertPathPoint, movePathPoint, removePathPoint } from '../../canvas/cablePath';
 import { CableWaypointHandles } from './CableWaypointHandles';
@@ -489,13 +489,6 @@ export function FloorPlanView({
       // 5. 케이블 (그리드 위, 자산 아래)
       const floorId = floor?.id ?? null;
       const traceRes = latest.current.traceResult;
-      /**
-       * **강조된 케이블은 맨 위에 한 번 더 그린다** — 아래 6.9 참고.
-       *
-       * 케이블은 자산 아래에 깔린다(설비를 가리면 안 되니까). 그런데 고른 케이블이 설비 밑을
-       * 지나면 **가운데 토막만** 파랗게 보여서, 어디서 어디로 가는 선을 고른 것인지 알 수 없다.
-       */
-      let highlighted: CableRenderSegment[] = [];
       if (floorId) {
         /* 경로점 드래그 중이면 그 케이블만 프리뷰 경로로 갈아끼운다 —
            스테이지하지 않고도 손이 가는 대로 선이 따라오게. */
@@ -522,16 +515,15 @@ export function FloorPlanView({
             outgoingLabel: seg.outgoing?.label,
           })), scale);
           ctx.restore();
-          // 추적 케이블 강조 — 이 목록을 맨 위에서 한 번 더 쓴다.
-          highlighted = tracedSegs.map((seg) => ({
+          // 추적 케이블 강조
+          renderCables(ctx, tracedSegs.map((seg) => ({
             id: seg.id,
             categoryId: seg.categoryId ?? null,
             points: seg.points,
             color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
             selected: true,
             outgoingLabel: seg.outgoing?.label,
-          }));
-          renderCables(ctx, highlighted, scale);
+          })), scale);
         } else {
           const cableRenderSegs = segs.map((seg) => ({
             id: seg.id,
@@ -542,7 +534,6 @@ export function FloorPlanView({
             outgoingLabel: seg.outgoing?.label,
           }));
           renderCables(ctx, cableRenderSegs, scale);
-          highlighted = cableRenderSegs.filter((seg) => seg.selected);
         }
       }
 
@@ -599,11 +590,6 @@ export function FloorPlanView({
           ctx.restore();
         }
       }
-
-      /* 6.55 **고른 케이블(추적 결과 포함)은 맨 위로.**
-         자산 아래에 깔린 채로 고르면 설비에 가려 가운데 토막만 보인다 — 「어디서 어디로 가는
-         선을 골랐나」가 그 순간 사라진다. 골랐다는 표시는 **경로 전체**가 보여야 뜻이 있다. */
-      if (highlighted.length > 0) renderCables(ctx, highlighted, scale);
 
       /* 6.6 그리고 있는 케이블 — 첫 끝점에서 꺾은점들을 지나 손끝까지.
          저장된 케이블과 같은 꺾은선이되 점선이다: **아직 놓이지 않았다**는 것이 보여야 한다. */
