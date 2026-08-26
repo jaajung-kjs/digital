@@ -6,6 +6,7 @@ import { apiErrorMessage } from '../apiError';
 import type { V2Conflict } from '../types';
 import { buildCommitPayload } from './buildCommitPayload';
 import { useV2Notice } from './noticeStore';
+import { pendingPhotoFiles } from './pendingPhotos';
 import { useV2WorkingCopy } from './workingCopyStore';
 
 export function useCommit() {
@@ -27,7 +28,9 @@ export function useCommit() {
         ...s.saved.photos.map((r) => [r.id, r.assetId]),
       ]);
       const payload = buildCommitPayload(s.overlays, s.baseVersions, recordAssetIds);
-      await putCommit(s.substationId, payload);
+      /* 아직 서버에 없는 사진의 **파일도 이 요청에 실린다** — 저장이 서버로 보내는 유일한
+         순간이라는 규칙을 사진만 빠져나가지 않게 한다. */
+      await putCommit(s.substationId, payload, pendingPhotoFiles());
       await s.load(s.substationId); // baseVersion 갱신 (2A 계약)
       await queryClient.invalidateQueries({ queryKey: ['v2', 'org-tree'] });
       await queryClient.invalidateQueries({ queryKey: ['v2', 'node-assets'] });

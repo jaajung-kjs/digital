@@ -30,24 +30,35 @@ export async function fetchWorkingcopy(substationId: string): Promise<V2Workingc
 export async function fetchNodeAssets(nodeId: string): Promise<V2NodeAssetRow[]> {
   return (await api.get(`/v2/nodes/${nodeId}/assets`)).data;
 }
-export async function putCommit(substationId: string, payload: V2CommitPayload): Promise<{ committedAt: string }> {
-  return (await api.put(`/v2/substations/${substationId}/commit`, payload)).data;
-}
+/**
+ * 저장 — 워킹 카피를 통째로 보낸다. **사진 파일도 이 요청에 실린다.**
+ *
+ * 사진을 따로 올리는 길은 없앴다: 고르는 즉시 올리면 저장하지 않고 떠난 사람의 파일이
+ * 서버에 남는다. 파일이 있으면 multipart 로 보내는데, 저장 내용은 `payload` 칸에 넣고
+ * 사진은 **제 id 를 칸 이름으로** 붙인다 — 서버가 그 id 의 줄에 경로를 지어 준다.
+ */
+export async function putCommit(
+  substationId: string,
+  payload: V2CommitPayload,
+  photoFiles: ReadonlyMap<string, File> = new Map(),
+): Promise<{ committedAt: string }> {
+  const url = `/v2/substations/${substationId}/commit`;
+  if (photoFiles.size === 0) return (await api.put(url, payload)).data;
 
-export async function uploadPhoto(file: File): Promise<{ filePath: string }> {
-  const formData = new FormData();
-  formData.append('file', file);
+  const form = new FormData();
+  form.append('payload', JSON.stringify(payload));
+  for (const [photoId, file] of photoFiles) form.append(photoId, file);
   // Content-Type을 명시하지 않는다 — 브라우저가 multipart boundary를 채워야 하는데,
   // httpClient 인스턴스 기본 헤더가 application/json이라 여기서 undefined로 덮어써
   // axios가 FormData를 JSON으로 오인(stringify)하지 않도록 한다.
-  return (await api.post('/v2/photos', formData, { headers: { 'Content-Type': undefined } })).data;
+  return (await api.put(url, form, { headers: { 'Content-Type': undefined } })).data;
 }
 
 /** 층 배경 도면 임포트 — DWG/DXF 를 서버가 파싱해 층에 저장하고 갱신된 층을 돌려준다 */
 /**
  * 도면 파일을 **읽기만** 한다 — 층에 붙이는 일은 화면이, 서버로 보내는 일은 저장이 한다.
  *
- * 사진과 같은 어법이다(파일은 올리고 레코드는 워킹카피가 들고 있다가 저장 때 간다).
+ * 사진과 같은 어법이다(파일과 레코드는 워킹카피가 들고 있다가 저장 때 함께 간다).
  */
 export async function parseBackground(file: File): Promise<BackgroundDrawing> {
   const formData = new FormData();

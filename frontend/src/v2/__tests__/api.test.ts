@@ -30,7 +30,6 @@ import {
   photoUrl,
   putCommit,
   searchAssets,
-  uploadPhoto,
 } from '../api';
 
 describe('v2 api 경로', () => {
@@ -93,17 +92,30 @@ describe('v2 api 경로', () => {
     await expect(deleteOrgNode('substations', 'busy')).rejects.toBe(conflict);
   });
 
-  it('uploadPhoto: FormData 전송 + Content-Type 미지정(브라우저 boundary)', async () => {
-    (api.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { filePath: 'assets/x.png' } });
+  it('사진이 있으면 저장이 multipart 로 간다 — 칸 이름이 그 사진의 id 다', async () => {
+    (api.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { committedAt: 'now' } });
     const file = new File(['a'], 'a.png', { type: 'image/png' });
 
-    const res = await uploadPhoto(file);
+    await putCommit('sub-1', { records: { photos: { creates: [{ id: 'ph-1', assetId: 'a-1' }] } } }, new Map([['ph-1', file]]));
 
-    expect(res).toEqual({ filePath: 'assets/x.png' });
-    const [url, body, config] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0]!;
-    expect(url).toBe('/v2/photos');
+    const [url, body, config] = (api.put as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
+    expect(url).toBe('/v2/substations/sub-1/commit');
     expect(body).toBeInstanceOf(FormData);
+    /* 저장 내용은 payload 칸에, 파일은 제 id 칸에 — 서버가 그 줄에 경로를 지어 준다. */
+    expect(JSON.parse((body as FormData).get('payload') as string)).toMatchObject({
+      records: { photos: { creates: [{ id: 'ph-1' }] } },
+    });
+    expect((body as FormData).get('ph-1')).toBe(file);
     expect(config?.headers?.['Content-Type']).toBeUndefined();
+  });
+
+  it('사진이 없으면 저장은 그냥 JSON 이다', async () => {
+    (api.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { committedAt: 'now' } });
+
+    await putCommit('sub-1', { assets: {} });
+
+    const [, body] = (api.put as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
+    expect(body).toEqual({ assets: {} });
   });
 
   it('photoUrl: filePath의 basename만 취해 서빙 경로 생성', () => {

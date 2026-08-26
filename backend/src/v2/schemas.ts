@@ -236,7 +236,10 @@ export const commitPayloadSchema = z.object({
     .object({
       maintenance: recordOps({ occurredAt: z.string().datetime(), content: z.string().min(1), action: z.string().nullish() }).optional(),
       inspections: recordOps({ inspectedAt: z.string().datetime(), content: z.string().min(1), result: z.string().nullish() }).optional(),
-      photos: recordOps({ filePath: z.string().min(1), caption: z.string().nullish() }).optional(),
+      /* 사진의 **경로는 클라이언트가 정하지 않는다** — 파일이 요청에 함께 오고, 서버가
+         제 이름을 지어 준다(`photoFiles.ts`). 예전에는 여기에 filePath 를 받아, 남의
+         파일을 가리키는 줄을 만들 수 있었다. */
+      photos: recordOps({ caption: z.string().nullish() }).optional(),
     })
     .optional(),
   baseVersions: z.record(z.string()).optional(),

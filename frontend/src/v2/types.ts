@@ -229,7 +229,8 @@ export interface V2CommitPayload {
   records?: {
     maintenance?: V2RecordOps<{ id: string; assetId: string; occurredAt: string; content: string; action?: string | null }, { occurredAt?: string; content?: string; action?: string | null }>;
     inspections?: V2RecordOps<{ id: string; assetId: string; inspectedAt: string; content: string; result?: string | null }, { inspectedAt?: string; content?: string; result?: string | null }>;
-    photos?: V2RecordOps<{ id: string; assetId: string; filePath: string; caption?: string | null }, { caption?: string | null }>;
+    /* 사진 경로는 서버가 짓는다 — 파일이 저장 요청에 함께 실려 간다(`putCommit`). */
+    photos?: V2RecordOps<{ id: string; assetId: string; caption?: string | null }, { caption?: string | null }>;
   };
   baseVersions?: Record<string, string>;
 }

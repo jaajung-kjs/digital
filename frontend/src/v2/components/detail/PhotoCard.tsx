@@ -11,12 +11,21 @@
 import { useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { DetailCardHeader, Button, DetailCard, IconButton, Modal } from '../../../components/ui';
-import { apiErrorMessage } from '../../apiError';
-import { photoUrl, uploadPhoto } from '../../api';
+import { photoUrl } from '../../api';
 import { useEffectivePhotos } from '../../store/useWorkingCopy';
+import { holdPhotoFile, pendingPhotoUrl } from '../../store/pendingPhotos';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2AssetPhoto } from '../../types';
 import { InlineEditCell } from '../InlineEditCell';
+
+/**
+ * 이 사진을 어디서 보나 — 저장 전이면 브라우저가 들고 있는 것, 저장됐으면 서버의 것.
+ *
+ * 한 줄로 적어 **두 자리(격자·확대)가 갈리지 않게** 한다.
+ */
+function srcOf(p: V2AssetPhoto): string {
+  return pendingPhotoUrl(p.id) ?? photoUrl(p.filePath);
+}
 
 interface PhotoCardProps {
   assetId: string;
@@ -26,33 +35,24 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
   const photos = useEffectivePhotos(assetId);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [enlargedId, setEnlargedId] = useState<string | null>(null);
   const enlarged = enlargedId != null ? photos.find((p) => p.id === enlargedId) ?? null : null;
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    // 프로젝트 관례: 비동기 이전에 e.currentTarget 을 먼저 읽는다.
+  /**
+   * 고른 사진은 **워킹 카피에 담긴다** — 자산을 놓거나 칸을 고치는 것과 같다.
+   *
+   * 파일은 브라우저가 들고 있다가(`holdPhotoFile`) 저장할 때 함께 간다. 예전에는 여기서
+   * 바로 올렸는데, 그러면 저장하지 않고 떠난 사람의 파일이 서버에 남았다 — 화면에는
+   * 아무 흔적도 없이. 경로는 서버가 짓는다(빈 칸으로 담고, 저장이 채워 준다).
+   */
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.currentTarget;
     const file = input.files?.[0] ?? null;
     input.value = ''; // 같은 파일 재선택 허용
     if (!file) return;
-    setError(null);
-    setUploading(true);
-    try {
-      const { filePath } = await uploadPhoto(file);
-      useV2WorkingCopy.getState().stagePhotoCreate({
-        id: crypto.randomUUID(),
-        assetId,
-        filePath,
-        caption: null,
-        updatedAt: '',
-      });
-    } catch (err) {
-      setError(apiErrorMessage(err, '사진 업로드에 실패했습니다'));
-    } finally {
-      setUploading(false);
-    }
+    const id = crypto.randomUUID();
+    holdPhotoFile(id, file);
+    useV2WorkingCopy.getState().stagePhotoCreate({ id, assetId, filePath: '', caption: null, updatedAt: '' });
   }
 
   function handleCaptionCommit(photo: V2AssetPhoto, value: string) {
@@ -75,8 +75,8 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
           actions={
             /* 같은 패널의 점검·고장이력과 **같은 동작**이다(목록에 한 줄을 더한다) —
                한 동작에 한 단어. 「업로드」는 그 일을 하는 **방법**이지 하려는 일이 아니다. */
-            <Button variant="secondary" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-              {uploading ? '올리는 중…' : '추가'}
+            <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+              추가
             </Button>
           }
         />
@@ -90,7 +90,6 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
         />
       </div>
 
-      {error && <p className="text-xs text-danger">{error}</p>}
 
       {photos.length === 0 ? (
         <p className="text-xs text-content-faint">등록된 사진이 없습니다</p>
@@ -100,7 +99,7 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
             <div key={p.id} className="space-y-1">
               <button type="button" className="block" onClick={() => setEnlargedId(p.id)}>
                 <img
-                  src={photoUrl(p.filePath)}
+                  src={srcOf(p)}
                   alt={p.caption ?? '설비 사진'}
                   className="h-20 w-20 rounded border border-line object-cover"
                 />
@@ -121,7 +120,7 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
       {enlarged && (
         <Modal open={true} onClose={() => setEnlargedId(null)} title={enlarged.caption ?? '사진'}>
           <img
-            src={photoUrl(enlarged.filePath)}
+            src={srcOf(enlarged)}
             alt={enlarged.caption ?? '설비 사진'}
             className="max-h-[70vh] max-w-full"
           />

@@ -2,22 +2,16 @@
  * PhotoCard — InfoTab 사진 카드 테스트
  *
  * 실제 컴포넌트 + 실제 스토어(v2WorkingCopyStore.setState 로 직접 시딩, FiberRegisterView.test.tsx
- * 관례)를 구동한다. `api.uploadPhoto` 만 목킹 — 그 외 api 함수(photoUrl 등)는 실물을 쓴다.
+ * 관례)를 구동한다. 목킹하는 것은 없다 — **사진은 서버에 들르지 않는다**. 고른 파일은
+ * 브라우저가 들고 있다가 저장할 때 함께 간다(`pendingPhotos` + `putCommit`).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { emptyOverlays } from '../store/workingCopyStore';
 import { PhotoCard } from '../components/detail/PhotoCard';
+import { pendingPhotoFiles, pendingPhotoUrl } from '../store/pendingPhotos';
 import type { V2Asset, V2AssetPhoto } from '../types';
-
-vi.mock('../api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api')>();
-  return { ...actual, uploadPhoto: vi.fn() };
-});
-import { uploadPhoto } from '../api';
-
-const mockedUploadPhoto = vi.mocked(uploadPhoto);
 
 function asset(id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset {
   return {
@@ -48,12 +42,10 @@ function selectFile(): File {
 
 describe('PhotoCard', () => {
   beforeEach(() => {
-    mockedUploadPhoto.mockReset();
     setStore([]);
   });
 
-  it('파일 선택 → uploadPhoto 호출 → overlays.photos.creates 에 스테이징(assetId·filePath 일치)', async () => {
-    mockedUploadPhoto.mockResolvedValue({ filePath: 'assets/new-uuid.png' });
+  it('파일을 고르면 **서버에 들르지 않고** 워킹 카피에 담긴다 — 파일은 저장이 실어 간다', async () => {
     render(<PhotoCard assetId="a-1" />);
 
     const input = screen.getByTestId('photo-upload-input') as HTMLInputElement;
@@ -61,10 +53,16 @@ describe('PhotoCard', () => {
 
     await screen.findByAltText('설비 사진');
 
-    expect(mockedUploadPhoto).toHaveBeenCalledTimes(1);
     const created = Object.values(v2WorkingCopyStore.getState().overlays.photos.creates);
     expect(created).toHaveLength(1);
-    expect(created[0]).toMatchObject({ assetId: 'a-1', filePath: 'assets/new-uuid.png' });
+    /* 경로는 비어 있다 — 서버가 지어 준다(`putCommit`). */
+    expect(created[0]).toMatchObject({ assetId: 'a-1', filePath: '' });
+
+    /* 저장이 실어 갈 파일이 그 사진 id 로 들려 있다. */
+    const id = (created[0] as { id: string }).id;
+    expect(pendingPhotoFiles().get(id)?.name).toBe('a.png');
+    /* 저장 전에도 보인다 — 미리보기는 브라우저 안의 것이다. */
+    expect(pendingPhotoUrl(id)).toBeTruthy();
   });
 
   it('삭제 버튼 → overlays.photos.deletes 에 id 적재', () => {
@@ -99,15 +97,15 @@ describe('PhotoCard', () => {
     expect(within(dialog).getByAltText('정면')).toBeTruthy();
   });
 
-  it('업로드 실패(reject) → 한글 에러 문구 표시, 스테이징 없음', async () => {
-    mockedUploadPhoto.mockRejectedValue(new Error('network fail'));
+  it('담아 둔 사진을 지우면 들고 있던 파일도 놓는다 — 저장이 실어 갈 것이 남지 않는다', async () => {
     render(<PhotoCard assetId="a-1" />);
+    fireEvent.change(screen.getByTestId('photo-upload-input'), { target: { files: [selectFile()] } });
+    await screen.findByAltText('설비 사진');
+    expect(pendingPhotoFiles().size).toBe(1);
 
-    const input = screen.getByTestId('photo-upload-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { files: [selectFile()] } });
+    fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
 
-    await screen.findByText('사진 업로드에 실패했습니다');
-
-    expect(Object.keys(v2WorkingCopyStore.getState().overlays.photos.creates)).toHaveLength(0);
+    expect(pendingPhotoFiles().size).toBe(0);
   });
+
 });

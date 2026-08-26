@@ -110,7 +110,8 @@ describe('buildCommitPayload', () => {
     /* 기록의 주인은 설비(`assetId`)이고 `partAssetId` 는 그 안에서 가리키는 장비다 —
        설비 전체에 대한 것이면 비운다. */
     expect(p.records).toEqual({
-      photos: { creates: [{ id: 'ph-1', assetId: 'a-1', partAssetId: null, filePath: 'assets/x.png', caption: null }] },
+      /* 경로는 보내지 않는다 — 파일이 저장 요청에 함께 가고 서버가 지어 준다. */
+      photos: { creates: [{ id: 'ph-1', assetId: 'a-1', partAssetId: null, caption: null }] },
     });
     expect(p.assets).toBeUndefined();
     expect(p.cables).toBeUndefined();

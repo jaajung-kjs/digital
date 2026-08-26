@@ -6,6 +6,7 @@ import type { Direction } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
 import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
+import { removePhotoFiles } from './photoFiles.js';
 import { TYPE_INCLUDE, typeRowToSpec } from './spec.js';
 import type { CommitPayload } from './schemas.js';
 
@@ -16,8 +17,22 @@ type FloorCreate = NonNullable<NonNullable<CommitPayload['floors']>['creates']>[
 type FloorUpdate = NonNullable<NonNullable<CommitPayload['floors']>['updates']>[number];
 
 
-export async function commitSubstation(substationId: string, payload: CommitPayload): Promise<{ committedAt: string }> {
-  return nextDb.$transaction(async (tx) => {
+/**
+ * @param photoFiles 이번 요청이 디스크에 쓴 사진 — 사진 id → 저장 경로.
+ *   사진을 새로 만드는 줄은 **반드시** 여기에 제 파일이 있어야 한다: 경로를 클라이언트가
+ *   불러 주지 않으니, 남의 파일을 가리키는 줄을 만들 길이 없다.
+ */
+export async function commitSubstation(
+  substationId: string,
+  payload: CommitPayload,
+  photoFiles: ReadonlyMap<string, string> = new Map(),
+): Promise<{ committedAt: string }> {
+  /* 이 커밋으로 **줄이 사라지는** 사진들 — 커밋이 든 뒤에 파일도 지운다.
+     줄만 지우고 파일을 두면 아무도 볼 수 없는 파일이 영원히 남는다(사진을 지운 사람도,
+     그 설비를 걷어낸 사람도 그런 것이 남는 줄 모른다). 트랜잭션 **밖에서** 지우는 이유는
+     커밋이 뒤집히면 그 줄이 되살아나기 때문이다 — 그때 파일이 없으면 깨진 사진이 된다. */
+  const orphaned: string[] = [];
+  const result = await nextDb.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${substationId}))`;
     const substation = await tx.substation.findUnique({ where: { id: substationId } });
     if (!substation) throw new HttpError(404, 'NOT_FOUND', '변전소를 찾을 수 없습니다');
@@ -31,7 +46,7 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
     const touchedGrids = new Set<string>();
     await applyCableDeletes(tx, substationId, cables.deletes ?? []);
     await assertNoAttachedCables(tx, assets.deletes ?? []);
-    await applyDeletes(tx, substationId, assets.deletes ?? []);
+    await applyDeletes(tx, substationId, assets.deletes ?? [], orphaned);
     /* 층은 **자산보다 먼저 생긴다** — 새 층에 놓은 자산이 그 층을 가리킨다. */
     await applyFloorCreates(tx, substationId, floors.creates ?? []);
     for (const u of floors.updates ?? []) await applyFloorUpdate(tx, substationId, u);
@@ -45,10 +60,13 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
     for (const u of cables.updates ?? []) await applyCableUpdate(tx, substationId, u);
     for (const c of cables.creates ?? []) await applyCableCreate(tx, substationId, c);
 
-    await applyRecords(tx, substationId, payload.records);
+    await applyRecords(tx, substationId, payload.records, photoFiles, orphaned);
 
     return { committedAt: new Date().toISOString() };
   }, { timeout: 30_000 });
+
+  await removePhotoFiles(orphaned);
+  return result;
 }
 
 async function checkVersions(tx: Tx, payload: CommitPayload): Promise<void> {
@@ -406,7 +424,13 @@ async function assertAssetInSubstation(tx: Tx, substationId: string, assetId: st
   if (!a || a.substationId !== substationId) throw new HttpError(422, 'INVALID_RECORD_ASSET', '레코드 대상 자산이 이 변전소에 없습니다');
 }
 
-async function applyRecords(tx: Tx, substationId: string, records: CommitPayload['records']): Promise<void> {
+async function applyRecords(
+  tx: Tx,
+  substationId: string,
+  records: CommitPayload['records'],
+  photoFiles: ReadonlyMap<string, string>,
+  orphaned: string[],
+): Promise<void> {
   if (!records) return;
 
   const m = records.maintenance;
@@ -472,8 +496,10 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
   const p = records.photos;
   if (p) {
     for (const id of p.deletes ?? []) {
+      const row = await tx.assetPhoto.findFirst({ where: { id, asset: { substationId } }, select: { filePath: true } });
       const del = await tx.assetPhoto.deleteMany({ where: { id, asset: { substationId } } });
-      if (del.count === 0) throw new HttpError(422, 'INVALID_RECORD', '삭제 대상 사진이 유효하지 않습니다');
+      if (del.count === 0 || !row) throw new HttpError(422, 'INVALID_RECORD', '삭제 대상 사진이 유효하지 않습니다');
+      orphaned.push(row.filePath);
     }
     for (const u of p.updates ?? []) {
       const row = await tx.assetPhoto.findUnique({ where: { id: u.id }, include: { asset: { select: { substationId: true } } } });
@@ -488,10 +514,13 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
     }
     for (const c of p.creates ?? []) {
       await assertAssetInSubstation(tx, substationId, c.assetId);
+      /* 파일이 함께 오지 않은 사진 줄은 만들 수 없다 — 그런 줄은 볼 수 없는 사진이 된다. */
+      const filePath = photoFiles.get(c.id);
+      if (!filePath) throw new HttpError(400, 'INVALID_UPLOAD', '사진 파일이 함께 오지 않았습니다');
       await tx.assetPhoto.create({
         data: {
           id: c.id, assetId: c.assetId, partAssetId: c.partAssetId ?? null,
-          filePath: c.filePath, caption: c.caption ?? null,
+          filePath, caption: c.caption ?? null,
         },
       });
     }
@@ -634,8 +663,12 @@ async function applyCableCreate(
   }
 }
 
-async function applyDeletes(tx: Tx, substationId: string, ids: string[]): Promise<void> {
+async function applyDeletes(tx: Tx, substationId: string, ids: string[], orphaned: string[]): Promise<void> {
   if (ids.length === 0) return;
+  /* 설비가 사라지면 그 사진 줄도 DB 가 함께 걷어낸다(cascade) — 파일은 우리가 걷는다. */
+  for (const row of await tx.assetPhoto.findMany({ where: { assetId: { in: ids } }, select: { filePath: true } })) {
+    orphaned.push(row.filePath);
+  }
   const rows = await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, substationId: true } });
   if (rows.length !== ids.length || rows.some((r) => r.substationId !== substationId)) {
     throw new HttpError(422, 'INVALID_DELETE', '삭제 대상이 유효하지 않습니다');

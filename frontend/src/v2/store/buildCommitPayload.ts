@@ -126,9 +126,10 @@ export function buildCommitPayload(
     id: r.id, assetId: r.assetId, partAssetId: r.partAssetId ?? null,
     inspectedAt: r.inspectedAt, content: r.content, result: r.result,
   }));
+  /* 경로는 **보내지 않는다** — 파일이 이 요청에 함께 가고, 서버가 그 id 의 줄에 지어 준다. */
   const photos = recordOps(overlays.photos, deletedAssets, recordAssetIds, (r) => ({
     id: r.id, assetId: r.assetId, partAssetId: r.partAssetId ?? null,
-    filePath: r.filePath, caption: r.caption,
+    caption: r.caption,
   }));
   if (maintenance || inspections || photos) {
     payload.records = { ...(maintenance ? { maintenance } : {}), ...(inspections ? { inspections } : {}), ...(photos ? { photos } : {}) };
