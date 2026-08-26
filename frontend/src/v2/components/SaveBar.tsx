@@ -35,19 +35,10 @@ export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
   const canUndo = useStore(v2WorkingCopyStore.temporal, (t) => t.pastStates.length > 0);
   const canRedo = useStore(v2WorkingCopyStore.temporal, (t) => t.futureStates.length > 0);
 
-  /**
-   * 탭을 닫거나 주소를 갈아탈 때 **브라우저가 한 번 묻게** 한다.
-   *
-   * 앱 안에서 화면을 옮길 때는 이미 확인 상자가 뜨는데, 정작 탭을 닫으면 아무 말 없이
-   * 사라졌다 — 사람이 실수하는 가장 흔한 자리가 그쪽이다. 브라우저가 띄우는 문구는
-   * 우리가 정할 수 없다(스팸 방지); 우리가 하는 일은 「물어봐 달라」고 표시하는 것뿐이다.
-   */
-  useEffect(() => {
-    if (dirty === 0) return;
-    const onLeave = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener('beforeunload', onLeave);
-    return () => window.removeEventListener('beforeunload', onLeave);
-  }, [dirty]);
+  /* 탭을 닫을 때 묻는 일은 여기서 하지 않는다 — 그 자리는 셸 하나다(`V2Shell`).
+     화면이 하는 일은 「안 저장된 것이 몇 건」인지 손을 드는 것뿐이고(`useUnsavedMark`),
+     막는 일은 셸이 한다. 여기에도 같은 등록을 두면 화면마다 빠뜨릴 자리가 생기고,
+     품목 탭들은 셸의 것만으로 이미 물어보고 있다. */
 
   /**
    * ⌘Z · ⇧⌘Z — **자판으로도 물린다.**

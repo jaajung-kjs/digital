@@ -217,13 +217,16 @@ export function RecordsTab({
               onKeyDown={(e) => { if (isCommitKey(e)) handleAdd(); }}
             />
           </DetailRow>
+          {/* **「저장」이라고 적지 않는다.** 이 단추가 하는 일은 목록에 한 줄을 더하는 것이고,
+              서버로 보내는 일은 화면 아래 저장 바 하나가 한다. 두 단추에 같은 낱말을 적으면
+              여기를 누른 사람이 「저장했다」고 믿고 창을 닫는다 — 실제로는 아무것도 안 갔다. */}
           <div className="mt-2 flex justify-end">
             <Button
               size="sm"
               disabled={!addState.date || !addState.content.trim()}
               onClick={handleAdd}
             >
-              저장
+              추가
             </Button>
           </div>
         </DetailCard>
@@ -268,7 +271,7 @@ export function RecordsTab({
                 <IconButton aria-label="취소" onClick={handleEditCancel}>
                   <X size={14} />
                 </IconButton>
-                <IconButton aria-label="저장" onClick={handleEditCommit}>
+                <IconButton aria-label="확인" onClick={handleEditCommit}>
                   <Check size={14} />
                 </IconButton>
               </div>

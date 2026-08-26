@@ -87,3 +87,20 @@ describe('저장 여부로 갈라서지 않는다', () => {
     expect(offenders, `저장 여부로 갈라선 곳: ${offenders.join(', ')}`).toEqual([]);
   });
 });
+
+/**
+ * **떠나기 전에 묻는 자리는 하나다.**
+ *
+ * 저장 안 한 것을 안고 창을 닫으려 하면 브라우저가 묻는다. 그 등록(`beforeunload`)을 화면마다
+ * 두면, 새 화면이 생길 때마다 빠뜨린다 — 실제로 저장 바와 셸이 **각자** 등록하고 있었고,
+ * 품목 세 탭은 셸의 것만으로 물어보고 있었다. 화면이 하는 일은 「안 저장된 것이 몇 건」인지
+ * 손을 드는 것뿐이고(`useUnsavedMark`), 막는 일은 셸이 한다.
+ */
+describe('떠나기 전에 묻는 자리', () => {
+  it('beforeunload 를 등록하는 곳은 셸 하나다', () => {
+    const offenders = screenFiles().filter(
+      (f) => !f.endsWith('V2Shell.tsx') && /addEventListener\('beforeunload'/.test(readFileSync(f, 'utf8')),
+    );
+    expect(offenders, `셸 밖에서 beforeunload 를 등록한 곳: ${offenders.join(', ')}`).toEqual([]);
+  });
+});
