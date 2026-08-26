@@ -8,7 +8,7 @@
  * 그래서 장비 품목과 달리 "쓰이는 중이면 구조 잠금" 이 없다.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { EmptyState, TreePanel, useConfirm, IssueReveal, type TreeNode } from '../../../components/ui';
+import { EmptyState, TreePanel, useConfirm, IssueReveal, type TreeKind, type TreeNode } from '../../../components/ui';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
 import {
@@ -28,14 +28,28 @@ interface AssemblyCatalogPanelProps {
   catalog: V2Catalog;
   /* 분류는 **장비 품목과 같은 체계**(AssetCategory)다 — 고치는 일은 상자 하나가 하고(`useCategoryAdmin`)
      두 탭이 같은 것을 부른다. 어느 탭에서 만들든 양쪽 목록에 나타난다. */
-  /** 분류 줄이 할 수 있는 일 — `useCategoryAdmin` 이 준다(장비 품목 탭과 같은 것). */
-  categoryRow: (cat: V2Category) => { rename: (name: string) => void; remove: { run: () => void; disabledReason?: string } };
-  /** 머리줄(뿌리)에서 새 분류를 만드는 일. */
-  categoryRoot: { label: string; run: (name: string) => void };
+  /** 분류를 다루는 손 — `useCategoryAdmin` 이 준다(장비 품목 탭과 같은 것). */
+  category: {
+    add: (name: string) => void;
+    rename: (cat: V2Category, name: string) => void;
+    remove: (cat: V2Category) => void;
+    removeBlocked: (cat: V2Category) => string | undefined;
+  };
 }
 
+/**
+ * 층마다 무엇이 서는가 — 문구는 전부 여기서 나온다(「새 분류」·「새 설비 품목」).
+ *
+ * **뼈대는 트리에서, 내용은 편집기에서.** 분류는 이름만 있으면 서므로 그 자리에서 만들고,
+ * 품목은 포트·공량을 채워야 하므로 오른쪽 초안을 연다(`create: 'editor'`).
+ */
+const KINDS = [
+  { label: '분류', create: 'inline', rename: true, remove: true },
+  { label: '설비 품목', create: 'editor' },
+] as const satisfies ReadonlyArray<TreeKind>;
+
 export function AssemblyCatalogPanel({
-  catalog, categoryRow, categoryRoot,
+  catalog, category,
 }: AssemblyCatalogPanelProps) {
   const { confirm, confirmDialog } = useConfirm();
   const m = useCatalogMutations();
@@ -43,7 +57,6 @@ export function AssemblyCatalogPanel({
   /* 첫 항목을 열어 둔다 — 케이블 탭이 이미 그렇게 하고 있었다. 기본 탭이 설비 품목이라,
      대장을 열면 빈 화면이 먼저 나오고 탭을 옮기면 갑자기 내용이 차 있어 어긋나 보였다. */
   const [saveError, setSaveError] = useState<string | null>(null);
-  /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
   /* 고른 것·초안·떠나기 전 묻기는 세 탭이 같은 셸을 쓴다 — `useDraftSelection`. */
   const leaveIfConfirmed = useCallback(
     /* 묻는 말은 앱에 한 벌뿐이다 — `unsavedPrompt`. */
@@ -103,10 +116,14 @@ export function AssemblyCatalogPanel({
   }
 
   /* 목록은 **분류로 묶는다** — 장비 품목 탭과 같은 어법이고, 판도 같은 `TreePanel` 이다. */
+  /** 트리가 돌려준 줄 → 그 분류. 트리는 id 만 알고, 무엇인지는 여기가 안다. */
+  const byId = (id: string) => catalog.categories.find((c) => c.id === id)!;
+
+  /** 그 분류 안에 설비 품목 하나 — 이름만으로는 서지 않으므로 오른쪽 초안을 연다. */
+  const newInto = (categoryId: string) => void sel.startNew({ ...emptyAssemblyDraft(), categoryId });
+
   const nodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
-    const newInto = (categoryId: string) =>
-      void sel.startNew({ ...emptyAssemblyDraft(), categoryId });
     for (const cat of catalog.categories) {
       const items = catalog.assemblies.filter((a) => a.categoryId === cat.id);
       out.push({
@@ -115,10 +132,7 @@ export function AssemblyCatalogPanel({
         text: cat.name,
         depth: 0,
         selectable: false,
-        /* 설비 품목은 격자와 부품을 채워야 서므로 오른쪽 초안을 연다 — 뼈대는 트리에서,
-           내용은 편집기에서(장비 품목 탭과 같은 문장). */
-        menu: [{ label: '설비 품목 추가', onSelect: () => newInto(cat.id) }],
-        ...categoryRow(cat),
+        removeBlocked: category.removeBlocked(cat),
       });
       for (const a of items) out.push({ id: a.id, label: a.name, text: a.name, depth: 1 });
       /* 만드는 중인 줄은 **그 분류 안**에 선다 — 어디에 무엇이 생기는지 목록이 보여 준다. */
@@ -134,7 +148,7 @@ export function AssemblyCatalogPanel({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.assemblies, catalog.categories, isNew, draft, categoryRow]);
+  }, [catalog.assemblies, catalog.categories, isNew, draft, category]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -144,7 +158,10 @@ export function AssemblyCatalogPanel({
           nodes={nodes}
           selectedId={selectedId}
           onSelect={(n) => void sel.select(n?.id ?? null)}
-          root={{ addChild: categoryRoot }}
+          kinds={KINDS}
+          onCreate={({ level, parentId, name }) => (level === 0 ? category.add(name!) : newInto(parentId!))}
+          onRename={(node, name) => category.rename(byId(node.id), name)}
+          onRemove={(node) => category.remove(byId(node.id))}
           emptyText="설비 품목이 없습니다"
           escapes
         />

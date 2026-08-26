@@ -1,132 +1,151 @@
 /**
- * TreePanel — **앱의 모든 트리가 같은 문장을 쓴다**(조직 · 설비 품목 · 장비 품목 · 케이블 품목).
+ * TreePanel — **앱의 모든 트리가 같은 문장**을 쓴다(조직 · 설비 품목 · 장비 품목 · 케이블 품목).
  *
- * 여기서 지키는 것은 그 문장 자체다: 한 줄이 할 수 있는 일은 그 줄의 `⋯` 안에 글자로 있고,
- * 머리줄도 하나의 줄(뿌리)이며, 만들고 이름 고치는 일은 트리 안의 빈 줄에서 끝난다.
- * 예전에는 트리마다 아이콘 구성이 달랐고(조직은 셋, 대장은 하나), 머리줄의 정체불명 `+` 가
- * 어떤 화면에서는 상자를 열고 어떤 화면에서는 줄을 만들었다.
+ * 여기서 지키는 것은 그 문장이다: 트리는 「층마다 무엇이 서는가」로만 기술되고, 손잡이는
+ * 어느 줄에서나 `+`·연필·휴지통 셋이며, **무엇이 만들어지는지는 누른 자리가 정한다**.
+ * 예전에는 트리마다 줄마다 「지사 추가」 같은 문구를 손으로 적었고, 트리가 하나 늘 때마다
+ * 또 적었다. 문구는 이제 층 선언에서만 나온다.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { TreePanel, type TreeNode } from './TreePanel';
+import { TreePanel, type TreeKind, type TreeNode } from './TreePanel';
 
-const node = (over: Partial<TreeNode> & { id: string; text: string }): TreeNode => ({
+const ORG: TreeKind[] = [
+  { label: '본부', create: 'inline', rename: true, remove: true },
+  { label: '전력지사', create: 'inline', rename: true, remove: true },
+  { label: '변전소', create: 'inline', rename: true, remove: true },
+];
+/** 대장 — 분류는 이름만으로 서고(뼈대), 품목은 오른쪽 초안에서 만든다(내용). */
+const CATALOG: TreeKind[] = [
+  { label: '분류', create: 'inline', rename: true, remove: true },
+  { label: '장비 품목', create: 'editor' },
+];
+
+const row = (over: Partial<TreeNode> & { id: string; text: string }): TreeNode => ({
   label: over.text, depth: 0, ...over,
 });
 
-function open(label: string) {
-  fireEvent.click(screen.getByRole('button', { name: label }));
-}
+describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한다', () => {
+  it('머리줄의 `+` 는 뿌리 안에 하나 — 무엇이 만들어지는지 이름에 적힌다', () => {
+    render(<TreePanel title="조직" kinds={ORG} nodes={[]} selectedId={null} onSelect={() => {}} />);
 
-describe('TreePanel — 한 줄이 할 수 있는 일은 ⋯ 안에 글자로 있다', () => {
-  it('줄의 ⋯ 에 「<자식> 추가 · 이름 바꾸기 · 삭제」가 이 순서로 선다', () => {
-    render(
-      <TreePanel
-        title="조직"
-        selectedId={null}
-        onSelect={() => {}}
-        nodes={[node({
-          id: 'hq', text: '강원본부',
-          addChild: { label: '지사', run: () => {} },
-          rename: () => {},
-          remove: { run: () => {} },
-        })]}
-      />,
-    );
-
-    open('강원본부 관리');
-    /* 되돌릴 수 없는 것은 늘 맨 아래 — 손이 미끄러져도 그 자리에 오지 않는다. */
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['지사 추가', '이름 바꾸기', '삭제']);
+    expect(screen.getByRole('button', { name: '새 본부' })).toBeTruthy();
   });
 
-  it('머리줄도 하나의 줄이다 — 뿌리에 만드는 일이 거기 글자로 있다(정체불명 `+` 없음)', () => {
-    const run = vi.fn();
+  it('줄의 `+` 는 **그 안에** 하나 — 다음 층의 것이 만들어진다', () => {
     render(
-      <TreePanel title="장비 품목" selectedId={null} onSelect={() => {}} nodes={[]}
-        root={{ addChild: { label: '분류', run } }} />,
+      <TreePanel title="조직" kinds={ORG} selectedId={null} onSelect={() => {}}
+        nodes={[row({ id: 'hq', text: '강원본부' }), row({ id: 'br', text: '직할', depth: 1 })]} />,
     );
 
-    open('장비 품목 관리');
-    expect(screen.getByRole('menuitem', { name: '분류 추가' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '강원본부 안에 새 전력지사' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '직할 안에 새 변전소' })).toBeTruthy();
   });
 
-  it('만들기 → 그 자리에 빈 줄이 서고, 이름을 치면 그 이름으로 만든다', () => {
-    const run = vi.fn();
+  it('맨 아래 층에는 `+` 가 없다 — 그 안에 설 것이 없다', () => {
     render(
-      <TreePanel title="장비 품목" selectedId={null} onSelect={() => {}} nodes={[]}
-        root={{ addChild: { label: '분류', run } }} />,
+      <TreePanel title="조직" kinds={ORG} selectedId={null} onSelect={() => {}}
+        nodes={[row({ id: 'ss', text: '춘천S/S', depth: 2 })]} />,
     );
 
-    open('장비 품목 관리');
-    fireEvent.click(screen.getByRole('menuitem', { name: '분류 추가' }));
+    expect(screen.queryByRole('button', { name: /춘천S\/S 안에/ })).toBeNull();
+    expect(screen.getByRole('button', { name: '춘천S/S 이름 바꾸기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '춘천S/S 삭제' })).toBeTruthy();
+  });
 
-    const field = screen.getByLabelText('새 분류 이름');
-    fireEvent.change(field, { target: { value: '  계측  ' } });
+  it('`+` 를 누르면 그 자리에 줄이 서고 **이름이 채워진 채** 잡혀 있다 — Enter 면 그대로 만든다', () => {
+    const onCreate = vi.fn();
+    render(
+      <TreePanel title="조직" kinds={ORG} selectedId={null} onSelect={() => {}} onCreate={onCreate}
+        nodes={[row({ id: 'hq', text: '강원본부' })]} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '강원본부 안에 새 전력지사' }));
+
+    const field = screen.getByLabelText('새 전력지사 이름') as HTMLInputElement;
+    /* 그대로 Enter 해도 쓸 수 있는 이름이어야 한다(탐색기의 「untitled folder」). */
+    expect(field.value).toBe('새 전력지사');
     fireEvent.keyDown(field, { key: 'Enter' });
 
-    /* 앞뒤 공백은 이름이 아니다. */
-    expect(run).toHaveBeenCalledWith('계측');
+    expect(onCreate).toHaveBeenCalledWith({ level: 1, parentId: 'hq', name: '새 전력지사' });
   });
 
-  it('빈 이름·Esc 는 아무 일도 하지 않는다 — 이름 없는 것을 만들 길을 두지 않는다', () => {
-    const run = vi.fn();
-    render(
-      <TreePanel title="조직" selectedId={null} onSelect={() => {}} nodes={[]}
-        root={{ addChild: { label: '본부', run } }} />,
-    );
+  it('친 이름으로 만든다 — 앞뒤 공백은 이름이 아니다', () => {
+    const onCreate = vi.fn();
+    render(<TreePanel title="조직" kinds={ORG} nodes={[]} selectedId={null} onSelect={() => {}} onCreate={onCreate} />);
 
-    open('조직 관리');
-    fireEvent.click(screen.getByRole('menuitem', { name: '본부 추가' }));
-    fireEvent.keyDown(screen.getByLabelText('새 본부 이름'), { key: 'Enter' });
-    expect(run).not.toHaveBeenCalled();
-
-    open('조직 관리');
-    fireEvent.click(screen.getByRole('menuitem', { name: '본부 추가' }));
+    fireEvent.click(screen.getByRole('button', { name: '새 본부' }));
     const field = screen.getByLabelText('새 본부 이름');
-    fireEvent.change(field, { target: { value: '중부본부' } });
-    fireEvent.keyDown(field, { key: 'Escape' });
-    expect(run).not.toHaveBeenCalled();
+    fireEvent.change(field, { target: { value: '  중부본부  ' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    expect(onCreate).toHaveBeenCalledWith({ level: 0, parentId: null, name: '중부본부' });
   });
 
-  it('이름 바꾸기 → 그 자리에서 고친다. 그대로면 아무 일도 하지 않는다', () => {
-    const rename = vi.fn();
+  it('Esc · 빈 이름이면 **아무것도 만들지 않는다** — 서버로 가는 것은 확정할 때다', () => {
+    const onCreate = vi.fn();
+    render(<TreePanel title="조직" kinds={ORG} nodes={[]} selectedId={null} onSelect={() => {}} onCreate={onCreate} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '새 본부' }));
+    fireEvent.keyDown(screen.getByLabelText('새 본부 이름'), { key: 'Escape' });
+    expect(onCreate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '새 본부' }));
+    const field = screen.getByLabelText('새 본부 이름');
+    fireEvent.change(field, { target: { value: '   ' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it('이름만으로 서지 않는 층(품목)은 줄을 세우지 않고 **초안을 연다**', () => {
+    const onCreate = vi.fn();
     render(
-      <TreePanel title="조직" selectedId={null} onSelect={() => {}}
-        nodes={[node({ id: 'hq', text: '강원본부', rename })]} />,
+      <TreePanel title="장비 품목" kinds={CATALOG} selectedId={null} onSelect={() => {}} onCreate={onCreate}
+        nodes={[row({ id: 'c1', text: '통신' })]} />,
     );
 
-    open('강원본부 관리');
-    fireEvent.click(screen.getByRole('menuitem', { name: '이름 바꾸기' }));
+    fireEvent.click(screen.getByRole('button', { name: '통신 안에 새 장비 품목' }));
+
+    expect(onCreate).toHaveBeenCalledWith({ level: 1, parentId: 'c1' });
+    expect(screen.queryByLabelText('새 장비 품목 이름')).toBeNull();
+  });
+
+  it('연필 → 그 자리에서 고친다. 그대로면 아무 일도 하지 않는다', () => {
+    const onRename = vi.fn();
+    render(
+      <TreePanel title="조직" kinds={ORG} selectedId={null} onSelect={() => {}} onRename={onRename}
+        nodes={[row({ id: 'hq', text: '강원본부' })]} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 바꾸기' }));
+    fireEvent.keyDown(screen.getByLabelText('강원본부 이름'), { key: 'Enter' });
+    expect(onRename).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 바꾸기' }));
     const field = screen.getByLabelText('강원본부 이름');
-    fireEvent.keyDown(field, { key: 'Enter' }); // 그대로 확정
-    expect(rename).not.toHaveBeenCalled();
-
-    open('강원본부 관리');
-    fireEvent.click(screen.getByRole('menuitem', { name: '이름 바꾸기' }));
-    const again = screen.getByLabelText('강원본부 이름');
-    fireEvent.change(again, { target: { value: '강원본부2' } });
-    fireEvent.keyDown(again, { key: 'Enter' });
-    expect(rename).toHaveBeenCalledWith('강원본부2');
+    fireEvent.change(field, { target: { value: '중부본부' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onRename).toHaveBeenCalledWith(expect.objectContaining({ id: 'hq' }), '중부본부');
   });
 
-  it('지울 수 없는 줄은 **왜인지 말한다** — 항목을 감추지 않는다', () => {
+  it('지금 지울 수 없으면 휴지통이 잠기고 **왜인지 말한다** — 감추지 않는다', () => {
     render(
-      <TreePanel title="장비 품목" selectedId={null} onSelect={() => {}}
-        nodes={[node({ id: 'c1', text: '통신', remove: { run: () => {}, disabledReason: '이 분류에 20개가 들어 있어 지울 수 없습니다' } })]} />,
+      <TreePanel title="장비 품목" kinds={CATALOG} selectedId={null} onSelect={() => {}}
+        nodes={[row({ id: 'c1', text: '통신', removeBlocked: '이 분류에 20개가 들어 있어 지울 수 없습니다' })]} />,
     );
 
-    open('통신 관리');
-    const item = screen.getByRole('menuitem', { name: '삭제' });
-    expect(item).toHaveProperty('disabled', true);
-    expect(item.title).toBe('이 분류에 20개가 들어 있어 지울 수 없습니다');
+    const btn = screen.getByRole('button', { name: /통신 삭제/ });
+    expect(btn).toHaveProperty('disabled', true);
+    expect(btn.title).toBe('이 분류에 20개가 들어 있어 지울 수 없습니다');
   });
 
-  it('할 수 있는 일이 없는 줄에는 ⋯ 가 없다', () => {
+  it('층을 주지 않으면 **보는 트리**다 — 손잡이가 하나도 서지 않는다', () => {
     render(
-      <TreePanel title="장비 품목" selectedId={null} onSelect={() => {}}
-        nodes={[node({ id: 't1', text: 'UTM' })]} />,
+      <TreePanel title="케이블 품목" selectedId={null} onSelect={() => {}}
+        nodes={[row({ id: 'g1', text: '광케이블' })]} />,
     );
 
-    expect(screen.queryByRole('button', { name: 'UTM 관리' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /광케이블/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^새 / })).toBeNull();
   });
 });

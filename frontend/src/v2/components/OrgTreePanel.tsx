@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { TreePanel, useConfirm } from '../../components/ui';
+import { TreePanel, useConfirm, type TreeKind, type TreeNode } from '../../components/ui';
 import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
@@ -14,23 +14,19 @@ import { useOrgMutations, useV2OrgTree } from '../hooks';
  */
 type TreeOrgKind = OrgKind;
 
-const CHILD_KIND: Record<FlatOrgNode['kind'], TreeOrgKind | null> = {
-  hq: 'branches',
-  branch: 'substations',
-  substation: null,
-};
-const SELF_KIND: Record<FlatOrgNode['kind'], TreeOrgKind> = {
-  hq: 'headquarters',
-  branch: 'branches',
-  substation: 'substations',
-};
-/** 화면에 쓰는 조직 종류 이름 — 메뉴에 「지사 추가」처럼 **무엇을** 만드는지 적힌다. */
-const KIND_LABEL: Record<TreeOrgKind, string> = {
-  headquarters: '본부',
-  branches: '지사',
-  substations: '변전소',
-};
+/**
+ * 층마다 무엇이 서는가 — **순서가 곧 계층**이고, 화면 문구는 전부 여기서 나온다.
+ *
+ * 예전에는 이 사실이 네 개의 지도(`CHILD_KIND`·`SELF_KIND`·`KIND_LABEL`·`PARENT_FIELD`)로
+ * 흩어져 있었고, 줄마다 「지사 추가」 같은 문구를 손으로 적었다.
+ */
+const KINDS = [
+  { key: 'headquarters', label: '본부', create: 'inline', rename: true, remove: true },
+  { key: 'branches', label: '전력지사', create: 'inline', rename: true, remove: true },
+  { key: 'substations', label: '변전소', create: 'inline', rename: true, remove: true },
+] as const satisfies ReadonlyArray<TreeKind & { key: TreeOrgKind }>;
 
+/** 이 층의 것이 매달리는 곳 — 본부는 매달릴 곳이 없다. */
 const PARENT_FIELD: Record<TreeOrgKind, string> = {
   headquarters: '',
   branches: 'headquartersId',
@@ -44,45 +40,23 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
 
   const nodes = tree ? flattenTree(tree) : [];
 
-  /* 접고 펴는 일도, 이름을 치는 상자도 `TreePanel` 이 쥔다 — 트리마다 따로 구현하지 않는다.
-     예전에는 여기서 모달을 띄웠다: 「본부 추가」 상자가 뜨면 **어느 지사 밑에 만드는 중인지**
-     화면에서 사라졌고, 대장 트리들은 같은 일을 인라인으로 하고 있어 두 트리의 어법이 갈렸다. */
+  /* 접고 펴는 일도, 이름을 치는 상자도, 무엇을 만들지 고르는 일도 `TreePanel` 이 쥔다 —
+     트리마다 따로 구현하지 않는다. 예전에는 여기서 모달을 띄웠고, 그러면 **어느 지사 밑에
+     만드는 중인지** 화면에서 사라졌다. */
 
-  function create(kind: TreeOrgKind, parentId: string, name: string) {
-    const body: Record<string, string> = { name };
-    const pf = PARENT_FIELD[kind];
-    if (pf) body[pf] = parentId;
-    createMut.mutate({ kind, body });
-  }
-
-  async function remove(n: FlatOrgNode) {
+  async function remove(node: TreeNode) {
     const ok = await confirm({
       title: '조직 삭제',
-      target: n.name,
+      target: node.text,
       message: '하위 항목이 있으면 서버가 거부합니다.',
       confirmLabel: '삭제',
       danger: true,
     });
-    if (ok) deleteMut.mutate({ kind: SELF_KIND[n.kind], id: n.id });
+    if (ok) deleteMut.mutate({ kind: KINDS[node.depth]!.key, id: node.id });
   }
 
-  const treeNodes = useMemo(
-    () =>
-      nodes.map((n) => {
-        const childKind = CHILD_KIND[n.kind];
-        return {
-          id: n.id,
-          label: n.name,
-          text: n.name,
-          depth: n.depth,
-          ...(childKind
-            ? { addChild: { label: KIND_LABEL[childKind], run: (name: string) => create(childKind, n.id, name) } }
-            : {}),
-          rename: (name: string) => renameMut.mutate({ kind: SELF_KIND[n.kind], id: n.id, name }),
-          remove: { run: () => void remove(n) },
-        };
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const treeNodes = useMemo<TreeNode[]>(
+    () => nodes.map((n) => ({ id: n.id, label: n.name, text: n.name, depth: n.depth })),
     [nodes],
   );
 
@@ -90,13 +64,20 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
     <div className="flex h-full flex-col">
       <TreePanel
         title="조직"
+        kinds={KINDS}
         nodes={treeNodes}
         selectedId={props.selectedId}
         onSelect={(t) => {
           const n = t ? nodes.find((x) => x.id === t.id) : null;
           props.onSelect(n ?? null);
         }}
-        root={{ addChild: { label: KIND_LABEL.headquarters, run: (name) => create('headquarters', '', name) } }}
+        onCreate={({ level, parentId, name }) => {
+          const kind = KINDS[level]!.key;
+          const field = PARENT_FIELD[kind];
+          createMut.mutate({ kind, body: { name: name!, ...(field && parentId ? { [field]: parentId } : {}) } });
+        }}
+        onRename={(node, name) => renameMut.mutate({ kind: KINDS[node.depth]!.key, id: node.id, name })}
+        onRemove={(node) => void remove(node)}
       />
       {confirmDialog}
     </div>

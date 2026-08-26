@@ -9,7 +9,7 @@
  * 목록과 미묘하게 달랐고(폭 64 vs 56, 분류 묶음 유무), 검색은 어느 쪽에도 없었다.
  */
 import { useMemo } from 'react';
-import { TreePanel, type TreeNode } from '../../../components/ui';
+import { TreePanel, type TreeKind, type TreeNode } from '../../../components/ui';
 import { NEW_ID } from '../../catalogDraft';
 import type { V2Catalog, V2Category } from '../../types';
 
@@ -27,15 +27,29 @@ interface TypeListPanelProps {
   /** 새 장비 품목 — 분류 줄의 `+` 로 만들면 그 분류로 시작한다. */
   onNewType: (categoryId?: string) => void;
   /**
-   * 분류 줄이 할 수 있는 일 — `useCategoryAdmin` 이 준다(두 대장이 같은 것을 받는다).
+   * 분류를 다루는 손 — `useCategoryAdmin` 이 준다(두 대장이 **같은 것**을 받는다).
    *
    * 여기서 다시 적지 않는 이유: 분류는 두 화면이 함께 쓰는 체계라, 한쪽에서만 고쳐지면
    * 그 순간 두 화면의 규칙이 갈린다.
    */
-  categoryRow: (cat: V2Category) => { rename: (name: string) => void; remove: { run: () => void; disabledReason?: string } };
-  /** 머리줄(뿌리)에서 새 분류를 만드는 일. */
-  categoryRoot: { label: string; run: (name: string) => void };
+  category: {
+    add: (name: string) => void;
+    rename: (cat: V2Category, name: string) => void;
+    remove: (cat: V2Category) => void;
+    removeBlocked: (cat: V2Category) => string | undefined;
+  };
 }
+
+/**
+ * 층마다 무엇이 서는가 — 문구는 전부 여기서 나온다(「새 분류」·「새 장비 품목」).
+ *
+ * **뼈대는 트리에서, 내용은 편집기에서.** 분류는 이름만 있으면 서므로 그 자리에서 만들고,
+ * 품목은 포트·공량을 채워야 하므로 오른쪽 초안을 연다(`create: 'editor'`).
+ */
+const KINDS = [
+  { label: '분류', create: 'inline', rename: true, remove: true },
+  { label: '장비 품목', create: 'editor' },
+] as const satisfies ReadonlyArray<TreeKind>;
 
 export function TypeListPanel({
   catalog,
@@ -43,8 +57,7 @@ export function TypeListPanel({
   newDraft,
   onSelectType,
   onNewType,
-  categoryRow,
-  categoryRoot,
+  category,
 }: TypeListPanelProps) {
   /**
    * 분류 → 종류 2단을 **한 줄짜리 목록**으로 편다 — 트리는 층을 `depth` 로만 안다.
@@ -52,6 +65,9 @@ export function TypeListPanel({
    * 분류 줄은 고를 것이 없다(`selectable: false`) — 눌러서 접고 펼 뿐이다. 손이 닿으면
    * 그 분류를 다루는 것이 드러난다: 그 안에 만들기 · 이름 변경 · 삭제.
    */
+  /** 트리가 돌려준 줄 → 그 분류. 트리는 id 만 알고, 무엇인지는 여기가 안다. */
+  const byId = (id: string) => catalog.categories.find((c) => c.id === id)!;
+
   const nodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
     for (const cat of catalog.categories) {
@@ -62,10 +78,7 @@ export function TypeListPanel({
         text: cat.name,
         depth: 0,
         selectable: false,
-        /* 품목은 이름만으로 서지 않는다(포트·공량을 채워야 한다) — 그래서 트리 안의 빈
-           줄이 아니라 오른쪽 초안을 연다. 뼈대는 트리에서, 내용은 편집기에서. */
-        menu: [{ label: '장비 품목 추가', onSelect: () => onNewType(cat.id) }],
-        ...categoryRow(cat),
+        removeBlocked: category.removeBlocked(cat),
       });
       for (const t of items) out.push({ id: t.id, label: t.name, text: t.name, depth: 1 });
       /* 만드는 중인 줄은 **그 분류 안**에 선다. 이름을 아직 안 지었으면 무엇을 만드는
@@ -82,7 +95,7 @@ export function TypeListPanel({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.categories, catalog.types, newDraft, categoryRow, onNewType]);
+  }, [catalog.categories, catalog.types, newDraft, category]);
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
@@ -91,7 +104,10 @@ export function TypeListPanel({
         nodes={nodes}
         selectedId={selectedTypeId}
         onSelect={(n) => onSelectType(n?.id ?? null)}
-        root={{ addChild: categoryRoot }}
+        kinds={KINDS}
+        onCreate={({ level, parentId, name }) => (level === 0 ? category.add(name!) : onNewType(parentId!))}
+        onRename={(node, name) => category.rename(byId(node.id), name)}
+        onRemove={(node) => category.remove(byId(node.id))}
         emptyText="장비 품목이 없습니다"
         escapes
       />

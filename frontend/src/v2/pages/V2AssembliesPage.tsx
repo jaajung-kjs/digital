@@ -26,7 +26,7 @@ export default function V2AssembliesPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
-        <AssemblyCatalogPanel catalog={catalog} categoryRow={category.rowActions} categoryRoot={category.rootAction} />
+        <AssemblyCatalogPanel catalog={catalog} category={category} />
       </div>
       {category.dialog}
     </div>

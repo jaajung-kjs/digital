@@ -199,8 +199,7 @@ export default function V2AssetTypesPage() {
             newDraft={isNew && draft ? { categoryId: draft.categoryId, name: draft.name } : null}
             onSelectType={selectType}
             onNewType={handleNewType}
-            categoryRow={category.rowActions}
-            categoryRoot={category.rootAction}
+            category={category}
           />
         )}
 

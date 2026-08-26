@@ -72,20 +72,14 @@ export function useCategoryAdmin() {
   }
 
   return {
-    /** 분류 줄이 트리에서 할 수 있는 일 — 두 대장이 **같은 것**을 받는다. */
-    rowActions: (cat: V2Category) => {
+    add: (name: string) => void add(name),
+    rename: (cat: V2Category, name: string) => void rename(cat, name),
+    remove: (cat: V2Category) => void remove(cat),
+    /** 지금 지울 수 있나 — 든 것이 있으면 서버가 거부한다. 아예 막고 왜인지 그 자리에서 말한다. */
+    removeBlocked: (cat: V2Category) => {
       const inUse = contentsOf(cat);
-      return {
-        rename: (name: string) => void rename(cat, name),
-        remove: {
-          run: () => void remove(cat),
-          /* 든 것이 있으면 서버가 거부한다 — 아예 막고 왜인지 그 자리에서 말한다. */
-          disabledReason: inUse > 0 ? `이 분류에 ${inUse}개가 들어 있어 지울 수 없습니다` : undefined,
-        },
-      };
+      return inUse > 0 ? `이 분류에 ${inUse}개가 들어 있어 지울 수 없습니다` : undefined;
     },
-    /** 머리줄(뿌리)에서 새 분류를 만든다. */
-    rootAction: { label: '분류', run: (name: string) => void add(name) },
     dialog: confirmDialog,
   };
 }
