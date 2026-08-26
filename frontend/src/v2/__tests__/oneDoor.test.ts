@@ -94,3 +94,31 @@ describe('지우는 일은 한 곳 — 어디서 지우든 같은 물음', () =>
     expect(v2WorkingCopyStore.getState().overlays.cables.deletes).toEqual(['c-1']);
   });
 });
+
+/**
+ * **저장 전 케이블도 고치면 그대로 남는다** — 꺾은 경로가 create 안으로 합쳐진다.
+ *
+ * 방금 이은 케이블(아직 저장 전)을 끌어 꺾으면 그 경로는 「고침」이 아니라 **처음부터 그런
+ * 케이블**이어야 한다. 스토어가 그렇게 합쳐 두지 않으면 저장할 때 없는 케이블을 고치라는
+ * 요청이 되어 서버가 튕긴다.
+ */
+describe('저장 전 케이블 고치기', () => {
+  it('꺾은 경로가 create 에 합쳐진다 — 저장할 것은 여전히 하나다', () => {
+    reset([]);
+    const st = () => v2WorkingCopyStore.getState();
+    st().stageCableCreate({
+      id: 'c-new', name: null, substationId: 's-1', aPortId: 'pa', bPortId: 'pb',
+      categoryId: 'cat', pathPoints: [], specParams: {}, updatedAt: '',
+    });
+    expect(st().dirtyCount()).toBe(1);
+
+    st().stageCableUpdate('c-new', { pathPoints: [{ x: 10, y: 20 }] });
+
+    /* 화면이 보는 것에는 꺾임이 있고 */
+    expect(st().effectiveCables()[0]).toMatchObject({ id: 'c-new', pathPoints: [{ x: 10, y: 20 }] });
+    /* 저장할 것은 여전히 **하나**다(고침이 따로 쌓이지 않는다) */
+    expect(st().dirtyCount()).toBe(1);
+    expect(st().overlays.cables.creates['c-new']).toMatchObject({ pathPoints: [{ x: 10, y: 20 }] });
+    expect(st().overlays.cables.updates['c-new']).toBeUndefined();
+  });
+});
