@@ -36,11 +36,22 @@ function show(rows: StatusRow[] = ROWS, extra: Partial<Parameters<typeof StatusO
   );
 }
 
+/**
+ * 설비·장비를 **함께** 보는 상태로 — 처음 열면 설비만 보이기 때문이다(`DEFAULT_FILTER`).
+ *
+ * 「설비」 칩을 한 번 놓으면 전부가 된다. 시험이 화면과 같은 길로 그 상태에 닿게 한다.
+ */
+function showAll(rows: StatusRow[] = ROWS, extra: Partial<Parameters<typeof StatusOverview>[0]> = {}) {
+  const r = show(rows, extra);
+  fireEvent.click(screen.getAllByRole('button', { name: /^설비 \d+$/ }).at(-1)!);
+  return r;
+}
+
 const lineOf = (text: string) => screen.getByText(text).closest('tr')!;
 
 describe('설비 현황 — 개수가 먼저다', () => {
   it('분류 ▸ 품목으로 접어 개수를 보여 준다', () => {
-    show();
+    showAll();
 
     /* 「통신 3」 — 분류가 그 아래 품목들의 합이다. */
     expect(within(lineOf('통신')).getByText('3')).toBeTruthy();
@@ -49,7 +60,7 @@ describe('설비 현황 — 개수가 먼저다', () => {
   });
 
   it('품목 줄을 펼치면 **어디에 있는지** 개체가 나온다', () => {
-    show();
+    showAll();
 
     expect(screen.queryByText('L3 스위치 1')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
@@ -59,19 +70,19 @@ describe('설비 현황 — 개수가 먼저다', () => {
   });
 
   it('개체 줄의 「위치」는 고른 곳에 따라 뜻이 바뀐다 — 본부면 변전소부터, 변전소면 층부터', () => {
-    show(ROWS, { nodeScope: true, rows: [row({ id: 'a', name: 'L3 스위치 1', status: 'normal', where: '춘천S/S', location: '판암 OFD' })] });
+    showAll(ROWS, { nodeScope: true, rows: [row({ id: 'a', name: 'L3 스위치 1', status: 'normal', where: '춘천S/S', location: '판암 OFD' })] });
     fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
     /* 본부에서는 어느 변전소인지가 먼저다. */
     expect(screen.getByText('춘천S/S · 판암 OFD')).toBeTruthy();
 
-    show([row({ id: 'a', name: 'L3 스위치 1', status: 'normal', where: '1층', location: '1층 · 판암 OFD · 1행 1열' })]);
+    showAll([row({ id: 'a', name: 'L3 스위치 1', status: 'normal', where: '1층', location: '1층 · 판암 OFD · 1행 1열' })]);
     fireEvent.click(screen.getAllByRole('button', { name: 'L3 스위치 펼치기' }).at(-1)!);
     /* 변전소 안에서는 층부터의 경로가 이미 그것을 말한다. */
     expect(screen.getByText('1층 · 판암 OFD · 1행 1열')).toBeTruthy();
   });
 
   it('개체 줄은 **저장된 이름·상태·자리·점검일**을 그 열에 채운다 — 개수 칸에 날짜를 넣지 않는다', () => {
-    show();
+    showAll();
     fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
 
     const cells = [...lineOf('L3 스위치 1').querySelectorAll('td')].map((td) => td.textContent?.trim());
@@ -83,7 +94,7 @@ describe('설비 현황 — 개수가 먼저다', () => {
   });
 
   it('접힌 줄은 **얼마나 · 성한가**만 말한다 — 자리는 비워 둔다(펼치면 순서대로 나온다)', () => {
-    show();
+    showAll();
 
     const cells = [...lineOf('L3 스위치').querySelectorAll('td')].map((td) => td.textContent?.trim());
     expect(cells[1]).toBe('2');   // 개수
@@ -91,7 +102,7 @@ describe('설비 현황 — 개수가 먼저다', () => {
   });
 
   it('펼친 개체는 **자리 순**으로 선다 — 어디에 몇 개인지가 순서로 읽힌다', () => {
-    show([
+    showAll([
       row({ id: 'b', name: '나중', status: 'normal', where: '2층' }),
       row({ id: 'a', name: '먼저', status: 'normal', where: '1층' }),
     ]);
@@ -102,7 +113,7 @@ describe('설비 현황 — 개수가 먼저다', () => {
   });
 
   it('성한 것은 세지 않는다 — 손볼 것만 상태로 선다', () => {
-    show();
+    showAll();
     /* 「정상 47」은 볼 일이 없다. 고장 한 대가 그 줄에 보이는 것이 현황이다. */
     expect(within(lineOf('L3 스위치')).getByText(/고장 1/)).toBeTruthy();
     expect(within(lineOf('OFD')).queryByText(/정상/)).toBeNull();
@@ -110,8 +121,19 @@ describe('설비 현황 — 개수가 먼저다', () => {
 });
 
 describe('설비 현황 — 칩으로 좁혀 본다', () => {
-  it('설비/장비로 좁힌다', () => {
+  it('처음 열면 **설비만** 보인다 — 도면에 놓이는 것이 설비이고, 장비는 칩 한 번으로 온다', () => {
     show();
+
+    expect(screen.getByText('OFD')).toBeTruthy();
+    expect(screen.getByText('분전반')).toBeTruthy();
+    expect(screen.queryByText('L3 스위치')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /^장비 2$/ }));
+    expect(screen.getByText('L3 스위치')).toBeTruthy();
+  });
+
+  it('설비/장비로 좁힌다', () => {
+    showAll();
 
     fireEvent.click(screen.getByRole('button', { name: /설비 2/ }));
 
@@ -120,7 +142,7 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
   });
 
   it('고장만 남긴다', () => {
-    show();
+    showAll();
 
     fireEvent.click(screen.getByRole('button', { name: /고장 1/ }));
 
@@ -129,7 +151,7 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
   });
 
   it('미점검 — 점검 이력이 하나도 없는 것만(임의의 기간 기준은 두지 않는다)', () => {
-    show();
+    showAll();
 
     fireEvent.click(screen.getByRole('button', { name: /미점검 1/ }));
 
@@ -138,7 +160,7 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
   });
 
   it('칩의 숫자는 **거르기 전 전체**다 — 걸러 놓고 다시 세면 늘 0 이 된다', () => {
-    show();
+    showAll();
 
     fireEvent.click(screen.getByRole('button', { name: /고장 1/ }));
 
@@ -149,7 +171,7 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
   it('본부에서는 **누른다고 옮기지 않는다** — 고르기만 하고, 옮기는 것은 또렷한 한 번이다', () => {
     const onSelectAsset = vi.fn();
     const onOpenElsewhere = vi.fn();
-    show(ROWS, { nodeScope: true, onSelectAsset, onOpenElsewhere });
+    showAll(ROWS, { nodeScope: true, onSelectAsset, onOpenElsewhere });
     fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
 
     fireEvent.click(screen.getByText('L3 스위치 1'));
@@ -161,14 +183,14 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
   });
 
   it('변전소 안에서는 그 단추가 없다 — 옮길 곳이 없다', () => {
-    show();
+    showAll();
     fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
 
     expect(screen.queryByRole('button', { name: /변전소에서 열기/ })).toBeNull();
   });
 
   it('분류를 접으면 그 아래 품목이 사라진다 — 「통신은 접고 구조만 보기」', () => {
-    show();
+    showAll();
     expect(screen.getByText('L3 스위치')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '통신 접기' }));
@@ -184,7 +206,7 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
   });
 
   it('머리글은 하나뿐이다 — 분류 줄은 **본문의 한 줄**이지 머리글이 아니다', () => {
-    show();
+    showAll();
 
     /* 계층은 들여쓰기·셰브런·굵기로 말한다. 분류 줄이 머리글 옷(th)을 입으면 어디까지가
        머리글인지 흐려진다. */
@@ -194,7 +216,7 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
   });
 
   it('「모두 접기」 → 분류만 남는다(그게 곧 분류별 요약표다), 다시 누르면 펴진다', () => {
-    show();
+    showAll();
     fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
     expect(screen.getByText('L3 스위치 1')).toBeTruthy();
 

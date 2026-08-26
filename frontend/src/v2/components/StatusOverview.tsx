@@ -58,7 +58,13 @@ interface Filter {
   status: string | null;
   neverInspected: boolean;
 }
-const NO_FILTER: Filter = { kind: '전부', status: null, neverInspected: false };
+/**
+ * 처음 열면 **설비만** 보인다.
+ *
+ * 현황에서 먼저 묻는 것은 「이 변전소에 무엇이 놓여 있나」이고, 도면에 놓이는 것은 설비다.
+ * 장비까지 함께 펼치면 첫 화면이 그 안의 부품 수십 줄로 덮인다. 장비는 칩 한 번으로 온다.
+ */
+const DEFAULT_FILTER: Filter = { kind: '설비', status: null, neverInspected: false };
 
 /**
  * 설비 현황 — **집계가 본문이고 목록은 그 안에 접혀 있다**.
@@ -73,7 +79,7 @@ const NO_FILTER: Filter = { kind: '전부', status: null, neverInspected: false 
  */
 export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, nodeScope, onOpenElsewhere, actions }: Props) {
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>(NO_FILTER);
+  const [filter, setFilter] = useState<Filter>(DEFAULT_FILTER);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   /** 접어 둔 분류 — 「통신은 접고 구조만 보기」. 기본은 전부 펼친 상태다. */
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -212,7 +218,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
             {summary.groups.length === 0 && (
               <tr>
                 <td colSpan={colCount}>
-                  {query.trim() || filter !== NO_FILTER ? (
+                  {query.trim() || filter !== DEFAULT_FILTER ? (
                     <EmptyState title="조건과 맞는 설비가 없습니다" />
                   ) : (
                     <EmptyState title="설비가 없습니다" description="평면도에서 「배치」 로 놓으세요." />
