@@ -8,8 +8,7 @@
  * 그래서 장비 품목과 달리 "쓰이는 중이면 구조 잠금" 이 없다.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
-import { EmptyState, IconButton, TreePanel, useConfirm, IssueReveal, type TreeNode } from '../../../components/ui';
+import { EmptyState, TreePanel, useConfirm, IssueReveal, type TreeNode } from '../../../components/ui';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
 import {
@@ -22,19 +21,21 @@ import { useDraftSelection } from '../../useDraftSelection';
 import { unsavedPrompt } from '../../leaveGuard';
 import { useUnsavedMark } from '../../useUnsavedMark';
 import { AssemblyPanel } from './AssemblyPanel';
-import type { V2Assembly, V2Catalog } from '../../types';
+import type { V2Assembly, V2Catalog, V2Category } from '../../types';
 import { useV2Notice } from '../../store/noticeStore';
 
 interface AssemblyCatalogPanelProps {
   catalog: V2Catalog;
   /* 분류는 **장비 품목과 같은 체계**(AssetCategory)다 — 고치는 일은 상자 하나가 하고(`useCategoryAdmin`)
      두 탭이 같은 것을 부른다. 어느 탭에서 만들든 양쪽 목록에 나타난다. */
-  /** 분류를 만들고 고치는 일은 **상자 하나**가 한다 — 여기서는 그 문을 열 뿐이다. */
-  onManageCategories: () => void;
+  /** 분류 줄이 할 수 있는 일 — `useCategoryAdmin` 이 준다(장비 품목 탭과 같은 것). */
+  categoryRow: (cat: V2Category) => { rename: (name: string) => void; remove: { run: () => void; disabledReason?: string } };
+  /** 머리줄(뿌리)에서 새 분류를 만드는 일. */
+  categoryRoot: { label: string; run: (name: string) => void };
 }
 
 export function AssemblyCatalogPanel({
-  catalog, onManageCategories,
+  catalog, categoryRow, categoryRoot,
 }: AssemblyCatalogPanelProps) {
   const { confirm, confirmDialog } = useConfirm();
   const m = useCatalogMutations();
@@ -114,20 +115,10 @@ export function AssemblyCatalogPanel({
         text: cat.name,
         depth: 0,
         selectable: false,
-        actions: (
-          <>
-            <IconButton
-              aria-label={`${cat.name} 에 설비 품목 추가`}
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                newInto(cat.id);
-              }}
-            >
-              <Plus size={12} />
-            </IconButton>
-          </>
-        ),
+        /* 설비 품목은 격자와 부품을 채워야 서므로 오른쪽 초안을 연다 — 뼈대는 트리에서,
+           내용은 편집기에서(장비 품목 탭과 같은 문장). */
+        menu: [{ label: '설비 품목 추가', onSelect: () => newInto(cat.id) }],
+        ...categoryRow(cat),
       });
       for (const a of items) out.push({ id: a.id, label: a.name, text: a.name, depth: 1 });
       /* 만드는 중인 줄은 **그 분류 안**에 선다 — 어디에 무엇이 생기는지 목록이 보여 준다. */
@@ -143,7 +134,7 @@ export function AssemblyCatalogPanel({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.assemblies, catalog.categories, isNew, draft]);
+  }, [catalog.assemblies, catalog.categories, isNew, draft, categoryRow]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -153,8 +144,7 @@ export function AssemblyCatalogPanel({
           nodes={nodes}
           selectedId={selectedId}
           onSelect={(n) => void sel.select(n?.id ?? null)}
-          onAdd={onManageCategories}
-          addLabel="분류 관리"
+          root={{ addChild: categoryRoot }}
           emptyText="설비 품목이 없습니다"
           escapes
         />

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
 import { IconButton } from './IconButton';
 import { useDismissOnOutside } from './useDismissOnOutside';
@@ -26,6 +27,10 @@ export interface OverflowMenuItem {
  * GitHub·Stripe·Atlassian 이 같은 자리를 쓴다: 되돌릴 수 있는 것은 겉으로, 되돌릴 수 없는
  * 것은 한 겹 안으로. 한 번 더 누르게 하는 것이 목적이지 숨기는 것이 목적이 아니다.
  *
+ * 메뉴는 **화면 위에 띄운다**(포털 + 고정 좌표). 제자리에 그리면 스크롤 상자 안에서 잘린다 —
+ * 트리의 줄마다 이 메뉴가 서므로, 아래쪽 줄에서 열면 목록 밖으로 나가는 부분이 사라진다.
+ * 아래 공간이 모자라면 위로 편다.
+ *
  * 키보드는 WAI-ARIA APG 의 메뉴 단추를 따른다: 열면 **첫 항목이 초점을 받고**, ↑↓·Home/End 로
  * 옮기고, Esc 로 닫으면 초점이 `⋯` 로 **돌아온다**. 이것이 없으면 열어 놓고 갈 데가 없다 —
  * 초점은 여전히 `⋯` 에 있고 Tab 은 메뉴를 지나쳐 뒤 화면으로 가 버린다.
@@ -40,10 +45,13 @@ export function OverflowMenu({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  useDismissOnOutside(open, [box], () => setOpen(false));
+  /* 메뉴는 포털로 **몸통에 붙어** 있다 — 그 참조를 같이 주지 않으면 메뉴를 누르는 것이
+     「바깥을 누른 것」이 되어, 항목이 눌리기 전에 닫혀 아무 일도 일어나지 않는다. */
+  useDismissOnOutside(open, [box, menu], () => setOpen(false));
 
   const entries = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
 
@@ -51,6 +59,16 @@ export function OverflowMenu({
   useEffect(() => {
     if (open) entries()[0]?.focus();
   }, [open]);
+
+  /** `⋯` 바로 아래에 세운다 — 아래가 좁으면 위로. 그린 뒤에 재므로 깜빡이지 않는다. */
+  useLayoutEffect(() => {
+    if (!open) return setAt(null);
+    const t = trigger.current?.getBoundingClientRect();
+    const h = menu.current?.offsetHeight ?? 0;
+    if (!t) return;
+    const below = window.innerHeight - t.bottom;
+    setAt({ left: t.left, top: below < h + 8 ? t.top - h - 4 : t.bottom + 4 });
+  }, [open, items.length]);
 
   /** 닫고 `⋯` 로 초점을 돌려준다 — 메뉴가 사라진 자리에 초점을 남기지 않는다. */
   function close() {
@@ -70,11 +88,12 @@ export function OverflowMenu({
       >
         <MoreHorizontal size={14} />
       </IconButton>
-      {open && (
+      {open && createPortal(
         <div
           ref={menu}
           role="menu"
-          className="absolute left-0 top-full z-modal mt-1 min-w-40 rounded-md border border-line bg-surface py-1 shadow-lg"
+          style={{ position: 'fixed', left: at?.left ?? -9999, top: at?.top ?? -9999, visibility: at ? 'visible' : 'hidden' }}
+          className="z-modal min-w-40 rounded-md border border-line bg-surface py-1 shadow-lg"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               /* 이 Esc 는 메뉴의 것이다 — 뒤 화면까지 닿으면 고른 것까지 함께 풀린다. */
@@ -118,7 +137,8 @@ export function OverflowMenu({
               {item.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

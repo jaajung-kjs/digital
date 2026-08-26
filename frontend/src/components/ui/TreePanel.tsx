@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
-import { IconButton } from './IconButton';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Input } from './Input';
+import { isCommitKey } from './keyboard';
+import { OverflowMenu, type OverflowMenuItem } from './OverflowMenu';
 import { cn } from './cn';
 import { SELECTABLE, SELECTED } from './selection';
 import { SelectionScope } from './SelectionScope';
@@ -39,12 +40,23 @@ export interface TreeNode {
    */
   onOpen?: () => void;
   /**
-   * 이 줄을 다루는 것 — 손이 닿으면 드러난다.
+   * 이 줄의 이름을 **그 자리에서** 고친다 — 주면 `⋯` 에 「이름 바꾸기」가 선다.
    *
-   * **팝업이 아니라 아이콘 단추**를 준다. 트리는 스크롤 상자 안에 있어서, 떠 있는 메뉴를
-   * 열면 상자 밖으로 나가는 부분이 잘린다(실제로 그랬다).
+   * 상자를 띄우지 않는다: 이름을 고치는 중에 어느 줄을 고치는 중인지 화면에서 사라지면
+   * 안 된다(탐색기의 F2 와 같은 어법).
    */
-  actions?: ReactNode;
+  rename?: (name: string) => void;
+  /**
+   * 이 줄 **아래에 하나 더** — 이름만 있으면 생기는 것(뼈대: 지사·변전소·분류).
+   *
+   * `⋯` 에 「<label> 추가」가 서고, 누르면 그 자리에 빈 줄이 선다. 여러 칸을 채워야 하는
+   * 것(품목)은 여기 오지 않는다 — 그것은 오른쪽 편집기의 일이라 `menu` 로 준다.
+   */
+  addChild?: { label: string; run: (name: string) => void };
+  /** 이 줄을 없앤다 — `⋯` 맨 아래, 위험 색. 못 지우는 줄이면 **이유를 적는다**. */
+  remove?: { run: () => void; disabledReason?: string };
+  /** 그 밖에 이 줄에서 할 수 있는 일 — 오른쪽 편집기를 여는 것 등. */
+  menu?: OverflowMenuItem[];
 }
 
 export interface TreePanelProps {
@@ -59,9 +71,14 @@ export interface TreePanelProps {
    * 사용자는 판마다 다시 익혀야 한다.
    */
   onSelect: (node: TreeNode | null) => void;
-  /** 머리줄의 `+` — 이 트리의 것을 새로 만든다. */
-  onAdd?: () => void;
-  addLabel?: string;
+  /**
+   * 머리줄은 **뿌리 줄**이다 — 여기서 만드는 것이 트리의 최상위가 된다.
+   *
+   * 예전에는 머리줄에 정체불명의 `+` 가 하나 서 있었다. 무엇이 만들어지는지 글자가 없어
+   * (트리 이름으로 짐작해야 했다) 진입점이 갈리고, 어떤 트리는 그 `+` 가 상자를 열고
+   * 어떤 트리는 줄을 만들었다. 지금은 줄과 **같은 `⋯`** 이고 안에 글자가 적힌다.
+   */
+  root?: { addChild?: { label: string; run: (name: string) => void }; menu?: OverflowMenuItem[] };
   emptyText?: string;
   /** Esc 로도 푼다 — 이 트리가 그 화면의 주인일 때만 준다(`SelectionScope`). */
   escapes?: boolean;
@@ -76,9 +93,13 @@ export interface TreePanelProps {
  *
  * 그래서 판을 하나로 합친다. 규칙은 셋뿐이다:
  *
- * - **만드는 손잡이는 머리줄의 `+` 하나.** 그 트리에 무엇이 만들어지는지는 트리 이름이 말한다.
- * - **줄을 다루는 것은 그 줄에 붙는다** — 손이 닿을 때 드러나는 아이콘 단추. 팝업은 쓰지
- *   않는다(스크롤 상자 밖으로 잘린다).
+ * - **한 줄이 할 수 있는 일은 그 줄의 `⋯` 안에 글자로 적힌다** — 「지사 추가」·「이름 바꾸기」·
+ *   「삭제」. 아이콘만 늘어놓으면 무엇을 하는 단추인지 손을 올려 봐야 알고, 트리마다 아이콘
+ *   구성이 제각각 자란다(실제로 조직 트리는 아이콘 셋, 대장은 하나였다).
+ * - **머리줄도 하나의 줄이다**(뿌리). 그래서 최상위를 만드는 일도 같은 `⋯` 안에 있다 —
+ *   정체불명의 `+` 는 없다.
+ * - **만드는 일과 이름 고치는 일은 트리 안에서 끝난다** — 그 자리에 빈 줄이 서고 이름을 친다.
+ *   상자를 띄우면 어느 줄에 무엇을 만드는 중인지 화면에서 사라진다.
  * - **모든 줄은 눌리고, 손이 닿으면 반응한다.** 자식이 있는 줄은 눌러서 접고 편다.
  */
 export function TreePanel({
@@ -86,8 +107,7 @@ export function TreePanel({
   nodes,
   selectedId,
   onSelect,
-  onAdd,
-  addLabel,
+  root,
   emptyText,
   escapes = false,
 }: TreePanelProps) {
@@ -102,6 +122,17 @@ export function TreePanel({
    * 정한 규약이고, 파일 탐색기·메일함이 다 그렇게 움직인다.
    */
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  /**
+   * 지금 이름을 치고 있는 자리 — 고치는 중이거나(`renaming`) 만드는 중이거나(`creating`).
+   *
+   * 둘 다 트리 안의 **빈 줄 하나**로 끝난다. Enter·초점 잃음 = 확정, Esc = 물림, 빈 이름은
+   * 아무 일도 하지 않는다(실수로 지우거나 이름 없는 것을 만드는 길을 두지 않는다).
+   */
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
+  const [creating, setCreating] = useState<
+    { parentId: string | null; depth: number; label: string; run: (name: string) => void; value: string } | null
+  >(null);
 
   /** 이 줄이 자식을 갖는가 — 다음 줄이 더 깊으면 그렇다. */
   const hasChildren = useMemo(() => {
@@ -133,6 +164,83 @@ export function TreePanel({
     return out;
   }, [nodes, query, collapsed]);
 
+  /**
+   * 만드는 중인 빈 줄은 **그 부모 바로 아래**에 선다 — 어디에 생기는지 목록이 보여 준다.
+   * 뿌리에 만드는 중이면 맨 위에 선다.
+   */
+  /** 이름을 치는 상자 — 만들 때도 고칠 때도 이것 하나다. */
+  function nameField(props: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    commit: (name: string) => void;
+    cancel: () => void;
+  }): ReactNode {
+    return (
+      <Input
+        aria-label={props.label}
+        size="sm"
+        autoFocus
+        value={props.value}
+        /* 들어오면 이름이 **통째로 잡힌다** — 탐색기의 F2 와 같다. 그래야 바로 새 이름을
+           칠 수 있고, 이어 붙이고 싶으면 →/← 한 번이면 된다. */
+        onFocus={(e) => e.currentTarget.select()}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => props.onChange(e.currentTarget.value)}
+        onBlur={() => props.commit(props.value)}
+        onKeyDown={(e) => {
+          e.stopPropagation(); // 트리의 화살표·Enter 규칙이 글자 치는 것을 가로채지 않게
+          if (isCommitKey(e)) props.commit(props.value);
+          if (e.key === 'Escape') props.cancel();
+        }}
+      />
+    );
+  }
+
+  /** 만들기 시작 — 그 줄을 펴고 그 아래에 빈 줄을 세운다(접혀 있으면 안 보인다). */
+  function startCreate(parent: TreeNode | null, add: { label: string; run: (name: string) => void }) {
+    if (parent) {
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        next.delete(parent.id);
+        return next;
+      });
+    }
+    setRenaming(null);
+    setCreating({ parentId: parent?.id ?? null, depth: parent ? parent.depth + 1 : 0, label: add.label, run: add.run, value: '' });
+  }
+
+  /**
+   * 이 줄이 할 수 있는 일 — **순서가 뜻을 만든다**: 만드는 것 → 여는 것 → 이름 → 삭제.
+   * 되돌릴 수 없는 것은 늘 맨 아래에 있어, 손이 미끄러져도 그 자리에 오지 않는다.
+   */
+  function itemsFor(n: TreeNode): OverflowMenuItem[] {
+    const out: OverflowMenuItem[] = [];
+    if (n.addChild) out.push({ label: `${n.addChild.label} 추가`, onSelect: () => startCreate(n, n.addChild!) });
+    out.push(...(n.menu ?? []));
+    if (n.rename) out.push({ label: '이름 바꾸기', onSelect: () => { setCreating(null); setRenaming({ id: n.id, value: n.text }); } });
+    if (n.remove) {
+      out.push({
+        label: '삭제',
+        danger: true,
+        disabled: n.remove.disabledReason != null,
+        disabledReason: n.remove.disabledReason,
+        onSelect: n.remove.run,
+      });
+    }
+    return out;
+  }
+
+  const CREATE_ROW = '__creating__';
+  const rows = useMemo(() => {
+    if (!creating) return shown;
+    const row: TreeNode = { id: CREATE_ROW, label: '', text: '', depth: creating.depth };
+    if (creating.parentId === null) return [row, ...shown];
+    const i = shown.findIndex((n) => n.id === creating.parentId);
+    if (i < 0) return shown;
+    return [...shown.slice(0, i + 1), row, ...shown.slice(i + 1)];
+  }, [shown, creating]);
+
   /** 화면에 보이는 줄들 사이를 옮긴다 — 접힌 가지 속은 건너뛴다(그 줄들은 없는 것이다). */
   function moveFocus(from: string, delta: number | 'first' | 'last') {
     const els = [...(listRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])];
@@ -158,10 +266,14 @@ export function TreePanel({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-3">
         <span className="flex-1 truncate text-xs font-medium text-content-muted">{title}</span>
-        {onAdd && (
-          <IconButton aria-label={addLabel ?? `${title} 추가`} onClick={onAdd}>
-            <Plus size={14} />
-          </IconButton>
+        {(root?.addChild || root?.menu?.length) && (
+          <OverflowMenu
+            label={`${title} 관리`}
+            items={[
+              ...(root.addChild ? [{ label: `${root.addChild.label} 추가`, onSelect: () => startCreate(null, root.addChild!) }] : []),
+              ...(root.menu ?? []),
+            ]}
+          />
         )}
       </div>
 
@@ -188,12 +300,12 @@ export function TreePanel({
         role="tree"
         aria-label={title}
       >
-        {shown.length === 0 && (
+        {rows.length === 0 && (
           <p className="px-3 py-3 text-xs text-content-faint">
             {searching ? '검색 결과가 없습니다' : (emptyText ?? '없음')}
           </p>
         )}
-        {shown.map((n) => {
+        {rows.map((n) => {
           const branch = n.branch ?? hasChildren.has(n.id);
           const isCollapsed = !searching && collapsed.has(n.id);
           return (
@@ -279,12 +391,41 @@ export function TreePanel({
               {n.dot && (
                 <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: n.dot }} />
               )}
-              <span className="min-w-0 flex-1 truncate">{n.label}</span>
-              {n.actions && (
+              <span className="min-w-0 flex-1 truncate">
+                {n.id === CREATE_ROW && creating
+                  ? nameField({
+                      label: `새 ${creating.label} 이름`,
+                      value: creating.value,
+                      onChange: (v) => setCreating((c) => (c ? { ...c, value: v } : c)),
+                      commit: (name) => {
+                        const trimmed = name.trim();
+                        setCreating(null);
+                        if (trimmed) creating.run(trimmed);
+                      },
+                      cancel: () => setCreating(null),
+                    })
+                  : renaming?.id === n.id && n.rename
+                    ? nameField({
+                        label: `${n.text} 이름`,
+                        value: renaming.value,
+                        onChange: (v) => setRenaming((r) => (r ? { ...r, value: v } : r)),
+                        commit: (name) => {
+                          const trimmed = name.trim();
+                          setRenaming(null);
+                          if (trimmed && trimmed !== n.text) n.rename!(trimmed);
+                        },
+                        cancel: () => setRenaming(null),
+                      })
+                    : n.label}
+              </span>
+              {itemsFor(n).length > 0 && (
                 /* 자리는 항상 차지하고 보이기만 바뀐다 — 호버할 때 요소가 끼어들면 줄 크기가
                    바뀌고, 그 바람에 호버가 껐다 켜졌다 반복한다(목록이 떠는 원인). */
-                <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                  {n.actions}
+                <span
+                  className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <OverflowMenu label={`${n.text} 관리`} items={itemsFor(n)} />
                 </span>
               )}
             </div>

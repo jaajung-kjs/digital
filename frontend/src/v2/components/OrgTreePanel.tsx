@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button, DetailRow, IconButton, Input, Modal, TreePanel, useConfirm, isCommitKey } from '../../components/ui';
+import { useMemo } from 'react';
+import { TreePanel, useConfirm } from '../../components/ui';
 import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
@@ -25,7 +24,7 @@ const SELF_KIND: Record<FlatOrgNode['kind'], TreeOrgKind> = {
   branch: 'branches',
   substation: 'substations',
 };
-/** 화면에 쓰는 조직 종류 이름 — 모달 제목이 "추가" 한 마디로 끝나지 않게 한다. */
+/** 화면에 쓰는 조직 종류 이름 — 메뉴에 「지사 추가」처럼 **무엇을** 만드는지 적힌다. */
 const KIND_LABEL: Record<TreeOrgKind, string> = {
   headquarters: '본부',
   branches: '지사',
@@ -38,50 +37,25 @@ const PARENT_FIELD: Record<TreeOrgKind, string> = {
   substations: 'branchId',
 };
 
-interface ModalState {
-  mode: 'create' | 'rename';
-  kind: TreeOrgKind;
-  targetId: string;
-  initial: string;
-}
-
 export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node: FlatOrgNode | null) => void }) {
   const { confirm, confirmDialog } = useConfirm();
   const { data: tree } = useV2OrgTree();
   const { createOrgNode: createMut, renameOrgNode: renameMut, deleteOrgNode: deleteMut } = useOrgMutations();
-  const [modal, setModal] = useState<ModalState | null>(null);
-  const [name, setName] = useState('');
 
   const nodes = tree ? flattenTree(tree) : [];
 
-  /* 접고 펴는 일은 `TreePanel` 이 쥔다 — 트리마다 따로 구현하지 않는다. */
+  /* 접고 펴는 일도, 이름을 치는 상자도 `TreePanel` 이 쥔다 — 트리마다 따로 구현하지 않는다.
+     예전에는 여기서 모달을 띄웠다: 「본부 추가」 상자가 뜨면 **어느 지사 밑에 만드는 중인지**
+     화면에서 사라졌고, 대장 트리들은 같은 일을 인라인으로 하고 있어 두 트리의 어법이 갈렸다. */
 
-  function openCreateModal(kind: TreeOrgKind, targetId: string) {
-    setName('');
-    setModal({ mode: 'create', kind, targetId, initial: '' });
+  function create(kind: TreeOrgKind, parentId: string, name: string) {
+    const body: Record<string, string> = { name };
+    const pf = PARENT_FIELD[kind];
+    if (pf) body[pf] = parentId;
+    createMut.mutate({ kind, body });
   }
 
-  function openRenameModal(kind: TreeOrgKind, targetId: string, current: string) {
-    setName(current);
-    setModal({ mode: 'rename', kind, targetId, initial: current });
-  }
-
-  const confirmPending = createMut.isPending || renameMut.isPending;
-
-  function handleConfirm() {
-    if (!modal || !name.trim() || confirmPending) return;
-    if (modal.mode === 'create') {
-      const body: Record<string, string> = { name: name.trim() };
-      const pf = PARENT_FIELD[modal.kind];
-      if (pf) body[pf] = modal.targetId;
-      createMut.mutate({ kind: modal.kind, body });
-    } else {
-      renameMut.mutate({ kind: modal.kind, id: modal.targetId, name: name.trim() });
-    }
-    setModal(null);
-  }
-
-  async function handleDelete(n: FlatOrgNode) {
+  async function remove(n: FlatOrgNode) {
     const ok = await confirm({
       title: '조직 삭제',
       target: n.name,
@@ -94,48 +68,20 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
 
   const treeNodes = useMemo(
     () =>
-      nodes.map((n) => ({
-        id: n.id,
-        label: n.name,
-        text: n.name,
-        depth: n.depth,
-        actions: (
-          <>
-            {CHILD_KIND[n.kind] && (
-              <IconButton
-                aria-label={`${n.name} 에 ${KIND_LABEL[CHILD_KIND[n.kind]!]} 추가`}
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openCreateModal(CHILD_KIND[n.kind]!, n.id);
-                }}
-              >
-                <Plus size={12} />
-              </IconButton>
-            )}
-            <IconButton
-              aria-label={`${n.name} 이름 변경`}
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                openRenameModal(SELF_KIND[n.kind], n.id, n.name);
-              }}
-            >
-              <Pencil size={12} />
-            </IconButton>
-            <IconButton
-              aria-label={`${n.name} 삭제`}
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                void handleDelete(n);
-              }}
-            >
-              <Trash2 size={12} />
-            </IconButton>
-          </>
-        ),
-      })),
+      nodes.map((n) => {
+        const childKind = CHILD_KIND[n.kind];
+        return {
+          id: n.id,
+          label: n.name,
+          text: n.name,
+          depth: n.depth,
+          ...(childKind
+            ? { addChild: { label: KIND_LABEL[childKind], run: (name: string) => create(childKind, n.id, name) } }
+            : {}),
+          rename: (name: string) => renameMut.mutate({ kind: SELF_KIND[n.kind], id: n.id, name }),
+          remove: { run: () => void remove(n) },
+        };
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [nodes],
   );
@@ -150,40 +96,8 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
           const n = t ? nodes.find((x) => x.id === t.id) : null;
           props.onSelect(n ?? null);
         }}
-        onAdd={() => openCreateModal('headquarters', '')}
-        addLabel="본부 추가"
+        root={{ addChild: { label: KIND_LABEL.headquarters, run: (name) => create('headquarters', '', name) } }}
       />
-
-      <Modal
-        open={modal !== null}
-        onClose={() => setModal(null)}
-        title={modal ? `${KIND_LABEL[modal.kind]} ${modal.mode === 'create' ? '추가' : '이름 변경'}` : ''}
-        footer={
-          <>
-            <Button variant="secondary" size="sm" onClick={() => setModal(null)}>
-              취소
-            </Button>
-            {/* 「확인」은 무엇이 일어나는지 말해 주지 않는다 — 동사를 쓴다(§확인 상자와
-                같은 규칙). 제목이 「본부 추가」면 단추도 「추가」다. */}
-            <Button variant="primary" size="sm" disabled={confirmPending} onClick={handleConfirm}>
-              {modal?.mode === 'create' ? '추가' : '이름 변경'}
-            </Button>
-          </>
-        }
-      >
-        <DetailRow label="이름">
-          <Input
-            autoFocus
-            aria-label={modal ? `${KIND_LABEL[modal.kind]} 이름` : '이름'}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (isCommitKey(e)) handleConfirm();
-            }}
-            placeholder={modal ? `${KIND_LABEL[modal.kind]} 이름 입력` : '이름'}
-          />
-        </DetailRow>
-      </Modal>
       {confirmDialog}
     </div>
   );

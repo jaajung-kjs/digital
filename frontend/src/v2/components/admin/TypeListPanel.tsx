@@ -9,10 +9,9 @@
  * 목록과 미묘하게 달랐고(폭 64 vs 56, 분류 묶음 유무), 검색은 어느 쪽에도 없었다.
  */
 import { useMemo } from 'react';
-import { IconButton, TreePanel, type TreeNode } from '../../../components/ui';
+import { TreePanel, type TreeNode } from '../../../components/ui';
 import { NEW_ID } from '../../catalogDraft';
-import { Plus } from 'lucide-react';
-import type { V2Catalog } from '../../types';
+import type { V2Catalog, V2Category } from '../../types';
 
 interface TypeListPanelProps {
   catalog: V2Catalog;
@@ -27,8 +26,15 @@ interface TypeListPanelProps {
   onSelectType: (id: string | null) => void;
   /** 새 장비 품목 — 분류 줄의 `+` 로 만들면 그 분류로 시작한다. */
   onNewType: (categoryId?: string) => void;
-  /** 분류를 만들고 고치는 일은 **상자 하나**가 한다 — 여기서는 그 문을 열 뿐이다. */
-  onManageCategories: () => void;
+  /**
+   * 분류 줄이 할 수 있는 일 — `useCategoryAdmin` 이 준다(두 대장이 같은 것을 받는다).
+   *
+   * 여기서 다시 적지 않는 이유: 분류는 두 화면이 함께 쓰는 체계라, 한쪽에서만 고쳐지면
+   * 그 순간 두 화면의 규칙이 갈린다.
+   */
+  categoryRow: (cat: V2Category) => { rename: (name: string) => void; remove: { run: () => void; disabledReason?: string } };
+  /** 머리줄(뿌리)에서 새 분류를 만드는 일. */
+  categoryRoot: { label: string; run: (name: string) => void };
 }
 
 export function TypeListPanel({
@@ -37,9 +43,9 @@ export function TypeListPanel({
   newDraft,
   onSelectType,
   onNewType,
-  onManageCategories,
+  categoryRow,
+  categoryRoot,
 }: TypeListPanelProps) {
-  /* 제자리 이름 바꾸기 — 세 탭이 같은 규칙을 쓴다(`useInlineRename`). */
   /**
    * 분류 → 종류 2단을 **한 줄짜리 목록**으로 편다 — 트리는 층을 `depth` 로만 안다.
    *
@@ -56,20 +62,10 @@ export function TypeListPanel({
         text: cat.name,
         depth: 0,
         selectable: false,
-        actions: (
-          <>
-            <IconButton
-              aria-label={`${cat.name} 에 장비 품목 추가`}
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNewType(cat.id);
-              }}
-            >
-              <Plus size={12} />
-            </IconButton>
-          </>
-        ),
+        /* 품목은 이름만으로 서지 않는다(포트·공량을 채워야 한다) — 그래서 트리 안의 빈
+           줄이 아니라 오른쪽 초안을 연다. 뼈대는 트리에서, 내용은 편집기에서. */
+        menu: [{ label: '장비 품목 추가', onSelect: () => onNewType(cat.id) }],
+        ...categoryRow(cat),
       });
       for (const t of items) out.push({ id: t.id, label: t.name, text: t.name, depth: 1 });
       /* 만드는 중인 줄은 **그 분류 안**에 선다. 이름을 아직 안 지었으면 무엇을 만드는
@@ -86,7 +82,7 @@ export function TypeListPanel({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.categories, catalog.types, newDraft]);
+  }, [catalog.categories, catalog.types, newDraft, categoryRow, onNewType]);
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar">
@@ -95,8 +91,7 @@ export function TypeListPanel({
         nodes={nodes}
         selectedId={selectedTypeId}
         onSelect={(n) => onSelectType(n?.id ?? null)}
-        onAdd={onManageCategories}
-        addLabel="분류 관리"
+        root={{ addChild: categoryRoot }}
         emptyText="장비 품목이 없습니다"
         escapes
       />
