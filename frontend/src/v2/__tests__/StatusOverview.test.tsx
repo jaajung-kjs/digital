@@ -58,12 +58,28 @@ describe('설비 현황 — 개수가 먼저다', () => {
     expect(screen.getByText('L3 스위치 2')).toBeTruthy();
   });
 
-  it('「어디에」는 고른 곳에 따라 뜻이 바뀐다 — 본부면 변전소, 변전소면 층', () => {
-    show(ROWS, { nodeScope: true });
-    expect(screen.getByText('어느 변전소에')).toBeTruthy();
+  it('개체 줄의 「위치」는 고른 곳에 따라 뜻이 바뀐다 — 본부면 변전소부터, 변전소면 층부터', () => {
+    show(ROWS, { nodeScope: true, rows: [row({ id: 'a', name: 'L3 스위치 1', status: 'normal', where: '춘천S/S', location: '판암 OFD' })] });
+    fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
+    /* 본부에서는 어느 변전소인지가 먼저다. */
+    expect(screen.getByText('춘천S/S · 판암 OFD')).toBeTruthy();
 
+    show([row({ id: 'a', name: 'L3 스위치 1', status: 'normal', where: '1층', location: '1층 · 판암 OFD · 1행 1열' })]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'L3 스위치 펼치기' }).at(-1)!);
+    /* 변전소 안에서는 층부터의 경로가 이미 그것을 말한다. */
+    expect(screen.getByText('1층 · 판암 OFD · 1행 1열')).toBeTruthy();
+  });
+
+  it('개체 줄은 **저장된 이름·상태·자리·점검일**을 그 열에 채운다 — 개수 칸에 날짜를 넣지 않는다', () => {
     show();
-    expect(screen.getAllByText('어느 층에').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
+
+    const cells = [...lineOf('L3 스위치 1').querySelectorAll('td')].map((td) => td.textContent?.trim());
+    expect(cells[0]).toBe('L3 스위치 1');
+    expect(cells[1]).toBe('');            // 개수는 집계 줄의 것이다
+    expect(cells[2]).toContain('정상');
+    expect(cells[3]).toBe('판암 OFD');
+    expect(cells.at(-1)).toBe('2026-03-01');
   });
 
   it('품목 줄에 **어디에 몇 개**가 적힌다 — 펼치지 않고도 분포를 본다', () => {

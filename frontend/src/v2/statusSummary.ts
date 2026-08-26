@@ -88,6 +88,8 @@ export function summarize(rows: StatusRow[]): Summary {
 
   /* 「어디에」는 줄들이 이미 들고 있다 — 집계는 그것을 세기만 한다. */
   for (const item of items.values()) {
+    /* 펼쳤을 때 **같은 자리 것끼리 붙어** 보이게 — 「서홍천 4」를 눈으로 다시 세지 않게 한다. */
+    item.rows.sort((a, b) => (a.where || '').localeCompare(b.where || '', 'ko') || a.name.localeCompare(b.name, 'ko'));
     const counts = new Map<string, number>();
     for (const r of item.rows) {
       const label = r.where || UNSET;

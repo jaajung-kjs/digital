@@ -82,6 +82,23 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
     });
   }, [rows, query, filter]);
 
+  /* 폭은 가중치로 — 선언 필드 수를 미리 알 수 없어 절대 비율을 못 쓴다(옛 표와 같은 규칙). */
+  const widths = useMemo(() => {
+    const weights = [30, 7, 12, 24, ...fieldColumns.map(() => 12), 13];
+    const total = weights.reduce((n, w) => n + w, 0) || 1;
+    return weights.map((w) => (w / total) * 100);
+  }, [fieldColumns]);
+  const colCount = 5 + fieldColumns.length;
+
+  /**
+   * 이 개체가 있는 자리 한 마디.
+   *
+   * 본부·지사에서는 변전소가 먼저다(「서홍천S/S · OFD」), 변전소 안에서는 층부터의 경로가
+   * 이미 그것을 말한다(「1층 · OFD · 1행 1열」).
+   */
+  const whereOf = (r: StatusRow) =>
+    nodeScope ? [r.where, r.location].filter((v) => v && v !== EMPTY).join(' · ') : r.location || r.where || EMPTY;
+
   const summary = useMemo(() => summarize(shown), [shown]);
   /** 칩의 숫자는 **거르기 전 전체**다 — 걸러 놓고 그 숫자를 다시 세면 칩이 늘 0 이 된다. */
   const all = useMemo(() => summarize(rows), [rows]);
@@ -137,19 +154,26 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
       </div>
 
       <SelectionScope onClear={() => onSelectAsset(null)} className="flex min-h-0 flex-1 flex-col">
-        <TableCard fill widths={[46, 10, 14, 30]}>
+        <TableCard fill widths={widths}>
           <thead>
             <tr className="sticky top-0 z-sticky">
               <Th>분류 · 품목</Th>
               <Th align="right">개수</Th>
               <Th>상태</Th>
-              <Th>{nodeScope ? '어느 변전소에' : '어느 층에'}</Th>
+              {/* 집계 줄은 **어디에 몇 개**, 개체 줄은 **그것이 있는 자리**. 한 열의 두 겹이다. */}
+              <Th>위치</Th>
+              {fieldColumns.map((fd) => (
+                <Th key={fd.key} align={fd.type === 'number' ? 'right' : 'left'}>
+                  {fd.label}
+                </Th>
+              ))}
+              <Th>마지막점검일</Th>
             </tr>
           </thead>
           <tbody>
             {summary.groups.length === 0 && (
               <tr>
-                <td colSpan={4}>
+                <td colSpan={colCount}>
                   {query.trim() || filter !== NO_FILTER ? (
                     <EmptyState title="조건과 맞는 설비가 없습니다" />
                   ) : (
@@ -167,7 +191,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                   <td className="px-3 py-1.5 text-right text-xs font-semibold tabular-nums text-content">
                     {group.count}
                   </td>
-                  <td colSpan={2} />
+                  <td colSpan={colCount - 2} />
                 </tr>
 
                 {group.items.map((item) => {
@@ -226,29 +250,36 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                             key={r.id}
                             {...selectableRow(selectedId, r.id, onSelectAsset)}
                             className={cn(
-                              'border-b border-line bg-surface text-xs focus-visible:outline-none focus-ring-input',
+                              'border-b border-line focus-visible:outline-none focus-ring-input',
                               SELECTABLE,
                               r.id === selectedId && SELECTED,
                             )}
                           >
+                            {/* 펼친 줄은 **그 품목이 실제로 어떤 것들인지**다 — 저장된 이름·상태·자리.
+                                열의 뜻은 그대로다(개수 칸은 비운다 — 하나짜리에 「1」은 군더더기다). */}
                             <td className="truncate px-3 py-1.5 pl-10 text-content">{r.name}</td>
-                            <td className="px-3 py-1.5 text-right text-content-faint">
-                              {formatDate(r.lastInspectedAt) || EMPTY}
-                            </td>
+                            <td />
                             <td className="px-3 py-1.5">
                               <StatusDot status={assetStatusTone(r.status)}>{assetStatusLabel(r.status)}</StatusDot>
                             </td>
-                            <td className="truncate px-3 py-1.5 text-content-muted">
-                              {/* 어디에 있는지 + 선언 필드 — 집계 줄에는 세우지 않는 값들이다. */}
-                              {[
-                                nodeScope ? `${r.where} · ${r.location}` : r.location || r.where,
-                                ...fieldColumns.map((fd) => {
-                                  const v = r.fieldValues[fd.key];
-                                  return v == null || v === '' ? null : `${fd.label} ${fd.type === 'date' ? formatDate(String(v)) : String(v)}`;
-                                }),
-                              ]
-                                .filter(Boolean)
-                                .join(' · ')}
+                            <td className="truncate px-3 py-1.5 text-content-muted">{whereOf(r)}</td>
+                            {fieldColumns.map((fd) => {
+                              const v = r.fieldValues[fd.key];
+                              const text = v == null || v === '' ? EMPTY : fd.type === 'date' ? formatDate(String(v)) : String(v);
+                              return (
+                                <td
+                                  key={fd.key}
+                                  className={cn(
+                                    'truncate px-3 py-1.5 text-content-muted',
+                                    fd.type === 'number' && 'text-right tabular-nums',
+                                  )}
+                                >
+                                  {text}
+                                </td>
+                              );
+                            })}
+                            <td className="px-3 py-1.5 text-content-muted">
+                              {formatDate(r.lastInspectedAt) || EMPTY}
                             </td>
                           </tr>
                         ))}
