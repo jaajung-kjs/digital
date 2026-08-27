@@ -34,7 +34,7 @@ function farEndLabel(peer: { assemblyName: string | null; assetName: string; por
 import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { internalLinkMap, portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
@@ -294,6 +294,9 @@ export function ConnectionsTab({
   /**
    * 이 포트가 **자산 안에서** 이어지는 포트들 — 케이블 말고 그 장비를 통과하는 길.
    *
+   * 화면에 그 목록을 내놓지는 않는다(눌러 옮겨 다닐 것이 아니다). 이것은 **선로 반대편을
+   * 푸는 디딤돌**이다: 앞면 어댑터 → 인입 → 그 코어의 대국 장비.
+   *
    * 규칙은 포트 선언에서 저절로 나온다(`internalLinkMap` ← `derivedLinks`): 전원 입력은
    * 출력과 통하고, 다심 인입의 코어 i 는 앞면 i 번으로 나온다. 그래서 **「다심이면 특별히」
    * 같은 갈래가 없다** — 화면은 「이웃을 다 보여 준다」 한 문장이고, 나중에 다른 통과 선언이
@@ -325,8 +328,10 @@ export function ConnectionsTab({
    */
   const selectedFarEnd = useMemo(() => {
     if (!selectedPort || !asset) return null;
-    /* 내부로 이어진 **다심 인입**이 있을 때만 선로가 있다 — 없으면 이 줄 자체가 서지 않는다. */
-    const trunk = selectedInternal.find((p) => p.positions > 1);
+    /* 내부로 이어진 **다심 인입**이 있을 때만 선로가 있다 — 없으면 이 줄 자체가 서지 않는다.
+       「다심인가」는 어휘가 판정한다(`isMultiCorePort`) — 여기서 `positions > 1` 을 다시 적으면
+       그 규칙이 또 한 군데로 흩어진다(예전에 열세 군데였다). */
+    const trunk = selectedInternal.find((p) => isMultiCorePort(p.positions));
     if (!trunk) return null;
     const trunkCable = (cablesByPortId.get(trunk.id) ?? [])[0]?.cable;
     if (!trunkCable) return null;
@@ -609,28 +614,6 @@ export function ConnectionsTab({
                         </Button>
                       )}
                     </div>
-
-                    {selectedInternal.length > 0 && (
-                      /* 이 장비를 통과해 어디로 이어지는가 — 누르면 그 포트로 옮겨 간다.
-                         슬롯이라면 여기서 앞면 ↔ 인입을 오가며 자국과 대국을 다 본다. */
-                      <DetailRow label="내부 연결">
-                        <div className="flex flex-wrap gap-1">
-                          {selectedInternal.map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              className={cn(
-                                'rounded border border-line px-1.5 text-sm text-primary',
-                                SELECTABLE,
-                              )}
-                              onClick={() => setSelectedPortId(p.id)}
-                            >
-                              {p.name}
-                            </button>
-                          ))}
-                        </div>
-                      </DetailRow>
-                    )}
 
                     {selectedFarEnd && (
                       /* 선로 반대편 — 「OPGW 를 타고 넘어가 같은 코어에 물린 장비」다.
