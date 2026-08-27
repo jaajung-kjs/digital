@@ -54,16 +54,18 @@ const wired = () => [
 describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   beforeEach(() => setStore([], []));
 
-  /** 그 반의 표 — 묶음 제목으로 찾는다. */
+  /** 그 반의 표 — 묶음 제목으로 찾는다(제목 앞에는 거슬러 온 길이 흐리게 붙는다). */
   const tableOf = (title: string) =>
-    within(screen.getByRole('button', { name: title }).closest('section')!);
+    within(screen.getByRole('button', { name: new RegExp(`${title}$`) }).closest('section')!);
 
   it('반마다 제 표가 서고, 매달린 반은 그 아래에 선다', () => {
     setStore([rack, main, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
+    /* 자식은 부모 **바로 밑**에 오고, 거슬러 온 길이 제목 앞에 적힌다 — 묶음마다 표가 따로
+       서는 판에서 들여쓰기로 매달림을 보이면 제목만 밀리고 표는 제자리라 어긋나 보인다. */
     const titles = screen.getAllByRole('button', { name: /분전반 · / }).map((b) => b.textContent);
-    expect(titles).toEqual(['분전반 · 소내전원반', '분전반 · UPS']);
+    expect(titles).toEqual(['분전반 · 소내전원반', '소내전원반 › 분전반 · UPS']);
   });
 
   /**

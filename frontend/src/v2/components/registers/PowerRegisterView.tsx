@@ -116,9 +116,18 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
 }
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
-/** 나무를 위에서 아래로 편 목록 — 깊이를 함께 들고 간다(들여쓰기로 매달림을 보인다). */
-function flatten(nodes: PowerNode[], depth = 0): { node: PowerNode; depth: number }[] {
-  return nodes.flatMap((node) => [{ node, depth }, ...flatten(node.children, depth + 1)]);
+/**
+ * 나무를 위에서 아래로 편 목록 — **거슬러 온 길**을 함께 들고 간다.
+ *
+ * 매달림을 들여쓰기로 보이려 했는데, 묶음마다 표가 따로 서는 판에서는 제목만 밀리고 표는
+ * 제자리라 계층이 아니라 **어긋난 것**으로 읽혔다. 표를 통째로 밀면 이번에는 반마다 열의
+ * 자리가 달라져 회로를 세로로 훑을 수가 없다(패널 스케줄은 그렇게 읽는 표다).
+ *
+ * 그래서 자리는 그대로 두고 **말로 적는다**: 「소내전원반 › UPS ›」. 차례(자식이 부모 바로
+ * 밑에 온다)는 그대로라 순서로도 읽힌다.
+ */
+function flatten(nodes: PowerNode[], path: string[] = []): { node: PowerNode; path: string[] }[] {
+  return nodes.flatMap((node) => [{ node, path }, ...flatten(node.children, [...path, node.name])]);
 }
 
 export function PowerRegisterView({ substationId: _substationId, selectedAssetId, onSelectAsset }: Props) {
@@ -144,7 +153,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       .some((v) => (v ?? '').toLowerCase().includes(q));
 
   const shownNodes = nodes
-    .map(({ node, depth }) => ({ node, depth, circuits: node.circuits.filter((c) => match(node, c)) }))
+    .map(({ node, path }) => ({ node, path, circuits: node.circuits.filter((c) => match(node, c)) }))
     .filter((n) => n.circuits.length > 0 || q === '');
   const totalCircuits = nodes.reduce((n, { node }) => n + node.circuits.length, 0);
   const shownCircuits = shownNodes.reduce((n, s) => n + s.circuits.length, 0);
@@ -189,28 +198,30 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           ))}
         </>
       }
-      sections={shownNodes.map(({ node, depth, circuits }) => ({
+      sections={shownNodes.map(({ node, path, circuits }) => ({
         key: node.assetId,
         title: (
-          /* 매달림은 **들여쓰기**로 보인다 — 소내전원반 아래 UPS, 그 아래 DC 48V.
+          /* 거슬러 온 길을 앞에 흐리게 적는다 — 매달림이 자리를 옮기지 않고 읽힌다.
              제목을 누르면 그 반이 오른쪽 패널에 열린다(표의 다른 선택과 같은 규칙). */
           <button
             type="button"
             onClick={() => onSelectAsset(node.assetId)}
-            style={{ marginLeft: depth * 20 }}
             className={cn(
               'rounded px-1 text-left text-sm font-semibold text-content focus-visible:outline-none focus-ring-input',
               SELECTABLE,
               selectedAssetId === node.assetId && SELECTED,
             )}
           >
+            {path.length > 0 && (
+              <span className="font-normal text-content-faint">{path.join(' › ')} › </span>
+            )}
             {node.containerName ? `${node.containerName} · ${node.name}` : node.name}
           </button>
         ),
         meta: (
           /* 「어디서 받는가」는 이제 **표 안 첫 줄**이 말한다 — 거기서는 길이·전압·개폐까지
              회로와 같은 칸에 선다. 머리줄에 또 적으면 같은 말이 두 번이고, 값은 못 고친다. */
-          <div style={{ marginLeft: depth * 20 }} className="text-xs text-content-muted">
+          <div className="text-xs text-content-muted">
             회로 {node.circuits.length} · 사용 {node.circuits.filter((c) => c.cableId).length}
           </div>
         ),
