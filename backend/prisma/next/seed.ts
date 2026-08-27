@@ -1,5 +1,8 @@
 import bcrypt from 'bcryptjs';
-import { SEED_ASSET_TYPES, SEED_ASSEMBLIES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES } from '@twin/core';
+import {
+  SEED_ASSET_TYPES, SEED_ASSEMBLIES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES,
+  SEED_ORG, DIRECT_BRANCH,
+} from '@twin/core';
 import { PrismaClient } from '../../src/generated/next-client/index.js';
 
 const prisma = new PrismaClient();
@@ -16,6 +19,26 @@ async function main() {
       console.log('[seed:next] admin user created');
     } else {
       console.log('[seed:next] users already exist — skip admin seed');
+    }
+
+    /*
+     * 조직 — **본부가 하나도 없을 때만** 세운다.
+     *
+     * 시드는 컨테이너가 뜰 때마다 도는데(배포 멱등성), 조직은 현장이 고치는 운영 데이터라
+     * 덮어쓰면 재시작마다 지사 이름과 순서가 원본으로 되돌아간다. 변전소는 넣지 않는다
+     * (`SEED_ORG` 주석 참고 — 반쯤 맞는 목록은 지우는 수고를 만든다).
+     */
+    if ((await tx.headquarters.count()) === 0) {
+      for (const [i, hq] of SEED_ORG.entries()) {
+        const created = await tx.headquarters.create({ data: { name: hq.name, sortOrder: i } });
+        /* 「직할」이 늘 첫 줄이다 — 본부가 직접 맡는 사업소이고, 어느 본부에나 있다. */
+        for (const [j, name] of [DIRECT_BRANCH, ...hq.branches].entries()) {
+          await tx.branch.create({ data: { name, headquartersId: created.id, sortOrder: j } });
+        }
+      }
+      console.log(`[seed:next] org created — 본부 ${SEED_ORG.length}, 사업소 ${SEED_ORG.reduce((n, h) => n + h.branches.length + 1, 0)}`);
+    } else {
+      console.log('[seed:next] org already exists — skip');
     }
 
     /*

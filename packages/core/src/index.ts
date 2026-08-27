@@ -12,6 +12,7 @@ export * from './trace/graph.js';
 export * from './trace/internalLinks.js';
 export * from './trace/tree.js';
 export * from './seed/catalog.js';
+export * from './seed/org.js';
 export * from './report/computeReport.js';
 export * from './report/computeEstimate.js';
 export * from './catalog/laborSpec.js';
