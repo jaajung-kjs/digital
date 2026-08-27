@@ -468,3 +468,17 @@ export function portHasRoom(medium: string, currentCableCount: number): boolean 
   if (kind == null) return currentCableCount < 1;
   return kind.maxCables === null || currentCableCount < kind.maxCables;
 }
+
+/**
+ * 선로가 물린 **경로슬롯의 이름** — 「제 국 - 상대 국 - 순번」.
+ *
+ * 이름을 사람이 짓게 두면 두 국이 서로 다른 말을 적는다(한쪽은 「슬롯 1」, 다른 쪽은
+ * 「춘천행」). 그런데 그 판이 무엇인지는 **연결이 이미 말하고 있다** — 어느 국에서 어느
+ * 국으로 가는 몇 번째 선로인가. 그러니 연결이 이름을 짓는다.
+ *
+ * 대상을 고르는 것도 이름이 아니라 선언이다: **다심 인입 포트를 가진 자산**(`isMultiCorePort`).
+ * 「OPGW 면」·「이름이 슬롯이면」으로 가르지 않는다.
+ */
+export function linkedSlotName(ownStation: string, peerStation: string, seq: number): string {
+  return `${ownStation} - ${peerStation} - ${seq}`;
+}

@@ -20,15 +20,14 @@ interface PeerCellProps {
 export function PeerCell({ peer }: PeerCellProps) {
   if (!peer) return <span className="text-content-faint">{EMPTY}</span>;
   /**
-   * 상대 국은 **이름 앞에 적는다** — 툴팁에만 두었더니 자기 자신처럼 읽혔다.
+   * 국 이름은 **붙이지 않는다** — 슬롯 이름이 이미 그것을 말한다.
    *
-   * 두 국의 슬롯 이름은 흔히 같다(둘 다 「슬롯 1」). 그때 `OFD - 슬롯 1#1` 만 보이면 이
-   * 줄이 제자리를 가리키는 것처럼 보인다 — 실제로 그 물음이 나왔다. 어디로 가는지가
-   * 이 칸의 전부이므로, 국 이름이 그 앞에 서는 것이 맞다.
+   * 한때 여기에 `춘천S/S · …` 를 앞세웠다. 두 국의 판이 둘 다 「슬롯 1」이라 제자리를
+   * 가리키는 것처럼 읽혔기 때문인데, 그건 이름이 제구실을 못 한 탓이었다. 이제 선로가
+   * 슬롯 이름을 짓는다(`서홍천S/S - 춘천S/S - 1`) — 같은 말을 두 번 적지 않는다.
    */
-  const own = endpointLabel(peer);
-  const label = peer.remote && peer.substationName ? `${peer.substationName} · ${own}` : own;
-  const full = label;
+  const label = endpointLabel(peer);
+  const full = peer.remote && peer.substationName ? `${label} (${peer.substationName})` : label;
 
   /* `#` 앞뒤로 가른다 — 앞은 그 줄들이 공유하는 자리, 뒤는 그 줄만의 번호다. */
   const cut = label.lastIndexOf('#');

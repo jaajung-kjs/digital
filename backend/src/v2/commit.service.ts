@@ -1,6 +1,6 @@
 import {
   instantiatePorts, occupantsOf, validateConnection, validateGridPlacement, PLACEMENT_FIELDS, DEFAULT_ASSET_STATUS,
-  ASSEMBLY_GRID,
+  ASSEMBLY_GRID, isMultiCorePort, linkedSlotName,
 } from '@twin/core';
 import type { Direction } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
@@ -44,6 +44,16 @@ export async function commitSubstation(
     const floors = payload.floors ?? {};
     /* 이번 커밋에서 자리를 건드린 설비 — 다 적용한 뒤 그 격자만 검사한다. */
     const touchedGrids = new Set<string>();
+    /* 선로가 붙었다 떨어지면 **양쪽 슬롯의 이름**이 달라진다 — 지우기 전에 그 포트를 적어
+       둔다(지운 뒤에는 어느 판이었는지 알 길이 없다). */
+    const touchedPorts = new Set<string>();
+    for (const c of await tx.cable.findMany({
+      where: { id: { in: cables.deletes ?? [] } },
+      select: { aPortId: true, bPortId: true },
+    })) {
+      touchedPorts.add(c.aPortId);
+      touchedPorts.add(c.bPortId);
+    }
     await applyCableDeletes(tx, substationId, cables.deletes ?? []);
     await assertNoAttachedCables(tx, assets.deletes ?? []);
     await applyDeletes(tx, substationId, assets.deletes ?? [], orphaned);
@@ -58,7 +68,13 @@ export async function commitSubstation(
     // 자리 검사는 **다 놓은 뒤** 한 번 — 중간 상태를 검사하면 재배열이 늘 걸린다.
     await assertGridsValid(tx, touchedGrids);
     for (const u of cables.updates ?? []) await applyCableUpdate(tx, substationId, u);
-    for (const c of cables.creates ?? []) await applyCableCreate(tx, substationId, c);
+    for (const c of cables.creates ?? []) {
+      await applyCableCreate(tx, substationId, c);
+      touchedPorts.add(c.aPortId);
+      touchedPorts.add(c.bPortId);
+    }
+    /* 이름 짓기는 **다 이은 뒤** 한 번 — 중간 상태로 지으면 같은 커밋 안에서 두 번 바뀐다. */
+    await renameLinkedSlots(tx, touchedPorts);
 
     await applyRecords(tx, substationId, payload.records, photoFiles, orphaned);
 
@@ -525,6 +541,90 @@ async function applyRecords(
       });
     }
   }
+}
+
+/**
+ * 선로가 물린 **경로슬롯의 이름을 연결이 짓는다** — 「제 국 - 상대 국 - 순번」.
+ *
+ * 두 국의 판은 서로를 가리키는데 이름은 각자 적어 왔다(둘 다 「슬롯 1」이라 화면에서 제자리를
+ * 가리키는 것처럼 읽혔다). 그 판이 무엇인지는 연결이 이미 말하고 있으므로 연결이 짓는다.
+ *
+ * **여기가 자리인 이유**: 상대 슬롯은 다른 변전소의 자산이라 그쪽 워킹 카피에 없다. 서버만
+ * 두 국을 한꺼번에 본다 — 슬롯을 짝으로 만들고 지우는 일이 이미 여기 있는 것과 같은 이유다.
+ *
+ * **대상은 선언이 고른다**: 다심 인입 포트를 가진 자산(`isMultiCorePort`). 종류 이름이나
+ * 자산 이름을 들여다보지 않는다.
+ *
+ * 순번은 **그 두 국 사이 케이블을 만든 순서**다. 하나를 지워도 남은 것의 번호가 흔들리지
+ * 않는다(빈 번호가 생길 뿐) — 이름이 제멋대로 바뀌는 것보다 낫다.
+ *
+ * 선로가 끊기면 **양쪽 다** 원래 이름으로 돌아간다. 원래 이름은 어딘가 기억해 둔 것이 아니라
+ * 그 설비 품목의 구성이 정한 이름을 다시 읽은 것이다(숨은 상태를 만들지 않는다).
+ */
+async function renameLinkedSlots(tx: Tx, portIds: ReadonlySet<string>): Promise<void> {
+  if (portIds.size === 0) return;
+  const ports = await tx.port.findMany({
+    where: { id: { in: [...portIds] } },
+    include: { asset: { include: { substation: { select: { name: true } }, parentAsset: true } } },
+  });
+  const slots = ports.filter((p) => isMultiCorePort(p.positions));
+  if (slots.length === 0) return;
+
+  for (const port of slots) {
+    const cable = await tx.cable.findFirst({
+      where: { OR: [{ aPortId: port.id }, { bPortId: port.id }] },
+      select: { id: true, aPortId: true, bPortId: true, createdAt: true },
+    });
+
+    if (!cable) {
+      const original = await originalSlotName(tx, port.asset);
+      if (original && original !== port.asset.name) {
+        await tx.asset.update({ where: { id: port.assetId }, data: { name: original } });
+      }
+      continue;
+    }
+
+    const peerPortId = cable.aPortId === port.id ? cable.bPortId : cable.aPortId;
+    const peer = await tx.port.findUnique({
+      where: { id: peerPortId },
+      include: { asset: { include: { substation: { select: { name: true } } } } },
+    });
+    if (!peer) continue;
+
+    /* 그 두 국 사이 몇 번째 선로인가 — 만든 순서대로 센다. */
+    const between = await tx.cable.findMany({
+      where: {
+        aPort: { positions: { gt: 1 } },
+        bPort: { positions: { gt: 1 } },
+        OR: [
+          { aPort: { asset: { substationId: port.asset.substationId } }, bPort: { asset: { substationId: peer.asset.substationId } } },
+          { aPort: { asset: { substationId: peer.asset.substationId } }, bPort: { asset: { substationId: port.asset.substationId } } },
+        ],
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const seq = Math.max(1, between.findIndex((c) => c.id === cable.id) + 1);
+
+    const name = linkedSlotName(port.asset.substation.name, peer.asset.substation.name, seq);
+    if (name !== port.asset.name) {
+      await tx.asset.update({ where: { id: port.assetId }, data: { name } });
+    }
+  }
+}
+
+/** 그 설비 품목의 구성이 정한 이름 — 자리(행·열)로 찾는다. 기억해 둔 값이 아니다. */
+async function originalSlotName(
+  tx: Tx,
+  asset: { id: string; name: string; parentAssetId: string | null; col: number | null; row: number | null },
+): Promise<string | null> {
+  if (!asset.parentAssetId) return null;
+  const parent = await tx.asset.findUnique({
+    where: { id: asset.parentAssetId },
+    select: { assembly: { select: { items: { select: { name: true, col: true, row: true } } } } },
+  });
+  const item = parent?.assembly?.items.find((i) => i.col === asset.col && i.row === asset.row);
+  return item?.name ?? null;
 }
 
 async function applyCableDeletes(tx: Tx, substationId: string, ids: string[]): Promise<void> {

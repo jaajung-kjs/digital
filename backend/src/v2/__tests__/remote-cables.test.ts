@@ -106,4 +106,83 @@ describe('검색/포트 API', () => {
   it('미존재 자산 포트 → 404', async () => {
     await request(app).get(`/api/v2/assets/${randomUUID()}/ports`).set(admin).expect(404);
   });
+
+});
+
+/**
+ * **선로가 슬롯 이름을 짓는다** — 「제 국 - 상대 국 - 순번」.
+ *
+ * 두 국의 판은 서로를 가리키는데 이름은 각자 적어 왔다(둘 다 「슬롯 1」이라 화면에서 제자리를
+ * 가리키는 것처럼 읽혔다). 대상은 이름이 아니라 **선언**이 고른다(다심 인입 포트를 가진 자산).
+ */
+describe('선로가 짓는 슬롯 이름', () => {
+  const trunkOf = async (assetId: string) =>
+    (await nextDb.port.findFirstOrThrow({ where: { assetId, positions: { gt: 1 } } })).id;
+  const nameOf = async (id: string) => (await nextDb.asset.findUniqueOrThrow({ where: { id } })).name;
+
+  /** 설비 품목(OFD)으로 놓은 슬롯 — 도면에 놓이는 것은 설비뿐이라 실제로 늘 이 모습이다. */
+  async function placeSlot(substationId: string, label: string): Promise<string> {
+    const assembly = await nextDb.assembly.findFirstOrThrow({
+      where: { items: { some: { type: { key: 'OFD-SLOT' } } } },
+      include: { items: { orderBy: { col: 'asc' } } },
+    });
+    const item = assembly.items[0]!;
+    const ofdId = randomUUID();
+    const slotId = randomUUID();
+    await request(app).put(`/api/v2/substations/${substationId}/commit`).set(admin).send({
+      assets: {
+        creates: [
+          { id: ofdId, name: `${uniq}-${label}-OFD`, typeId: null, assemblyId: assembly.id },
+          { id: slotId, name: item.name, typeId: item.typeId, parentAssetId: ofdId, col: item.col, row: item.row, colSpan: 1, rowSpan: 1 },
+        ],
+      },
+    }).expect(200);
+    return slotId;
+  }
+
+  it('이으면 **양쪽 다** 「제 국 - 상대 국 - 1」이 되고, 끊으면 양쪽 다 되돌아간다', async () => {
+    const a = await placeSlot(subAId, 'A');
+    const b = await placeSlot(subBId, 'B');
+    const before = { a: await nameOf(a), b: await nameOf(b) };
+    expect(before.a).toBe('슬롯 1'); // 설비 품목의 구성이 준 이름
+
+    const cableId = randomUUID();
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { creates: [{ id: cableId, aPortId: await trunkOf(a), bPortId: await trunkOf(b), categoryId: fiberCatId }] } })
+      .expect(200);
+
+    expect(await nameOf(a)).toBe(`${uniq}-국사A - ${uniq}-국사B - 1`);
+    /* 상대 국의 판도 함께 — 그쪽 워킹 카피에는 이 자산이 없으므로 서버만 할 수 있는 일이다. */
+    expect(await nameOf(b)).toBe(`${uniq}-국사B - ${uniq}-국사A - 1`);
+
+    /* 지울 때는 본 것이 그대로인지 함께 낸다(낙관적 동시성) — 화면도 그렇게 보낸다. */
+    const cable = await nextDb.cable.findUniqueOrThrow({ where: { id: cableId } });
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { deletes: [cableId] }, baseVersions: { [cableId]: cable.updatedAt.toISOString() } })
+      .expect(200);
+
+    /* 끊으면 **양쪽 다** 끊긴다 — 한쪽만 되돌아가면 이름이 거짓말을 한다. 되돌릴 이름은
+       기억해 둔 것이 아니라 그 설비 품목의 구성에서 다시 읽은 것이다. */
+    expect(await nameOf(a)).toBe(before.a);
+    expect(await nameOf(b)).toBe(before.b);
+  });
+
+  it('같은 두 국 사이가 하나 더 생기면 **-2** 다', async () => {
+    const a1 = await placeSlot(subAId, 'A2');
+    const b1 = await placeSlot(subBId, 'B2');
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { creates: [{ id: randomUUID(), aPortId: await trunkOf(a1), bPortId: await trunkOf(b1), categoryId: fiberCatId }] } })
+      .expect(200);
+
+    const a2 = await placeSlot(subAId, 'A3');
+    const b2 = await placeSlot(subBId, 'B3');
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { creates: [{ id: randomUUID(), aPortId: await trunkOf(a2), bPortId: await trunkOf(b2), categoryId: fiberCatId }] } })
+      .expect(200);
+
+    /* 순번은 **만든 순서**다 — 하나를 지워도 남은 것의 번호가 흔들리지 않는다. */
+    expect(await nameOf(a1)).toBe(`${uniq}-국사A - ${uniq}-국사B - 1`);
+    expect(await nameOf(a2)).toBe(`${uniq}-국사A - ${uniq}-국사B - 2`);
+    expect(await nameOf(b2)).toBe(`${uniq}-국사B - ${uniq}-국사A - 2`);
+  });
 });

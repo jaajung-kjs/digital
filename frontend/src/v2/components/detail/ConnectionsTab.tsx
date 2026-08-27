@@ -26,10 +26,9 @@ import { buildTraceTree, type TraceTreeNode } from '@twin/core';
 import { buildPortIndex, endpointLabel, endpointRef, indexCablesByPort, resolvePeer } from '../../peerResolve';
 import { resolveFiberFarEnd } from '../../fiberSelectors';
 
-/** 대국 이름 — 원격이면 국 이름이 앞에 선다(선번장의 대국 칸과 같은 어법). */
-function farEndLabel(peer: { assemblyName: string | null; assetName: string; portName: string; portIndex: number; substationName: string | null; remote: boolean }): string {
-  const own = endpointLabel(peer);
-  return peer.remote && peer.substationName ? `${peer.substationName} · ${own}` : own;
+/** 대국 이름 — 국 이름은 붙이지 않는다(슬롯 이름이 이미 그것을 말한다). */
+function farEndLabel(peer: { assemblyName: string | null; assetName: string; portName: string; portIndex: number }): string {
+  return endpointLabel(peer);
 }
 import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
