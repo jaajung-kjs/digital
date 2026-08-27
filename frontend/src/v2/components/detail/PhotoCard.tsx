@@ -17,6 +17,7 @@ import { holdPhotoFile, pendingPhotoUrl } from '../../store/pendingPhotos';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2AssetPhoto } from '../../types';
 import { InlineEditCell } from '../InlineEditCell';
+import { newId } from '../../newId';
 
 /**
  * 이 사진을 어디서 보나 — 저장 전이면 브라우저가 들고 있는 것, 저장됐으면 서버의 것.
@@ -50,7 +51,7 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
     const file = input.files?.[0] ?? null;
     input.value = ''; // 같은 파일 재선택 허용
     if (!file) return;
-    const id = crypto.randomUUID();
+    const id = newId();
     holdPhotoFile(id, file);
     useV2WorkingCopy.getState().stagePhotoCreate({ id, assetId, filePath: '', caption: null, updatedAt: '' });
   }

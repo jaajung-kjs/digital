@@ -4,6 +4,7 @@ import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, use
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { useEffectiveInspections, useEffectiveMaintenance } from '../../store/useWorkingCopy';
 import type { V2MaintenanceLog, V2InspectionLog } from '../../types';
+import { newId } from '../../newId';
 
 // ── ISO 변환 헬퍼 ─────────────────────────────────────────────────────────────
 /** datetime-local 입력값(yyyy-MM-ddTHH:mm) → 로컬 시간 기준 ISO 8601 문자열 */
@@ -118,7 +119,7 @@ export function RecordsTab({
     if (!addState.date || !addState.content.trim()) return;
     const isoDate = localInputToIso(addState.date);
     if (isNaN(new Date(isoDate).getTime())) return;
-    const id = crypto.randomUUID();
+    const id = newId();
     const log: AnyRecord = {
       id,
       assetId,

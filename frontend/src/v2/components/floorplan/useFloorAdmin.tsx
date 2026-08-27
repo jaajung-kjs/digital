@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { PromptModal, type TabItem } from '../../../components/ui';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2Asset, V2Floor } from '../../types';
+import { newId } from '../../newId';
 
 /**
  * 층을 만들고·고치고·지우는 일 — **탭 줄이 곧 관리 지점**이다.
@@ -62,7 +63,7 @@ export function useFloorAdmin(args: {
     if (!nameIsFree(name)) return;
     setAdding(false);
     setError(null);
-    const id = crypto.randomUUID();
+    const id = newId();
     const sortOrder = Math.max(0, ...floors.map((f) => f.sortOrder)) + 1;
     useV2WorkingCopy.getState().stageFloorCreate({ id, name, sortOrder, substationId, updatedAt: '' });
     onCreated(id);

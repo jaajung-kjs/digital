@@ -2,6 +2,7 @@ import { validateConnection } from '@twin/core';
 import { cableCountByPortId } from './cableSelectors';
 import { useV2WorkingCopy } from './store/workingCopyStore';
 import type { V2Asset, V2Cable, V2Port } from './types';
+import { newId } from './newId';
 
 /**
  * **케이블을 잇는 일은 한 번만 적는다** — 어디서 골랐든 같은 결과여야 한다.
@@ -41,7 +42,7 @@ export function connectCable(args: {
   if (err) return err;
 
   useV2WorkingCopy.getState().stageCableCreate({
-    id: crypto.randomUUID(),
+    id: newId(),
     name: null,
     substationId: args.substationId,
     aPortId: firstPortId,

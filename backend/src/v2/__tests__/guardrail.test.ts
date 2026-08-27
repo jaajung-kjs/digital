@@ -483,6 +483,26 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
   });
 
   /**
+   * **보안 컨텍스트 전용 API 를 화면이 직접 부르지 않는다.**
+   *
+   * `crypto.randomUUID` 는 https·localhost 에서만 있다. 개발이 늘 localhost 라 아무도 몰랐고,
+   * 운영 이미지를 평문 주소(`http://twin.local:8080`)로 열어 보고서야 드러났다 — 층 추가·설비
+   * 배치·케이블 연결이 전부 `crypto.randomUUID is not a function` 으로 죽어 있었다. 사내망은
+   * 평문 주소로 연다. 폴백을 가진 `newId()` 한 곳으로만 부른다.
+   */
+  it('화면이 crypto.randomUUID 를 직접 부르지 않는다 — newId 를 쓴다', () => {
+    const ALLOW = new Set(['frontend/src/v2/newId.ts']);
+    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      if (ALLOW.has(relToRoot(f))) continue;
+      const src = readFileSync(f, 'utf8');
+      expect(
+        /crypto\.randomUUID\s*\(/.test(src),
+        `${f}: 평문 주소(사내망)에서는 없는 함수다 — newId() 를 쓰세요`,
+      ).toBe(false);
+    }
+  });
+
+  /**
    * **고른 포트는 화면이 따로 들고 있지 않는다** — 주소가 쥔다(`?port=`).
    *
    * 상세 판이 제 지역 상태로 고른 포트를 들고 있었다. 그래서 표에서 줄을 누르면 판이 따라왔지만

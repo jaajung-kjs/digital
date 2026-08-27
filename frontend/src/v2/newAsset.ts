@@ -1,5 +1,6 @@
 import { DEFAULT_ASSET_STATUS, coreCount, instantiatePorts, portTemplatesFrom } from '@twin/core';
 import type { V2Asset, V2AssetType, V2Port } from './types';
+import { newId } from './newId';
 
 /**
  * 자산이 갖는 포트 — **놓는 순간 화면이 만든다**.
@@ -20,7 +21,7 @@ export function portsForNewAsset(
 ): V2Port[] {
   return instantiatePorts(portTemplatesFrom(type.portTemplates), assetId, portCounts, portPositions).map((p) => ({
     ...p,
-    id: crypto.randomUUID(),
+    id: newId(),
     positions: coreCount(p.positions),
     // 값은 아직 없다 — 손실·점검일은 놓고 나서 적는다.
     fieldValues: {},
@@ -58,7 +59,7 @@ export function makeNewAsset(args: {
   const p = args.placement;
   const isContainer = p.kind === 'grid';
   const isFloor = p.kind === 'floor';
-  const id = crypto.randomUUID();
+  const id = newId();
 
   return {
     id,

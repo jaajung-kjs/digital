@@ -1,6 +1,7 @@
 import { DEFAULT_ASSET_STATUS } from '@twin/core';
 import { portsForNewAsset } from './newAsset';
 import type { V2Assembly, V2Asset, V2AssetType } from './types';
+import { newId } from './newId';
 
 /**
  * 설비 품목을 도면에 놓는다 — **설비 하나 + 그 안의 장비들**.
@@ -26,7 +27,7 @@ export function assemblyToAssets(args: {
   /** 장비의 포트를 지금 만들기 위한 장비 품목들 — 저장 전에도 포트가 보여야 한다. */
   typesById: Map<string, V2AssetType>;
 }): V2Asset[] {
-  const equipmentId = crypto.randomUUID();
+  const equipmentId = newId();
 
   const equipment: V2Asset = {
     id: equipmentId,
@@ -51,7 +52,7 @@ export function assemblyToAssets(args: {
   };
 
   const parts: V2Asset[] = args.assembly.items.map((item) => {
-    const id = crypto.randomUUID();
+    const id = newId();
     const type = args.typesById.get(item.typeId);
     return {
     id,
