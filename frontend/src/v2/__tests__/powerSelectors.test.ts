@@ -208,6 +208,13 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     expect(dcNode.sources.map((s) => s.from?.assetName)).toEqual(['충전기', '충전기 2']);
   });
 
+  /* 개발 중인 자료는 결선이 드문드문하다 — 이름순으로만 세우면 실제 계통이 저 아래로 밀린다. */
+  it('계통을 이루는 뿌리가 먼저 선다 — 아직 안 이은 반은 그 뒤로', () => {
+    const lonely = board('zz', '가나다 반', 2); // 이름순이면 맨 앞
+    const tree = powerTree([...assets, lonely] as never, wires as never);
+    expect(tree.map((n) => n.name)).toEqual(['소내배전반', '가나다 반']);
+  });
+
   it('어느 뿌리에서도 못 닿는 반도 버리지 않는다 — 조용히 사라지는 것이 가장 나쁘다', () => {
     /* 고리: A 가 B 를, B 가 A 를 먹인다(자료가 꼬였다). */
     const a = board('a', '반 A', 1);

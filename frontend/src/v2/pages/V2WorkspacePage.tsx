@@ -359,8 +359,6 @@ export default function V2WorkspacePage() {
                     <PowerRegisterView
                       substationId={substationId}
                       selectedAssetId={highlightedAssetId}
-                      containerId={route.containerId}
-                      onPickContainer={route.setContainer}
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : (

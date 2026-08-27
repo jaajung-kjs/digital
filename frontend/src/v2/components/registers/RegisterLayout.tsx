@@ -3,8 +3,13 @@ import { EmptyState, Select, SelectionScope, TableCard, TableSearch } from '../.
 import type { MediumContainerPick } from '../../useMediumContainer';
 
 export interface RegisterLayoutProps {
-  /** 어느 설비를 보고 있나 — `useMediumContainer` 가 고른다. */
-  picker: MediumContainerPick;
+  /**
+   * 어느 설비를 보고 있나 — `useMediumContainer` 가 고른다.
+   *
+   * **없을 수 있다.** 계통은 한 판에 반(盤) 전부를 나무로 펴 놓으므로 고를 것이 없다 —
+   * 드롭다운을 남겨 두면 「지금 보는 하나」가 있는 것처럼 말해 화면이 거짓말을 한다.
+   */
+  picker?: MediumContainerPick;
   /** 볼 설비가 하나도 없을 때 — 무엇을 만들면 나타나는지까지 적는다. */
   empty: { title: string; description: ReactNode };
   search: {
@@ -75,7 +80,10 @@ export interface RegisterLayoutProps {
 export function RegisterLayout({
   picker, empty, search, widths, head, children, sections, note, onClearSelection,
 }: RegisterLayoutProps) {
-  if (picker.options.length === 0) {
+  /* 볼 것이 하나도 없으면 표 대신 까닭을 적는다 — 고르는 판이 있으면 그 목록이, 없으면
+     묶음이 「볼 것이 있나」를 말한다. */
+  const nothing = picker ? picker.options.length === 0 : (sections?.length ?? 0) === 0;
+  if (nothing) {
     return <EmptyState title={empty.title} description={empty.description} />;
   }
 
@@ -84,6 +92,7 @@ export function RegisterLayout({
       <div className="flex shrink-0 items-center gap-3 border-b border-line px-3 py-2">
         {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
             멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
+        {picker && (
         <div className="w-64 shrink-0">
           <Select
             aria-label="설비 선택"
@@ -98,6 +107,7 @@ export function RegisterLayout({
             ))}
           </Select>
         </div>
+        )}
         <TableSearch {...search} />
       </div>
 

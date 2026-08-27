@@ -292,10 +292,13 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
   };
 
   const byName = (a: PowerNode, b: PowerNode) => a.name.localeCompare(b.name, 'ko');
+  /* **계통을 이루는 뿌리가 먼저**다 — 아직 결선하지 않은 반이 많은 국에서는(개발 중인 자료가
+     늘 그렇다) 이름순으로 세우면 실제 계통이 스무 줄 아래로 밀려 안 보인다. */
+  const feedsSomething = (n: PowerNode) => n.circuits.some((c) => c.feedsAssetId != null);
   const roots = boards
     .map((b) => nodes.get(b.id)!)
     .filter((n) => !fedByBoard(n))
-    .sort(byName)
+    .sort((a, b) => Number(feedsSomething(b)) - Number(feedsSomething(a)) || byName(a, b))
     .map(expand);
 
   /* 고리를 이룬 배선처럼 어느 뿌리에서도 못 닿는 반 — 뒤에 세운다(사라지게 두지 않는다).
