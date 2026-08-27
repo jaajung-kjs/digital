@@ -57,6 +57,10 @@ searchRouter.get('/search/assets', async (req, res, next) => {
       substationName: r.substation.name,
       floorName: floorNames.get(r.id) ?? null,
       typeName: r.assembly?.name ?? r.type?.name ?? '—',
+      /* 설비인가, 그 안의 장비인가 — 고르는 상자가 **설비 → 장비 → 포트**로 내려간다.
+         도면에 놓이는 것은 설비뿐이고(FloorPlanView), 포트는 그 안의 장비가 갖는다. */
+      parentAssetId: r.parentAssetId,
+      isAssembly: r.assemblyId != null,
     })));
   } catch (e) {
     next(e);

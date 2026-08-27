@@ -9,7 +9,11 @@ import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2Ove
  * 어디 있는 것인지(`substationName · floorName`)가 함께 와야 한다: 이름이 같은 1층 슬롯과
  * 2층 슬롯을 이름만으로는 가릴 수 없다. 도면에 놓인 조상이 없으면 층은 `null` 이다.
  */
-export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; floorName: string | null; typeName: string }
+export interface AssetSearchResult {
+  id: string; name: string; substationId: string; substationName: string; floorName: string | null; typeName: string;
+  /** 설비인가, 그 안의 장비인가 — 고르는 상자가 설비 → 장비 → 포트로 내려간다. */
+  parentAssetId: string | null; isAssembly: boolean;
+}
 
 /**
  * 이름으로 찾거나, **한 변전소를 통째로 둘러보거나**.

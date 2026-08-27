@@ -8,9 +8,12 @@
  * **찾기가 아니라 둘러보기다.** 예전에는 검색칸 하나뿐이었다 — 다른 국의 설비 이름을 외우고
  * 있는 사람만 쓸 수 있는 문이었다(「뭐 어떻게 찾으라는 거냐」). 이제 세 걸음으로 내려간다:
  *
- *   변전소(조직 트리 순서, 이름으로 거르기) → 그 국의 설비(층별로 묶어) → 포트
+ *   변전소 → 그 국의 **설비**(층별로 묶어) → 그 설비 안의 **장비** → 포트
  *
+ * 도면에서 하는 일과 같은 순서다: 놓인 설비를 짚고, 그 안의 장비를 짚고, 그 포트를 짚는다.
  * 한 걸음마다 그 자리의 것이 **다 보이고**, 검색은 목록을 좁히는 보조 수단일 뿐이다.
+ *
+ * 상자의 **키는 걸음마다 바뀌지 않는다** — 목록이 길든 짧든 같은 자리에 서야 눈이 따라간다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { portHasRoom } from '@twin/core';
@@ -53,6 +56,7 @@ export function RemoteEndpointModal({
   const [substation, setSubstation] = useState<{ id: string; name: string } | null>(null);
   const [assets, setAssets] = useState<AssetSearchResult[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
+  const [assembly, setAssembly] = useState<AssetSearchResult | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<AssetSearchResult | null>(null);
   const [ports, setPorts] = useState<V2Port[]>([]);
   const [loadingPorts, setLoadingPorts] = useState(false);
@@ -64,6 +68,7 @@ export function RemoteEndpointModal({
       setQuery('');
       setSubstation(null);
       setAssets([]);
+      setAssembly(null);
       setSelectedAsset(null);
       setPorts([]);
       fetchSeqRef.current++; // 레이스 토큰 리셋 — close 후 도착하는 응답 무시
@@ -89,10 +94,11 @@ export function RemoteEndpointModal({
     return substations.filter((s) => `${s.name} ${s.place}`.toLowerCase().includes(q));
   }, [substations, query]);
 
-  /** 그 국의 것 — **층별로 묶어** 보여 준다(도면에서 찾던 그 순서). */
+  /** 그 국의 **설비** — 층별로 묶어(도면에 놓인 것이 설비다). */
   const byFloor = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const shown = q ? assets.filter((a) => `${a.name} ${a.typeName}`.toLowerCase().includes(q)) : assets;
+    const placed = assets.filter((a) => a.isAssembly);
+    const shown = q ? placed.filter((a) => `${a.name} ${a.typeName}`.toLowerCase().includes(q)) : placed;
     const groups = new Map<string, AssetSearchResult[]>();
     for (const a of shown) {
       const key = a.floorName ?? UNPLACED;
@@ -105,9 +111,18 @@ export function RemoteEndpointModal({
     );
   }, [assets, query]);
 
+  /** 이 설비 안의 장비 — 포트는 장비가 갖는다. */
+  const parts = useMemo(() => {
+    if (!assembly) return [];
+    const q = query.trim().toLowerCase();
+    const children = assets.filter((a) => a.parentAssetId === assembly.id);
+    return q ? children.filter((a) => `${a.name} ${a.typeName}`.toLowerCase().includes(q)) : children;
+  }, [assets, assembly, query]);
+
   async function openSubstation(s: { id: string; name: string }) {
     const seq = ++fetchSeqRef.current;
     setSubstation(s);
+    setAssembly(null);
     setQuery('');
     setAssets([]);
     setLoadingAssets(true);
@@ -149,53 +164,63 @@ export function RemoteEndpointModal({
     }
   }
 
-  /** 한 걸음 뒤로 — 포트 → 설비 → 변전소. */
+  /** 한 걸음 뒤로 — 포트 → 장비 → 설비 → 변전소. */
   function back() {
     fetchSeqRef.current++; // 도착하는 응답 무시
+    setQuery('');
     if (selectedAsset) {
       setSelectedAsset(null);
       setPorts([]);
       return;
     }
+    if (assembly) {
+      setAssembly(null);
+      return;
+    }
     setSubstation(null);
     setAssets([]);
-    setQuery('');
   }
 
   const row = 'w-full rounded px-2 py-1.5 text-left';
+  /** 지금 어느 걸음인가 — 되짚는 줄과 본문이 같은 것을 본다. */
+  const trail = [substation?.name, assembly?.name, selectedAsset?.name].filter(Boolean).join(' · ');
 
   return (
     <Modal open={open} onClose={onClose} title="다른 층·변전소에서 포트 선택" size="md">
-      <div className="space-y-3">
+      {/* **키를 못 박는다** — 걸음마다 목록 길이가 달라도 상자가 커졌다 작아졌다 하지 않는다.
+          안이 넘치면 그 안에서만 구른다(바깥 상자는 그대로). */}
+      <div className="flex h-96 flex-col gap-3">
         {/* 어디까지 내려왔는지 — 걸음마다 되짚어 올라갈 수 있다. */}
-        {(substation || selectedAsset) && (
-          <div className="flex items-center gap-2">
+        {trail && (
+          <div className="flex shrink-0 items-center gap-2">
             <Button variant="ghost" size="sm" onClick={back}>
               ← 뒤로
             </Button>
-            <p className="min-w-0 truncate text-xs text-content-muted">
-              {substation?.name}
-              {selectedAsset ? ` · ${selectedAsset.name}` : ''}
-            </p>
+            <p className="min-w-0 truncate text-xs text-content-muted">{trail}</p>
           </div>
         )}
 
-        {errorText && <p className="text-xs text-danger">{errorText}</p>}
+        {errorText && <p className="shrink-0 text-xs text-danger">{errorText}</p>}
 
-        {!substation ? (
-          /* ① 변전소 — 조직 트리 순서대로 **전부** 선다. 검색은 좁히는 데만 쓴다. */
-          <>
-            <Input
-              autoFocus
-              aria-label="변전소 검색"
-              placeholder="변전소 이름으로 좁히기"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-            />
-            {shownSubstations.length === 0 ? (
+        {/* 검색은 **목록을 좁히는 보조**다 — 포트 고르기에는 없다(그 자리에서 셀 만큼 적다). */}
+        {!selectedAsset && (
+          <Input
+            autoFocus
+            aria-label="검색"
+            placeholder="검색"
+            value={query}
+            onChange={(e) => setQuery(e.currentTarget.value)}
+            className="shrink-0"
+          />
+        )}
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {!substation ? (
+            /* ① 변전소 — 조직 트리 순서대로 **전부** 선다. */
+            shownSubstations.length === 0 ? (
               <EmptyState title="맞는 변전소가 없습니다" />
             ) : (
-              <ul className="max-h-80 divide-y divide-line overflow-y-auto">
+              <ul className="divide-y divide-line">
                 {shownSubstations.map((s) => (
                   <li key={s.id}>
                     <button type="button" className={cn(row, SELECTABLE)} onClick={() => void openSubstation(s)}>
@@ -205,67 +230,78 @@ export function RemoteEndpointModal({
                   </li>
                 ))}
               </ul>
-            )}
-          </>
-        ) : !selectedAsset ? (
-          /* ② 그 국의 설비 — **층별로 묶어** 전부. 이름으로 좁힐 수도 있다. */
-          <>
-            <Input
-              autoFocus
-              aria-label="설비 이름으로 좁히기"
-              placeholder="설비 이름으로 좁히기"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-            />
-            {loadingAssets ? (
+            )
+          ) : !assembly ? (
+            /* ② 그 국의 **설비** — 층별로 묶어(도면에 놓인 것이 설비다). */
+            loadingAssets ? (
               <p className="py-2 text-xs text-content-faint">불러오는 중…</p>
             ) : byFloor.length === 0 ? (
               <EmptyState title="이 변전소에는 놓인 설비가 없습니다" />
             ) : (
-              <div className="max-h-80 overflow-y-auto">
-                {byFloor.map(([floor, list]) => (
-                  <section key={floor} className="mb-2">
-                    {/* 층 이름은 **본문의 한 줄**이다 — 머리글 옷을 입히지 않는다(표와 같은 규칙). */}
-                    <h4 className="border-t border-line px-2 py-1 text-xs font-semibold text-content">{floor}</h4>
-                    <ul className="divide-y divide-line">
-                      {list.map((a) => (
-                        <li key={a.id}>
-                          <button type="button" className={cn(row, SELECTABLE)} onClick={() => void handleSelectAsset(a)}>
-                            <span className="block text-sm text-content">{a.name}</span>
-                            <span className="block text-xs text-content-muted">{a.typeName}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          /* ③ 포트 — 이을 수 있는 것만. */
-          <>
-            {loadingPorts ? (
-              <p className="py-2 text-xs text-content-faint">포트 불러오는 중…</p>
-            ) : ports.length === 0 ? (
-              <EmptyState title="이을 수 있는 포트가 없습니다" description="모두 차 있거나 종류가 맞지 않습니다." />
+              byFloor.map(([floor, list]) => (
+                <section key={floor} className="mb-2">
+                  {/* 층 이름은 **본문의 한 줄**이다 — 머리글 옷을 입히지 않는다(표와 같은 규칙). */}
+                  <h4 className="border-t border-line px-2 py-1 text-xs font-semibold text-content">{floor}</h4>
+                  <ul className="divide-y divide-line">
+                    {list.map((a) => (
+                      <li key={a.id}>
+                        <button type="button" className={cn(row, SELECTABLE)} onClick={() => { setAssembly(a); setQuery(''); }}>
+                          <span className="block text-sm text-content">{a.name}</span>
+                          <span className="block text-xs text-content-muted">{a.typeName}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))
+            )
+          ) : !selectedAsset ? (
+            /* ③ 그 설비 안의 **장비** — 포트는 장비가 갖는다. 없으면 설비 자신의 포트로 간다. */
+            parts.length === 0 ? (
+              <EmptyState
+                title="이 설비 안에 장비가 없습니다"
+                description="설비 자신의 포트를 보려면 아래를 누르세요."
+              />
             ) : (
-              <ul className="max-h-80 divide-y divide-line overflow-y-auto">
-                {ports.map((port) => (
-                  <li key={port.id}>
-                    <button
-                      type="button"
-                      className={cn(row, 'flex items-center gap-2', SELECTABLE)}
-                      onClick={() => onSelectPort(port, selectedAsset)}
-                    >
-                      <span className="text-sm text-content">{port.name}</span>
-                      <span className="ml-auto text-xs text-content-faint">{port.group}</span>
+              <ul className="divide-y divide-line">
+                {parts.map((a) => (
+                  <li key={a.id}>
+                    <button type="button" className={cn(row, SELECTABLE)} onClick={() => void handleSelectAsset(a)}>
+                      <span className="block text-sm text-content">{a.name}</span>
+                      <span className="block text-xs text-content-muted">{a.typeName}</span>
                     </button>
                   </li>
                 ))}
               </ul>
-            )}
-          </>
+            )
+          ) : /* ④ 포트 — 이을 수 있는 것만. */
+          loadingPorts ? (
+            <p className="py-2 text-xs text-content-faint">포트 불러오는 중…</p>
+          ) : ports.length === 0 ? (
+            <EmptyState title="이을 수 있는 포트가 없습니다" description="모두 차 있거나 종류가 맞지 않습니다." />
+          ) : (
+            <ul className="divide-y divide-line">
+              {ports.map((port) => (
+                <li key={port.id}>
+                  <button
+                    type="button"
+                    className={cn(row, 'flex items-center gap-2', SELECTABLE)}
+                    onClick={() => onSelectPort(port, selectedAsset)}
+                  >
+                    <span className="text-sm text-content">{port.name}</span>
+                    <span className="ml-auto text-xs text-content-faint">{port.group}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* 장비가 없는 설비 — 그 설비 자신의 포트를 본다(단품으로 놓은 것). */}
+        {assembly && !selectedAsset && parts.length === 0 && (
+          <Button variant="secondary" size="sm" className="shrink-0" onClick={() => void handleSelectAsset(assembly)}>
+            {assembly.name} 의 포트 보기
+          </Button>
         )}
       </div>
     </Modal>
