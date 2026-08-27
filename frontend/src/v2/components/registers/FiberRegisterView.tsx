@@ -6,7 +6,7 @@
  *   컬럼: 코어 | {groups 동적} | 길이(m) | 손실(dB) | 점검일
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Th, cn, selectableRow, SELECTABLE, SELECTED, EMPTY, TABLE_ROW } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
@@ -22,6 +22,8 @@ import { InlineEditCell } from '../InlineEditCell';
 interface Props {
   substationId: string;
   selectedAssetId: string | null;
+  /** 지금 고른 포트 — 주소가 쥔다(`?port=`). 판에서 골라도 이 값이 바뀌어 표가 따라 칠해진다. */
+  selectedPortId: string | null;
   /** 드롭다운으로 고른 설비 — 주소가 쥔다(`useWorkspaceRoute`). */
   containerId: string | null;
   onPickContainer: (id: string) => void;
@@ -187,6 +189,7 @@ function PortFieldInput({
 export function FiberRegisterView({
   substationId: _substationId,
   selectedAssetId,
+  selectedPortId,
   containerId,
   onPickContainer,
   onSelectAsset,
@@ -197,11 +200,15 @@ export function FiberRegisterView({
   const containers = useMemo(() => fiberContainers(effectiveAssets), [effectiveAssets]);
 
   const [query, setQuery] = useState('');
-  /* 고른 심선 — 표의 단위는 자산이 아니라 **심선**이다. 자산 id 로 칠하면 그 슬롯의 24행이
-     한꺼번에 물들어, 어느 심선을 눌렀는지가 화면에서 사라진다(실제로 그랬다). */
-  /** 고른 심선 — 슬롯과 코어를 합친 한 글자열. 표의 행 열쇠와 같은 것이라 규칙이 하나다. */
-  const [selectedCore, setSelectedCore] = useState<string | null>(null);
-  const coreKey = (row: FiberRow) => `${row.slotId}-${row.coreIndex}`;
+  /**
+   * 고른 심선 — **주소가 쥔 포트**에서 나온다. 여기서 따로 들고 있지 않는다.
+   *
+   * 표의 단위는 자산이 아니라 심선이다(자산 id 로 칠하면 그 슬롯의 24행이 한꺼번에 물든다).
+   * 심선 한 줄은 포트 하나로 가리킬 수 있다 — 장비쪽 성단이 있으면 그 포트, 아직 성단되지
+   * 않았으면 그 심선을 나르는 인입 포트. 판에서 그 포트를 골라도 같은 줄이 칠해진다.
+   */
+  const portOf = (row: FiberRow) => row.cells.find((c) => c.portId)?.portId ?? row.meta.portId;
+  const isSelected = (row: FiberRow) => selectedPortId != null && portOf(row) === selectedPortId;
 
   /**
    * 이 줄은 심선 하나다 — 패널도 그 포트를 고른 상태로 열어 준다.
@@ -210,13 +217,11 @@ export function FiberRegisterView({
    * 13번 같은)는 그 심선을 나르는 인입 포트로 물러선다.
    */
   const selectCore = (row: FiberRow, next: string | null) => {
-    setSelectedCore(next);
     if (next === null) {
       onSelectAsset(null);
       return;
     }
-    const corePortId = row.cells.find((c) => c.portId)?.portId ?? null;
-    onSelectAsset(row.slotId, corePortId ?? row.meta.portId);
+    onSelectAsset(row.slotId, portOf(row));
   };
 
   /* 표의 단위는 설비 하나 — 계통과 같은 훅을 쓴다. */
@@ -227,11 +232,6 @@ export function FiberRegisterView({
     onPickContainer,
   });
 
-  /* 패널이 다른 자산으로 옮겨 가면 표의 선택도 놓는다 — 둘이 서로 다른 것을 가리키면
-     "선택" 이라는 말이 화면에서 두 가지 뜻이 된다. */
-  useEffect(() => {
-    setSelectedCore((cur) => (cur && selectedAssetId != null && cur.startsWith(`${selectedAssetId}-`) ? cur : null));
-  }, [selectedAssetId]);
   const activeContainer = picked.active;
 
   const { groups, groupLabels, rows } = useMemo(() => {
@@ -315,10 +315,7 @@ export function FiberRegisterView({
         shown: filteredRows.length,
         total: rows.length,
       }}
-      onClearSelection={() => {
-        setSelectedCore(null);
-        onSelectAsset(null);
-      }}
+      onClearSelection={() => onSelectAsset(null)}
       widths={fiberWidths}
       head={
         <>
@@ -352,11 +349,11 @@ export function FiberRegisterView({
               rows: slotRows.map((row) => (
               <tr
                 key={`${row.slotId}-${row.coreIndex}`}
-                {...selectableRow(selectedCore, coreKey(row), (next) => selectCore(row, next))}
+                {...selectableRow(isSelected(row) ? portOf(row) : null, portOf(row) ?? row.slotId, (next) => selectCore(row, next))}
                 className={cn(
                   TABLE_ROW,
                   SELECTABLE,
-                  selectedCore === coreKey(row) && SELECTED,
+                  isSelected(row) && SELECTED,
                 )}
               >
                 {/* 코어 번호 */}

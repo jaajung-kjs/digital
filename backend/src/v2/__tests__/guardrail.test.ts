@@ -483,6 +483,21 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
   });
 
   /**
+   * **고른 포트는 화면이 따로 들고 있지 않는다** — 주소가 쥔다(`?port=`).
+   *
+   * 상세 판이 제 지역 상태로 고른 포트를 들고 있었다. 그래서 표에서 줄을 누르면 판이 따라왔지만
+   * (주소를 거쳐서) 판에서 포트를 누르면 표는 아무것도 몰랐다 — 같은 것을 가리키는 두 화면이
+   * 서로 다른 것을 고른 채 나란히 섰다. 선택이 사는 자리가 둘이면 반드시 어긋난다.
+   */
+  it('고른 포트를 화면이 따로 들고 있지 않는다 — 주소가 쥔다', () => {
+    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      const src = readFileSync(f, 'utf8');
+      const hit = src.match(/const \[selected(Port|Core)\w*\s*,/);
+      expect(hit?.[0], `${f}: 고른 포트를 지역 상태로 들고 있다 — 주소(useWorkspaceRoute)가 쥐게 하세요`).toBeUndefined();
+    }
+  });
+
+  /**
    * **표의 행 높이는 한 곳에서 정한다**(`TABLE_ROW`).
    *
    * 같은 판(`TableCard`)을 쓰면서 높이는 화면마다 손으로 적고 있었다 — 선번장 `h-9`,

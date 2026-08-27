@@ -20,7 +20,8 @@ type Tab = 'layout' | 'info' | 'photos' | 'records' | 'connections';
 // ── 메인 패널 ─────────────────────────────────────────────────────────────────
 interface AssetDetailPanelProps {
   assetId: string;
-  onSelectAsset: (id: string | null) => void;
+  /** 자산을 고른다 — 포트까지 함께 가리킬 수 있다(표와 판이 같은 것을 가리키게). */
+  onSelectAsset: (id: string | null, portId?: string | null) => void;
   onTrace?: (result: TraceResult) => void;
   onClearTrace?: () => void;
   traceResult?: TraceResult | null;

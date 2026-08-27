@@ -23,6 +23,8 @@ import { InlineEditCell } from '../InlineEditCell';
 interface Props {
   substationId: string;
   selectedAssetId: string | null;
+  /** 지금 고른 포트 — 주소가 쥔다(`?port=`). 판에서 골라도 이 줄이 칠해진다. */
+  selectedPortId: string | null;
   onSelectAsset: (id: string | null, portId?: string | null) => void;
 }
 
@@ -211,7 +213,7 @@ function flatten(nodes: PowerNode[], path: string[] = []): { node: PowerNode; pa
   return nodes.flatMap((node) => [{ node, path }, ...flatten(node.children, [...path, node.name])]);
 }
 
-export function PowerRegisterView({ substationId: _substationId, selectedAssetId, onSelectAsset }: Props) {
+export function PowerRegisterView({ substationId: _substationId, selectedAssetId, selectedPortId, onSelectAsset }: Props) {
   const effectiveAssets = useEffectiveAssets();
   const effectiveCables = useEffectiveCables();
 
@@ -349,8 +351,10 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           ...node.sources.map((src) => (
             <tr
               key={src.portId}
-              {...selectableRow(selectedAssetId, node.assetId, () => onSelectAsset(node.assetId, src.portId))}
-              className={cn(TABLE_ROW, 'bg-surface-sunken/60', SELECTABLE)}
+              /* 줄의 신원은 **그 포트**다 — 자산으로 칠하면 그 반의 열 줄이 한꺼번에 물들어
+                 어느 회로를 골랐는지가 화면에서 사라진다. */
+              {...selectableRow(selectedPortId, src.portId, () => onSelectAsset(node.assetId, src.portId))}
+              className={cn(TABLE_ROW, 'bg-surface-sunken/60', SELECTABLE, selectedPortId === src.portId && SELECTED)}
             >
               <td className="px-3 py-1.5 text-sm font-medium text-content">입력</td>
               <td className="truncate px-3 py-1.5">
@@ -375,9 +379,9 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           ...circuits.map((c) => (
           <tr
             key={c.portId}
-            {...selectableRow(selectedAssetId, node.assetId, () => onSelectAsset(node.assetId, c.portId))}
+            {...selectableRow(selectedPortId, c.portId, () => onSelectAsset(node.assetId, c.portId))}
             /* 높이는 표가 정한다(`TABLE_ROW`) — 화면마다 적으면 같은 표가 다르게 보인다. */
-            className={cn(TABLE_ROW, SELECTABLE)}
+            className={cn(TABLE_ROW, SELECTABLE, selectedPortId === c.portId && SELECTED)}
           >
             <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{c.index}</td>
             {/* 용도 = 이 회로가 먹이는 것. 도면 밖 부하는 케이블에 적힌 대국까지가 전부다. */}

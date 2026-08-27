@@ -351,6 +351,8 @@ export default function V2WorkspacePage() {
                     <FiberRegisterView
                       substationId={substationId}
                       selectedAssetId={highlightedAssetId}
+                      /* 판에서 포트를 골라도 표가 따라 칠해진다 — 선택이 사는 자리는 주소 하나다. */
+                      selectedPortId={focusPortId}
                       containerId={route.containerId}
                       onPickContainer={route.setContainer}
                       onSelectAsset={handleSelectAssetId}
@@ -359,6 +361,7 @@ export default function V2WorkspacePage() {
                     <PowerRegisterView
                       substationId={substationId}
                       selectedAssetId={highlightedAssetId}
+                      selectedPortId={focusPortId}
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : (

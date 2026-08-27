@@ -87,6 +87,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     render(<FiberRegisterView
         substationId="sub-1"
         selectedAssetId={null}
+        selectedPortId={null}
         containerId={null}
         onPickContainer={vi.fn()}
         onSelectAsset={vi.fn()}
@@ -108,6 +109,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     render(<FiberRegisterView
         substationId="sub-1"
         selectedAssetId={null}
+        selectedPortId={null}
         containerId={null}
         onPickContainer={vi.fn()}
         onSelectAsset={vi.fn()}
@@ -129,21 +131,37 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
 
   /* 표의 단위는 자산이 아니라 심선이다. 자산 id 로 칠하면 그 슬롯의 24행이 한꺼번에
      물들어, 어느 심선을 눌렀는지가 화면에서 사라진다(실제로 그랬다). */
-  it('행을 고르면 그 심선 한 줄만 선택된다', () => {
+  /**
+   * **선택은 주소가 쥔다** — 표도 판도 그 하나를 본다.
+   *
+   * 줄을 누르면 표가 제 손으로 칠하지 않고 「이 포트를 골랐다」고 알린다. 칠하는 일은 주소가
+   * 그 포트를 가리킬 때 일어난다 — 그래서 **판에서 포트를 골라도 같은 줄이 칠해진다**(예전에는
+   * 표만 아는 지역 상태라, 판에서 고르면 표는 아무것도 몰랐다).
+   */
+  it('줄을 누르면 그 심선의 포트를 알린다', () => {
     setStore([ofd, slot], []);
     const onSelect = vi.fn();
     const { container } = render(
-      <FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={onSelect} />,
+      <FiberRegisterView substationId="sub-1" selectedAssetId={null} selectedPortId={null} onSelectAsset={onSelect} />,
     );
     const dataRows = [...container.querySelectorAll('tbody tr')].filter((r) => r.querySelectorAll('td').length > 3);
     expect(dataRows).toHaveLength(2); // 코어 2가닥
 
     fireEvent.click(dataRows[0]!);
+    expect(onSelect).toHaveBeenCalledWith('slot', 'a1');
+    /* 아직 아무 줄도 칠해지지 않는다 — 주소가 바뀌어야 칠한다. */
+    expect(dataRows.filter((r) => r.className.includes('bg-info-bg'))).toHaveLength(0);
+  });
+
+  it('주소가 가리키는 포트의 줄만 칠해진다 — 판에서 골라도 같다', () => {
+    setStore([ofd, slot], []);
+    const { container } = render(
+      <FiberRegisterView substationId="sub-1" selectedAssetId="slot" selectedPortId="a1" onSelectAsset={vi.fn()} />,
+    );
+    const dataRows = [...container.querySelectorAll('tbody tr')].filter((r) => r.querySelectorAll('td').length > 3);
     const selected = dataRows.filter((r) => r.className.includes('bg-info-bg'));
     expect(selected).toHaveLength(1);
     expect(selected[0]).toBe(dataRows[0]);
-    // 패널은 그 심선의 **포트까지** 골라 준다 — 표의 줄과 판의 선택이 어긋나면 안 된다.
-    expect(onSelect).toHaveBeenCalledWith('slot', 'a1');
   });
 
   /* 인입이 없는 자산은 선번장 대상이 아니다 — OTDR 로 잴 것이 없다. */
@@ -154,6 +172,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     render(<FiberRegisterView
         substationId="sub-1"
         selectedAssetId={null}
+        selectedPortId={null}
         containerId={null}
         onPickContainer={vi.fn()}
         onSelectAsset={vi.fn()}
@@ -166,6 +185,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     render(<FiberRegisterView
         substationId="sub-1"
         selectedAssetId={null}
+        selectedPortId={null}
         containerId={null}
         onPickContainer={vi.fn()}
         onSelectAsset={vi.fn()}

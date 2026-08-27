@@ -81,7 +81,8 @@ interface ConnectionsTabProps {
   /** 밖에서 골라 준 포트 — 선번장의 한 줄이 포트 하나를 가리킬 때 넘어온다. */
   focusPortId?: string | null;
   /** 대국·추적 경로에서 다른 자산으로 이동한다 — 설비 관리의 단일 이동 지점. */
-  onSelectAsset: (id: string) => void;
+  /** 자산(또는 그 안의 장비)을 고른다 — 포트까지 함께 가리킬 수 있다. */
+  onSelectAsset: (id: string, portId?: string | null) => void;
   onTrace: (result: TraceResult) => void;
   onClearTrace: () => void;
   traceResult?: TraceResult | null;
@@ -114,8 +115,17 @@ export function ConnectionsTab({
   assetId, focusPortId, onSelectAsset, onTrace, onClearTrace, traceResult, onConnectPort, cablePick,
   ownerHeadings = true,
 }: ConnectionsTabProps) {
-  // 타일에는 번호만 있으므로, 고른 포트 하나의 상세를 아래에 펼친다.
-  const [selectedPortId, setSelectedPortId] = useState<string | null>(focusPortId ?? null);
+  /**
+   * 고른 포트 — **주소가 쥔다**(`?port=`). 여기서 따로 들고 있지 않는다.
+   *
+   * 예전에는 이 판만 아는 지역 상태였다. 그래서 표에서 줄을 누르면 판이 따라왔지만(주소를
+   * 거쳐서), 판에서 포트를 누르면 표는 아무것도 몰랐다 — 같은 것을 가리키는 두 화면이 서로
+   * 다른 것을 고른 채 나란히 서 있었다. 선택이 사는 자리는 하나여야 한다.
+   */
+  const selectedPortId = focusPortId ?? null;
+  /** 포트를 고른다 — 주인 자산과 함께 알린다(주소는 설비·장비·포트를 함께 쥔다). */
+  const selectPort = (portId: string | null, ownerId: string = assetId) => onSelectAsset(ownerId, portId);
+  const setSelectedPortId = (portId: string | null) => selectPort(portId);
   /* 어느 포트에서 추적을 걸었나 — 결과를 **그 포트 밑**에 펴기 위해.
      `TraceResult` 는 출발 포트를 담지 않는다(평면도 강조가 쓰는 형상이라 그럴 이유도 없다). */
   const [tracedPortId, setTracedPortId] = useState<string | null>(null);
@@ -132,16 +142,11 @@ export function ConnectionsTab({
   const picking = cablePick && cablePick.assetId === assetId ? cablePick : null;
   const [pickQuery, setPickQuery] = useState('');
   useEffect(() => setPickQuery(''), [picking?.assetId]);
-  // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다. 펼친 장비도 첫 장비로 돌아간다.
+  /* 자산을 옮기면 추적과 펼친 장비는 처음으로 — 고른 포트는 주소가 이미 함께 옮긴다. */
   useEffect(() => {
-    setSelectedPortId(null);
     setTracedPortId(null);
     setOpenPart(undefined);
   }, [assetId]);
-  // 밖에서 다른 포트를 가리키면 따라간다 — 표의 줄과 판의 선택이 어긋나면 안 된다.
-  useEffect(() => {
-    if (focusPortId) setSelectedPortId(focusPortId);
-  }, [focusPortId]);
   const effectiveAssets = useEffectiveAssets();
   const effectiveCables = useEffectiveCables();
 
@@ -599,7 +604,9 @@ export function ConnectionsTab({
                       if (port) picking.onSelect(port);
                       return;
                     }
-                    setSelectedPortId((prev) => (prev === id ? null : id));
+                    /* 다시 누르면 놓는다 — 주인 장비까지 함께 알린다(주소가 설비·장비·포트를 쥔다). */
+                    const port = allPorts.find((p) => p.id === id);
+                    selectPort(selectedPortId === id ? null : id, port?.assetId ?? assetId);
                   }}
                 />
 
@@ -785,7 +792,8 @@ function TraceBranches({
   depth: number;
   label: (portId: string) => string;
   assetOf: (portId: string) => { id: string; name: string } | null;
-  onSelectAsset: (id: string) => void;
+  /** 자산(또는 그 안의 장비)을 고른다 — 포트까지 함께 가리킬 수 있다. */
+  onSelectAsset: (id: string, portId?: string | null) => void;
 }) {
   if (nodes.length === 0) return null;
   return (
