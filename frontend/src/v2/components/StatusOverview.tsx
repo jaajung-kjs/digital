@@ -7,6 +7,7 @@ import {
   EmptyState,
   IconButton,
   StatusDot,
+  TABLE_ROW,
   TableCard,
   TableSearch,
   Th,
@@ -237,10 +238,12 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                  * 「어디까지가 머리글인가」가 흐려진다 — 색은 마지막 수단이다.
                  */}
                 <tr
-                  className={cn('border-t border-line', SELECTABLE)}
+                  /* 높이는 표가 정한다(`TABLE_ROW`) — 층은 들여쓰기·굵기·셰브런이 말한다.
+                     묶음 줄만 경계선이 위에 붙는다(§표 계층). */
+                  className={cn(TABLE_ROW, 'border-b-0 border-t', SELECTABLE)}
                   onClick={() => setCollapsed((prev) => toggle(prev, group.categoryName))}
                 >
-                  <td className="px-3 py-2 text-content">
+                  <td className="px-3 py-1.5 text-content">
                     <span className="flex items-center gap-1">
                       <button
                         type="button"
@@ -253,7 +256,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                       <span className="truncate font-semibold">{group.categoryName}</span>
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-content">{group.count}</td>
+                  <td className="px-3 py-1.5 text-right font-semibold tabular-nums text-content">{group.count}</td>
                   <td colSpan={colCount - 2} />
                 </tr>
 
@@ -264,7 +267,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                   return (
                     <Fragment key={item.key}>
                       <tr
-                        className={cn('border-b border-line', SELECTABLE)}
+                        className={cn(TABLE_ROW, SELECTABLE)}
                         onClick={() =>
                           setExpanded((prev) => {
                             const next = new Set(prev);
@@ -274,7 +277,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                           })
                         }
                       >
-                        <td className="truncate px-3 py-2 pl-8 text-content">
+                        <td className="truncate px-3 py-1.5 pl-8 text-content">
                           <span className="flex items-center gap-1">
                             <button
                               type="button"
@@ -289,8 +292,8 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                             </span>
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-content">{item.count}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-1.5 text-right tabular-nums text-content">{item.count}</td>
+                        <td className="px-3 py-1.5">
                           {bad.length === 0 ? (
                             <span className="text-xs text-content-faint">{EMPTY}</span>
                           ) : (
@@ -319,7 +322,8 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                             key={r.id}
                             {...selectableRow(selectedId, r.id, onSelectAsset)}
                             className={cn(
-                              'group border-b border-line focus-visible:outline-none focus-ring-input',
+                              TABLE_ROW,
+                              'group',
                               SELECTABLE,
                               r.id === selectedId && SELECTED,
                             )}

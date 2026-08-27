@@ -483,6 +483,23 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
   });
 
   /**
+   * **표의 행 높이는 한 곳에서 정한다**(`TABLE_ROW`).
+   *
+   * 같은 판(`TableCard`)을 쓰면서 높이는 화면마다 손으로 적고 있었다 — 선번장 `h-9`,
+   * 계통 `h-11`, 현황은 아예 안 적어 내용에 따라 들쭉날쭉했다. 같은 표가 화면을 옮기면 줄
+   * 사이가 달라 보이고, 이 표들은 눈으로 줄을 세는 물건이라(24심·10회로) 셈이 흐트러진다.
+   */
+  it('표 행 높이를 화면마다 다시 적지 않는다 — TABLE_ROW 를 쓴다', () => {
+    const ALLOW = new Set(['frontend/src/components/ui/Table.tsx']);
+    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      if (ALLOW.has(relToRoot(f))) continue;
+      const src = readFileSync(f, 'utf8');
+      const hit = src.match(/h-\d+(?:\.\d+)? border-b border-line/);
+      expect(hit?.[0], `${f}: 행 높이를 손으로 적었다 — TABLE_ROW 를 쓰세요`).toBeUndefined();
+    }
+  });
+
+  /**
    * 「바깥을 누르면 고른 것이 풀린다」는 앱 공통 규칙(`useDismissOnOutside`)이다.
    *
    * 화면마다 제 손으로 「빈 곳」을 정의하면 반드시 한 곳이 빠진다 — 격자는 빈 칸과 Esc 만

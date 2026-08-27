@@ -7,7 +7,7 @@
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Th, cn, selectableRow, SELECTABLE, SELECTED, EMPTY } from '../../../components/ui';
+import { Th, cn, selectableRow, SELECTABLE, SELECTED, EMPTY, TABLE_ROW } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -354,7 +354,7 @@ export function FiberRegisterView({
                 key={`${row.slotId}-${row.coreIndex}`}
                 {...selectableRow(selectedCore, coreKey(row), (next) => selectCore(row, next))}
                 className={cn(
-                  'h-9 border-b border-line focus-visible:outline-none focus-ring-input',
+                  TABLE_ROW,
                   SELECTABLE,
                   selectedCore === coreKey(row) && SELECTED,
                 )}

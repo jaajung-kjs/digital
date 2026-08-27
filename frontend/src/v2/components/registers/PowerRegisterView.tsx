@@ -10,7 +10,7 @@
  * 위쪽 드롭다운으로 반을 하나씩 골라 봐야 해서 「이 반이 어디에 매달렸나」는 어디에도 없었다.
  */
 import { useMemo, useState } from 'react';
-import { Th, Toggle, cn, SELECTABLE, SELECTED, EMPTY, selectableRow } from '../../../components/ui';
+import { Th, Toggle, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -350,10 +350,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             <tr
               key={src.portId}
               {...selectableRow(selectedAssetId, node.assetId, () => onSelectAsset(node.assetId, src.portId))}
-              className={cn(
-                'h-11 border-b border-line bg-surface-sunken/60 focus-visible:outline-none focus-ring-input',
-                SELECTABLE,
-              )}
+              className={cn(TABLE_ROW, 'bg-surface-sunken/60', SELECTABLE)}
             >
               <td className="px-3 py-1.5 text-sm font-medium text-content">입력</td>
               <td className="truncate px-3 py-1.5">
@@ -379,8 +376,8 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           <tr
             key={c.portId}
             {...selectableRow(selectedAssetId, node.assetId, () => onSelectAsset(node.assetId, c.portId))}
-            /* 모든 행이 같은 높이 — 패널 스케줄은 눈으로 회로를 세는 표다. */
-            className={cn('h-11 border-b border-line focus-visible:outline-none focus-ring-input', SELECTABLE)}
+            /* 높이는 표가 정한다(`TABLE_ROW`) — 화면마다 적으면 같은 표가 다르게 보인다. */
+            className={cn(TABLE_ROW, SELECTABLE)}
           >
             <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{c.index}</td>
             {/* 용도 = 이 회로가 먹이는 것. 도면 밖 부하는 케이블에 적힌 대국까지가 전부다. */}
