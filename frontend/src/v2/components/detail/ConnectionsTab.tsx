@@ -27,7 +27,7 @@ import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../p
 import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { internalLinkMap, portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
@@ -283,6 +283,28 @@ export function ConnectionsTab({
       }];
     });
   }, [selectedPort, cablesByPortId, portIndex, asset, catalog.data]);
+
+  /**
+   * 이 포트가 **자산 안에서** 이어지는 포트들 — 케이블 말고 그 장비를 통과하는 길.
+   *
+   * 규칙은 포트 선언에서 저절로 나온다(`internalLinkMap` ← `derivedLinks`): 전원 입력은
+   * 출력과 통하고, 다심 인입의 코어 i 는 앞면 i 번으로 나온다. 그래서 **「다심이면 특별히」
+   * 같은 갈래가 없다** — 화면은 「이웃을 다 보여 준다」 한 문장이고, 나중에 다른 통과 선언이
+   * 생겨도 여기는 그대로다.
+   *
+   * 이것이 있어야 슬롯의 광 포트에서 자국(앞면 → 장비)과 대국(인입 → 상대국)을 **한 판에서
+   * 오갈 수 있다**. 예전에는 케이블 상대 한쪽만 보여 다른 쪽을 보려면 선번장으로 나가야 했다.
+   */
+  const selectedInternal = useMemo(() => {
+    if (!selectedPort) return [];
+    const owner = portOwners.find((o) => o.owner.id === selectedPort.assetId)?.owner;
+    if (!owner) return [];
+    const map = internalLinkMap(owner.ports);
+    return (map.get(selectedPort.id) ?? []).flatMap((id) => {
+      const port = owner.ports.find((p) => p.id === id);
+      return port ? [port] : [];
+    });
+  }, [selectedPort, portOwners]);
 
   /**
    * 이 포트에 물릴 수 있는 케이블 품목 — **그 포트의 매체 것만**.
@@ -560,6 +582,28 @@ export function ConnectionsTab({
                       )}
                     </div>
 
+                    {selectedInternal.length > 0 && (
+                      /* 이 장비를 통과해 어디로 이어지는가 — 누르면 그 포트로 옮겨 간다.
+                         슬롯이라면 여기서 앞면 ↔ 인입을 오가며 자국과 대국을 다 본다. */
+                      <DetailRow label="내부 연결">
+                        <div className="flex flex-wrap gap-1">
+                          {selectedInternal.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              className={cn(
+                                'rounded border border-line px-1.5 text-sm text-primary',
+                                SELECTABLE,
+                              )}
+                              onClick={() => setSelectedPortId(p.id)}
+                            >
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </DetailRow>
+                    )}
+
                     {selectedPeers.length === 0 ? (
                       /* 빈 포트 — 「없다」로 끝내지 않고 **여기서 잇게** 한다. 예전에는 평면도로
                          건너가 도구를 켜고 이 자산을 다시 찾아 이 포트를 다시 골라야 했다. */
@@ -584,7 +628,7 @@ export function ConnectionsTab({
                           title="연결"
                           onDelete={() => void handleDeleteCable(peer)}
                         >
-                          <DetailRow label="대국">
+                          <DetailRow label="케이블 반대편">
                             <button
                               type="button"
                               className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}

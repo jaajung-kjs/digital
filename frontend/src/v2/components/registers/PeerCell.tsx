@@ -19,11 +19,16 @@ interface PeerCellProps {
 
 export function PeerCell({ peer }: PeerCellProps) {
   if (!peer) return <span className="text-content-faint">{EMPTY}</span>;
-  const label = endpointLabel(peer);
-  /* 상대 변전소는 **배지로 달지 않는다** — 대국이 상대 국에 있다는 것은 OPGW 를 탔다는
-     뜻이고 그건 그 줄이 이미 말한다. 좁은 칸에서 배지가 정작 장비 이름을 밀어냈다.
-     정보 자체는 버리지 않고 툴팁에 남긴다. */
-  const full = peer.remote && peer.substationName ? `${label} (${peer.substationName})` : label;
+  /**
+   * 상대 국은 **이름 앞에 적는다** — 툴팁에만 두었더니 자기 자신처럼 읽혔다.
+   *
+   * 두 국의 슬롯 이름은 흔히 같다(둘 다 「슬롯 1」). 그때 `OFD - 슬롯 1#1` 만 보이면 이
+   * 줄이 제자리를 가리키는 것처럼 보인다 — 실제로 그 물음이 나왔다. 어디로 가는지가
+   * 이 칸의 전부이므로, 국 이름이 그 앞에 서는 것이 맞다.
+   */
+  const own = endpointLabel(peer);
+  const label = peer.remote && peer.substationName ? `${peer.substationName} · ${own}` : own;
+  const full = label;
 
   /* `#` 앞뒤로 가른다 — 앞은 그 줄들이 공유하는 자리, 뒤는 그 줄만의 번호다. */
   const cut = label.lastIndexOf('#');

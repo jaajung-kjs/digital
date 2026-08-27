@@ -85,3 +85,31 @@ describe('internalLinkMap — 규칙은 포트 선언에서만 나온다', () =>
     expect(internalLinkMap(ports).get('c3')).toBeUndefined();
   });
 });
+
+/**
+ * **화면이 「다심이면 특별히」를 적지 않게** — 이웃은 선언에서 나온다.
+ *
+ * 포트 상세가 「이 포트의 이웃」을 물을 때 이 지도를 쓴다. 그래서 슬롯의 앞면 어댑터를
+ * 고르면 인입이, 인입을 고르면 앞면들이 이웃으로 나온다 — 자국(앞면 → 장비)과 대국
+ * (인입 → 상대국)을 한 판에서 오갈 수 있는 근거가 이것이다.
+ */
+describe('포트 상세가 쓰는 이웃', () => {
+  const trunk = { id: 't', group: 'TRUNK', medium: 'fiber', direction: 'BI' as const, positions: 3, index: 1 };
+  const front = (i: number) => ({ id: `f${i}`, group: 'CORE', medium: 'fiber', direction: 'BI' as const, positions: 1, index: i });
+
+  it('앞면 어댑터의 이웃은 인입 하나다 — 거기서 대국으로 건너간다', () => {
+    const map = internalLinkMap([trunk, front(1), front(2), front(3)]);
+    expect(map.get('f2')).toEqual(['t']);
+  });
+
+  it('인입의 이웃은 제 코어 수만큼의 앞면이다', () => {
+    const map = internalLinkMap([trunk, front(1), front(2), front(3), front(4)]);
+    /* 24심 인입 옆에 48구 판이 있어도 없는 코어까지 이어졌다고 하지 않는다. */
+    expect(map.get('t')).toEqual(['f1', 'f2', 'f3']);
+  });
+
+  it('이웃이 없는 포트는 그 줄 자체가 서지 않는다 — 빈 상자를 만들지 않는다', () => {
+    const lone = { id: 'n', group: 'NET', medium: 'network', direction: 'BI' as const, positions: 1, index: 1 };
+    expect(internalLinkMap([lone]).get('n')).toBeUndefined();
+  });
+});
