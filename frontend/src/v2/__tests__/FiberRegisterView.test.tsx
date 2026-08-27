@@ -93,8 +93,9 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
       />);
 
     /* 값은 **읽는 줄**로 선다 — 고칠 때만 상자가 된다(`InlineEditCell`). */
-    // 길이는 케이블 한 가닥의 값 — 두 코어 행이 **같은** 40 을 본다(예전에는 심선마다 케이블이었다).
-    expect(screen.getAllByRole('button', { name: '길이 고치기' }).filter((b) => b.textContent === '40')).toHaveLength(2);
+    /* 길이는 케이블 한 가닥의 값이라 **슬롯 머리에 한 번** 적힌다 — 열로 세우면 스물네 줄에
+       같은 글자가 스물네 번 선다(예전에는 심선마다 케이블이라 열이었다). */
+    expect(screen.getAllByRole('button', { name: '길이 고치기' }).filter((b) => b.textContent === '40')).toHaveLength(1);
     // 손실은 코어마다 다르다 — 같은 포트 하나에서 번호로 갈라져 나온다.
     const loss = screen.getAllByRole('button', { name: '손실 고치기' }).map((b) => b.textContent);
     expect(loss).toContain('0.3');

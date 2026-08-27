@@ -696,4 +696,37 @@ describe('catalog CRUD', () => {
     await nextDb.assetType.delete({ where: { id: mc3TypeId } });
     await nextDb.assetCategory.delete({ where: { id: mc3CatId } });
   });
+
+  /**
+   * **선로 관리는 종류가 선언한다** — 화면이 이름으로 「OPGW」를 찾지 않게.
+   *
+   * 이름은 본부마다 다르고 바뀐다. 선언이라 그 종류의 케이블에만 선로 대장 값이 서고,
+   * 이름을 무엇으로 고치든 그 사실은 따라다닌다.
+   */
+  it('종류에 「광 선로」 선언을 켜고 끈다', async () => {
+    const seeded = await nextDb.cableCategory.findMany({ where: { groupId: cableGroupId }, orderBy: { sortOrder: 'asc' } });
+    const group = await nextDb.cableGroup.findUniqueOrThrow({ where: { id: cableGroupId } });
+    const put = (managesFiberLine: boolean) =>
+      request(app)
+        .put(`/api/v2/catalog/cable-groups/${cableGroupId}`)
+        .set(admin)
+        .send({
+          name: group.name,
+          color: group.color,
+          categories: seeded.map((c, i) => ({
+            id: c.id, name: c.name, laborCode: c.laborCode, unitPrice: c.unitPrice,
+            installManDays: c.installManDays, removeManDays: c.removeManDays, relocateManDays: c.relocateManDays,
+            ...(i === 0 ? { managesFiberLine } : {}),
+          })),
+        })
+        .expect(200);
+
+    const on = (await put(true)).body;
+    expect(on.categories[0].managesFiberLine).toBe(true);
+    /* 나머지 종류는 켜지지 않는다 — 같은 광이어도 점퍼코드에 선로 번호를 적을 일은 없다. */
+    expect(on.categories.slice(1).every((c: { managesFiberLine: boolean }) => !c.managesFiberLine)).toBe(true);
+
+    const off = (await put(false)).body;
+    expect(off.categories[0].managesFiberLine).toBe(false);
+  });
 });

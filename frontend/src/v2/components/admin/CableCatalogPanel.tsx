@@ -66,6 +66,14 @@ interface CategoryDraft {
   name: string;
   /** 공량·단가 — 세 담체가 같은 다섯 칸을 쓴다(`LaborSpec`). */
   spec: LaborSpec;
+  /**
+   * 광 선로인가 — OPGW 처럼 송전선로를 타고 오는 다심 인입.
+   *
+   * 화면이 종류 **이름**으로 「OPGW」를 찾지 않게 하는 선언이다(이름은 본부마다 다르고
+   * 바뀐다). 켜면 그 케이블에 선로 대장 값(관리번호·선로명·접속개소)이 서고, 선번장이
+   * 그것을 슬롯 머리에 적는다.
+   */
+  managesFiberLine: boolean;
 }
 
 /** 고치는 중인 그룹 — 제 이름·색과 그 자식들. 저장 한 번에 통째로 나간다. */
@@ -104,6 +112,7 @@ const toDraft = (g: V2CableGroup): GroupDraft => ({
       removeManDays: c.removeManDays,
       relocateManDays: c.relocateManDays,
     },
+    managesFiberLine: c.managesFiberLine,
   })),
 });
 
@@ -216,7 +225,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         ? prev
         : {
             ...prev,
-            categories: [...prev.categories, { id: null, key, name: '', spec: { ...EMPTY_LABOR_SPEC } }],
+            categories: [...prev.categories, { id: null, key, name: '', spec: { ...EMPTY_LABOR_SPEC }, managesFiberLine: false }],
           },
     );
   }
@@ -243,6 +252,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
             ...(r.id ? { id: r.id } : {}),
             name: r.name.trim(),
             ...r.spec,
+            managesFiberLine: r.managesFiberLine,
           })),
         },
       });
@@ -418,6 +428,27 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           onChange={(e) => patchRow(selectedRow.key, { name: e.currentTarget.value })}
                         />
                       </DetailRow>
+                    </DetailCard>
+
+                    {/* 이 종류가 **무엇인가**를 선언한다 — 화면이 이름으로 알아채지 않게. */}
+                    <DetailCard>
+                      <DetailCardHeader title="선로 관리" />
+                      <DetailRow label="광 선로">
+                        <label className="flex items-center gap-2 text-sm text-content">
+                          <input
+                            type="checkbox"
+                            className="size-4"
+                            checked={selectedRow.managesFiberLine}
+                            onChange={(e) => patchRow(selectedRow.key, { managesFiberLine: e.currentTarget.checked })}
+                          />
+                          송전선로를 타고 오는 다심 인입(OPGW 등)
+                        </label>
+                      </DetailRow>
+                      <p className="px-3 pb-2 text-xs text-content-muted">
+                        켜면 이 종류의 케이블에 <b className="text-content">선로 관리번호 · 선로명 · 접속개소</b> 를 적을 수
+                        있고, 선번장이 그 값을 슬롯 머리에 적습니다. 나머지(대국·용도·경로·길이)는 도면과 연결이 알고 있어
+                        적을 필요가 없습니다.
+                      </p>
                     </DetailCard>
 
                     {/* 여기서 칸을 적지 않는다 — 자산·설비와 **같은 폼**이다. */}

@@ -184,6 +184,8 @@ export const cableGroupPutSchema = z.object({
       installManDays: z.number().min(0).nullable().default(null),
       removeManDays: z.number().min(0).nullable().default(null),
       relocateManDays: z.number().min(0).nullable().default(null),
+      /** 광 선로인가 — 켜면 그 케이블에 선로 대장 값이 서고 선번장이 그것을 머리에 적는다. */
+      managesFiberLine: z.boolean().default(false),
     }),
   ),
 });

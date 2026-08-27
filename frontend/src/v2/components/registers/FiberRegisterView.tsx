@@ -12,6 +12,7 @@ import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { DEFAULT_CORE_COUNT, cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { useV2Catalog } from '../../hooks';
 import { useMediumContainer } from '../../useMediumContainer';
 import { fiberContainers, buildFiberRows, FIBER_MEDIUM } from '../../fiberSelectors';
 import type { FiberRow } from '../../fiberSelectors';
@@ -67,6 +68,36 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
   }
 
   return <InlineEditCell value={displayValue} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} label={field.label} />;
+}
+
+/**
+ * 슬롯 머리에 적히는 인입 케이블의 값 — 길이와, **그 종류가 선언했다면** 선로 대장 값.
+ *
+ * 도면과 연결이 아는 것은 여기 없다(대국·용도·경로는 이미 다른 데서 나온다). 밖에서 받아
+ * 적는 수밖에 없는 것만 남는다 — 그래서 칸이 적고, 그 적은 칸도 종류가 켤 때만 선다.
+ */
+function SlotMeta({ cableId, values }: { cableId: string | null; values: Record<string, unknown> }) {
+  const catalog = useV2Catalog();
+  const cable = useV2WorkingCopy((s) => (cableId ? s.effectiveCables().find((c) => c.id === cableId) ?? null : null));
+  const category = catalog.data?.cableGroups
+    .flatMap((g) => g.categories)
+    .find((c) => c.id === cable?.categoryId);
+  const fields = cableFieldsFor(FIBER_MEDIUM, { managesFiberLine: category?.managesFiberLine });
+
+  if (!cableId) return null;
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-content-muted">
+      {fields.map((f) => (
+        <span key={f.key} className="flex items-center gap-1">
+          {f.label}
+          {f.unit ? `(${f.unit})` : ''}
+          <span className="min-w-16 text-content">
+            <MetaInput value={values[f.key]} field={f} cableId={cableId} />
+          </span>
+        </span>
+      ))}
+    </span>
+  );
 }
 
 // ── 심선 값 인라인 편집 ───────────────────────────────────────────────────────
@@ -199,10 +230,11 @@ export function FiberRegisterView({
 
   /* 인입에 적는 값 — 무엇이 케이블의 것이고 무엇이 심선의 것인지는 종류 선언이 정한다.
      장비쪽 광 포트에는 이 값들이 아예 선언돼 있지 않다(OTDR 로 잴 것이 없다). */
-  const cableMetaFields = cableFieldsFor(FIBER_MEDIUM);
-  // 코어별 값(손실·점검일)은 **다심** 포트에만 선언돼 있다 — 심선 수를 함께 묻는다.
+  /* 케이블의 값은 **열이 아니라 묶음 머리**에 적는다 — 한 슬롯의 스물네 줄이 같은 케이블을
+     가리키므로, 열로 세우면 같은 글자가 스물네 번 선다. 어떤 칸이 있는지는 그 케이블의
+     **종류 선언**이 정한다(광 선로면 관리번호·선로명·접속개소가 더 붙는다). */
   const portMetaFields = portFieldsFor(FIBER_MEDIUM, DEFAULT_CORE_COUNT);
-  const metaFields = [...cableMetaFields, ...portMetaFields];
+  const metaFields = portMetaFields;
   const totalCols = 1 + groups.length + 1 + metaFields.length;
 
   /* 코어 번호는 한두 자리지만 **머리글이 접히지 않을 만큼**은 있어야 한다 — 5% 로 뒀더니
@@ -263,6 +295,9 @@ export function FiberRegisterView({
           : rowGroups.map(({ slotId, slotName, rows: slotRows }) => ({
               key: slotId,
               title: slotName,
+              /* 인입 케이블의 값 — **묶음 머리에 한 번**. 어떤 칸이 있는지는 그 케이블의
+                 종류가 선언한다(광 선로면 관리번호·선로명·접속개소가 더 붙는다). */
+              meta: <SlotMeta cableId={slotRows[0]?.meta.cableId ?? null} values={slotRows[0]?.meta.cableValues ?? {}} />,
               rows: slotRows.map((row) => (
               <tr
                 key={`${row.slotId}-${row.coreIndex}`}
@@ -285,12 +320,6 @@ export function FiberRegisterView({
                 <td className="px-3 py-1.5">
                   <PeerCell peer={row.farEnd} />
                 </td>
-                {/* 선로측 케이블에 적는 값 — 어떤 칸이 있는지는 종류 선언이 정한다. */}
-                {cableMetaFields.map((f) => (
-                  <td key={f.key} className="px-3 py-1.5">
-                    <MetaInput value={row.meta.cableValues[f.key]} field={f} cableId={row.meta.cableId} />
-                  </td>
-                ))}
                 {portMetaFields.map((f) => (
                   <td key={f.key} className="px-3 py-1.5">
                     <PortFieldInput

@@ -524,6 +524,7 @@ catalogRouter.put('/cable-groups/:id', adminOnly, async (req, res, next) => {
           installManDays: c.installManDays,
           removeManDays: c.removeManDays,
           relocateManDays: c.relocateManDays,
+          managesFiberLine: c.managesFiberLine,
           sortOrder: i,
         };
         if (c.id) await tx.cableCategory.update({ where: { id: c.id }, data });

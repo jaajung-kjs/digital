@@ -53,6 +53,21 @@ export const COMMON_CABLE_FIELDS: readonly ValueDef[] = [
   { key: 'lengthM', label: '길이', type: 'number', unit: 'm' },
 ] as const;
 
+/**
+ * **광 선로**의 대장 값 — 송전선로를 타고 오는 다심 인입(OPGW 등)에만 선다.
+ *
+ * 도면과 연결이 아는 것은 여기 없다: 대국·용도·경로·길이는 이미 다른 데서 나온다. 이 셋은
+ * **밖에서 받아 적는 수밖에 없는 것**이다(송전 대장의 번호와 이름, 현장에서 센 접속개소).
+ *
+ * 광 매체 전체가 아니라 **종류가 선언할 때만** 붙는다(`CableCategory.managesFiberLine`) —
+ * 같은 광이라도 점퍼코드에 선로 번호를 적을 일은 없다.
+ */
+export const FIBER_LINE_FIELDS: readonly ValueDef[] = [
+  { key: 'lineCode', label: '선로 관리번호', type: 'text' },
+  { key: 'lineName', label: '선로명', type: 'text' },
+  { key: 'spliceCount', label: '접속개소', type: 'number' },
+] as const;
+
 export interface PortKind {
   /** `CableGroup.key` 이자 `PortTemplate.medium` 값. */
   key: string;
@@ -159,8 +174,13 @@ export type PortKindKey = (typeof PORT_KINDS)[number]['key'];
  * (선번장 meta 3열, 계통 전압열, 설계서 공량). 그래서 값을 하나 늘리려면 그 키를 읽는 곳을
  * 전부 찾아 고쳐야 했고, 종류마다 무엇을 적을 수 있는지는 코드를 읽어야만 알 수 있었다.
  */
-export function cableFieldsFor(medium: string): ValueDef[] {
-  return [...COMMON_CABLE_FIELDS, ...(portKind(medium)?.cableFields ?? [])];
+export function cableFieldsFor(medium: string, opts?: { managesFiberLine?: boolean }): ValueDef[] {
+  return [
+    ...COMMON_CABLE_FIELDS,
+    ...(portKind(medium)?.cableFields ?? []),
+    /* 선로 값은 **종류의 선언**이 부른다 — 매체가 아니라(같은 광이어도 점퍼코드는 아니다). */
+    ...(opts?.managesFiberLine ? FIBER_LINE_FIELDS : []),
+  ];
 }
 
 /**

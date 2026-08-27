@@ -16,6 +16,8 @@ export interface V2CableCategory {
   id: string;
   name: string;
   sortOrder: number;
+  /** 광 선로인가(OPGW 등) — 화면이 이름으로 알아채지 않게 하는 선언. */
+  managesFiberLine: boolean;
   laborCode: string | null;
   unitPrice: number | null;
   installManDays: number | null;

@@ -169,3 +169,29 @@ describe('coreCount', () => {
     expect(isMultiCorePort(24)).toBe(coreCount(24) > 1);
   });
 });
+
+/**
+ * **선로 값은 종류가 부른다** — 매체가 아니라.
+ *
+ * 같은 광이어도 점퍼코드에 송전선로 관리번호를 적을 일은 없다. 그렇다고 화면이 종류 **이름**
+ * 으로 「OPGW」를 찾으면 안 된다 — 이름은 본부마다 다르고 바뀐다. 종류가 선언한다.
+ */
+describe('광 선로 값', () => {
+  it('선언이 없으면 공통 칸뿐이다', () => {
+    expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM']);
+  });
+
+  it('선언을 켜면 밖에서 받아 적을 수밖에 없는 셋이 붙는다', () => {
+    expect(cableFieldsFor('fiber', { managesFiberLine: true }).map((f) => f.key)).toEqual([
+      'lengthM',
+      'lineCode',
+      'lineName',
+      'spliceCount',
+    ]);
+  });
+
+  it('도면과 연결이 아는 것은 여기 없다 — 대국·용도·경로는 적지 않는다', () => {
+    const keys = cableFieldsFor('fiber', { managesFiberLine: true }).map((f) => f.key);
+    for (const derived of ['peer', 'purpose', 'route', 'usage']) expect(keys).not.toContain(derived);
+  });
+});

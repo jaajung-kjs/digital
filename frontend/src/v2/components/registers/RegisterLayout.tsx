@@ -31,7 +31,18 @@ export interface RegisterLayoutProps {
    * `Array.isArray` 로 갈랐는데, JSX 는 자식 표현식이 둘만 돼도 배열을 넘긴다 —
    * 묶음이 없는 계통 표가 통째로 「구역 목록」으로 읽혀 한 행도 그려지지 않았다.
    */
-  sections?: { key: string; title: ReactNode; rows: ReactNode }[];
+  sections?: {
+    key: string;
+    title: ReactNode;
+    /**
+     * 제목 옆에 붙는 것 — 그 묶음 **전체가 같은 값**을 쓰는 것들.
+     *
+     * 열로 세우면 스물네 줄에 같은 글자가 스물네 번 선다(인입 케이블의 길이·선로 번호가
+     * 그렇다). 묶음의 값은 묶음의 머리에 한 번 적는다.
+     */
+    meta?: ReactNode;
+    rows: ReactNode;
+  }[];
   /**
    * 표 **바로 아래**에 붙는 한 줄 — 왜 비었는지 같은 것.
    *
@@ -100,7 +111,10 @@ export function RegisterLayout({
           <div className="flex flex-col gap-4">
             {sections.map((section) => (
               <section key={section.key} className="flex flex-col gap-1.5">
-                <h3 className="text-sm font-semibold text-content">{section.title}</h3>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <h3 className="text-sm font-semibold text-content">{section.title}</h3>
+                  {section.meta}
+                </div>
                 <TableCard widths={widths}>
                   <thead>
                     {/* 묶음마다 제 머리글이 제 표 위에 붙어 따라온다 — 96행을 내려가도
