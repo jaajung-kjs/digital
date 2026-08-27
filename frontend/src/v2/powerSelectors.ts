@@ -203,7 +203,16 @@ export interface PowerNode {
    * 닿은 갈래에만** 펴고, 나머지는 이 목록이 말한다 — 같은 반을 두 군데에 그리면 회로가
    * 두 번 세어진다.
    */
-  sources: { portId: string; cableId: string | null; from: PeerInfo | null; fromAssetId: string | null }[];
+  sources: {
+    portId: string;
+    cableId: string | null;
+    from: PeerInfo | null;
+    fromAssetId: string | null;
+    /** 입력 차단기 — 배전반 주차단기, UPS·정류기의 입력 MCCB. 출력 개폐와 다른 둘이다. */
+    closed: boolean | null;
+    /** 그 인입 케이블에 적힌 값(길이·전압) — 회로 줄과 같은 칸을 쓴다. */
+    values: Record<string, unknown>;
+  }[];
   circuits: PowerCircuit[];
   children: PowerNode[];
 }
@@ -247,6 +256,8 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
           cableId: cable?.id ?? null,
           from: cable ? resolvePeer(p, cable, portIndex, board.substationId) : null,
           fromAssetId: cable ? peerAssetIdOf(p.id, cable) : null,
+          closed: closedOf(p),
+          values: cable?.specParams ?? {},
         };
       });
     const circuits = powerPorts

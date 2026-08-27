@@ -80,7 +80,9 @@ interface CableFieldInputProps {
 }
 
 function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
-  if (!cableId) return <span className="text-content-faint">{EMPTY}</span>;
+  /* 케이블이 없으면 적을 곳도 없다 — 다만 대시는 **그 열의 줄맞춤을 따라야** 한다(td 가
+     정한다). 인라인 span 이면 편집기가 선 줄과 대시만 선 줄에서 대시 위치가 어긋난다. */
+  if (!cableId) return <span className="block px-1 text-sm text-content-faint">{EMPTY}</span>;
 
   const resolvedCableId: string = cableId;
   const isNumber = field.type === 'number';
@@ -148,18 +150,17 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   const shownCircuits = shownNodes.reduce((n, s) => n + s.circuits.length, 0);
 
   /**
-   * 이 반이 어디서 받는가 — 대장의 머리줄(「입력 : AC소내분전반 우 5단자」).
+   * **아직 안 이은 것과 밖에서 오는 것은 다르다.**
    *
-   * **아직 안 이은 것과 밖에서 오는 것은 다르다.** 케이블이 아예 없으면 그린 사람이 아직
-   * 안 그린 것이고(할 일), 케이블은 있는데 상대가 이 도면에 없으면 소내 전원처럼 밖에서
-   * 오는 것이다(정상). 둘을 같은 말로 적으면 결선이 빠진 국이 다 갖춰진 것처럼 보인다.
+   * 케이블이 아예 없으면 그린 사람이 아직 안 그린 것이고(할 일), 케이블은 있는데 상대가 이
+   * 도면에 없으면 소내 전원처럼 밖에서 오는 것이다(정상). 둘을 같은 말로 적으면 결선이
+   * 빠진 국이 다 갖춰진 것처럼 보인다.
    */
-  const sourceText = (node: PowerNode) => {
-    if (node.sources.length === 0) return '입력 포트 없음';
-    return node.sources
-      .map((s) => (s.from ? `${s.from.assetName} ${s.from.portName}` : s.cableId ? '이 도면 밖' : '미결선'))
-      .join(' · ');
-  };
+  const unwiredText = (cableId: string | null) => (cableId ? '이 도면 밖' : '미결선');
+
+  /* 값 칸의 **줄맞춤은 열이 정한다** — 수는 오른쪽, 글자는 왼쪽. 칸마다 정하면 같은 열에서
+     대시가 들쭉날쭉해진다(케이블이 있는 줄은 편집기가, 없는 줄은 대시가 각자 맞췄다). */
+  const alignOf = (field: ValueDef) => (field.type === 'number' ? 'text-right tabular-nums' : 'text-left');
 
   return (
     <RegisterLayout
@@ -207,14 +208,39 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           </button>
         ),
         meta: (
-          <div style={{ marginLeft: depth * 20 }} className="flex flex-wrap items-center gap-x-3 text-xs text-content-muted">
-            <span>입력: {sourceText(node)}</span>
-            <span>
-              회로 {node.circuits.length} · 사용 {node.circuits.filter((c) => c.cableId).length}
-            </span>
+          /* 「어디서 받는가」는 이제 **표 안 첫 줄**이 말한다 — 거기서는 길이·전압·개폐까지
+             회로와 같은 칸에 선다. 머리줄에 또 적으면 같은 말이 두 번이고, 값은 못 고친다. */
+          <div style={{ marginLeft: depth * 20 }} className="text-xs text-content-muted">
+            회로 {node.circuits.length} · 사용 {node.circuits.filter((c) => c.cableId).length}
           </div>
         ),
-        rows: circuits.map((c) => (
+        rows: [
+          /* **입력도 한 줄이다.** 어디서 오는지·개폐·길이·전압을 회로와 같은 칸에서 읽고
+             고친다. 입력 차단기는 출력 개폐와 다른 물건이다(주차단기·입력 MCCB). */
+          ...node.sources.map((src) => (
+            <tr
+              key={src.portId}
+              {...selectableRow(selectedAssetId, node.assetId, () => onSelectAsset(node.assetId, src.portId))}
+              className={cn(
+                'h-11 border-b border-line bg-surface-sunken/60 focus-visible:outline-none focus-ring-input',
+                SELECTABLE,
+              )}
+            >
+              <td className="px-3 py-1.5 text-sm font-medium text-content">입력</td>
+              <td className="px-3 py-1.5">
+                <ClosedCell assetId={node.assetId} portId={src.portId} closed={src.closed} />
+              </td>
+              <td className="truncate px-3 py-1.5">
+                {src.from ? <PeerCell peer={src.from} /> : <span className="text-sm text-content-faint">{unwiredText(src.cableId)}</span>}
+              </td>
+              {cableFields.map((f) => (
+                <td key={f.key} className={cn('px-3 py-1.5', alignOf(f))}>
+                  <CableFieldInput cableId={src.cableId} value={src.values[f.key]} field={f} />
+                </td>
+              ))}
+            </tr>
+          )),
+          ...circuits.map((c) => (
           <tr
             key={c.portId}
             {...selectableRow(selectedAssetId, node.assetId, () => onSelectAsset(node.assetId, c.portId))}
@@ -230,12 +256,13 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               <PeerCell peer={c.load} />
             </td>
             {cableFields.map((f) => (
-              <td key={f.key} className="px-3 py-1.5">
+              <td key={f.key} className={cn('px-3 py-1.5', alignOf(f))}>
                 <CableFieldInput cableId={c.cableId} value={c.values[f.key]} field={f} />
               </td>
             ))}
           </tr>
-        )),
+          )),
+        ],
       }))}
       note={
         shownCircuits === 0 ? (
