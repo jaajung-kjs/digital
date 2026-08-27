@@ -29,44 +29,53 @@ interface Props {
 // PeerCell은 공용 컴포넌트 사용 (M-2 — FiberRegisterView와 공유)
 
 /**
- * 개폐 — 값은 **출력 포트**에 담긴다(자산 필드가 아니다).
+ * 포트에 딸린 값 한 칸 — **무엇을 적는 칸인지는 종류 선언이 정한다**.
  *
- * 회로가 없는 빈 자리에는 적을 곳이 없으므로 대시. 저장 형상을 아는 곳은
- * `setPortValueAt` 하나뿐이고, **어떤 키에 적는지는 종류 선언이 정한다** —
- * 한때 여기만 `'closed'` 를 직접 적고 있어서 읽기는 선언 기반인데 쓰기만 키를 알았다.
+ * 전원 포트에는 둘이 있다: 차단기 **용량**과 **개폐**. 둘 다 자산이 아니라 **그 회로**의
+ * 것이다 — 출력이 열셋인 판은 회로마다 용량도 개폐도 따로다. 화면은 키를 알지 않고,
+ * 자료형만 보고 그린다(참/거짓이면 스위치, 아니면 고쳐 쓰는 칸).
+ *
+ * 예전에는 이 자리가 「개폐 전용」이었다. 그래서 칸이 하나 늘 때마다 표도 손으로 고쳐야 했다.
  */
-function ClosedCell({ assetId, portId, closed }: { assetId: string; portId: string | null; closed: boolean | null }) {
-  /* 개폐는 **출력 포트에 적힌 값**이다 — 그 포트가 없는 기기(광단말처럼 받기만 하는 것)는
-     켜고 끌 것이 없다. 예전에는 대시만 서서, 같은 열에 토글과 대시가 섞인 이유가 화면에
-     없었다("왜 저건 안 눌리지"). 대시가 스스로 그 까닭을 들고 있게 한다. */
-  if (!portId) {
-    return (
-      <span className="text-content-faint" title="출력 포트가 없어 개폐할 수 없습니다" aria-label="개폐 없음">
-        {EMPTY}
-      </span>
-    );
-  }
-  const resolvedPortId: string = portId;
+/* 값은 **나무가 준 것**을 받는다. 한때 여기서 스토어를 다시 뒤졌는데(`effectiveAssets().find`),
+   셀렉터가 매 렌더 새 객체를 돌려주는 바람에 「getSnapshot should be cached」 무한 렌더가 나
+   화면이 통째로 사라졌다 — 스토어 셀렉터는 원시값만 돌려준다(§스토어 규칙). */
+function PortValueCell({ assetId, portId, field, value }: { assetId: string; portId: string; field: ValueDef; value: unknown }) {
 
-  function toggle(next: boolean) {
-    const asset = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === assetId);
-    const port = asset?.ports.find((p) => p.id === resolvedPortId);
-    if (!asset || !port) return;
-    const field = portFieldsFor(port.medium).find((f) => f.type === 'boolean');
-    if (!field) return;
-    const ports = asset.ports.map((p) =>
-      p.id === resolvedPortId ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
+  function write(next: unknown) {
+    const live = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === assetId);
+    const target = live?.ports.find((p) => p.id === portId);
+    if (!live || !target) return;
+    const ports = live.ports.map((p) =>
+      p.id === portId ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
     );
     useV2WorkingCopy.getState().stageAssetUpdate(assetId, { ports });
   }
 
+  if (field.type === 'boolean') {
+    return (
+      <Toggle
+        checked={value === true}
+        onChange={write}
+        size="sm"
+        label={value === true ? 'ON' : 'OFF'}
+        aria-label={field.label}
+      />
+    );
+  }
+
   return (
-    <Toggle
-      checked={closed === true}
-      onChange={toggle}
-      size="sm"
-      label={closed === true ? 'ON' : 'OFF'}
-      aria-label="개폐"
+    <InlineEditCell
+      value={value === null || value === undefined ? '' : String(value)}
+      onCommit={(raw) => {
+        const next = field.type === 'number' ? (raw.trim() === '' ? null : Number(raw)) : (raw.trim() || null);
+        if (field.type === 'number' && typeof next === 'number' && Number.isNaN(next)) return;
+        if ((value ?? null) === next) return;
+        write(next);
+      }}
+      type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : undefined}
+      label={field.label}
+      unit={field.unit}
     />
   );
 }
@@ -134,11 +143,18 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   const effectiveAssets = useEffectiveAssets();
   const effectiveCables = useEffectiveCables();
 
-  /* 케이블에 적는 값 — 몇 칸인지는 종류 선언이 정한다(전압 등). */
+  /* **칸이 몇이고 무엇인지는 종류 선언이 정한다** — 포트의 것(용량·개폐)과 케이블의 것
+     (길이·전압·굵기). 여기에 키를 적어 두면 어휘가 늘 때마다 표를 손으로 고쳐야 한다. */
+  const portFields = portFieldsFor(POWER_MEDIUM);
   const cableFields = cableFieldsFor(POWER_MEDIUM);
-  /* 회로 · 개폐 · 용도 + 값 칸들. */
-  const FIELD_WIDTH = 12;
-  const widths = [10, 12, 100 - 10 - 12 - FIELD_WIDTH * cableFields.length, ...cableFields.map(() => FIELD_WIDTH)];
+  const FIELD_WIDTH = 10;
+  const fieldCount = portFields.length + cableFields.length;
+  const widths = [
+    8, // 회로
+    ...portFields.map(() => FIELD_WIDTH),
+    100 - 8 - FIELD_WIDTH * fieldCount, // 용도 — 남는 폭
+    ...cableFields.map(() => FIELD_WIDTH),
+  ];
 
   const tree = useMemo(() => powerTree(effectiveAssets, effectiveCables), [effectiveAssets, effectiveCables]);
   const nodes = useMemo(() => flatten(tree), [tree]);
@@ -190,7 +206,9 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       head={
         <>
           <Th>회로</Th>
-          <Th>개폐</Th>
+          {portFields.map((f) => (
+            <Th key={f.key}>{f.label}</Th>
+          ))}
           <Th>용도</Th>
           {/* 단위는 머리글이 아니라 **값 뒤에** 붙는다 — 선번장과 같은 규칙. */}
           {cableFields.map((f) => (
@@ -238,9 +256,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               )}
             >
               <td className="px-3 py-1.5 text-sm font-medium text-content">입력</td>
-              <td className="px-3 py-1.5">
-                <ClosedCell assetId={node.assetId} portId={src.portId} closed={src.closed} />
-              </td>
+              {portFields.map((f) => (
+                <td key={f.key} className={cn('px-3 py-1.5', alignOf(f))}>
+                  <PortValueCell assetId={node.assetId} portId={src.portId} field={f} value={src.portValues[f.key]} />
+                </td>
+              ))}
               <td className="truncate px-3 py-1.5">
                 {src.from ? <PeerCell peer={src.from} /> : <span className="text-sm text-content-faint">{unwiredText(src.cableId)}</span>}
               </td>
@@ -259,9 +279,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             className={cn('h-11 border-b border-line focus-visible:outline-none focus-ring-input', SELECTABLE)}
           >
             <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{c.index}</td>
-            <td className="px-3 py-1.5">
-              <ClosedCell assetId={node.assetId} portId={c.portId} closed={c.closed} />
-            </td>
+            {portFields.map((f) => (
+              <td key={f.key} className={cn('px-3 py-1.5', alignOf(f))}>
+                <PortValueCell assetId={node.assetId} portId={c.portId} field={f} value={c.portValues[f.key]} />
+              </td>
+            ))}
             {/* 용도 = 이 회로가 먹이는 것. 도면 밖 부하는 케이블에 적힌 대국까지가 전부다. */}
             <td className="truncate px-3 py-1.5">
               <PeerCell peer={c.load} />

@@ -166,7 +166,7 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     expect(dcNode.circuits).toHaveLength(13);
     expect(dcNode.circuits[0]!.index).toBe(1);
     /* 개폐는 회로마다 따로다 — 자산 하나에 하나가 아니다. */
-    expect(dcNode.circuits.map((c) => c.closed)).toEqual([true, false, ...Array(11).fill(true)]);
+    expect(dcNode.circuits.map((c) => c.portValues.closed)).toEqual([true, false, ...Array(11).fill(true)]);
   });
 
   it('회로가 먹이는 것이 부하면 용도로 읽히고, 반이면 거기서 가지가 갈린다', () => {

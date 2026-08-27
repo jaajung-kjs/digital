@@ -100,6 +100,32 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
     expect(within(rows[3]!).getAllByText('—').length).toBeGreaterThan(0); // 빈 회로
   });
 
+  /**
+   * **차단기 용량은 회로(포트)의 값**이다 — 강릉 대장의 「50A · 30A · 20A」 열.
+   *
+   * 고치면 그 포트에만 담긴다. 한때 이 칸이 스토어를 다시 뒤져 값을 읽었는데(셀렉터가 매
+   * 렌더 새 객체를 돌려줬다) 값을 한 번 고치는 순간 무한 렌더로 화면이 통째로 사라졌다 —
+   * 그래서 여기서 **고쳐 본다**.
+   */
+  it('용량은 회로마다 따로 적힌다 — 고쳐도 화면이 살아 있다', () => {
+    setStore([rack, main, ups, load], wired());
+    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+
+    const circuit = tableOf('분전반 · 소내전원반').getAllByRole('row')[2]!; // 머리글 · 입력 다음
+    fireEvent.click(within(circuit).getByRole('button', { name: '용량 고치기' }));
+    fireEvent.change(screen.getByLabelText('용량'), { target: { value: '30' } });
+    fireEvent.blur(screen.getByLabelText('용량'));
+
+    const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
+    const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o1');
+    expect(port?.fieldValues).toEqual({ ampere: 30 });
+    /* 다른 회로에는 적히지 않는다 — 판 하나에 값 하나가 아니다. */
+    const other = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o2');
+    expect(other?.fieldValues).toEqual({});
+    // 표가 그대로 서 있다(무한 렌더로 사라지지 않았다).
+    expect(tableOf('분전반 · 소내전원반').getAllByRole('row').length).toBe(4);
+  });
+
   it('길이·전압은 그 자리에서 고친다 — 케이블에 담긴다', () => {
     setStore([rack, main, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);

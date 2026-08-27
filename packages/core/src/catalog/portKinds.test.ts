@@ -53,7 +53,15 @@ describe('그룹 키 중복 피하기', () => {
 
 describe('케이블 파라미터 선언', () => {
   it('공통 + 종류별로 합쳐진다', () => {
-    expect(cableFieldsFor('power').map((f) => f.key)).toEqual(['lengthM', 'voltage']);
+    expect(cableFieldsFor('power').map((f) => f.key)).toEqual(['lengthM', 'voltage', 'sizeSq']);
+  });
+
+  /* 현장 대장은 전원케이블을 「FR-5.5sq」로 적는다 — 종류는 케이블 품목이 알고, 굵기는
+     여기 적는다. 접지선도 같은 사실을 같은 칸에 적는다(「IV 22sq」). */
+  it('전원·접지 케이블은 굵기를 적는다', () => {
+    for (const medium of ['power', 'ground']) {
+      expect(cableFieldsFor(medium).map((f) => f.key), medium).toContain('sizeSq');
+    }
   });
 
   /* 값이 무엇의 것인지가 갈린다 — 길이는 케이블 한 가닥의 것이고, 손실·점검일은 심선마다
@@ -94,7 +102,15 @@ describe('케이블 파라미터 선언', () => {
   /* 개폐는 자산이 아니라 그 회로의 상태다. 입력에도 차단기가 있다 — 배전반 주차단기,
      UPS·정류기의 입력 MCCB. 상대의 출력 차단기와 내 입력 차단기는 서로 다른 둘이다. */
   it('전원 개폐는 입력·출력 양쪽에 있다', () => {
-    expect(portFieldsFor('power').map((f) => f.key)).toEqual(['closed']);
+    expect(portFieldsFor('power').map((f) => f.key)).toContain('closed');
+  });
+
+  /* 차단기 용량도 **회로마다** 다르다(20A·30A·50A). 자산 필드로 두면 열세 회로가 한 값을
+     나눠 갖고, 입력 차단기(「200A AC MAIN」)를 적을 자리도 없어진다. */
+  it('차단기 용량은 그 회로(포트)의 값이다', () => {
+    const ampere = portFieldsFor('power').find((f) => f.key === 'ampere');
+    expect(ampere?.type).toBe('number');
+    expect(ampere?.unit).toBe('A');
   });
 
   /* 살아 있는 계통에서 투입이 예사이고 개방이 사건이다 — 없는 값을 개방으로 읽으면
@@ -115,7 +131,6 @@ describe('케이블 파라미터 선언', () => {
   /* 길이는 설계서 공량의 근거(품셈 × 길이)라 어느 종류든 적을 수 있어야 한다. */
   it('종류별 값이 없어도 공통 값은 남는다', () => {
     expect(cableFieldsFor('network').map((f) => f.key)).toEqual(['lengthM']);
-    expect(cableFieldsFor('ground').map((f) => f.key)).toEqual(['lengthM']);
   });
 
   it('어휘에 없는 종류도 공통 값은 준다 — 화면이 빈 표가 되지 않게', () => {

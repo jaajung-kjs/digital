@@ -173,8 +173,12 @@ export interface PowerCircuit {
   /** 회로 번호 — 포트 번호가 곧 회로 번호다(L1·L2…). */
   index: number;
   name: string;
-  /** 이 회로가 살아 있는가 — 적힌 값이 없으면 선언된 기본값(투입). */
-  closed: boolean | null;
+  /**
+   * 이 회로(포트)에 적힌 값들 — 용량 · 개폐. **선언된 기본값까지 얹은 것**이다.
+   *
+   * 무엇이 들었는지는 종류 선언이 정한다(`portFieldsFor`). 화면이 키를 알지 않는다.
+   */
+  portValues: Record<string, unknown>;
   cableId: string | null;
   /** 이 회로가 먹이는 것 — 용도. 도면 밖이면 케이블에 적힌 대국까지가 전부다. */
   load: PeerInfo | null;
@@ -208,13 +212,19 @@ export interface PowerNode {
     cableId: string | null;
     from: PeerInfo | null;
     fromAssetId: string | null;
-    /** 입력 차단기 — 배전반 주차단기, UPS·정류기의 입력 MCCB. 출력 개폐와 다른 둘이다. */
-    closed: boolean | null;
+    /** 입력 차단기의 값들 — 배전반 주차단기, UPS·정류기의 입력 MCCB. 출력과 다른 둘이다. */
+    portValues: Record<string, unknown>;
     /** 그 인입 케이블에 적힌 값(길이·전압) — 회로 줄과 같은 칸을 쓴다. */
     values: Record<string, unknown>;
   }[];
   circuits: PowerCircuit[];
   children: PowerNode[];
+}
+
+/** 그 포트에 적힌 값들 — 선언된 칸만, 기본값까지 얹어서. */
+function declaredPortValues(port: V2Asset['ports'][number]): Record<string, unknown> {
+  const values = portValuesAt(port, 1);
+  return Object.fromEntries(portFieldsFor(port.medium).map((f) => [f.key, values[f.key] ?? null]));
 }
 
 /** 이 자산이 반인가 — 전원을 나눠 주는가. */
@@ -256,7 +266,7 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
           cableId: cable?.id ?? null,
           from: cable ? resolvePeer(p, cable, portIndex, board.substationId) : null,
           fromAssetId: cable ? peerAssetIdOf(p.id, cable) : null,
-          closed: closedOf(p),
+          portValues: declaredPortValues(p),
           values: cable?.specParams ?? {},
         };
       });
@@ -270,7 +280,7 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
           portId: p.id,
           index: p.index,
           name: p.name,
-          closed: closedOf(p),
+          portValues: declaredPortValues(p),
           cableId: cable?.id ?? null,
           load: cable ? resolvePeer(p, cable, portIndex, board.substationId) : null,
           values: cable?.specParams ?? {},

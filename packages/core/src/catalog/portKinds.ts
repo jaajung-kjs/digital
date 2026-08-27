@@ -135,12 +135,23 @@ export const PORT_KINDS = [
   // 전원은 공급(OUT)과 소비(IN)가 갈린다 — 출력끼리 잇는 것은 물리적으로 불가능하다.
   {
     key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
-    cableFields: [{ key: 'voltage', label: '전압', type: 'text' }],
+    /* 굵기는 **전원케이블 대장의 절반**이다 — 현장 대장은 「FR-5.5sq」처럼 종류와 굵기를
+       붙여 적는다. 종류는 우리 케이블 품목이 이미 알고, 굵기는 적을 곳이 없었다. */
+    cableFields: [
+      { key: 'voltage', label: '전압', type: 'text' },
+      { key: 'sizeSq', label: '굵기', type: 'number', unit: 'sq' },
+    ],
     /* 차단기의 개폐 — 예전에는 피더 **자산**의 필드였는데, 개폐는 자산이 아니라
        그 회로의 상태다. 출력이 여럿인 기기(콘센트 13구 분배반)는 회로마다 따로 끊긴다.
        입력도 마찬가지다 — 배전반 주차단기, UPS·정류기의 입력 MCCB 가 다 입력 쪽에 있다.
        상대의 출력 차단기와 내 입력 차단기는 서로 다른 둘이라, 한쪽으로 대신할 수 없다. */
-    portFields: [{ key: 'closed', label: '개폐', type: 'boolean', defaultValue: true }],
+    /* 차단기 **용량**도 그 회로의 것이다 — 같은 판에서도 회로마다 20A·30A·50A 로 다르고
+       (강릉 대장이 그렇다), 입력에도 있다(「200A AC MAIN」). 자산 필드로 두면 열세 회로가
+       한 값을 나눠 갖게 된다. */
+    portFields: [
+      { key: 'ampere', label: '용량', type: 'number', unit: 'A' },
+      { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true },
+    ],
   },
   { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   /*
@@ -185,7 +196,9 @@ export const PORT_KINDS = [
   // 제어는 널모뎀처럼 같은 쪽끼리 직결하는 배선이 실제로 있어 방향을 따지지 않는다.
   { key: 'control', name: '제어', connectsTo: ['control'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   // 접지 부스바에는 여러 기기의 접지선이 한 단자로 모인다 — 여기만 다중 결선이다.
-  { key: 'ground', name: '접지', connectsTo: ['ground'], pairing: 'any', maxCables: null, cableFields: [], portFields: [] },
+  /* 접지선도 굵기로 부른다(「IV 22sq」) — 전원과 같은 사실이라 같은 칸을 쓴다. */
+  { key: 'ground', name: '접지', connectsTo: ['ground'], pairing: 'any', maxCables: null,
+    cableFields: [{ key: 'sizeSq', label: '굵기', type: 'number', unit: 'sq' }], portFields: [] },
 ] as const satisfies readonly PortKind[];
 
 /** 이 어휘가 아는 매체 키 — 시드·검증이 이걸로 빠짐을 컴파일 때 잡는다. */
