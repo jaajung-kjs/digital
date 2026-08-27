@@ -127,24 +127,38 @@ describe('선로가 짓는 슬롯 이름', () => {
     (await nextDb.port.findFirstOrThrow({ where: { assetId, positions: { gt: 1 } } })).id;
   const nameOf = async (id: string) => (await nextDb.asset.findUniqueOrThrow({ where: { id } })).name;
 
-  /** 설비 품목(OFD)으로 놓은 슬롯 — 도면에 놓이는 것은 설비뿐이라 실제로 늘 이 모습이다. */
-  async function placeSlot(substationId: string, label: string): Promise<string> {
+  /**
+   * 설비 품목(OFD)으로 놓은 슬롯 — 도면에 놓이는 것은 설비뿐이라 실제로 늘 이 모습이다.
+   *
+   * `vertical` 이면 격자에 **세로로** 놓는다(row 0,1,…). 실제 데이터가 그랬다: 한 국은
+   * 슬롯을 가로로, 다른 국은 세로로 놓아 두었다 — 놓는 사람이 옮길 수 있기 때문이다.
+   */
+  async function placeSlot(substationId: string, label: string, opts: { vertical?: boolean; nth?: number } = {}): Promise<string> {
     const assembly = await nextDb.assembly.findFirstOrThrow({
       where: { items: { some: { type: { key: 'OFD-SLOT' } } } },
       include: { items: { orderBy: { col: 'asc' } } },
     });
-    const item = assembly.items[0]!;
     const ofdId = randomUUID();
-    const slotId = randomUUID();
+    /* 설비 품목을 놓으면 **구성이 선언한 자식이 다 생긴다** — 실제 배치가 그렇다. */
+    const ids = assembly.items.map(() => randomUUID());
     await request(app).put(`/api/v2/substations/${substationId}/commit`).set(admin).send({
       assets: {
         creates: [
           { id: ofdId, name: `${uniq}-${label}-OFD`, typeId: null, assemblyId: assembly.id },
-          { id: slotId, name: item.name, typeId: item.typeId, parentAssetId: ofdId, col: item.col, row: item.row, colSpan: 1, rowSpan: 1 },
+          ...assembly.items.map((item, i) => ({
+            id: ids[i],
+            name: item.name,
+            typeId: item.typeId,
+            parentAssetId: ofdId,
+            /* 세로로 놓아 본다 — 놓는 사람이 격자 안에서 옮길 수 있다. */
+            ...(opts.vertical ? { col: 0, row: i } : { col: item.col, row: item.row }),
+            colSpan: 1,
+            rowSpan: 1,
+          })),
         ],
       },
     }).expect(200);
-    return slotId;
+    return ids[opts.nth ?? 0]!;
   }
 
   it('이으면 **양쪽 다** 「제 국 - 상대 국 - 1」이 되고, 끊으면 양쪽 다 되돌아간다', async () => {
@@ -191,5 +205,27 @@ describe('선로가 짓는 슬롯 이름', () => {
     expect(await nameOf(a1)).toBe(`${uniq}-국사A - ${uniq}-국사B - 1`);
     expect(await nameOf(a2)).toBe(`${uniq}-국사A - ${uniq}-국사B - 2`);
     expect(await nameOf(b2)).toBe(`${uniq}-국사B - ${uniq}-국사A - 2`);
+  });
+
+  it('격자에 **세로로** 놓은 슬롯도 제 이름으로 돌아온다 — 자리가 아니라 차례로 짝짓는다', async () => {
+    const a = await placeSlot(subAId, 'AV', { vertical: true, nth: 1 });
+    const b = await placeSlot(subBId, 'BV', { vertical: true, nth: 1 });
+    const before = await nameOf(a);
+    expect(before).toBe('슬롯 2');
+
+    const cableId = randomUUID();
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { creates: [{ id: cableId, aPortId: await trunkOf(a), bPortId: await trunkOf(b), categoryId: fiberCatId }] } })
+      .expect(200);
+    expect(await nameOf(a)).toMatch(/국사A - .*국사B - \d+$/);
+
+    const cable = await nextDb.cable.findUniqueOrThrow({ where: { id: cableId } });
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { deletes: [cableId] }, baseVersions: { [cableId]: cable.updatedAt.toISOString() } })
+      .expect(200);
+
+    /* 자리(행·열)로 짝지었을 때는 여기서 못 찾아 예전 이름이 그대로 남았다. */
+    expect(await nameOf(a)).toBe('슬롯 2');
+    expect(await nameOf(b)).toBe('슬롯 2');
   });
 });

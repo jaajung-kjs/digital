@@ -381,7 +381,7 @@ export function FloorPlanView({
         step: '3/3',
         text: drawn > 0
           ? `꺾은점 ${drawn}개 · 이어서 도면을 누르면 더 꺾고, 반대쪽 설비를 누르면 잇습니다 (⌫ 되돌리기)`
-          : '도면을 눌러 경로를 그리고, 반대쪽 설비를 클릭하세요 (다른 변전소면 대국 검색)',
+          : '도면을 눌러 경로를 그리고, 반대쪽 설비를 클릭하세요',
         dimCanvas: false,
       };
     }
@@ -1694,6 +1694,15 @@ export function FloorPlanView({
             <FloatingBar className="pointer-events-auto gap-2 px-3 py-1.5">
               <span className="text-xs font-medium text-primary">{cableStep.step}</span>
               <span className="text-sm text-content">{cableStep.text}</span>
+              {cableState.firstPortId && (
+                /* **다른 변전소로 가는 문은 여기다.** 예전에는 안내만 「대국 검색」이라 적고
+                   화면에는 그 이름의 단추가 없었다 — 이 국의 아무 설비나 눌러 포트 판을 연
+                   뒤에야 그 안에 숨은 문에 닿았다. 상대가 다른 국인데 이 국의 설비를 먼저
+                   누르라는 것은 앞뒤가 맞지 않는다. */
+                <Button variant="secondary" size="sm" onClick={() => cableDispatch({ type: 'OPEN_REMOTE_MODAL' })}>
+                  다른 변전소에서 찾기
+                </Button>
+              )}
               <Button variant="secondary" size="sm" onClick={() => cableDispatch({ type: 'DISARM' })}>
                 취소
               </Button>

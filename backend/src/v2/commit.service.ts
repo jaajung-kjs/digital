@@ -613,18 +613,36 @@ async function renameLinkedSlots(tx: Tx, portIds: ReadonlySet<string>): Promise<
   }
 }
 
-/** 그 설비 품목의 구성이 정한 이름 — 자리(행·열)로 찾는다. 기억해 둔 값이 아니다. */
+/**
+ * 그 설비 품목의 구성이 정한 이름 — **차례로** 짝짓는다. 기억해 둔 값이 아니다.
+ *
+ * 자리(행·열)로 짝지으면 어긋난다: 같은 OFD 라도 어떤 국은 슬롯을 가로로(col 0~3), 어떤
+ * 국은 세로로(row 0~3) 놓는다 — 놓는 사람이 격자 안에서 옮길 수 있기 때문이다. 그때
+ * 자리로 찾으면 못 찾고 이름이 예전 것으로 남아 거짓말이 된다(실제로 그랬다).
+ *
+ * 그래서 **같은 종류의 형제들을 자리순으로 세워 놓고 그 차례**로 구성의 이름을 가져온다.
+ */
 async function originalSlotName(
   tx: Tx,
-  asset: { id: string; name: string; parentAssetId: string | null; col: number | null; row: number | null },
+  asset: { id: string; parentAssetId: string | null; typeId: string | null },
 ): Promise<string | null> {
   if (!asset.parentAssetId) return null;
   const parent = await tx.asset.findUnique({
     where: { id: asset.parentAssetId },
-    select: { assembly: { select: { items: { select: { name: true, col: true, row: true } } } } },
+    select: { assembly: { select: { items: { select: { name: true, col: true, row: true, typeId: true } } } } },
   });
-  const item = parent?.assembly?.items.find((i) => i.col === asset.col && i.row === asset.row);
-  return item?.name ?? null;
+  const items = (parent?.assembly?.items ?? [])
+    .filter((i) => i.typeId === asset.typeId)
+    .sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || (a.col ?? 0) - (b.col ?? 0));
+  if (items.length === 0) return null;
+
+  const siblings = await tx.asset.findMany({
+    where: { parentAssetId: asset.parentAssetId, typeId: asset.typeId },
+    select: { id: true },
+    orderBy: [{ row: 'asc' }, { col: 'asc' }],
+  });
+  const nth = siblings.findIndex((s) => s.id === asset.id);
+  return nth >= 0 ? (items[nth]?.name ?? null) : null;
 }
 
 async function applyCableDeletes(tx: Tx, substationId: string, ids: string[]): Promise<void> {
