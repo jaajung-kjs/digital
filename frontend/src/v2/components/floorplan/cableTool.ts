@@ -121,7 +121,14 @@ export function cableToolReducer(state: CableToolState, action: CableToolAction)
     case 'SET_REMOTE_ERROR':
       return { ...state, remoteError: action.error };
     case 'REMOTE_CABLE_STAGED':
-      return { ...state, firstPortId: null, remoteModalOpen: false, picker: null, remoteError: null, draftPath: [] };
+      /**
+       * 대국으로 이으면 **도구가 함께 끝난다** — 이 도면에는 더 그릴 것이 없다.
+       *
+       * 이 국끼리 이을 때는 도구를 켠 채로 둔다(연속 연결: 판을 한 번 켜고 여러 가닥을
+       * 잇는다). 그런데 반대쪽이 다른 국이면 이을 곳도 그릴 경로도 이 도면 밖이라, 켜 둔
+       * 도구가 「1/3 이을 설비를 클릭하세요」로 남아 **끝난 일을 안 끝난 것처럼** 말했다.
+       */
+      return { ...state, armed: false, firstPortId: null, remoteModalOpen: false, picker: null, remoteError: null, draftPath: [] };
     case 'SELECT_CABLE':
       return { ...state, selectedCableId: action.id };
     case 'DESELECT_CABLE':

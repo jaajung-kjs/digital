@@ -85,15 +85,14 @@ describe('대국 케이블', () => {
 });
 
 describe('검색/포트 API', () => {
-  it('자산 이름 검색 — 전 변전소, 변전소명 포함', async () => {
-    const rows = (await request(app).get(`/api/v2/search/assets?q=${encodeURIComponent(`${uniq}-슬롯`)}`).set(admin).expect(200)).body;
-    expect(rows.length).toBe(2);
+  /* 고르는 상자는 **둘러보기**다 — 다른 국의 설비 이름을 외우고 있을 리 없다. */
+  it('한 변전소를 둘러본다 — 어디 있는 것인지까지', async () => {
+    const rows = (await request(app).get(`/api/v2/search/assets?substationId=${subAId}`).set(admin).expect(200)).body;
+    expect(rows.some((r: { name: string }) => r.name === `${uniq}-슬롯A`)).toBe(true);
+    expect(rows.every((r: { substationId: string }) => r.substationId === subAId)).toBe(true);
     expect(rows[0]).toHaveProperty('substationName');
   });
-  it('빈 q → 400', async () => {
-    await request(app).get('/api/v2/search/assets?q=%20').set(admin).expect(400);
-  });
-  it('q 미제공 → 400', async () => {
+  it('변전소 미제공 → 400', async () => {
     await request(app).get('/api/v2/search/assets').set(admin).expect(400);
   });
   it('포트 목록은 **심선 수까지** 준다 — 없으면 24심 인입이 1심으로 읽힌다', async () => {

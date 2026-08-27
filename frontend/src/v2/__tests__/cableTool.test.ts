@@ -63,6 +63,17 @@ describe('cableToolReducer — 경로 그리기', () => {
     expect(cableToolReducer(armedWithFirst, { type: 'UNDO_WAYPOINT' })).toBe(armedWithFirst);
   });
 
+  /**
+   * 이 국끼리 이으면 도구가 켜진 채로 남고(한 번 켜고 여러 가닥), **대국으로 이으면 끝난다**
+   * — 이 도면에는 더 그릴 것이 없는데 「1/3 이을 설비를 클릭하세요」가 남아 있었다.
+   */
+  it('대국으로 이으면 도구가 함께 끝난다 — 이 국끼리는 이어서 잇는다', () => {
+    const drawn = { ...armedWithFirst, draftPath: [{ x: 1, y: 1 }], remoteModalOpen: true };
+    expect(cableToolReducer(drawn, { type: 'REMOTE_CABLE_STAGED' }).armed).toBe(false);
+    expect(cableToolReducer(drawn, { type: 'REMOTE_CABLE_STAGED' }).remoteModalOpen).toBe(false);
+    expect(cableToolReducer(drawn, { type: 'CABLE_STAGED' }).armed).toBe(true);
+  });
+
   it('그리던 경로는 손짓이 끝나면 사라진다 — 다음 케이블에 새어들지 않는다', () => {
     const drawn = { ...armedWithFirst, draftPath: [{ x: 1, y: 1 }] };
     expect(cableToolReducer(drawn, { type: 'CABLE_STAGED' }).draftPath).toEqual([]);

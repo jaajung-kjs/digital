@@ -7,34 +7,29 @@ export const searchRouter = Router();
 searchRouter.use(authenticate);
 
 /**
- * 이름으로 자산 찾기 — **이 도면 밖의 끝점을 고르는 길**이다.
+ * 한 변전소의 자산을 **둘러본다** — 이 도면 밖의 끝점을 고르는 길이다.
  *
  * 케이블은 도면을 눌러 잇지만, 반대쪽이 이 도면에 없으면 누를 것이 없다: 다른 변전소(OPGW)
- * 도, 같은 국 다른 층도 그렇다. 그래서 찾는 문은 하나로 두고 **어디 있는 것인지**를 함께
- * 적어 준다 — 「변전소 · 층」이 없으면 이름이 같은 1층 슬롯과 2층 슬롯을 가릴 수 없다.
+ * 도, 같은 국 다른 층도 그렇다. 어디 있는 것인지를 함께 적어 준다 — 「변전소 · 층」이
+ * 없으면 이름이 같은 1층 슬롯과 2층 슬롯을 가릴 수 없다.
+ *
+ * **이름으로 찾는 갈래는 없다.** 한때 `q` 로 이름을 받았는데, 다른 국의 설비 이름을 외우고
+ * 있을 리 없어서 「무엇을 쳐야 하는지」를 아는 사람만 쓸 수 있었다. 고르는 상자가 변전소 →
+ * 층별 설비 → 장비 → 포트로 내려가게 바뀐 뒤로는 아무도 부르지 않았다(좁히는 검색은 받아
+ * 온 목록 안에서 화면이 한다).
  */
-/** GET /api/v2/search/assets?q=<부분일치>&limit=<기본 20, 최대 50> */
+/** GET /api/v2/search/assets?substationId=<변전소>&limit=<기본 500> */
 searchRouter.get('/search/assets', async (req, res, next) => {
   try {
-    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-    /**
-     * 이름으로 찾거나, **한 변전소를 통째로 둘러보거나**.
-     *
-     * 찾기만 두었더니 「무엇을 쳐야 하는지」를 아는 사람만 쓸 수 있었다 — 다른 국의 설비
-     * 이름을 외우고 있을 리 없다. 변전소를 고르면 그 국의 것이 층별로 다 나와야 한다.
-     */
     const substationId = typeof req.query.substationId === 'string' ? req.query.substationId : null;
-    if (!q && !substationId) throw new HttpError(400, 'BAD_REQUEST', '검색어(q) 또는 변전소를 지정하세요');
+    if (!substationId) throw new HttpError(400, 'BAD_REQUEST', '변전소를 지정하세요');
 
     const limitParam = parseInt(req.query.limit as string, 10);
-    /* 둘러볼 때는 그 국의 것이 다 나와야 한다 — 스무 개에서 끊으면 목록이 거짓말을 한다. */
-    const limit = isNaN(limitParam) ? (substationId ? 500 : 20) : Math.max(1, Math.min(500, limitParam));
+    /* 그 국의 것이 **다** 나와야 한다 — 스무 개에서 끊으면 목록이 거짓말을 한다. */
+    const limit = isNaN(limitParam) ? 500 : Math.max(1, Math.min(500, limitParam));
 
     const rows = await nextDb.asset.findMany({
-      where: {
-        ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
-        ...(substationId ? { substationId } : {}),
-      },
+      where: { substationId },
       include: {
         substation: { select: { id: true, name: true } },
         floor: { select: { name: true } },
