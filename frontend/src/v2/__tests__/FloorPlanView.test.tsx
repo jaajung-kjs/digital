@@ -56,6 +56,8 @@ vi.mock('../hooks', () => ({
   useMediumLabel: () => (key: string) => key,
   useMediumColor: () => () => null,
   /* 층을 만드는 길이 평면도에도 있다(빈 화면 + 탭 줄 끝) — 여기서는 부르지 않는다. */
+  /* 대국 상자가 변전소 목록을 조직 트리에서 가져온다 — 여기서는 비어 있어도 된다. */
+  useV2OrgTree: () => ({ data: null }),
   useOrgMutations: () => ({
     createOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
     renameOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },

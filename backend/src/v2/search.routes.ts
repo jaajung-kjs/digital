@@ -17,13 +17,24 @@ searchRouter.use(authenticate);
 searchRouter.get('/search/assets', async (req, res, next) => {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-    if (!q) throw new HttpError(400, 'BAD_REQUEST', '검색어(q)를 입력하세요');
+    /**
+     * 이름으로 찾거나, **한 변전소를 통째로 둘러보거나**.
+     *
+     * 찾기만 두었더니 「무엇을 쳐야 하는지」를 아는 사람만 쓸 수 있었다 — 다른 국의 설비
+     * 이름을 외우고 있을 리 없다. 변전소를 고르면 그 국의 것이 층별로 다 나와야 한다.
+     */
+    const substationId = typeof req.query.substationId === 'string' ? req.query.substationId : null;
+    if (!q && !substationId) throw new HttpError(400, 'BAD_REQUEST', '검색어(q) 또는 변전소를 지정하세요');
 
     const limitParam = parseInt(req.query.limit as string, 10);
-    const limit = isNaN(limitParam) ? 20 : Math.max(1, Math.min(50, limitParam));
+    /* 둘러볼 때는 그 국의 것이 다 나와야 한다 — 스무 개에서 끊으면 목록이 거짓말을 한다. */
+    const limit = isNaN(limitParam) ? (substationId ? 500 : 20) : Math.max(1, Math.min(500, limitParam));
 
     const rows = await nextDb.asset.findMany({
-      where: { name: { contains: q, mode: 'insensitive' } },
+      where: {
+        ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+        ...(substationId ? { substationId } : {}),
+      },
       include: {
         substation: { select: { id: true, name: true } },
         floor: { select: { name: true } },

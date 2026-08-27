@@ -11,6 +11,15 @@ import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2Ove
  */
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; floorName: string | null; typeName: string }
 
+/**
+ * 이름으로 찾거나, **한 변전소를 통째로 둘러보거나**.
+ *
+ * 다른 국의 설비 이름을 외우고 있을 리 없다 — 변전소를 고르면 그 국의 것이 다 나온다.
+ */
+export async function browseAssets(substationId: string): Promise<AssetSearchResult[]> {
+  return (await api.get('/v2/search/assets', { params: { substationId } })).data;
+}
+
 export async function searchAssets(q: string): Promise<AssetSearchResult[]> {
   return (await api.get('/v2/search/assets', { params: { q } })).data;
 }

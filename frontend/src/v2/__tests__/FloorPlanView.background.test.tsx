@@ -24,6 +24,8 @@ vi.mock('../hooks', () => ({
   // 장비의 포트를 놓는 순간 만들려면 장비 품목이 필요하다(저장 전에도 포트가 보여야 한다).
   useTypesById: () => new Map(),
   /* 층을 만드는 길이 평면도에도 있다(빈 화면 + 탭 줄 끝) — 여기서는 부르지 않는다. */
+  /* 대국 상자가 변전소 목록을 조직 트리에서 가져온다 — 여기서는 비어 있어도 된다. */
+  useV2OrgTree: () => ({ data: null }),
   useOrgMutations: () => ({
     createOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
     renameOrgNode: { mutate: () => {}, mutateAsync: async () => {}, isPending: false },
