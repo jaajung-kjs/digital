@@ -171,9 +171,27 @@ describe('고를 수 있는 값', () => {
      매번 「직접 입력」으로 빠져나가고, 그러면 목록을 둔 뜻이 없다. */
   it('대장에 나온 값을 담는다', () => {
     const size = cableFieldsFor('power').find((f) => f.key === 'sizeSq')!.options!;
-    for (const v of [2, 2.5, 3.5, 4, 5.5, 6, 8, 10, 14, 16, 22, 35, 38, 60]) expect(size).toContain(v);
+    for (const v of [2, 2.5, 3.5, 4, 5.5, 6, 8, 10, 14, 16, 22, 25, 35, 38, 60]) expect(size).toContain(v);
     const ampere = portFieldsFor('power').find((f) => f.key === 'ampere')!.options!;
     for (const v of [15, 30, 50, 60, 75, 100, 150, 225, 400]) expect(ampere).toContain(v);
+  });
+
+  /**
+   * **목록은 사실보다 넓으면 안 된다.**
+   *
+   * 표준 계열이라며 240sq·600A 까지 늘어놓은 적이 있는데, 그런 전선도 그런 차단기도 이 자료
+   * 어디에도 없다. 넓은 목록은 고르는 일을 느리게 하고(스무 줄에서 다섯 줄 찾기) 「목록에
+   * 있으니 맞겠지」라는 잘못된 안심을 준다. 없는 값은 「직접 입력」으로 적는다.
+   */
+  it('자료에 없는 값까지 늘어놓지 않는다', () => {
+    const size = cableFieldsFor('power').find((f) => f.key === 'sizeSq')!.options!;
+    for (const v of [70, 95, 120, 185, 240]) expect(size).not.toContain(v);
+    const ampere = portFieldsFor('power').find((f) => f.key === 'ampere')!.options!;
+    for (const v of [250, 300, 500, 600]) expect(ampere).not.toContain(v);
+    /* 자료에 있던 전압은 넷뿐이다(220·380·48·110) — DC 125V·24V 는 넣지 않는다. */
+    const voltage = cableFieldsFor('power').find((f) => f.key === 'voltage')!.options!.map(String);
+    expect(voltage.some((v) => v.includes('125V'))).toBe(false);
+    expect(voltage.some((v) => v.includes('24V'))).toBe(false);
   });
 });
 
