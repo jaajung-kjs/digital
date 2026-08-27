@@ -111,6 +111,7 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
       onCommit={handleCommit}
       type={isNumber ? 'number' : field.type === 'date' ? 'date' : undefined}
       label={field.label}
+      unit={field.unit}
     />
   );
 }
@@ -206,7 +207,8 @@ export function PowerRegisterView({
               두 줄이 되어 표의 행 높이가 43~63px 로 들쭉날쭉했다.
               몇 칸인지는 종류 선언이 정한다. */}
           {cableFields.map((f) => (
-            <Th key={f.key}>{f.unit ? `${f.label}(${f.unit})` : f.label}</Th>
+            /* 단위는 머리글이 아니라 **값 뒤에** 붙는다 — 선번장과 같은 규칙(`InlineEditCell unit`). */
+            <Th key={f.key}>{f.label}</Th>
           ))}
           <Th>부하 출력</Th>
         </>
