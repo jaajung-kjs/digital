@@ -44,6 +44,21 @@ export default function V2WorkspacePage() {
     if (route.nodeId == null || !orgTree) return null;
     return flattenTree(orgTree).find((n) => n.id === route.nodeId) ?? null;
   }, [orgTree, route.nodeId]);
+  /**
+   * 화면이 그리는 자리 — **다 읽은 것**이다(주소가 가리키는 것이 아니라).
+   *
+   * 변전소를 옮기면 조회가 끝날 때까지 이전 변전소가 이름째 그대로 서 있다가, 다 읽으면
+   * 이름과 내용이 **같은 순간에** 바뀐다. 예전에는 부르는 즉시 비워서 45ms 동안 빈 화면이
+   * 스쳤고(재어 보았다), 그것이 「화면이 깜빡인다」로 보였다.
+   *
+   * 왼쪽 트리는 주소를 따라 **바로** 옮겨 간다 — 누른 것이 눌린 것으로 보여야 한다.
+   */
+  const loadedSubstationId = useV2WorkingCopy((st) => st.substationId);
+  const shown: FlatOrgNode | null = useMemo(() => {
+    if (!loadingWorkingCopy || selected?.kind !== 'substation' || !orgTree) return selected;
+    /* 아직 아무것도 못 읽었으면 보여 줄 이전 화면이 없다 — 그때는 「불러오는 중」이 정직하다. */
+    return flattenTree(orgTree).find((n) => n.id === loadedSubstationId) ?? selected;
+  }, [loadingWorkingCopy, selected, orgTree, loadedSubstationId]);
   const selectedAssetId = route.assetId;
   /**
    * 표·도면에서 **켜져 보일 줄** — 누른 것 그 자체다.
@@ -121,7 +136,9 @@ export default function V2WorkspacePage() {
   useEffect(() => {
     if (selected?.kind !== 'substation') return;
     const st = useV2WorkingCopy.getState();
-    if (st.substationId !== selected.id) void st.load(selected.id);
+    /* 이미 들고 있거나 지금 읽는 중이면 다시 부르지 않는다 — 고쳐 둔 것이 날아가고,
+       같은 조회가 두 번 떠난다. */
+    if (st.substationId !== selected.id && st.pendingSubstationId !== selected.id) void st.load(selected.id);
   }, [selected]);
 
   /**
@@ -210,7 +227,7 @@ export default function V2WorkspacePage() {
   }, [overlays]);
 
   const substationRows = useMemo<StatusRowsResult>(() => {
-    if (selected?.kind !== 'substation' || substationId !== selected.id) return EMPTY_ROWS;
+    if (shown?.kind !== 'substation' || substationId !== shown.id) return EMPTY_ROWS;
     const inspectionsByAsset = new Map<string, string[]>();
     for (const log of inspections) {
       const list = inspectionsByAsset.get(log.assetId);
@@ -225,11 +242,11 @@ export default function V2WorkspacePage() {
       assembliesById,
       categoryNames,
     });
-  }, [selected, substationId, effectiveAssets, floors, inspections, typesById, assembliesById, categoryNames]);
+  }, [shown, substationId, effectiveAssets, floors, inspections, typesById, assembliesById, categoryNames]);
 
   // ── 노드 스코프 (본부/지사): useV2NodeAssets ────────────────────────────
-  const isNodeScope = selected != null && selected.kind !== 'substation';
-  const nodeAssetsQuery = useV2NodeAssets(isNodeScope ? selected.id : null);
+  const isNodeScope = shown != null && shown.kind !== 'substation';
+  const nodeAssetsQuery = useV2NodeAssets(isNodeScope ? shown.id : null);
   /* 누른 개체가 어느 변전소의 것인지는 이 목록만 안다 — 콜백이 매번 새로 만들어지지 않게 ref 로 읽는다. */
   const nodeAssetsRef = useRef(nodeAssetsQuery.data);
   nodeAssetsRef.current = nodeAssetsQuery.data;
@@ -259,11 +276,11 @@ export default function V2WorkspacePage() {
     return { rows, fieldColumns: assetFieldDefs() };
   }, [isNodeScope, nodeAssetsQuery.data]);
 
-  const { rows, fieldColumns } = selected?.kind === 'substation' ? substationRows : nodeRows;
+  const { rows, fieldColumns } = shown?.kind === 'substation' ? substationRows : nodeRows;
   const nodeScope = isNodeScope;
 
   // 이 변전소를 실제로 보고 있는가 — 뷰 분기의 전제.
-  const inSubstationScope = selected?.kind === 'substation' && substationId === selected.id;
+  const inSubstationScope = shown?.kind === 'substation' && substationId === shown.id;
 
   /**
    * 포트를 고르라는 요청을 받으면 **상세 패널을 그 자산으로 옮긴다**.
@@ -282,7 +299,7 @@ export default function V2WorkspacePage() {
 
   // 상세 패널: 변전소 스코프 + selectedAssetId 가 effective assets 에 있을 때만
   const showDetailPanel =
-    selected?.kind === 'substation' &&
+    shown?.kind === 'substation' &&
     selectedAssetId != null &&
     effectiveAssets.some((a) => a.id === selectedAssetId);
 
@@ -293,20 +310,20 @@ export default function V2WorkspacePage() {
           <OrgTreePanel selectedId={selected?.id ?? null} onSelect={handleSelect} />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
-          {selected == null && (
+          {shown == null && (
             <EmptyState
               title="선택된 조직/변전소가 없습니다"
               description="왼쪽에서 변전소를 고르면 현황·평면도·선번장·계통을 볼 수 있습니다."
             />
           )}
-          {selected != null && (
+          {shown != null && (
             <div className="flex min-h-0 flex-1 flex-col">
               {/* 헤더: 선택 노드 이름 + 뷰 토글 (변전소 스코프에서만) */}
               {/* 왼쪽은 「지금 무엇을 보고 있나」, 오른쪽은 「그것을 어떻게 할 것인가」 —
                   대장 편집 바와 같은 골격이다. */}
               <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-4">
                 <span className="text-sm font-semibold text-content" data-testid="v2-selected">
-                  {selected.name}
+                  {shown.name}
                 </span>
                 {inSubstationScope && (
                   <Tabs {...viewTabs.list} items={VIEW_TABS} onChange={route.setView} className="ml-4 -mb-px" />
@@ -331,7 +348,9 @@ export default function V2WorkspacePage() {
                 </div>
               )}
 
-              {loadingWorkingCopy ? (
+              {/* **아직 아무것도 못 읽었을 때만** 「불러오는 중」이다 — 이미 보고 있던 변전소가
+                  있으면 그것이 그대로 서 있다가 다 읽은 순간 한 번에 바뀐다(깜빡임 없음). */}
+              {shown.kind === 'substation' && substationId !== shown.id ? (
                 <PageState />
               ) : (
                 /* 이 자리가 뷰 탭의 내용이다 — 탭과 이름표를 나눠 갖는다. */

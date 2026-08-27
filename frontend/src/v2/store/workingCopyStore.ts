@@ -31,6 +31,8 @@ export interface V2WorkingCopyState {
   baseVersions: Record<string, string>;
   /** 워킹카피 조회 진행 중 — 이 앱에서 가장 무거운 조회다(배경도면 포함 시 수백 KB). */
   loading: boolean;
+  /** 읽는 중인 변전소 — 화면이 아직 갈아 끼우지 않은 것. 없으면 `null`. */
+  pendingSubstationId: string | null;
   load: (substationId: string) => Promise<void>;
   revert: () => void;
   stageFloorCreate: (floor: V2Floor) => void;
@@ -65,20 +67,34 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
     (set, get) => ({
       substationId: null,
       loading: false,
+      pendingSubstationId: null,
       saved: EMPTY_SAVED,
       overlays: emptyOverlays(),
       baseVersions: {},
 
+      /**
+       * 변전소 하나를 읽어 온다 — **다 읽은 뒤에 한 번에** 갈아 끼운다.
+       *
+       * 예전에는 부르는 즉시 비웠다(대상을 바꾸고 `saved` 를 EMPTY 로). 「A 의 자산이 B 의
+       * 이름 아래」 보이는 것을 막으려던 것인데, 그 바람에 변전소를 옮길 때마다 화면이
+       * **지워졌다 다시 그려졌다** — 재어 보니 45ms 동안 빈 화면이라, 눈에는 깜빡임으로 남았다.
+       *
+       * 이제 읽는 동안 **이전 변전소가 그대로 서 있는다**(`substationId` 도 그대로다). 화면은
+       * 「지금 들고 있는 변전소」를 그리므로 이름과 자산이 어긋날 수가 없고, 다 읽으면 이름과
+       * 내용이 같은 순간에 바뀐다.
+       *
+       * 읽는 중인 대상은 `pendingSubstationId` 가 안다 — 빨리 두 번 누르면 **마지막 것만**
+       * 실린다(먼저 떠난 조회가 늦게 도착해 뒤엎지 않게).
+       */
       load: async (substationId) => {
         const t = v2WorkingCopyStore.temporal.getState();
         t.pause();
-        // 대상을 먼저 바꾸고 이전 변전소 데이터를 비운다 — 그러지 않으면 조회가
-        // 끝날 때까지 **A 의 자산이 B 의 이름 아래** 그대로 보인다(피드백 부재가
-        // 아니라 틀린 데이터를 보여주는 것이다).
-        set({ substationId, loading: true, saved: EMPTY_SAVED, overlays: emptyOverlays() });
+        set({ loading: true, pendingSubstationId: substationId });
         try {
           const wc = await fetchWorkingcopy(substationId);
+          if (get().pendingSubstationId !== substationId) return; // 더 나중 것이 떠났다
           set({
+            substationId,
             saved: { substation: wc.substation, floors: wc.floors, assets: wc.assets, maintenanceLogs: wc.maintenanceLogs, inspectionLogs: wc.inspectionLogs, cables: wc.cables, photos: wc.photos },
             overlays: emptyOverlays(),
             baseVersions: {
@@ -89,11 +105,15 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
           });
           t.clear();
         } catch (e) {
-          // 조회 실패를 삼키면 화면은 빈 채로 남고 사용자는 이유를 알 수 없다.
-          // 문구 번역은 apiErrorMessage(단일 지점)가 한다.
+          /* 못 읽었으면 **그 변전소로 옮기되 비운다** — 이전 변전소를 그대로 두면 트리는 B 를
+             가리키는데 화면은 A 를 보여 주는, 서로 다른 것을 말하는 화면이 된다. 왜 비었는지는
+             알림이 말한다(문구 번역은 `apiErrorMessage` 한 곳). */
+          if (get().pendingSubstationId === substationId) {
+            set({ substationId, saved: EMPTY_SAVED, overlays: emptyOverlays(), baseVersions: {} });
+          }
           useV2Notice.getState().showError(apiErrorMessage(e, '변전소 데이터를 불러오지 못했습니다'));
         } finally {
-          set({ loading: false });
+          if (get().pendingSubstationId === substationId) set({ loading: false, pendingSubstationId: null });
           t.resume();
         }
       },
