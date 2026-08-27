@@ -7,7 +7,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { emptyOverlays, v2WorkingCopyStore } from '../store/workingCopyStore';
-import { PowerRegisterView } from '../components/registers/PowerRegisterView';
+import { PowerRegisterView, powerColumnWidths } from '../components/registers/PowerRegisterView';
+import { cableFieldsFor, portFieldsFor } from '@twin/core';
 import type { V2Asset, V2Cable } from '../types';
 
 const port = (id: string, assetId: string, group: string, index: number, direction: 'IN' | 'OUT', name: string) =>
@@ -157,5 +158,39 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
 
     const staged = v2WorkingCopyStore.getState().overlays.cables.updates['c1'];
     expect((staged?.specParams as Record<string, unknown>).lengthM).toBe(12.5);
+  });
+});
+
+/**
+ * **열 폭은 재서 정한다.** 손으로 나눴다가 두 번 틀렸다: 전압(「AC 220V 1φ」)이 두 줄로 접혔고,
+ * 개폐는 글자가 아니라 스위치라 「ON」이 칸 밖으로 잘렸다. 눈으로는 멀쩡해 보이는 크기다.
+ */
+describe('계통 표 열 폭', () => {
+  const valueFields = [
+    ...portFieldsFor('power').filter((f) => f.type !== 'boolean'),
+    ...cableFieldsFor('power'),
+  ].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  const stateCount = portFieldsFor('power').filter((f) => f.type === 'boolean').length;
+  const widths = powerColumnWidths(valueFields, stateCount);
+
+  it('합이 100 이다 — 표의 규약', () => {
+    expect(Math.round(widths.reduce((a, b) => a + b, 0))).toBe(100);
+    expect(widths).toHaveLength(2 + valueFields.length + stateCount);
+  });
+
+  it('가장 긴 값을 담는 칸이 가장 넓다 — 전압에 위상까지 들어간다', () => {
+    const [, , ...rest] = widths;
+    const valueWidths = rest.slice(0, valueFields.length);
+    const widest = valueFields[valueWidths.indexOf(Math.max(...valueWidths))]!;
+    expect(widest.key).toBe('voltage');
+  });
+
+  it('용도가 남는 폭을 받는다 — 자료가 채우는 열이라 가장 넓다', () => {
+    expect(widths[1]!).toBeGreaterThan(Math.max(...widths.filter((_, i) => i !== 1)));
+  });
+
+  /* 개폐는 스위치 + 글자라 회로 번호 칸보다 넓어야 한다 — 좁게 잡아 「ON」이 잘렸었다. */
+  it('개폐 칸은 스위치가 들어갈 만큼 — 회로 번호 칸보다 넓다', () => {
+    expect(widths[widths.length - 1]!).toBeGreaterThan(widths[0]!);
   });
 });

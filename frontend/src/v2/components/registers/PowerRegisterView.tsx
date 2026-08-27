@@ -130,6 +130,39 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
 /**
+ * 열 폭 — **그 칸이 담을 수 있는 가장 긴 값**이 정한다(목록이 있으면 목록이 그것을 안다).
+ *
+ * 재는 단위는 **픽셀**이다. 글자 수로 셌더니 한글(13px)과 숫자(7px)가 같은 한 글자로 세어져
+ * 「12.5m」·「5.5sq」가 몇 픽셀씩 모자라 잘렸고, 개폐는 글자가 아니라 스위치라 아예 다른
+ * 셈이었다(「ON」이 칸 밖으로 나갔다). 눈으로는 멀쩡해 보이는 크기라 재 보기 전에는 모른다.
+ *
+ * 남는 폭은 **용도**가 받는다 — 자료가 채우는 열이라 선언이 없고, 가장 긴 값이 거기 온다.
+ *
+ * @returns 회로 · 용도 · 값 칸들 · 상태 순의 비율(합 100).
+ */
+export function powerColumnWidths(valueFields: readonly ValueDef[], stateCount: number): number[] {
+  const CJK = /[가-힣ㄱ-ㅎㅏ-ㅣ]/;
+  const pxOf = (text: string) => [...text].reduce((n, ch) => n + (CJK.test(ch) ? 13 : 7.2), 0);
+  /** 목록이 없는 수치가 들어갈 만큼 — 「12.5m」. */
+  const VALUE_MIN_PX = 46;
+  const PADDING_PX = 32;
+  const widthPxOf = (f: ValueDef) =>
+    Math.max(pxOf(f.label), VALUE_MIN_PX, ...(f.options ?? []).map((o) => pxOf(String(o) + (f.unit ?? '')))) + PADDING_PX;
+
+  const CIRCUIT_PX = pxOf('입력') + PADDING_PX;
+  /** 스위치(24) + 간격 + 「OFF」. */
+  const STATE_PX = 24 + 6 + pxOf('OFF') + PADDING_PX;
+  /* 비율의 기준 폭 — 상세 패널을 연 1440px 화면에서 이 판이 서는 크기다. 더 넓어지면 다 같이
+     넓어지고 좁아지면 다 같이 좁아진다(어느 한 열만 굶지 않는다). */
+  const REFERENCE_PX = 760;
+
+  const fixedPx = [CIRCUIT_PX, ...valueFields.map(widthPxOf), ...Array(stateCount).fill(STATE_PX)];
+  const fixedPct = fixedPx.map((px) => Math.round((px / REFERENCE_PX) * 1000) / 10);
+  const purpose = Math.round((100 - fixedPct.reduce((a, b) => a + b, 0)) * 10) / 10;
+  return [fixedPct[0]!, purpose, ...fixedPct.slice(1)];
+}
+
+/**
  * 나무를 위에서 아래로 편 목록 — **거슬러 온 길**을 함께 들고 간다.
  *
  * 매달림을 들여쓰기로 보이려 했는데, 묶음마다 표가 따로 서는 판에서는 제목만 밀리고 표는
@@ -171,31 +204,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     ...cableFields.map((field) => ({ field, from: 'cable' as const })),
   ].sort((a, b) => (a.field.order ?? 99) - (b.field.order ?? 99));
 
-  /**
-   * 열 폭은 **그 칸이 담을 수 있는 가장 긴 값**이 정한다 — 목록이 있으면 목록이 그것을 안다.
-   *
-   * 손으로 나누면 반드시 어긋난다: 실제로 용도는 필요보다 170px 넓었고 전압(「AC 220V 1φ」)은
-   * 두 줄로 접혔다. 글자 수로 무게를 재고 **남는 폭은 무게에 비례해** 나눈다 — 그러면 어느
-   * 열도 굶지 않고, 값이 긴 열(용도)이 자연히 넓어진다.
-   */
-  const weightOf = (f: ValueDef) =>
-    Math.max(f.label.length * 2, ...(f.options ?? []).map((o) => String(o).length + (f.unit?.length ?? 0)), 5) + 2;
-  /** 용도는 자료가 채우는 열이라 선언이 없다 — 「설비 - 장비#번호」가 들어갈 만큼. */
-  const PURPOSE_WEIGHT = 34;
-  const FIXED_WEIGHT = 6; // 회로 번호·개폐 스위치처럼 늘 짧은 것
-  const rawWeights = [
-    FIXED_WEIGHT,
-    PURPOSE_WEIGHT,
-    ...valueColumns.map((c) => weightOf(c.field)),
-    ...stateFields.map(() => FIXED_WEIGHT),
-  ];
-  const totalWeight = rawWeights.reduce((a, b) => a + b, 0);
-  /* 합이 100 이어야 한다(`TableCard` 의 규약) — 마지막 열이 나머지를 받아 어긋남을 흡수한다. */
-  const widths = rawWeights.map((w, i) =>
-    i === rawWeights.length - 1
-      ? 100 - rawWeights.slice(0, -1).reduce((a, b) => a + Math.round((b / totalWeight) * 1000) / 10, 0)
-      : Math.round((w / totalWeight) * 1000) / 10,
-  );
+  const widths = powerColumnWidths(valueColumns.map((c) => c.field), stateFields.length);
 
   const tree = useMemo(() => powerTree(effectiveAssets, effectiveCables), [effectiveAssets, effectiveCables]);
   const nodes = useMemo(() => flatten(tree), [tree]);
