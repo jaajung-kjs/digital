@@ -154,7 +154,8 @@ function PortFieldInput({
   }
 
   /* 따라오는 칸은 **읽는 줄**이다 — 적게 두면 값과 어긋난다. */
-  if (field.readOnly) return <span className="text-content-muted">{shown || EMPTY}</span>;
+  /* 날짜는 **한 줄로** 선다 — 좁으면 `2026-08-` / `27` 로 접혀 두 줄이 된다(줄 키가 들쭉날쭉해진다). */
+  if (field.readOnly) return <span className="whitespace-nowrap text-content-muted">{shown || EMPTY}</span>;
   return <InlineEditCell value={shown} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} label={field.label} />;
 }
 
@@ -257,12 +258,16 @@ export function FiberRegisterView({
      `코어` 두 글자가 두 줄로 갈라져 머리글 줄만 키가 커졌다.
      값 열은 무엇을 적는 칸인지에 따라 다르다: 날짜 칸에는 달력 아이콘이 함께 들어가므로
      숫자 칸과 같은 폭을 주면 아이콘이 날짜 위에 겹친다. */
-  const CORE_WIDTH = 8;
+  /* 「코어」 두 글자가 **한 줄로** 서는 만큼은 준다 — 5% 로 뒀더니 머리글이 「코0」으로 잘렸다. */
+  const CORE_WIDTH = 7;
   /* 수 칸은 **여섯 자리까지** 들어갈 만큼 준다(길이 m) — 10% 로 뒀더니 네 자리에서 이미
      끝자리가 잘렸다. 그 몫은 **날짜 칸**에서 떼어 온다: 값은 이제 읽는 줄로 서고 상자는
      고칠 때만 뜨므로(`InlineEditCell`) 달력 아이콘이 늘 자리를 잡고 있을 이유가 없다.
      대국 열은 두 자리 번호(`…광단말 A#12`)에서 실측 161px 가 필요하다 — 25% 로 둔다. */
-  const metaWidth = (f: ValueDef) => (f.type === 'date' ? 18 : 12);
+  /* 값 칸은 모두 같은 몫이다 — 단위가 아랫줄로 내려가 머리글 길이가 값 길이와 비슷해졌고,
+     날짜도 이제 **읽는 줄**이라(측정일은 찍힌다) 상자와 달력 아이콘 자리가 필요 없다. */
+  /* 날짜 칸만 한 뼘 넓다 — `2026-08-27` 열 글자가 접히지 않을 만큼(나머지는 서너 자리 수다). */
+  const metaWidth = (f: ValueDef) => (f.type === 'date' ? 13 : 11);
   const metaTotal = metaFields.reduce((sum, f) => sum + metaWidth(f), 0);
   /* 대국 열은 두 홉을 건너간 이름이라 가장 길다 — 성단 열과 같은 몫을 준다. */
   const peerCols = groups.length + 1;
@@ -301,7 +306,11 @@ export function FiberRegisterView({
           ))}
           <Th>대국</Th>
           {metaFields.map((f) => (
-            <Th key={f.key}>{f.unit ? `${f.label}(${f.unit})` : f.label}</Th>
+            /* 단위는 **아랫줄**에 — 옆에 붙이면 머리글이 그만큼 길어져 잘린다(`Th`).
+               잘려야 하는 것은 값이지 머리글이 아니다: 「1310 거리(km」는 무슨 열인지 모른다. */
+            <Th key={f.key} unit={f.unit}>
+              {f.label}
+            </Th>
           ))}
         </>
       }
@@ -329,12 +338,12 @@ export function FiberRegisterView({
                 {/* 그룹별 피어 셀 */}
                 {row.cells.map((cell) => (
                   <td key={cell.group} className="px-3 py-1.5">
-                    <PeerCell peer={cell.peer} />
+                    <PeerCell peer={cell.peer} compact />
                   </td>
                 ))}
                 {/* 인입 건너편에서 이 심선이 닿는 곳 — 예전에는 대국 슬롯에서 끊겼다. */}
                 <td className="px-3 py-1.5">
-                  <PeerCell peer={row.farEnd} />
+                  <PeerCell peer={row.farEnd} compact />
                 </td>
                 {portMetaFields.map((f) => (
                   <td key={f.key} className="px-3 py-1.5">

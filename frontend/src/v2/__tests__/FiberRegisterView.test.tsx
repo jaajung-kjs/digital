@@ -158,4 +158,20 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
       />);
     expect(screen.getByText(/선번장에 표시할 광 설비가 없습니다/)).toBeTruthy();
   });
+
+  it('선번장의 이름 칸은 **설비 이름만** 적는다 — 장비·포트 번호는 줄을 밀어낼 뿐이다', () => {
+    setStore([ofd, slot], []);
+    render(<FiberRegisterView
+        substationId="sub-1"
+        selectedAssetId={null}
+        containerId={null}
+        onPickContainer={vi.fn()}
+        onSelectAsset={vi.fn()}
+      />);
+
+    /* 한 슬롯의 줄들이 같은 설비를 가리키므로 `OFD-1 - 슬롯1#1` 처럼 적으면 앞 글자가
+       줄마다 반복되고 정작 읽을 것(측정값)이 오른쪽으로 밀린다. */
+    expect(screen.queryByText(/#\d/)).toBeNull();
+    expect(screen.getAllByText('OFD-1').length).toBeGreaterThan(0);
+  });
 });
