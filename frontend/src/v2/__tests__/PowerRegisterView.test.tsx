@@ -113,8 +113,8 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
 
     const circuit = tableOf('분전반 · 소내전원반').getAllByRole('row')[2]!; // 머리글 · 입력 다음
     fireEvent.click(within(circuit).getByRole('button', { name: '용량 고치기' }));
-    fireEvent.change(screen.getByLabelText('용량'), { target: { value: '30' } });
-    fireEvent.blur(screen.getByLabelText('용량'));
+    /* 용량도 목록이다(정해진 값) — 고르면 그 자리에서 담긴다. */
+    fireEvent.change(screen.getByRole('combobox', { name: '용량' }), { target: { value: '30' } });
 
     const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
     const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o1');
@@ -124,6 +124,25 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
     expect(other?.fieldValues).toEqual({});
     // 표가 그대로 서 있다(무한 렌더로 사라지지 않았다).
     expect(tableOf('분전반 · 소내전원반').getAllByRole('row').length).toBe(4);
+  });
+
+  /* 정해진 값은 고른다 — 목록에 없는 값도 적을 수 있게 「직접 입력」이 함께 선다. */
+  it('전압처럼 정해진 값은 목록으로 고른다', () => {
+    setStore([rack, main, ups, load], wired());
+    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+
+    const circuit = tableOf('분전반 · 소내전원반').getAllByRole('row')[2]!;
+    fireEvent.click(within(circuit).getByRole('button', { name: '전압 고치기' }));
+    const select = screen.getByRole('combobox', { name: '전압' }) as HTMLSelectElement;
+    const opts = [...select.options].map((o) => o.value);
+    expect(opts).toContain('AC 220V 1φ');
+    expect([...select.options].map((o) => o.text)).toContain('직접 입력…');
+    /* 적힌 값이 목록에 없어도 지우지 않는다 — 화면이 사실을 감추면 안 된다. */
+    expect(opts).toContain('AC 220V');
+
+    fireEvent.change(select, { target: { value: 'AC 220V 1φ' } });
+    const staged = v2WorkingCopyStore.getState().overlays.cables.updates['c1'];
+    expect((staged?.specParams as Record<string, unknown>).voltage).toBe('AC 220V 1φ');
   });
 
   it('길이·전압은 그 자리에서 고친다 — 케이블에 담긴다', () => {

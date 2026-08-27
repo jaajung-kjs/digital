@@ -78,6 +78,8 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
       type={field.type === 'boolean' ? 'text' : field.type}
       label={field.label}
       unit={field.unit}
+      /* 고를 수 있는 값이 선언돼 있으면 목록으로 — 화면이 그 목록을 알지 않는다. */
+      options={field.options}
     />
   );
 }
@@ -172,6 +174,8 @@ function PortFieldInput({
       type={isNumber ? 'number' : 'date'}
       label={field.label}
       unit={field.unit}
+      /* 고를 수 있는 값이 선언돼 있으면 목록으로 — 화면이 그 목록을 알지 않는다. */
+      options={field.options}
     />
   );
 }

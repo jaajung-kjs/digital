@@ -145,6 +145,38 @@ describe('케이블 파라미터 선언', () => {
   });
 });
 
+/**
+ * **정해진 값은 고르게 한다** — 강릉 대장 전체에서 굵기는 열넷, 용량은 아홉, 전압은 넷뿐이었다.
+ * 손으로 치면 같은 값이 「AC220V」·「AC 220V」·「220v」로 갈려 세지도 거르지도 못한다.
+ */
+describe('고를 수 있는 값', () => {
+  it('전압·용량·굵기는 목록이 있다', () => {
+    const voltage = cableFieldsFor('power').find((f) => f.key === 'voltage');
+    const size = cableFieldsFor('power').find((f) => f.key === 'sizeSq');
+    const ampere = portFieldsFor('power').find((f) => f.key === 'ampere');
+    for (const f of [voltage, size, ampere]) expect(f?.options?.length).toBeGreaterThan(3);
+  });
+
+  /* 위상은 **교류에만 있는 성질**이라 전압 값에 들어 있다 — 따로 두면 「DC 48V 3φ」 같은
+     있을 수 없는 조합이 표현되고 DC 회로마다 빈 칸이 남는다. */
+  it('위상은 전압 값에 들어 있다 — DC 에는 위상이 없다', () => {
+    const voltage = cableFieldsFor('power').find((f) => f.key === 'voltage')!;
+    const opts = voltage.options!.map(String);
+    expect(opts).toContain('AC 220V 3φ');
+    expect(opts).toContain('AC 220V 1φ');
+    expect(opts.filter((o) => o.startsWith('DC')).every((o) => !o.includes('φ'))).toBe(true);
+  });
+
+  /* 현장 대장에 실제로 나온 값은 목록에 다 있어야 한다 — 목록이 사실보다 좁으면 쓰는 사람이
+     매번 「직접 입력」으로 빠져나가고, 그러면 목록을 둔 뜻이 없다. */
+  it('대장에 나온 값을 담는다', () => {
+    const size = cableFieldsFor('power').find((f) => f.key === 'sizeSq')!.options!;
+    for (const v of [2, 2.5, 3.5, 4, 5.5, 6, 8, 10, 14, 16, 22, 35, 38, 60]) expect(size).toContain(v);
+    const ampere = portFieldsFor('power').find((f) => f.key === 'ampere')!.options!;
+    for (const v of [15, 30, 50, 60, 75, 100, 150, 225, 400]) expect(ampere).toContain(v);
+  });
+});
+
 describe('포트 그룹 이름', () => {
   const g = (group, medium, direction = 'BI') => ({ group, medium, direction });
 

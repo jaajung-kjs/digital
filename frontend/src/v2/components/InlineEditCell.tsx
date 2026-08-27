@@ -12,7 +12,7 @@
  * 여기서 일반화하지 않고 `onCommit` 에 그대로 위임한다.
  */
 import { useState } from 'react';
-import { DateInput, EMPTY, Input, cn, SELECTABLE, formatDate, isCommitKey } from '../../components/ui';
+import { DateInput, EMPTY, Input, Select, cn, SELECTABLE, formatDate, isCommitKey } from '../../components/ui';
 
 interface InlineEditCellProps {
   value: string;
@@ -27,10 +27,26 @@ interface InlineEditCellProps {
    * 전체의 뜻을 잃는다), 무엇보다 단위는 **값의 성질**이지 열 이름의 일부가 아니다.
    */
   unit?: string;
+  /**
+   * 고를 수 있는 값 — 있으면 **목록**이 선다(`ValueDef.options`).
+   *
+   * 현장 값이 사실상 정해진 칸(전압·차단기 용량·전선 굵기)에서 손으로 치게 두면 같은 값이
+   * 「AC220V」·「AC 220V」·「220v」로 갈려 세지도 거르지도 못한다.
+   *
+   * **닫아 걸지는 않는다** — 목록에 없는 값이 실제로 나온다(대장에 110V 회로가 하나 있다).
+   * 목록 끝의 「직접 입력」이 그때의 문이고, 지금 값이 목록에 없으면 그 값도 목록에 실어
+   * 보여 준다(적힌 사실을 화면에서 지우지 않는다).
+   */
+  options?: readonly (string | number)[];
 }
 
-export function InlineEditCell({ value, onCommit, type = 'text', label, unit }: InlineEditCellProps) {
+/** 목록 끝의 「직접 입력」 — 이 값은 저장되지 않고 칸을 자유 입력으로 바꾼다. */
+const FREE_INPUT = '\u0000free';
+
+export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options }: InlineEditCellProps) {
   const [editing, setEditing] = useState(false);
+  /** 목록을 두고도 손으로 치는 중인가 — 「직접 입력」을 고른 뒤. */
+  const [freeform, setFreeform] = useState(false);
 
   if (!editing) {
     /* 빈 칸도 **누를 수 있어야** 한다 — 처음 값을 적는 자리가 바로 여기다. */
@@ -60,6 +76,38 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit }: 
     );
   }
 
+  /* 목록이 있으면 목록으로 — 「직접 입력」을 고르면 그때 상자로 바뀐다. */
+  if (options && !freeform) {
+    const known = options.map(String);
+    /* 적힌 값이 목록에 없어도 **보여 준다** — 화면이 사실을 지우면 안 된다. */
+    const items = value && !known.includes(value) ? [value, ...known] : known;
+    return (
+      <Select
+        aria-label={label}
+        size="cell"
+        autoFocus
+        defaultValue={value}
+        onChange={(e) => {
+          const next = e.currentTarget.value;
+          if (next === FREE_INPUT) { setFreeform(true); return; }
+          onCommit(next);
+          setEditing(false);
+        }}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); } }}
+      >
+        <option value="">{EMPTY}</option>
+        {items.map((o) => (
+          <option key={o} value={o}>
+            {o}
+            {unit ?? ''}
+          </option>
+        ))}
+        <option value={FREE_INPUT}>직접 입력…</option>
+      </Select>
+    );
+  }
+
   const common = {
     size: 'cell' as const,
     autoFocus: true,
@@ -69,11 +117,12 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit }: 
     onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
       onCommit(e.currentTarget.value);
       setEditing(false);
+      setFreeform(false);
     },
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (isCommitKey(e)) e.currentTarget.blur();
       /* Esc 는 **물린다** — 커밋하지 않고 원래 값으로 돌아간다(앱 공통 규칙). */
-      if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); }
+      if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); setFreeform(false); }
     },
   };
 

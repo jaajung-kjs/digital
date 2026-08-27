@@ -76,6 +76,8 @@ function PortValueCell({ assetId, portId, field, value }: { assetId: string; por
       type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : undefined}
       label={field.label}
       unit={field.unit}
+      /* 고를 수 있는 값이 선언돼 있으면 목록으로 — 화면이 그 목록을 알지 않는다. */
+      options={field.options}
     />
   );
 }
@@ -120,6 +122,8 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
       type={isNumber ? 'number' : field.type === 'date' ? 'date' : undefined}
       label={field.label}
       unit={field.unit}
+      /* 고를 수 있는 값이 선언돼 있으면 목록으로 — 화면이 그 목록을 알지 않는다. */
+      options={field.options}
     />
   );
 }
@@ -147,14 +151,51 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
      (길이·전압·굵기). 여기에 키를 적어 두면 어휘가 늘 때마다 표를 손으로 고쳐야 한다. */
   const portFields = portFieldsFor(POWER_MEDIUM);
   const cableFields = cableFieldsFor(POWER_MEDIUM);
-  const FIELD_WIDTH = 10;
-  const fieldCount = portFields.length + cableFields.length;
-  const widths = [
-    8, // 회로
-    ...portFields.map(() => FIELD_WIDTH),
-    100 - 8 - FIELD_WIDTH * fieldCount, // 용도 — 남는 폭
-    ...cableFields.map(() => FIELD_WIDTH),
+  /**
+   * 열 차례는 **대장 그대로**다: 회로 · 용량 · 용도 · 전원케이블 · 상태.
+   *
+   * 상태(개폐)가 맨 끝인 데는 까닭이 있다 — 한 줄은 「몇 번 회로가, 몇 A로, 무엇에, 어떤
+   * 케이블로」까지가 그 회로의 **신원**이고 개폐는 **지금 형편**이다. 신원 한가운데 스위치가
+   * 끼면 눈이 거기서 한 번 걸린다. 가르는 것은 자료형이다(참/거짓이면 상태다).
+   */
+  const stateFields = portFields.filter((f) => f.type === 'boolean');
+  /**
+   * 값 칸들은 **한 줄로 읽힌다** — 길이 · 전압 · 용량 · 굵기.
+   *
+   * 용량은 포트에 담기고 전압·굵기는 케이블에 담기지만 그건 저장의 사정이고, 읽는 사람에게는
+   * 전압(V) 옆에 용량(A)이 있어야 회로의 크기가 한눈에 잡힌다. 차례는 **선언이 정한다**
+   * (`ValueDef.order`) — 여기서 키를 나열하면 어휘가 늘 때마다 이 파일을 고쳐야 한다.
+   */
+  const valueColumns = [
+    ...portFields.filter((f) => f.type !== 'boolean').map((field) => ({ field, from: 'port' as const })),
+    ...cableFields.map((field) => ({ field, from: 'cable' as const })),
+  ].sort((a, b) => (a.field.order ?? 99) - (b.field.order ?? 99));
+
+  /**
+   * 열 폭은 **그 칸이 담을 수 있는 가장 긴 값**이 정한다 — 목록이 있으면 목록이 그것을 안다.
+   *
+   * 손으로 나누면 반드시 어긋난다: 실제로 용도는 필요보다 170px 넓었고 전압(「AC 220V 1φ」)은
+   * 두 줄로 접혔다. 글자 수로 무게를 재고 **남는 폭은 무게에 비례해** 나눈다 — 그러면 어느
+   * 열도 굶지 않고, 값이 긴 열(용도)이 자연히 넓어진다.
+   */
+  const weightOf = (f: ValueDef) =>
+    Math.max(f.label.length * 2, ...(f.options ?? []).map((o) => String(o).length + (f.unit?.length ?? 0)), 5) + 2;
+  /** 용도는 자료가 채우는 열이라 선언이 없다 — 「설비 - 장비#번호」가 들어갈 만큼. */
+  const PURPOSE_WEIGHT = 34;
+  const FIXED_WEIGHT = 6; // 회로 번호·개폐 스위치처럼 늘 짧은 것
+  const rawWeights = [
+    FIXED_WEIGHT,
+    PURPOSE_WEIGHT,
+    ...valueColumns.map((c) => weightOf(c.field)),
+    ...stateFields.map(() => FIXED_WEIGHT),
   ];
+  const totalWeight = rawWeights.reduce((a, b) => a + b, 0);
+  /* 합이 100 이어야 한다(`TableCard` 의 규약) — 마지막 열이 나머지를 받아 어긋남을 흡수한다. */
+  const widths = rawWeights.map((w, i) =>
+    i === rawWeights.length - 1
+      ? 100 - rawWeights.slice(0, -1).reduce((a, b) => a + Math.round((b / totalWeight) * 1000) / 10, 0)
+      : Math.round((w / totalWeight) * 1000) / 10,
+  );
 
   const tree = useMemo(() => powerTree(effectiveAssets, effectiveCables), [effectiveAssets, effectiveCables]);
   const nodes = useMemo(() => flatten(tree), [tree]);
@@ -206,12 +247,9 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       head={
         <>
           <Th>회로</Th>
-          {portFields.map((f) => (
-            <Th key={f.key}>{f.label}</Th>
-          ))}
           <Th>용도</Th>
           {/* 단위는 머리글이 아니라 **값 뒤에** 붙는다 — 선번장과 같은 규칙. */}
-          {cableFields.map((f) => (
+          {[...valueColumns.map((c) => c.field), ...stateFields].map((f) => (
             <Th key={f.key}>{f.label}</Th>
           ))}
         </>
@@ -256,17 +294,21 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               )}
             >
               <td className="px-3 py-1.5 text-sm font-medium text-content">입력</td>
-              {portFields.map((f) => (
-                <td key={f.key} className={cn('px-3 py-1.5', alignOf(f))}>
-                  <PortValueCell assetId={node.assetId} portId={src.portId} field={f} value={src.portValues[f.key]} />
-                </td>
-              ))}
               <td className="truncate px-3 py-1.5">
                 {src.from ? <PeerCell peer={src.from} /> : <span className="text-sm text-content-faint">{unwiredText(src.cableId)}</span>}
               </td>
-              {cableFields.map((f) => (
-                <td key={f.key} className={cn('px-3 py-1.5', alignOf(f))}>
-                  <CableFieldInput cableId={src.cableId} value={src.values[f.key]} field={f} />
+              {valueColumns.map(({ field, from }) => (
+                <td key={field.key} className={cn('px-3 py-1.5', alignOf(field))}>
+                  {from === 'port' ? (
+                    <PortValueCell assetId={node.assetId} portId={src.portId} field={field} value={src.portValues[field.key]} />
+                  ) : (
+                    <CableFieldInput cableId={src.cableId} value={src.values[field.key]} field={field} />
+                  )}
+                </td>
+              ))}
+              {stateFields.map((f) => (
+                <td key={f.key} className="px-3 py-1.5">
+                  <PortValueCell assetId={node.assetId} portId={src.portId} field={f} value={src.portValues[f.key]} />
                 </td>
               ))}
             </tr>
@@ -279,18 +321,22 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             className={cn('h-11 border-b border-line focus-visible:outline-none focus-ring-input', SELECTABLE)}
           >
             <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{c.index}</td>
-            {portFields.map((f) => (
-              <td key={f.key} className={cn('px-3 py-1.5', alignOf(f))}>
-                <PortValueCell assetId={node.assetId} portId={c.portId} field={f} value={c.portValues[f.key]} />
-              </td>
-            ))}
             {/* 용도 = 이 회로가 먹이는 것. 도면 밖 부하는 케이블에 적힌 대국까지가 전부다. */}
             <td className="truncate px-3 py-1.5">
               <PeerCell peer={c.load} />
             </td>
-            {cableFields.map((f) => (
-              <td key={f.key} className={cn('px-3 py-1.5', alignOf(f))}>
-                <CableFieldInput cableId={c.cableId} value={c.values[f.key]} field={f} />
+            {valueColumns.map(({ field, from }) => (
+              <td key={field.key} className={cn('px-3 py-1.5', alignOf(field))}>
+                {from === 'port' ? (
+                  <PortValueCell assetId={node.assetId} portId={c.portId} field={field} value={c.portValues[field.key]} />
+                ) : (
+                  <CableFieldInput cableId={c.cableId} value={c.values[field.key]} field={field} />
+                )}
+              </td>
+            ))}
+            {stateFields.map((f) => (
+              <td key={f.key} className="px-3 py-1.5">
+                <PortValueCell assetId={node.assetId} portId={c.portId} field={f} value={c.portValues[f.key]} />
               </td>
             ))}
           </tr>

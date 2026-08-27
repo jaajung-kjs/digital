@@ -35,6 +35,25 @@ export interface ValueDef {
   /** 라벨 뒤에 붙는 단위 — `길이(m)` 처럼. */
   unit?: string;
   /**
+   * 고를 수 있는 값 — 있으면 화면은 **목록으로** 낸다.
+   *
+   * 전압·차단기 용량·전선 굵기처럼 현장에서 쓰는 값이 사실상 정해져 있는 칸이 있다(강릉
+   * 대장 전체에서 굵기는 열넷, 용량은 아홉, 전압은 넷뿐이었다). 손으로 치게 두면 같은 값이
+   * 「AC220V」·「AC 220V」·「220v」로 갈려 세거나 거를 수가 없다.
+   *
+   * **닫아 걸지는 않는다.** 목록에 없는 값이 실제로 나온다(강릉에 110V 회로가 하나 있다).
+   * 목록은 표준을 권하는 것이지 사실을 막는 것이 아니다 — 화면이 「직접 입력」을 함께 낸다.
+   */
+  options?: readonly (string | number)[];
+  /**
+   * 표에서 **읽는 차례** — 작을수록 앞.
+   *
+   * 값이 케이블의 것인지 포트의 것인지는 저장의 사정이고, 읽는 사람은 한 줄로 읽는다:
+   * 「길이 · 전압 · 용량 · 굵기」. 전압(V) 옆에 용량(A)이 있어야 회로의 크기가 한눈에 잡힌다.
+   * 화면이 키를 나열해 차례를 정하면 어휘가 늘 때마다 화면을 고쳐야 한다.
+   */
+  order?: number;
+  /**
    * 사람이 적는 칸이 아니다 — **다른 값에서 따라오는 것**(측정일이 그렇다).
    *
    * 화면은 읽는 줄로만 세운다. 적게 두면 값과 날짜가 어긋난다.
@@ -56,7 +75,7 @@ export interface ValueDef {
  * 길이는 **설계서 공량**의 근거다(품셈 × 길이). 그래서 어느 종류든 적을 수 있어야 한다.
  */
 export const COMMON_CABLE_FIELDS: readonly ValueDef[] = [
-  { key: 'lengthM', label: '길이', type: 'number', unit: 'm' },
+  { key: 'lengthM', label: '길이', type: 'number', unit: 'm', order: 10 },
 ] as const;
 
 /**
@@ -127,6 +146,32 @@ export interface PortKind {
 }
 
 /**
+ * 현장에서 쓰는 **전원 계통 값들** — 강릉 대장 전체를 세어 나온 것 + 그 계열의 표준값.
+ *
+ * 목록은 표준을 권하는 것이지 사실을 막는 것이 아니다(`ValueDef.options` 참고).
+ */
+/** 전압 — 위상까지 한 값으로. 대장 표기가 그렇고, DC 에는 위상이 없다. */
+export const POWER_VOLTAGES = [
+  'AC 380V 3φ', 'AC 220V 3φ', 'AC 220V 1φ', 'AC 110V 1φ',
+  'DC 125V', 'DC 48V', 'DC 24V',
+] as const;
+
+/**
+ * 전선 규격(공칭 단면적, sq=mm²) — 두 계열이 섞여 쓰인다.
+ *
+ * 2·3.5·5.5·8·14·22·38·60 은 예전 JIS 계열이고 2.5·4·6·10·16·25·35·50 은 IEC(KS) 계열인데,
+ * 현장 대장에는 둘이 나란히 나온다(5.5sq 101회, 6sq 85회). 하나로 고를 수 없으니 둘 다 낸다.
+ */
+export const WIRE_SIZES_SQ = [
+  1.5, 2, 2.5, 3.5, 4, 5.5, 6, 8, 10, 14, 16, 22, 25, 35, 38, 50, 60, 70, 95, 100, 120, 150, 185, 240,
+] as const;
+
+/** 차단기 정격(A) — MCCB 표준 계열. 대장에 나온 것(15·30·50·60·75·100·150·225·400)을 포함한다. */
+export const BREAKER_AMPERES = [
+  10, 15, 20, 30, 40, 50, 60, 75, 100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 500, 600,
+] as const;
+
+/**
  * `satisfies` 로 적는다 — 주석(`: readonly PortKind[]`)을 달면 `key` 가 `string` 으로
  * 넓어져 아래 `PortKindKey` 가 뜻을 잃는다. 시드의 품셈 표가 이 키로 **빠짐없이** 열거되게
  * 하려면 리터럴 타입이 살아 있어야 한다.
@@ -138,8 +183,21 @@ export const PORT_KINDS = [
     /* 굵기는 **전원케이블 대장의 절반**이다 — 현장 대장은 「FR-5.5sq」처럼 종류와 굵기를
        붙여 적는다. 종류는 우리 케이블 품목이 이미 알고, 굵기는 적을 곳이 없었다. */
     cableFields: [
-      { key: 'voltage', label: '전압', type: 'text' },
-      { key: 'sizeSq', label: '굵기', type: 'number', unit: 'sq' },
+      /**
+       * 전압과 **위상이 한 칸**이다 — 대장이 「220V 3φ」로 붙여 적고, 그 편이 옳다.
+       *
+       * 따로 두면 DC 회로마다 위상 칸이 빈 채 남고, 「DC 48V 3φ」 같은 있을 수 없는 조합이
+       * 표현된다. 위상은 교류에만 있는 성질이라 값에 들어 있는 것이 정확하다.
+       */
+      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20 },
+      /**
+       * 도체의 **공칭 단면적**(5.5sq = 5.5mm²) — 현장 대장의 열 이름이 「규격(SQ)」이라 그대로 쓴다.
+       *
+       * 말로는 「전선 굵기」라고도 하지만 문서에 적힐 때는 규격이다. 광의 「심선」과는 다른
+       * 말이고(그건 유리섬유 가닥 수), 케이블 안에 도체가 몇 가닥인지는 「심수」(3C·4C)로
+       * 또 다른 값이다 — 대장은 심수를 적지 않는다(단상 2C·삼상 4C 가 관행이라 위상에서 따라온다).
+       */
+      { key: 'sizeSq', label: '규격', type: 'number', unit: 'sq', options: WIRE_SIZES_SQ, order: 40 },
     ],
     /* 차단기의 개폐 — 예전에는 피더 **자산**의 필드였는데, 개폐는 자산이 아니라
        그 회로의 상태다. 출력이 여럿인 기기(콘센트 13구 분배반)는 회로마다 따로 끊긴다.
@@ -149,7 +207,7 @@ export const PORT_KINDS = [
        (강릉 대장이 그렇다), 입력에도 있다(「200A AC MAIN」). 자산 필드로 두면 열세 회로가
        한 값을 나눠 갖게 된다. */
     portFields: [
-      { key: 'ampere', label: '용량', type: 'number', unit: 'A' },
+      { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 30 },
       { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true },
     ],
   },
@@ -198,7 +256,7 @@ export const PORT_KINDS = [
   // 접지 부스바에는 여러 기기의 접지선이 한 단자로 모인다 — 여기만 다중 결선이다.
   /* 접지선도 굵기로 부른다(「IV 22sq」) — 전원과 같은 사실이라 같은 칸을 쓴다. */
   { key: 'ground', name: '접지', connectsTo: ['ground'], pairing: 'any', maxCables: null,
-    cableFields: [{ key: 'sizeSq', label: '굵기', type: 'number', unit: 'sq' }], portFields: [] },
+    cableFields: [{ key: 'sizeSq', label: '규격', type: 'number', unit: 'sq', options: WIRE_SIZES_SQ, order: 40 }], portFields: [] },
 ] as const satisfies readonly PortKind[];
 
 /** 이 어휘가 아는 매체 키 — 시드·검증이 이걸로 빠짐을 컴파일 때 잡는다. */
