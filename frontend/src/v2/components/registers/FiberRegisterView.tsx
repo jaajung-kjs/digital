@@ -98,7 +98,9 @@ function SlotMeta({ cableId, values }: { cableId: string | null; values: Record<
   const category = catalog.data?.cableGroups.flatMap((g) => g.categories).find((c) => c.id === categoryId);
   const fields = cableFieldsFor(FIBER_MEDIUM, { managesFiberLine: category?.managesFiberLine });
 
-  if (!cableId) return null;
+  /* 값을 담는 자리는 **인입 케이블**이다 — 아직 없으면 적을 곳이 없다는 것을 말해 준다
+     (빈 자리로 두면 「왜 이 슬롯만 칸이 없나」가 된다). */
+  if (!cableId) return <span className="text-xs text-content-faint">인입 케이블 없음</span>;
   return (
     <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-content-muted">
       {fields.map((f) => (
@@ -351,12 +353,12 @@ export function FiberRegisterView({
                 {/* 그룹별 피어 셀 */}
                 {row.cells.map((cell) => (
                   <td key={cell.group} className="px-3 py-1.5">
-                    <PeerCell peer={cell.peer} compact />
+                    <PeerCell peer={cell.peer} />
                   </td>
                 ))}
                 {/* 인입 건너편에서 이 심선이 닿는 곳 — 예전에는 대국 슬롯에서 끊겼다. */}
                 <td className="px-3 py-1.5">
-                  <PeerCell peer={row.farEnd} compact />
+                  <PeerCell peer={row.farEnd} />
                 </td>
                 {portMetaFields.map((f) => (
                   <td key={f.key} className="px-3 py-1.5">

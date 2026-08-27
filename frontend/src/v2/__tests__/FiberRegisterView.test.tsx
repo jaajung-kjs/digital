@@ -161,7 +161,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     expect(screen.getByText(/선번장에 표시할 광 설비가 없습니다/)).toBeTruthy();
   });
 
-  it('선번장의 이름 칸은 **설비 이름만** 적는다 — 장비·포트 번호는 줄을 밀어낼 뿐이다', () => {
+  it('인입 케이블이 없는 슬롯은 **그 사실을 말한다** — 값을 담을 자리가 거기이기 때문이다', () => {
     setStore([ofd, slot], []);
     render(<FiberRegisterView
         substationId="sub-1"
@@ -171,9 +171,9 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
         onSelectAsset={vi.fn()}
       />);
 
-    /* 한 슬롯의 줄들이 같은 설비를 가리키므로 `OFD-1 - 슬롯1#1` 처럼 적으면 앞 글자가
-       줄마다 반복되고 정작 읽을 것(측정값)이 오른쪽으로 밀린다. */
-    expect(screen.queryByText(/#\d/)).toBeNull();
-    expect(screen.getAllByText('OFD-1').length).toBeGreaterThan(0);
+    /* 길이·선로명은 **인입 케이블의 값**이다. 케이블이 없으면 적을 곳이 없는데, 그 자리를
+       그냥 비워 두면 「왜 이 슬롯만 칸이 없나」가 된다. */
+    expect(screen.getByText('인입 케이블 없음')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '길이 고치기' })).toBeNull();
   });
 });
