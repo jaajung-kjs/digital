@@ -53,8 +53,13 @@ export async function sweepTestFixtures(): Promise<void> {
     try { await nextDb.assetType.deleteMany({ where: { key: { startsWith: p } } }); } catch { /* ignore */ }
     try { await nextDb.assetCategory.deleteMany({ where: { key: { startsWith: p } } }); } catch { /* ignore */ }
   }
-  // 3. assets by name prefix (children first)
+  /* 3. 자산 — **그 변전소에 있는 것 전부**(자식 먼저).
+        이름 접두로만 지우면 시험이 만든 것 중 이름이 다른 것이 남는다: 설비 품목으로 놓은
+        슬롯은 구성이 준 이름(「슬롯 1」)을 갖는다. 하나라도 남으면 변전소가 FK 에 걸려
+        지워지지 않고, 그 픽스처가 다음 사람 화면의 조직 트리에 그대로 선다(실제로 그랬다). */
   for (const p of nameStartsWith) {
+    try { await nextDb.asset.deleteMany({ where: { substation: { name: { startsWith: p } }, parentAssetId: { not: null } } }); } catch { /* ignore */ }
+    try { await nextDb.asset.deleteMany({ where: { substation: { name: { startsWith: p } } } }); } catch { /* ignore */ }
     try { await nextDb.asset.deleteMany({ where: { name: { startsWith: p }, parentAssetId: { not: null } } }); } catch { /* ignore */ }
     try { await nextDb.asset.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
   }

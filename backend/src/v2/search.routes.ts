@@ -118,6 +118,10 @@ searchRouter.get('/assets/:id/ports', async (req, res, next) => {
       name: p.name,
       direction: p.direction,
       medium: p.medium,
+      /* 심선 수 — **이것이 빠지면 24심 인입이 1심으로 읽힌다**(안 적었으면 한 가닥이므로).
+         그래서 대국 검색으로 OPGW 를 고르면 「심선 수가 다름」으로 막혔다. 연결 규칙이
+         묻는 값은 다 실어 보낸다. */
+      positions: p.positions,
       occupied: occupiedSet.has(p.id),
     })));
   } catch (e) {

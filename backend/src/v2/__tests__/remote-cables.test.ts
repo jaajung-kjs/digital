@@ -96,6 +96,13 @@ describe('검색/포트 API', () => {
   it('q 미제공 → 400', async () => {
     await request(app).get('/api/v2/search/assets').set(admin).expect(400);
   });
+  it('포트 목록은 **심선 수까지** 준다 — 없으면 24심 인입이 1심으로 읽힌다', async () => {
+    const trunk = (await request(app).get(`/api/v2/assets/${slotAId}/ports`).set(admin).expect(200)).body
+      .find((p: { group: string }) => p.group === 'TRUNK');
+    /* 이 값이 빠져 대국 검색에서 OPGW 를 고르면 「심선 수가 다름」으로 막혔다. */
+    expect(trunk.positions).toBeGreaterThan(1);
+  });
+
   it('포트 목록 + occupied', async () => {
     const ports = (await request(app).get(`/api/v2/assets/${slotBId}/ports`).set(admin).expect(200)).body;
     const p1 = ports.find((p: { group: string; index: number }) => p.group === 'CORE' && p.index === 1);
