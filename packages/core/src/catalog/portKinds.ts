@@ -35,6 +35,12 @@ export interface ValueDef {
   /** 라벨 뒤에 붙는 단위 — `길이(m)` 처럼. */
   unit?: string;
   /**
+   * 사람이 적는 칸이 아니다 — **다른 값에서 따라오는 것**(측정일이 그렇다).
+   *
+   * 화면은 읽는 줄로만 세운다. 적게 두면 값과 날짜가 어긋난다.
+   */
+  readOnly?: boolean;
+  /**
    * 적힌 값이 없을 때의 뜻.
    *
    * 개폐가 그렇다 — 살아 있는 계통에서 **투입이 예사이고 개방이 사건**이다. 없는 값을
@@ -63,7 +69,6 @@ export const COMMON_CABLE_FIELDS: readonly ValueDef[] = [
  * 같은 광이라도 점퍼코드에 선로 번호를 적을 일은 없다.
  */
 export const FIBER_LINE_FIELDS: readonly ValueDef[] = [
-  { key: 'lineCode', label: '선로 관리번호', type: 'text' },
   { key: 'lineName', label: '선로명', type: 'text' },
   { key: 'spliceCount', label: '접속개소', type: 'number' },
 ] as const;
@@ -72,6 +77,12 @@ export interface PortKind {
   /** `CableGroup.key` 이자 `PortTemplate.medium` 값. */
   key: string;
   name: string;
+  /**
+   * 코어 값을 고치면 **그날이 찍히는 칸**의 키 — 없으면 찍지 않는다.
+   *
+   * 「언제 쟀나」를 사람이 다시 적게 하면 값과 날짜가 어긋난다(고치고 날짜는 안 고친다).
+   */
+  stampKey?: string;
   /** 이 종류의 포트가 붙을 수 있는 상대 종류. 지금은 모두 자기 자신뿐이다. */
   connectsTo: readonly string[];
   pairing: PortPairing;
@@ -153,10 +164,21 @@ export const PORT_KINDS = [
     cableFields: [],
     portFields: [],
     // 코어마다 한 벌 — 24심이면 손실 24개·점검일 24개가 그 포트 하나에 담긴다.
+    /**
+     * OTDR 로 재는 값들 — 코어마다 다르다.
+     *
+     * 한 칸(「손실」)으로는 모자란다: 현장은 **1310㎚ 와 1550㎚ 를 따로** 재고, 그 파장이
+     * 곧 판정 기준이다. 잰 거리도 함께 적는다(단선 지점을 그것으로 찾는다).
+     */
     coreFields: [
-      { key: 'lossDb', label: '손실', type: 'number', unit: 'dB' },
-      { key: 'inspectedAt', label: '점검일', type: 'date' },
+      { key: 'distanceKm', label: '측정거리', type: 'number', unit: 'km' },
+      { key: 'loss1310', label: '1310', type: 'number', unit: 'dB' },
+      { key: 'loss1550', label: '1550', type: 'number', unit: 'dB' },
+      /* 언제 쟀는가는 **적는 것이 아니라 찍히는 것**이다 — 값을 고치면 그때가 된다. */
+      { key: 'measuredAt', label: '측정일', type: 'date', readOnly: true },
     ],
+    /** 코어 값을 고치면 이 칸에 그날을 찍는다 — 화면이 키를 알지 않게 선언으로 준다. */
+    stampKey: 'measuredAt',
   },
   // 제어는 널모뎀처럼 같은 쪽끼리 직결하는 배선이 실제로 있어 방향을 따지지 않는다.
   { key: 'control', name: '제어', connectsTo: ['control'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
@@ -264,6 +286,15 @@ export function setPortValueAt(
   }
   all[String(position)] = { ...storedValuesAt(port, position), [key]: value };
   return all;
+}
+
+/**
+ * 이 종류의 코어 값을 고치면 **그날이 찍히는 칸** — 없으면 찍지 않는다.
+ *
+ * 화면이 `'measuredAt'` 이라는 키를 알지 않게 한다. 종류가 바뀌면 찍히는 칸도 따라 바뀐다.
+ */
+export function stampKeyFor(medium: string): string | null {
+  return portKind(medium)?.stampKey ?? null;
 }
 
 export function portKind(key: string): PortKind | null {

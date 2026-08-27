@@ -59,9 +59,21 @@ describe('케이블 파라미터 선언', () => {
   /* 값이 무엇의 것인지가 갈린다 — 길이는 케이블 한 가닥의 것이고, 손실·점검일은 심선마다
      다르다. 예전에는 손실도 케이블에 담아서, OPGW 한 가닥을 심선 수만큼 케이블로 복제해야
      했고 그 탓에 설계서 공량이 그 배로 부풀었다. */
-  it('손실·점검일은 케이블이 아니라 **다심 광** 포트의 값이다', () => {
+  it('OTDR 값은 케이블이 아니라 **다심 광** 포트의 값이다 — 파장마다 따로 잰다', () => {
     expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM']);
-    expect(portFieldsFor('fiber', 24).map((f) => f.key)).toEqual(['lossDb', 'inspectedAt']);
+    expect(portFieldsFor('fiber', 24).map((f) => f.key)).toEqual([
+      'distanceKm',
+      'loss1310',
+      'loss1550',
+      'measuredAt',
+    ]);
+  });
+
+  it('측정일은 **적는 칸이 아니다** — 값에서 따라온다', () => {
+    const measuredAt = portFieldsFor('fiber', 24).find((f) => f.key === 'measuredAt');
+    expect(measuredAt?.readOnly).toBe(true);
+    /* 어느 칸에 찍을지는 종류가 말한다 — 화면이 키를 알지 않는다. */
+    expect(PORT_KINDS.find((k) => k.key === 'fiber')?.stampKey).toBe('measuredAt');
   });
 
   /* 장비쪽 어댑터(1심)에는 OTDR 로 잴 것이 없다 — 예전에는 매체를 갈라 그 사실을 표현했다. */
@@ -181,10 +193,10 @@ describe('광 선로 값', () => {
     expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM']);
   });
 
-  it('선언을 켜면 밖에서 받아 적을 수밖에 없는 셋이 붙는다', () => {
+  it('선언을 켜면 밖에서 받아 적을 수밖에 없는 것이 붙는다', () => {
+    /* 관리번호는 뺐다 — 대장에 있어도 우리가 그것으로 하는 일이 없다. */
     expect(cableFieldsFor('fiber', { managesFiberLine: true }).map((f) => f.key)).toEqual([
       'lengthM',
-      'lineCode',
       'lineName',
       'spliceCount',
     ]);

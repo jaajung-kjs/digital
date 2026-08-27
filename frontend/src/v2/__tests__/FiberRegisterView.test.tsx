@@ -62,7 +62,7 @@ const slot = asset('slot', '슬롯1', {
     port('a2', 'slot', 'CORE', 2),
     port('t1', 'slot', 'TRUNK', 1, {
       medium: 'fiber', name: 'OPGW', positions: 2,
-      fieldValues: { 1: { lossDb: 0.3 }, 2: { lossDb: 0.9 } },
+      fieldValues: { 1: { loss1550: 0.3 }, 2: { loss1550: 0.9 } },
     }),
   ],
 });
@@ -96,13 +96,13 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     /* 길이는 케이블 한 가닥의 값이라 **슬롯 머리에 한 번** 적힌다 — 열로 세우면 스물네 줄에
        같은 글자가 스물네 번 선다(예전에는 심선마다 케이블이라 열이었다). */
     expect(screen.getAllByRole('button', { name: '길이 고치기' }).filter((b) => b.textContent === '40')).toHaveLength(1);
-    // 손실은 코어마다 다르다 — 같은 포트 하나에서 번호로 갈라져 나온다.
-    const loss = screen.getAllByRole('button', { name: '손실 고치기' }).map((b) => b.textContent);
+    // 측정값은 코어마다 다르다 — 같은 포트 하나에서 번호로 갈라져 나온다.
+    const loss = screen.getAllByRole('button', { name: '1550 고치기' }).map((b) => b.textContent);
     expect(loss).toContain('0.3');
     expect(loss).toContain('0.9');
   });
 
-  it('코어 손실을 고치면 그 코어 자리만 바뀐다 — 옆 코어 값은 그대로다', () => {
+  it('코어 측정값을 고치면 그 코어 자리만 바뀌고, **측정일이 그날로 찍힌다**', () => {
     setStore([ofd, slot], []);
     render(<FiberRegisterView
         substationId="sub-1"
@@ -113,14 +113,16 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
       />);
 
     /* 누르면 그때 상자가 선다 — 조회 화면에 상자 312개가 늘 서 있지 않게. */
-    fireEvent.click(screen.getAllByRole('button', { name: '손실 고치기' }).find((b) => b.textContent === '0.3')!);
+    fireEvent.click(screen.getAllByRole('button', { name: '1550 고치기' }).find((b) => b.textContent === '0.3')!);
     const input = screen.getByDisplayValue('0.3');
     fireEvent.change(input, { target: { value: '1.4' } });
     fireEvent.blur(input);
 
     const staged = v2WorkingCopyStore.getState().effectiveAssets().find((a) => a.id === 'slot')!;
     const trunk = staged.ports.find((p) => p.id === 't1')!;
-    expect(trunk.fieldValues).toEqual({ 1: { lossDb: 1.4 }, 2: { lossDb: 0.9 } });
+    /* 언제 쟀는가는 **적는 것이 아니라 찍히는 것**이다 — 값과 날짜가 어긋날 길을 두지 않는다. */
+    const today = new Date().toISOString().slice(0, 10);
+    expect(trunk.fieldValues).toEqual({ 1: { loss1550: 1.4, measuredAt: today }, 2: { loss1550: 0.9 } });
   });
 
   /* 표의 단위는 자산이 아니라 심선이다. 자산 id 로 칠하면 그 슬롯의 24행이 한꺼번에

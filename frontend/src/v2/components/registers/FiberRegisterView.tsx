@@ -11,7 +11,7 @@ import { Th, cn, selectableRow, SELECTABLE, SELECTED, EMPTY } from '../../../com
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { DEFAULT_CORE_COUNT, cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { DEFAULT_CORE_COUNT, cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, stampKeyFor, type ValueDef } from '@twin/core';
 import { useV2Catalog } from '../../hooks';
 import { useMediumContainer } from '../../useMediumContainer';
 import { fiberContainers, buildFiberRows, FIBER_MEDIUM } from '../../fiberSelectors';
@@ -28,6 +28,9 @@ interface Props {
   /** 포트까지 주면 상세 패널이 포트 탭을 열고 그 포트를 고른 상태로 뜬다. */
   onSelectAsset: (id: string | null, portId?: string | null) => void;
 }
+
+/** 오늘 — 찍히는 날짜의 형식은 적히는 날짜와 같다(YYYY-MM-DD). */
+const today = () => new Date().toISOString().slice(0, 10);
 
 // ── 메타 셀 인라인 편집 ───────────────────────────────────────────────────────
 interface MetaInputProps {
@@ -67,7 +70,8 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
     });
   }
 
-  return <InlineEditCell value={displayValue} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} label={field.label} />;
+  /* 칸의 자료형 그대로 — 예전에는 수가 아니면 전부 날짜였다(선로명 칸에 `YYYY-MM-DD` 가 떴다). */
+  return <InlineEditCell value={displayValue} onCommit={handleCommit} type={field.type === 'boolean' ? 'text' : field.type} label={field.label} />;
 }
 
 /**
@@ -78,10 +82,12 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
  */
 function SlotMeta({ cableId, values }: { cableId: string | null; values: Record<string, unknown> }) {
   const catalog = useV2Catalog();
-  const cable = useV2WorkingCopy((s) => (cableId ? s.effectiveCables().find((c) => c.id === cableId) ?? null : null));
-  const category = catalog.data?.cableGroups
-    .flatMap((g) => g.categories)
-    .find((c) => c.id === cable?.categoryId);
+  /* 고르는 것은 **글자 하나**여야 한다 — 객체를 고르면 렌더마다 새 것이 나와 무한히 다시
+     그린다(실제로 그 화면이 통째로 죽었다). 필요한 것은 종류 id 뿐이다. */
+  const categoryId = useV2WorkingCopy((s) =>
+    cableId ? (s.effectiveCables().find((c) => c.id === cableId)?.categoryId ?? null) : null,
+  );
+  const category = catalog.data?.cableGroups.flatMap((g) => g.categories).find((c) => c.id === categoryId);
   const fields = cableFieldsFor(FIBER_MEDIUM, { managesFiberLine: category?.managesFiberLine });
 
   if (!cableId) return null;
@@ -133,12 +139,22 @@ function PortFieldInput({
     /* 포트 배열째로 스테이지한다 — 화면(effective)이 곧바로 새 값을 보여야 하고,
        커밋 페이로드는 이 배열에서 `portFieldValues` 를 뽑아 낸다.
        다심 포트의 저장 형상(코어 번호 중첩)을 아는 곳은 `setPortValueAt` 하나뿐이다. */
-    const ports = asset.ports.map((p) =>
-      p.id === resolvedPortId ? { ...p, fieldValues: setPortValueAt(p, position, field.key, next) } : p,
-    );
+    const ports = asset.ports.map((p) => {
+      if (p.id !== resolvedPortId) return p;
+      let fieldValues = setPortValueAt(p, position, field.key, next);
+      /* **언제 쟀는가는 찍히는 것이다** — 값을 고치면 그날이 된다. 사람이 따로 적게 두면
+         값과 날짜가 어긋난다(고치고 날짜는 안 고친다). 어느 칸에 찍을지는 종류가 말한다. */
+      const stampKey = stampKeyFor(p.medium);
+      if (stampKey && stampKey !== field.key) {
+        fieldValues = setPortValueAt({ ...p, fieldValues }, position, stampKey, today());
+      }
+      return { ...p, fieldValues };
+    });
     useV2WorkingCopy.getState().stageAssetUpdate(resolvedAssetId, { ports });
   }
 
+  /* 따라오는 칸은 **읽는 줄**이다 — 적게 두면 값과 어긋난다. */
+  if (field.readOnly) return <span className="text-content-muted">{shown || EMPTY}</span>;
   return <InlineEditCell value={shown} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} label={field.label} />;
 }
 
