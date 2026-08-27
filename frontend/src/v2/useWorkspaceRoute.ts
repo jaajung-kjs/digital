@@ -2,12 +2,12 @@ import { useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 /** 설비 관리가 보여 줄 수 있는 판. */
-export type ViewMode = '설비 현황' | '평면도' | '선번장' | '계통';
+export type ViewMode = '현황' | '평면도' | '선번장' | '계통';
 
-export const VIEW_MODES: readonly ViewMode[] = ['설비 현황', '평면도', '선번장', '계통'];
+export const VIEW_MODES: readonly ViewMode[] = ['현황', '평면도', '선번장', '계통'];
 
 /** 예전 주소를 받아 준다 — 북마크가 첫 탭으로 떨어지지 않게(이름만 바뀌었다). */
-const RENAMED: Record<string, ViewMode> = { '설비 대장': '설비 현황' };
+const RENAMED: Record<string, ViewMode> = { '설비 대장': '현황', '설비 현황': '현황' };
 
 const isView = (v: string | null): v is ViewMode => v != null && (VIEW_MODES as readonly string[]).includes(v);
 
@@ -37,7 +37,7 @@ export function useWorkspaceRoute() {
 
   const raw = params.get('view');
   /* 모르는 판 이름이 오면 조용히 첫 판으로 — 주소는 남이 손으로 고칠 수 있다. */
-  const view: ViewMode = isView(raw) ? raw : (RENAMED[raw ?? ''] ?? '설비 현황');
+  const view: ViewMode = isView(raw) ? raw : (RENAMED[raw ?? ''] ?? '현황');
 
   /** 조직을 옮긴다 — 보던 판·자산은 딸려 가지 않는다(그 자산은 저 변전소에 없다). */
   const selectNode = useCallback(

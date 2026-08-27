@@ -441,14 +441,9 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                             checked={selectedRow.managesFiberLine}
                             onChange={(e) => patchRow(selectedRow.key, { managesFiberLine: e.currentTarget.checked })}
                           />
-                          송전선로를 타고 오는 다심 인입(OPGW 등)
+                          OPGW
                         </label>
                       </DetailRow>
-                      <p className="px-3 pb-2 text-xs text-content-muted">
-                        켜면 이 종류의 케이블에 <b className="text-content">선로 관리번호 · 선로명 · 접속개소</b> 를 적을 수
-                        있고, 선번장이 그 값을 슬롯 머리에 적습니다. 나머지(대국·용도·경로·길이)는 도면과 연결이 알고 있어
-                        적을 필요가 없습니다.
-                      </p>
                     </DetailCard>
 
                     {/* 여기서 칸을 적지 않는다 — 자산·설비와 **같은 폼**이다. */}

@@ -32,10 +32,10 @@ import { PRODUCT_NAME } from '../product';
  * 갖는다. 그래도 한 묶음이라는 것은 보여야 해서, 앞뒤로 옅은 구분선을 둔다.
  */
 const MAIN_NAV = [
-  { to: '/', label: '설비 관리', divideAfter: true },
-  { to: '/assemblies', label: '설비 품목' },
-  { to: '/assets', label: '장비 품목' },
-  { to: '/cables', label: '케이블 품목', divideAfter: true },
+  { to: '/', label: '설비 현황', divideAfter: true },
+  { to: '/assemblies', label: '설비 관리' },
+  { to: '/assets', label: '장비 관리' },
+  { to: '/cables', label: '케이블 관리', divideAfter: true },
   { to: '/standards', label: '기준정보' },
 ] as const;
 
