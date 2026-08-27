@@ -178,6 +178,23 @@ describe('계통 표 열 폭', () => {
     expect(widths).toHaveLength(2 + valueFields.length + stateCount);
   });
 
+  /**
+   * **모든 선택지가 한 줄에 들어간다.** 지금 적힌 값만 보고 폭을 정했다가 두 번 접혔다 —
+   * 「AC 380V 3φ」를 고르는 순간 2px 모자랐다. 열은 **고를 수 있는 것 전부**를 담아야 한다.
+   */
+  it('열은 그 열의 어떤 선택지든 담는다', () => {
+    const REFERENCE_PX = 760;
+    const PADDING_PX = 32;
+    const guess = (t: string) => [...t].reduce((n, ch) => n + (/[가-힣]/.test(ch) ? 14 : 8), 0);
+    const [, , ...rest] = widths;
+    valueFields.forEach((f, i) => {
+      const inner = (rest[i]! / 100) * REFERENCE_PX - PADDING_PX;
+      for (const o of f.options ?? []) {
+        expect(inner, `${f.label}: ${o}`).toBeGreaterThanOrEqual(guess(String(o) + (f.unit ?? '')));
+      }
+    });
+  });
+
   it('가장 긴 값을 담는 칸이 가장 넓다 — 전압에 위상까지 들어간다', () => {
     const [, , ...rest] = widths;
     const valueWidths = rest.slice(0, valueFields.length);

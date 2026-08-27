@@ -11,6 +11,18 @@
  *   node backend/scripts/seed-power-demo.mjs [--url http://localhost:3000] [--name 계통시험S/S]
  *   node backend/scripts/seed-power-demo.mjs --clean      # 만든 변전소를 통째로 지운다
  */
+/* 값은 **어휘에서 가져온다** — 시드가 제 손으로 「AC 220V」 같은 것을 지어내면 목록에 없는
+   값이 DB 에 눌러앉고, 화면은 그것을 지울 수 없어(적힌 사실이니까) 목록에 얹어 보여 준다.
+   실제로 그렇게 돼서 전압 목록에 위상 없는 값이 하나 섞여 있었다. */
+import { POWER_VOLTAGES } from '@twin/core';
+
+/** 삼상 220V — 반과 반 사이(소내분전반 → 충전기·UPS). 대장의 「220V 3φ (60A FR-38sq)」. */
+const AC_3P = POWER_VOLTAGES.find((v) => v.includes('220V 3'));
+/** 단상 220V — 부하로 나가는 분기. */
+const AC_1P = POWER_VOLTAGES.find((v) => v.includes('220V 1'));
+/** 직류 48V — 충전기 아래. 직류에는 위상이 없다. */
+const DC = POWER_VOLTAGES.find((v) => v.startsWith('DC 48'));
+
 const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`);
   return i > 0 ? process.argv[i + 1] : d;
@@ -184,17 +196,17 @@ const at = (placed, part, group, i = 1) => {
 
 const cables = [
   /* 소내전원반 : 밖에서 받는다(입력 미결선) → UPS·충전기를 먹이고 남는 회로는 부하로. */
-  wire(at(boards, '소내전원반', 'PWR-OUT', 1), at(boards, 'UPS', 'PWR-IN'), 'AC 220V'),
-  wire(at(boards, '소내전원반', 'PWR-OUT', 2), at(charger, '충전기', 'PWR-IN'), 'AC 220V'),
-  ...[3, 4, 5, 6].map((n) => wire(at(boards, '소내전원반', 'PWR-OUT', n), takeLoad(), 'AC 220V')),
+  wire(at(boards, '소내전원반', 'PWR-OUT', 1), at(boards, 'UPS', 'PWR-IN'), AC_3P),
+  wire(at(boards, '소내전원반', 'PWR-OUT', 2), at(charger, '충전기', 'PWR-IN'), AC_3P),
+  ...[3, 4, 5, 6].map((n) => wire(at(boards, '소내전원반', 'PWR-OUT', n), takeLoad(), AC_1P)),
 
   /* UPS : 열 회로 중 일곱을 쓴다 — 나머지는 예비(SPARE)로 남는다. */
-  ...[1, 2, 3, 4, 5, 6, 7].map((n) => wire(at(boards, 'UPS', 'PWR-OUT', n), takeLoad(), 'AC 220V')),
+  ...[1, 2, 3, 4, 5, 6, 7].map((n) => wire(at(boards, 'UPS', 'PWR-OUT', n), takeLoad(), AC_1P)),
 
   /* DC 48V : **충전기에서 받는다** — 대장의 「#1 충전기 : DC 48V #1」 그 줄이다. */
-  wire(at(charger, '충전기', 'PWR-OUT', 1), at(boards, 'DC 48V', 'PWR-IN'), 'DC 48V'),
+  wire(at(charger, '충전기', 'PWR-OUT', 1), at(boards, 'DC 48V', 'PWR-IN'), DC),
   ...Array.from({ length: CIRCUITS }, (_, i) =>
-    wire(at(boards, 'DC 48V', 'PWR-OUT', i + 1), takeLoad(), 'DC 48V')),
+    wire(at(boards, 'DC 48V', 'PWR-OUT', i + 1), takeLoad(), DC)),
 ];
 
 await call(`/substations/${substation.id}/commit`, 'PUT', { cables: { creates: cables } });

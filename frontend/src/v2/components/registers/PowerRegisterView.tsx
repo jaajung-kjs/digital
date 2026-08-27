@@ -130,28 +130,63 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
 /**
- * 열 폭 — **그 칸이 담을 수 있는 가장 긴 값**이 정한다(목록이 있으면 목록이 그것을 안다).
+ * 글자가 실제로 차지하는 폭 — **재서** 안다(브라우저의 글꼴로).
  *
- * 재는 단위는 **픽셀**이다. 글자 수로 셌더니 한글(13px)과 숫자(7px)가 같은 한 글자로 세어져
- * 「12.5m」·「5.5sq」가 몇 픽셀씩 모자라 잘렸고, 개폐는 글자가 아니라 스위치라 아예 다른
- * 셈이었다(「ON」이 칸 밖으로 나갔다). 눈으로는 멀쩡해 보이는 크기라 재 보기 전에는 모른다.
+ * 글자 수로 어림했다가 두 번 틀렸다: 한글과 숫자를 같은 한 글자로 세어 「12.5m」·「5.5sq」가
+ * 모자랐고, 다시 고친 뒤에도 「AC 380V 3φ」가 **2px** 모자라 두 줄로 접혔다. 눈으로는
+ * 멀쩡해 보이는 차이라 재 보기 전에는 알 수 없다.
  *
- * 남는 폭은 **용도**가 받는다 — 자료가 채우는 열이라 선언이 없고, 가장 긴 값이 거기 온다.
+ * 시험 환경(jsdom)에는 글꼴이 없어 0 이 나온다 — 그때만 어림으로 물러선다.
+ */
+let ruler: CanvasRenderingContext2D | null = null;
+function textPx(text: string): number {
+  if (typeof document !== 'undefined' && !ruler) {
+    ruler = document.createElement('canvas').getContext('2d');
+    if (ruler) ruler.font = `14px ${getComputedStyle(document.body).fontFamily}`;
+  }
+  /* 시험 환경의 캔버스는 껍데기라 `measureText` 자체가 없을 수 있다 — 있는지부터 본다. */
+  const measured = ruler?.measureText?.(text)?.width ?? 0;
+  if (measured > 0) return measured;
+  /* 못 재는 곳에서의 어림 — 한글은 넓고 숫자·영문은 좁다. */
+  return [...text].reduce((n, ch) => n + (/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch) ? 14 : 8), 0);
+}
+
+/**
+ * 열 폭 — **그 칸에 실제로 설 수 있는 가장 긴 글자**가 정한다.
+ *
+ * 후보는 둘이다: 고를 수 있는 값(선언이 안다)과 지금 적혀 있는 값(자료가 안다). 둘 다 재서
+ * 넓은 쪽을 쓴다 — 그래서 「600A」를 아직 아무도 안 골랐어도 골랐을 때 접히지 않는다.
+ *
+ * 남는 폭은 **용도**가 받는다(자료가 채우는 열이라 선언이 없다). 그 열은 길면 말줄임으로
+ * 접는다 — 줄이 두 줄이 되는 것보다 낫다(표는 눈으로 회로를 세는 물건이다).
  *
  * @returns 회로 · 용도 · 값 칸들 · 상태 순의 비율(합 100).
  */
-export function powerColumnWidths(valueFields: readonly ValueDef[], stateCount: number): number[] {
-  const CJK = /[가-힣ㄱ-ㅎㅏ-ㅣ]/;
-  const pxOf = (text: string) => [...text].reduce((n, ch) => n + (CJK.test(ch) ? 13 : 7.2), 0);
-  /** 목록이 없는 수치가 들어갈 만큼 — 「12.5m」. */
-  const VALUE_MIN_PX = 46;
-  const PADDING_PX = 32;
+export function powerColumnWidths(
+  valueFields: readonly ValueDef[],
+  stateCount: number,
+  /** 지금 표에 적혀 있는 값들 — 필드 키마다. 선언된 목록과 함께 잰다. */
+  written: Record<string, readonly string[]> = {},
+): number[] {
+  /** 읽는 줄의 좌우 여백(px-1) + 칸의 여백(px-3). */
+  const PADDING_PX = 8 + 24;
+  /* 수치 칸은 **자릿수 고정 글꼴**(`tabular-nums`)로 그린다 — 자를 대는 글꼴보다 숫자가
+     조금 넓다. 실제로 「12345.6m」가 4px 모자라 접혔다. 그만큼 한 숨을 둔다. */
+  const numericSlack = (f: ValueDef) => (f.type === 'number' ? 8 : 2);
   const widthPxOf = (f: ValueDef) =>
-    Math.max(pxOf(f.label), VALUE_MIN_PX, ...(f.options ?? []).map((o) => pxOf(String(o) + (f.unit ?? '')))) + PADDING_PX;
+    numericSlack(f) + Math.max(
+      textPx(f.label),
+      ...(f.options ?? []).map((o) => textPx(String(o) + (f.unit ?? ''))),
+      ...(written[f.key] ?? []).map(textPx),
+      /* 바닥값은 **목록이 없을 때만** — 목록이 있으면 그 목록이 이미 최대치를 안다.
+         있는데도 「12345.6m」만큼 잡아 두었더니 용량·규격이 필요보다 30px 씩 넓어, 그 폭이
+         용도에서 빠져나갔다(긴 설비 이름이 말줄임으로 잘렸다). */
+      f.options ? 0 : textPx('00000.0') + textPx(f.unit ?? ''),
+    ) + PADDING_PX;
 
-  const CIRCUIT_PX = pxOf('입력') + PADDING_PX;
-  /** 스위치(24) + 간격 + 「OFF」. */
-  const STATE_PX = 24 + 6 + pxOf('OFF') + PADDING_PX;
+  const CIRCUIT_PX = textPx('입력') + PADDING_PX;
+  /** 스위치(24) + 간격(6) + 「OFF」. */
+  const STATE_PX = 24 + 6 + textPx('OFF') + PADDING_PX;
   /* 비율의 기준 폭 — 상세 패널을 연 1440px 화면에서 이 판이 서는 크기다. 더 넓어지면 다 같이
      넓어지고 좁아지면 다 같이 좁아진다(어느 한 열만 굶지 않는다). */
   const REFERENCE_PX = 760;
@@ -204,10 +239,28 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     ...cableFields.map((field) => ({ field, from: 'cable' as const })),
   ].sort((a, b) => (a.field.order ?? 99) - (b.field.order ?? 99));
 
-  const widths = powerColumnWidths(valueColumns.map((c) => c.field), stateFields.length);
 
   const tree = useMemo(() => powerTree(effectiveAssets, effectiveCables), [effectiveAssets, effectiveCables]);
   const nodes = useMemo(() => flatten(tree), [tree]);
+
+  /* 지금 적혀 있는 값도 함께 잰다 — 선언에 없는 값(예전 자료·직접 입력)이 있어도 접히지 않게. */
+  const written = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    const add = (key: string, raw: unknown, unit?: string) => {
+      if (raw === null || raw === undefined || raw === '') return;
+      (out[key] ??= []).push(String(raw) + (unit ?? ''));
+    };
+    for (const { node } of nodes) {
+      for (const src of node.sources) {
+        for (const f of valueColumns) add(f.field.key, f.from === 'port' ? src.portValues[f.field.key] : src.values[f.field.key], f.field.unit);
+      }
+      for (const c of node.circuits) {
+        for (const f of valueColumns) add(f.field.key, f.from === 'port' ? c.portValues[f.field.key] : c.values[f.field.key], f.field.unit);
+      }
+    }
+    return out;
+  }, [nodes, valueColumns]);
+  const widths = powerColumnWidths(valueColumns.map((c) => c.field), stateFields.length, written);
 
   /* 회로가 마흔인 국에서 「그 회로」를 찾는 길이 눈으로 훑는 것뿐이면 표가 아니다.
      보이는 값을 통째로 훑는다 — 사람은 이름을 기억하지 그것이 몇 번째 열인지는 모른다. */
