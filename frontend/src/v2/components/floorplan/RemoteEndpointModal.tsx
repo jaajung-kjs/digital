@@ -16,11 +16,12 @@
  * 상자의 **키는 걸음마다 바뀌지 않는다** — 목록이 길든 짧든 같은 자리에 서야 눈이 따라간다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { portHasRoom } from '@twin/core';
+import { comparePortGroups, portGroupLabel, portHasRoom } from '@twin/core';
 import { Button, EmptyState, Input, Modal, SELECTABLE, cn } from '../../../components/ui';
 import { browseAssets, fetchAssetPorts } from '../../api';
 import type { AssetSearchResult } from '../../api';
-import { useV2OrgTree } from '../../hooks';
+import { useMediumColor, useMediumLabel, useV2OrgTree } from '../../hooks';
+import { PortFaceplate } from '../detail/PortFaceplate';
 import { flattenTree } from '../../orgTreeSelectors';
 import type { V2Port } from '../../types';
 
@@ -52,13 +53,16 @@ export function RemoteEndpointModal({
   errorText,
 }: Props) {
   const { data: tree } = useV2OrgTree();
+  const mediumLabel = useMediumLabel();
+  const mediumColor = useMediumColor();
   const [query, setQuery] = useState('');
   const [substation, setSubstation] = useState<{ id: string; name: string } | null>(null);
   const [assets, setAssets] = useState<AssetSearchResult[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [assembly, setAssembly] = useState<AssetSearchResult | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<AssetSearchResult | null>(null);
-  const [ports, setPorts] = useState<V2Port[]>([]);
+  /* 서버가 「이미 물렸나」를 함께 준다 — 이 국의 판은 워킹 카피에서 세지만 저쪽은 서버가 안다. */
+  const [ports, setPorts] = useState<(V2Port & { occupied: boolean })[]>([]);
   const [loadingPorts, setLoadingPorts] = useState(false);
   const fetchSeqRef = useRef(0);
 
@@ -146,16 +150,9 @@ export function RemoteEndpointModal({
     try {
       const data = await fetchAssetPorts(asset.id);
       if (seq !== fetchSeqRef.current) return;
-      // 가득 찬 포트 제외 + medium 필터 + 첫 끝점 제외
-      setPorts(
-        data.filter((p) => {
-          if (p.occupied) return false;
-          if (!portHasRoom(p.medium, cableCountByPortId.get(p.id) ?? 0)) return false;
-          if (p.id === excludePortId) return false;
-          if (mediumFilter && p.medium !== mediumFilter) return false;
-          return true;
-        }),
-      );
+      /* 판은 **자리를 지킨다** — 못 고르는 포트도 그려야 「몇 번 자리가 찼는지」가 보인다.
+         고를 수 있냐 없냐는 `canPick` 이 가르고, 판이 그것을 색과 눌림으로 말한다. */
+      setPorts(data);
     } catch {
       if (seq !== fetchSeqRef.current) return;
       setPorts([]);
@@ -163,6 +160,47 @@ export function RemoteEndpointModal({
       if (seq === fetchSeqRef.current) setLoadingPorts(false);
     }
   }
+
+  /** 이을 수 있는 포트 — 가득 찼거나 종류가 다르면 못 고른다(이 국에서와 같은 규칙). */
+  const canPick = useMemo(() => {
+    const ok = new Set<string>();
+    for (const p of ports) {
+      if (p.occupied) continue;
+      if (!portHasRoom(p.medium, cableCountByPortId.get(p.id) ?? 0)) continue;
+      if (p.id === excludePortId) continue;
+      if (mediumFilter && p.medium !== mediumFilter) continue;
+      ok.add(p.id);
+    }
+    return ok;
+  }, [ports, cableCountByPortId, excludePortId, mediumFilter]);
+
+  const disabledPortIds = useMemo(
+    () => new Set(ports.filter((p) => !canPick.has(p.id)).map((p) => p.id)),
+    [ports, canPick],
+  );
+
+  /** 판의 구획 — 차례도 이름도 **어휘가 정한다**(이 국의 판과 같은 함수). */
+  const sections = useMemo(() => {
+    const byGroup = new Map<string, V2Port[]>();
+    for (const p of ports) {
+      const list = byGroup.get(p.group);
+      if (list) list.push(p);
+      else byGroup.set(p.group, [p]);
+    }
+    for (const [, list] of byGroup) list.sort((a, b) => a.index - b.index);
+    const refs = [...byGroup.entries()].map(([group, list]) => ({
+      group, medium: list[0]!.medium, direction: list[0]!.direction, sampleName: list[0]!.name, positions: list[0]!.positions,
+    }));
+    return refs
+      .slice()
+      .sort(comparePortGroups)
+      .map((ref) => ({
+        key: ref.group,
+        label: portGroupLabel(ref, refs, mediumLabel),
+        accent: mediumColor(ref.medium),
+        ports: byGroup.get(ref.group)!,
+      }));
+  }, [ports, mediumLabel, mediumColor]);
 
   /** 한 걸음 뒤로 — 포트 → 장비 → 설비 → 변전소. */
   function back() {
@@ -274,26 +312,25 @@ export function RemoteEndpointModal({
                 ))}
               </ul>
             )
-          ) : /* ④ 포트 — 이을 수 있는 것만. */
+          ) : /* ④ 포트 — **이 국에서 고를 때와 같은 판**이다(`PortFaceplate`).
+                 여기만 목록으로 두면 같은 일(포트 고르기)을 화면마다 다시 익혀야 한다.
+                 다른 것은 그 판에 닿기까지의 걸음(변전소·설비·장비)뿐이다. */
           loadingPorts ? (
             <p className="py-2 text-xs text-content-faint">포트 불러오는 중…</p>
-          ) : ports.length === 0 ? (
+          ) : sections.length === 0 ? (
             <EmptyState title="이을 수 있는 포트가 없습니다" description="모두 차 있거나 종류가 맞지 않습니다." />
           ) : (
-            <ul className="divide-y divide-line">
-              {ports.map((port) => (
-                <li key={port.id}>
-                  <button
-                    type="button"
-                    className={cn(row, 'flex items-center gap-2', SELECTABLE)}
-                    onClick={() => onSelectPort(port, selectedAsset)}
-                  >
-                    <span className="text-sm text-content">{port.name}</span>
-                    <span className="ml-auto text-xs text-content-faint">{port.group}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <PortFaceplate
+              labelPrefix={selectedAsset.name}
+              sections={sections}
+              stateOf={(port) => (canPick.has(port.id) ? 'empty' : 'full')}
+              disabledPortIds={disabledPortIds}
+              selectedPortId={null}
+              onSelect={(id) => {
+                const port = ports.find((p) => p.id === id);
+                if (port) onSelectPort(port, selectedAsset);
+              }}
+            />
           )}
         </div>
 
