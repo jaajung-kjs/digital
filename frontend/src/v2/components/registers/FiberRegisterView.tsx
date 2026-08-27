@@ -71,7 +71,15 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
   }
 
   /* 칸의 자료형 그대로 — 예전에는 수가 아니면 전부 날짜였다(선로명 칸에 `YYYY-MM-DD` 가 떴다). */
-  return <InlineEditCell value={displayValue} onCommit={handleCommit} type={field.type === 'boolean' ? 'text' : field.type} label={field.label} />;
+  return (
+    <InlineEditCell
+      value={displayValue}
+      onCommit={handleCommit}
+      type={field.type === 'boolean' ? 'text' : field.type}
+      label={field.label}
+      unit={field.unit}
+    />
+  );
 }
 
 /**
@@ -96,7 +104,6 @@ function SlotMeta({ cableId, values }: { cableId: string | null; values: Record<
       {fields.map((f) => (
         <span key={f.key} className="flex items-center gap-1">
           {f.label}
-          {f.unit ? `(${f.unit})` : ''}
           <span className="min-w-16 text-content">
             <MetaInput value={values[f.key]} field={f} cableId={cableId} />
           </span>
@@ -156,7 +163,15 @@ function PortFieldInput({
   /* 따라오는 칸은 **읽는 줄**이다 — 적게 두면 값과 어긋난다. */
   /* 날짜는 **한 줄로** 선다 — 좁으면 `2026-08-` / `27` 로 접혀 두 줄이 된다(줄 키가 들쭉날쭉해진다). */
   if (field.readOnly) return <span className="whitespace-nowrap text-content-muted">{shown || EMPTY}</span>;
-  return <InlineEditCell value={shown} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} label={field.label} />;
+  return (
+    <InlineEditCell
+      value={shown}
+      onCommit={handleCommit}
+      type={isNumber ? 'number' : 'date'}
+      label={field.label}
+      unit={field.unit}
+    />
+  );
 }
 
 // PeerCell은 공용 컴포넌트로 추출 (M-2 — PowerRegisterView와 공유)
@@ -306,11 +321,9 @@ export function FiberRegisterView({
           ))}
           <Th>대국</Th>
           {metaFields.map((f) => (
-            /* 단위는 **아랫줄**에 — 옆에 붙이면 머리글이 그만큼 길어져 잘린다(`Th`).
-               잘려야 하는 것은 값이지 머리글이 아니다: 「1310 거리(km」는 무슨 열인지 모른다. */
-            <Th key={f.key} unit={f.unit}>
-              {f.label}
-            </Th>
+            /* 단위는 머리글이 아니라 **값 뒤에** 붙는다(`-13 dB`) — 단위는 값의 성질이지
+               열 이름의 일부가 아니고, 이름에 달면 그만큼 길어져 잘린다. */
+            <Th key={f.key}>{f.label}</Th>
           ))}
         </>
       }

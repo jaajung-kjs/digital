@@ -20,9 +20,16 @@ interface InlineEditCellProps {
   type?: 'text' | 'number' | 'date';
   /** 읽는 줄에 붙일 이름 — 「무엇을 고치는 칸인지」를 스크린리더가 읽는다. */
   label: string;
+  /**
+   * 값 뒤에 붙는 단위 — **읽을 때만** 붙는다(`-13 dB`). 고칠 때 상자에는 수만 남는다.
+   *
+   * 머리글에 `1310 손실(dB)` 처럼 달면 이름이 그만큼 길어져 잘리고(잘린 머리글은 그 열
+   * 전체의 뜻을 잃는다), 무엇보다 단위는 **값의 성질**이지 열 이름의 일부가 아니다.
+   */
+  unit?: string;
 }
 
-export function InlineEditCell({ value, onCommit, type = 'text', label }: InlineEditCellProps) {
+export function InlineEditCell({ value, onCommit, type = 'text', label, unit }: InlineEditCellProps) {
   const [editing, setEditing] = useState(false);
 
   if (!editing) {
@@ -41,7 +48,14 @@ export function InlineEditCell({ value, onCommit, type = 'text', label }: Inline
         /* 키보드로 훑다가 바로 고치는 길 — Enter 는 버튼이 이미 누름으로 읽는다. */
         onFocus={(e) => { if (e.relatedTarget) e.currentTarget.dataset.touched = '1'; }}
       >
-        {value ? (type === 'date' ? formatDate(value) : value) : EMPTY}
+        {value ? (
+          <>
+            {type === 'date' ? formatDate(value) : value}
+            {unit && <span className="ml-0.5 text-content-faint">{unit}</span>}
+          </>
+        ) : (
+          EMPTY
+        )}
       </button>
     );
   }

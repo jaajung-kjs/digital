@@ -522,6 +522,9 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 읽기 전용 표에서도 **저장을 막는 칸은 눈에 띄어야 한다** — 그 칸의 글자를 `text-danger` 로 두어 어느 행인지 짚고, 문구는 고른 행의 `DetailRow issue` 가 말한다.
 
+### 단위는 **값 뒤에** 붙는다 — 머리글이 아니라
+`1310 손실(dB)` 이 아니라 머리글은 `1310 손실`, 값이 `-13.05 dB` 다. 단위는 **값의 성질**이지 열 이름의 일부가 아니고, 이름에 달면 그만큼 길어져 잘린다(잘린 머리글은 그 열 전체의 뜻을 잃는다). 고칠 때 상자에는 **수만** 남는다 — 단위까지 지웠다 다시 치게 하지 않는다(`InlineEditCell unit`). 수 칸은 `type="number"`(`inputmode="decimal"`) 라 숫자와 소수점만 들어간다.
+
 ### 표 셀 인라인 편집(blur/Enter 커밋) → `InlineEditCell`
 `src/v2/components/InlineEditCell.tsx` — 선번장·계통 뷰처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.
 
