@@ -1,6 +1,7 @@
 import { isMultiCorePort, portValuesAt, type SeededMediumKey } from '@twin/core';
 import {
   buildPortIndex,
+  cableAt,
   endpointRef,
   indexCablesByPort,
   mediumContainers,
@@ -85,10 +86,6 @@ function trunkPortOf(slot: V2Asset) {
   return slot.ports.find((p) => p.medium === FIBER_MEDIUM && isTrunk(p)) ?? null;
 }
 
-function cableOf(portId: string, byA: Map<string, V2Cable>, byB: Map<string, V2Cable>): V2Cable | null {
-  return byA.get(portId) ?? byB.get(portId) ?? null;
-}
-
 /**
  * 인입 건너편에서 이 코어가 닿는 곳.
  *
@@ -127,7 +124,7 @@ export function resolveFiberFarEnd(
   // 건너편의 **단심** 성단 — 인입 자신(index 1)을 집지 않도록 심선 수로 가른다.
   const peerCore = peerSlot.ports.find((p) => p.medium === FIBER_MEDIUM && !isTrunk(p) && p.index === coreIndex);
   if (!peerCore) return null;
-  const jumper = cableOf(peerCore.id, byA, byB);
+  const jumper = cableAt(peerCore.id, byA, byB);
   if (!jumper) {
     // 건너편 심선은 있는데 아직 장비로 안 나갔다 — 성단까지가 끝이다.
     return {
@@ -176,7 +173,7 @@ export function buildFiberRows(
   const rows: FiberRow[] = [];
   for (const slot of slots) {
     const trunk = trunkPortOf(slot)!;
-    const trunkCable = cableOf(trunk.id, byA, byB);
+    const trunkCable = cableAt(trunk.id, byA, byB);
 
     for (let coreIndex = 1; coreIndex <= trunk.positions; coreIndex++) {
       const cells: FiberRowCell[] = groupsOrder.map((group) => {
@@ -184,7 +181,7 @@ export function buildFiberRows(
           (p) => p.medium === FIBER_MEDIUM && !isTrunk(p) && p.group === group && p.index === coreIndex,
         );
         if (!port) return { group, portId: null, portName: null, cableId: null, peer: null };
-        const cable = cableOf(port.id, byA, byB);
+        const cable = cableAt(port.id, byA, byB);
         return {
           group,
           portId: port.id,

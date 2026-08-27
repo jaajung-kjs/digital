@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { isDirty } from './draftDiff';
 import { NEW_ID } from './catalogDraft';
 
@@ -36,7 +36,17 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
    */
   const [chosen, setChosen] = useState<string | null | undefined>(undefined);
   const setRequestedId = setChosen;
-  const [draft, setDraft] = useState<TDraft | null>(null);
+  /**
+   * **고친 것만** 들고 있는다 — 고치지 않았으면 원본이 곧 초안이다.
+   *
+   * 예전에는 초안 전체가 상태였고, 고른 것이 바뀌면 effect 가 그것을 다시 떴다. 그래서 판을
+   * 열 때마다 **첫 프레임은 초안이 `null`** 이라 오른쪽이 빈 채로 그려졌다가 다음 프레임에
+   * 채워졌다 — 재어 보니 20ms, 눈에는 화면이 깜빡이는 것으로 남았다.
+   *
+   * 어느 것을 고쳤는지(`id`)까지 함께 들면 **고른 것이 바뀌는 순간 편집이 저절로 버려진다** —
+   * 비우는 effect 도, 저장 뒤 다시 뜨는 effect 도 필요 없다.
+   */
+  const [edit, setEdit] = useState<{ id: string | null; draft: TDraft | null } | null>(null);
 
   const isNew = chosen === NEW_ID;
   const first = autoSelectFirst ? (entities[0]?.id ?? null) : null;
@@ -58,41 +68,35 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
   );
   const saved = useMemo(() => (original ? toDraft(original) : null), [original, toDraft]);
 
-  /* 고르는 대상이 바뀌면 초안을 새로 뜬다 — 남은 편집이 다른 것에 새어들지 않게.
-     **`saved` 가 아니라 `selectedId` 에 건다**: 저장 뒤 목록이 다시 오면 `saved` 는 새 객체가
-     되는데, 그때마다 초안을 덮으면 방금 고친 것이 날아간다. */
-  useEffect(() => {
-    if (isNew) return;
-    setDraft(original ? toDraft(original) : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  /* 고친 것이 있으면 그것, 없으면 원본 — **고른 것이 달라지면 남은 편집은 제 것이 아니다**. */
+  const draft = edit && edit.id === selectedId ? edit.draft : saved;
+  const setDraft = useCallback(
+    (next: TDraft | null | ((prev: TDraft | null) => TDraft | null)) =>
+      setEdit((prev) => {
+        const base = prev && prev.id === selectedIdRef.current ? prev.draft : savedRef.current;
+        return { id: selectedIdRef.current, draft: typeof next === 'function' ? (next as (p: TDraft | null) => TDraft | null)(base) : next };
+      }),
+    [],
+  );
 
-  /**
-   * 저장한 뒤에는 **서버가 돌려준 것으로 초안을 다시 뜬다.**
-   *
-   * 안 그러면 영원히 「고친 것이 있다」로 남는다: 초안이 들고 있는 장비 id 는 화면이 임시로
-   * 지은 것(`tmp-…`)이고 서버는 제 id 를 만들어 준다 — 같은 내용인데 글자가 다르다. 그래서
-   * 저장을 하고도 다른 화면으로 옮길 때마다 「변경이 사라집니다」를 물었다.
-   *
-   * 저장 시점에 바로 뜨지 않고 **다음에 오는 목록**을 기다린다 — 만들기는 그 뒤에야 새 id 를
-   * 알고, 고치기도 서버가 다듬은 값(정렬 순서 등)이 그때 온다.
-   */
-  const resyncRef = useRef(false);
-  useEffect(() => {
-    if (!resyncRef.current || !saved) return;
-    resyncRef.current = false;
-    setDraft(saved);
-  }, [saved]);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
 
   const dirty = isDirty(draft, isNew ? null : saved);
   /* 고르는 함수가 `dirty` 보다 위에 설 수 있으므로 최신 값을 ref 로 읽는다. */
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
 
-  /** 저장이 끝났다 — 다음에 오는 목록으로 초안을 다시 뜬다. */
-  const markSaved = useCallback(() => {
-    resyncRef.current = true;
-  }, []);
+  /**
+   * 저장이 끝났다 — **고친 것을 놓는다**. 그러면 초안은 다시 원본을 따라간다.
+   *
+   * 목록이 새로 오면 원본이 바뀌고 초안도 그대로 따라온다. 예전에는 저장 시점의 초안을
+   * 들고 있다가 다음 목록이 올 때 갈아 끼웠는데(effect 하나), 초안이 파생값이면 그 일이
+   * 저절로 일어난다 — 「저장했는데 영원히 고친 것이 있다」던 버그도 여기서 사라진다.
+   */
+  const markSaved = useCallback(() => setEdit(null), []);
 
   const select = useCallback(
     async (id: string | null) => {

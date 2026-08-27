@@ -44,8 +44,14 @@ export default function V2AssetTypesPage() {
 
   // ── 선택 상태 ────────────────────────────────────────────────────────────
   /* 첫 항목을 열어 둔다 — 세 탭이 같아야 탭을 옮길 때 「갑자기 빈 화면」이 나오지 않는다. */
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<TypeDraft | null>(null);
+  /* **첫 항목은 처음 그릴 때부터** 열려 있어야 한다 — effect 로 열면 첫 프레임은 오른쪽이
+     빈 채로 그려졌다가 다음 프레임에 채워져, 판을 옮길 때마다 화면이 깜빡인다(재어 보니 20ms).
+     카탈로그가 이미 손에 있으면(거의 늘 그렇다 — 캐시) 그것으로 시작한다. */
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(() => catalogQuery.data?.types[0]?.id ?? null);
+  const [draft, setDraft] = useState<TypeDraft | null>(() => {
+    const first = catalogQuery.data?.types[0];
+    return first ? typeToDraft(first) : null;
+  });
   const [saveError, setSaveError] = useState<string | null>(null);
   /* 분류는 설비 품목 화면과 **같은 문**을 쓴다 — 여기서 다시 적으면 두 화면이 갈린다. */
   const category = useCategoryAdmin();
@@ -53,7 +59,9 @@ export default function V2AssetTypesPage() {
 
   /* 카탈로그가 도착하면 첫 항목을 연다 — 한 번만. 그 뒤에 고른 것을 지우거나 「+」 로
      새로 만들면 `null` 이 되는데, 그때 다시 첫 항목으로 튕기면 안 된다. */
-  const pickedFirstType = useRef(false);
+  /* 처음 그릴 때 이미 열었으면 다시 열지 않는다(위 초기값). 아직 카탈로그가 없을 때만
+     아래 effect 가 도착을 기다린다. */
+  const pickedFirstType = useRef(catalogQuery.data != null && catalogQuery.data.types.length > 0);
   useEffect(() => {
     if (pickedFirstType.current || !catalog || catalog.types.length === 0) return;
     pickedFirstType.current = true;

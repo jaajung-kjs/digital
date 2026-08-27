@@ -1,7 +1,9 @@
 import { Fragment, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
+/* 상태의 **색도 어휘가 정한다**(`assetStatusTone`) — 화면이 제 표를 또 만들면 같은 상태가
+   화면마다 다른 색으로 뜬다. 실제로 이 파일이 core 의 것과 같은 함수를 다시 갖고 있었다. */
+import { ASSET_STATUSES, assetStatusLabel, assetStatusTone } from '@twin/core';
 import {
   EMPTY,
   EmptyState,
@@ -18,19 +20,15 @@ import {
   SELECTABLE,
   SELECTED,
 } from '../../components/ui';
-import type { BadgeStatus } from '../../components/ui';
+
 import type { StatusRow, StatusRowsResult } from '../statusRows';
 import { summarize } from '../statusSummary';
 
 type FieldDef = StatusRowsResult['fieldColumns'][number];
 
 /** 상태 어휘가 선언한 톤을 화면 톤으로 옮긴다 — 모르는 톤은 조용한 쪽으로 둔다. */
-const KNOWN_TONES: ReadonlySet<string> = new Set<BadgeStatus>(['success', 'warning', 'danger', 'info', 'neutral']);
 
-function assetStatusTone(value: string): BadgeStatus {
-  const tone = ASSET_STATUSES.find((s) => s.value === value)?.tone;
-  return tone != null && KNOWN_TONES.has(tone) ? (tone as BadgeStatus) : 'neutral';
-}
+
 
 /** 좋은 상태 하나 — 나머지(고장·예비…)만 칩으로 세운다. 「정상 47」은 볼 일이 없다. */
 const OK_STATUS = ASSET_STATUSES.find((s) => s.tone === 'success')?.value ?? 'normal';
@@ -299,7 +297,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                           ) : (
                             <span className="flex flex-wrap items-center gap-1">
                               {bad.map(([value, n]) => (
-                                <StatusDot key={value} status={assetStatusTone(value)}>
+                                <StatusDot key={value} status={assetStatusTone(value) ?? 'neutral'}>
                                   {assetStatusLabel(value)} {n}
                                 </StatusDot>
                               ))}
@@ -351,7 +349,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                             </td>
                             <td />
                             <td className="px-3 py-1.5">
-                              <StatusDot status={assetStatusTone(r.status)}>{assetStatusLabel(r.status)}</StatusDot>
+                              <StatusDot status={assetStatusTone(r.status) ?? 'neutral'}>{assetStatusLabel(r.status)}</StatusDot>
                             </td>
                             <td className="truncate px-3 py-1.5 text-content-muted">{whereOf(r)}</td>
                             {fieldColumns.map((fd) => {

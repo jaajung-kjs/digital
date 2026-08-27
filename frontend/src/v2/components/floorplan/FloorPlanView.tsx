@@ -152,9 +152,20 @@ export function FloorPlanView({
   const floors = useEffectiveFloors();
 
   // ── 활성 층 로컬 state ────────────────────────────────────────────────────
-  const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
+  /**
+   * 지금 보고 있는 층 — **고른 것이 없으면 첫 층**이다(파생값).
+   *
+   * 예전에는 effect 가 첫 층을 세웠다. 그래서 평면도를 열 때 **첫 프레임은 층이 없는 채**
+   * 그려지고(빈 캔버스) 다음 프레임에 도면이 나타났다 — 눈에는 한 번 깜빡이는 것으로 남는다.
+   * 지워진 층을 가리키고 있을 때 첫 층으로 물러서는 일도 여기서 함께 일어난다.
+   */
+  const [pickedFloorId, setPickedFloorId] = useState<string | null>(null);
 
-  /* 선택된 자산이 지금 보고 있는 층에 없으면 그 층으로 따라간다.
+  const activeFloorId = floors.some((f) => f.id === pickedFloorId) ? pickedFloorId : (floors[0]?.id ?? null);
+  const setActiveFloorId = setPickedFloorId;
+
+  /* 선택된 자산이 지금 보고 있는 층에 없으면 그 층으로 따라간다 — 이것은 파생이 아니라
+     **따라가는 일**이라 effect 가 맞다(사람이 고른 층을 덮어쓰는 명령이다).
      현황·선번장에서 자산을 고른 뒤 평면도로 넘어와도 엉뚱한 층이 떠 있어, 방금 고른
      자산이 화면에 없는 일이 있었다. 자산이 랙 안에 있으면 랙이 놓인 층을 찾는다. */
   useEffect(() => {
@@ -165,14 +176,6 @@ export function FloorPlanView({
       setActiveFloorId(floorId);
     }
   }, [selectedAssetId, floors, activeFloorId]);
-
-  // floors 가 변경되면 activeFloorId 가 없거나 사라진 층이면 첫 층으로 초기화
-  useEffect(() => {
-    if (floors.length === 0) { setActiveFloorId(null); return; }
-    if (activeFloorId == null || !floors.some((f) => f.id === activeFloorId)) {
-      setActiveFloorId(floors[0].id);
-    }
-  }, [floors, activeFloorId]);
 
   const activeFloor = floors.find((f) => f.id === activeFloorId) ?? null;
 
@@ -311,13 +314,11 @@ export function FloorPlanView({
      예전에는 배치 가능한 것마다 버튼을 하나씩 깔았는데, 종류가 늘어나는 만큼 도구바가
      길어져(시드 7개에서 이미 두 줄) 캔버스를 잡아먹었다. 대장은 사용자가 계속 늘리는
      것이므로 개수에 비례해 커지는 UI 를 쓰면 안 된다. */
-  const [placeTypeId, setPlaceTypeId] = useState('');
-  // 고른 것이 목록에서 사라졌을 때만 되돌린다.
-  useEffect(() => {
-    if (assemblies.length > 0 && !assemblies.some((a) => a.id === placeTypeId)) {
-      setPlaceTypeId(assemblies[0]!.id);
-    }
-  }, [assemblies, placeTypeId]);
+  /* 고른 것이 목록에 없으면(아직 안 골랐거나 지워졌거나) **첫 품목** — 파생값이다.
+     effect 로 세우면 첫 프레임의 도구바가 빈 채로 그려진다(층과 같은 까닭). */
+  const [pickedPlaceId, setPickedPlaceId] = useState('');
+  const placeTypeId = assemblies.some((a) => a.id === pickedPlaceId) ? pickedPlaceId : (assemblies[0]?.id ?? '');
+  const setPlaceTypeId = setPickedPlaceId;
 
   // cableGroups 초기화 시 첫 category 선택
   useEffect(() => {

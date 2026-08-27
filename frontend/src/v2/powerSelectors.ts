@@ -1,5 +1,5 @@
 import { ASSEMBLY_GRID, portFieldsFor, portValuesAt, slotNumber, type SeededMediumKey } from '@twin/core';
-import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
+import { buildPortIndex, cableAt, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
 export type { PeerInfo } from './peerResolve';
@@ -248,7 +248,7 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
   const byId = new Map(assets.map((a) => [a.id, a]));
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
   const portIndex = buildPortIndex(assets);
-  const cableOf = (portId: string) => cablesByAPortId.get(portId) ?? cablesByBPortId.get(portId) ?? null;
+  const cableOf = (portId: string) => cableAt(portId, cablesByAPortId, cablesByBPortId);
   const peerAssetIdOf = (portId: string, cable: V2Cable) => {
     const otherId = cable.aPortId === portId ? cable.bPortId : cable.aPortId;
     return portIndex.get(otherId)?.asset.id ?? null;

@@ -71,6 +71,20 @@ export function mediumContainers(
   return assets.filter((a) => holders.has(a.id)).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * 그 포트에 물린 케이블 — 어느 쪽 끝인지는 묻지 않는다.
+ *
+ * 선번장과 계통이 각자 같은 줄을 적고 있었다(`byA.get(id) ?? byB.get(id) ?? null`). 케이블은
+ * 방향이 없고 끝이 둘일 뿐이라, 「내 쪽이 a 인가 b 인가」는 어디서도 물을 일이 아니다.
+ */
+export function cableAt(
+  portId: string,
+  byA: Map<string, V2Cable>,
+  byB: Map<string, V2Cable>,
+): V2Cable | null {
+  return byA.get(portId) ?? byB.get(portId) ?? null;
+}
+
 /** cable[] → aPortId/bPortId 로 색인한 Map 쌍 — fiber/power 행 빌더 공유 플러밍 */
 export function indexCablesByPort(cables: V2Cable[]): {
   cablesByAPortId: Map<string, V2Cable>;
