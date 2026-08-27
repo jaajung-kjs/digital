@@ -23,7 +23,14 @@ import {
 } from '../../../components/ui';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { buildTraceTree, type TraceTreeNode } from '@twin/core';
-import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
+import { buildPortIndex, endpointLabel, endpointRef, indexCablesByPort, resolvePeer } from '../../peerResolve';
+import { resolveFiberFarEnd } from '../../fiberSelectors';
+
+/** 대국 이름 — 원격이면 국 이름이 앞에 선다(선번장의 대국 칸과 같은 어법). */
+function farEndLabel(peer: { assemblyName: string | null; assetName: string; portName: string; portIndex: number; substationName: string | null; remote: boolean }): string {
+  const own = endpointLabel(peer);
+  return peer.remote && peer.substationName ? `${peer.substationName} · ${own}` : own;
+}
 import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -305,6 +312,27 @@ export function ConnectionsTab({
       return port ? [port] : [];
     });
   }, [selectedPort, portOwners]);
+
+  /**
+   * 이 포트가 **선로를 타고** 닿는 장비 — 대국.
+   *
+   * 앞면 어댑터를 골랐을 때 「내부 연결: OPGW」만 보이면 한 걸음이 모자란다. 실제로 알고
+   * 싶은 것은 **그 OPGW 를 타고 넘어가 같은 코어 번호에 물린 장비**다.
+   *
+   * 그 계산은 선번장이 이미 갖고 있다(`resolveFiberFarEnd`) — 상대 국 자산은 이 워킹 카피에
+   * 없으므로 서버가 코어별로 풀어 실어 준 것을 읽는다. 두 화면이 같은 함수를 쓰면 선번장의
+   * 대국과 포트 상세의 대국이 갈릴 일이 없다.
+   */
+  const selectedFarEnd = useMemo(() => {
+    if (!selectedPort || !asset) return null;
+    /* 내부로 이어진 **다심 인입**이 있을 때만 선로가 있다 — 없으면 이 줄 자체가 서지 않는다. */
+    const trunk = selectedInternal.find((p) => p.positions > 1);
+    if (!trunk) return null;
+    const trunkCable = (cablesByPortId.get(trunk.id) ?? [])[0]?.cable;
+    if (!trunkCable) return null;
+    const { cablesByAPortId: byA, cablesByBPortId: byB } = indexCablesByPort(effectiveCables);
+    return resolveFiberFarEnd(trunk.id, trunkCable, selectedPort.index, portIndex, byA, byB, asset.substationId);
+  }, [selectedPort, selectedInternal, cablesByPortId, effectiveCables, portIndex, asset]);
 
   /**
    * 이 포트에 물릴 수 있는 케이블 품목 — **그 포트의 매체 것만**.
@@ -604,6 +632,21 @@ export function ConnectionsTab({
                       </DetailRow>
                     )}
 
+                    {selectedFarEnd && (
+                      /* 선로 반대편 — 「OPGW 를 타고 넘어가 같은 코어에 물린 장비」다.
+                         원격이면 국 이름이 앞에 선다(두 국의 이름이 흔히 같기 때문). */
+                      <DetailRow label="대국 장비">
+                        <button
+                          type="button"
+                          className={cn('block w-full truncate rounded px-1 text-left text-sm', SELECTABLE)}
+                          disabled
+                          title={farEndLabel(selectedFarEnd)}
+                        >
+                          {farEndLabel(selectedFarEnd)}
+                        </button>
+                      </DetailRow>
+                    )}
+
                     {selectedPeers.length === 0 ? (
                       /* 빈 포트 — 「없다」로 끝내지 않고 **여기서 잇게** 한다. 예전에는 평면도로
                          건너가 도구를 켜고 이 자산을 다시 찾아 이 포트를 다시 골라야 했다. */
@@ -628,7 +671,7 @@ export function ConnectionsTab({
                           title="연결"
                           onDelete={() => void handleDeleteCable(peer)}
                         >
-                          <DetailRow label="케이블 반대편">
+                          <DetailRow label="연결 장비">
                             <button
                               type="button"
                               className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}

@@ -95,7 +95,7 @@ function cableOf(portId: string, byA: Map<string, V2Cable>, byB: Map<string, V2C
  * 인입 케이블 → 건너편 슬롯 → 같은 번호의 심선 포트 → 거기 물린 점퍼의 상대. 건너편 슬롯이
  * 이 변전소에 없으면(대국 변전소) 인입 케이블의 saved ref 까지가 우리가 아는 전부다.
  */
-function resolveFarEnd(
+export function resolveFiberFarEnd(
   trunkPortId: string,
   trunkCable: V2Cable,
   coreIndex: number,
@@ -208,7 +208,7 @@ export function buildFiberRows(
           portValues: portValuesAt(trunk, coreIndex),
         },
         farEnd: trunkCable
-          ? resolveFarEnd(trunk.id, trunkCable, coreIndex, portIndex, byA, byB, container.substationId)
+          ? resolveFiberFarEnd(trunk.id, trunkCable, coreIndex, portIndex, byA, byB, container.substationId)
           : null,
       });
     }
