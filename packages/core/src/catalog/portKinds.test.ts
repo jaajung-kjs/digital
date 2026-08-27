@@ -61,10 +61,12 @@ describe('케이블 파라미터 선언', () => {
      했고 그 탓에 설계서 공량이 그 배로 부풀었다. */
   it('OTDR 값은 케이블이 아니라 **다심 광** 포트의 값이다 — 파장마다 따로 잰다', () => {
     expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM']);
+    /* 파장마다 손실과 거리 두 칸 — OTDR 은 파장마다 따로 쏘므로 잰 거리도 따로 나온다. */
     expect(portFieldsFor('fiber', 24).map((f) => f.key)).toEqual([
-      'distanceKm',
       'loss1310',
+      'distance1310',
       'loss1550',
+      'distance1550',
       'measuredAt',
     ]);
   });

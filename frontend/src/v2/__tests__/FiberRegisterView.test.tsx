@@ -97,7 +97,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
        같은 글자가 스물네 번 선다(예전에는 심선마다 케이블이라 열이었다). */
     expect(screen.getAllByRole('button', { name: '길이 고치기' }).filter((b) => b.textContent === '40')).toHaveLength(1);
     // 측정값은 코어마다 다르다 — 같은 포트 하나에서 번호로 갈라져 나온다.
-    const loss = screen.getAllByRole('button', { name: '1550 고치기' }).map((b) => b.textContent);
+    const loss = screen.getAllByRole('button', { name: '1550 손실 고치기' }).map((b) => b.textContent);
     expect(loss).toContain('0.3');
     expect(loss).toContain('0.9');
   });
@@ -113,7 +113,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
       />);
 
     /* 누르면 그때 상자가 선다 — 조회 화면에 상자 312개가 늘 서 있지 않게. */
-    fireEvent.click(screen.getAllByRole('button', { name: '1550 고치기' }).find((b) => b.textContent === '0.3')!);
+    fireEvent.click(screen.getAllByRole('button', { name: '1550 손실 고치기' }).find((b) => b.textContent === '0.3')!);
     const input = screen.getByDisplayValue('0.3');
     fireEvent.change(input, { target: { value: '1.4' } });
     fireEvent.blur(input);

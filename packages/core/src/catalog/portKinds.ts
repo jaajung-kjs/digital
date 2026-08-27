@@ -165,15 +165,17 @@ export const PORT_KINDS = [
     portFields: [],
     // 코어마다 한 벌 — 24심이면 손실 24개·점검일 24개가 그 포트 하나에 담긴다.
     /**
-     * OTDR 로 재는 값들 — 코어마다 다르다.
+     * OTDR 로 재는 값들 — 코어마다, 그리고 **파장마다** 다르다.
      *
-     * 한 칸(「손실」)으로는 모자란다: 현장은 **1310㎚ 와 1550㎚ 를 따로** 재고, 그 파장이
-     * 곧 판정 기준이다. 잰 거리도 함께 적는다(단선 지점을 그것으로 찾는다).
+     * 한 칸(「손실」)으로는 모자란다. 현장 선번장은 `1310㎛` 와 `1550㎛` 아래 각각 **손실과
+     * 측정거리 두 칸**을 둔다 — OTDR 은 파장마다 따로 쏘므로 잰 거리도 따로 나오고, 두
+     * 파장의 거리가 어긋나는 것 자체가 읽을거리다(접속점·굽힘 손실의 신호).
      */
     coreFields: [
-      { key: 'distanceKm', label: '측정거리', type: 'number', unit: 'km' },
-      { key: 'loss1310', label: '1310', type: 'number', unit: 'dB' },
-      { key: 'loss1550', label: '1550', type: 'number', unit: 'dB' },
+      { key: 'loss1310', label: '1310 손실', type: 'number', unit: 'dB' },
+      { key: 'distance1310', label: '1310 거리', type: 'number', unit: 'km' },
+      { key: 'loss1550', label: '1550 손실', type: 'number', unit: 'dB' },
+      { key: 'distance1550', label: '1550 거리', type: 'number', unit: 'km' },
       /* 언제 쟀는가는 **적는 것이 아니라 찍히는 것**이다 — 값을 고치면 그때가 된다. */
       { key: 'measuredAt', label: '측정일', type: 'date', readOnly: true },
     ],
