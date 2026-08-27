@@ -28,6 +28,8 @@ const assetCreateSchema = z.object({
   parentAssetId: z.string().uuid().nullish(),
   /** 이 설비를 만든 설비 품목 — **분류**다. 뿌리에만 적힌다. */
   assemblyId: z.string().uuid().nullish(),
+  /** 이 부품이 나온 **구성 항목** — 자리를 옮겨도 「구성의 무엇인가」는 이것이 안다. */
+  assemblyItemId: z.string().uuid().nullish(),
   col: z.number().int().min(0).nullish(),
   row: z.number().int().min(0).nullish(),
   colSpan: z.number().int().min(1).nullish(),
@@ -47,7 +49,7 @@ const assetCreateSchema = z.object({
 });
 
 const assetPatchSchema = assetCreateSchema
-  .omit({ id: true, assemblyId: true, portCounts: true, portPositions: true })
+  .omit({ id: true, assemblyId: true, assemblyItemId: true, portCounts: true, portPositions: true })
   .partial()
   .extend({
     /**

@@ -18,6 +18,8 @@ function toCreateInput(a: V2Asset): V2AssetCreateInput {
     fieldValues: a.fieldValues,
     // 설비 품목으로 놓은 것 — 분류(설비 품목 참조)와 포트 오버라이드를 함께 실어 보낸다.
     ...(a.assemblyId ? { assemblyId: a.assemblyId } : {}),
+    /* 부품이면 **구성의 어느 항목에서 나왔는지** — 선로가 끊길 때 원래 이름을 되찾는 고리다. */
+    ...(a.assemblyItemId ? { assemblyItemId: a.assemblyItemId } : {}),
     ...(a.portCounts ? { portCounts: a.portCounts } : {}),
     ...(a.portPositions ? { portPositions: a.portPositions } : {}),
     /* 화면이 정해 둔 포트 id — 저장 전에 그 포트에 이어 둔 케이블이 저장 뒤에도 같은 포트를

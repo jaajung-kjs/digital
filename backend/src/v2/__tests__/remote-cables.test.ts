@@ -150,6 +150,8 @@ describe('선로가 짓는 슬롯 이름', () => {
             name: item.name,
             typeId: item.typeId,
             parentAssetId: ofdId,
+            /* **구성의 어느 항목에서 나왔는가** — 화면이 놓을 때 이 고리를 함께 보낸다. */
+            assemblyItemId: item.id,
             /* 세로로 놓아 본다 — 놓는 사람이 격자 안에서 옮길 수 있다. */
             ...(opts.vertical ? { col: 0, row: i } : { col: item.col, row: item.row }),
             colSpan: 1,
@@ -227,5 +229,87 @@ describe('선로가 짓는 슬롯 이름', () => {
     /* 자리(행·열)로 짝지었을 때는 여기서 못 찾아 예전 이름이 그대로 남았다. */
     expect(await nameOf(a)).toBe('슬롯 2');
     expect(await nameOf(b)).toBe('슬롯 2');
+  });
+
+  /**
+   * **형제가 하나 지워져도** 제 이름으로 돌아온다.
+   *
+   * 차례로 짝지을 때는 「형제 수 = 구성 항목 수」를 가정한다 — 슬롯 1을 지우면 슬롯 2가
+   * 첫째가 되어 「슬롯 1」로 되돌아갔다. 자산이 제 항목을 가리키므로 그 가정이 없다.
+   */
+  it('형제를 지워도 남은 슬롯은 제 이름으로 돌아온다', async () => {
+    const a = await placeSlot(subAId, 'AD', { nth: 1 });
+    const b = await placeSlot(subBId, 'BD', { nth: 1 });
+    expect(await nameOf(a)).toBe('슬롯 2');
+
+    /* 첫째 슬롯을 지운다 — 형제 차례가 밀린다. */
+    const first = await nextDb.asset.findFirstOrThrow({
+      where: { parentAssetId: (await nextDb.asset.findUniqueOrThrow({ where: { id: a } })).parentAssetId, name: '슬롯 1' },
+    });
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ assets: { deletes: [first.id] }, baseVersions: { [first.id]: first.updatedAt.toISOString() } })
+      .expect(200);
+
+    const cableId = randomUUID();
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { creates: [{ id: cableId, aPortId: await trunkOf(a), bPortId: await trunkOf(b), categoryId: fiberCatId }] } })
+      .expect(200);
+    const cable = await nextDb.cable.findUniqueOrThrow({ where: { id: cableId } });
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { deletes: [cableId] }, baseVersions: { [cableId]: cable.updatedAt.toISOString() } })
+      .expect(200);
+
+    expect(await nameOf(a)).toBe('슬롯 2');
+  });
+
+  /**
+   * 되돌릴 이름은 **기억해 둔 값이 아니다** — 구성에서 다시 읽는다. 그러니 구성에서 이름을
+   * 고치면 그 뒤에 끊긴 선로는 고친 이름으로 돌아온다.
+   *
+   * 이 시험은 **설비 품목을 저장해도 항목의 신원이 유지되는지**도 함께 본다. 예전에는 저장이
+   * 항목을 통째로 지우고 다시 만들어서, 이름 한 글자 고치는 순간 놓인 부품들의 고리가
+   * 전부 끊겼다.
+   */
+  it('구성에서 이름을 고치면 되돌아가는 이름도 따라간다 — 저장해도 고리가 끊기지 않는다', async () => {
+    const a = await placeSlot(subAId, 'AR', { nth: 1 });
+    const b = await placeSlot(subBId, 'BR', { nth: 1 });
+    const linked = (await nextDb.asset.findUniqueOrThrow({ where: { id: a } })).assemblyItemId!;
+    expect(linked).not.toBeNull();
+
+    const assembly = await nextDb.assembly.findFirstOrThrow({
+      where: { items: { some: { id: linked } } },
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
+    });
+    const save = async (rename: string) =>
+      request(app).put(`/api/v2/catalog/assemblies/${assembly.id}`).set(admin).send({
+        key: assembly.key, name: assembly.name, categoryId: assembly.categoryId, sortOrder: assembly.sortOrder,
+        laborCode: assembly.laborCode, unitPrice: assembly.unitPrice,
+        installManDays: assembly.installManDays, removeManDays: assembly.removeManDays, relocateManDays: assembly.relocateManDays,
+        items: assembly.items.map((i) => ({
+          id: i.id, typeId: i.typeId, name: i.id === linked ? rename : i.name,
+          col: i.col, row: i.row, colSpan: i.colSpan, rowSpan: i.rowSpan,
+          portCounts: i.portCounts, portPositions: i.portPositions,
+        })),
+      }).expect(200);
+
+    try {
+      await save('A판');
+      /* 저장이 항목을 새로 만들지 않았다 — 놓인 부품이 여전히 같은 항목을 가리킨다. */
+      expect((await nextDb.asset.findUniqueOrThrow({ where: { id: a } })).assemblyItemId).toBe(linked);
+
+      const cableId = randomUUID();
+      await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+        .send({ cables: { creates: [{ id: cableId, aPortId: await trunkOf(a), bPortId: await trunkOf(b), categoryId: fiberCatId }] } })
+        .expect(200);
+      const cable = await nextDb.cable.findUniqueOrThrow({ where: { id: cableId } });
+      await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+        .send({ cables: { deletes: [cableId] }, baseVersions: { [cableId]: cable.updatedAt.toISOString() } })
+        .expect(200);
+
+      expect(await nameOf(a)).toBe('A판');
+    } finally {
+      /* 이 설비 품목은 다른 시험도 쓴다 — 원래 이름으로 돌려 둔다. */
+      await save(assembly.items.find((i) => i.id === linked)!.name);
+    }
   });
 });

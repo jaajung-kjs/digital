@@ -63,6 +63,8 @@ export function assemblyToAssets(args: {
     x: null, y: null, width: null, height: null,
     parentAssetId: equipmentId,
     assemblyId: null,
+    /* **어느 항목에서 나왔는가** — 자리를 옮기든 형제가 지워지든 신원이 흔들리지 않는다. */
+    assemblyItemId: item.id,
     col: item.col,
     row: item.row,
     colSpan: item.colSpan,

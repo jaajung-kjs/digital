@@ -163,6 +163,8 @@ export interface V2Asset {
   parentAssetId: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
   /** 이 설비를 만든 설비 품목 — **분류**다(글자가 아니라 참조). 뿌리에만 적힌다. */
   assemblyId?: string | null;
+  /** 이 부품이 나온 **구성 항목** — 격자에서 자리를 옮겨도 신원은 이것이 안다. */
+  assemblyItemId?: string | null;
   /** 만들 때만 쓰는 포트 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
   portCounts?: Record<string, number>;
   portPositions?: Record<string, number>;
@@ -208,7 +210,7 @@ export interface V2AssetCreateInput {
   id: string; name: string; typeId: string | null; status?: string;
   floorId?: string | null; x?: number | null; y?: number | null; width?: number | null; height?: number | null;
   parentAssetId?: string | null; col?: number | null; row?: number | null; colSpan?: number | null; rowSpan?: number | null;
-  assemblyId?: string | null;
+  assemblyId?: string | null; assemblyItemId?: string | null;
   fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>; portPositions?: Record<string, number>;
   /** 화면이 정해 둔 포트 id — 키는 `그룹:번호`. 구조는 서버 명세가 정하고 id 만 받는다. */
   portIds?: Record<string, string>;

@@ -185,6 +185,8 @@ model AssemblyItem {
   /// 포트 수·심선 수 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다.
   portCounts    Json          @default("{}")
   portPositions Json          @default("{}")
+  /// 이 항목에서 나온 자산들 — 자리를 옮겨도 「구성의 무엇인가」는 이 고리가 안다.
+  assets        Asset[]
   sortOrder    Int            @default(0)
 }
 
@@ -233,6 +235,13 @@ model CableCategory {
 model Asset {
   id            String      @id @default(uuid())
   name          String
+  /// **구성의 어느 항목에서 나왔는가** — 설비 품목으로 놓은 자식만 갖는다.
+  ///
+  /// 자리(행·열)로 「몇 번째 판인가」를 되짚던 자리가 있었는데, 놓는 사람이 격자 안에서
+  /// 옮길 수 있어 어긋났다(한 국은 슬롯을 가로로, 다른 국은 세로로 놓아 두었다). 차례로
+  /// 짝지어 넘겼지만 그것도 「형제 수 = 구성 항목 수」를 가정한다. 고리를 두면 가정이 없다.
+  assemblyItemId String?
+  assemblyItem   AssemblyItem? @relation(fields: [assemblyItemId], references: [id], onDelete: SetNull)
   /// 부품이면 그 부품의 타입. **설비(설비 종류로 놓은 것)는 타입이 없다** — 분류는 설비 종류다.
   typeId        String?
   type          AssetType?  @relation(fields: [typeId], references: [id])

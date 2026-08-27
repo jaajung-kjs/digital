@@ -545,29 +545,40 @@ catalogRouter.put('/cable-groups/:id', adminOnly, async (req, res, next) => {
 // ── 설비 품목 ────────────────────────────────────────────────────────────────
 
 /**
- * 설비 품목은 **덮어쓰기**로 저장한다 — 장비 목록을 통째로 갈아 끼운다.
+ * 설비 품목의 장비 목록을 저장한다 — **항목의 신원은 유지한 채**.
  *
  * 이미 놓인 설비는 놓을 때의 모습을 자산으로 굳혀 두었으므로(스냅샷) 설비 품목을 고쳐도
- * 건드릴 것이 없다. 그래서 장비 품목 명세와 달리 "쓰이는 중이면 잠금" 이 필요 없다.
+ * 그 자산을 건드릴 것은 없다. 그래서 장비 품목 명세와 달리 "쓰이는 중이면 잠금" 이 없다.
+ *
+ * 그렇다고 **통째로 지우고 다시 만들면 안 된다**: 놓인 부품들이 「구성의 어느 항목에서
+ * 나왔는지」를 이 항목 id 로 가리키고 있어서, 이름 한 글자 고치자고 저장하는 순간 그 고리가
+ * 전부 끊긴다(선로를 끊어도 원래 이름을 되찾지 못한다). 그래서 있던 것은 고치고, 새로 온
+ * 것만 만들고, 빠진 것만 지운다.
+ *
+ * 화면은 아직 저장되지 않은 장비에 `tmp-…` 를 붙여 보낸다 — 우리가 아는 id 가 아니면 새것이다.
  */
 async function writeAssemblyItems(
   tx: Prisma.TransactionClient,
   assemblyId: string,
   items: z.infer<typeof assemblyUpsertSchema>['items'],
 ): Promise<void> {
-  await tx.assemblyItem.deleteMany({ where: { assemblyId } });
+  const existing = new Set(
+    (await tx.assemblyItem.findMany({ where: { assemblyId }, select: { id: true } })).map((r) => r.id),
+  );
+  const keep = items.map((i) => i.id).filter((id) => existing.has(id));
+  await tx.assemblyItem.deleteMany({ where: { assemblyId, id: { notIn: keep } } });
+
   for (const [i, item] of items.entries()) {
-    await tx.assemblyItem.create({
-      data: {
-        assemblyId,
-        typeId: item.typeId,
-        name: item.name,
-        col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
-        portCounts: (item.portCounts ?? {}) as object,
-        portPositions: (item.portPositions ?? {}) as object,
-        sortOrder: i,
-      },
-    });
+    const data = {
+      typeId: item.typeId,
+      name: item.name,
+      col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
+      portCounts: (item.portCounts ?? {}) as object,
+      portPositions: (item.portPositions ?? {}) as object,
+      sortOrder: i,
+    };
+    if (existing.has(item.id)) await tx.assemblyItem.update({ where: { id: item.id }, data });
+    else await tx.assemblyItem.create({ data: { ...data, assemblyId } });
   }
 }
 
