@@ -4,7 +4,7 @@
 
 import { portHasRoom } from '@twin/core';
 import { endpointRef } from './peerResolve';
-import type { V2Asset, V2Cable, V2Port } from './types';
+import type { V2Asset, V2Cable } from './types';
 
 // ──────────────────────────────────────────────
 // 포트별 케이블 수
@@ -28,39 +28,27 @@ export function cableCountByPortId(cables: V2Cable[]): Map<string, number> {
 }
 
 // ──────────────────────────────────────────────
-// freePortsOf
+// canPickPort
 // ──────────────────────────────────────────────
 
 /**
- * 해당 자산의 **아직 더 받을 수 있는** 포트 목록.
- * medium 이 지정되면 해당 매체만 반환.
- */
-export function freePortsOf(asset: V2Asset, cables: V2Cable[], medium?: string): V2Port[] {
-  const counts = cableCountByPortId(cables);
-  return asset.ports.filter(
-    (p) => portHasRoom(p.medium, counts.get(p.id) ?? 0) && (medium == null || p.medium === medium),
-  );
-}
-
-/**
- * 매체가 맞는 포트를 **가득 찼는지와 함께** 돌려준다.
+ * 지금 이 포트를 **고를 수 있는가** — 케이블을 잇는 중일 때.
  *
- * `freePortsOf` 는 빈 포트만 남기는데, 그러면 판에서 번호가 건너뛰어 "몇 번 자리가 비었나"
- * 를 볼 수 없다(3·5·9번만 남은 판은 판이 아니다). 피커는 전부 보여주고 가득 찬 것을
- * 고를 수 없게만 한다.
+ * 셋 다여야 한다: 여유가 있고(가득 찬 것과 「한 가닥이라도 물린 것」은 다르다 — 접지
+ * 부스바는 여러 가닥을 받는다), 종류가 맞고, 첫 끝점이 아니다.
  *
- * "가득 찼다" 는 "한 가닥이라도 물렸다" 와 다르다 — 접지 부스바는 여러 가닥이 물려 있어도
- * 계속 고를 수 있어야 한다.
+ * 이 국에서 고르든 다른 국을 둘러보다 고르든 **같은 규칙**이다. 두 화면이 각자 적고 있었고,
+ * 그래서 한쪽에만 조건이 붙는 일이 실제로 있었다(원격 판은 첫 끝점을 걸렀고 이 국의 판은
+ * 감췄다). 규칙은 하나, 그것을 감출지 잠글지만 화면이 정한다.
  */
-export function portsWithOccupancy(
-  asset: V2Asset,
-  cables: V2Cable[],
-  medium?: string,
-): { port: V2Port; occupied: boolean }[] {
-  const counts = cableCountByPortId(cables);
-  return asset.ports
-    .filter((p) => medium == null || p.medium === medium)
-    .map((p) => ({ port: p, occupied: !portHasRoom(p.medium, counts.get(p.id) ?? 0) }));
+export function canPickPort(
+  port: { id: string; medium: string },
+  opts: { cableCount: number; medium?: string | null; excludePortId?: string | null },
+): boolean {
+  if (!portHasRoom(port.medium, opts.cableCount)) return false;
+  if (opts.medium != null && port.medium !== opts.medium) return false;
+  if (opts.excludePortId != null && port.id === opts.excludePortId) return false;
+  return true;
 }
 
 // ──────────────────────────────────────────────

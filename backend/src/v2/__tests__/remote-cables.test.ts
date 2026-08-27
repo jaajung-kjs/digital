@@ -263,6 +263,40 @@ describe('선로가 짓는 슬롯 이름', () => {
   });
 
   /**
+   * **되돌릴 수 없는 이름은 짓지 않는다.**
+   *
+   * 구성 탭에서는 판을 손으로 더할 수 있다(구성에 없는 5번째 슬롯). 그런 판은 어느 구성
+   * 항목에서 나온 것이 아니라 원래 이름을 되찾을 길이 없다 — 그런데도 이름을 갈아입히면
+   * 선로를 끊은 뒤에도 「제 국 - 상대 국 - 1」이 남아 거짓말을 한다.
+   */
+  it('구성에서 나오지 않은 판은 선로가 이름을 건드리지 않는다', async () => {
+    const slotType = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'OFD-SLOT' } });
+    const ofd = await nextDb.asset.findFirstOrThrow({ where: { substationId: subAId, assemblyId: { not: null } } });
+    const handMade = randomUUID();
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin).send({
+      assets: { creates: [{ id: handMade, name: `${uniq}-손으로 더한 판`, typeId: slotType.id, parentAssetId: ofd.id, col: 5, row: 5, colSpan: 1, rowSpan: 1 }] },
+    }).expect(200);
+    const before = await nameOf(handMade);
+
+    const b = await placeSlot(subBId, 'BH');
+    const cableId = randomUUID();
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { creates: [{ id: cableId, aPortId: await trunkOf(handMade), bPortId: await trunkOf(b), categoryId: fiberCatId }] } })
+      .expect(200);
+
+    /* 제 이름 그대로 — 대신 상대 국의 판은 제 이름을 되찾을 수 있으므로 갈아입는다. */
+    expect(await nameOf(handMade)).toBe(before);
+    expect(await nameOf(b)).toMatch(/국사B - .*국사A - \d+$/);
+
+    const cable = await nextDb.cable.findUniqueOrThrow({ where: { id: cableId } });
+    await request(app).put(`/api/v2/substations/${subAId}/commit`).set(admin)
+      .send({ cables: { deletes: [cableId] }, baseVersions: { [cableId]: cable.updatedAt.toISOString() } })
+      .expect(200);
+    expect(await nameOf(handMade)).toBe(before);
+    expect(await nameOf(b)).toBe('슬롯 1');
+  });
+
+  /**
    * 되돌릴 이름은 **기억해 둔 값이 아니다** — 구성에서 다시 읽는다. 그러니 구성에서 이름을
    * 고치면 그 뒤에 끊긴 선로는 고친 이름으로 돌아온다.
    *

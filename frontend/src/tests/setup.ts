@@ -10,6 +10,14 @@ afterEach(() => {
   cleanup();
 });
 
+/* 담아 둔 사진의 미리보기는 `URL.createObjectURL` 로 만든다 — jsdom 에는 그 함수가 없어서
+   사진 카드를 그리는 시험이 통째로 넘어졌다(사진을 고르는 순간 터진다). 이름만 돌려준다. */
+/* `vi.fn` 으로 두지 않는다 — 이 설정은 시험마다 mock 을 초기화해서(`mockReset`) 두 번째
+   시험부터 `undefined` 를 돌려준다. 그러면 「미리보기가 있다」가 거짓이 된다. */
+let objectUrlSeq = 0;
+URL.createObjectURL = () => `blob:test-${++objectUrlSeq}`;
+URL.revokeObjectURL = () => {};
+
 // Mock HTMLCanvasElement
 HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   fillStyle: '',

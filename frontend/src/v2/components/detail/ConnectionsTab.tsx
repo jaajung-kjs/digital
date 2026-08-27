@@ -33,6 +33,7 @@ function farEndLabel(peer: { assemblyName: string | null; assetName: string; por
 import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
+import { canPickPort } from '../../cableSelectors';
 import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
@@ -423,15 +424,20 @@ export function ConnectionsTab({
      during the previous render"). 훅은 조건 위에 세운다. */
   const pickDisabledPortIds = useMemo(() => {
     if (!picking) return undefined;
-    const full = new Set<string>();
+    const blocked = new Set<string>();
     for (const { groups } of portOwners) {
       for (const { ports } of groups) {
         for (const p of ports) {
-          if (!portHasRoom(p.medium, cablesByPortId.get(p.id)?.length ?? 0)) full.add(p.id);
+          const ok = canPickPort(p, {
+            cableCount: cablesByPortId.get(p.id)?.length ?? 0,
+            medium: picking.medium,
+            excludePortId: picking.firstEndpoint?.portId,
+          });
+          if (!ok) blocked.add(p.id);
         }
       }
     }
-    return full;
+    return blocked;
   }, [picking, portOwners, cablesByPortId]);
 
   useDismissOnOutside(!picking && selectedPortId != null, [rootRef], () => setSelectedPortId(null));

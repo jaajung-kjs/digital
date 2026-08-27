@@ -24,9 +24,6 @@ export async function browseAssets(substationId: string): Promise<AssetSearchRes
   return (await api.get('/v2/search/assets', { params: { substationId } })).data;
 }
 
-export async function searchAssets(q: string): Promise<AssetSearchResult[]> {
-  return (await api.get('/v2/search/assets', { params: { q } })).data;
-}
 export async function fetchAssetPorts(assetId: string): Promise<(V2Port & { occupied: boolean })[]> {
   return (await api.get(`/v2/assets/${assetId}/ports`)).data;
 }

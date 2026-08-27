@@ -231,9 +231,18 @@ export function coreCount(positions: number | null | undefined): number {
   return positions ?? 1;
 }
 
+/**
+ * 몇 가닥부터 다심인가 — **질의에 쓰라고 내놓은 숫자**다.
+ *
+ * 판정은 `isMultiCorePort` 가 한다. 다만 DB 에 물을 때는 함수를 넣을 수 없어 숫자를 적어야
+ * 하는데, 그 숫자가 서버 여기저기 흩어져 있으면 판정이 둘로 갈린다(화면은 다심이라 하고
+ * 질의는 아니라 하는 자리가 생긴다). 같은 값을 나눠 쓴다.
+ */
+export const MULTI_CORE_MIN_POSITIONS = 2;
+
 /** 이 포트가 심선을 여러 가닥 나르는가. `positions` 이 없거나 1이면 보통 포트다. */
 export function isMultiCorePort(positions: number | null | undefined): boolean {
-  return coreCount(positions) > 1;
+  return coreCount(positions) >= MULTI_CORE_MIN_POSITIONS;
 }
 
 /**

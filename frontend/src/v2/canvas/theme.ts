@@ -6,7 +6,8 @@
  * 두 벌의 팔레트를 들고 있던 셈이다. 값은 이제 CSS 변수 한 곳에 있다(`--canvas-*`·`--plan-*`).
  *
  * 읽은 값은 담아 둔다: 칠할 때마다 `getComputedStyle` 을 부르면 프레임마다 스타일 재계산이
- * 걸린다. 테마를 바꾸는 길이 생기면 그때 `reloadCanvasColors()` 를 부른다.
+ * 걸린다. 테마를 바꾸는 길이 생기면 그때 담아 둔 것을 비우는 함수를 두면 된다 —
+ * 지금은 그 길이 없어서 두지 않는다(부르는 데 없는 문은 시간이 지나면 거짓말이 된다).
  */
 export type CanvasToken =
   | 'canvas-grid-major' | 'canvas-grid-minor' | 'canvas-origin'
@@ -27,7 +28,3 @@ export function canvasColor(token: CanvasToken): string {
   return resolved;
 }
 
-/** 테마가 바뀌면 다시 읽는다. */
-export function reloadCanvasColors(): void {
-  cache.clear();
-}

@@ -1,6 +1,6 @@
 import {
   instantiatePorts, occupantsOf, validateConnection, validateGridPlacement, PLACEMENT_FIELDS, DEFAULT_ASSET_STATUS,
-  ASSEMBLY_GRID, isMultiCorePort, linkedSlotName,
+  ASSEMBLY_GRID, isMultiCorePort, linkedSlotName, MULTI_CORE_MIN_POSITIONS,
 } from '@twin/core';
 import type { Direction } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
@@ -566,9 +566,12 @@ async function renameLinkedSlots(tx: Tx, portIds: ReadonlySet<string>): Promise<
   if (portIds.size === 0) return;
   const ports = await tx.port.findMany({
     where: { id: { in: [...portIds] } },
-    include: { asset: { include: { substation: { select: { name: true } }, parentAsset: true } } },
+    include: { asset: { include: { substation: { select: { name: true } } } } },
   });
-  const slots = ports.filter((p) => isMultiCorePort(p.positions));
+  /* **되돌릴 수 있는 판만 이름을 갈아입는다.** 구성에서 나오지 않은 판(구성 탭에서 손으로 더한
+     5번째 슬롯)은 원래 이름을 되찾을 길이 없어서, 한 번 덮어쓰면 선로를 끊은 뒤에도 「제 국 -
+     상대 국 - 1」이 남아 거짓말을 한다. 이름을 지어 주는 것은 되돌릴 수 있을 때의 호의다. */
+  const slots = ports.filter((p) => isMultiCorePort(p.positions) && p.asset.assemblyItemId != null);
   if (slots.length === 0) return;
 
   for (const port of slots) {
@@ -595,8 +598,8 @@ async function renameLinkedSlots(tx: Tx, portIds: ReadonlySet<string>): Promise<
     /* 그 두 국 사이 몇 번째 선로인가 — 만든 순서대로 센다. */
     const between = await tx.cable.findMany({
       where: {
-        aPort: { positions: { gt: 1 } },
-        bPort: { positions: { gt: 1 } },
+        aPort: { positions: { gte: MULTI_CORE_MIN_POSITIONS } },
+        bPort: { positions: { gte: MULTI_CORE_MIN_POSITIONS } },
         OR: [
           { aPort: { asset: { substationId: port.asset.substationId } }, bPort: { asset: { substationId: peer.asset.substationId } } },
           { aPort: { asset: { substationId: peer.asset.substationId } }, bPort: { asset: { substationId: port.asset.substationId } } },

@@ -29,7 +29,7 @@ import {
   patchOrgNode,
   photoUrl,
   putCommit,
-  searchAssets,
+  browseAssets,
 } from '../api';
 
 describe('v2 api 경로', () => {
@@ -47,11 +47,12 @@ describe('v2 api 경로', () => {
     expect(api.put).toHaveBeenCalledWith('/v2/substations/sub-1/commit', { assets: {} });
   });
 
-  it('searchAssets/fetchAssetPorts 경로', async () => {
+  it('browseAssets/fetchAssetPorts 경로', async () => {
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [] });
 
-    await searchAssets('슬롯');
-    expect(api.get).toHaveBeenCalledWith('/v2/search/assets', { params: { q: '슬롯' } });
+    /* 대국은 **둘러본다** — 다른 국의 설비 이름을 외우고 있을 리 없다. */
+    await browseAssets('sub-9');
+    expect(api.get).toHaveBeenCalledWith('/v2/search/assets', { params: { substationId: 'sub-9' } });
     await fetchAssetPorts('a-1');
     expect(api.get).toHaveBeenCalledWith('/v2/assets/a-1/ports');
   });

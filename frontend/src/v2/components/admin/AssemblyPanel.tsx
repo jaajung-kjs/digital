@@ -11,7 +11,7 @@
  * 달라 보이면 짜는 뜻이 없다.
  */
 import { useMemo, useRef, useState } from 'react';
-import { occupantsOf, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
+import { occupantsOf, validateGridPlacement, ASSEMBLY_GRID, type GridPlacement } from '@twin/core';
 import { LaborSpecForm } from './LaborSpecForm';
 import {
   Button, DetailCard, DetailCardHeader, DetailRow, Input, Select,
@@ -20,7 +20,6 @@ import {
 } from '../../../components/ui';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { PortsPreview } from './PortsPreview';
-import type { GridPlacement } from '../../gridDrag';
 import { newItemId, type AssemblyDraft, type AssemblyDraftItem, type AssemblyIssue } from '../../assemblyDraft';
 import type { V2Catalog } from '../../types';
 

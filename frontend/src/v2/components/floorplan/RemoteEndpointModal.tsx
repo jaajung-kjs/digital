@@ -16,9 +16,10 @@
  * 상자의 **키는 걸음마다 바뀌지 않는다** — 목록이 길든 짧든 같은 자리에 서야 눈이 따라간다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { comparePortGroups, portGroupLabel, portHasRoom } from '@twin/core';
+import { comparePortGroups, portGroupLabel } from '@twin/core';
 import { Button, EmptyState, Input, Modal, SELECTABLE, cn } from '../../../components/ui';
 import { browseAssets, fetchAssetPorts } from '../../api';
+import { canPickPort } from '../../cableSelectors';
 import type { AssetSearchResult } from '../../api';
 import { useMediumColor, useMediumLabel, useV2OrgTree } from '../../hooks';
 import { PortFaceplate } from '../detail/PortFaceplate';
@@ -161,15 +162,13 @@ export function RemoteEndpointModal({
     }
   }
 
-  /** 이을 수 있는 포트 — 가득 찼거나 종류가 다르면 못 고른다(이 국에서와 같은 규칙). */
+  /** 이을 수 있는 포트 — 규칙은 이 국의 판과 **같은 함수**가 쥔다(`canPickPort`). */
   const canPick = useMemo(() => {
     const ok = new Set<string>();
     for (const p of ports) {
+      /* 서버가 셈해 준 「이미 물렸다」도 함께 본다 — 다른 국의 케이블은 이 워킹 카피에 없다. */
       if (p.occupied) continue;
-      if (!portHasRoom(p.medium, cableCountByPortId.get(p.id) ?? 0)) continue;
-      if (p.id === excludePortId) continue;
-      if (mediumFilter && p.medium !== mediumFilter) continue;
-      ok.add(p.id);
+      if (canPickPort(p, { cableCount: cableCountByPortId.get(p.id) ?? 0, medium: mediumFilter, excludePortId })) ok.add(p.id);
     }
     return ok;
   }, [ports, cableCountByPortId, excludePortId, mediumFilter]);

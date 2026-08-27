@@ -65,15 +65,6 @@ export function manDaysOf(spec: LaborSpec, kind: WorkKind): number | null {
   return spec[MAN_DAY_FIELD[kind]];
 }
 
-/**
- * 표의 열 이름 — 「신설(인/m)」처럼 단위까지. 표는 폭이 넉넉하다.
- *
- * 상세 폼에서는 라벨 자리가 좁아 줄이 접히므로 단위를 값 쪽에 둔다(`manDayUnit`).
- */
-export function laborFieldLabel(kind: WorkKind, carrier: LaborCarrier): string {
-  const work = WORK_KINDS.find((w) => w.key === kind)!;
-  return `${work.label}(인/${LABOR_CARRIERS[carrier].unit})`;
-}
 
 /** 품의 단위 — 「인/m」. 폼이 값 옆에 한 번만 적는다. */
 export const manDayUnit = (carrier: LaborCarrier) => `인/${LABOR_CARRIERS[carrier].unit}`;
@@ -108,10 +99,6 @@ export const LABOR_WAGE_LABEL = '노임단가';
 /** 노임단가의 단위 — 폼은 값에, 표는 열 이름에 붙인다. */
 export const WAGE_UNIT = '원/일';
 
-/** 자재단가 라벨 — 「자재단가(원/m)」. */
-export function unitPriceLabel(carrier: LaborCarrier): string {
-  return `자재단가(원/${LABOR_CARRIERS[carrier].unit})`;
-}
 
 /**
  * 이 담체가 보여 주는 **숫자 칸 전부** — 폼도 표도 이 목록으로만 칸을 만든다.

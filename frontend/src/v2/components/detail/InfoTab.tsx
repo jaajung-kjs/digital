@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, occupantsOf, validateGridPlacement, ASSEMBLY_GRID } from '@twin/core';
+import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, occupantsOf, validateGridPlacement, ASSEMBLY_GRID, type GridCell, type GridPlacement } from '@twin/core';
 import {
   Button,
   DetailCard,
@@ -21,7 +21,6 @@ import {
   EMPTY,
   isCommitKey,
 } from '../../../components/ui';
-import type { GridCell, GridPlacement } from '../../gridDrag';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { makeNewAsset, portsForNewAsset } from '../../newAsset';
 import { deleteAssetWithConfirm } from '../../deleteActions';

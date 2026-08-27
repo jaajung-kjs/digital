@@ -1,3 +1,4 @@
+import { isMultiCorePort, MULTI_CORE_MIN_POSITIONS } from '@twin/core';
 import { Router } from 'express';
 import { authenticate } from './auth.middleware.js';
 import { nextDb } from './db.js';
@@ -50,7 +51,7 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
      */
     const trunkPortIds = cables
       .flatMap((c) => [c.aPort, c.bPort])
-      .filter((p) => p.positions > 1 && p.asset.substationId !== substation.id)
+      .filter((p) => isMultiCorePort(p.positions) && p.asset.substationId !== substation.id)
       .map((p) => p.id);
     const remoteCores = new Map<
       string,
@@ -63,7 +64,7 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
           asset: {
             include: {
               ports: {
-                where: { positions: 1 },
+                where: { positions: { lt: MULTI_CORE_MIN_POSITIONS } },
                 include: {
                   // 대국 장비의 **설비**까지 — 끝점은 `설비 - 장비#번호` 로 부른다.
                   cablesA: { include: { bPort: { include: { asset: { include: { parentAsset: true } } } } } },

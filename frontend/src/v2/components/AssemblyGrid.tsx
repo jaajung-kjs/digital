@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { GridLayout, noCompactor, type LayoutItem } from 'react-grid-layout';
-import { type Grid, cellLabel } from '@twin/core';
+import { type Grid, type GridCell, type GridPlacement, cellLabel } from '@twin/core';
 import { cn, type BadgeStatus, isCancelKey, InsetBox } from '../../components/ui';
-import type { GridCell, GridPlacement } from '../gridDrag';
 
 /**
  * 설비 격자 — **끌기·크기·겹침은 `react-grid-layout` 이 맡는다.**

@@ -66,12 +66,6 @@ export function slotNumber(cols: number, col: number, row: number): number {
   return row * Math.max(cols, 1) + col + 1;
 }
 
-/** `slotNumber` 의 짝 — 번호에서 격자 칸을 되찾는다. 화면이 번호로 자리를 가리킬 때 쓴다. */
-export function slotCell(cols: number, number: number): { col: number; row: number } {
-  const n = Math.max(number, 1) - 1;
-  const c = Math.max(cols, 1);
-  return { col: n % c, row: Math.floor(n / c) };
-}
 
 export interface PortTemplate {
   group: string; // 타입 내 유일 (예: 'A', 'IN')
