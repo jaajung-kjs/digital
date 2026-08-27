@@ -275,9 +275,9 @@ export function FiberRegisterView({
      `코어` 두 글자가 두 줄로 갈라져 머리글 줄만 키가 커졌다.
      값 열은 무엇을 적는 칸인지에 따라 다르다: 날짜 칸에는 달력 아이콘이 함께 들어가므로
      숫자 칸과 같은 폭을 주면 아이콘이 날짜 위에 겹친다. */
-  /* 「코어」 두 글자가 **한 줄로** 서는 만큼 — 여백을 px-1.5 로 좁혔으므로 폭도 그만큼 줄인다
-     (px-3 인 채로 5% 였을 때는 머리글이 「코0」으로 잘렸다). 아낀 몫은 이름 칸으로 간다. */
-  const CORE_WIDTH = 4.5;
+  /* 「코어」 두 글자가 한 줄로 서고 **왼쪽 여백은 남는** 만큼 — 오른쪽 여백만 좁혔다.
+     (좌우 12px 인 채로 5% 였을 때는 머리글이 「코0」으로 잘렸다.) */
+  const CORE_WIDTH = 6;
   /* 수 칸은 **여섯 자리까지** 들어갈 만큼 준다(길이 m) — 10% 로 뒀더니 네 자리에서 이미
      끝자리가 잘렸다. 그 몫은 **날짜 칸**에서 떼어 온다: 값은 이제 읽는 줄로 서고 상자는
      고칠 때만 뜨므로(`InlineEditCell`) 달력 아이콘이 늘 자리를 잡고 있을 이유가 없다.
@@ -318,9 +318,10 @@ export function FiberRegisterView({
       widths={fiberWidths}
       head={
         <>
-          {/* 코어 칸은 **좌우 여백까지 좁힌다** — 한두 자리 수를 담는 칸에 12px 여백이 양쪽으로
-              붙으면 그 몫이 이름 칸에서 빠진다. 여백을 줄인 만큼 폭도 줄일 수 있다. */}
-          <Th className="px-1.5">코어</Th>
+          {/* 코어 칸은 **오른쪽 여백만** 좁힌다. 한두 자리 수에 12px 여백이 양쪽으로 붙으면
+              그 몫이 이름 칸에서 빠지지만, 왼쪽은 표의 가장자리라 그대로 둔다 — 거기까지
+              좁히면 글자가 테두리에 붙어 답답해 보인다. */}
+          <Th className="pl-3 pr-1">코어</Th>
           {groups.map((g, i) => (
             <Th key={g}>{groupLabels[i] ?? g}</Th>
           ))}
@@ -352,7 +353,7 @@ export function FiberRegisterView({
                 )}
               >
                 {/* 코어 번호 */}
-                <td className="px-1.5 py-1.5 text-sm text-content-muted">{row.coreIndex}</td>
+                <td className="py-1.5 pl-3 pr-1 text-sm text-content-muted">{row.coreIndex}</td>
                 {/* 그룹별 피어 셀 */}
                 {row.cells.map((cell) => (
                   <td key={cell.group} className="px-3 py-1.5">
