@@ -519,7 +519,9 @@ export function portPresets(): PortPreset[] {
          하나로 두면 24심 인입을 놓을 방법이 없거나, 반대로 어댑터가 24심이 된다. */
       return kind.multiCore
         ? [single, {
-            name: `${kind.name} 다심`, medium: kind.key, direction: 'BI' as Direction,
+            /* 이름은 **현장에서 부르는 그대로** — 「광 다심」은 우리끼리 쓰는 말이고,
+               판에도 자료에도 적히는 이름은 OPGW 다(그 이름 패턴이 이미 그렇다). */
+            name: 'OPGW', medium: kind.key, direction: 'BI' as Direction,
             groupKey: `${kind.key.toUpperCase()}-TRUNK`, namePattern: 'OPGW', positions: DEFAULT_CORE_COUNT,
           }]
         : [single];

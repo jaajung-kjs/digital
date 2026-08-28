@@ -153,7 +153,7 @@ describe('PortsEditor', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={mkDraft([])} onChange={onChange} issues={[]} />);
 
-    addKind('광 다심');
+    addKind('OPGW');
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
     const trunk = ports.find((p) => (p.positions ?? 1) > 1)!;
     const adapter = ports.find((p) => p.medium === 'fiber' && (p.positions ?? 1) === 1)!;
@@ -180,14 +180,14 @@ describe('PortsEditor', () => {
   });
 
   /* 광은 단심과 다심이 **다른 구획**이다 — 어느 쪽인지는 심선 수가 가른다. */
-  it('(b-4) 광 다심 구획은 단심 광과 섞이지 않는다', () => {
+  it('(b-4) OPGW 구획은 단심 광과 섞이지 않는다', () => {
     const existing = mkDraft([
       { group: 'FIBER', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
     ]);
     const onChange = vi.fn();
     render(<PortsEditor draft={existing} onChange={onChange} issues={[]} />);
 
-    addKind('광 다심');
+    addKind('OPGW');
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
     expect(ports).toHaveLength(2);
     expect(ports[1]!.positions).toBeGreaterThan(1);

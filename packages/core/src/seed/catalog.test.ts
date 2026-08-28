@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SEED_ASSET_TYPES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES } from './catalog.js';
 import { assetFieldDefs } from '../catalog/types.js';
-import { portPresets } from '../catalog/portKinds.js';
+import { portKind, portPresets } from '../catalog/portKinds.js';
 
 const byKey = (key: string) => SEED_ASSET_TYPES.find((t) => t.key === key)!;
 
@@ -78,6 +78,26 @@ describe('시드 포트 그룹은 어휘가 내놓는 것뿐', () => {
         const preset = byKey.get(port.group.replace(/-\d+$/, ''))!;
         expect(port.medium, `${type.key}: ${port.group}`).toBe(preset.medium);
         expect(port.direction, `${type.key}: ${port.group}`).toBe(preset.direction);
+        expect(port.variant ?? null, `${type.key}: ${port.group}`).toBe(preset.variant ?? null);
+        /* 다심인지 아닌지도 선택지가 정한다 — 「광」에 24심을 적으면 화면에 없는 모양이 된다. */
+        expect((port.positions ?? 1) > 1, `${type.key}: ${port.group}`).toBe(preset.positions > 1);
+      }
+    }
+  });
+
+  /**
+   * **이름이 어휘에 없는 뜻을 지어내지 않는다.**
+   *
+   * 서지보호기를 「입력」·「출력」 두 네트워크 구획으로 적어 둔 적이 있다. 네트워크에는
+   * 방향이라는 것이 아예 없는데(`pairing: 'any'`) 이름만으로 방향을 만든 셈이라, 화면으로는
+   * 그 모양을 만들 수도 고칠 수도 없었다. 방향이 뜻을 갖는 종류(전원)에서만 그 말을 쓴다.
+   */
+  it('방향이 없는 종류의 포트 이름에 입력·출력을 적지 않는다', () => {
+    for (const type of SEED_ASSET_TYPES) {
+      for (const port of type.ports) {
+        const directional = portKind(port.medium)?.pairing === 'opposite';
+        if (directional) continue;
+        expect(/입력|출력|IN|OUT/i.test(port.namePattern), `${type.key}: ${port.namePattern}`).toBe(false);
       }
     }
   });

@@ -303,10 +303,12 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 105,
     labor: labor(0.3, 0.15, 0.3, 250_000),
     /* 선로가 들어와서 나간다 — 그 사이에서 서지를 접지로 흘린다. 접지가 없으면 물건 자체가
-       뜻이 없어서, 이 종류에는 접지가 **반드시** 있다. */
+       뜻이 없어서, 이 종류에는 접지가 **반드시** 있다.
+       한때 그 둘을 「입력」·「출력」 두 구획으로 적었는데, **네트워크에는 방향이 없다**
+       (`PORT_KINDS.network.pairing = 'any'`) — 화면으로는 만들 수 없는 모양이었다.
+       구획 하나에 포트 둘이면 같은 사실을 어휘 안에서 말한다. */
     ports: [
-      { group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: '입력' },
-      { group: 'NETWORK-2', count: 1, direction: 'BI', medium: 'network', namePattern: '출력' },
+      { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
