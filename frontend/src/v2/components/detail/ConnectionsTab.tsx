@@ -400,15 +400,15 @@ export function ConnectionsTab({
   );
 
   /**
-   * 이 추적이 **무엇을 물은 것인가** — 누른 포트의 방향이 정한다(`traceFrom` 과 같은 규칙).
+   * 이 추적이 **어느 쪽으로 간 것인가** — 누른 포트의 방향이 정한다(`traceFrom` 과 같은 규칙).
    *
-   * 결과만 트리로 던져 두면 「이게 나한테 오는 길인지, 내가 먹이는 곳인지」를 읽는 사람이
-   * 매번 되짚어야 한다. 전기는 방향이 있는 물건이니 화면이 먼저 말한다.
+   * 화면이 말로 적지는 않는다(글자가 늘 뿐이다). 다만 **거슬러 오르는 길은 뒤집어** 흐르는
+   * 차례로 그려야 하므로, 그 판단에는 방향이 필요하다.
    */
-  const traceAsk = useMemo(() => {
+  const upstreamTrace = useMemo(() => {
     const port = tracedPortId ? allPorts.find((p) => p.id === tracedPortId) : null;
-    if (!port || portKind(port.medium)?.pairing !== 'opposite') return null;
-    return port.direction === 'IN' ? '전원이 오는 길' : port.direction === 'OUT' ? '이 회로가 먹이는 곳' : null;
+    if (!port || portKind(port.medium)?.pairing !== 'opposite') return false;
+    return port.direction === 'IN';
   }, [tracedPortId, allPorts]);
 
   /**
@@ -419,10 +419,10 @@ export function ConnectionsTab({
    * 뿌리로 한 트리가 정직하다 — 「나에게 오는 길이 둘」로 읽힌다.
    */
   const upstreamChain = useMemo(() => {
-    if (traceAsk !== '전원이 오는 길') return null;
+    if (!upstreamTrace) return null;
     const chains = traceChains(traceTree);
     return chains.length === 1 ? [...chains[0]!].reverse() : null;
-  }, [traceAsk, traceTree]);
+  }, [upstreamTrace, traceTree]);
 
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
@@ -774,7 +774,7 @@ export function ConnectionsTab({
                       <div ref={traceRef} className="border-t border-line pt-1.5">
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-content-muted">
-                            {traceTree.children.length > 0 ? (traceAsk ?? '이어진 경로') : '연결된 경로가 없습니다'}
+                            {traceTree.children.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
                           </span>
                           <Button variant="secondary" size="sm" onClick={clearTrace}>
                             지우기
