@@ -30,7 +30,7 @@ import {
   Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, cn,
   isCommitKey, type MenuAnchor,
 } from '../../../components/ui';
-import { Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { useMediumColor, useMediumLabel } from '../../hooks';
 import type { TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
@@ -43,11 +43,15 @@ type PortRow = TypeDraft['ports'][number];
 const DEFAULT_PORT_COUNT = 1;
 
 /**
- * 구획 이름표에 붙는 **값 하나** — 읽을 때는 실크스크린 글자, 누르면 그 자리에서 상자.
+ * 구획 이름표에 붙는 **값 하나** — 눌러서 고치는 **작은 컨트롤**이다.
  *
- * 판 위의 글자라 본문 상자(38px)를 세울 수 없다. 그렇다고 늘 상자로 두면 판이 폼이 된다
- * (§1.7-i). 읽는 줄이 기본이고 누를 때만 상자가 서는 어법은 표와 같지만, 여기서는 **칸이
- * 아니라 글자 폭**이라 `InlineEditCell`(칸 하나를 채우는 물건)을 쓸 수 없다.
+ * 처음에는 그냥 실크스크린 글자로 뒀다(`×2`·`DC 48V`). 그런데 **눌러 보기 전에는 누를 수
+ * 있는지 알 수가 없었다** — 어포던스 없는 클릭 타깃은 없는 것과 같다(§1.7-h 가 정렬 화살표에
+ * 대해 말하는 것과 같은 이유).
+ *
+ * 그래서 쉬는 상태에도 **테두리를 두른 칩**으로 선다. 고를 값이 정해진 것에는 `▾` 가 붙어
+ * 「목록이 열린다」를 말한다(어느 화면에서나 통하는 표시다). 판 위의 글자라 본문 상자(38px)를
+ * 세울 수 없어 칩은 작지만, **컨트롤로 보이는 것**과 **폼이 되지 않는 것**을 둘 다 지킨다.
  */
 function SilkValue({
   label, text, value, options, min, autoEdit = false, onCommit,
@@ -69,18 +73,30 @@ function SilkValue({
   onCommit: (raw: string) => void;
 }) {
   const [editing, setEditing] = useState(autoEdit);
-  const silk = { color: 'var(--faceplate-silk)' } as const;
+  /** 판의 실크스크린 색 — 글자도 테두리도 이 색에서 나온다(판마다 따로 정하지 않는다). */
+  const silk = 'var(--faceplate-silk)';
 
   if (!editing) {
     return (
       <button
         type="button"
         aria-label={`${label} 고치기`}
+        title={`${label} 고치기`}
         onClick={() => setEditing(true)}
-        className="rounded px-1 text-xs transition-colors hover:bg-black/10"
-        style={silk}
+        className={cn(
+          'inline-flex items-center gap-0.5 rounded border px-1.5 text-xs leading-5',
+          'cursor-pointer transition-colors hover:bg-black/10 focus-visible:outline-none focus-ring-input',
+        )}
+        style={{
+          color: silk,
+          /* 쉬는 상태의 테두리는 흐리게 — 판을 어지럽히지 않으면서 「누를 수 있다」만 말한다. */
+          borderColor: `color-mix(in srgb, ${silk} 40%, transparent)`,
+          backgroundColor: 'color-mix(in srgb, var(--faceplate-silk) 6%, transparent)',
+        }}
       >
         {text}
+        {/* 목록이 열리는 값에는 `▾` — 어느 화면에서나 통하는 표시다. */}
+        {options && <ChevronDown size={10} aria-hidden />}
       </button>
     );
   }
@@ -246,7 +262,7 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
         <span>{labelText}</span>
         <SilkValue
           label={`${labelText} 개수`}
-          text={`×${row.count}`}
+          text={`${row.count}개`}
           value={String(row.count)}
           min={1}
           autoEdit={row.group === justAdded}

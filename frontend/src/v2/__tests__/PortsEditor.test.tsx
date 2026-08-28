@@ -74,7 +74,7 @@ describe('PortsEditor', () => {
     expect(screen.getByRole('button', { name: '코어 1 미연결' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '코어 12 미연결' })).toBeInTheDocument();
     /* 값은 그 구획의 이름표에 붙어 있다 — 위쪽 도구모음이 아니다. */
-    expect(screen.getByRole('button', { name: '광 개수 고치기' }).textContent).toBe('×12');
+    expect(screen.getByRole('button', { name: '광 개수 고치기' }).textContent).toBe('12개');
   });
 
   /* 만들기는 **누른 그 순간에** 고른다 — 장전된 목록이 화면에 늘 떠 있지 않는다. */
