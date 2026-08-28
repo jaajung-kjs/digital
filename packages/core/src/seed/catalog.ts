@@ -170,7 +170,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 65,
     labor: labor(0.8, 0.4, 1.0, 3_000_000),
     ports: [
-      { group: 'NETWORK', count: 12, direction: 'BI', medium: 'network', namePattern: '회선 {n}' },
+      { group: 'CONTROL', count: 12, direction: 'BI', medium: 'control', namePattern: '회선 {n}' },
     ],
   },
   {
@@ -191,9 +191,11 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 64,
     labor: labor(1.5, 0.8, 2.0, 5_000_000),
     /* 음성·데이터를 회선으로 묶어 광으로 보내는 다중화 장치 — 회선 쪽이 여러 갈래고
-       광은 상위 전송장치로 한 가닥 나간다. */
+       광은 상위 전송장치로 한 가닥 나간다.
+       회선의 매체는 **제어**다: 케이블 어휘가 PCM케이블·동축케이블·데이터/신호케이블을
+       거기 두고 있다(네트워크로 두면 UTP 밖에 못 꽂는다). */
     ports: [
-      { group: 'NETWORK', count: 8, direction: 'BI', medium: 'network', namePattern: '회선 {n}' },
+      { group: 'CONTROL', count: 8, direction: 'BI', medium: 'control', namePattern: '회선 {n}' },
       { group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
@@ -386,7 +388,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 62,
     labor: labor(2.5, 1.2, 3.0, 14_000_000),
     ports: [
-      { group: 'NETWORK', count: 12, direction: 'BI', medium: 'network', namePattern: '회선 {n}' },
+      { group: 'CONTROL', count: 12, direction: 'BI', medium: 'control', namePattern: '회선 {n}' },
       { group: 'FIBER', count: 4, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
