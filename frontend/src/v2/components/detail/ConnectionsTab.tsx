@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import {
-  Accordion, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select,
+  Accordion, Badge, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select,
   useConfirm, useDismissOnOutside, cn, SELECTABLE,
   EMPTY,
   type BadgeStatus,
@@ -34,7 +34,7 @@ import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { canPickPort } from '../../cableSelectors';
-import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt } from '@twin/core';
+import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portKind, portValuesAt } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
@@ -399,6 +399,18 @@ export function ConnectionsTab({
     [traceResult, tracedPortId],
   );
 
+  /**
+   * 이 추적이 **무엇을 물은 것인가** — 누른 포트의 방향이 정한다(`traceFrom` 과 같은 규칙).
+   *
+   * 결과만 트리로 던져 두면 「이게 나한테 오는 길인지, 내가 먹이는 곳인지」를 읽는 사람이
+   * 매번 되짚어야 한다. 전기는 방향이 있는 물건이니 화면이 먼저 말한다.
+   */
+  const traceAsk = useMemo(() => {
+    const port = tracedPortId ? allPorts.find((p) => p.id === tracedPortId) : null;
+    if (!port || portKind(port.medium)?.pairing !== 'opposite') return null;
+    return port.direction === 'IN' ? '전원이 오는 길' : port.direction === 'OUT' ? '이 회로가 먹이는 곳' : null;
+  }, [tracedPortId, allPorts]);
+
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
     onTrace(traceHighlight(inputs, portId));
@@ -747,22 +759,37 @@ export function ConnectionsTab({
                         이 포트 밑이 그 경로의 자리다. */}
                     {tracedPortId === sel.id && traceResult && (
                       <div ref={traceRef} className="border-t border-line pt-1.5">
-                        <div className="mb-0.5 flex items-center justify-between gap-2">
+                        <div className="mb-1 flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-content-muted">
-                            {traceTree.children.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
+                            {traceTree.children.length > 0 ? (traceAsk ?? '이어진 경로') : '연결된 경로가 없습니다'}
                           </span>
                           <Button variant="secondary" size="sm" onClick={clearTrace}>
                             지우기
                           </Button>
                         </div>
-                        {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
-                        <TraceBranches
-                          nodes={traceTree.children}
-                          depth={0}
-                          label={portLabel}
-                          assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                          onSelectAsset={onSelectAsset}
-                        />
+                        {/* 경로는 **시작부터** 보여 준다 — 시작이 화면에 없으면 첫 줄이 어디에서
+                            나온 것인지 읽는 사람이 되짚어야 한다. 경로 전체를 옅게 칠해
+                            「여기까지가 한 길」임을 눈으로 묶는다. */}
+                        {traceTree.children.length > 0 && (
+                          <div className="rounded-md bg-primary/5 p-1.5">
+                            <div className="flex items-baseline gap-1 text-sm">
+                              <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
+                              <span className="min-w-0 flex-1 truncate px-1 font-medium text-content">
+                                {portLabel(sel.id)}
+                              </span>
+                              <Badge status="info">여기</Badge>
+                            </div>
+                            {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
+                            <TraceBranches
+                              nodes={traceTree.children}
+                              depth={1}
+                              label={portLabel}
+                              assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                              onSelectAsset={onSelectAsset}
+                              endLabel={traceAsk === '전원이 오는 길' ? '출처' : '끝'}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </InsetBox>
@@ -794,7 +821,7 @@ export function ConnectionsTab({
  * 마디는 눌러서 그 장비로 갈 수 있다(글자로만 두면 표에서 다시 찾아야 한다).
  */
 function TraceBranches({
-  nodes, depth, label, assetOf, onSelectAsset,
+  nodes, depth, label, assetOf, onSelectAsset, endLabel,
 }: {
   nodes: readonly TraceTreeNode[];
   depth: number;
@@ -802,6 +829,13 @@ function TraceBranches({
   assetOf: (portId: string) => { id: string; name: string } | null;
   /** 자산(또는 그 안의 장비)을 고른다 — 포트까지 함께 가리킬 수 있다. */
   onSelectAsset: (id: string, portId?: string | null) => void;
+  /**
+   * 더 갈 데가 없는 마디에 붙일 말 — 거슬러 오르면 「출처」, 내려가면 「끝」.
+   *
+   * 트리만 그려 두면 어디가 **답**인지가 안 보인다. 전원이 어디서 오는지 물었으면 그 끝이
+   * 답이고, 무엇을 먹이는지 물었으면 잎들이 답이다.
+   */
+  endLabel?: string;
 }) {
   if (nodes.length === 0) return null;
   return (
@@ -828,8 +862,9 @@ function TraceBranches({
               ) : (
                 <span className="min-w-0 flex-1 truncate px-1 text-content-muted">{text}</span>
               )}
+              {endLabel && node.children.length === 0 && <Badge>{endLabel}</Badge>}
             </div>
-            <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
+            <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} endLabel={endLabel} />
           </li>
         );
       })}

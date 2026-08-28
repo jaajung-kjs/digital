@@ -91,22 +91,50 @@ describe('buildTraceGraph + traceFrom', () => {
       .toEqual(['slot1:A1', 'slot1:A2', 'slot1:A3', 'slot1:A4']);
   });
 
-  it('피더 all 매핑: IN→OUT 패스스루 후 하류 케이블 추적', () => {
-    const f = makeAsset('FEEDER', 'fdr1');
-    const d = makeAsset('DEV', 'load1');
-    const powerDev = { ...d, ports: d.ports.map((p) => ({ ...p, medium: 'power' })) };
-    const cables: CableRef[] = [{ id: 'c1', aPortId: 'fdr1:OUT1', bPortId: 'load1:P1' }];
-    const graph = buildTraceGraph({
-      types,
-      assets: [f.asset, d.asset],
-      ports: [...f.ports, ...powerDev.ports],
-      cables,
+  /**
+   * **전원은 흐르는 방향이 있다 — 누른 포트가 묻는 방향을 정한다.**
+   *
+   * 출력을 누르면 「이 회로가 무엇을 먹이나」(하류), 입력을 누르면 「내 전원이 어디서 오나」
+   * (상류)다. 방향을 안 지키면 상류로 거슬러 올라가다 그 반의 **다른 출력들로 되쏟아진다** —
+   * 단말 하나에서 추적했는데 그 반이 먹이는 스물세 자산이 다 딸려 나왔다(실측 120홉 → 6홉).
+   */
+  describe('전원은 누른 포트의 방향으로만 간다', () => {
+    /** 상류 반 → 피더 → 부하. 가운데 피더를 두고 양쪽을 본다. */
+    const scene = () => {
+      const up = makeAsset('FEEDER', 'up');
+      const f = makeAsset('FEEDER', 'fdr1');
+      const d = makeAsset('DEV', 'load1');
+      const powerDev = { ...d, ports: d.ports.map((p) => ({ ...p, medium: 'power', direction: 'IN' as const })) };
+      const cables: CableRef[] = [
+        { id: 'c0', aPortId: 'up:OUT1', bPortId: 'fdr1:IN1' },
+        { id: 'c1', aPortId: 'fdr1:OUT1', bPortId: 'load1:P1' },
+      ];
+      return buildTraceGraph({
+        types,
+        assets: [up.asset, f.asset, d.asset],
+        ports: [...up.ports, ...f.ports, ...powerDev.ports],
+        cables,
+      });
+    };
+
+    it('출력에서 시작하면 하류로 — 무엇을 먹이나', () => {
+      expect(traceFrom(scene(), 'fdr1:OUT1')).toEqual([
+        { kind: 'cable', cableId: 'c1', fromPortId: 'fdr1:OUT1', toPortId: 'load1:P1' },
+      ]);
     });
-    const hops = traceFrom(graph, 'fdr1:IN1');
-    expect(hops).toEqual([
-      { kind: 'internal', fromPortId: 'fdr1:IN1', toPortId: 'fdr1:OUT1' },
-      { kind: 'cable', cableId: 'c1', fromPortId: 'fdr1:OUT1', toPortId: 'load1:P1' },
-    ]);
+
+    it('입력에서 시작하면 상류로 — 어디서 오나', () => {
+      expect(traceFrom(scene(), 'fdr1:IN1')).toEqual([
+        { kind: 'cable', cableId: 'c0', fromPortId: 'fdr1:IN1', toPortId: 'up:OUT1' },
+        { kind: 'internal', fromPortId: 'up:OUT1', toPortId: 'up:IN1' },
+      ]);
+    });
+
+    /* 단말의 입력에서 거슬러 올라가도 **그 반의 다른 회로로 새지 않는다**. */
+    it('단말에서 거슬러 올라가면 나에게 오는 길 하나뿐이다', () => {
+      const hops = traceFrom(scene(), 'load1:P1');
+      expect(hops.map((h) => h.toPortId)).toEqual(['fdr1:OUT1', 'fdr1:IN1', 'up:OUT1', 'up:IN1']);
+    });
   });
 
   it('links 없는 장비는 종단 — 다른 포트로 새지 않는다', () => {

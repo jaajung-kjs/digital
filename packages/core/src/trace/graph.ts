@@ -1,5 +1,5 @@
 import type { AssetRef, AssetTypeSpec, CableRef, PortRef } from '../catalog/types.js';
-import { isMultiCorePort } from '../catalog/portKinds.js';
+import { isMultiCorePort, portKind } from '../catalog/portKinds.js';
 import { internalLinkMap } from './internalLinks.js';
 
 export interface TraceEdge {
@@ -77,15 +77,49 @@ export function buildTraceGraph(args: {
 }
 
 /**
+ * **묻는 방향** — 흐름이 있는 종류(전원)에서 누른 포트가 정한다.
+ *
+ * 입력을 누르면 「내 전원이 어디서 오나」이고, 출력을 누르면 「이 회로가 무엇을 먹이나」다.
+ * 방향이 없는 종류(광·네트워크·제어)는 양쪽으로 퍼진다 — 그 선로에는 상·하류가 없다.
+ */
+type Flow = 'upstream' | 'downstream' | 'both';
+
+/**
  * 시작 포트에서 도달 가능한 모든 hop을 방문 순서(BFS)로 반환한다.
  *
  * 걸어다니는 상태는 포트만이 아니라 **(포트, 코어 번호)** 다. 다심 인입에 코어 3으로
  * 들어갔으면 코어 3으로만 나온다 — 케이블을 건너가도 그 번호를 들고 간다(인입끼리는
  * 코어 번호가 1:1로 대응한다). 인입 포트 자체에서 시작하면 번호가 없으니 전부 퍼진다.
+ *
+ * **전원은 흐르는 방향이 있다.** 전기는 출력에서 케이블을 타고 입력으로 가고, 기기 안에서는
+ * 입력에서 출력으로 지난다. 그 방향을 안 지키면 상류로 거슬러 올라가다가 그 반의 **다른
+ * 출력들로 되쏟아진다** — 단말 하나에서 추적했는데 그 반이 먹이는 스물세 자산이 다 딸려
+ * 나왔다(실측 120홉). 내 전원이 어디서 오는지 묻는 사람에게 남의 회로는 답이 아니다.
  */
 export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
   const hops: TraceHop[] = [];
   const isMulti = (id: string) => isMultiCorePort(graph.ports.get(id)?.positions);
+  const directionOf = (id: string) => graph.ports.get(id)?.direction;
+
+  /* 흐름이 있는 종류에서만 방향을 지킨다 — 광·네트워크는 상·하류가 없다. */
+  const startPort = graph.ports.get(startPortId);
+  const directed = portKind(startPort?.medium ?? '')?.pairing === 'opposite';
+  const flow: Flow = !directed || startPort == null || startPort.direction === 'BI'
+    ? 'both'
+    : startPort.direction === 'IN' ? 'upstream' : 'downstream';
+
+  /**
+   * 이 간선이 그 방향으로 가는 길인가.
+   *
+   * 거슬러 오를 때: **내 입력에서** 케이블을 건너 상류의 출력으로 가고, 그 기기 **안에서는
+   * 출력에서 입력으로** 거슬러 지난다. 내려갈 때는 그 반대다.
+   */
+  const allowed = (fromPortId: string, edge: TraceEdge): boolean => {
+    if (flow === 'both') return true;
+    const dir = directionOf(fromPortId);
+    if (edge.kind === 'cable') return dir === (flow === 'upstream' ? 'IN' : 'OUT');
+    return dir === (flow === 'upstream' ? 'OUT' : 'IN');
+  };
 
   /* 방문 표시는 **포트 하나에 한 번**이다. 코어 번호는 어느 길로 빠져나갈지를 거르는 데만
      쓴다 — 번호까지 키에 넣으면 인입 포트가 코어마다 다른 노드로 보여, 앞면 4포트를 거쳐
@@ -97,6 +131,7 @@ export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
     const cur = queue.shift();
     if (cur === undefined) break;
     for (const e of graph.edges.get(cur.portId) ?? []) {
+      if (!allowed(cur.portId, e)) continue;
       let position = cur.position;
       if (e.position !== undefined) {
         if (isMulti(cur.portId)) {
