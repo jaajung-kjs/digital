@@ -50,7 +50,7 @@ const DEFAULT_PORT_COUNT = 1;
  * 아니라 글자 폭**이라 `InlineEditCell`(칸 하나를 채우는 물건)을 쓸 수 없다.
  */
 function SilkValue({
-  label, text, value, options, min, onCommit,
+  label, text, value, options, min, autoEdit = false, onCommit,
 }: {
   label: string;
   /** 읽을 때 보이는 말 — `×2`·`DC 48V` 처럼 단위까지 붙은 글자. */
@@ -59,9 +59,16 @@ function SilkValue({
   /** 고를 값이 정해져 있으면 목록으로 — 없으면 수를 친다. */
   options?: readonly string[];
   min?: number;
+  /**
+   * 만들어지자마자 **고치는 상태로** 시작한다 — 갓 더한 구획의 개수가 그렇다.
+   *
+   * 포트 구획을 더하는 사람은 거의 언제나 개수를 함께 정한다(24구 판·12심 슬롯). 하나로
+   * 만들어 놓고 「이제 개수를 찾아 고치세요」라고 두면 만드는 일이 늘 두 걸음이 된다.
+   */
+  autoEdit?: boolean;
   onCommit: (raw: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(autoEdit);
   const silk = { color: 'var(--faceplate-silk)' } as const;
 
   if (!editing) {
@@ -107,6 +114,8 @@ function SilkValue({
       min={min}
       defaultValue={value}
       size={4}
+      /* 갓 더한 구획이면 값이 **골라진 채로** 선다 — 치는 대로 덮인다. */
+      onFocus={(e) => e.currentTarget.select()}
       className={cn(common.className, 'w-12 text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none')}
       onBlur={(e) => done(e.currentTarget.value)}
       onKeyDown={(e) => {
@@ -179,6 +188,8 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
 
   /* 종류는 **누른 그 순간에** 고른다 — 목록을 세워 두면 만들 생각 없는 것이 늘 떠 있다. */
   const [menuAt, setMenuAt] = useState<MenuAnchor | null>(null);
+  /** 방금 더한 구획 — 그 개수 칸이 열린 채로 선다(더하기와 개수 정하기가 한 걸음이 된다). */
+  const [justAdded, setJustAdded] = useState<string | null>(null);
 
   function patch(row: PortRow, next: Partial<PortRow>) {
     const existing = ports.find((p) => p.group === row.group);
@@ -209,6 +220,7 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
       /* 전압은 프리셋이 그 갈래의 예사값을 들고 온다 — 놓는 순간 이미 「DC 48V」다. */
       ...(preset.voltage ? { voltage: preset.voltage } : {}),
     };
+    setJustAdded(row.group);
     onChange({ ports: syncTrunkAdapters([...ports, row], row, null) });
   }
 
@@ -237,7 +249,9 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
           text={`×${row.count}`}
           value={String(row.count)}
           min={1}
+          autoEdit={row.group === justAdded}
           onCommit={(raw) => {
+            setJustAdded(null);
             const next = Math.max(Number(raw) || 1, 1);
             if (next !== row.count) patch(row, { count: next });
           }}

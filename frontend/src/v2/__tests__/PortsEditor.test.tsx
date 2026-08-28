@@ -99,11 +99,15 @@ describe('PortsEditor', () => {
     expect(called.ports[0]!.group).not.toBe('');
     expect(called.ports[0]!.namePattern).toContain('{n}');
 
-    /* 값은 **그 구획의 이름표**에 있다 — 고르는 절차 없이 바로 고친다. */
+    /* 더하기와 개수 정하기가 **한 걸음**이다 — 갓 더한 구획의 개수 칸이 열린 채로 선다.
+       포트 구획을 더하는 사람은 거의 언제나 개수를 함께 정한다(24구 판·12심 슬롯). */
     rerender(<PortsEditor draft={mkDraft(called.ports)} onChange={onChange} issues={[]} />);
-    expect(screen.getByRole('button', { name: '네트워크 개수 고치기' }).textContent).toBe('×1');
-    editValue('네트워크 개수');
-    expect(screen.getByLabelText('네트워크 개수')).toBeInstanceOf(HTMLInputElement);
+    const count = screen.getByLabelText('네트워크 개수') as HTMLInputElement;
+    expect(count).toBeInstanceOf(HTMLInputElement);
+
+    fireEvent.change(count, { target: { value: '24' } });
+    fireEvent.blur(count);
+    expect(onChange.mock.calls[1][0].ports[0]).toMatchObject({ count: 24 });
   });
 
   it('(b-2) 전원은 입력·출력이 따로 있고, AC·DC 도 따로다 — 전압까지 실려 온다', () => {
