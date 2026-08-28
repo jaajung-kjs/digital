@@ -425,10 +425,19 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         await addPortsToExistingAssets(tx, id, change.additions);
       }
 
-      /* **이름이 바뀌면 놓인 포트도 따라 바뀐다.** 이름은 뜻이 아니라 부르는 말이라
-         구조 변경으로 막지 않는다(`comparePortStructure`) — 대신 여기서 맞춘다.
-         안 맞추면 품목은 「네트워크 1」이라 부르는데 판에는 「UTP」가 남는다. */
+      /**
+       * **이름이 바뀌면 선언도 놓인 포트도 따라 바뀐다.**
+       *
+       * 이름은 뜻이 아니라 부르는 말이라 구조 변경으로 막지 않는다(`comparePortStructure`).
+       * 그런데 선언을 다시 쓰는 곳은 **구조가 달라졌을 때뿐**이라, 이름만 고치면 저장은
+       * 되는데 선언에는 옛 이름이 그대로 남았다 — 그 뒤로 새로 놓는 자산마다 옛 이름을
+       * 달고 나왔다(놓인 포트만 고쳐져 있으니 눈에도 안 띈다). 둘 다 여기서 맞춘다.
+       */
       for (const p of body.ports) {
+        await tx.assetPortTemplate.updateMany({
+          where: { typeId: id, group: p.group },
+          data: { namePattern: p.namePattern },
+        });
         const ports = await tx.port.findMany({
           where: { group: p.group, asset: { typeId: id } },
           select: { id: true, index: true, name: true },
