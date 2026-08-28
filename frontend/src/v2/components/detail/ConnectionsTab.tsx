@@ -372,28 +372,33 @@ export function ConnectionsTab({
    * 예전에는 홉 하나를 한 줄로 적었고 「↔ 내부」 라는 줄이 사이사이 끼었다. 그것은 장비 안에서
    * 포트가 바뀐 것이지 어디로 간 것이 아니다 — 이제 그 통과는 트리에서 접힌다(`buildTraceTree`).
    */
-  function portLabel(portId: string): string {
+  /**
+   * 추적 마디의 이름 — **무엇인가**와 **어디인가**를 나눠 준다.
+   *
+   * 한 줄로 이으면(「OFD - 광링D S/S - 광링A S/S - 1#1 (광링D S/S)」) 좁은 판에서 말줄임에
+   * 잘려, 정작 알고 싶은 **어디에 닿았는가**가 사라진다. 국을 넘는 경로슬롯은 이름 자체가
+   * 두 국을 담고 있어 더 그렇다.
+   *
+   * 그래서 굵은 줄에는 그 포트(장비#번호), 아래 흐린 줄에는 그것이 선 자리(국 · 설비)를
+   * 둔다 — 공유하는 앞부분은 한 단 흐리게 두는 §1.7-j 와 같은 어법이다.
+   */
+  function traceLabel(portId: string): { primary: string; secondary: string | null } {
     const entry = portIndex.get(portId);
     if (entry) {
-      return endpointLabel({
-        assemblyName: entry.assemblyName,
-        assetName: entry.asset.name,
-        portName: entry.port.name,
-        portIndex: entry.port.index,
-      });
+      return {
+        primary: `${entry.asset.name}#${entry.port.index}`,
+        secondary: entry.assemblyName,
+      };
     }
-    // 로컬 미해소 포트 — 그 케이블의 saved refs 로 이름을 짓는다(끝점 해소는 `endpointRef` 한 곳).
     const cableEntry = cablesByPortId.get(portId)?.[0];
-    if (cableEntry) {
-      const ref = endpointRef(cableEntry.cable, portId);
-      if (ref) {
-        // 변전소는 **다른 국일 때만** 적는다 — 지금 보고 있는 국 이름을 덧붙이면 군더더기다.
-        const remote = asset != null && ref.substationId !== asset.substationId;
-        const sub = remote && ref.substationName ? ` (${ref.substationName})` : '';
-        return `${endpointLabel({ ...ref, assemblyName: ref.assemblyName ?? null })}${sub}`;
-      }
+    const ref = cableEntry ? endpointRef(cableEntry.cable, portId) : null;
+    if (ref) {
+      /* 국은 **다른 국일 때만** 적는다 — 보고 있는 국 이름을 덧붙이면 군더더기다. */
+      const remote = asset != null && ref.substationId !== asset.substationId;
+      const where = [remote ? ref.substationName : null, ref.assemblyName].filter(Boolean).join(' · ');
+      return { primary: `${ref.assetName}#${ref.portIndex}`, secondary: where || null };
     }
-    return `포트 —`;
+    return { primary: '포트 —', secondary: null };
   }
 
   /* 평평한 홉 목록을 트리로 — 장비 안의 통과는 접힌다(마디는 케이블로 닿은 자리뿐). */
@@ -703,15 +708,16 @@ export function ConnectionsTab({
                           onDelete={() => void handleDeleteCable(peer)}
                         >
                           <DetailRow label="연결 장비">
-                            <button
-                              type="button"
-                              className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                              title={peer.entry ? `${peer.label} 으로 이동` : peer.label}
-                              disabled={!peer.entry}
-                              onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id, peer.peerPortId)}
-                            >
-                              {peer.label}
-                            </button>
+                            {/* 추적 마디와 **같은 조각**을 쓴다 — 국을 넘는 경로슬롯은 이름이 길어
+                                한 줄로는 말줄임에 잘린다(무엇에 닿았는지가 사라진다). */}
+                            <div className="flex min-w-0 flex-1 text-sm">
+                              <TraceNodeText
+                                label={traceLabel(peer.peerPortId)}
+                                {...(peer.entry
+                                  ? { onClick: () => onSelectAsset(peer.entry!.asset.id, peer.peerPortId), title: `${peer.entry.asset.name} 으로 이동` }
+                                  : {})}
+                              />
+                            </div>
                           </DetailRow>
                           {/* 케이블은 **읽는 줄이 기본**이다. 드롭다운을 늘 펼쳐 두면 조회하러
                               온 사람에게 편집기부터 들이미는 꼴이고, 실수로 바꾸기도 쉽다.
@@ -791,7 +797,7 @@ export function ConnectionsTab({
                                  추적의 답은 「출처에서 나에게 오는 길」이라 그렇게 읽어야 한다. */
                               <TraceChain
                                 path={upstreamChain}
-                                label={portLabel}
+                                label={traceLabel}
                                 assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
                                 onSelectAsset={onSelectAsset}
                               />
@@ -802,15 +808,13 @@ export function ConnectionsTab({
                               <>
                                 <div className="flex items-baseline gap-1 text-sm">
                                   <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
-                                  <span className="min-w-0 flex-1 truncate px-1 font-semibold text-content">
-                                    {portLabel(sel.id)}
-                                  </span>
+                                  <TraceNodeText label={traceLabel(sel.id)} />
                                 </div>
                                 {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
                                 <TraceBranches
                                   nodes={traceTree.children}
                                   depth={1}
-                                  label={portLabel}
+                                  label={traceLabel}
                                   assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
                                   onSelectAsset={onSelectAsset}
                                 />
@@ -841,6 +845,40 @@ export function ConnectionsTab({
 }
 
 /**
+ * 추적 마디 한 줄 — **무엇인가**(굵게) 위에 서고 **어디인가**(흐리게)가 그 아래 붙는다.
+ *
+ * 말줄임을 걸지 않는다. 좁은 판에서 잘리는 것은 대개 뒤쪽인데, 국을 넘는 경로슬롯은 바로
+ * 그 뒤쪽에 「어느 국의 무엇인가」가 들어 있다 — 잘리면 추적이 답을 잃는다. 길어지면 접는다.
+ */
+function TraceNodeText({
+  label, muted, onClick, title,
+}: {
+  label: { primary: string; secondary: string | null };
+  /** 지나가는 마디인가 — 끝(내가 선 자리)은 진하게 둔다. */
+  muted?: boolean;
+  onClick?: () => void;
+  title?: string;
+}) {
+  const body = (
+    <>
+      <span className={cn('block break-words', muted ? '' : 'font-medium')}>{label.primary}</span>
+      {label.secondary && <span className="block break-words text-xs text-content-faint">{label.secondary}</span>}
+    </>
+  );
+  if (!onClick) return <span className={cn('min-w-0 flex-1 px-1', muted ? 'text-content-muted' : 'text-content')}>{body}</span>;
+  return (
+    <button
+      type="button"
+      className={cn('min-w-0 flex-1 rounded px-1 text-left text-primary', SELECTABLE)}
+      title={title}
+      onClick={onClick}
+    >
+      {body}
+    </button>
+  );
+}
+
+/**
  * 한 길 — **전기가 흐르는 차례**로 위에서 아래로.
  *
  * 거슬러 오르는 추적의 답은 「출처에서 나에게 오는 길」이다. 트리는 「내가 시작해서 어디로
@@ -852,7 +890,7 @@ function TraceChain({
 }: {
   /** 출처 → … → 나. 마지막이 추적을 시작한 자리다. */
   path: readonly TraceTreeNode[];
-  label: (portId: string) => string;
+  label: (portId: string) => { primary: string; secondary: string | null };
   assetOf: (portId: string) => { id: string; name: string } | null;
   onSelectAsset: (id: string, portId?: string | null) => void;
 }) {
@@ -861,26 +899,17 @@ function TraceChain({
       {path.map((node, i) => {
         const last = i === path.length - 1;
         const target = assetOf(node.portId);
-        const text = label(node.portId);
         return (
           <li key={node.portId} className="flex items-baseline gap-1 text-sm">
             {/* 흐르는 방향을 화살표가 말한다 — 첫 줄은 출처라 들어오는 화살표가 없다. */}
             <span aria-hidden className="w-3 shrink-0 text-xs text-content-faint">{i === 0 ? '◉' : '↓'}</span>
-            {target && !last ? (
-              <button
-                type="button"
-                className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
-                title={`${target.name} 으로 이동`}
-                onClick={() => onSelectAsset(target.id, node.portId)}
-              >
-                {text}
-              </button>
-            ) : (
-              <span className={cn('min-w-0 flex-1 truncate px-1', last ? 'font-medium text-content' : 'text-content-muted')}>
-                {text}
-              </span>
-            )}
-
+            <TraceNodeText
+              label={label(node.portId)}
+              muted={!last}
+              {...(target && !last
+                ? { onClick: () => onSelectAsset(target.id, node.portId), title: `${target.name} 으로 이동` }
+                : {})}
+            />
           </li>
         );
       })}
@@ -901,7 +930,7 @@ function TraceBranches({
 }: {
   nodes: readonly TraceTreeNode[];
   depth: number;
-  label: (portId: string) => string;
+  label: (portId: string) => { primary: string; secondary: string | null };
   assetOf: (portId: string) => { id: string; name: string } | null;
   /** 자산(또는 그 안의 장비)을 고른다 — 포트까지 함께 가리킬 수 있다. */
   onSelectAsset: (id: string, portId?: string | null) => void;
@@ -911,7 +940,6 @@ function TraceBranches({
     <ul className={cn('space-y-0.5', depth > 0 && 'ml-3 border-l border-line pl-2')}>
       {nodes.map((node, i) => {
         const target = assetOf(node.portId);
-        const text = label(node.portId);
         /* 마지막 갈래는 꺾여 끝나고(└), 그 위는 계속 이어진다(├) — 형제가 몇인지 눈에 잡힌다. */
         const last = i === nodes.length - 1;
         return (
@@ -919,20 +947,13 @@ function TraceBranches({
             <div className="flex items-baseline gap-1">
               {/* 갈라지는 자리를 눈으로 잡아 주는 이음선 — 깊이는 들여쓰기가 말한다. */}
               <span aria-hidden className="shrink-0 text-xs text-content-faint">{last ? '└' : '├'}</span>
-              {target ? (
-                <button
-                  type="button"
-                  className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
-                  title={`${target.name} 으로 이동`}
-                  /* **그 포트를 고른 상태로** 간다 — 자산만 가리키면 첫 탭이 열려, 방금 본
-                     그 포트를 판에서 다시 찾아야 한다. */
-                  onClick={() => onSelectAsset(target.id, node.portId)}
-                >
-                  {text}
-                </button>
-              ) : (
-                <span className="min-w-0 flex-1 truncate px-1 text-content-muted">{text}</span>
-              )}
+              <TraceNodeText
+                label={label(node.portId)}
+                muted
+                /* **그 포트를 고른 상태로** 간다 — 자산만 가리키면 첫 탭이 열려, 방금 본
+                   그 포트를 판에서 다시 찾아야 한다. */
+                {...(target ? { onClick: () => onSelectAsset(target.id, node.portId), title: `${target.name} 으로 이동` } : {})}
+              />
             </div>
             <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
           </li>
