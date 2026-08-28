@@ -303,7 +303,7 @@ describe('포트 그룹 이름', () => {
   });
 
   /**
-   * **값이 이름에 실린다** — 「전원 출력(DC 48V)」.
+   * **이름은 그 포트의 것**이고, 괄호에 값이 실린다 — 「출력(DC 48V)」.
    *
    * 갈래 이름(AC·DC)만 붙어 있으면 「몇 V 인가」를 알려고 그 구획을 눌러 들어가야 한다.
    * 값이 이름에 있으면 자산 판이든 케이블 피커든 한눈에 읽힌다.
@@ -312,13 +312,31 @@ describe('포트 그룹 이름', () => {
     const dc = { ...g('PWR-OUT', 'power', 'OUT'), variant: 'DC', fieldValues: { voltage: 'DC 48V' } };
     const ac = { ...g('PWR-IN', 'power', 'IN'), variant: 'AC', fieldValues: { voltage: 'AC 380V 3φ' } };
     const refs = [groupRefOf({ ...dc, name: '출력 1' }), groupRefOf({ ...ac, name: '전원 입력' })];
-    expect(portGroupLabel(refs[0]!, refs)).toBe('전원 출력(DC 48V)');
+    expect(portGroupLabel(refs[0]!, refs)).toBe('출력(DC 48V)');
     expect(portGroupLabel(refs[1]!, refs)).toBe('전원 입력(AC 380V 3φ)');
   });
 
   it('값이 아직 없으면 갈래 이름으로 물러선다', () => {
     const refs = [groupRefOf({ ...g('PWR-OUT', 'power', 'OUT'), variant: 'DC', name: '출력 1' })];
-    expect(portGroupLabel(refs[0]!, refs)).toBe('전원 출력(DC)');
+    expect(portGroupLabel(refs[0]!, refs)).toBe('출력(DC)');
+  });
+
+  /**
+   * **판에 적힌 이름을 화면이 버리지 않는다.**
+   *
+   * 예전에는 어휘로 지어내서, 「UTP」·「관리」·「OPGW」라고 이름 붙인 포트가 화면에서는 전부
+   * 「네트워크」·「광」으로 덮였다 — 자료가 이름을 갖고 있는데 화면이 그것을 버린 셈이다.
+   */
+  it('포트에 이름이 있으면 그 이름으로 부른다', () => {
+    const named = (name: string, medium: string) => groupRefOf({ group: name, medium, direction: 'BI', name, positions: 1 });
+    const refs = [named('UTP', 'network'), named('OPGW', 'fiber'), named('관리', 'network')];
+    expect(refs.map((r) => portGroupLabel(r, refs))).toEqual(['UTP', 'OPGW', '관리']);
+  });
+
+  /* 이름이 아예 없을 때만 어휘로 물러선다 — 그때는 방향까지 불러야 입력과 출력이 갈린다. */
+  it('이름이 없으면 어휘로 물러선다', () => {
+    const refs = [g('PWR-IN', 'power', 'IN'), g('PWR-OUT', 'power', 'OUT')];
+    expect(refs.map((r) => portGroupLabel(r, refs))).toEqual(['전원 입력', '전원 출력']);
   });
 
   it('어휘에 없는 종류는 그 값을 쓴다 — 빈 이름이 되지 않게', () => {

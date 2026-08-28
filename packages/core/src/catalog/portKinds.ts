@@ -624,15 +624,20 @@ function nameBase(sample: string | undefined): string | null {
 }
 
 /**
- * 포트 그룹을 화면에 뭐라고 부를 것인가.
+ * 포트 구획을 화면에 뭐라고 부를 것인가 — **그 포트의 이름이 먼저다.**
  *
- * 그룹 키(`P`·`GND`·`PWR-IN`·`COM`)는 **타입 안에서 유일해야 하는 식별자**이지 이름이 아니다.
- * 그런데 화면이 `GND 그룹`·`PWR-IN 그룹` 이라고 그대로 적고 있었다 — 쓰는 사람에게는 아무
- * 뜻이 없는 글자다(`BI`·`network` 를 그대로 보여 주던 것과 같은 계열).
+ * 예전에는 어휘로 지어냈다: 매체 이름 + 방향(+갈래). 그래서 실제로 「UTP」·「관리」·「OPGW」
+ * 라고 이름 붙인 포트들이 화면에서는 전부 「네트워크」·「광」으로 덮여, **판에 적힌 이름과
+ * 화면이 부르는 이름이 달랐다.** 이름은 자료가 갖고 있는데 화면이 그것을 버린 셈이다.
  *
- * 그래서 **종류 이름**으로 부른다. 방향이 뜻을 갖는 종류(전원)는 방향까지 붙여야 입력과
- * 출력이 갈린다. 같은 이름이 둘 이상 나오면 그때만 키를 덧붙인다 — 광슬롯의 `A`·`B` 처럼
- * 키 자체가 유일한 이름인 경우가 그렇다. 구분이 필요할 때까지 이름을 길게 만들지 않는다.
+ * 그래서 **번호를 뗀 그 포트의 이름**을 쓴다(「광 포트 1」 → 「광 포트」). 이름이 아예 없을
+ * 때만 어휘로 물러선다 — 그때는 매체 이름과, 방향이 뜻을 갖는 종류면 방향까지 붙인다.
+ *
+ * 괄호 안은 **그 구획이 나르는 값**이다: 놓인 포트면 적힌 값(전압), 아직 선언뿐이면 갈래
+ * (AC·DC). 「전원 출력(DC 48V)」가 어디서 보든 한눈에 읽히라고 두는 자리다.
+ *
+ * 이름이 같은 구획이 둘이면 그때만 **순번**을 붙인다 — 그룹 키(`NETWORK-2`)는 타입 안에서
+ * 유일하기만 하면 되는 식별자라 사람에게 아무 뜻이 없다.
  */
 export function portGroupLabel(
   target: PortGroupRef,
@@ -640,45 +645,40 @@ export function portGroupLabel(
   /**
    * 매체 키 → 현장이 쓰는 이름. **카탈로그(케이블 그룹)가 준다.**
    *
-   * 없으면 어휘의 기본 이름으로 떨어진다. 예전에는 여기서 늘 어휘 이름을 읽었는데, 그
-   * 이름은 설비관리대장에서 고칠 수 있어(`CableGroup.name`) 화면마다 다른 말이 나왔다 —
-   * 판 구획은 「OPGW」, 자산 만들 때 매체 고르는 칸은 「광 인입」. 표시는 한 곳에서 나온다.
+   * 포트에 이름이 없을 때만 쓰인다. 어휘의 기본 이름을 여기서 직접 읽지 않는 까닭은 그
+   * 이름이 설비관리대장에서 고쳐지기 때문이다 — 판 구획은 「OPGW」, 매체 고르는 칸은
+   * 「광 인입」처럼 화면마다 다른 말이 나왔다.
    */
   mediumName?: (medium: string) => string,
 ): string {
   const base = (g: PortGroupRef) => {
     const kind = portKind(g.medium);
-    const name = mediumName?.(g.medium) ?? kind?.name ?? g.medium;
-    if (kind?.pairing !== 'opposite') return name;
-    /* 괄호에 무엇을 넣을지 — **값이 있으면 값**, 없으면 갈래 이름이다.
-       「전원 출력(DC 48V)」는 갈래(직류)까지 함께 말하므로 둘을 겹쳐 적지 않는다.
-       값이 아직 없는 선언(전압을 비운 품목)에서는 「전원 출력(DC)」로 물러선다. */
-    const variant = kind.variants?.find((v) => v.key === g.variant);
+    /* 이름은 **그 포트의 것**이다 — 번호만 뗀다(「광 포트 1」 → 「광 포트」). */
+    const own = nameBase(g.sampleName);
+    const fromVocabulary = () => {
+      const name = mediumName?.(g.medium) ?? kind?.name ?? g.medium;
+      /* 방향이 뜻을 갖는 종류(전원)는 입력과 출력이 다른 물건이라 방향까지 불러야 갈린다. */
+      return kind?.pairing === 'opposite' ? `${name} ${portDirectionLabel(g.direction)}` : name;
+    };
+    const name = own ?? fromVocabulary();
+    /* 괄호 — 적힌 값이 먼저고, 없으면 갈래다(「전원 출력(DC 48V)」·「전원 출력(DC)」). */
+    const variant = kind?.variants?.find((v) => v.key === g.variant);
     const inParens = g.detail ?? variant?.name ?? null;
-    return `${name} ${portDirectionLabel(g.direction)}${inParens ? `(${inParens})` : ''}`;
+    return `${name}${inParens ? `(${inParens})` : ''}`;
   };
+
   const mine = base(target);
-  const ambiguous = siblings.filter((s) => base(s) === mine).length > 1;
-  if (!ambiguous) return mine;
-  /* 가를 때는 **포트 이름을 그대로** 쓴다 — 매체 이름을 앞에 덧붙이지 않는다.
-     성단 구획이 「광 OPGW」가 되던 자리다. OPGW 는 그 자체로 광이라 「광」이 군더더기고,
-     맞은편도 「광 광 포트」가 될 판이었다. 이름이 이미 무엇인지 말하고 있으면 그것으로 족하다. */
-  const byName = nameBase(target.sampleName);
-  const tied = siblings.filter((s) => base(s) === mine && nameBase(s.sampleName) === byName);
-  if (byName != null && tied.length <= 1) return byName;
+  const tied = siblings.filter((s) => base(s) === mine);
+  if (tied.length <= 1) return mine;
 
   /**
-   * 여기까지 오면 **값까지 같은 구획이 둘 이상**이다(이중 인입처럼). 그때는 순번을 붙인다.
+   * 이름이 같은 구획이 둘 이상이면 **순번**을 붙인다.
    *
    * 예전에는 그룹 키를 붙였다 — 「전원 출력(AC) POWER-OUT-AC-2」. 키는 타입 안에서 유일하기만
-   * 하면 되는 **식별자**라 사람에게 아무 뜻이 없고, 자동으로 붙는 `-2` 는 더 그렇다.
-   * 순번은 적어도 「둘 중 둘째」라고 말한다. 차례는 키 순서라 화면을 다시 그려도 흔들리지 않는다.
+   * 하면 되는 식별자라 사람에게 아무 뜻이 없고, 자동으로 붙는 `-2` 는 더 그렇다.
+   * 차례는 키 순서라 화면을 다시 그려도 흔들리지 않는다.
    */
-  const rank =
-    [...(tied.length > 1 ? tied : siblings.filter((s) => base(s) === mine))]
-      .map((s) => s.group)
-      .sort()
-      .indexOf(target.group) + 1;
+  const rank = tied.map((s) => s.group).sort().indexOf(target.group) + 1;
   return `${mine} ${rank}`;
 }
 
