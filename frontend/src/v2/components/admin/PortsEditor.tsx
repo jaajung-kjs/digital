@@ -27,7 +27,7 @@ import type { TypeSpecIssue } from '@twin/core';
 import { DEFAULT_CORE_COUNT, isMultiCorePort, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, cn,
+  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, MessageStrip, cn,
   isCommitKey, type MenuAnchor,
 } from '../../../components/ui';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
@@ -181,6 +181,41 @@ function detailOf(row: PortRow): 'voltage' | 'positions' | null {
   return isMultiCorePort(row.positions) ? 'positions' : null;
 }
 
+/**
+ * 이 선언으로 **인입이 어디로 갈리는지 정해지는가** — 정해지지 않으면 말해 준다.
+ *
+ * 다심 인입(OPGW)의 코어 i 는 같은 매체의 **단심 구획** i 번으로 나온다(`derivedLinks` 의
+ * `byPosition`). 그 규칙은 **앞면 후보가 정확히 하나일 때만** 유도된다. 그래서:
+ *   - 앞면이 둘 이상이면 어느 쪽인지 알 수 없어 **규칙이 아예 생기지 않는다** — 선번장에서
+ *     대국이 끊기고 추적이 인입에서 멈춘다.
+ *   - 앞면이 없으면 24심을 받아 놓고 나갈 자리가 없다.
+ *   - 인입이 둘이고 앞면이 하나면 **두 인입이 같은 앞면을 나눠 쓴다**(코어 1 이 두 인입 모두에
+ *     이어진다) — 어느 가닥이 어디로 갔는지 화면이 말해 줄 수 없다.
+ *
+ * **막지는 않는다**(§「미리 잠그지 않는다」). 24심 인입에 12구만 뽑아 둔 판처럼 어긋난 조합도
+ * 실물에 있고, 그건 여기서 알 수 없다. 다만 **말은 해 준다** — 저장한 뒤 선번장에서
+ * 「왜 아무것도 안 뜨지」로 알게 되는 것이 가장 나쁘다.
+ */
+function trunkWarning(rows: readonly PortRow[]): string | null {
+  const trunks = rows.filter((p) => isMultiCorePort(p.positions));
+  if (trunks.length === 0) return null;
+  const medium = trunks[0]!.medium;
+  const fronts = rows.filter((p) => p.medium === medium && !isMultiCorePort(p.positions));
+
+  if (fronts.length === 0) return '다심 인입을 받을 앞면 구획이 없습니다 — 코어가 나갈 자리가 없습니다.';
+  if (fronts.length > 1) {
+    return `앞면 구획이 ${fronts.length}개라 코어가 어느 쪽으로 갈리는지 정할 수 없습니다 — 하나만 두세요.`;
+  }
+  if (trunks.length > 1) {
+    return `다심 인입이 ${trunks.length}개인데 앞면이 하나라, 두 인입이 같은 앞면을 나눠 쓰게 됩니다.`;
+  }
+  const cores = trunks[0]!.positions ?? 0;
+  if (cores > fronts[0]!.count) {
+    return `코어 ${cores}심 중 ${cores - fronts[0]!.count}심은 나갈 앞면이 없습니다(앞면 ${fronts[0]!.count}구).`;
+  }
+  return null;
+}
+
 export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   const ports = draft.ports;
   const mediumLabel = useMediumLabel();
@@ -312,6 +347,8 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     );
   };
 
+  const trunkNote = trunkWarning(ports);
+
   const faceplate = sections
     .filter((section) => section.ports.length > 0)
     .map((section) => {
@@ -347,6 +384,13 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
         }
       />
       <ErrorStrip message={issue ?? null} />
+      {/* 막지 않고 **말해 준다** — 저장한 뒤 선번장에서 「왜 아무것도 안 뜨지」로 알게 되는
+          것이 가장 나쁘다. */}
+      {trunkNote && (
+        <MessageStrip tone="warning" className="shrink-0">
+          {trunkNote}
+        </MessageStrip>
+      )}
 
       {menuAt && (
         <MenuPopup

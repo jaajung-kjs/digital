@@ -140,7 +140,15 @@ describe('PUT /commit — assets', () => {
     expect(ports.filter((p) => p.group === 'FIBER')).toHaveLength(12);
     const trunk = ports.find((p) => p.group === 'FIBER-TRUNK')!;
     // 인입은 언제나 포트 **하나** — 심선 수만큼 펴지 않는다.
-    expect([ports.length, trunk.positions]).toEqual([13, 12]);
+    expect(trunk.positions).toBe(12);
+
+    /* 전체 개수는 **그 품목의 선언에서** 센다 — 숫자를 박아 두면 카탈로그는 사용자가 고치는
+       데이터라(그 품목에 전원 포트를 더할 수 있다) 시험이 남의 편집에 깨진다. */
+    const templates = await nextDb.assetPortTemplate.findMany({ where: { typeId: slotTypeId } });
+    const others = templates
+      .filter((t) => t.group !== 'FIBER' && t.group !== 'FIBER-TRUNK')
+      .reduce((n, t) => n + t.count, 0);
+    expect(ports.length).toBe(12 + 1 + others);
   });
 
   it('OCC: 낡은 baseVersion 으로 update → 409 + conflicts', async () => {

@@ -195,6 +195,40 @@ describe('PortsEditor', () => {
   });
 
   /**
+   * **인입이 어디로 갈리는지 정해지지 않으면 말해 준다.**
+   *
+   * 코어 i ↔ 앞면 i 번 규칙은 **앞면 후보가 정확히 하나일 때만** 유도된다(`derivedLinks`).
+   * 둘이면 규칙이 아예 안 생겨서, 저장한 뒤 선번장에서 「왜 아무것도 안 뜨지」로 알게 된다.
+   * 막지는 않는다 — 어긋난 조합도 실물에 있고 그건 이 화면이 알 수 없다.
+   */
+  it('(g) 다심 인입이 갈 곳이 모호하면 알려 준다 — 막지는 않는다', () => {
+    const ok = mkDraft([
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
+      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 포트 {n}', positions: 1 },
+    ]);
+    const { unmount } = render(<PortsEditor draft={ok} onChange={vi.fn()} issues={[]} />);
+    expect(screen.queryByText(/갈리는지|앞면/)).toBeNull();
+    unmount();
+
+    /* 앞면이 둘 — 어느 쪽으로 갈리는지 정할 수 없다. */
+    const twoFronts = mkDraft([
+      ...ok.ports,
+      { group: 'CORE-2', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 B {n}', positions: 1 },
+    ]);
+    const second = render(<PortsEditor draft={twoFronts} onChange={vi.fn()} issues={[]} />);
+    expect(screen.getByText(/어느 쪽으로 갈리는지 정할 수 없습니다/)).toBeInTheDocument();
+    second.unmount();
+
+    /* 앞면이 코어보다 적으면 남는 코어는 갈 자리가 없다. */
+    const short = mkDraft([
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
+      { group: 'CORE', count: 10, direction: 'BI', medium: 'fiber', namePattern: '광 포트 {n}', positions: 1 },
+    ]);
+    render(<PortsEditor draft={short} onChange={vi.fn()} issues={[]} />);
+    expect(screen.getByText(/14심은 나갈 앞면이 없습니다/)).toBeInTheDocument();
+  });
+
+  /**
    * **값은 그 구획의 이름표에** 붙는다 — 그 종류가 요구하는 것만.
    * 전원은 전압, 다심은 코어 수, 나머지는 개수뿐이다.
    */

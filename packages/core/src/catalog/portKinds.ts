@@ -653,9 +653,14 @@ export function portGroupLabel(
   if (!ambiguous) return mine;
   /* 가를 때는 **포트 이름을 그대로** 쓴다 — 매체 이름을 앞에 덧붙이지 않는다.
      성단 구획이 「광 OPGW」가 되던 자리다. OPGW 는 그 자체로 광이라 「광」이 군더더기고,
-     맞은편도 「광 광 포트」가 될 판이었다. 이름이 이미 무엇인지 말하고 있으면 그것으로 족하다.
-     키(`A`·`B`)는 식별자라 사람에게 뜻이 없으므로 이름이 없을 때만 쓴다. */
-  return nameBase(target.sampleName) ?? `${mine} ${target.group}`;
+     맞은편도 「광 광 포트」가 될 판이었다. 이름이 이미 무엇인지 말하고 있으면 그것으로 족하다. */
+  const byName = nameBase(target.sampleName);
+  /* **이름으로도 안 갈리면 키를 붙인다.** 한 장비에 220V 입력이 둘일 때(이중 인입) 두 구획이
+     똑같이 「전원 입력」으로 서서 어느 쪽인지 알 길이 없었다 — 키는 사람에게 뜻이 없지만,
+     같은 이름 둘보다는 낫다(광슬롯의 `A`·`B` 가 이미 그 자리다). */
+  const stillAmbiguous =
+    byName == null || siblings.filter((s) => base(s) === mine && nameBase(s.sampleName) === byName).length > 1;
+  return stillAmbiguous ? `${mine} ${target.group}` : byName;
 }
 
 /**

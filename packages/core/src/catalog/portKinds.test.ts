@@ -249,6 +249,18 @@ describe('포트 그룹 이름', () => {
     expect(portGroupLabel(all[1]!, all)).toBe('광 B');
   });
 
+  /**
+   * 이름으로도 안 갈리면 키를 붙인다 — 한 장비에 **같은 전압 입력이 둘**일 때(이중 인입)
+   * 두 구획이 똑같이 「전원 입력」으로 서면 어느 쪽인지 알 길이 없다.
+   */
+  it('이름까지 같으면 키를 붙여서라도 가른다', () => {
+    const one = groupRefOfTemplate({ group: 'POWER-IN-AC', medium: 'power', direction: 'IN', namePattern: '전원 입력', variant: 'AC', voltage: 'AC 220V 1φ' });
+    const two = groupRefOfTemplate({ group: 'POWER-IN-AC-2', medium: 'power', direction: 'IN', namePattern: '전원 입력', variant: 'AC', voltage: 'AC 220V 1φ' });
+    const refs = [one, two];
+    expect(portGroupLabel(one, refs)).not.toBe(portGroupLabel(two, refs));
+    expect(portGroupLabel(two, refs)).toContain('POWER-IN-AC-2');
+  });
+
   it('하나뿐이면 키를 붙이지 않는다 — 구분이 필요할 때까지 이름을 길게 만들지 않는다', () => {
     const all = [g('A', 'fiber')];
     expect(portGroupLabel(all[0]!, all)).toBe('광');
