@@ -636,8 +636,18 @@ export function portGroupLabel(
    * 판 구획은 「OPGW」, 자산 만들 때 매체 고르는 칸은 「광 인입」. 표시는 한 곳에서 나온다.
    */
   mediumName?: (medium: string) => string,
+  /**
+   * 값(`detail`)을 이름에 언제 실을 것인가.
+   *
+   * `always` 가 예사다 — 「전원 출력(DC 48V)」가 어디서 보든 한눈에 읽힌다.
+   * `whenAmbiguous` 는 **그 값을 따로 고치는 화면**(포트 편집기)이 쓴다: 값이 이름표의 칩으로
+   * 이미 서 있으므로 이름에 또 적으면 같은 말이 두 번 선다. 다만 그 값이 아니면 갈리지 않는
+   * 구획들(220V·110V 출력 둘)이 있으므로, **필요할 때만** 싣는다 — 안 그러면 뜻 없는 그룹
+   * 키가 튀어나온다(「전원 출력(AC) POWER-OUT-AC-2」).
+   */
+  detailMode: 'always' | 'whenAmbiguous' = 'always',
 ): string {
-  const base = (g: PortGroupRef) => {
+  const base = (g: PortGroupRef, withDetail: boolean) => {
     const kind = portKind(g.medium);
     const name = mediumName?.(g.medium) ?? kind?.name ?? g.medium;
     if (kind?.pairing !== 'opposite') return name;
@@ -645,21 +655,31 @@ export function portGroupLabel(
        「전원 출력(DC 48V)」는 갈래(직류)까지 함께 말하므로 둘을 겹쳐 적지 않는다.
        값이 아직 없는 선언(전압을 비운 품목)에서는 「전원 출력(DC)」로 물러선다. */
     const variant = kind.variants?.find((v) => v.key === g.variant);
-    const inParens = g.detail ?? variant?.name ?? null;
+    const inParens = (withDetail ? g.detail : null) ?? variant?.name ?? null;
     return `${name} ${portDirectionLabel(g.direction)}${inParens ? `(${inParens})` : ''}`;
   };
-  const mine = base(target);
-  const ambiguous = siblings.filter((s) => base(s) === mine).length > 1;
+  const showDetail = detailMode === 'always';
+  const mine = base(target, showDetail);
+  const ambiguous = siblings.filter((s) => base(s, showDetail) === mine).length > 1;
   if (!ambiguous) return mine;
+
+  /* 값을 아껴 두었다가 **여기서 꺼낸다** — 이름이 갈리는 데 그 값이 필요한 경우다.
+     (「전원 출력(AC)」 셋이 220V·110V·380V 로 갈린다.) */
+  if (!showDetail && target.detail) {
+    const withDetail = base(target, true);
+    if (siblings.filter((s) => base(s, true) === withDetail).length === 1) return withDetail;
+  }
   /* 가를 때는 **포트 이름을 그대로** 쓴다 — 매체 이름을 앞에 덧붙이지 않는다.
      성단 구획이 「광 OPGW」가 되던 자리다. OPGW 는 그 자체로 광이라 「광」이 군더더기고,
      맞은편도 「광 광 포트」가 될 판이었다. 이름이 이미 무엇인지 말하고 있으면 그것으로 족하다. */
   const byName = nameBase(target.sampleName);
-  /* **이름으로도 안 갈리면 키를 붙인다.** 한 장비에 220V 입력이 둘일 때(이중 인입) 두 구획이
-     똑같이 「전원 입력」으로 서서 어느 쪽인지 알 길이 없었다 — 키는 사람에게 뜻이 없지만,
-     같은 이름 둘보다는 낫다(광슬롯의 `A`·`B` 가 이미 그 자리다). */
+  /* **이름으로도 안 갈리면 키를 붙인다.** 한 장비에 같은 전압 입력이 둘일 때(이중 인입) 두
+     구획이 똑같이 「전원 입력」으로 서서 어느 쪽인지 알 길이 없었다 — 키는 사람에게 뜻이
+     없지만, 같은 이름 둘보다는 낫다(광슬롯의 `A`·`B` 가 이미 그 자리다).
+     여기까지 오는 것은 **값까지 같을 때**뿐이다. */
   const stillAmbiguous =
-    byName == null || siblings.filter((s) => base(s) === mine && nameBase(s.sampleName) === byName).length > 1;
+    byName == null ||
+    siblings.filter((s) => base(s, showDetail) === mine && nameBase(s.sampleName) === byName).length > 1;
   return stillAmbiguous ? `${mine} ${target.group}` : byName;
 }
 

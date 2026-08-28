@@ -233,8 +233,10 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   }, [ports]);
 
   const sections = useMemo(
-    /* 값은 이름표의 칩이 고친다 — 이름에 또 실으면 「전원 출력(DC 48V) [DC 48V]」가 된다. */
-    () => portSections(declared.map((d) => d.row), mediumLabel, mediumColor, false),
+    /* 값은 이름표의 칩이 고치므로 이름에는 **필요할 때만** 싣는다 — 늘 실으면
+       「전원 출력(DC 48V) [DC 48V]」가 되고, 아예 안 실으면 220V·110V 출력이 같은 이름으로
+       서서 뜻 없는 그룹 키가 튀어나온다. */
+    () => portSections(declared.map((d) => d.row), mediumLabel, mediumColor, 'whenAmbiguous'),
     [declared, mediumLabel, mediumColor],
   );
 

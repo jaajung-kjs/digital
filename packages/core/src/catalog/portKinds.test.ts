@@ -250,6 +250,26 @@ describe('포트 그룹 이름', () => {
   });
 
   /**
+   * **그 값을 따로 고치는 화면**(포트 편집기)은 이름에 값을 아껴 둔다 — 값이 이름표의 칩으로
+   * 이미 서 있어 두 번 적히기 때문이다. 다만 그 값이 아니면 갈리지 않는 구획들에서는
+   * **꺼내 쓴다** — 안 그러면 뜻 없는 그룹 키가 튀어나온다.
+   */
+  it('값은 필요할 때만 이름에 실린다(whenAmbiguous)', () => {
+    const out = (group, voltage) => groupRefOfTemplate({
+      group, medium: 'power', direction: 'OUT', namePattern: '전원 출력 {n}', variant: 'AC', voltage,
+    });
+
+    const one = [out('POWER-OUT-AC', 'AC 220V 1φ')];
+    expect(portGroupLabel(one[0]!, one, undefined, 'whenAmbiguous')).toBe('전원 출력(AC)');
+    expect(portGroupLabel(one[0]!, one)).toBe('전원 출력(AC 220V 1φ)'); // 자산 화면은 늘 싣는다
+
+    const many = [out('POWER-OUT-AC', 'AC 220V 1φ'), out('POWER-OUT-AC-2', 'AC 110V 1φ')];
+    expect(many.map((r) => portGroupLabel(r, many, undefined, 'whenAmbiguous'))).toEqual([
+      '전원 출력(AC 220V 1φ)', '전원 출력(AC 110V 1φ)',
+    ]);
+  });
+
+  /**
    * 이름으로도 안 갈리면 키를 붙인다 — 한 장비에 **같은 전압 입력이 둘**일 때(이중 인입)
    * 두 구획이 똑같이 「전원 입력」으로 서면 어느 쪽인지 알 길이 없다.
    */

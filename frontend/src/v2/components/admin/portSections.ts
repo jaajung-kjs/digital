@@ -42,12 +42,13 @@ export function portSections(
   mediumLabel: (key: string) => string,
   mediumColor: (key: string) => string | null,
   /**
-   * 이름 괄호에 값을 실을 것인가 — 「전원 출력(DC 48V)」.
+   * 이름 괄호에 값을 언제 실을 것인가 — 「전원 출력(DC 48V)」.
    *
-   * 미리보기는 싣는다(놓고 나면 그 이름으로 보이므로). **편집기는 싣지 않는다** — 그 값을
-   * 이름표의 칩으로 따로 고치므로 같은 말이 두 번 서기 때문이다.
+   * 미리보기는 늘 싣는다(놓고 나면 그 이름으로 보이므로). **편집기는 필요할 때만** 싣는다 —
+   * 그 값을 이름표의 칩으로 따로 고치므로 같은 말이 두 번 서기 때문이다. 다만 그 값이
+   * 아니면 갈리지 않는 구획들(220V·110V 출력)에서는 실어야 한다.
    */
-  withDetail = true,
+  detailMode: 'always' | 'whenAmbiguous' = 'always',
 ): PortSection[] {
   const ports: V2Port[] = instantiatePorts(
     source.map((p, i) => ({
@@ -69,16 +70,13 @@ export function portSections(
   /* 개수가 0 인 선언도 구획으로 남긴다 — 편집기에서 「없는 종류」도 한 자리를 지켜야
      칸을 켜고 끌 때 판이 출렁이지 않는다. 그때는 `instantiatePorts` 가 포트를 하나도
      만들지 않으므로 선언에서 직접 짓는다. */
-  const refs = source.map((p) => {
-    const ref = groupRefOfTemplate(p);
-    return withDetail ? ref : { ...ref, detail: null };
-  });
+  const refs = source.map(groupRefOfTemplate);
 
   return refs
     .slice()
     .sort(comparePortGroups)
     .map((ref) => {
-      const label = portGroupLabel(ref, refs, mediumLabel);
+      const label = portGroupLabel(ref, refs, mediumLabel, detailMode);
       return {
         key: ref.group,
         label,
