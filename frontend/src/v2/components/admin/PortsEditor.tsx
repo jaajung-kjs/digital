@@ -1,21 +1,22 @@
 /**
- * PortsEditor — **판이 곧 화면이고, 그 위에 도구모음 한 줄**.
+ * PortsEditor — **판이 화면 전부**다. 값은 그 구획의 이름표에 붙어 있다.
  *
- * 네 번 잘못 갔다.
+ * 다섯 번 만에 여기 왔다.
  *   1) 종류를 고를 때마다 카드가 쌓였다 — 네 그룹 398px(§1.6 위반).
  *   2) 일곱 줄 고정 표 — 한 자리 숫자 일곱 개에 세로 376px.
  *   3) 칩 한 줄 — 종류 아홉이 늘 서 있고(대부분 0개), 1 을 적으면 옆에 칸이 자라났다.
- *   4) 선언 표 — 그럴듯했지만 **판이 이미 말하는 것을 표가 다시 말했다**. 구획 이름도,
- *      개수도(포트가 그만큼 그려져 있다) 두 번씩 섰고, 세부 열은 대부분 비어 있었다.
+ *   4) 선언 표 — 판이 이미 말하는 것(구획 이름·개수)을 표가 다시 말했다.
+ *   5) 도구모음 한 줄 — **만들기와 고치기를 한 띠에 붙여** 서로 다른 두 대상이
+ *      한 문장처럼 읽혔다(왼쪽엔 「전원 입력(AC)」, 오른쪽엔 「전원 입력(DC) 2개」).
+ *      게다가 고칠 값이 정작 그 대상(판의 구획)에서 멀었다.
  *
- * 지금은 **아래가 실물, 위가 도구**다. 이 화면에서 사람이 하는 일은 셋뿐이다 —
- * 구획을 더하고, 개수를 고치고, 그 종류가 요구하는 값 하나(전압·코어)를 고른다.
- *   - **판이 목록이다.** 무슨 구획이 몇 개인지는 판이 그림으로 말한다(구획 띠 + 번호 붙은
- *     포트). 같은 말을 표로 다시 적지 않는다.
- *   - **고른 구획의 값만 도구모음에** 뜬다. 줄이 몇이든 도구모음은 한 줄로 고정이라
- *     화면이 출렁이지 않는다(§1.6·§1.7-b).
- *   - 도구모음은 **늘 그 자리에 있다** — 아무것도 안 골랐을 때도 높이가 같다(안내 한 줄).
- *     골랐을 때만 생기는 칸이 아니므로 「엥, 뭐가 생겼지」가 없다.
+ * 그래서 **고르는 일 자체를 없앴다.**
+ *   - **만들기는 단추 하나**다(「＋ 포트 추가」 → 그때 종류 메뉴). 장전된 목록을 세워 두지
+ *     않는다 — 만들 생각이 없는 것이 화면에 늘 떠 있을 이유가 없다.
+ *   - **고치는 값은 그 구획의 이름표에** 붙는다(`▌전원 입력(DC) ×2 · DC 48V`). 누르면 그
+ *     자리에서 고쳐지고, 손을 얹으면 그 구획의 지우개가 뜬다. 「무엇을 고치는 중인가」를
+ *     따로 표시할 필요가 없다 — 값이 그 대상 위에 있다.
+ *   - 값을 고치면 **판이 그 자리에서 바뀐다**. 미리보기가 아니라 편집 대상 자체다.
  *
  * **미리 잠그지 않는다.** 정말로 막히는 것은 「지우려는 그 포트에 케이블이 물렸을 때」뿐이고,
  * 그건 이 화면이 알 수 없다(케이블은 변전소마다 있다). 누를 수 있게 두고 저장할 때 서버가
@@ -23,10 +24,11 @@
  */
 import { useMemo, useState } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DEFAULT_CORE_COUNT, groupRefOfTemplate, isMultiCorePort, portGroupLabel, portKind, portPresets, uniqueGroupKey } from '@twin/core';
+import { DEFAULT_CORE_COUNT, isMultiCorePort, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, InsetBox, Select, cn,
+  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, cn,
+  isCommitKey, type MenuAnchor,
 } from '../../../components/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import { useMediumColor, useMediumLabel } from '../../hooks';
@@ -41,36 +43,77 @@ type PortRow = TypeDraft['ports'][number];
 const DEFAULT_PORT_COUNT = 1;
 
 /**
- * 도구모음의 수 칸 — 값이 곧 판의 모양이다(개수를 고치면 포트가 그 자리에서 늘고 준다).
+ * 구획 이름표에 붙는 **값 하나** — 읽을 때는 실크스크린 글자, 누르면 그 자리에서 상자.
  *
- * 폼 상자(38px)를 쓰면 도구모음 한 줄이 통째로 두꺼워진다. 테두리와 흰 배경으로
- * 「고칠 수 있는 값」임은 남기고 크기만 줄인다.
+ * 판 위의 글자라 본문 상자(38px)를 세울 수 없다. 그렇다고 늘 상자로 두면 판이 폼이 된다
+ * (§1.7-i). 읽는 줄이 기본이고 누를 때만 상자가 서는 어법은 표와 같지만, 여기서는 **칸이
+ * 아니라 글자 폭**이라 `InlineEditCell`(칸 하나를 채우는 물건)을 쓸 수 없다.
  */
-function NumberField({
-  label, value, min, unit, onChange,
+function SilkValue({
+  label, text, value, options, min, onCommit,
 }: {
   label: string;
-  value: number;
-  min: number;
-  unit: string;
-  onChange: (next: number) => void;
+  /** 읽을 때 보이는 말 — `×2`·`DC 48V` 처럼 단위까지 붙은 글자. */
+  text: string;
+  value: string;
+  /** 고를 값이 정해져 있으면 목록으로 — 없으면 수를 친다. */
+  options?: readonly string[];
+  min?: number;
+  onCommit: (raw: string) => void;
 }) {
-  return (
-    <span className="flex shrink-0 items-center gap-1">
-      <input
-        type="number"
-        aria-label={label}
-        value={String(value)}
-        min={min}
-        onChange={(e) => onChange(Math.max(Number(e.currentTarget.value) || min, min))}
-        className={cn(
-          'w-12 rounded bg-surface px-1 text-right text-sm tabular-nums text-content',
-          'border border-line focus:outline-none focus:ring-1 focus:ring-primary',
-          '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none',
-        )}
-      />
-      <span className="text-xs text-content-faint">{unit}</span>
-    </span>
+  const [editing, setEditing] = useState(false);
+  const silk = { color: 'var(--faceplate-silk)' } as const;
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        aria-label={`${label} 고치기`}
+        onClick={() => setEditing(true)}
+        className="rounded px-1 text-xs transition-colors hover:bg-black/10"
+        style={silk}
+      >
+        {text}
+      </button>
+    );
+  }
+
+  const done = (raw: string) => { onCommit(raw); setEditing(false); };
+  const common = {
+    autoFocus: true,
+    'aria-label': label,
+    className: 'rounded border border-line bg-surface px-1 text-xs text-content focus:outline-none focus-ring-input',
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      /* Esc 는 물린다 — 고치지 않고 원래 값으로 돌아간다(앱 공통 규칙). */
+      if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); }
+    },
+  };
+
+  return options ? (
+    <select
+      {...common}
+      defaultValue={value}
+      onChange={(e) => done(e.currentTarget.value)}
+      onBlur={() => setEditing(false)}
+    >
+      {options.map((o) => (
+        <option key={o} value={o}>{o}</option>
+      ))}
+    </select>
+  ) : (
+    <input
+      {...common}
+      type="number"
+      min={min}
+      defaultValue={value}
+      size={4}
+      className={cn(common.className, 'w-12 text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none')}
+      onBlur={(e) => done(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        common.onKeyDown(e);
+        if (isCommitKey(e)) e.currentTarget.blur();
+      }}
+    />
   );
 }
 
@@ -134,11 +177,8 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     [declared, mediumLabel, mediumColor],
   );
 
-  /** 판에서 고른 구획 — 도구모음이 이 구획의 값을 든다. */
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-  /* 무엇을 더할지는 **도구모음의 목록**이 든다(§1.6: [도구 버튼] + [대상 Select]).
-     항목이 몇이든 한 줄이고, 누르기 전에는 아무 칸도 생기지 않는다. */
-  const [presetIndex, setPresetIndex] = useState('0');
+  /* 종류는 **누른 그 순간에** 고른다 — 목록을 세워 두면 만들 생각 없는 것이 늘 떠 있다. */
+  const [menuAt, setMenuAt] = useState<MenuAnchor | null>(null);
 
   function patch(row: PortRow, next: Partial<PortRow>) {
     const existing = ports.find((p) => p.group === row.group);
@@ -169,8 +209,6 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
       /* 전압은 프리셋이 그 갈래의 예사값을 들고 온다 — 놓는 순간 이미 「DC 48V」다. */
       ...(preset.voltage ? { voltage: preset.voltage } : {}),
     };
-    /* 더한 구획을 **바로 고른 상태로** 둔다 — 개수를 고치는 손이 곧장 이어진다. */
-    setSelectedGroup(row.group);
     onChange({ ports: syncTrunkAdapters([...ports, row], row, null) });
   }
 
@@ -183,141 +221,131 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     .find(Boolean);
 
   /**
-   * 지금 손대는 구획 — **판에서 고른 것**이 도구모음에 뜬다.
+   * 구획 이름표 — **이름 + 그 구획의 값 + 지우개**. 값이 그 대상 위에 있다.
    *
-   * 고른 것이 사라졌으면(지웠거나 종류를 바꿨다) 첫 구획으로 물러선다. 그래야 구획이
-   * 하나뿐인 흔한 경우에 아무것도 안 누르고 바로 개수를 고칠 수 있다.
+   * 예전에는 위쪽 도구모음이 「고른 구획」의 값을 들었다. 그러면 판에서 이름표를 누르고 눈은
+   * 위로 올라가야 했고(직접 조작의 반대), 「만들 종류」와 「고친 구획」이 한 띠에 나란히 서서
+   * 서로 다른 두 대상이 한 문장처럼 읽혔다.
    */
-  const selected = declared.find(({ row }) => row.group === selectedGroup)?.row ?? declared[0]?.row ?? null;
-  const selectedLabel = selected ? labelOf(selected, declared, mediumLabel) : null;
+  const sectionLabel = (row: PortRow, labelText: string) => {
+    const detail = detailOf(row);
+    return (
+      <span className="group/silk inline-flex items-center gap-1">
+        <span>{labelText}</span>
+        <SilkValue
+          label={`${labelText} 개수`}
+          text={`×${row.count}`}
+          value={String(row.count)}
+          min={1}
+          onCommit={(raw) => {
+            const next = Math.max(Number(raw) || 1, 1);
+            if (next !== row.count) patch(row, { count: next });
+          }}
+        />
+        {detail === 'voltage' && (
+          <SilkValue
+            label={`${labelText} 전압`}
+            text={row.voltage ?? '전압'}
+            value={row.voltage ?? ''}
+            options={
+              row.voltage && !voltageOptionsOf(row).includes(row.voltage)
+                ? [row.voltage, ...voltageOptionsOf(row)]
+                : voltageOptionsOf(row)
+            }
+            onCommit={(raw) => patch(row, { voltage: raw.trim() || null })}
+          />
+        )}
+        {detail === 'positions' && (
+          <SilkValue
+            label={`${labelText} 심선 수`}
+            text={`${row.positions ?? DEFAULT_CORE_COUNT}코어`}
+            value={String(row.positions ?? DEFAULT_CORE_COUNT)}
+            min={2}
+            onCommit={(raw) => {
+              const next = Math.max(Number(raw) || 2, 2);
+              if (next !== row.positions) patch(row, { positions: next });
+            }}
+          />
+        )}
+        {/* 지우개는 **그 구획에 손을 얹었을 때만** 드러난다(§1.7). */}
+        <IconButton
+          aria-label={`${labelText} 지우기`}
+          title="지우기"
+          size="sm"
+          className="opacity-0 transition-opacity hover:text-danger group-hover/silk:opacity-100 focus-visible:opacity-100"
+          onClick={() => patch(row, { count: 0 })}
+        >
+          <Trash2 size={12} />
+        </IconButton>
+      </span>
+    );
+  };
 
-  /* 구획 이름표가 곧 **고르는 자리**다 — 판이 목록이므로 목록의 줄을 누르듯 이름표를 누른다.
-     고른 것은 이름표가 진하게 서서, 도구모음이 무엇을 들고 있는지 판에서 바로 읽힌다. */
   const faceplate = sections
     .filter((section) => section.ports.length > 0)
-    .map((section) => ({
-      key: section.key,
-      label: (
-        <button
-          type="button"
-          aria-pressed={section.key === selected?.group}
-          onClick={() => setSelectedGroup(section.key)}
-          className={cn(
-            '-mx-1 rounded px-1 text-xs transition-colors',
-            section.key === selected?.group ? 'bg-black/10 font-semibold' : 'hover:bg-black/5',
-          )}
-        >
-          {section.labelText}
-        </button>
-      ),
-      accent: section.accent,
-      ports: section.ports,
-    }));
-
-  /** 그 포트가 어느 구획의 것인가 — 판에서 포트를 눌러도 그 구획이 골라진다. */
-  const groupOfPort = (portId: string) =>
-    sections.find((sec) => sec.ports.some((p) => p.id === portId))?.key ?? null;
+    .map((section) => {
+      const row = declared.find(({ row: r }) => r.group === section.key)?.row;
+      return {
+        key: section.key,
+        label: row ? sectionLabel(row, section.labelText) : section.labelText,
+        accent: section.accent,
+        ports: section.ports,
+      };
+    });
 
   return (
     /* 카드가 세로를 다 쓰고, 판이 그 안에서 남는 자리를 채운다 — 캔버스는 화면 아래까지
        서야 한다(구성 격자와 같은 규칙). */
     <DetailCard className="flex min-h-0 flex-1 flex-col">
-      <DetailCardHeader title="포트" badge={`${total}개`} badgeStatus={total > 0 ? 'success' : 'neutral'} />
+      <DetailCardHeader
+        title="포트"
+        badge={`${total}개`}
+        badgeStatus={total > 0 ? 'success' : 'neutral'}
+        /* 만드는 길은 **단추 하나**다 — 누른 그 자리에서 종류를 고른다. */
+        actions={
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              const box = e.currentTarget.getBoundingClientRect();
+              setMenuAt({ x: box.left, y: box.bottom + 4, flipY: box.top - 4 });
+            }}
+          >
+            <Plus size={14} /> 포트 추가
+          </Button>
+        }
+      />
       <ErrorStrip message={issue ?? null} />
 
-      {/* 도구모음 — **한 줄로 고정**이다. 왼쪽은 늘 같은 일(더하기), 오른쪽은 고른 구획의 값.
-          고를 때만 생기는 칸이 아니라 **자리가 늘 있는** 칸이라 화면이 출렁이지 않는다. */}
-      <InsetBox className="flex h-9 shrink-0 items-center gap-2 px-2">
-        {/* `Select` 는 제 자리를 다 쓴다(`w-full`) — 폭은 **감싼 자리**가 정한다.
-            도구모음은 한 줄이므로 이 목록이 남는 폭을 다 먹으면 뒤의 값 칸이 밀려난다. */}
-        <span className="w-44 shrink-0">
-          <Select
-            aria-label="포트 종류"
-            size="sm"
-            value={presetIndex}
-            onChange={(e) => setPresetIndex(e.currentTarget.value)}
-          >
-            {portPresets().map((preset, i) => (
-              <option key={preset.groupKey} value={i}>{preset.name}</option>
-            ))}
-          </Select>
-        </span>
-        <Button size="sm" variant="ghost" className="shrink-0 whitespace-nowrap" onClick={() => addPreset(Number(presetIndex))}>
-          <Plus size={14} /> 추가
-        </Button>
-
-        {selected && selectedLabel ? (
-          <>
-            <span className="h-4 w-px shrink-0 bg-line" aria-hidden />
-            {/* 무엇을 고쳤는지가 화면에 남는다 — 값만 있고 이름이 없으면 무엇의 개수인지 모른다. */}
-            <span className="min-w-0 truncate text-xs text-content-muted">{selectedLabel}</span>
-            <NumberField
-              label={`${selectedLabel} 개수`}
-              value={selected.count}
-              min={1}
-              unit="개"
-              onChange={(next) => patch(selected, { count: next })}
-            />
-            {/* 세부는 **그 종류가 요구할 때만** — 전원이면 전압, 다심이면 코어 수. */}
-            {detailOf(selected) === 'voltage' && (
-              <span className="w-32 shrink-0">
-              <Select
-                aria-label={`${selectedLabel} 전압`}
-                size="sm"
-                value={selected.voltage ?? ''}
-                onChange={(e) => patch(selected, { voltage: e.currentTarget.value || null })}
-              >
-                {(selected.voltage && !voltageOptionsOf(selected).includes(selected.voltage)
-                  ? [selected.voltage, ...voltageOptionsOf(selected)]
-                  : voltageOptionsOf(selected)
-                ).map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </Select>
-              </span>
-            )}
-            {detailOf(selected) === 'positions' && (
-              <NumberField
-                label={`${selectedLabel} 심선 수`}
-                value={selected.positions ?? DEFAULT_CORE_COUNT}
-                min={2}
-                unit="코어"
-                onChange={(next) => patch(selected, { positions: next })}
-              />
-            )}
-            <IconButton
-              aria-label={`${selectedLabel} 지우기`}
-              title="지우기"
-              size="sm"
-              className="ml-auto shrink-0 hover:text-danger"
-              onClick={() => patch(selected, { count: 0 })}
-            >
-              <Trash2 size={14} />
-            </IconButton>
-          </>
-        ) : (
-          <span className="text-xs text-content-faint">종류를 고르고 「추가」를 누르면 판에 나타납니다.</span>
-        )}
-      </InsetBox>
+      {menuAt && (
+        <MenuPopup
+          at={menuAt}
+          onClose={() => setMenuAt(null)}
+          items={portPresets().map((preset, i) => ({
+            label: preset.name,
+            onSelect: () => { addPreset(i); setMenuAt(null); },
+          }))}
+        />
+      )}
 
       {/* 결과 — 이 장비 품목을 놓으면 생길 판.
           판은 **남는 자리를 다 쓴다**: 포트가 둘이든 스물다섯이든 캔버스는 같은 크기여야
           종류를 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 판 안에서 스크롤한다. */}
       {faceplate.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
-          <EmptyState title="포트가 없습니다" description="위에서 종류를 고르고 「추가」를 누르면 이 자리에 판이 그려집니다." />
+          <EmptyState title="포트가 없습니다" description="「＋ 포트 추가」를 누르면 이 자리에 판이 그려집니다." />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {/* 판에서 포트를 누르면 **그 구획**이 골라진다 — 도구모음이 그 구획의 값을 든다.
-              판은 실물이므로 여기서는 포트 하나를 고르는 일에 뜻이 없다(그건 자산 화면의 일). */}
+          {/* 포트 하나를 고르는 일은 여기서 뜻이 없다 — 이 화면이 정하는 것은 **구획**이고,
+              그 값은 이름표에 붙어 있다(포트 하나의 값은 자산 화면의 일이다). */}
           <PortFaceplate
             fill
             sections={faceplate}
             stateOf={() => 'empty'}
             cableCountOf={() => 0}
             selectedPortId={null}
-            onSelect={(portId) => { const g = groupOfPort(portId); if (g) setSelectedGroup(g); }}
+            onSelect={() => {}}
           />
         </div>
       )}
@@ -368,19 +396,6 @@ function syncTrunkAdapters(after: PortRow[], changed: PortRow, before: PortRow |
   const wasSynced = before == null || adapter.count === 0 || adapter.count === (before.positions ?? 0);
   if (!wasSynced || adapter.count === cores) return after;
   return after.map((p) => (p === adapter ? { ...p, count: cores } : p));
-}
-
-/** 이 선언을 뭐라고 부를 것인가 — 판의 구획 이름과 같은 규칙(`portGroupLabel`). */
-function labelOf(
-  row: PortRow,
-  all: readonly PreviewRow[],
-  mediumLabel: (key: string) => string,
-): string {
-  /* 갈래까지 실린다 — 안 실으면 「전원 입력(교류)」·「전원 입력(직류)」 두 줄이 같은 이름이
-     되어 이름 대신 그룹 키가 튀어나온다. */
-  const refs = all.map(({ row: r }) => groupRefOfTemplate(r));
-  const mine = refs.find((r) => r.group === row.group)!;
-  return portGroupLabel(mine, refs, mediumLabel);
 }
 
 interface PreviewRow {
