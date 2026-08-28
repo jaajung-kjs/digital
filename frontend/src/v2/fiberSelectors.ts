@@ -118,27 +118,19 @@ export function resolveFiberFarEnd(
         remote: ref!.substationId !== localSubstationId,
       };
     }
-    /* 건너편 심선이 아직 장비로 안 나갔다 — 인입 케이블이 말해 주는 슬롯까지가 끝이다.
-       그 자리는 OPGW 포트 하나라 번호가 늘 1번이다. 코어를 얹어 부르지 않으면 스물네 줄이
-       모두 `…#1` 로 같아져, 심선이 다 한 곳으로 간다고 읽힌다. */
-    const slot = resolvePeer({ id: trunkPortId }, trunkCable, portIndex, localSubstationId);
-    return slot ? { ...slot, core: coreIndex } : null;
+    /* 건너편 심선이 아직 장비로 안 나갔다 — **대국이 없는 것이다.**
+       한때는 인입 케이블 건너편의 슬롯을 대신 적었다. 그러나 그것은 이 OPGW 가 어디에
+       꽂혔나일 뿐 이 심선이 무엇에 닿았나가 아니다 — 성단되지 않은 스물두 줄이 모두
+       `…#1` 로 채워져 다 이어진 것처럼 읽혔다. 대국 칸이 말할 것은 장비뿐이다. */
+    return null;
   }
   // 건너편의 **단심** 성단 — 인입 자신(index 1)을 집지 않도록 심선 수로 가른다.
   const peerCore = peerSlot.ports.find((p) => p.medium === FIBER_MEDIUM && !isTrunk(p) && p.index === coreIndex);
   if (!peerCore) return null;
   const jumper = cableAt(peerCore.id, byA, byB);
-  if (!jumper) {
-    // 건너편 심선은 있는데 아직 장비로 안 나갔다 — 성단까지가 끝이다.
-    return {
-      assemblyName: portIndex.get(peerCore.id)?.assemblyName ?? null,
-      assetName: peerSlot.name,
-      portName: peerCore.name,
-      portIndex: peerCore.index,
-      substationName: null,
-      remote: false,
-    };
-  }
+  /* 건너편 성단까지는 왔는데 거기서 장비로 안 나갔다 — 이 심선은 아직 아무 데도 닿지 않았다.
+     성단 포트는 판의 자리이지 대국이 아니다. 대국 칸은 **장비만** 적는다. */
+  if (!jumper) return null;
   return resolvePeer(peerCore, jumper, portIndex, localSubstationId);
 }
 

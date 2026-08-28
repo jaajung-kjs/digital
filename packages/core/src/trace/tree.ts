@@ -14,6 +14,12 @@ import type { TraceHop } from './graph.js';
  * 그래서 **케이블을 타고 닿은 자리만** 마디가 된다. 장비 안의 통과는 마디를 만들지 않고,
  * 그 장비에서 나가는 갈래들을 **그 자리에 붙인다** — 들어온 포트와 나가는 포트가 다르다는
  * 사실은 다음 마디의 이름이 이미 말한다.
+ *
+ * **다심(OPGW) 포트도 마디가 아니다.** 케이블로 닿기는 하지만 거기 서 있는 것은 아무것도
+ * 없다 — 코어가 지나가는 자리일 뿐이고, 그 너머의 성단·점퍼를 거쳐야 비로소 장비가 나온다.
+ * 마디로 세웠더니 24심이 다 같은 포트 하나라 이름이 `슬롯#1` 로 겹쳤고, 무엇보다 **거기서
+ * 끝난 길은 아무 데도 닿지 않은 길**이었다(대국이 아직 성단되지 않은 코어). 접어 두면
+ * 이어진 코어는 그 장비가 마디로 서고, 안 이어진 코어는 마디가 없다 — 그대로가 답이다.
  */
 export interface TraceTreeNode {
   /** 이 마디에 닿은 포트 — 뿌리는 추적을 시작한 포트다. */
@@ -47,7 +53,9 @@ export function buildTraceTree(hops: readonly TraceHop[], startPortId: string): 
     seen.add(portId);
     const out: TraceTreeNode[] = [];
     for (const hop of childrenOf.get(portId) ?? []) {
-      if (hop.kind === 'internal') {
+      /* 내부 통과와 **다심 포트로 드는 길**은 마디를 만들지 않는다 — 둘 다 지나가는 자리다.
+         (`core` 는 다심으로 들어갈 때만 붙는다 — `traceFrom` 참조) */
+      if (hop.kind === 'internal' || hop.core !== undefined) {
         out.push(...branchesOf(hop.toPortId, seen));
         continue;
       }

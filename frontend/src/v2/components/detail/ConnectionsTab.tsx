@@ -383,17 +383,9 @@ export function ConnectionsTab({
    * 둔다 — 공유하는 앞부분은 한 단 흐리게 두는 §1.7-j 와 같은 어법이다.
    */
   function traceLabel(portId: string): { primary: string; secondary: string | null } {
-    /* 다심 포트에 닿았다면 **탄 코어**로 부른다 — 포트 번호는 24심이 다 1번이라 말이 안 된다. */
-    const core = coreByPortId.get(portId);
     const entry = portIndex.get(portId);
     if (entry) {
-      return {
-        primary: endpointLabel({
-          assemblyName: null, assetName: entry.asset.name,
-          portName: entry.port.name, portIndex: entry.port.index, ...(core != null ? { core } : {}),
-        }),
-        secondary: entry.assemblyName,
-      };
+      return { primary: `${entry.asset.name}#${entry.port.index}`, secondary: entry.assemblyName };
     }
     const cableEntry = cablesByPortId.get(portId)?.[0];
     const ref = cableEntry ? endpointRef(cableEntry.cable, portId) : null;
@@ -401,29 +393,10 @@ export function ConnectionsTab({
       /* 국은 **다른 국일 때만** 적는다 — 보고 있는 국 이름을 덧붙이면 군더더기다. */
       const remote = asset != null && ref.substationId !== asset.substationId;
       const where = [remote ? ref.substationName : null, ref.assemblyName].filter(Boolean).join(' · ');
-      return {
-        primary: endpointLabel({
-          assemblyName: null, assetName: ref.assetName,
-          portName: ref.portName, portIndex: ref.portIndex, ...(core != null ? { core } : {}),
-        }),
-        secondary: where || null,
-      };
+      return { primary: `${ref.assetName}#${ref.portIndex}`, secondary: where || null };
     }
     return { primary: '포트 —', secondary: null };
   }
-
-  /**
-   * 이 추적이 **어느 코어를 타고** 그 자리에 닿았나 — 포트 하나에 한 번뿐이라 지도가 된다.
-   *
-   * OPGW 는 포트가 하나(늘 1번)라 이름만으로는 코어 1의 길과 코어 2의 길이 구별되지 않는다.
-   * 「1번 포트도 2번 포트도 대국이 같은 1번 포트」로 읽힌 것이 그 때문이다. 추적이 들고 다니던
-   * 코어 번호를 홉에 적어 두었으니(`TraceHop.core`) 여기서 자리별로 펴 둔다.
-   */
-  const coreByPortId = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const hop of traceResult?.hops ?? []) if (hop.core != null) map.set(hop.toPortId, hop.core);
-    return map;
-  }, [traceResult]);
 
   /* 평평한 홉 목록을 트리로 — 장비 안의 통과는 접힌다(마디는 케이블로 닿은 자리뿐). */
   const traceTree = useMemo(

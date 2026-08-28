@@ -13,6 +13,43 @@ const cable = (from: string, to: string, cableId: string): TraceHop => ({ kind: 
 const inside = (from: string, to: string): TraceHop => ({ kind: 'internal', fromPortId: from, toPortId: to });
 
 describe('buildTraceTree', () => {
+  /**
+   * **다심(OPGW) 포트는 마디가 아니다** — 케이블로 닿지만 거기 서 있는 것이 없다.
+   *
+   * 마디로 세웠더니 두 가지가 어긋났다. 24심이 포트 하나라 이름이 `슬롯#1` 로 겹쳤고,
+   * 대국이 아직 성단되지 않은 코어는 **아무 데도 닿지 않았는데** 슬롯 이름이 대국인 것처럼
+   * 남았다. 접으면 이어진 코어만 그 장비가 마디로 서고, 안 이어진 코어는 마디가 없다.
+   */
+  it('다심 포트는 마디가 아니다 — 그 너머의 장비가 선다', () => {
+    const intoTrunk = (from: string, to: string, cableId: string, core: number): TraceHop =>
+      ({ kind: 'cable', fromPortId: from, toPortId: to, cableId, core });
+    /* 앞면#1 →(내부, 코어1) 자국 OPGW →(구간 케이블) 대국 OPGW →(내부) 대국 앞면#1 →(점퍼) 장비 */
+    const tree = buildTraceTree([
+      cable('devA', 'slot1-front1', 'jumper-a'),
+      { kind: 'internal', fromPortId: 'slot1-front1', toPortId: 'slot1-opgw', core: 1 },
+      intoTrunk('slot1-opgw', 'slot2-opgw', 'opgw', 1),
+      { kind: 'internal', fromPortId: 'slot2-opgw', toPortId: 'slot2-front1' },
+      cable('slot2-front1', 'devB', 'jumper-b'),
+    ], 'devA');
+    expect(tree).toEqual({
+      portId: 'devA',
+      children: [{
+        portId: 'slot1-front1', cableId: 'jumper-a',
+        children: [{ portId: 'devB', cableId: 'jumper-b', children: [] }],
+      }],
+    });
+  });
+
+  /* 대국이 아직 성단되지 않은 코어 — 구간 케이블 건너편에서 길이 끊긴다. 마디가 없는 것이 답이다. */
+  it('성단되지 않은 코어는 마디가 하나도 서지 않는다', () => {
+    const tree = buildTraceTree([
+      cable('devA', 'slot1-front3', 'jumper-a'),
+      { kind: 'internal', fromPortId: 'slot1-front3', toPortId: 'slot1-opgw', core: 3 },
+      { kind: 'cable', fromPortId: 'slot1-opgw', toPortId: 'remote-opgw', cableId: 'opgw', core: 3 },
+    ], 'devA');
+    expect(tree.children).toEqual([{ portId: 'slot1-front3', cableId: 'jumper-a', children: [] }]);
+  });
+
   /* UPS 출력 →(케이블) 피더#1 입력 →(내부) 피더#1 출력 →(케이블) 노드 */
   it('장비 안의 통과는 마디가 아니다 — 케이블로 닿은 자리만 선다', () => {
     const tree = buildTraceTree([cable('ups-out', 'f1-in', 'c1'), inside('f1-in', 'f1-out'), cable('f1-out', 'node1-in', 'c2')], 'ups-out');

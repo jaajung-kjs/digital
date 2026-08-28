@@ -94,17 +94,42 @@ describe('buildFiberRows', () => {
     ];
     const { rows } = buildFiberRows(ofd as never, [ofd, slot, farSlot, farDev] as never, cables as never);
     expect(rows[0]!.farEnd).toMatchObject({ assetName: '대국장비', portName: '포트 5' });
-    // 코어 2는 건너편 심선까지는 있으나 아직 장비로 안 나갔다 — 성단까지가 끝이다.
-    expect(rows[1]!.farEnd).toMatchObject({ assetName: '슬롯3', portName: '광 2' });
+    /* 코어 2는 건너편 성단까지는 왔지만 거기서 장비로 안 나갔다 — 닿은 장비가 없다.
+       한때 그 성단 포트(`슬롯3 광 2`)를 적었는데, 그것은 판의 자리이지 대국이 아니다. */
+    expect(rows[1]!.farEnd).toBeNull();
   });
 
-  it('인입 건너편이 로컬에 없으면 saved refs 로 대국 슬롯까지 표시', () => {
+  /**
+   * 대국 칸은 **장비만** 적는다 — 서버가 코어별로 풀어 준 것이 없으면 비어 있는 것이 답이다.
+   *
+   * 한때 그 자리에 구간 케이블 건너편의 **슬롯**을 적었다. 그러나 그것은 이 OPGW 가 어디에
+   * 꽂혔나일 뿐 이 심선이 무엇에 닿았나가 아니다 — 성단되지 않은 스물두 줄이 전부 `원격슬롯#1`
+   * 로 채워져, 심선이 다 이어진 것처럼(게다가 다 같은 곳으로) 읽혔다.
+   */
+  it('대국이 풀려 있지 않으면 대국 칸은 비어 있다 — 슬롯은 대국이 아니다', () => {
+    const ref = (assetId: string, assetName: string, substationId: string, substationName: string) =>
+      ({ portName: 'OPGW', portGroup: 'TRUNK', portIndex: 1, assetId, assetName, substationId, substationName });
     const remote = cable('rc', 't1', 'remote-trunk', {
-      aRef: { portName: '광 인입', portGroup: 'TRUNK', portIndex: 1, assetId: 'slot', assetName: '슬롯1', substationId: 'sub-1', substationName: '국사A' },
-      bRef: { portName: '광 인입', portGroup: 'TRUNK', portIndex: 1, assetId: 'r-a', assetName: '원격슬롯', substationId: 'sub-2', substationName: '국사B' },
+      aRef: ref('slot', '슬롯1', 'sub-1', '국사A'),
+      bRef: ref('r-a', '원격슬롯', 'sub-2', '국사B'),
     });
     const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [remote] as never);
-    expect(rows[0]!.farEnd).toMatchObject({ assetName: '원격슬롯', substationName: '국사B', remote: true });
+    expect(rows[0]!.farEnd).toBeNull();
+  });
+
+  /* 서버가 코어별 대국을 풀어 실어 주면 그 **장비**가 대국이다. */
+  it('국을 넘는 코어는 서버가 풀어 준 장비를 코어마다 적는다', () => {
+    const remote = cable('rc', 't1', 'remote-trunk', {
+      aRef: { portName: 'OPGW', portGroup: 'TRUNK', portIndex: 1, assetId: 'slot', assetName: '슬롯1', substationId: 'sub-1', substationName: '국사A' },
+      bRef: {
+        portName: 'OPGW', portGroup: 'TRUNK', portIndex: 1, assetId: 'r-a', assetName: '원격슬롯',
+        substationId: 'sub-2', substationName: '국사B',
+        cores: [{ index: 2, assemblyName: '송광치', assetName: '광단말 B', portName: '광 2', portIndex: 2 }],
+      },
+    });
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [remote] as never);
+    expect(rows[0]!.farEnd).toBeNull();
+    expect(rows[1]!.farEnd).toMatchObject({ assetName: '광단말 B', portIndex: 2, substationName: '국사B', remote: true });
   });
 
   /* 12심 판과 24심 판이 한 함체에 섞여 있어도 각자 자기 코어 수만큼만 나온다 —
