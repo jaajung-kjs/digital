@@ -80,14 +80,18 @@ cat > "$TMPDIR/decode-and-deploy.sh" <<'DECODE'
 #
 # ⚠️  One-time upgrade from an OLD deployed version (incompatible schema):
 #   If a previous deploy left a postgres_data volume built by an OLDER schema,
-#   `prisma migrate deploy` will fail against it. Wipe the old DB volume ONCE
+#   `prisma migrate deploy` will fail against it. Wipe the old volumes ONCE
 #   before the first run of this new version — this is the ONLY time data is
-#   deleted. After that every re-run preserves the volume (see below).
-#       podman rm -f ict-twin-postgres 2>/dev/null || true
-#       podman volume rm postgres_data 2>/dev/null || true
-#   (uploads_data may be kept or wiped independently; it is schema-agnostic.)
-#   Then run ./decode-and-deploy.sh as usual — the empty volume is recreated
-#   and migrate+seed rebuilds everything from scratch.
+#   deleted. After that every re-run preserves them (see below).
+#       podman rm -f ict-twin-postgres ict-twin-backend 2>/dev/null || true
+#       podman volume rm postgres_data uploads_data 2>/dev/null || true
+#   Wipe uploads_data **together with** postgres_data: photo files live in the
+#   volume but their paths live in the DB, so keeping one without the other
+#   leaves broken images.
+#   Then run ./decode-and-deploy.sh as usual — the empty volumes are recreated
+#   and migrate+seed rebuilds schema, admin, org(본부 15 · 사업소 59) and the
+#   catalog from scratch. Substations and 기준정보(노임·제비율) are NOT seeded —
+#   an operator creates/uploads them after the first login.
 #
 # Incremental update (every subsequent deploy — data is PRESERVED):
 #   only overwrite the .txt files you changed (e.g. backend.txt). Older
