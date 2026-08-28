@@ -350,6 +350,23 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   };
 
   const trunkNote = trunkWarning(ports);
+  /**
+   * **뜻이 같은 구획이 둘 있는가** — 대개 실수다.
+   *
+   * 종류·방향·갈래·값이 모두 같으면 두 구획은 구분할 길이 순번뿐이고(이름이 그렇게 선다),
+   * 놓고 나서도 어느 쪽이 어느 쪽인지 말할 수 없다. 그럴 때 옳은 모양은 **하나에 개수 2**다.
+   * 380V 를 220V 로 고치다가 이 상태가 되는 일이 실제로 있어서(값이 겹치는 순간), 막지 않고
+   * 말해 준다 — 이중 인입을 일부러 둘로 두는 판도 있기 때문이다.
+   */
+  const twinNote = (() => {
+    const seen = new Map<string, number>();
+    for (const { row } of declared) {
+      const k = `${row.medium}|${row.direction}|${row.variant ?? ''}|${row.voltage ?? ''}|${row.positions ?? 1}`;
+      seen.set(k, (seen.get(k) ?? 0) + 1);
+    }
+    const dup = [...seen.values()].some((n) => n > 1);
+    return dup ? '뜻이 같은 구획이 둘입니다 — 하나로 두고 개수를 늘리는 편이 낫습니다(순번으로만 갈립니다).' : null;
+  })();
 
   const faceplate = sections
     .filter((section) => section.ports.length > 0)
@@ -388,9 +405,9 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
       <ErrorStrip message={issue ?? null} />
       {/* 막지 않고 **말해 준다** — 저장한 뒤 선번장에서 「왜 아무것도 안 뜨지」로 알게 되는
           것이 가장 나쁘다. */}
-      {trunkNote && (
+      {(trunkNote ?? twinNote) && (
         <MessageStrip tone="warning" className="shrink-0">
-          {trunkNote}
+          {trunkNote ?? twinNote}
         </MessageStrip>
       )}
 

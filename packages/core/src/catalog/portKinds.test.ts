@@ -243,10 +243,12 @@ describe('포트 그룹 이름', () => {
     expect(portGroupLabel(all[1]!, all)).toBe('전원 출력');
   });
 
-  it('같은 이름이 둘이면 그때만 키를 덧붙인다 — 광슬롯의 A·B', () => {
+  /* 이름으로 갈리지 않으면 **순번**을 붙인다 — 그룹 키(`A`·`B`·`POWER-OUT-AC-2`)는 타입 안에서
+     유일하기만 하면 되는 식별자라 사람에게 아무 뜻이 없다. 차례는 키 순서라 흔들리지 않는다. */
+  it('같은 이름이 둘이면 순번으로 가른다', () => {
     const all = [g('A', 'fiber'), g('B', 'fiber')];
-    expect(portGroupLabel(all[0]!, all)).toBe('광 A');
-    expect(portGroupLabel(all[1]!, all)).toBe('광 B');
+    expect(portGroupLabel(all[0]!, all)).toBe('광 1');
+    expect(portGroupLabel(all[1]!, all)).toBe('광 2');
   });
 
   /**
@@ -270,15 +272,17 @@ describe('포트 그룹 이름', () => {
   });
 
   /**
-   * 이름으로도 안 갈리면 키를 붙인다 — 한 장비에 **같은 전압 입력이 둘**일 때(이중 인입)
+   * 값까지 같으면 **순번**으로 가른다 — 한 장비에 같은 전압 입력이 둘일 때(이중 인입)
    * 두 구획이 똑같이 「전원 입력」으로 서면 어느 쪽인지 알 길이 없다.
+   *
+   * 380V 를 220V 로 고치는 **도중**에 이 상태가 된다 — 그때 뜻 없는 키가 튀어나오면 안 된다.
    */
-  it('이름까지 같으면 키를 붙여서라도 가른다', () => {
+  it('값까지 같으면 순번으로 가른다', () => {
     const one = groupRefOfTemplate({ group: 'POWER-IN-AC', medium: 'power', direction: 'IN', namePattern: '전원 입력', variant: 'AC', voltage: 'AC 220V 1φ' });
     const two = groupRefOfTemplate({ group: 'POWER-IN-AC-2', medium: 'power', direction: 'IN', namePattern: '전원 입력', variant: 'AC', voltage: 'AC 220V 1φ' });
     const refs = [one, two];
-    expect(portGroupLabel(one, refs)).not.toBe(portGroupLabel(two, refs));
-    expect(portGroupLabel(two, refs)).toContain('POWER-IN-AC-2');
+    expect(portGroupLabel(one, refs)).toBe('전원 입력(AC 220V 1φ) 1');
+    expect(portGroupLabel(two, refs)).toBe('전원 입력(AC 220V 1φ) 2');
   });
 
   it('하나뿐이면 키를 붙이지 않는다 — 구분이 필요할 때까지 이름을 길게 만들지 않는다', () => {

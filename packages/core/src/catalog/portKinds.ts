@@ -673,14 +673,22 @@ export function portGroupLabel(
      성단 구획이 「광 OPGW」가 되던 자리다. OPGW 는 그 자체로 광이라 「광」이 군더더기고,
      맞은편도 「광 광 포트」가 될 판이었다. 이름이 이미 무엇인지 말하고 있으면 그것으로 족하다. */
   const byName = nameBase(target.sampleName);
-  /* **이름으로도 안 갈리면 키를 붙인다.** 한 장비에 같은 전압 입력이 둘일 때(이중 인입) 두
-     구획이 똑같이 「전원 입력」으로 서서 어느 쪽인지 알 길이 없었다 — 키는 사람에게 뜻이
-     없지만, 같은 이름 둘보다는 낫다(광슬롯의 `A`·`B` 가 이미 그 자리다).
-     여기까지 오는 것은 **값까지 같을 때**뿐이다. */
-  const stillAmbiguous =
-    byName == null ||
-    siblings.filter((s) => base(s, showDetail) === mine && nameBase(s.sampleName) === byName).length > 1;
-  return stillAmbiguous ? `${mine} ${target.group}` : byName;
+  const tied = siblings.filter((s) => base(s, showDetail) === mine && nameBase(s.sampleName) === byName);
+  if (byName != null && tied.length <= 1) return byName;
+
+  /**
+   * 여기까지 오면 **값까지 같은 구획이 둘 이상**이다(이중 인입처럼). 그때는 순번을 붙인다.
+   *
+   * 예전에는 그룹 키를 붙였다 — 「전원 출력(AC) POWER-OUT-AC-2」. 키는 타입 안에서 유일하기만
+   * 하면 되는 **식별자**라 사람에게 아무 뜻이 없고, 자동으로 붙는 `-2` 는 더 그렇다.
+   * 순번은 적어도 「둘 중 둘째」라고 말한다. 차례는 키 순서라 화면을 다시 그려도 흔들리지 않는다.
+   */
+  const rank =
+    [...(tied.length > 1 ? tied : siblings.filter((s) => base(s, showDetail) === mine))]
+      .map((s) => s.group)
+      .sort()
+      .indexOf(target.group) + 1;
+  return `${mine} ${rank}`;
 }
 
 /**

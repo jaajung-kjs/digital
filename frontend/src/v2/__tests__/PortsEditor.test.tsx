@@ -229,6 +229,34 @@ describe('PortsEditor', () => {
   });
 
   /**
+   * **값을 고치다가 두 구획이 같아지는 순간**을 붙잡는다.
+   *
+   * 380V 를 220V 로 바꾸면 220V 출력이 둘이 된다 — 그 순간 이름이 갈릴 근거가 사라진다.
+   * 예전에는 그때 뜻 없는 그룹 키가 튀어나왔다(「전원 출력(AC) POWER-OUT-AC-2」).
+   * 이제 순번으로 갈리고, **대개 실수이므로** 하나로 합치라고 말해 준다.
+   */
+  it('(h) 전압이 겹치면 순번으로 갈리고, 합치라고 말해 준다', () => {
+    const two = (v2: string) => mkDraft([
+      { group: 'POWER-OUT-AC', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'AC', voltage: 'AC 220V 1φ' },
+      { group: 'POWER-OUT-AC-2', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'AC', voltage: v2 },
+    ]);
+
+    /* 값이 다를 때 — 값으로 갈린다. */
+    const apart = render(<PortsEditor draft={two('AC 380V 3φ')} onChange={vi.fn()} issues={[]} />);
+    expect(screen.getByRole('button', { name: '전원 출력(AC 220V 1φ) 개수 고치기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '전원 출력(AC 380V 3φ) 개수 고치기' })).toBeInTheDocument();
+    expect(screen.queryByText(/구획이 둘입니다/)).toBeNull();
+    apart.unmount();
+
+    /* 같아진 뒤 — 순번으로 갈리고 안내가 뜬다. 키는 어디에도 없다. */
+    render(<PortsEditor draft={two('AC 220V 1φ')} onChange={vi.fn()} issues={[]} />);
+    expect(screen.getByRole('button', { name: '전원 출력(AC) 1 개수 고치기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '전원 출력(AC) 2 개수 고치기' })).toBeInTheDocument();
+    expect(screen.getByText(/구획이 둘입니다/)).toBeInTheDocument();
+    expect(screen.queryByText(/POWER-OUT-AC/)).toBeNull();
+  });
+
+  /**
    * **값은 그 구획의 이름표에** 붙는다 — 그 종류가 요구하는 것만.
    * 전원은 전압, 다심은 코어 수, 나머지는 개수뿐이다.
    */
