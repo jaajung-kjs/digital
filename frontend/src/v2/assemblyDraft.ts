@@ -26,6 +26,41 @@ export interface AssemblyDraft {
 
 export type AssemblyDraftItem = Omit<V2AssemblyItem, 'sortOrder'>;
 
+/**
+ * 초안의 장비 한 줄을 짓는 **유일한 자리**.
+ *
+ * 「고친 것이 있는가」는 초안과 원본을 JSON 으로 견줘 답한다(`isDirty`). 그러니 같은 뜻의
+ * 줄은 늘 **같은 글자**여야 한다 — 칸의 차례가 다르거나 어떤 줄에만 칸이 빠져 있으면
+ * 고치지 않았는데도 「고쳤다」가 되고, **저장한 뒤에도 저장·취소 단추가 켜져 있다.**
+ *
+ * 실제로 그랬다: 판에서 장비를 놓을 때 줄을 손으로 지어 `portCounts`·`portPositions` 가
+ * 없었는데, 서버가 돌려주는 줄에는 `{}` 로 들어 있었다(게다가 `assemblyId` 까지 딸려 왔다 —
+ * 저장 바디에 없는 칸이다). 없는 값은 **빈 것으로 적고**, 서버만 아는 칸은 **버린다**.
+ */
+export function assemblyItemRow(i: {
+  id: string;
+  typeId: string;
+  name: string;
+  col: number | null;
+  row: number | null;
+  colSpan: number | null;
+  rowSpan: number | null;
+  portCounts?: Record<string, number> | null;
+  portPositions?: Record<string, number> | null;
+}): AssemblyDraftItem {
+  return {
+    id: i.id,
+    typeId: i.typeId,
+    name: i.name,
+    col: i.col,
+    row: i.row,
+    colSpan: i.colSpan,
+    rowSpan: i.rowSpan,
+    portCounts: i.portCounts ?? {},
+    portPositions: i.portPositions ?? {},
+  };
+}
+
 export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
   return {
     key: a.key,
@@ -37,9 +72,9 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
     removeManDays: a.removeManDays,
     relocateManDays: a.relocateManDays,
     sortOrder: a.sortOrder,
-    items: [...a.items]
-      .sort((x, y) => x.sortOrder - y.sortOrder)
-      .map(({ sortOrder: _s, ...rest }) => ({ ...rest })),
+    /* 줄을 짓는 자리는 하나다(`assemblyItemRow`) — 판에서 놓는 줄과 **같은 글자**여야
+       「고친 것이 있는가」가 맞는 답을 낸다. */
+    items: [...a.items].sort((x, y) => x.sortOrder - y.sortOrder).map(assemblyItemRow),
   };
 }
 

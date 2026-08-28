@@ -32,12 +32,10 @@ import {
 } from '../../../components/ui';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { useMediumColor, useMediumLabel } from '../../hooks';
-import type { TypeDraft } from '../../catalogDraft';
+import { portRow, type PortRow, type TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
 import { portSections } from './portSections';
 import { issueFor } from './adminUtils';
-
-type PortRow = TypeDraft['ports'][number];
 
 /** 줄을 새로 세울 때의 개수 — 하나로 시작해 필요한 만큼 늘린다(다심은 늘 1구다). */
 const DEFAULT_PORT_COUNT = 1;
@@ -288,17 +286,19 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   function addPreset(index: number) {
     const preset = portPresets()[index];
     if (!preset) return;
-    const row: PortRow = {
+    /* 줄은 **한 자리에서** 짓는다(`portRow`) — 손으로 지으면 서버가 돌려주는 줄과 글자가
+       달라져, 저장하고도 「고칠 것이 남았다」로 읽힌다(`isDirty` 는 JSON 으로 견준다). */
+    const row = portRow({
       group: uniqueGroupKey(preset.groupKey, ports.map((p) => p.group)),
       count: preset.positions > 1 ? 1 : DEFAULT_PORT_COUNT,
       direction: preset.direction,
       medium: preset.medium,
       namePattern: preset.namePattern,
       positions: preset.positions,
-      ...(preset.variant ? { variant: preset.variant } : {}),
+      variant: preset.variant,
       /* 전압은 프리셋이 그 갈래의 예사값을 들고 온다 — 놓는 순간 이미 「DC 48V」다. */
-      ...(preset.voltage ? { voltage: preset.voltage } : {}),
-    };
+      voltage: preset.voltage,
+    });
     setJustAdded(row.group);
     onChange({ ports: syncTrunkAdapters([...ports, row], row, null) });
   }
@@ -500,14 +500,14 @@ function syncTrunkAdapters(after: PortRow[], changed: PortRow, before: PortRow |
     if (!preset) return after;
     return [
       ...after,
-      {
+      portRow({
         group: uniqueGroupKey(preset.groupKey, after.map((p) => p.group)),
         count: cores,
         direction: preset.direction,
         medium: preset.medium,
         namePattern: preset.namePattern,
         positions: 1,
-      },
+      }),
     ];
   }
 

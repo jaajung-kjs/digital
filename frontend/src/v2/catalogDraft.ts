@@ -8,12 +8,48 @@
  * isDraftDirty: 원본 대비 변경 여부
  */
 
-import { specFromUpsert, validateTypeSpec } from '@twin/core';
+import { coreCount, specFromUpsert, validateTypeSpec } from '@twin/core';
 import type { TypeSpecIssue } from '@twin/core';
 import type { V2AssetType, V2Catalog, TypeUpsertBody } from './types';
 import { isDirty } from './draftDiff';
 
 export type TypeDraft = TypeUpsertBody;
+export type PortRow = TypeDraft['ports'][number];
+
+/**
+ * 초안의 포트 줄을 짓는 **유일한 자리**.
+ *
+ * 「고친 것이 있는가」는 초안과 원본을 **JSON 으로 견줘서** 답한다(`isDirty`). 그래서 같은
+ * 뜻의 줄은 늘 **같은 글자**여야 한다 — 칸의 차례가 다르거나, 어떤 줄에만 `variant` 가 빠져
+ * 있으면 고치지 않았는데도 「고쳤다」가 된다.
+ *
+ * 실제로 그랬다: 편집기가 포트를 더할 때 줄을 손으로 지으면서 `...(preset.variant ? … : {})`
+ * 로 **빈 값을 아예 빼** 버렸고, 서버가 돌려주는 줄에는 `variant: null` 이 들어 있었다.
+ * 그래서 포트를 더해 저장해도 저장·취소 단추가 그대로 켜져 있었다(고칠 것이 남았다고 읽혔다).
+ *
+ * 없는 값은 **null 로 적는다** — 「빼는 것」과 「비운 것」이 같은 뜻이어야 견줄 수 있다.
+ */
+export function portRow(p: {
+  group: string;
+  count: number;
+  direction: PortRow['direction'];
+  medium: string;
+  namePattern: string;
+  positions?: number | null;
+  variant?: string | null;
+  voltage?: string | null;
+}): PortRow {
+  return {
+    group: p.group,
+    count: p.count,
+    direction: p.direction,
+    variant: p.variant ?? null,
+    voltage: p.voltage ?? null,
+    medium: p.medium,
+    namePattern: p.namePattern,
+    positions: coreCount(p.positions),
+  };
+}
 
 /** V2AssetType → TypeDraft (id/assetCount/명세 id+sortOrder 스트립) */
 export function typeToDraft(t: V2AssetType): TypeDraft {
@@ -27,17 +63,9 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
     installManDays: t.installManDays,
     removeManDays: t.removeManDays,
     relocateManDays: t.relocateManDays,
-    ports: t.portTemplates.map(({ group, count, direction, medium, namePattern, positions, variant, voltage }) => ({
-      group,
-      count,
-      direction,
-      variant,
-      /* 전압도 선언에 딸린다 — 이 값을 고치는 자리가 포트 편집기 하나뿐이다. */
-      voltage,
-      medium,
-      namePattern,
-      positions,
-    })),
+    /* 줄을 짓는 자리는 하나다(`portRow`) — 편집기가 더하는 줄과 **같은 글자**여야
+       「고친 것이 있는가」가 맞는 답을 낸다. */
+    ports: t.portTemplates.map(portRow),
   };
 }
 

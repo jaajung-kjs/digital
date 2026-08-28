@@ -20,7 +20,7 @@ import {
 } from '../../../components/ui';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { PortsPreview } from './PortsPreview';
-import { newItemId, type AssemblyDraft, type AssemblyDraftItem, type AssemblyIssue } from '../../assemblyDraft';
+import { assemblyItemRow, newItemId, type AssemblyDraft, type AssemblyDraftItem, type AssemblyIssue } from '../../assemblyDraft';
 import type { V2Catalog } from '../../types';
 
 interface AssemblyPanelProps {
@@ -54,12 +54,14 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
    */
   function addPartAt(at: { col: number; row: number; colSpan?: number; rowSpan?: number }) {
     const id = newItemId();
+    /* 줄은 **한 자리에서** 짓는다(`assemblyItemRow`) — 손으로 지으면 서버가 돌려주는 줄과
+       글자가 달라져, 저장하고도 「고칠 것이 남았다」로 읽힌다(`isDirty` 는 JSON 으로 견준다). */
     onChange({
       ...draft,
-      items: [...draft.items, {
+      items: [...draft.items, assemblyItemRow({
         id, typeId: '', name: '',
         col: at.col, row: at.row, colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1,
-      }],
+      })],
     });
     setSelectedItemId(id);
   }
