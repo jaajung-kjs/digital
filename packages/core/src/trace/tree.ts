@@ -61,6 +61,21 @@ export function buildTraceTree(hops: readonly TraceHop[], startPortId: string): 
   return { portId: startPortId, children: branchesOf(startPortId, new Set()) };
 }
 
+/**
+ * 트리를 **끝까지 가는 길들**로 편다 — 뿌리에서 잎 하나까지가 한 길이다.
+ *
+ * 거슬러 오르는 추적(내 전원이 어디서 오나)은 트리로 읽히지 않는다. 답은 「출처에서 나에게
+ * 오는 길」이고, 사람은 그것을 **전기가 흐르는 차례**로 읽는다 — 출처가 위, 내가 아래.
+ * 그러려면 길을 하나씩 뽑아 뒤집어야 한다. 갈래가 있으면(이중 인입) 길이 여럿이고, 그때는
+ * 「이 두 길로 전원이 온다」가 맞는 답이다.
+ *
+ * 뿌리를 포함해서 돌려준다 — 뒤집으면 그 뿌리가 **마지막**(내가 선 자리)이 된다.
+ */
+export function traceChains(root: TraceTreeNode): TraceTreeNode[][] {
+  if (root.children.length === 0) return [[root]];
+  return root.children.flatMap((child) => traceChains(child).map((path) => [root, ...path]));
+}
+
 /** 트리에 마디가 몇이나 되나 — 뿌리는 빼고 센다(「이 포트에서 닿는 곳」의 수). */
 export function traceTreeSize(node: TraceTreeNode): number {
   return node.children.reduce((n, c) => n + 1 + traceTreeSize(c), 0);

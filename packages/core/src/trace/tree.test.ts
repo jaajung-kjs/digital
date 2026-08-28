@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildTraceTree, traceTreeSize } from './tree.js';
+import { buildTraceTree, traceChains, traceTreeSize } from './tree.js';
+import type { TraceTreeNode } from './tree.js';
 import type { TraceHop } from './graph.js';
 
 /**
@@ -64,5 +65,30 @@ describe('buildTraceTree', () => {
     );
     expect(tree.children).toHaveLength(1);
     expect(tree.children[0]!.portId).toBe('b-in');
+  });
+});
+
+/**
+ * **거슬러 오르는 길은 흐르는 차례로 읽는다** — 출처가 위, 내가 아래.
+ *
+ * 트리는 「내가 시작해서 어디로 뻗나」를 말한다. 그런데 전원이 어디서 오는지 물었을 때의
+ * 답은 반대 방향으로 읽힌다: 소내전원반 → 충전기 → DC 48V → 나. 길을 뽑아 뒤집으면 된다.
+ */
+describe('traceChains', () => {
+  const leaf = (portId: string): TraceTreeNode => ({ portId, children: [] });
+
+  it('곧은 길은 하나 — 뿌리부터 잎까지', () => {
+    const root: TraceTreeNode = { portId: 'me', children: [{ portId: 'a', children: [leaf('b')] }] };
+    expect(traceChains(root).map((path) => path.map((n) => n.portId))).toEqual([['me', 'a', 'b']]);
+  });
+
+  /* 이중 인입이면 길이 둘이다 — 「이 두 길로 전원이 온다」가 맞는 답이다. */
+  it('갈래가 있으면 길이 여럿이다', () => {
+    const root: TraceTreeNode = { portId: 'me', children: [leaf('a'), { portId: 'b', children: [leaf('c')] }] };
+    expect(traceChains(root).map((path) => path.map((n) => n.portId))).toEqual([['me', 'a'], ['me', 'b', 'c']]);
+  });
+
+  it('혼자면 그 자신이 한 길이다', () => {
+    expect(traceChains(leaf('me')).map((path) => path.map((n) => n.portId))).toEqual([['me']]);
   });
 });

@@ -22,7 +22,7 @@ import {
   InsetBox,
 } from '../../../components/ui';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
-import { buildTraceTree, type TraceTreeNode } from '@twin/core';
+import { buildTraceTree, traceChains, type TraceTreeNode } from '@twin/core';
 import { buildPortIndex, endpointLabel, endpointRef, indexCablesByPort, resolvePeer } from '../../peerResolve';
 import { resolveFiberFarEnd } from '../../fiberSelectors';
 
@@ -411,6 +411,9 @@ export function ConnectionsTab({
     return port.direction === 'IN' ? '전원이 오는 길' : port.direction === 'OUT' ? '이 회로가 먹이는 곳' : null;
   }, [tracedPortId, allPorts]);
 
+  /** 거슬러 오르는 추적인가 — 그때는 길을 뒤집어 **흐르는 차례**로 보여 준다. */
+  const upstream = traceAsk === '전원이 오는 길';
+
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
     onTrace(traceHighlight(inputs, portId));
@@ -767,27 +770,43 @@ export function ConnectionsTab({
                             지우기
                           </Button>
                         </div>
-                        {/* 경로는 **시작부터** 보여 준다 — 시작이 화면에 없으면 첫 줄이 어디에서
-                            나온 것인지 읽는 사람이 되짚어야 한다. 경로 전체를 옅게 칠해
-                            「여기까지가 한 길」임을 눈으로 묶는다. */}
+                        {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다. */}
                         {traceTree.children.length > 0 && (
                           <div className="rounded-md bg-primary/5 p-1.5">
-                            <div className="flex items-baseline gap-1 text-sm">
-                              <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
-                              <span className="min-w-0 flex-1 truncate px-1 font-medium text-content">
-                                {portLabel(sel.id)}
-                              </span>
-                              <Badge status="info">여기</Badge>
-                            </div>
-                            {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
-                            <TraceBranches
-                              nodes={traceTree.children}
-                              depth={1}
-                              label={portLabel}
-                              assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                              onSelectAsset={onSelectAsset}
-                              endLabel={traceAsk === '전원이 오는 길' ? '출처' : '끝'}
-                            />
+                            {upstream ? (
+                              /* **거슬러 오르는 길은 흐르는 차례로 읽는다** — 출처가 위, 내가 아래.
+                                 트리로 두면 「내가 시작해서 어디로 뻗나」로 읽혀 방향이 뒤집힌다.
+                                 갈래가 있으면(이중 인입) 길이 여럿이고, 그때는 「이 두 길로 온다」가
+                                 맞는 답이다. */
+                              traceChains(traceTree).map((path) => (
+                                <TraceChain
+                                  key={path.map((n) => n.portId).join('>')}
+                                  path={[...path].reverse()}
+                                  label={portLabel}
+                                  assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                                  onSelectAsset={onSelectAsset}
+                                />
+                              ))
+                            ) : (
+                              <>
+                                <div className="flex items-baseline gap-1 text-sm">
+                                  <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
+                                  <span className="min-w-0 flex-1 truncate px-1 font-medium text-content">
+                                    {portLabel(sel.id)}
+                                  </span>
+                                  <Badge status="info">여기</Badge>
+                                </div>
+                                {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
+                                <TraceBranches
+                                  nodes={traceTree.children}
+                                  depth={1}
+                                  label={portLabel}
+                                  assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                                  onSelectAsset={onSelectAsset}
+                                  endLabel="끝"
+                                />
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -809,6 +828,55 @@ export function ConnectionsTab({
       )}
       {confirmDialog}
     </div>
+  );
+}
+
+/**
+ * 한 길 — **전기가 흐르는 차례**로 위에서 아래로.
+ *
+ * 거슬러 오르는 추적의 답은 「출처에서 나에게 오는 길」이다. 트리는 「내가 시작해서 어디로
+ * 뻗나」를 말하므로 그대로 두면 방향이 뒤집혀 읽힌다. 그래서 길을 뽑아 뒤집고, 마지막 줄
+ * (내가 선 자리)을 도드라지게 둔다 — 눈이 위에서 아래로 흘러 나에게 닿는다.
+ */
+function TraceChain({
+  path, label, assetOf, onSelectAsset,
+}: {
+  /** 출처 → … → 나. 마지막이 추적을 시작한 자리다. */
+  path: readonly TraceTreeNode[];
+  label: (portId: string) => string;
+  assetOf: (portId: string) => { id: string; name: string } | null;
+  onSelectAsset: (id: string, portId?: string | null) => void;
+}) {
+  return (
+    <ol className="space-y-0.5">
+      {path.map((node, i) => {
+        const last = i === path.length - 1;
+        const target = assetOf(node.portId);
+        const text = label(node.portId);
+        return (
+          <li key={node.portId} className="flex items-baseline gap-1 text-sm">
+            {/* 흐르는 방향을 화살표가 말한다 — 첫 줄은 출처라 들어오는 화살표가 없다. */}
+            <span aria-hidden className="w-3 shrink-0 text-xs text-content-faint">{i === 0 ? '◉' : '↓'}</span>
+            {target && !last ? (
+              <button
+                type="button"
+                className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
+                title={`${target.name} 으로 이동`}
+                onClick={() => onSelectAsset(target.id)}
+              >
+                {text}
+              </button>
+            ) : (
+              <span className={cn('min-w-0 flex-1 truncate px-1', last ? 'font-medium text-content' : 'text-content-muted')}>
+                {text}
+              </span>
+            )}
+            {i === 0 && <Badge>출처</Badge>}
+            {last && <Badge status="info">여기</Badge>}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
