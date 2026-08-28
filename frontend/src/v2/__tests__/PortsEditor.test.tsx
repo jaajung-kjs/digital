@@ -229,6 +229,88 @@ describe('PortsEditor', () => {
   });
 
   /**
+   * **개수를 0 으로 만들다 만 상태**가 생기지 않는다.
+   *
+   * 0 은 「그 구획이 없다」는 뜻이고, 없애는 길은 지우개 하나다. 칸에서 0 이나 빈 값을
+   * 만들 수 있으면 「포트 0개짜리 구획」이 판에 남아, 있지도 않은 것이 자리를 차지한다.
+   */
+  it('(i) 개수는 0 이 되지 않는다 — 없애는 길은 지우개뿐', () => {
+    const draft = mkDraft([
+      { group: 'NETWORK', count: 4, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' },
+    ]);
+    const onChange = vi.fn();
+    render(<PortsEditor draft={draft} onChange={onChange} issues={[]} />);
+
+    editValue('네트워크 개수');
+    const input = screen.getByLabelText('네트워크 개수');
+    fireEvent.change(input, { target: { value: '0' } });
+    fireEvent.blur(input);
+    expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({ count: 1 });
+
+    /* 빈 칸으로 두고 나가도 마찬가지다 — 없는 값이 0 이 되지 않는다. */
+    onChange.mockClear();
+    editValue('네트워크 개수');
+    const again = screen.getByLabelText('네트워크 개수');
+    fireEvent.change(again, { target: { value: '' } });
+    fireEvent.blur(again);
+    expect(onChange.mock.calls[0]?.[0].ports[0]).toMatchObject({ count: 1 });
+  });
+
+  /* 성단을 지우면 앞면만 남는다 — 그건 그냥 광 포트라 아무 문제가 없다(말하지 않는다). */
+  it('(j) 성단을 지우면 앞면만 남고, 그건 정상이다', () => {
+    const onlyFront = mkDraft([
+      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 포트 {n}', positions: 1 },
+    ]);
+    render(<PortsEditor draft={onlyFront} onChange={vi.fn()} issues={[]} />);
+    expect(screen.queryByText(/앞면|갈리는지/)).toBeNull();
+  });
+
+  /* 반대로 앞면을 지우면 24심을 받아 놓고 나갈 자리가 없다 — 그건 말해 준다. */
+  it('(k) 앞면을 지우면 코어가 나갈 자리가 없다고 말한다', () => {
+    const onlyTrunk = mkDraft([
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
+    ]);
+    render(<PortsEditor draft={onlyTrunk} onChange={vi.fn()} issues={[]} />);
+    expect(screen.getByText(/코어가 나갈 자리가 없습니다/)).toBeInTheDocument();
+  });
+
+  /**
+   * **심선 수는 2 밑으로 내려가지 않는다.** 1 이면 그건 다심이 아니라 보통 포트라
+   * 구획의 정체가 바뀐다(어휘가 그 둘을 가른다) — 값 하나로 종류가 뒤집히면 안 된다.
+   */
+  it('(l) 심선 수를 1 로 만들 수 없다 — 그건 다른 종류다', () => {
+    const draft = mkDraft([
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
+      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 포트 {n}', positions: 1 },
+    ]);
+    const onChange = vi.fn();
+    render(<PortsEditor draft={draft} onChange={onChange} issues={[]} />);
+
+    editValue('OPGW 심선 수');
+    const input = screen.getByLabelText('OPGW 심선 수');
+    fireEvent.change(input, { target: { value: '1' } });
+    fireEvent.blur(input);
+    expect(onChange.mock.calls[0][0].ports.find((p: { group: string }) => p.group === 'TRUNK')).toMatchObject({ positions: 2 });
+  });
+
+  /**
+   * **목록을 닫아 걸지 않는다.** 현장에는 목록 밖의 값이 있다(제어전원 DC 125V).
+   * 적힌 값이 목록에 없어도 **그 값이 목록에 실려** 보이고, 열자마자 다른 값으로 바뀌지 않는다.
+   */
+  it('(m) 목록 밖의 값도 지우지 않는다 — 직접 입력 자리가 있다', () => {
+    const draft = mkDraft([
+      { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 125V' },
+    ]);
+    render(<PortsEditor draft={draft} onChange={vi.fn()} issues={[]} />);
+
+    expect(screen.getByRole('button', { name: /전압 고치기/ }).textContent).toContain('DC 125V');
+    fireEvent.click(screen.getByRole('button', { name: /전압 고치기/ }));
+    const select = screen.getByLabelText(/전압/) as HTMLSelectElement;
+    expect(select.value).toBe('DC 125V');
+    expect([...select.options].map((o) => o.text)).toContain('직접 입력…');
+  });
+
+  /**
    * **값을 고치다가 두 구획이 같아지는 순간**을 붙잡는다.
    *
    * 380V 를 220V 로 바꾸면 220V 출력이 둘이 된다 — 그 순간 이름이 갈릴 근거가 사라진다.

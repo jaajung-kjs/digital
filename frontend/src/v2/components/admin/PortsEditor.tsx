@@ -27,8 +27,8 @@ import type { TypeSpecIssue } from '@twin/core';
 import { DEFAULT_CORE_COUNT, isMultiCorePort, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, MessageStrip, cn,
-  isCommitKey, type MenuAnchor,
+  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, MessageStrip,
+  PromptModal, cn, isCommitKey, type MenuAnchor,
 } from '../../../components/ui';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { useMediumColor, useMediumLabel } from '../../hooks';
@@ -53,6 +53,9 @@ const DEFAULT_PORT_COUNT = 1;
  * 「목록이 열린다」를 말한다(어느 화면에서나 통하는 표시다). 판 위의 글자라 본문 상자(38px)를
  * 세울 수 없어 칩은 작지만, **컨트롤로 보이는 것**과 **폼이 되지 않는 것**을 둘 다 지킨다.
  */
+/** 목록 끝의 「직접 입력」 — 저장되는 값이 아니라 칸을 자유 입력으로 바꾸는 표다. */
+const FREE_INPUT = '\u0000free';
+
 function SilkValue({
   label, text, value, options, min, autoEdit = false, onCommit,
 }: {
@@ -73,6 +76,8 @@ function SilkValue({
   onCommit: (raw: string) => void;
 }) {
   const [editing, setEditing] = useState(autoEdit);
+  /** 목록에 없는 값을 적는 중인가 — 「직접 입력…」을 고른 뒤. */
+  const [prompting, setPrompting] = useState(false);
   /** 판의 실크스크린 색 — 글자도 테두리도 이 색에서 나온다(판마다 따로 정하지 않는다). */
   const silk = 'var(--faceplate-silk)';
 
@@ -112,17 +117,37 @@ function SilkValue({
     },
   };
 
+  /* **목록을 닫아 걸지 않는다.** 현장에는 목록 밖의 값이 실제로 있다(제어전원 DC 125V).
+     지금 적힌 값이 목록에 없으면 **그 값도 목록에 실어** 보여 준다 — 적힌 사실을 화면이
+     지우면 안 되고, 목록에 없다는 이유로 열자마자 다른 값으로 바뀌어서도 안 된다. */
+  const items = options && value && !options.includes(value) ? [value, ...options] : (options ?? []);
+
   return options ? (
-    <select
-      {...common}
-      defaultValue={value}
-      onChange={(e) => done(e.currentTarget.value)}
-      onBlur={() => setEditing(false)}
-    >
-      {options.map((o) => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-    </select>
+    <>
+      <select
+        {...common}
+        defaultValue={value}
+        onChange={(e) => {
+          if (e.currentTarget.value === FREE_INPUT) { setPrompting(true); return; }
+          done(e.currentTarget.value);
+        }}
+        onBlur={() => { if (!prompting) setEditing(false); }}
+      >
+        {items.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+        <option value={FREE_INPUT}>직접 입력…</option>
+      </select>
+      <PromptModal
+        open={prompting}
+        title={label}
+        label={label}
+        initialValue={value}
+        confirmLabel="적용"
+        onConfirm={(next) => { setPrompting(false); done(next); }}
+        onClose={() => { setPrompting(false); setEditing(false); }}
+      />
+    </>
   ) : (
     <input
       {...common}
