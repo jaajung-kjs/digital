@@ -6,7 +6,7 @@
  * 줄로 서며, 새 줄은 「＋ 포트 추가」로만 생긴다.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { V2Catalog } from '../types';
 import type { TypeDraft } from '../catalogDraft';
 import { PortsEditor } from '../components/admin/PortsEditor';
@@ -213,6 +213,42 @@ describe('PortsEditor', () => {
 
     fireEvent.click(cell('광 개수'));
     expect(screen.getByLabelText('광 개수')).toBeInstanceOf(HTMLInputElement);
+  });
+
+  /**
+   * **같은 말을 두 번 세우지 않는다.** 「구획」과 「이름」이 따로 있었는데 둘이 사실상 같았다
+   * (「전원 입력(DC)」·「전원 입력 {n}」). 이름이 실제로 어떻게 붙는지는 아래 전면판이
+   * 번호까지 붙여 보여 준다.
+   */
+  it('(c-2) 이름 패턴 열은 없다 — 구획 이름이 그 줄의 이름이다', () => {
+    const draft = mkDraft([
+      { group: 'PWR', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC', voltage: 'DC 48V' },
+    ]);
+    render(<PortsEditor draft={draft} onChange={vi.fn()} issues={[]} />);
+
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('전원 입력(DC)')).toBeInTheDocument();
+    expect(within(table).queryByText('전원 입력 {n}')).toBeNull();
+  });
+
+  /**
+   * **세부 열은 요구하는 줄이 있을 때만 선다.** 대시로만 채워진 열은 자리만 먹고 아무 말도
+   * 하지 않으며, 「아직 안 적었다」로 잘못 읽힌다 — 그 종류에는 세부라는 것이 아예 없다.
+   */
+  it('(e-2) 세부를 요구하는 줄이 없으면 그 열이 서지 않는다', () => {
+    const plain = mkDraft([
+      { group: 'CTRL', count: 12, direction: 'BI', medium: 'control', namePattern: '제어 {n}', positions: 1 },
+    ]);
+    const { unmount } = render(<PortsEditor draft={plain} onChange={vi.fn()} issues={[]} />);
+    expect(screen.queryByRole('columnheader', { name: '세부' })).toBeNull();
+    unmount();
+
+    const withPower = mkDraft([
+      { group: 'CTRL', count: 12, direction: 'BI', medium: 'control', namePattern: '제어 {n}', positions: 1 },
+      { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 48V' },
+    ]);
+    render(<PortsEditor draft={withPower} onChange={vi.fn()} issues={[]} />);
+    expect(screen.getByRole('columnheader', { name: '세부' })).toBeInTheDocument();
   });
 
   /* 전압은 **그 종류가 요구하는 칸**이다 — 전원 줄에만 서고, 갈래가 고를 값을 좁힌다. */

@@ -32,7 +32,7 @@ import type { TypeSpecIssue } from '@twin/core';
 import { DEFAULT_CORE_COUNT, groupRefOfTemplate, isMultiCorePort, portGroupLabel, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, EMPTY, IconButton, Select,
+  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, Select,
   TABLE_ROW, TableCard, Th, cn, Td,} from '../../../components/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import { InlineEditCell } from '../InlineEditCell';
@@ -44,8 +44,17 @@ import { issueFor } from './adminUtils';
 
 type PortRow = TypeDraft['ports'][number];
 
-/** 구획 · 개수 · 이름 · 세부 · 지우기 — 합 100(§Table 규약). */
-const PORT_COLUMNS = [30, 12, 28, 24, 6] as const;
+/**
+ * 열은 **셋 아니면 넷**이다 — 포트 · (세부) · 개수 · 지우기. 합 100(§Table 규약).
+ *
+ * 「구획」과 「이름」을 따로 세웠더니 같은 말이 두 번 섰다(「전원 입력(DC)」·「전원 입력 {n}」).
+ * 이름이 실제로 어떻게 붙는지는 **아래 전면판**이 번호까지 붙여 그대로 보여 준다.
+ *
+ * 세부(전압·코어)는 **그 종류에만 있는 것**이라, 한 줄도 쓰지 않는 품목에서는 열 자체가
+ * 서지 않는다 — 대시로 채운 열은 자리만 먹고 아무 말도 하지 않는다.
+ */
+const COLUMNS_WITH_DETAIL = [50, 26, 14, 10] as const;
+const COLUMNS_PLAIN = [76, 14, 10] as const;
 
 /** 줄을 새로 세울 때의 개수 — 하나로 시작해 필요한 만큼 늘린다(다심은 늘 1구다). */
 const DEFAULT_PORT_COUNT = 1;
@@ -76,6 +85,17 @@ const kindOf = (p: { medium: string; direction: Direction; positions?: number | 
 function voltageOptionsOf(row: PortRow): readonly string[] {
   const kind = portKind(row.medium);
   return kind?.variants?.find((v) => v.key === row.variant)?.voltages ?? [];
+}
+
+/**
+ * 이 줄이 말할 **세부** — 그 종류가 요구하는 값 하나. 없으면 null.
+ *
+ * 전원은 전압(갈래가 고를 값을 정한다), 다심은 코어 수. 나머지 종류(네트워크·접지·제어)는
+ * 세부라는 것이 아예 없다 — 그런 줄에 대시를 세우면 「아직 안 적었다」로 읽힌다.
+ */
+function detailOf(row: PortRow): 'voltage' | 'positions' | null {
+  if (voltageOptionsOf(row).length > 0) return 'voltage';
+  return isMultiCorePort(row.positions) ? 'positions' : null;
 }
 
 export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
@@ -149,6 +169,10 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     })
     .find(Boolean);
 
+  /* 세부 열은 **요구하는 줄이 하나라도 있을 때만** 선다 — 이 품목에 전원도 성단도 없으면
+     그 열은 통째로 없다(대시만 스물네 번 서는 열을 만들지 않는다). */
+  const hasDetail = declared.some(({ row }) => detailOf(row) !== null);
+
   const faceplate = sections
     .filter((section) => section.ports.length > 0)
     .map((section) => ({ key: section.key, label: section.labelText, accent: section.accent, ports: section.ports }));
@@ -173,25 +197,50 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
       {(declared.length > 0 || adding) && (
         /* 표는 **여덟 줄까지** 자라고 그 뒤로는 본문만 흐른다 — 머리글은 남는다(§1.6). */
         <div className="min-h-0 max-h-[calc(8*2.25rem+2.25rem)] overflow-y-auto">
-          <TableCard widths={PORT_COLUMNS}>
+          <TableCard widths={hasDetail ? COLUMNS_WITH_DETAIL : COLUMNS_PLAIN}>
             <thead>
               <tr className="sticky top-0 z-sticky">
-                <Th>구획</Th>
+                <Th>포트</Th>
+                {hasDetail && <Th>세부</Th>}
                 <Th align="right">개수</Th>
-                <Th>이름</Th>
-                <Th>세부</Th>
                 <Th aria-label="지우기"><span className="sr-only">지우기</span></Th>
               </tr>
             </thead>
             <tbody>
               {declared.map(({ row }) => {
                 const label = labelOf(row, declared, mediumLabel);
-                const voltages = voltageOptionsOf(row);
+                const detail = detailOf(row);
                 return (
                   <tr key={row.group} className={cn(TABLE_ROW, 'group')}>
                     <Td className="text-sm text-content">
                       <span className="block truncate">{label}</span>
                     </Td>
+                    {/* 세부 — 그 종류가 요구하는 칸. 요구하지 않는 줄은 **비운다**(대시가 아니라):
+                        적을 것이 없는 자리와 아직 안 적은 자리는 다르다. */}
+                    {hasDetail && (
+                      <Td className="px-2">
+                        {detail === 'voltage' && (
+                          <InlineEditCell
+                            label={`${label} 전압`}
+                            value={row.voltage ?? ''}
+                            options={voltageOptionsOf(row)}
+                            onCommit={(raw) => patch(row, { voltage: raw.trim() || null })}
+                          />
+                        )}
+                        {detail === 'positions' && (
+                          <InlineEditCell
+                            label={`${label} 심선 수`}
+                            type="number"
+                            unit=" 코어"
+                            value={String(row.positions ?? DEFAULT_CORE_COUNT)}
+                            onCommit={(raw) => {
+                              const next = Math.max(Number(raw) || 2, 2);
+                              if (next !== row.positions) patch(row, { positions: next });
+                            }}
+                          />
+                        )}
+                      </Td>
+                    )}
                     <Td align="right" className="px-2">
                       <InlineEditCell
                         label={`${label} 개수`}
@@ -202,34 +251,6 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                           if (next !== row.count) patch(row, { count: next });
                         }}
                       />
-                    </Td>
-                    {/* 이름은 **어휘가 정한다** — 「{n}」 자리에 번호가 들어간다. 읽는 값이다. */}
-                    <Td className="text-sm text-content-muted">
-                      <span className="block truncate">{row.namePattern}</span>
-                    </Td>
-                    {/* 세부 — **그 종류가 요구하는 칸**이다. 전원이면 전압, 다심이면 코어 수. */}
-                    <Td className="px-2">
-                      {voltages.length > 0 ? (
-                        <InlineEditCell
-                          label={`${label} 전압`}
-                          value={row.voltage ?? ''}
-                          options={voltages}
-                          onCommit={(raw) => patch(row, { voltage: raw.trim() || null })}
-                        />
-                      ) : isMultiCorePort(row.positions) ? (
-                        <InlineEditCell
-                          label={`${label} 심선 수`}
-                          type="number"
-                          unit=" 코어"
-                          value={String(row.positions ?? DEFAULT_CORE_COUNT)}
-                          onCommit={(raw) => {
-                            const next = Math.max(Number(raw) || 2, 2);
-                            if (next !== row.positions) patch(row, { positions: next });
-                          }}
-                        />
-                      ) : (
-                        <span className="block px-1 text-sm text-content-faint">{EMPTY}</span>
-                      )}
                     </Td>
                     {/* 지우는 손은 **그 줄에 닿았을 때만** 드러난다(§1.7). */}
                     <Td align="right" className="px-1">
@@ -249,7 +270,7 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
 
               {adding && (
                 <tr className={TABLE_ROW}>
-                  <Td className="px-2" colSpan={5}>
+                  <Td className="px-2" colSpan={hasDetail ? 4 : 3}>
                     {/* 고르는 자리가 곧 그 줄이다 — 무엇을 만드는 중인지가 표 안에 있다. */}
                     <Select
                       aria-label="포트 종류"
