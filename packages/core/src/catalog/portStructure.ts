@@ -34,12 +34,18 @@ export interface PortStructureDiff {
   removals: PortChange[];
 }
 
-/** 이미 있는 포트의 **뜻**이 바뀌었는가 — 이름이 같은 구획인데 다른 것이 된 경우. */
+/**
+ * 이미 있는 포트의 **뜻**이 바뀌었는가 — 이름이 같은 구획인데 다른 것이 된 경우.
+ *
+ * **이름은 뜻이 아니다.** 한때 이름 규칙(`namePattern`)이 바뀌면 뜻이 바뀐 것으로 쳐서,
+ * 자산이 하나라도 있으면 포트 이름을 고칠 수가 없었다. 그런데 이름을 고쳐도 그 포트는
+ * 같은 자리에 있고 물린 케이블도 그대로다 — 부르는 말만 달라진다. 그래서 여기서 뺐고,
+ * 대신 이름이 바뀌면 **이미 놓인 포트의 이름도 따라간다**(`catalog.routes` 의 이름 맞춤).
+ */
 function meaningChanged(before: PortDeclaration, after: PortDeclaration): boolean {
   return (
     before.direction !== after.direction ||
     before.medium !== after.medium ||
-    before.namePattern !== after.namePattern ||
     coreCount(before.positions) !== coreCount(after.positions)
   );
 }

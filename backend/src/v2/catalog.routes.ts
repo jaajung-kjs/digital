@@ -425,6 +425,20 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         await addPortsToExistingAssets(tx, id, change.additions);
       }
 
+      /* **이름이 바뀌면 놓인 포트도 따라 바뀐다.** 이름은 뜻이 아니라 부르는 말이라
+         구조 변경으로 막지 않는다(`comparePortStructure`) — 대신 여기서 맞춘다.
+         안 맞추면 품목은 「네트워크 1」이라 부르는데 판에는 「UTP」가 남는다. */
+      for (const p of body.ports) {
+        const ports = await tx.port.findMany({
+          where: { group: p.group, asset: { typeId: id } },
+          select: { id: true, index: true, name: true },
+        });
+        for (const port of ports) {
+          const name = portName(p.namePattern, port.index);
+          if (name !== port.name) await tx.port.update({ where: { id: port.id }, data: { name } });
+        }
+      }
+
       const { _count, ...row } = await tx.assetType.findUniqueOrThrow({
         where: { id },
         include: {

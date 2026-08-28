@@ -261,22 +261,16 @@ describe('포트 그룹 이름', () => {
     expect(portGroupLabel(all[1]!, all)).toBe('광 2');
   });
 
-  /**
-   * **선언은 갈래까지만** 말한다 — 몇 V 인지는 놓인 회로가 안다(계통 표).
-   * 그래서 품목 화면의 구획 이름은 「전원 출력(AC)」이고, 자산 화면에서는 그 포트에 적힌
-   * 값까지 실려 「전원 출력(AC 220V 1φ)」가 된다.
-   */
-  it('선언은 갈래까지, 놓인 포트는 그 값까지 이름에 싣는다', () => {
+  /* 선언과 놓인 포트가 **같은 이름**을 낸다 — 품목 화면과 자산 화면이 다르게 부르면 안 된다. */
+  it('선언에서도 놓인 포트에서도 같은 이름이 나온다', () => {
     const tpl = groupRefOfTemplate({
       group: 'POWER-OUT-AC', medium: 'power', direction: 'OUT', namePattern: '전원 출력 {n}', variant: 'AC',
     });
-    expect(portGroupLabel(tpl, [tpl])).toBe('전원 출력(AC)');
-
     const placed = groupRefOf({
-      group: 'POWER-OUT-AC', medium: 'power', direction: 'OUT', name: '전원 출력 1', positions: 1,
-      variant: 'AC', fieldValues: { voltage: 'AC 380V 3φ' },
+      group: 'POWER-OUT-AC', medium: 'power', direction: 'OUT', name: '전원 출력 1', positions: 1, variant: 'AC',
     });
-    expect(portGroupLabel(placed, [placed])).toBe('전원 출력(AC 380V 3φ)');
+    expect(portGroupLabel(tpl, [tpl])).toBe('전원 출력(AC)');
+    expect(portGroupLabel(placed, [placed])).toBe('전원 출력(AC)');
   });
 
   /**
@@ -285,16 +279,15 @@ describe('포트 그룹 이름', () => {
    *
    * 380V 를 220V 로 고치는 **도중**에 이 상태가 된다 — 그때 뜻 없는 키가 튀어나오면 안 된다.
    */
-  it('값까지 같으면 순번으로 가른다', () => {
+  it('뜻이 같은 구획이 둘이면 순번으로 가른다', () => {
     const at = (group: string) => groupRefOf({
-      group, medium: 'power', direction: 'IN', name: '전원 입력', positions: 1,
-      variant: 'AC', fieldValues: { voltage: 'AC 220V 1φ' },
+      group, medium: 'power', direction: 'IN', name: '전원 입력 1', positions: 1, variant: 'AC',
     });
     const one = at('POWER-IN-AC');
     const two = at('POWER-IN-AC-2');
     const refs = [one, two];
-    expect(portGroupLabel(one, refs)).toBe('전원 입력(AC 220V 1φ) 1');
-    expect(portGroupLabel(two, refs)).toBe('전원 입력(AC 220V 1φ) 2');
+    expect(portGroupLabel(one, refs)).toBe('전원 입력(AC) 1');
+    expect(portGroupLabel(two, refs)).toBe('전원 입력(AC) 2');
   });
 
   it('하나뿐이면 키를 붙이지 않는다 — 구분이 필요할 때까지 이름을 길게 만들지 않는다', () => {
@@ -303,22 +296,17 @@ describe('포트 그룹 이름', () => {
   });
 
   /**
-   * **이름은 그 포트의 것**이고, 괄호에 값이 실린다 — 「출력(DC 48V)」.
+   * **괄호는 갈래뿐이다** — 「전원 입력(AC)」·「전원 입력(DC)」.
    *
-   * 갈래 이름(AC·DC)만 붙어 있으면 「몇 V 인가」를 알려고 그 구획을 눌러 들어가야 한다.
-   * 값이 이름에 있으면 자산 판이든 케이블 피커든 한눈에 읽힌다.
+   * 한때 전압을 이름에 실었다(「전원 출력(DC 48V)」). 그런데 전압은 회로마다 다르다 —
+   * 380/220V 3상4선 반은 한 구획의 회로가 380V 3상과 220V 단상으로 갈린다. 그러면 그 구획
+   * 이름은 거짓말이 된다. 몇 V 인지는 계통 표가 회로마다 말한다.
    */
-  it('이름에 실리는 값이 있으면 갈래 이름을 밀어낸다', () => {
-    const dc = { ...g('PWR-OUT', 'power', 'OUT'), variant: 'DC', fieldValues: { voltage: 'DC 48V' } };
-    const ac = { ...g('PWR-IN', 'power', 'IN'), variant: 'AC', fieldValues: { voltage: 'AC 380V 3φ' } };
-    const refs = [groupRefOf({ ...dc, name: '출력 1' }), groupRefOf({ ...ac, name: '전원 입력' })];
-    expect(portGroupLabel(refs[0]!, refs)).toBe('출력(DC 48V)');
-    expect(portGroupLabel(refs[1]!, refs)).toBe('전원 입력(AC 380V 3φ)');
-  });
-
-  it('값이 아직 없으면 갈래 이름으로 물러선다', () => {
-    const refs = [groupRefOf({ ...g('PWR-OUT', 'power', 'OUT'), variant: 'DC', name: '출력 1' })];
-    expect(portGroupLabel(refs[0]!, refs)).toBe('출력(DC)');
+  it('괄호에는 갈래만 붙는다 — 전압은 이름에 싣지 않는다', () => {
+    const at = (name: string, dir: 'IN' | 'OUT', variant: string) =>
+      groupRefOf({ group: `G-${dir}`, medium: 'power', direction: dir, name, positions: 1, variant });
+    const refs = [at('전원 출력 1', 'OUT', 'DC'), at('전원 입력 1', 'IN', 'AC')];
+    expect(refs.map((r) => portGroupLabel(r, refs))).toEqual(['전원 출력(DC)', '전원 입력(AC)']);
   });
 
   /**

@@ -75,16 +75,6 @@ export interface ValueDef {
    */
   trueLabel?: string;
   falseLabel?: string;
-  /**
-   * 이 값이 **구획 이름에 실린다** — 「전원 출력(DC 48V)」의 괄호 안.
-   *
-   * 전압이 그렇다. 갈래 이름(AC·DC)만 붙여 놓으면 「몇 V 인가」를 알려고 그 구획을 눌러
-   * 들어가야 한다. 값이 이름에 있으면 자산 판이든 케이블 피커든 **한눈에** 읽힌다
-   * (「DC 48V」는 갈래까지 함께 말하므로 갈래 이름을 밀어낸다).
-   *
-   * 화면이 `voltage` 라는 키를 아는 것이 아니라, **어휘가 「이건 이름에 실린다」고 말한다.**
-   */
-  inLabel?: boolean;
 }
 
 /**
@@ -284,7 +274,7 @@ export const PORT_KINDS = [
        * 몇 V 인지는 회로마다 적는다. 포트가 생길 때는 그 갈래의 예사값이 실린다
        * (`PortVariant.defaultVoltage`) — 대개 맞고, 다르면 계통 표에서 고친다.
        */
-      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20, inLabel: true },
+      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20 },
       { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 30 },
       { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true, trueLabel: '투입', falseLabel: '개방' },
     ],
@@ -554,13 +544,6 @@ export interface PortGroupRef {
   /** 종류 안의 갈래(전원의 AC·DC) — 있으면 이름에 붙는다. */
   variant?: string | null;
   /**
-   * 이름 괄호 안에 실리는 값 — 「전원 출력(**DC 48V**)」.
-   *
-   * 어휘가 `inLabel` 로 지목한 포트 값에서 온다(지금은 전압). 있으면 갈래 이름을 밀어낸다:
-   * 「DC 48V」가 이미 직류라고 말하므로 「전원 출력(DC·DC 48V)」처럼 두 번 적지 않는다.
-   */
-  detail?: string | null;
-  /**
    * 그 그룹 포트 하나의 이름(예: `장비 1`). 같은 종류·방향이 둘 이상일 때 이걸로 가른다.
    * 그룹 키(`A`·`B`)는 영문만 허용되는 **식별자**라 사람에게 보여 줄 이름이 못 된다.
    */
@@ -578,32 +561,11 @@ export interface PortGroupRef {
 export function groupRefOf(port: {
   group: string; medium: string; direction: Direction; name: string;
   positions?: number | null; variant?: string | null;
-  /** 그 포트에 적힌 값들 — 이름에 실리는 것(`inLabel`)이 여기서 나온다. */
-  fieldValues?: Record<string, unknown> | null;
 }): PortGroupRef {
   return {
     group: port.group, medium: port.medium, direction: port.direction,
     sampleName: port.name, positions: port.positions, variant: port.variant,
-    detail: labelDetailOf(port.medium, port.positions, port.variant, port.fieldValues),
   };
-}
-
-/**
- * 이 포트의 이름 괄호에 실릴 값 — **어휘가 지목한 칸**(`ValueDef.inLabel`)에 적힌 것.
- *
- * 다심 포트는 코어마다 값이 다르므로(손실·점검일) 이름에 실을 수 없다 — 그래서 `inLabel` 은
- * 코어를 가리지 않는 값에만 쓴다. 값이 없으면 null 이고, 그때는 갈래 이름이 선다.
- */
-export function labelDetailOf(
-  medium: string,
-  positions?: number | null,
-  variantKey?: string | null,
-  fieldValues?: Record<string, unknown> | null,
-): string | null {
-  if (!fieldValues) return null;
-  const field = portFieldsFor(medium, positions, variantKey).find((f) => f.inLabel);
-  const value = field ? fieldValues[field.key] : null;
-  return value == null || value === '' ? null : String(value);
 }
 
 /** 선언(포트 템플릿) → 구획 참조. 아직 포트가 없을 때(품목 편집·미리보기) 쓴다. */
@@ -633,8 +595,8 @@ function nameBase(sample: string | undefined): string | null {
  * 그래서 **번호를 뗀 그 포트의 이름**을 쓴다(「광 포트 1」 → 「광 포트」). 이름이 아예 없을
  * 때만 어휘로 물러선다 — 그때는 매체 이름과, 방향이 뜻을 갖는 종류면 방향까지 붙인다.
  *
- * 괄호 안은 **그 구획이 나르는 값**이다: 놓인 포트면 적힌 값(전압), 아직 선언뿐이면 갈래
- * (AC·DC). 「전원 출력(DC 48V)」가 어디서 보든 한눈에 읽히라고 두는 자리다.
+ * 괄호 안은 **갈래**다(AC·DC) — 못 잇는 것끼리 갈라 보이라고 두는 자리다. 값(전압)은 넣지
+ * 않는다: 한 구획의 열 회로가 220V·380V 로 갈릴 수 있어 이름이 거짓말이 된다.
  *
  * 이름이 같은 구획이 둘이면 그때만 **순번**을 붙인다 — 그룹 키(`NETWORK-2`)는 타입 안에서
  * 유일하기만 하면 되는 식별자라 사람에게 아무 뜻이 없다.
@@ -661,10 +623,11 @@ export function portGroupLabel(
       return kind?.pairing === 'opposite' ? `${name} ${portDirectionLabel(g.direction)}` : name;
     };
     const name = own ?? fromVocabulary();
-    /* 괄호 — 적힌 값이 먼저고, 없으면 갈래다(「전원 출력(DC 48V)」·「전원 출력(DC)」). */
+    /* 괄호는 **갈래**뿐이다 — 「전원 입력(AC)」·「전원 입력(DC)」. 값(전압)은 회로마다
+       다르므로 이름에 싣지 않는다: 한 구획의 열 회로가 220V·380V 로 갈리면 그 이름은
+       거짓말이 된다. 몇 V 인지는 계통 표가 회로마다 말한다. */
     const variant = kind?.variants?.find((v) => v.key === g.variant);
-    const inParens = g.detail ?? variant?.name ?? null;
-    return `${name}${inParens ? `(${inParens})` : ''}`;
+    return `${name}${variant ? `(${variant.name})` : ''}`;
   };
 
   const mine = base(target);

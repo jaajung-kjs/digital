@@ -86,18 +86,20 @@ describe('시드 포트 그룹은 어휘가 내놓는 것뿐', () => {
   });
 
   /**
-   * **이름이 어휘에 없는 뜻을 지어내지 않는다.**
+   * **포트 이름은 화면이 만드는 그것뿐이다.**
    *
-   * 서지보호기를 「입력」·「출력」 두 네트워크 구획으로 적어 둔 적이 있다. 네트워크에는
-   * 방향이라는 것이 아예 없는데(`pairing: 'any'`) 이름만으로 방향을 만든 셈이라, 화면으로는
-   * 그 모양을 만들 수도 고칠 수도 없었다. 방향이 뜻을 갖는 종류(전원)에서만 그 말을 쓴다.
+   * 화면에는 포트 이름을 정하는 자리가 없다 — 종류를 고르면 이름은 그 선택지가 정한다
+   * (`PortPreset.namePattern`). 그런데 시드가 「UTP」·「COM1」·「관리」·「회선 {n}」처럼 제
+   * 손으로 이름을 지어 넣어, **화면으로는 만들 수도 고칠 수도 없는 이름**이 자산 판에
+   * 떠 있었다(서지보호기는 「입력」·「출력」이라 방향까지 지어냈다).
+   *
+   * 이름을 정하는 자리가 생기기 전까지, 시드가 쓸 수 있는 이름은 선택지의 것뿐이다.
    */
-  it('방향이 없는 종류의 포트 이름에 입력·출력을 적지 않는다', () => {
+  it('포트 이름은 화면의 선택지가 내놓는 것뿐이다', () => {
+    const names = new Set(portPresets().map((p) => p.namePattern));
     for (const type of SEED_ASSET_TYPES) {
       for (const port of type.ports) {
-        const directional = portKind(port.medium)?.pairing === 'opposite';
-        if (directional) continue;
-        expect(/입력|출력|IN|OUT/i.test(port.namePattern), `${type.key}: ${port.namePattern}`).toBe(false);
+        expect(names.has(port.namePattern), `${type.key}: ${port.namePattern}`).toBe(true);
       }
     }
   });

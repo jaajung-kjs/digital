@@ -42,8 +42,23 @@ describe('comparePortStructure', () => {
   /* 개수는 그대로여도 **이미 있는 포트의 뜻**이 바뀌면 그것은 다른 물건이 된 것이다 —
      안 쓰는 것만 골라 처리할 수가 없으므로 개수와 따로 표시한다. */
   it('방향·매체·이름 규칙·심선 수가 바뀌면 redefined', () => {
-    for (const over of [{ direction: 'IN' }, { medium: 'fiber' }, { namePattern: 'P{n}' }, { positions: 24 }]) {
+    for (const over of [{ direction: 'IN' }, { medium: 'fiber' }, { positions: 24 }]) {
       expect(comparePortStructure(before, [tpl({ group: 'P', count: 2, ...over }), before[1]!]).redefined).toBe(true);
     }
+  });
+});
+
+/**
+ * **이름은 뜻이 아니다.**
+ *
+ * 한때 이름 규칙이 바뀌면 「이미 있는 포트가 다른 물건이 되는 일」로 쳐서, 자산이 하나라도
+ * 있으면 포트 이름을 고칠 수 없었다. 그런데 이름을 고쳐도 그 포트는 같은 자리에 있고 물린
+ * 케이블도 그대로다 — 부르는 말만 달라진다(놓인 포트의 이름은 저장할 때 함께 맞춘다).
+ */
+describe('이름 규칙 변경', () => {
+  it('이름만 달라진 것은 뜻이 바뀐 것이 아니다', () => {
+    const before = [tpl({ group: 'A', count: 4 })];
+    const after = [tpl({ group: 'A', count: 4, namePattern: '회선 {n}' })];
+    expect(comparePortStructure(before, after).redefined).toBe(false);
   });
 });

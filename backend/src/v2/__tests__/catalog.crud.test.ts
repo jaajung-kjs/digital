@@ -281,11 +281,11 @@ describe('catalog CRUD', () => {
       data: { name: `${uniq}-asset2b`, typeId, substationId: sub.id },
     });
 
-    // 같은 구획·같은 개수인데 이름 규칙이 달라진다 — 개수 문제가 아니라 이미 있는 포트가
-    // 다른 물건이 되는 일이다(앞 시험이 개수를 4로 늘려 두었으므로 개수는 그대로 4).
+    /* 같은 구획·같은 개수인데 **매체**가 달라진다 — 이미 있는 포트가 다른 물건이 되는 일이다
+       (앞 시험이 개수를 4로 늘려 두었으므로 개수는 그대로 4). */
     const redefined = [
-      { group: 'fiberIn', count: 4, direction: 'IN' as const, medium: 'fiber', namePattern: 'IN {n}' },
-      { group: 'fiberOut', count: 4, direction: 'OUT' as const, medium: 'fiber', namePattern: 'OUT {n}' },
+      { group: 'fiberIn', count: 4, direction: 'IN' as const, medium: 'network', namePattern: '입력 {n}' },
+      { group: 'fiberOut', count: 4, direction: 'OUT' as const, medium: 'fiber', namePattern: '출력 {n}' },
     ];
     const res = await request(app)
       .put(`/api/v2/catalog/types/${typeId}`)
