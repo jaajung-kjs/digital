@@ -79,7 +79,7 @@ describe('케이블 파라미터 선언', () => {
 
   it('갈래가 값과 기본값을 좁힌다 — 직류 포트에 교류 전압이 뜨지 않는다', () => {
     const dc = portFieldsFor('power', 1, 'DC').find((f) => f.key === 'voltage')!;
-    expect(dc.options).toEqual(['DC 48V']);
+    expect(dc.options?.every((v) => String(v).startsWith('DC'))).toBe(true);
     expect(dc.defaultValue).toBe('DC 48V');
     const ac = portFieldsFor('power', 1, 'AC').find((f) => f.key === 'voltage')!;
     expect(ac.options?.every((v) => String(v).startsWith('AC'))).toBe(true);
@@ -218,10 +218,20 @@ describe('고를 수 있는 값', () => {
     for (const v of [70, 95, 120, 185, 240]) expect(size).not.toContain(v);
     const ampere = portFieldsFor('power').find((f) => f.key === 'ampere')!.options!;
     for (const v of [250, 300, 500, 600]) expect(ampere).not.toContain(v);
-    /* 자료에 있던 전압은 넷뿐이다(220·380·48·110) — DC 125V·24V 는 넣지 않는다. */
+    /* 직류는 **쓰임에 따라 계통이 갈린다** — 통신 48V, 제어 125V·110V, 보조 24V.
+       그래도 넓게 잡지는 않는다: 250V 는 1940~50년대 계열이라 신설에 쓰지 않고,
+       DC 220V 는 영국·대형 송전 쪽이라 우리 범위가 아니다. */
     const voltage = portFieldsFor('power').find((f) => f.key === 'voltage')!.options!.map(String);
-    expect(voltage.some((v) => v.includes('125V'))).toBe(false);
-    expect(voltage.some((v) => v.includes('24V'))).toBe(false);
+    expect(voltage.some((v) => v.includes('250V'))).toBe(false);
+    expect(voltage.some((v) => v === 'DC 220V')).toBe(false);
+  });
+
+  /** 직류 목록은 **그 쓰임이 있는 것만** — 통신(48V) · 제어(125V·110V) · 보조(24V). */
+  it('직류 전압은 쓰임이 있는 것만 담는다', () => {
+    const dc = portFieldsFor('power', 1, 'DC').find((f) => f.key === 'voltage')!;
+    expect(dc.options).toEqual(['DC 125V', 'DC 110V', 'DC 48V', 'DC 24V']);
+    /* 우리 설비(통신)의 예사값은 그대로 48V 다 — 목록이 늘어도 기본은 안 흔들린다. */
+    expect(dc.defaultValue).toBe('DC 48V');
   });
 });
 
