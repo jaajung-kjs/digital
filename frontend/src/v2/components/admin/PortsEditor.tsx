@@ -1,38 +1,42 @@
 /**
- * PortsEditor — **위에 입력 한 줄, 아래에 판**. 카드 한 장이다.
+ * PortsEditor — **이 장비가 무슨 포트를 갖는가**를 적는 표.
  *
- * 앞서 두 번 잘못 갔다.
- *   1) 종류를 고를 때마다 카드가 쌓였다 — 네 그룹 398px, 일곱이면 600px(§1.6 위반).
- *   2) 그래서 일곱 줄 고정 표로 바꿨더니, **한 자리 숫자 일곱 개를 받으려고 세로 376px**
- *      를 쓰고 그 옆에 판을 또 그렸다. 고정은 됐지만 여전히 헐렁했다.
+ * 세 번 잘못 갔다.
+ *   1) 종류를 고를 때마다 카드가 쌓였다 — 네 그룹 398px(§1.6 위반).
+ *   2) 일곱 줄 고정 표로 바꿨더니 한 자리 숫자 일곱 개에 세로 376px 를 썼다.
+ *   3) 그래서 칩 한 줄로 눌러 담았다 — **종류 아홉이 늘 서 있고 개수만 적는 판**이 됐다.
+ *      화면의 대부분이 「없는 포트」(0개)였고, 1 을 적는 순간 그 옆에 전압·코어 칸이
+ *      자라나 「엥, 뭐가 생겼지」가 됐다. 조회하러 온 사람에게 입력 상자 아홉을 들이미는
+ *      꼴이기도 했다(§1.7-i 가 선번장에서 걷어낸 바로 그것).
  *
- * 세 번째 자리가 지금이다: **입력은 위에 한 줄로 모으고, 아래는 판**.
- *   - 판 위에 칸을 흩어 놓으니(두 번째 시도) 고칠 곳을 눈으로 찾아 다녀야 했다. 값을 넣는
- *     일은 한 곳에 모여 있어야 손이 한 번에 간다.
- *   - 그러고 나면 판은 **결과만** 보여 주면 되므로 넓게 쓸 수 있다. 0개짜리 종류는 판에서
- *     빠지고 위 줄에만 남는다 — 판은 「이 장비가 어떻게 생겼나」이지 「무엇을 안 골랐나」가
- *     아니다.
+ * 지금은 **선언 표**다 — 이 판이 실제로 갖는 구획만 한 줄씩 선다. DCIM 의 표준 어법이기도
+ * 하다(NetBox 의 장비 타입 화면: 컴포넌트가 표로 서고 「Add Components」로 더한다).
+ *   - **읽는 줄이 기본**이고 누르면 그때 상자가 선다(`InlineEditCell`).
+ *   - **없는 포트는 화면에 없다.** 표는 「이 장비가 어떻게 생겼나」이지 「무엇을 안 골랐나」가 아니다.
+ *   - 더하는 일은 **명시적**이고(「＋ 포트 추가」), 새 줄이 서서 그 줄 안에서 종류를 고른다.
+ *     칸이 옆에서 튀어나오는 것이 아니라 **새 줄의 칸**이라 놀랄 일이 없다(§1.7-m: 만들기와
+ *     고치기가 같은 상자).
+ *   - 세부(전압·코어)는 **그 종류가 요구하는 칸**이다 — NetBox 의 리어 포트가 `positions` 를
+ *     그 행에 갖는 것과 같다.
  *
- * 위 줄은 종류가 일곱으로 고정이라 키가 늘 같고, 판은 상한을 둬 **포트가 늘어도 카드가
- * 자라지 않는다**.
+ * **틀은 못 박는다**(§1.6·§1.7-b): 머리글과 「＋ 포트 추가」는 늘 그 자리에 있고, 표는 여덟
+ * 줄까지 자란 뒤로는 **표 본문만** 흐른다. 전면판은 남는 자리를 그대로 채운다 — 포트가
+ * 둘이든 스물다섯이든 카드 바깥은 움직이지 않는다.
  *
- * **묻는 것은 개수와 심선 수뿐**이다. 그룹 키·방향·매체·이름 패턴은 종류가 이미 정한 값이라
- * 물어 봐야 답이 하나뿐인 칸이었다.
- *
- * **미리 잠그지 않는다.** 예전에는 자산이 하나라도 있으면 모든 칸을 disabled 로 두고 그
- * 사실을 띠로 늘 띄워 놨다. 그런데 정말로 막히는 것은 「지우려는 그 포트에 케이블이 물렸을
- * 때」뿐이고, 그건 이 화면이 알 수 없다(케이블은 변전소마다 있다). 알 수도 없는 것을 미리
- * 막으면 할 수 있는 일까지 함께 막힌다 — 잘못 만든 포트를 지우는 일이 그랬다.
- *
- * 그래서 **누를 수 있게 두고, 저장할 때 서버가 정한다**. 막히면 그때 무엇이 막았는지(어느
- * 자산의 어느 포트) 위에 뜬다 — 늘 떠 있는 안내는 읽히지 않고, 정작 막힌 순간에는 이유를
- * 말해 주지 못한다.
+ * **미리 잠그지 않는다.** 정말로 막히는 것은 「지우려는 그 포트에 케이블이 물렸을 때」뿐이고,
+ * 그건 이 화면이 알 수 없다(케이블은 변전소마다 있다). 누를 수 있게 두고 저장할 때 서버가
+ * 무엇이 막았는지 말한다.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
 import { DEFAULT_CORE_COUNT, groupRefOfTemplate, isMultiCorePort, portGroupLabel, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
-import { DetailCard, DetailCardHeader, EmptyState, ErrorStrip, EMPTY, cn, InsetBox } from '../../../components/ui';
+import {
+  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, EMPTY, IconButton, Select,
+  TABLE_ROW, TableCard, Th, cn,
+} from '../../../components/ui';
+import { Plus, Trash2 } from 'lucide-react';
+import { InlineEditCell } from '../InlineEditCell';
 import { useMediumColor, useMediumLabel } from '../../hooks';
 import type { TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
@@ -40,6 +44,12 @@ import { portSections } from './portSections';
 import { issueFor } from './adminUtils';
 
 type PortRow = TypeDraft['ports'][number];
+
+/** 구획 · 개수 · 이름 · 세부 · 지우기 — 합 100(§Table 규약). */
+const PORT_COLUMNS = [30, 12, 28, 24, 6] as const;
+
+/** 줄을 새로 세울 때의 개수 — 하나로 시작해 필요한 만큼 늘린다(다심은 늘 1구다). */
+const DEFAULT_PORT_COUNT = 1;
 
 interface PortsEditorProps {
   draft: TypeDraft;
@@ -58,34 +68,6 @@ interface PortsEditorProps {
 const kindOf = (p: { medium: string; direction: Direction; positions?: number | null; variant?: string | null }) =>
   `${p.medium}|${p.direction}|${isMultiCorePort(p.positions) ? 'multi' : 'single'}|${p.variant ?? ''}`;
 
-/** 개수 칸 — 종류 이름 옆에 붙는 작은 숫자 칸. 폼 상자(38px)를 쓰면 줄이 통째로 두꺼워진다. */
-function CountField({
-  label, value, min, onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  onChange: (raw: string) => void;
-}) {
-  return (
-    <input
-      type="number"
-      aria-label={label}
-      value={String(value)}
-      min={min}
-      onChange={(e) => onChange(e.currentTarget.value)}
-      /* 일곱 종류가 한 줄에 들어가야 하므로 폭·높이를 최소로 — `Input`(38px)을 쓰면 이 줄만
-         세 줄이 된다. 테두리와 흰 배경으로 「고칠 수 있는 값」임은 남긴다. */
-      className={cn(
-        'w-9 rounded bg-surface/70 px-1 text-center text-xs tabular-nums text-content',
-        'border border-line focus:outline-none focus:ring-1 focus:ring-primary',
-        'disabled:cursor-not-allowed disabled:opacity-60',
-        '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none',
-      )}
-    />
-  );
-}
-
 /**
  * 이 선언이 고를 수 있는 전압 — **갈래가 정한다**(`PortVariant.voltages`).
  *
@@ -97,82 +79,20 @@ function voltageOptionsOf(row: PortRow): readonly string[] {
   return kind?.variants?.find((v) => v.key === row.variant)?.voltages ?? [];
 }
 
-/**
- * 전압 칸 — 정해진 값 중에서 고르되 **닫아 걸지 않는다**.
- *
- * 목록에 없는 값이 실제로 나온다(제어전원 DC 125V 처럼). 「직접 입력…」으로 적을 수 있고,
- * 이미 적힌 값이 목록에 없어도 지우지 않는다 — 화면이 사실을 감추면 안 된다.
- */
-function VoltageField({
-  label, value, options, onChange,
-}: {
-  label: string;
-  value: string;
-  options: readonly string[];
-  onChange: (next: string | null) => void;
-}) {
-  const CUSTOM = '\u0000custom';
-  const all = value && !options.includes(value) ? [value, ...options] : options;
-  return (
-    <select
-      aria-label={label}
-      value={value}
-      onChange={(e) => {
-        const next = e.currentTarget.value;
-        if (next === CUSTOM) {
-          const typed = window.prompt(label, value)?.trim();
-          if (typed) onChange(typed);
-          return;
-        }
-        onChange(next || null);
-      }}
-      className={cn(
-        'rounded bg-surface/70 px-1 text-xs text-content',
-        'border border-line focus:outline-none focus:ring-1 focus:ring-primary',
-      )}
-    >
-      <option value="">{EMPTY}</option>
-      {all.map((v) => (
-        <option key={v} value={v}>{v}</option>
-      ))}
-      <option value={CUSTOM}>직접 입력…</option>
-    </select>
-  );
-}
-
 export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   const ports = draft.ports;
   const mediumLabel = useMediumLabel();
   const mediumColor = useMediumColor();
 
-  /* 선언 목록 — 이미 있는 것 + **없는 종류도 0개짜리로**.
-     위 줄은 일곱 종류가 늘 서 있어야 한다. 켤 때마다 칸이 생겼다 없어지면 다른 칸의 자리가
-     밀려, 방금 고친 곳을 눈으로 다시 찾아야 한다. */
+  /**
+   * 표에 서는 줄 — **이 판이 실제로 갖는 구획만**.
+   *
+   * 예전에는 프리셋 아홉을 0개짜리로 늘 세웠다. 그러면 표의 대부분이 「없는 포트」다.
+   * 없는 것은 표에 없고, 더하는 길은 아래 「＋ 포트 추가」 하나다.
+   */
   const declared = useMemo<PreviewRow[]>(() => {
-    const byKind = new Map(ports.map((p) => [kindOf(p), p]));
-    const taken = ports.map((p) => p.group);
-    const fromPresets = portPresets().map((preset) => {
-      const existing = byKind.get(kindOf(preset));
-      if (existing) return { row: existing, preset };
-      return {
-        row: {
-          group: uniqueGroupKey(preset.groupKey, taken),
-          count: 0,
-          direction: preset.direction,
-          medium: preset.medium,
-          namePattern: preset.namePattern,
-          positions: preset.positions,
-          ...(preset.variant ? { variant: preset.variant } : {}),
-          /* 전압은 프리셋이 그 갈래의 예사값을 들고 온다 — 켜는 순간 이미 「DC 48V」다. */
-          ...(preset.voltage ? { voltage: preset.voltage } : {}),
-        } satisfies PortRow,
-        preset,
-      };
-    });
-    const known = new Set(fromPresets.map((r) => kindOf(r.row)));
-    // 어느 프리셋과도 안 맞는 선언(손으로 만든 것)은 조용히 지우지 않고 뒤에 남긴다.
-    const extra = ports.filter((p) => !known.has(kindOf(p))).map((row) => ({ row, preset: null }));
-    return [...fromPresets, ...extra];
+    const byKind = new Map(portPresets().map((preset) => [kindOf(preset), preset]));
+    return ports.map((row) => ({ row, preset: byKind.get(kindOf(row)) ?? null }));
   }, [ports]);
 
   const sections = useMemo(
@@ -180,11 +100,19 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     [declared, mediumLabel, mediumColor],
   );
 
+  /**
+   * 더하는 중인 줄 — **표 안에 실제로 선다**.
+   *
+   * 「추가」 상자를 따로 띄우지 않는다(§1.7-m). 빈 줄이 그 자리에 서고 첫 칸에서 종류를
+   * 고르면 그 줄이 채워진다 — 무엇을 만드는 중인지가 늘 화면에 있다. 고르지 않고 물리면
+   * 줄은 사라진다(덜 채운 것은 없는 것이다).
+   */
+  const [adding, setAdding] = useState(false);
+
   function patch(row: PortRow, next: Partial<PortRow>) {
-    const existing = ports.find((p) => kindOf(p) === kindOf(row) && p.group === row.group);
+    const existing = ports.find((p) => p.group === row.group);
     let after: PortRow[];
     if (!existing) {
-      // 0개였던 종류를 켠다 — 선언이 그때 생긴다.
       if ((next.count ?? 0) <= 0) return;
       after = [...ports, { ...row, ...next }];
     } else if (next.count === 0) {
@@ -195,6 +123,25 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     onChange({ ports: syncTrunkAdapters(after, { ...row, ...next }, existing ?? null) });
   }
 
+  /** 고른 종류로 줄을 하나 만든다 — 그룹 키는 어휘가 주고, 겹치면 번호가 붙는다. */
+  function addPreset(index: number) {
+    const preset = portPresets()[index];
+    if (!preset) return;
+    const row: PortRow = {
+      group: uniqueGroupKey(preset.groupKey, ports.map((p) => p.group)),
+      count: preset.positions > 1 ? 1 : DEFAULT_PORT_COUNT,
+      direction: preset.direction,
+      medium: preset.medium,
+      namePattern: preset.namePattern,
+      positions: preset.positions,
+      ...(preset.variant ? { variant: preset.variant } : {}),
+      /* 전압은 프리셋이 그 갈래의 예사값을 들고 온다 — 놓는 순간 이미 「DC 48V」다. */
+      ...(preset.voltage ? { voltage: preset.voltage } : {}),
+    };
+    setAdding(false);
+    onChange({ ports: syncTrunkAdapters([...ports, row], row, null) });
+  }
+
   const total = ports.reduce((n, p) => n + p.count, 0);
   const issue = declared
     .map(({ row }) => {
@@ -203,71 +150,136 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     })
     .find(Boolean);
 
-  /** 판에는 **실제로 있는 것만** — 0개짜리는 위 줄이 이미 말한다. */
   const faceplate = sections
     .filter((section) => section.ports.length > 0)
     .map((section) => ({ key: section.key, label: section.labelText, accent: section.accent, ports: section.ports }));
 
   return (
     /* 카드가 세로를 다 쓰고, 판이 그 안에서 남는 자리를 채운다 — 캔버스는 화면 아래까지
-       서야 한다(구성 격자와 같은 규칙). 포트가 많으면 판 안에서 스크롤한다. */
+       서야 한다(구성 격자와 같은 규칙). */
     <DetailCard className="flex min-h-0 flex-1 flex-col">
-      <DetailCardHeader title="포트" badge={`${total}개`} badgeStatus={total > 0 ? 'success' : 'neutral'} />
+      <DetailCardHeader
+        title="포트"
+        badge={`${total}개`}
+        badgeStatus={total > 0 ? 'success' : 'neutral'}
+        /* 더하는 단추는 **늘 이 자리**다 — 표가 길어져도 스크롤 밖에 남는다(§1.7-b). */
+        actions={
+          <Button size="sm" variant="ghost" onClick={() => setAdding(true)} disabled={adding}>
+            <Plus size={14} /> 포트 추가
+          </Button>
+        }
+      />
       <ErrorStrip message={issue ?? null} />
 
-      {/* 값을 넣는 자리 — **한 줄에 모은다**. 종류가 일곱으로 고정이라 이 줄의 키도 늘 같다.
-          개수 0 이면 그 종류가 없는 것이라, 켜고 끄는 길을 따로 두지 않는다. */}
-      <InsetBox className="flex flex-wrap gap-x-3 gap-y-1.5 px-2 py-1.5">
-        {declared.map(({ row }) => {
-          const label = labelOf(row, declared, mediumLabel);
-          const on = row.count > 0;
-          return (
-            <span key={row.group} className="flex items-center gap-1">
-              <span className={cn('text-xs', on ? 'text-content' : 'text-content-faint')}>{label}</span>
-              <CountField
-                label={`${label} 개수`}
-                value={row.count}
-                min={0}
-                onChange={(raw) => patch(row, { count: Math.max(Number(raw) || 0, 0) })}
-              />
-              {/* 심선 수는 다심 종류에만, 그것도 켜져 있을 때만.
-                  **두 수에 단위를 적는다.** 예전에는 `1 × 24` 뿐이라 곱셈인지 「1구에 24코어」
-                  인지 읽는 사람이 알 단서가 없었다 — 수가 둘 나란히 서면 각각이 무엇을
-                  세는지 말해야 한다. */}
-              {/* 전압은 **여기서 정한다** — 이 품목의 전원 입력이 몇 V 인가. 놓인 포트는
-                  이 값을 물려받아 보여 주기만 한다(계통 표·포트 카드는 읽기 전용).
-                  고를 수 있는 값은 그 갈래가 정한다(직류 줄에 교류 전압이 뜨지 않는다). */}
-              {on && voltageOptionsOf(row).length > 0 && (
-                <VoltageField
-                  label={`${label} 전압`}
-                  value={row.voltage ?? ''}
-                  options={voltageOptionsOf(row)}
-                  onChange={(next) => patch(row, { voltage: next })}
-                />
+      {(declared.length > 0 || adding) && (
+        /* 표는 **여덟 줄까지** 자라고 그 뒤로는 본문만 흐른다 — 머리글은 남는다(§1.6). */
+        <div className="min-h-0 max-h-[calc(8*2.25rem+2.25rem)] overflow-y-auto">
+          <TableCard widths={PORT_COLUMNS}>
+            <thead>
+              <tr className="sticky top-0 z-sticky">
+                <Th>구획</Th>
+                <Th align="right">개수</Th>
+                <Th>이름</Th>
+                <Th>세부</Th>
+                <Th aria-label="지우기"><span className="sr-only">지우기</span></Th>
+              </tr>
+            </thead>
+            <tbody>
+              {declared.map(({ row }) => {
+                const label = labelOf(row, declared, mediumLabel);
+                const voltages = voltageOptionsOf(row);
+                return (
+                  <tr key={row.group} className={cn(TABLE_ROW, 'group')}>
+                    <td className="px-3 text-sm text-content">
+                      <span className="block truncate">{label}</span>
+                    </td>
+                    <td className="px-2">
+                      <InlineEditCell
+                        label={`${label} 개수`}
+                        type="number"
+                        value={String(row.count)}
+                        onCommit={(raw) => {
+                          const next = Math.max(Number(raw) || 0, 0);
+                          if (next !== row.count) patch(row, { count: next });
+                        }}
+                      />
+                    </td>
+                    {/* 이름은 **어휘가 정한다** — 「{n}」 자리에 번호가 들어간다. 읽는 값이다. */}
+                    <td className="px-3 text-sm text-content-muted">
+                      <span className="block truncate">{row.namePattern}</span>
+                    </td>
+                    {/* 세부 — **그 종류가 요구하는 칸**이다. 전원이면 전압, 다심이면 코어 수. */}
+                    <td className="px-2">
+                      {voltages.length > 0 ? (
+                        <InlineEditCell
+                          label={`${label} 전압`}
+                          value={row.voltage ?? ''}
+                          options={voltages}
+                          onCommit={(raw) => patch(row, { voltage: raw.trim() || null })}
+                        />
+                      ) : isMultiCorePort(row.positions) ? (
+                        <InlineEditCell
+                          label={`${label} 심선 수`}
+                          type="number"
+                          unit=" 코어"
+                          value={String(row.positions ?? DEFAULT_CORE_COUNT)}
+                          onCommit={(raw) => {
+                            const next = Math.max(Number(raw) || 2, 2);
+                            if (next !== row.positions) patch(row, { positions: next });
+                          }}
+                        />
+                      ) : (
+                        <span className="block px-1 text-sm text-content-faint">{EMPTY}</span>
+                      )}
+                    </td>
+                    {/* 지우는 손은 **그 줄에 닿았을 때만** 드러난다(§1.7). */}
+                    <td className="px-1 text-right">
+                      <IconButton
+                        aria-label={`${label} 지우기`}
+                        title="지우기"
+                        size="sm"
+                        className="opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+                        onClick={() => patch(row, { count: 0 })}
+                      >
+                        <Trash2 size={14} />
+                      </IconButton>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {adding && (
+                <tr className={TABLE_ROW}>
+                  <td className="px-2" colSpan={5}>
+                    {/* 고르는 자리가 곧 그 줄이다 — 무엇을 만드는 중인지가 표 안에 있다. */}
+                    <Select
+                      aria-label="포트 종류"
+                      size="sm"
+                      autoFocus
+                      defaultValue=""
+                      onChange={(e) => addPreset(Number(e.currentTarget.value))}
+                      onBlur={() => setAdding(false)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setAdding(false); }}
+                    >
+                      <option value="" disabled>포트 종류를 고르세요</option>
+                      {portPresets().map((preset, i) => (
+                        <option key={preset.groupKey} value={i}>{preset.name}</option>
+                      ))}
+                    </Select>
+                  </td>
+                </tr>
               )}
-              {isMultiCorePort(row.positions) && on && (
-                <>
-                  <span className="text-xs text-content-faint">구 ×</span>
-                  <CountField
-                    label={`${label} 심선 수`}
-                    value={row.positions ?? DEFAULT_CORE_COUNT}
-                    min={2}
-                    onChange={(raw) => patch(row, { positions: Math.max(Number(raw) || 2, 2) })}
-                  />
-                  <span className="text-xs text-content-faint">코어</span>
-                </>
-              )}
-            </span>
-          );
-        })}
-      </InsetBox>
+            </tbody>
+          </TableCard>
+        </div>
+      )}
 
       {/* 결과 — 이 장비 품목을 놓으면 생길 판.
           판은 **남는 자리를 다 쓴다**: 포트가 둘이든 스물다섯이든 캔버스는 같은 크기여야
           종류를 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 판 안에서 스크롤한다. */}
       {faceplate.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
-          <EmptyState title="포트가 없습니다" description="위에서 포트 종류별 개수를 적으면 판이 여기 나타납니다." />
+          <EmptyState title="포트가 없습니다" description="「＋ 포트 추가」로 이 장비가 갖는 포트를 적으면 판이 여기 나타납니다." />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
