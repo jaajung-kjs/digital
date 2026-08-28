@@ -198,7 +198,8 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   }, [ports]);
 
   const sections = useMemo(
-    () => portSections(declared.map((d) => d.row), mediumLabel, mediumColor),
+    /* 값은 이름표의 칩이 고친다 — 이름에 또 실으면 「전원 출력(DC 48V) [DC 48V]」가 된다. */
+    () => portSections(declared.map((d) => d.row), mediumLabel, mediumColor, false),
     [declared, mediumLabel, mediumColor],
   );
 

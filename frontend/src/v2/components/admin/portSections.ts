@@ -11,6 +11,10 @@ export interface PreviewPort {
   medium: string;
   namePattern: string;
   positions?: number | null;
+  /** 종류 안의 갈래(전원의 AC·DC) — 이름이 그것으로 갈린다. */
+  variant?: string | null;
+  /** 이름 괄호에 실리는 값 — 「전원 출력(DC 48V)」. */
+  voltage?: string | null;
 }
 
 export interface PortSection {
@@ -37,6 +41,13 @@ export function portSections(
   source: readonly PreviewPort[],
   mediumLabel: (key: string) => string,
   mediumColor: (key: string) => string | null,
+  /**
+   * 이름 괄호에 값을 실을 것인가 — 「전원 출력(DC 48V)」.
+   *
+   * 미리보기는 싣는다(놓고 나면 그 이름으로 보이므로). **편집기는 싣지 않는다** — 그 값을
+   * 이름표의 칩으로 따로 고치므로 같은 말이 두 번 서기 때문이다.
+   */
+  withDetail = true,
 ): PortSection[] {
   const ports: V2Port[] = instantiatePorts(
     source.map((p, i) => ({
@@ -58,7 +69,10 @@ export function portSections(
   /* 개수가 0 인 선언도 구획으로 남긴다 — 편집기에서 「없는 종류」도 한 자리를 지켜야
      칸을 켜고 끌 때 판이 출렁이지 않는다. 그때는 `instantiatePorts` 가 포트를 하나도
      만들지 않으므로 선언에서 직접 짓는다. */
-  const refs = source.map(groupRefOfTemplate);
+  const refs = source.map((p) => {
+    const ref = groupRefOfTemplate(p);
+    return withDetail ? ref : { ...ref, detail: null };
+  });
 
   return refs
     .slice()

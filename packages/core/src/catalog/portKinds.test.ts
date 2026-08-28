@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CORE_COUNT, PORT_KINDS, cableFieldsFor, coreCount, isMultiCorePort, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey } from './portKinds.js';
+import { DEFAULT_CORE_COUNT, PORT_KINDS, cableFieldsFor, coreCount, groupRefOf, groupRefOfTemplate, isMultiCorePort, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -252,6 +252,35 @@ describe('포트 그룹 이름', () => {
   it('하나뿐이면 키를 붙이지 않는다 — 구분이 필요할 때까지 이름을 길게 만들지 않는다', () => {
     const all = [g('A', 'fiber')];
     expect(portGroupLabel(all[0]!, all)).toBe('광');
+  });
+
+  /**
+   * **값이 이름에 실린다** — 「전원 출력(DC 48V)」.
+   *
+   * 갈래 이름(AC·DC)만 붙어 있으면 「몇 V 인가」를 알려고 그 구획을 눌러 들어가야 한다.
+   * 값이 이름에 있으면 자산 판이든 케이블 피커든 한눈에 읽힌다.
+   */
+  it('이름에 실리는 값이 있으면 갈래 이름을 밀어낸다', () => {
+    const dc = { ...g('PWR-OUT', 'power', 'OUT'), variant: 'DC', fieldValues: { voltage: 'DC 48V' } };
+    const ac = { ...g('PWR-IN', 'power', 'IN'), variant: 'AC', fieldValues: { voltage: 'AC 380V 3φ' } };
+    const refs = [groupRefOf({ ...dc, name: '출력 1' }), groupRefOf({ ...ac, name: '전원 입력' })];
+    expect(portGroupLabel(refs[0]!, refs)).toBe('전원 출력(DC 48V)');
+    expect(portGroupLabel(refs[1]!, refs)).toBe('전원 입력(AC 380V 3φ)');
+  });
+
+  it('값이 아직 없으면 갈래 이름으로 물러선다', () => {
+    const refs = [groupRefOf({ ...g('PWR-OUT', 'power', 'OUT'), variant: 'DC', name: '출력 1' })];
+    expect(portGroupLabel(refs[0]!, refs)).toBe('전원 출력(DC)');
+  });
+
+  /* 선언(품목)과 놓인 포트가 **같은 이름**을 내야 한다 — 한쪽만 값을 실으면 품목 화면과
+     자산 화면에서 같은 구획이 다른 이름으로 불린다. */
+  it('선언에서도 같은 이름이 나온다', () => {
+    const tpl = groupRefOfTemplate({
+      group: 'PWR-OUT', medium: 'power', direction: 'OUT', namePattern: '출력 {n}',
+      variant: 'DC', voltage: 'DC 48V',
+    });
+    expect(portGroupLabel(tpl, [tpl])).toBe('전원 출력(DC 48V)');
   });
 
   it('어휘에 없는 종류는 그 값을 쓴다 — 빈 이름이 되지 않게', () => {
