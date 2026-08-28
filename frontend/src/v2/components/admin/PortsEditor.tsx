@@ -30,9 +30,9 @@
  */
 import { useMemo } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DEFAULT_CORE_COUNT, groupRefOfTemplate, isMultiCorePort, portGroupLabel, portPresets, uniqueGroupKey } from '@twin/core';
+import { DEFAULT_CORE_COUNT, groupRefOfTemplate, isMultiCorePort, portGroupLabel, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
-import { DetailCard, DetailCardHeader, EmptyState, ErrorStrip, cn, InsetBox } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, EmptyState, ErrorStrip, EMPTY, cn, InsetBox } from '../../../components/ui';
 import { useMediumColor, useMediumLabel } from '../../hooks';
 import type { TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
@@ -86,6 +86,60 @@ function CountField({
   );
 }
 
+/**
+ * 이 선언이 고를 수 있는 전압 — **갈래가 정한다**(`PortVariant.voltages`).
+ *
+ * 갈래가 없는 종류(네트워크·광·접지)는 전압이라는 말 자체가 없으므로 빈 목록이고,
+ * 그때는 칸도 서지 않는다.
+ */
+function voltageOptionsOf(row: PortRow): readonly string[] {
+  const kind = portKind(row.medium);
+  return kind?.variants?.find((v) => v.key === row.variant)?.voltages ?? [];
+}
+
+/**
+ * 전압 칸 — 정해진 값 중에서 고르되 **닫아 걸지 않는다**.
+ *
+ * 목록에 없는 값이 실제로 나온다(제어전원 DC 125V 처럼). 「직접 입력…」으로 적을 수 있고,
+ * 이미 적힌 값이 목록에 없어도 지우지 않는다 — 화면이 사실을 감추면 안 된다.
+ */
+function VoltageField({
+  label, value, options, onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (next: string | null) => void;
+}) {
+  const CUSTOM = '\u0000custom';
+  const all = value && !options.includes(value) ? [value, ...options] : options;
+  return (
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(e) => {
+        const next = e.currentTarget.value;
+        if (next === CUSTOM) {
+          const typed = window.prompt(label, value)?.trim();
+          if (typed) onChange(typed);
+          return;
+        }
+        onChange(next || null);
+      }}
+      className={cn(
+        'rounded bg-surface/70 px-1 text-xs text-content',
+        'border border-line focus:outline-none focus:ring-1 focus:ring-primary',
+      )}
+    >
+      <option value="">{EMPTY}</option>
+      {all.map((v) => (
+        <option key={v} value={v}>{v}</option>
+      ))}
+      <option value={CUSTOM}>직접 입력…</option>
+    </select>
+  );
+}
+
 export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   const ports = draft.ports;
   const mediumLabel = useMediumLabel();
@@ -109,6 +163,8 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
           namePattern: preset.namePattern,
           positions: preset.positions,
           ...(preset.variant ? { variant: preset.variant } : {}),
+          /* 전압은 프리셋이 그 갈래의 예사값을 들고 온다 — 켜는 순간 이미 「DC 48V」다. */
+          ...(preset.voltage ? { voltage: preset.voltage } : {}),
         } satisfies PortRow,
         preset,
       };
@@ -178,6 +234,17 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                   **두 수에 단위를 적는다.** 예전에는 `1 × 24` 뿐이라 곱셈인지 「1구에 24코어」
                   인지 읽는 사람이 알 단서가 없었다 — 수가 둘 나란히 서면 각각이 무엇을
                   세는지 말해야 한다. */}
+              {/* 전압은 **여기서 정한다** — 이 품목의 전원 입력이 몇 V 인가. 놓인 포트는
+                  이 값을 물려받아 보여 주기만 한다(계통 표·포트 카드는 읽기 전용).
+                  고를 수 있는 값은 그 갈래가 정한다(직류 줄에 교류 전압이 뜨지 않는다). */}
+              {on && voltageOptionsOf(row).length > 0 && (
+                <VoltageField
+                  label={`${label} 전압`}
+                  value={row.voltage ?? ''}
+                  options={voltageOptionsOf(row)}
+                  onChange={(next) => patch(row, { voltage: next })}
+                />
+              )}
               {isMultiCorePort(row.positions) && on && (
                 <>
                   <span className="text-xs text-content-faint">구 ×</span>

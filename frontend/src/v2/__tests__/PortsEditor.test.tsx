@@ -67,10 +67,10 @@ describe('PortsEditor', () => {
   /* 표는 늘 일곱 줄이다 — 무엇을 고르든 키가 그대로여야 자산마다 화면이 달라지지 않는다. */
   it('(a-2) 포트가 하나도 없어도 종류 줄은 모두 서 있다', () => {
     render(<PortsEditor draft={mkDraft([])} onChange={vi.fn()} issues={[]} />);
-    /* 전원은 **갈래까지** 줄이 선다 — 교류·직류를 화면에서 못 고르면 충전기처럼 받아서
+    /* 전원은 **갈래까지** 줄이 선다 — AC·DC 를 화면에서 못 고르면 충전기처럼 받아서
        바꾸는 장비를 적을 수가 없다. */
     for (const name of [
-      '전원 입력(교류)', '전원 입력(직류)', '전원 출력(교류)', '전원 출력(직류)',
+      '전원 입력(AC)', '전원 입력(DC)', '전원 출력(AC)', '전원 출력(DC)',
       '네트워크', '광', 'OPGW', '제어', '접지',
     ]) {
       expect((screen.getByLabelText(`${name} 개수`) as HTMLInputElement).value).toBe('0');
@@ -92,11 +92,11 @@ describe('PortsEditor', () => {
     expect(called.ports[0]!.namePattern).toContain('{n}');
   });
 
-  it('(b-2) 전원은 입력·출력이 따로 있고, 교류·직류도 따로다', () => {
+  it('(b-2) 전원은 입력·출력이 따로 있고, AC·DC 도 따로다', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={mkDraft([])} onChange={onChange} issues={[]} />);
 
-    fireEvent.change(screen.getByLabelText('전원 출력(직류) 개수'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('전원 출력(DC) 개수'), { target: { value: '2' } });
     expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({ medium: 'power', direction: 'OUT', variant: 'DC' });
   });
 

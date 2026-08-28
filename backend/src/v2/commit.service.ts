@@ -330,7 +330,9 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate, tou
     await tx.port.createMany({
       data: ports.map((p) => {
         const id = input.portIds?.[`${p.group}:${p.index}`];
-        return id ? { ...p, id } : p;
+        /* 선언이 준 값(전원 포트의 전압)이 있으면 그대로 담긴다. */
+        const row = { ...p, fieldValues: (p.fieldValues ?? {}) as Prisma.InputJsonValue };
+        return id ? { ...row, id } : row;
       }),
     });
   }
@@ -396,7 +398,8 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate, touched
         await tx.port.createMany({
           data: ports.map((pt) => {
             const id = p.portIds?.[`${pt.group}:${pt.index}`];
-            return id ? { ...pt, id } : pt;
+            const row = { ...pt, fieldValues: (pt.fieldValues ?? {}) as Prisma.InputJsonValue };
+            return id ? { ...row, id } : row;
           }),
         });
       }

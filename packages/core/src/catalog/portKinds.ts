@@ -109,7 +109,7 @@ export const FIBER_LINE_FIELDS: readonly ValueDef[] = [
  */
 export interface PortVariant {
   key: string;
-  /** 화면에 붙는 말 — 「전원 입력(교류)」의 괄호 안. */
+  /** 화면에 붙는 말 — 「전원 입력(AC)」의 괄호 안. */
   name: string;
   /** 이 갈래에서 고를 수 있는 전압. 없으면 그 종류의 전체 목록. */
   voltages?: readonly string[];
@@ -217,8 +217,8 @@ export const PORT_KINDS = [
     key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
     /* 교류와 직류는 잇지 않는다 — 충전기가 교류를 받아 직류를 내보내는 것이 그 경계다. */
     variants: [
-      { key: 'AC', name: '교류', voltages: AC_VOLTAGES, defaultVoltage: 'AC 220V 1φ' },
-      { key: 'DC', name: '직류', voltages: DC_VOLTAGES, defaultVoltage: 'DC 48V' },
+      { key: 'AC', name: 'AC', voltages: AC_VOLTAGES, defaultVoltage: 'AC 220V 1φ' },
+      { key: 'DC', name: 'DC', voltages: DC_VOLTAGES, defaultVoltage: 'DC 48V' },
     ],
     /* 굵기는 **전원케이블 대장의 절반**이다 — 현장 대장은 「FR-5.5sq」처럼 종류와 굵기를
        붙여 적는다. 종류는 우리 케이블 품목이 이미 알고, 굵기는 적을 곳이 없었다. */
@@ -248,11 +248,16 @@ export const PORT_KINDS = [
        * 다를 수 있다). 케이블에 적어 두었더니 한 가닥을 두 줄이 나눠 볼 때만 값이 맞아
        * 보였을 뿐, 「이 포트가 몇 V 인가」는 어디에도 없었다.
        *
-       * **위상도 이 값에 들어 있다**(「AC 220V 3φ」) — 따로 두면 직류 회로마다 빈 칸이 남고
+       * **위상도 이 값에 들어 있다**(「AC 220V 3φ」) — 따로 두면 DC 회로마다 빈 칸이 남고
        * 「DC 48V 3φ」 같은 있을 수 없는 조합이 표현된다. 고를 수 있는 값과 기본값은 갈래가
        * 정한다(`PortVariant.voltages`·`defaultVoltage`).
+       *
+       * **적는 자리는 포트를 만들 때 한 곳뿐이다**(장비 관리의 포트 선언 → `PortTemplate.voltage`).
+       * 「이 장비의 전원 입력은 DC 48V」는 그 품목의 성질이지 설치할 때마다 고르는 값이 아니다.
+       * 그래서 여기서는 `readOnly` — 계통 표도 포트 카드도 **보여 주기만** 한다. 여러 곳에서
+       * 고칠 수 있게 두면 같은 회로의 두 끝이 다른 전압으로 적히고, 어느 쪽이 사실인지 알 길이 없다.
        */
-      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20 },
+      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20, readOnly: true },
       { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 30 },
       { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true, trueLabel: '투입', falseLabel: '개방' },
     ],
@@ -449,8 +454,10 @@ export function portKind(key: string): PortKind | null {
 
 /** 장비 품목을 만들 때 "이 포트를 몇 개" 로 고를 수 있는 미리 정의된 묶음. */
 export interface PortPreset {
-  /** 종류 안의 갈래(전원의 교류·직류). 갈래가 없는 종류는 없다. */
+  /** 종류 안의 갈래(전원의 AC·DC). 갈래가 없는 종류는 없다. */
   variant?: string;
+  /** 그 갈래의 예사 전압 — 포트를 켜는 순간 선언에 실린다(고쳐 고를 수 있다). */
+  voltage?: string | null;
   /** 버튼에 적히는 이름 — `전원 입력` 처럼 방향까지 담는다. */
   name: string;
   medium: string;
@@ -496,7 +503,7 @@ export function portPresets(): PortPreset[] {
       const label = `${kind.name} ${portDirectionLabel(direction)}`;
       // 방향이 뜻을 갖는 종류(전원)에는 다심이 없다 — 1심 고정.
       const base = { medium: kind.key, direction, positions: 1 };
-      /* 갈래가 있으면 **갈래마다 하나씩** 낸다 — 「전원 입력(교류)」·「전원 입력(직류)」.
+      /* 갈래가 있으면 **갈래마다 하나씩** 낸다 — 「전원 입력(AC)」·「전원 입력(DC)」.
          화면에서 고를 수 있는 것이 곧 어휘이므로, 갈래도 여기서 갈라져야 만들 수 있다. */
       if (!kind.variants) {
         return [{ ...base, name: label, groupKey: `${kind.key.toUpperCase()}-${direction}`, namePattern: `${label} {n}` }];
@@ -507,6 +514,9 @@ export function portPresets(): PortPreset[] {
         groupKey: `${kind.key.toUpperCase()}-${direction}-${v.key}`,
         namePattern: `${label} {n}`,
         variant: v.key,
+        /* 전압은 선언에 딸린다 — 프리셋이 그 갈래의 예사값을 들고 온다(고를 수 있는 값은
+           `PortVariant.voltages`). 그래서 포트를 놓는 순간 이미 「DC 48V 입력」이다. */
+        voltage: v.defaultVoltage ?? null,
       }));
     });
   });
@@ -586,7 +596,7 @@ export function portGroupLabel(
     const kind = portKind(g.medium);
     const name = mediumName?.(g.medium) ?? kind?.name ?? g.medium;
     if (kind?.pairing !== 'opposite') return name;
-    /* 갈래가 있으면 그것까지 불러야 두 구획이 갈린다 — 「전원 입력(교류)」·「전원 입력(직류)」. */
+    /* 갈래가 있으면 그것까지 불러야 두 구획이 갈린다 — 「전원 입력(AC)」·「전원 입력(DC)」. */
     const variant = kind.variants?.find((v) => v.key === g.variant);
     return `${name} ${portDirectionLabel(g.direction)}${variant ? `(${variant.name})` : ''}`;
   };

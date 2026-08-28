@@ -23,8 +23,8 @@ export function portsForNewAsset(
     ...p,
     id: newId(),
     positions: coreCount(p.positions),
-    // 값은 아직 없다 — 손실·점검일은 놓고 나서 적는다.
-    fieldValues: {},
+    /* 값은 선언이 준 것뿐이다(전원 포트의 전압) — 손실·점검일은 놓고 나서 적는다. */
+    fieldValues: p.fieldValues ?? {},
   }));
 }
 

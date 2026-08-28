@@ -11,18 +11,9 @@
  *   node backend/scripts/seed-power-demo.mjs [--url http://localhost:3000] [--name 계통시험S/S]
  *   node backend/scripts/seed-power-demo.mjs --clean      # 만든 변전소를 통째로 지운다
  */
-/* 값은 **어휘에서 가져온다** — 시드가 제 손으로 「AC 220V」 같은 것을 지어내면 목록에 없는
-   값이 DB 에 눌러앉고, 화면은 그것을 지울 수 없어(적힌 사실이니까) 목록에 얹어 보여 준다.
-   실제로 그렇게 돼서 전압 목록에 위상 없는 값이 하나 섞여 있었다. */
-import { POWER_VOLTAGES } from '@twin/core';
-
-/**
- * 삼상 220V — 반과 반 사이(소내분전반 → 충전기·UPS). 대장의 「220V 3φ (60A FR-38sq)」.
- *
- * **여기 적는 것은 이것 하나뿐**이다. 전압은 그 회로(포트)의 값이고 갈래마다 기본값이
- * 선언돼 있으므로(교류 220V 1φ · 직류 48V), 시드는 **기본과 다른 것만** 적는다.
- */
-const AC_3P = POWER_VOLTAGES.find((v) => v.includes('220V 3'));
+/* 전압은 **포트 선언이 정한다**(장비 품목의 포트 → `voltage`). 그래서 이 시드는 전압을
+   적지 않는다 — 놓인 포트가 이미 제 전압을 들고 온다. 다른 전압의 회로가 필요하면 장비
+   품목을 하나 더 만들어 그 선언에서 고른다. */
 
 const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`);
@@ -243,27 +234,6 @@ const cables = [
 ];
 
 await call(`/substations/${substation.id}/commit`, 'PUT', { cables: { creates: cables } });
-
-/* 삼상으로 가는 회로만 전압을 적는다 — 회로의 양 끝(내보내는 쪽·받는 쪽)이 같은 전압이다.
-   나머지는 갈래가 선언한 기본값(교류 220V 1φ · 직류 48V)이 그대로 답이다. */
-const threePhase = [
-  [boards, '소내전원반', 'POWER-OUT-AC', 1], [boards, 'UPS', 'POWER-IN-AC', 1],
-  [boards, '소내전원반', 'POWER-OUT-AC', 2], [charger, '충전기', 'POWER-IN-AC', 1],
-];
-const byAsset = new Map();
-for (const [placed, part, group, i] of threePhase) {
-  const assetId = placed.parts.get(part);
-  const list = byAsset.get(assetId) ?? [];
-  list.push({ portId: at(placed, part, group, i), fieldValues: { voltage: AC_3P } });
-  byAsset.set(assetId, list);
-}
-/* 고치는 것이므로 **본 판(version)** 을 함께 낸다 — 서버가 그사이 바뀌지 않았는지 본다. */
-const wc1 = await call(`/substations/${substation.id}/workingcopy`);
-const versionOf = Object.fromEntries(wc1.assets.map((a) => [a.id, a.updatedAt]));
-await call(`/substations/${substation.id}/commit`, 'PUT', {
-  assets: { updates: [...byAsset].map(([id, portFieldValues]) => ({ id, patch: { portFieldValues } })) },
-  baseVersions: Object.fromEntries([...byAsset.keys()].map((id) => [id, versionOf[id]])),
-});
 
 console.log(
   `[seed-power] ${SUB_NAME}: 반 3개(각 ${CIRCUITS}회로) · 충전기반 · 부하 설비 ${loads.length}대 · 전원케이블 ${cables.length}가닥\n` +

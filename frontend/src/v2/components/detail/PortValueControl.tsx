@@ -1,5 +1,5 @@
 import { setPortValueAt, type ValueDef } from '@twin/core';
-import { Toggle } from '../../../components/ui';
+import { EMPTY, Toggle } from '../../../components/ui';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { InlineEditCell } from '../InlineEditCell';
 
@@ -23,6 +23,17 @@ export function PortValueControl({
       p.id === portId ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
     );
     useV2WorkingCopy.getState().stageAssetUpdate(assetId, { ports });
+  }
+
+  /* 선언이 정하는 값은 **여기서 고치지 않는다**(전원의 전압) — 적는 자리는 장비 관리의
+     포트 선언 하나뿐이다. 여러 곳에서 고칠 수 있게 두면 같은 회로의 두 끝이 다른 전압으로
+     적히고, 어느 쪽이 사실인지 알 길이 없다. */
+  if (field.readOnly) {
+    return (
+      <span className="block px-1 text-sm text-content">
+        {value === null || value === undefined || value === '' ? EMPTY : String(value)}
+      </span>
+    );
   }
 
   if (field.type === 'boolean') {

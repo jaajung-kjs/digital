@@ -276,8 +276,12 @@ export function ConnectionsTab({
     const values = portValuesAt(selectedPort, 1);
     return {
       owner,
-      /* 적힌 값이 없으면 **선언된 기본값**이 답이다 — 계통 표가 읽는 것과 같은 규칙. */
-      rows: fields.map((field) => ({ field, value: values[field.key] ?? field.defaultValue ?? null })),
+      /* 계통 표와 같은 규칙: 안 적었을 때 뜻이 있는 것만 기본값으로 읽는다(개폐 = 투입).
+         선언이 주는 값(전압)은 없으면 없는 것이다. */
+      rows: fields.map((field) => ({
+        field,
+        value: values[field.key] ?? (field.readOnly ? null : field.defaultValue ?? null),
+      })),
     };
   }, [selectedPort, portOwners]);
   /* 고른 포트에 물린 대국 — 부스바는 여럿이다. 하나만 보여 주면 나머지가 없는 것처럼 읽힌다. */

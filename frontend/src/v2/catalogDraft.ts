@@ -27,11 +27,13 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
     installManDays: t.installManDays,
     removeManDays: t.removeManDays,
     relocateManDays: t.relocateManDays,
-    ports: t.portTemplates.map(({ group, count, direction, medium, namePattern, positions, variant }) => ({
+    ports: t.portTemplates.map(({ group, count, direction, medium, namePattern, positions, variant, voltage }) => ({
       group,
       count,
       direction,
       variant,
+      /* 전압도 선언에 딸린다 — 이 값을 고치는 자리가 포트 편집기 하나뿐이다. */
+      voltage,
       medium,
       namePattern,
       positions,

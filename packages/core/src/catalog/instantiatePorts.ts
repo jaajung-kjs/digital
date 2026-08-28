@@ -19,7 +19,8 @@ export function instantiatePorts(
   assetId: string,
   countOverrides: Partial<Record<string, number>> = {},
   positionsOverrides: Partial<Record<string, number>> = {},
-): Omit<PortRef, 'id'>[] {
+  /* 선언이 정한 값(전원 포트의 전압)이 실려 나온다 — 부르는 쪽이 그대로 저장한다. */
+): (Omit<PortRef, 'id'> & { fieldValues?: Record<string, unknown> })[] {
   return templates.flatMap((tpl) => {
     const count = countOverrides[tpl.group] ?? tpl.count;
     const positions = positionsOverrides[tpl.group] ?? coreCount(tpl.positions);
@@ -31,8 +32,11 @@ export function instantiatePorts(
       direction: tpl.direction,
       medium: tpl.medium,
       positions,
-      /* 갈래(전원의 교류·직류)도 포트가 그대로 물려받는다 — 연결 검증이 그것을 본다. */
+      /* 갈래(전원의 AC·DC)도 포트가 그대로 물려받는다 — 연결 검증이 그것을 본다. */
       ...(tpl.variant ? { variant: tpl.variant } : {}),
+      /* 전압은 **선언이 정한 값**이 그대로 실린다 — 포트가 생기는 순간 「DC 48V 입력」이다.
+         값으로 굽는 까닭: 뒤에 품목의 전압을 고쳐도 이미 놓인 설비의 사실은 그대로여야 한다. */
+      ...(tpl.voltage ? { fieldValues: { voltage: tpl.voltage } } : {}),
     }));
   });
 }

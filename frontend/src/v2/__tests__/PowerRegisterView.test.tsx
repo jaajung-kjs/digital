@@ -11,8 +11,11 @@ import { PowerRegisterView, powerColumnWidths } from '../components/registers/Po
 import { cableFieldsFor, portFieldsFor } from '@twin/core';
 import type { V2Asset, V2Cable } from '../types';
 
-const port = (id: string, assetId: string, group: string, index: number, direction: 'IN' | 'OUT', name: string) =>
-  ({ id, assetId, group, index, name, direction, medium: 'power', positions: 1, fieldValues: {} });
+/* 전압은 **포트를 만들 때 실린다**(장비 품목의 포트 선언) — 놓인 포트는 이미 그것을 들고 있다. */
+const port = (id: string, assetId: string, group: string, index: number, direction: 'IN' | 'OUT', name: string,
+              voltage = 'AC 220V 1φ') =>
+  ({ id, assetId, group, index, name, direction, medium: 'power', positions: 1, variant: 'AC',
+     fieldValues: { voltage } });
 const asset = (id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
@@ -119,34 +122,31 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
 
     const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
     const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o1');
-    expect(port?.fieldValues).toEqual({ ampere: 30 });
+    expect(port?.fieldValues).toEqual({ voltage: 'AC 220V 1φ', ampere: 30 });
     /* 다른 회로에는 적히지 않는다 — 판 하나에 값 하나가 아니다. */
     const other = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o2');
-    expect(other?.fieldValues).toEqual({});
+    expect(other?.fieldValues.ampere).toBeUndefined();
     // 표가 그대로 서 있다(무한 렌더로 사라지지 않았다).
     expect(tableOf('분전반 · 소내전원반').getAllByRole('row').length).toBe(4);
   });
 
   /**
-   * **전압은 그 회로(포트)의 값**이지 케이블의 값이 아니다 — 같은 F-CV 한 가닥이 220V 회로에도
-   * 380V 회로에도 쓰인다. 정해진 값은 고르되, 목록에 없는 값도 적게 「직접 입력」이 함께 선다.
+   * **전압은 그 포트가 들고 온 값**이다 — 여기서 고치지 않는다.
+   *
+   * 「이 장비의 전원 입력은 DC 48V」는 그 품목의 성질이라 적는 자리는 장비 관리의 포트 선언
+   * 하나뿐이다. 표에서도 고칠 수 있게 두면 같은 회로의 두 끝이 다른 전압으로 적히고, 어느
+   * 쪽이 사실인지 알 길이 없어진다.
    */
-  it('전압은 그 회로(포트)에 적힌다 — 목록으로 고른다', () => {
-    setStore([rack, main, ups, load], wired());
+  it('전압은 포트가 들고 온 값 — 표는 보여 주기만 한다', () => {
+    const main3P = { ...main, ports: main.ports.map((p) => (p.id === 'main-o1' ? { ...p, fieldValues: { voltage: 'AC 380V 3φ' } } : p)) };
+    setStore([rack, main3P, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const circuit = tableOf('분전반 · 소내전원반').getAllByRole('row')[2]!;
-    fireEvent.click(within(circuit).getByRole('button', { name: '전압 고치기' }));
-    const select = screen.getByRole('combobox', { name: '전압' }) as HTMLSelectElement;
-    expect([...select.options].map((o) => o.text)).toContain('직접 입력…');
-
-    fireEvent.change(select, { target: { value: 'AC 220V 3φ' } });
-    /* 케이블이 아니라 **그 포트**에 담긴다. */
-    const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
-    const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[] | undefined)?.find(
-      (p) => p.id === 'main-o1',
-    );
-    expect(port?.fieldValues.voltage).toBe('AC 220V 3φ');
+    expect(within(circuit).getByText('AC 380V 3φ')).toBeInTheDocument();
+    /* 고치는 단추가 없다 — 용량·개폐는 회로마다 다르니 여기서 고치지만, 전압은 아니다. */
+    expect(within(circuit).queryByRole('button', { name: '전압 고치기' })).toBeNull();
+    expect(within(circuit).getByRole('button', { name: '용량 고치기' })).toBeInTheDocument();
   });
 
   it('길이는 그 자리에서 고친다 — 케이블에 담긴다', () => {

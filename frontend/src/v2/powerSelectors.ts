@@ -77,9 +77,11 @@ export interface PowerNode {
 /** 그 포트에 적힌 값들 — 선언된 칸만, 기본값까지 얹어서. */
 function declaredPortValues(port: V2Asset['ports'][number]): Record<string, unknown> {
   const values = portValuesAt(port, 1);
-  /* 갈래까지 넘긴다 — 전압의 기본값이 갈래마다 다르다(교류 220V 1φ · 직류 48V). */
+  /* 선언이 주는 값(전압)은 **없으면 없는 것**이다 — 기본값으로 메우면 화면이 사실을 지어낸다.
+     적힌 값이 없을 때 뜻이 있는 것은 개폐뿐이고(안 적었으면 투입), 그건 선언이 말한다. */
   return Object.fromEntries(
-    portFieldsFor(port.medium, port.positions, port.variant).map((f) => [f.key, values[f.key] ?? f.defaultValue ?? null]),
+    portFieldsFor(port.medium, port.positions, port.variant)
+      .map((f) => [f.key, values[f.key] ?? (f.readOnly ? null : f.defaultValue ?? null)]),
   );
 }
 

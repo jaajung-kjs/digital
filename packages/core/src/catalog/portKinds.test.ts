@@ -13,8 +13,10 @@ describe('포트 프리셋', () => {
   it('방향이 뜻을 갖는 종류는 방향×갈래로 나뉜다', () => {
     const power = presets.filter((p) => p.medium === 'power');
     expect(power.map((p) => p.name)).toEqual([
-      '전원 입력(교류)', '전원 입력(직류)', '전원 출력(교류)', '전원 출력(직류)',
+      '전원 입력(AC)', '전원 입력(DC)', '전원 출력(AC)', '전원 출력(DC)',
     ]);
+    /* 프리셋이 그 갈래의 예사 전압을 들고 온다 — 포트를 켜는 순간 이미 「DC 48V」다. */
+    expect(power.map((p) => p.voltage)).toEqual(['AC 220V 1φ', 'DC 48V', 'AC 220V 1φ', 'DC 48V']);
     expect(power.map((p) => `${p.direction}·${p.variant}`)).toEqual(['IN·AC', 'IN·DC', 'OUT·AC', 'OUT·DC']);
   });
 
