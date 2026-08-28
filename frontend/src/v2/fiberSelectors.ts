@@ -118,8 +118,11 @@ export function resolveFiberFarEnd(
         remote: ref!.substationId !== localSubstationId,
       };
     }
-    // 건너편 심선이 아직 장비로 안 나갔다 — 인입 케이블이 말해 주는 슬롯까지가 끝이다.
-    return resolvePeer({ id: trunkPortId }, trunkCable, portIndex, localSubstationId);
+    /* 건너편 심선이 아직 장비로 안 나갔다 — 인입 케이블이 말해 주는 슬롯까지가 끝이다.
+       그 자리는 OPGW 포트 하나라 번호가 늘 1번이다. 코어를 얹어 부르지 않으면 스물네 줄이
+       모두 `…#1` 로 같아져, 심선이 다 한 곳으로 간다고 읽힌다. */
+    const slot = resolvePeer({ id: trunkPortId }, trunkCable, portIndex, localSubstationId);
+    return slot ? { ...slot, core: coreIndex } : null;
   }
   // 건너편의 **단심** 성단 — 인입 자신(index 1)을 집지 않도록 심선 수로 가른다.
   const peerCore = peerSlot.ports.find((p) => p.medium === FIBER_MEDIUM && !isTrunk(p) && p.index === coreIndex);

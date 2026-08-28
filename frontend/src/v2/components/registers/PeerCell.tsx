@@ -11,7 +11,7 @@
  * 정렬·검색·복사에서 그 줄만 비어 버린다).
  */
 import { EMPTY } from '../../../components/ui';
-import { endpointLabel, type PeerInfo } from '../../peerResolve';
+import { endpointLabel, endpointLabelParts, type PeerInfo } from '../../peerResolve';
 
 interface PeerCellProps {
   peer: PeerInfo | null;
@@ -29,14 +29,15 @@ export function PeerCell({ peer }: PeerCellProps) {
   const label = endpointLabel(peer);
   const full = peer.remote && peer.substationName ? `${label} (${peer.substationName})` : label;
 
-  /* `#` 앞뒤로 가른다 — 앞은 그 줄들이 공유하는 자리, 뒤는 그 줄만의 번호다. */
-  const cut = label.lastIndexOf('#');
+  /* 앞자리와 번호를 가른다 — 앞은 그 줄들이 공유하는 자리, 뒤는 그 줄만의 번호다.
+     경계는 이름을 지은 곳이 알려 준다(`#` 를 찾던 때는 코어 이름에서 갈리지 않았다). */
+  const { prefix, tail } = endpointLabelParts(peer);
   return (
     <span className="flex min-w-0 text-sm" title={full}>
-      {cut > 0 ? (
+      {prefix ? (
         <>
-          <span className="truncate text-content-muted">{label.slice(0, cut)}</span>
-          <span className="shrink-0 font-medium text-content">{label.slice(cut)}</span>
+          <span className="truncate text-content-muted">{prefix}</span>
+          <span className="shrink-0 font-medium text-content">{tail}</span>
         </>
       ) : (
         <span className="truncate text-content">{label}</span>

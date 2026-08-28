@@ -68,7 +68,7 @@ describe('buildTraceGraph + traceFrom', () => {
     const hops = traceFrom(graph, 'devA:P1');
     expect(hops).toEqual([
       { kind: 'cable', cableId: 'c1', fromPortId: 'devA:P1', toPortId: 'slot1:A3' },
-      { kind: 'internal', fromPortId: 'slot1:A3', toPortId: 'slot1:B1' },
+      { kind: 'internal', fromPortId: 'slot1:A3', toPortId: 'slot1:B1', core: 3 },
       { kind: 'cable', cableId: 'c2', fromPortId: 'slot1:B1', toPortId: 'devB:P1' },
     ]);
   });
@@ -79,8 +79,50 @@ describe('buildTraceGraph + traceFrom', () => {
     const s = makeAsset('OFD-SLOT', 'slot1');
     const graph = buildTraceGraph({ types, assets: [s.asset], ports: s.ports, cables: [] });
     expect(traceFrom(graph, 'slot1:A3')).toEqual([
-      { kind: 'internal', fromPortId: 'slot1:A3', toPortId: 'slot1:B1' },
+      { kind: 'internal', fromPortId: 'slot1:A3', toPortId: 'slot1:B1', core: 3 },
     ]);
+  });
+
+  /**
+   * **다심 포트에 닿은 홉은 탄 코어를 적는다** — 그 자리를 부를 이름이 그것뿐이라서.
+   *
+   * OPGW 는 포트가 하나(늘 1번)다. 그래서 코어 1의 길과 코어 2의 길이 `장비#1` 로 똑같이
+   * 적혔고, 화면에서 「1번 포트도 2번 포트도 대국이 같은 1번 포트」로 읽혔다. 자리는 갈렸는데
+   * 이름이 겹친 것이다. 홉이 코어를 들고 나오면 화면이 「… 코어 2」로 부를 수 있다.
+   */
+  it('두 국을 잇는 인입을 건너도 코어 번호를 들고 간다', () => {
+    const s1 = makeAsset('OFD-SLOT', 'slot1');
+    const s2 = makeAsset('OFD-SLOT', 'slot2');
+    const cables: CableRef[] = [{ id: 'opgw', aPortId: 'slot1:B1', bPortId: 'slot2:B1' }];
+    const graph = buildTraceGraph({
+      types,
+      assets: [s1.asset, s2.asset],
+      ports: [...s1.ports, ...s2.ports],
+      cables,
+    });
+    expect(traceFrom(graph, 'slot1:A2')).toEqual([
+      { kind: 'internal', fromPortId: 'slot1:A2', toPortId: 'slot1:B1', core: 2 },
+      { kind: 'cable', cableId: 'opgw', fromPortId: 'slot1:B1', toPortId: 'slot2:B1', core: 2 },
+      { kind: 'internal', fromPortId: 'slot2:B1', toPortId: 'slot2:A2' },
+    ]);
+    // 코어 2의 길과 코어 3의 길은 **같은 OPGW 포트**를 지나지만 서로 다른 코어다.
+    expect(traceFrom(graph, 'slot1:A3').map((h) => [h.toPortId, h.core]))
+      .toEqual([['slot1:B1', 3], ['slot2:B1', 3], ['slot2:A3', undefined]]);
+  });
+
+  /**
+   * **국 밖의 자리에도 코어를 적는다** — 거기가 코어가 가장 필요한 곳이라서.
+   *
+   * 화면이 든 것은 제 변전소의 자산뿐이라, 구간 케이블 건너편 OPGW 는 그래프에 포트로 서지
+   * 못한다. 그래서 「다심인가」를 물으면 아니라는 답이 나와 코어가 지워졌고, 대국이 늘
+   * `…#1` 로 적혔다 — 코어 1의 길과 코어 2의 길이 글자까지 같아진 자리가 바로 여기다.
+   */
+  it('국 밖(그래프에 없는) 대국 인입에도 탄 코어가 남는다', () => {
+    const s1 = makeAsset('OFD-SLOT', 'slot1');
+    const cables: CableRef[] = [{ id: 'opgw', aPortId: 'slot1:B1', bPortId: 'remote:B1' }];
+    const graph = buildTraceGraph({ types, assets: [s1.asset], ports: s1.ports, cables });
+    expect(traceFrom(graph, 'slot1:A2').map((h) => [h.toPortId, h.core]))
+      .toEqual([['slot1:B1', 2], ['remote:B1', 2]]);
   });
 
   /* 인입 포트 자체에서 시작하면 들고 갈 번호가 없다 — 그 한 가닥이 나르는 코어 전부가 답이다. */
@@ -163,7 +205,7 @@ describe('buildTraceGraph + traceFrom', () => {
     const hops = traceFrom(graph, 'slot1:A2');
     expect(hops).toEqual([
       { kind: 'cable', cableId: 'c1', fromPortId: 'slot1:A2', toPortId: 'devA:P1' },
-      { kind: 'internal', fromPortId: 'slot1:A2', toPortId: 'slot1:B1' },
+      { kind: 'internal', fromPortId: 'slot1:A2', toPortId: 'slot1:B1', core: 2 },
     ]);
   });
 });

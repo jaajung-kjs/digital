@@ -19,12 +19,32 @@ export interface Endpoint {
   assetName: string;
   portName: string;
   portIndex: number;
+  /**
+   * 다심 포트의 **몇 번째 심선인가** — 인입(OPGW)처럼 포트 번호가 하나뿐인 자리에만 붙는다.
+   *
+   * 그 자리를 `장비#1` 로 부르면 24심이 모두 같은 이름을 갖는다. 실제로 「코어 1도 코어 2도
+   * 대국이 같은 1번 포트」로 읽혔다 — 자리가 아니라 이름이 겹친 것이었다.
+   */
+  core?: number;
+}
+
+/**
+ * 끝점 이름을 **앞자리와 번호**로 가른다.
+ *
+ * 한 슬롯의 스물네 줄은 앞이 다 같고 뒤의 번호만 다르다. 칸(`PeerCell`)이 앞을 한 단 흐리게
+ * 두려면 그 경계를 알아야 하는데, 예전에는 칸이 `#` 를 찾아 갈랐다 — 코어 이름에는 `#` 가
+ * 없으므로 이름 짓는 곳이 직접 알려 준다.
+ */
+export function endpointLabelParts(e: Endpoint): { prefix: string; tail: string } {
+  const tail = e.core != null ? `코어 ${e.core}` : `#${e.portIndex}`;
+  const own = e.core != null ? `${e.assetName} ` : e.assetName;
+  return { prefix: e.assemblyName ? `${e.assemblyName} - ${own}` : own, tail };
 }
 
 /** 끝점을 부르는 **한 가지** 이름 — 화면마다 다르게 적던 것을 여기로 모았다. */
 export function endpointLabel(e: Endpoint): string {
-  const own = `${e.assetName}#${e.portIndex}`;
-  return e.assemblyName ? `${e.assemblyName} - ${own}` : own;
+  const { prefix, tail } = endpointLabelParts(e);
+  return prefix + tail;
 }
 
 export interface PortIndexEntry {

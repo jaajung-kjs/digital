@@ -26,6 +26,15 @@ export interface TraceHop {
   cableId?: string;
   fromPortId: string;
   toPortId: string;
+  /**
+   * 이 홉이 **다심 포트로 들어갈 때** 타고 가는 코어 번호.
+   *
+   * 다심 포트는 번호가 하나뿐이라(OPGW 는 늘 1번 포트다) 이름을 `장비#1` 로 지으면 코어 1로
+   * 간 길과 코어 2로 간 길이 **글자까지 똑같아진다** — 실제로 「1번 포트도 2번 포트도 대국이
+   * 같은 자리로 간다」고 읽혔다. 코어를 홉에 적어 두면 화면이 그 자리를 「… 코어 2」로 부를
+   * 수 있다. 다심이 아닌 포트로 가는 홉에는 없다(포트 번호가 이미 그 자리를 말한다).
+   */
+  core?: number;
 }
 
 /** 포트 노드 + 케이블 엣지 + 포트 선언에서 유도된 내부 엣지(`derivedLinks`)로 그래프를 만든다. */
@@ -146,6 +155,13 @@ export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
       visited.add(e.toPortId);
       const hop: TraceHop = { kind: e.kind, fromPortId: cur.portId, toPortId: e.toPortId };
       if (e.cableId !== undefined) hop.cableId = e.cableId;
+      /* 다심으로 들어가는 길이면 어느 코어를 타는지 남긴다 — 그 자리를 부를 이름이 없다.
+         **모르는 포트도 마찬가지다.** 국을 넘는 구간 케이블의 건너편은 이 워킹 카피에 없어
+         「다심인가」를 물을 수 없는데, 그 자리야말로 코어가 필요한 곳이다(대국 OPGW). 코어를
+         들고 서 있다는 것 자체가 지금 다심을 타는 중이라는 뜻이므로 그대로 적어 준다. */
+      if (position !== null && (isMulti(e.toPortId) || !graph.ports.has(e.toPortId))) {
+        hop.core = position;
+      }
       hops.push(hop);
       queue.push({ portId: e.toPortId, position });
     }
