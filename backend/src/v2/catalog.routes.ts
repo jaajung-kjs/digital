@@ -45,7 +45,7 @@ async function createTypeStructure(
 ): Promise<void> {
   for (const [i, p] of body.ports.entries()) {
     await tx.assetPortTemplate.create({
-      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: coreCount(p.positions), sortOrder: i },
+      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: coreCount(p.positions), variant: p.variant ?? null, sortOrder: i },
     });
   }
 }

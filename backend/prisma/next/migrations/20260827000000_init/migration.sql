@@ -125,6 +125,7 @@ CREATE TABLE "AssetPortTemplate" (
     "medium" TEXT NOT NULL,
     "namePattern" TEXT NOT NULL,
     "positions" INTEGER NOT NULL DEFAULT 1,
+    "variant" TEXT,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "AssetPortTemplate_pkey" PRIMARY KEY ("id")
@@ -232,6 +233,7 @@ CREATE TABLE "Port" (
     "direction" TEXT NOT NULL,
     "medium" TEXT NOT NULL,
     "positions" INTEGER NOT NULL DEFAULT 1,
+    "variant" TEXT,
     "fieldValues" JSONB NOT NULL DEFAULT '{}',
 
     CONSTRAINT "Port_pkey" PRIMARY KEY ("id")

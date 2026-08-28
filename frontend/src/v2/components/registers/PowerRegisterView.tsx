@@ -220,7 +220,10 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   /* **칸이 몇이고 무엇인지는 종류 선언이 정한다** — 포트의 것(용량·개폐)과 케이블의 것
      (길이·전압·굵기). 여기에 키를 적어 두면 어휘가 늘 때마다 표를 손으로 고쳐야 한다. */
   const portFields = portFieldsFor(POWER_MEDIUM);
+  /* 열을 세울 때는 갈래를 모른다(줄마다 다르다) — 칸이 무엇무엇인지만 여기서 정하고,
+     **고를 수 있는 값**은 줄이 제 갈래로 좁힌다(직류 회로에 교류 전압이 뜨지 않게). */
   const cableFields = cableFieldsFor(POWER_MEDIUM);
+  const fieldsFor = (variant?: string | null) => cableFieldsFor(POWER_MEDIUM, { variant });
   /**
    * 열 차례는 **대장 그대로**다: 회로 · 용량 · 용도 · 전원케이블 · 상태.
    *
@@ -365,7 +368,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                   {from === 'port' ? (
                     <PortValueCell assetId={node.assetId} portId={src.portId} field={field} value={src.portValues[field.key]} />
                   ) : (
-                    <CableFieldInput cableId={src.cableId} value={src.values[field.key]} field={field} />
+                    <CableFieldInput
+                      cableId={src.cableId}
+                      value={src.values[field.key]}
+                      field={fieldsFor(src.variant).find((f) => f.key === field.key) ?? field}
+                    />
                   )}
                 </td>
               ))}
@@ -393,7 +400,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                 {from === 'port' ? (
                   <PortValueCell assetId={node.assetId} portId={c.portId} field={field} value={c.portValues[field.key]} />
                 ) : (
-                  <CableFieldInput cableId={c.cableId} value={c.values[field.key]} field={field} />
+                  <CableFieldInput
+                    cableId={c.cableId}
+                    value={c.values[field.key]}
+                    field={fieldsFor(c.variant).find((f) => f.key === field.key) ?? field}
+                  />
                 )}
               </td>
             ))}

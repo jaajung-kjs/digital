@@ -55,8 +55,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 33,
     labor: labor(0.3, 0.15, 0.3, 120_000),
     ports: [
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
-      { group: 'POWER-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT', variant: 'AC' },
     ],
   },
   // ── 구 role: standalone ──
@@ -89,7 +89,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       // 현장 기기와 잇는 직렬 회선 — 방향을 따지지 않는다(널모뎀 배선이 실제로 있다).
       { group: 'CONTROL', count: 2, direction: 'BI', medium: 'control', namePattern: 'COM{n}' },
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -99,9 +99,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     categoryKey: '전원',
     sortOrder: 70,
     labor: labor(2.0, 1.0, 2.0, 4_200_000),
+    /* 교류를 받아 직류를 내보낸다 — 계통에서 교류와 직류가 갈리는 자리가 바로 이 장비다. */
     ports: [
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
-      { group: 'POWER-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
+      { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -112,8 +113,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 80,
     labor: labor(1.0, 0.5, 1.5, 3_000_000),
     ports: [
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
-      { group: 'POWER-OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 2, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'AC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -124,8 +125,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 90,
     labor: labor(3.0, 1.5, 3.0, 6_500_000),
     ports: [
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '충전 입력' },
-      { group: 'POWER-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '방전 출력' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '충전 입력', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '방전 출력', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -139,7 +140,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       { group: 'CONTROL', count: 1, direction: 'BI', medium: 'control', namePattern: 'COM1' },
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -152,7 +153,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'FIBER', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -197,7 +198,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'CONTROL', count: 8, direction: 'BI', medium: 'control', namePattern: '회선 {n}' },
       { group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -223,7 +224,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'FIBER', count: 4, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: '관리' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -236,7 +237,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'FIBER', count: 10, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: '관리' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -250,7 +251,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     labor: labor(1.5, 0.8, 1.8, 6_000_000),
     ports: [
       { group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC' },
     ],
   },
   /* SPS(계통안정화)도 같은 계열이다 — 현황에 62대(모델 2000·2000S·2000D). */
@@ -263,7 +264,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'FIBER', count: 4, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: '관리' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -276,7 +277,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     labor: labor(4.0, 2.0, 5.0, 20_000_000),
     ports: [
       { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-AC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'AC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -291,7 +292,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
        업링크 광 두 구는 실물의 SFP 자리다(광컨버터 없이 광으로 올린다). */
     ports: [
       { group: 'NETWORK', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -318,7 +319,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     /* 망을 안팎으로 가른다 — 바깥(WAN)·안(LAN)·관리 셋이 실물의 최소 구성이다. */
     ports: [
       { group: 'NETWORK', count: 3, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-AC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'AC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -331,7 +332,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     /* 망에 붙는 것을 검사해 들여보낸다 — 안쪽 망과 관리 둘이면 선다. */
     ports: [
       { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-AC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'AC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -342,8 +343,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 113,
     labor: labor(0.8, 0.4, 0.8, 900_000),
     ports: [
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
-      { group: 'POWER-OUT', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}', variant: 'AC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -356,8 +357,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     /* 직류 분전반이다 — 그런데 네트워크 포트를 달고 있었다(임시값이 남은 것). 전원(AC)와
        같은 꼴로 바로잡는다: 충전기에서 받아 회로마다 내보낸다. 분류도 「통신」이 아니라 전원이다. */
     ports: [
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
-      { group: 'POWER-OUT', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -372,7 +373,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'FIBER', count: 4, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'NETWORK', count: 8, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -390,7 +391,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'CONTROL', count: 12, direction: 'BI', medium: 'control', namePattern: '회선 {n}' },
       { group: 'FIBER', count: 4, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
-      { group: 'POWER-IN', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -404,7 +405,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     labor: labor(0.4, 0.2, 0.5, 700_000),
     ports: [
       { group: 'NETWORK', count: 8, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
     ],
   },
   {
@@ -415,7 +416,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     labor: labor(0.4, 0.2, 0.5, 900_000),
     ports: [
       { group: 'NETWORK', count: 8, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
     ],
   },
   {
@@ -429,7 +430,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'FIBER', count: 8, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: '관리' },
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -443,7 +444,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'FIBER', count: 1, direction: 'BI', medium: 'fiber', namePattern: '광' },
       { group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: 'UTP' },
-      { group: 'POWER-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
     ],
   },
 ];

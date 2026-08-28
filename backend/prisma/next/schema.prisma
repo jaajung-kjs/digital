@@ -128,6 +128,10 @@ model AssetPortTemplate {
   namePattern String
   /// 이 포트 하나가 나르는 심선 수. 1 = 보통 포트, N = 다심 포트(OPGW 인입).
   positions   Int       @default(1)
+  /// 종류 안의 **갈래** — 전원의 교류(AC)·직류(DC). 갈래가 없는 종류는 null.
+  /// 갈래가 다른 포트끼리는 잇지 못한다(`validateConnection`). 매체를 나누지 않은 까닭은
+  /// 매체 키가 곧 케이블 그룹 키라, 나누면 같은 F-CV 를 두 그룹에 등록해야 하기 때문이다.
+  variant     String?
   sortOrder   Int       @default(0)
 
   @@unique([typeId, group])
@@ -308,6 +312,10 @@ model Port {
   /// 예전에는 그 N심을 포트 N개 + 케이블 N본으로 폈고, 그래서 설계서 공량이 심선 수만큼
   /// 부풀었다(40m 한 가닥 → 160m). 케이블은 1본이고 코어는 여기서 센다.
   positions   Int     @default(1)
+  /// 종류 안의 **갈래** — 전원의 교류(AC)·직류(DC). 갈래가 없는 종류는 null.
+  /// 갈래가 다른 포트끼리는 잇지 못한다(`validateConnection`). 매체를 나누지 않은 까닭은
+  /// 매체 키가 곧 케이블 그룹 키라, 나누면 같은 F-CV 를 두 그룹에 등록해야 하기 때문이다.
+  variant     String?
   /// 이 포트에 딸린 값 — 광 심선의 손실(dB)·점검일처럼 **심선마다 다른** 것.
   /// 다심 포트에서는 코어 번호를 키로 한 겹 중첩된다: `{ "1": { lossDb: 0.6 }, … }`.
   fieldValues Json    @default("{}")

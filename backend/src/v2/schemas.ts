@@ -114,6 +114,8 @@ const portTemplateBodySchema = z.object({
   namePattern: z.string().min(1),
   /** 이 포트가 나르는 심선 수. 안 적으면 1(보통 포트). */
   positions: z.number().int().min(1).optional(),
+  /** 종류 안의 갈래 — 전원의 교류(AC)·직류(DC). 갈래가 없는 종류는 비운다. */
+  variant: z.string().min(1).nullish(),
 });
 /** 설비 품목 장비 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 const assemblyItemSchema = z.object({

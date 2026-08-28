@@ -2,7 +2,7 @@ import type { Direction } from '@twin/core';
 export type { TypeUpsertBody } from '@twin/core';
 
 export interface V2Category { id: string; key: string; name: string; sortOrder: number }
-export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number }
+export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number; variant?: string | null }
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number;
   assetCount: number;
@@ -151,6 +151,8 @@ export interface V2Port {
   id: string; assetId: string; group: string; index: number; name: string; direction: Direction; medium: string;
   /** 이 포트가 나르는 심선 수. 1 = 보통 포트, N = 다심 인입(OPGW 한 가닥에 N심). */
   positions: number;
+  /** 종류 안의 갈래 — 전원의 교류·직류. 갈래가 다르면 잇지 못한다(`validateConnection`). */
+  variant?: string | null;
   /** 이 포트에 딸린 값. 다심 포트에서는 코어 번호를 키로 한 겹 중첩된다 — `portValuesAt` 로만 읽는다. */
   fieldValues: Record<string, unknown>;
 }

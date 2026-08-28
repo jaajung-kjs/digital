@@ -170,6 +170,8 @@ export function buildPowerRows(
  */
 export interface PowerCircuit {
   portId: string;
+  /** 이 회로가 교류인가 직류인가 — 전압 목록이 이걸 따라 좁아진다. */
+  variant?: string | null;
   /** 회로 번호 — 포트 번호가 곧 회로 번호다(L1·L2…). */
   index: number;
   name: string;
@@ -209,6 +211,8 @@ export interface PowerNode {
    */
   sources: {
     portId: string;
+    /** 이 입력이 교류인가 직류인가. */
+    variant?: string | null;
     cableId: string | null;
     from: PeerInfo | null;
     fromAssetId: string | null;
@@ -263,6 +267,7 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
         const cable = cableOf(p.id);
         return {
           portId: p.id,
+          variant: p.variant,
           cableId: cable?.id ?? null,
           from: cable ? resolvePeer(p, cable, portIndex, board.substationId) : null,
           fromAssetId: cable ? peerAssetIdOf(p.id, cable) : null,
@@ -280,6 +285,7 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
           portId: p.id,
           index: p.index,
           name: p.name,
+          variant: p.variant,
           portValues: declaredPortValues(p),
           cableId: cable?.id ?? null,
           load: cable ? resolvePeer(p, cable, portIndex, board.substationId) : null,

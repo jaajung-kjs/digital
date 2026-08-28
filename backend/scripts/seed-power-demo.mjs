@@ -32,6 +32,8 @@ const API = `${arg('url', 'http://localhost:3000')}/api/v2`;
 const SUB_NAME = arg('name', '계통시험S/S');
 /** 반마다 회로 열 개 — 실물 분전반이 그 언저리다(강릉 대장은 반당 10~15). */
 const CIRCUITS = 10;
+/** 이 시드가 만드는 설비 품목 이름 — `--clean` 도 이 이름으로 걷는다. */
+const BOARD_SET = '분전반(시험)';
 
 let tok;
 async function call(path, method = 'GET', body) {
@@ -60,7 +62,15 @@ const existing = branch.substations.find((s) => s.name === SUB_NAME)
   ?? orgTree.headquarters.flatMap((h) => h.branches).flatMap((b) => b.substations).find((s) => s.name === SUB_NAME);
 
 if (has('clean')) {
-  if (!existing) { console.log(`[seed-power] ${SUB_NAME} 없음 — 지울 것이 없습니다.`); process.exit(0); }
+  /* 변전소가 없어도 **품목은 남아 있을 수 있다** — 지난번 실행이 중간에 멎었으면 그렇다.
+     그때 그냥 돌아가면 다음 실행이 옛 구성을 그대로 다시 쓴다. */
+  if (!existing) {
+    const catalog0 = await call('/catalog');
+    const stale = catalog0.assemblies.find((a) => a.name === BOARD_SET);
+    if (stale) await call(`/catalog/assemblies/${stale.id}`, 'DELETE');
+    console.log(`[seed-power] ${SUB_NAME} 없음 —${stale ? ` ${BOARD_SET} 만 지웠습니다.` : ' 지울 것이 없습니다.'}`);
+    process.exit(0);
+  }
   /* 케이블 → 자산 → 변전소 순서로 걷는다. 자산에 케이블이 물려 있으면 커밋이 막는다. */
   const wc = await call(`/substations/${existing.id}/workingcopy`);
   const baseVersions = Object.fromEntries([...wc.cables, ...wc.assets].map((r) => [r.id, r.updatedAt]));
@@ -80,7 +90,12 @@ if (has('clean')) {
     });
   }
   await call(`/org/substations/${existing.id}`, 'DELETE');
-  console.log(`[seed-power] ${SUB_NAME} 를 지웠습니다.`);
+  /* 이 시드가 만든 설비 품목도 함께 걷는다 — 남겨 두면 다음 실행이 **옛 구성을 그대로
+     다시 쓴다**(품목이 이미 있으면 만들지 않으므로). 실제로 그것 때문에 한 번 헤맸다. */
+  const catalog = await call('/catalog');
+  const mine = catalog.assemblies.find((a) => a.name === BOARD_SET);
+  if (mine) await call(`/catalog/assemblies/${mine.id}`, 'DELETE');
+  console.log(`[seed-power] ${SUB_NAME}${mine ? ` · ${BOARD_SET}` : ''} 를 지웠습니다.`);
   process.exit(0);
 }
 
@@ -90,22 +105,28 @@ const typeByKey = Object.fromEntries(catalog.types.map((t) => [t.key, t]));
 const assemblyByName = Object.fromEntries(catalog.assemblies.map((a) => [a.name, a]));
 
 /** 반 셋을 담은 설비 품목 — 없으면 만든다(있으면 그대로 쓴다). */
-const BOARD_SET = '분전반(시험)';
 const boardAssembly = assemblyByName[BOARD_SET] ?? await (async () => {
-  const power = typeByKey['PWR-AC'];
-  if (!power) throw new Error('전원(AC) 장비 품목이 없습니다');
-  const item = (name, row) => ({
-    id: `tmp-${name}`, typeId: power.id, name,
+  /* 반도 **교류 판과 직류 판이 다른 품목**이다 — 충전기 아래는 직류다(포트의 갈래가 그것을
+     말하고, 교류 회로에 직류 부하를 물리면 연결 검증이 막는다). */
+  const ac = typeByKey['PWR-AC'];
+  const dc = typeByKey['PWR-DC'];
+  if (!ac || !dc) throw new Error('전원(AC)·전원(DC) 장비 품목이 없습니다');
+  const item = (name, row, type, outGroup) => ({
+    id: `tmp-${name}`, typeId: type.id, name,
     col: 0, row, colSpan: 4, rowSpan: 1,
     /* 회로 수는 **품목이 아니라 이 판의 것**이다 — 같은 종류라도 10구 판과 13구 판이 있다. */
-    portCounts: { 'POWER-OUT': CIRCUITS }, portPositions: {},
+    portCounts: { [outGroup]: CIRCUITS }, portPositions: {},
   });
   return call('/catalog/assemblies', 'POST', {
     name: BOARD_SET,
     categoryId: catalog.assemblies[0].categoryId,
     sortOrder: catalog.assemblies.length,
     laborCode: null, unitPrice: null, installManDays: null, removeManDays: null, relocateManDays: null,
-    items: [item('소내전원반', 0), item('UPS', 1), item('DC 48V', 2)],
+    items: [
+      item('소내전원반', 0, ac, 'POWER-OUT-AC'),
+      item('UPS', 1, ac, 'POWER-OUT-AC'),
+      item('DC 48V', 2, dc, 'POWER-OUT-DC'),
+    ],
   });
 })();
 
@@ -127,7 +148,7 @@ function place(assembly, name, floorId, x, y) {
         /* 자리로 찾는다(부품 · 그룹 · 번호) — 이름 패턴은 품목마다 달라서(「출력 {n}」·
            「전원 출력 {n}」) 글자로 찾으면 품목 하나만 바뀌어도 시드가 조용히 깨진다. */
         ports.set(`${item.name}|${tpl.group}|${i}`, id);
-        if (tpl.medium === 'power' && tpl.direction === 'IN') powerIns.push(id);
+          if (tpl.medium === 'power' && tpl.direction === 'IN') powerIns.push({ id, variant: tpl.variant ?? null });
       }
     }
     creates.push({
@@ -180,12 +201,14 @@ const wire = (aPortId, bPortId, voltage) => ({
 });
 
 /** 부하가 될 포트들 — 여러 설비의 전원 입력을 차례로 꺼내 쓴다. */
+/* 부하도 **갈래를 가려서** 집는다 — 직류 회로에 교류 입력을 물릴 수 없다(연결 검증이 막는다). */
 const loadPorts = loads.flatMap((l) => l.powerIns);
-let next = 0;
-const takeLoad = () => {
-  const id = loadPorts[next++];
-  if (!id) throw new Error('부하로 쓸 전원 입력이 모자랍니다 — 부하 설비를 더 놓으세요');
-  return id;
+const used = new Set();
+const takeLoad = (variant) => {
+  const hit = loadPorts.find((p) => !used.has(p.id) && p.variant === variant);
+  if (!hit) throw new Error(`부하로 쓸 ${variant} 전원 입력이 모자랍니다 — 부하 설비를 더 놓으세요`);
+  used.add(hit.id);
+  return hit.id;
 };
 /** 반의 회로/입력 — 부품 · 그룹 · 번호로 짚는다. */
 const at = (placed, part, group, i = 1) => {
@@ -196,17 +219,17 @@ const at = (placed, part, group, i = 1) => {
 
 const cables = [
   /* 소내전원반 : 밖에서 받는다(입력 미결선) → UPS·충전기를 먹이고 남는 회로는 부하로. */
-  wire(at(boards, '소내전원반', 'POWER-OUT', 1), at(boards, 'UPS', 'POWER-IN'), AC_3P),
-  wire(at(boards, '소내전원반', 'POWER-OUT', 2), at(charger, '충전기', 'POWER-IN'), AC_3P),
-  ...[3, 4, 5, 6].map((n) => wire(at(boards, '소내전원반', 'POWER-OUT', n), takeLoad(), AC_1P)),
+  wire(at(boards, '소내전원반', 'POWER-OUT-AC', 1), at(boards, 'UPS', 'POWER-IN-AC'), AC_3P),
+  wire(at(boards, '소내전원반', 'POWER-OUT-AC', 2), at(charger, '충전기', 'POWER-IN-AC'), AC_3P),
+  ...[3, 4, 5, 6].map((n) => wire(at(boards, '소내전원반', 'POWER-OUT-AC', n), takeLoad('AC'), AC_1P)),
 
   /* UPS : 열 회로 중 일곱을 쓴다 — 나머지는 예비(SPARE)로 남는다. */
-  ...[1, 2, 3, 4, 5, 6, 7].map((n) => wire(at(boards, 'UPS', 'POWER-OUT', n), takeLoad(), AC_1P)),
+  ...[1, 2, 3, 4, 5, 6, 7].map((n) => wire(at(boards, 'UPS', 'POWER-OUT-AC', n), takeLoad('AC'), AC_1P)),
 
   /* DC 48V : **충전기에서 받는다** — 대장의 「#1 충전기 : DC 48V #1」 그 줄이다. */
-  wire(at(charger, '충전기', 'POWER-OUT', 1), at(boards, 'DC 48V', 'POWER-IN'), DC),
+  wire(at(charger, '충전기', 'POWER-OUT-DC', 1), at(boards, 'DC 48V', 'POWER-IN-DC'), DC),
   ...Array.from({ length: CIRCUITS }, (_, i) =>
-    wire(at(boards, 'DC 48V', 'POWER-OUT', i + 1), takeLoad(), DC)),
+    wire(at(boards, 'DC 48V', 'POWER-OUT-DC', i + 1), takeLoad('DC'), DC)),
 ];
 
 await call(`/substations/${substation.id}/commit`, 'PUT', { cables: { creates: cables } });

@@ -53,8 +53,10 @@ interface PortsEditorProps {
  * 이 셋이 곧 프리셋의 정체다(`portPresets`). 그룹 키로 가르면 안 된다 — 키는 타입 안에서
  * 유일하기만 하면 되는 식별자라 `FIBER`·`FIBER-2` 처럼 달라질 수 있다.
  */
-const kindOf = (p: { medium: string; direction: Direction; positions?: number | null }) =>
-  `${p.medium}|${p.direction}|${isMultiCorePort(p.positions) ? 'multi' : 'single'}`;
+/* 같은 종류인가 — 매체·방향·심선 수에 **갈래**까지 본다. 갈래가 다르면 다른 줄이다
+   (전원 입력이 교류·직류 둘로 서야 충전기처럼 받아서 바꾸는 장비를 적을 수 있다). */
+const kindOf = (p: { medium: string; direction: Direction; positions?: number | null; variant?: string | null }) =>
+  `${p.medium}|${p.direction}|${isMultiCorePort(p.positions) ? 'multi' : 'single'}|${p.variant ?? ''}`;
 
 /** 개수 칸 — 종류 이름 옆에 붙는 작은 숫자 칸. 폼 상자(38px)를 쓰면 줄이 통째로 두꺼워진다. */
 function CountField({
@@ -106,6 +108,7 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
           medium: preset.medium,
           namePattern: preset.namePattern,
           positions: preset.positions,
+          ...(preset.variant ? { variant: preset.variant } : {}),
         } satisfies PortRow,
         preset,
       };
@@ -272,6 +275,9 @@ function labelOf(
     direction: r.direction,
     sampleName: r.namePattern.replace('{n}', '1'),
     positions: coreCount(r.positions),
+    /* 갈래까지 넘겨야 「전원 입력(교류)」·「전원 입력(직류)」로 갈린다 — 안 넘기면 두 줄이
+       같은 이름이 되어 이름 대신 그룹 키가 튀어나온다. */
+    variant: r.variant,
   }));
   const mine = refs.find((r) => r.group === row.group)!;
   return portGroupLabel(mine, refs, mediumLabel);

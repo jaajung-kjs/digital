@@ -91,3 +91,28 @@ describe('다중 결선 — 접지', () => {
     expect(validateConnection(port('a', 'network'), port('b', 'network'), used('a'))).toBe('port-occupied');
   });
 });
+
+/**
+ * **교류와 직류는 잇지 않는다.**
+ *
+ * 전원 매체 하나로 두고 전압은 케이블에 적는 사후 기록이라, 예전에는 교류 출력에 직류 입력을
+ * 물려도 통과했다(장비가 망가지는 결선인데). 갈래를 포트가 들고 검증이 그것을 본다.
+ */
+describe('전원의 갈래 — 교류·직류', () => {
+  const port = (id: string, direction: 'IN' | 'OUT', variant?: string) => ({
+    id, assetId: `a-${id}`, group: `G-${id}`, index: 1, name: id, direction, medium: 'power', variant,
+  });
+
+  it('같은 갈래끼리는 이어진다', () => {
+    expect(validateConnection(port('a', 'OUT', 'DC'), port('b', 'IN', 'DC'), new Map())).toBeNull();
+  });
+
+  it('갈래가 다르면 막는다 — 교류 출력에 직류 입력', () => {
+    expect(validateConnection(port('a', 'OUT', 'AC'), port('b', 'IN', 'DC'), new Map())).toBe('variant-mismatch');
+  });
+
+  /* 갈래가 없는 옛 자료는 막지 않는다 — 규칙이 자료보다 앞서 가면 이미 있는 결선이 잠긴다. */
+  it('한쪽에 갈래가 없으면 견주지 않는다', () => {
+    expect(validateConnection(port('a', 'OUT'), port('b', 'IN', 'DC'), new Map())).toBeNull();
+  });
+});

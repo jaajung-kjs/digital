@@ -205,3 +205,43 @@ describe('cables in commit + workingcopy', () => {
     expect(res.body.error).toBe('INVALID_CABLE');
   });
 });
+
+/**
+ * **교류와 직류는 잇지 않는다 — 서버가 막는다.**
+ *
+ * 갈래를 넣고 브라우저로 시험해 보니 화면은 막는데 **서버는 통과**시켰다: 검증에 넘기는 포트
+ * 형상에서 심선 수와 갈래가 빠져 있었다(두 자리가 그 매핑을 각자 적고 있었고 둘 다 빠뜨렸다).
+ * 화면만 막는 규칙은 규칙이 아니다 — API 로 부르면 그대로 들어온다.
+ */
+describe('전원의 갈래 — 서버가 막는다', () => {
+  it('교류 출력에 직류 입력을 물리면 422', async () => {
+    const chargerType = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'CHARGER' } });
+    const acPanel = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'PWR-AC' } });
+    const a = randomUUID(); const b = randomUUID();
+    await commit({ assets: { creates: [
+      { id: a, name: `${uniq}-충전기`, typeId: chargerType.id },
+      { id: b, name: `${uniq}-AC반`, typeId: acPanel.id },
+    ] } }).expect(200);
+
+    /* 충전기는 **직류를 내보내고**, AC 분전반은 **교류를 받는다** — 그 둘은 못 잇는다. */
+    const dcOut = await nextDb.port.findFirstOrThrow({ where: { assetId: a, direction: 'OUT', variant: 'DC' } });
+    const acIn = await nextDb.port.findFirstOrThrow({ where: { assetId: b, direction: 'IN', variant: 'AC' } });
+    const res = await commit({ cables: { creates: [{ id: randomUUID(), aPortId: dcOut.id, bPortId: acIn.id, categoryId: powerCatId }] } });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe('CONNECT_VARIANT_MISMATCH');
+  });
+
+  it('같은 갈래끼리는 이어진다', async () => {
+    const dcPanel = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'PWR-DC' } });
+    const chargerType = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'CHARGER' } });
+    const a = randomUUID(); const b = randomUUID();
+    await commit({ assets: { creates: [
+      { id: a, name: `${uniq}-충전기2`, typeId: chargerType.id },
+      { id: b, name: `${uniq}-DC반`, typeId: dcPanel.id },
+    ] } }).expect(200);
+
+    const dcOut = await nextDb.port.findFirstOrThrow({ where: { assetId: a, direction: 'OUT', variant: 'DC' } });
+    const dcIn = await nextDb.port.findFirstOrThrow({ where: { assetId: b, direction: 'IN', variant: 'DC' } });
+    await commit({ cables: { creates: [{ id: randomUUID(), aPortId: dcOut.id, bPortId: dcIn.id, categoryId: powerCatId }] } }).expect(200);
+  });
+});

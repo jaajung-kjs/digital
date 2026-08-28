@@ -92,6 +92,21 @@ export const FIBER_LINE_FIELDS: readonly ValueDef[] = [
   { key: 'spliceCount', label: '접속개소', type: 'number' },
 ] as const;
 
+/**
+ * 한 종류 안에서 **서로 못 잇는 갈래** — 지금은 전원의 교류·직류뿐이다.
+ *
+ * 매체를 아예 둘로 나누는 길도 있었지만(`power-ac`·`power-dc`), 매체 키는 곧 케이블 그룹
+ * 키라 그렇게 하면 케이블 품목까지 갈라진다 — 현장은 같은 F-CV 를 교류에도 직류에도 쓴다.
+ * 갈래는 **포트가 들고**, 케이블 어휘는 하나로 둔다.
+ */
+export interface PortVariant {
+  key: string;
+  /** 화면에 붙는 말 — 「전원 입력(교류)」의 괄호 안. */
+  name: string;
+  /** 이 갈래에서 고를 수 있는 전압. 없으면 그 종류의 전체 목록. */
+  voltages?: readonly string[];
+}
+
 export interface PortKind {
   /** `CableGroup.key` 이자 `PortTemplate.medium` 값. */
   key: string;
@@ -107,6 +122,13 @@ export interface PortKind {
   pairing: PortPairing;
   /** 한 포트에 물릴 수 있는 케이블 수. `null` = 제한 없음(접지 부스바). */
   maxCables: number | null;
+  /**
+   * 이 종류의 갈래 — 있으면 포트가 그중 하나를 들고, **다른 갈래끼리는 잇지 못한다**.
+   *
+   * 전원이 그렇다: 교류 출력에 직류 입력을 물리면 장비가 망가지는데, 매체만 보던 검증은
+   * 그것을 통과시켰다(전압은 케이블에 적는 사후 기록이라 규칙이 아니었다).
+   */
+  variants?: readonly PortVariant[];
   /** 이 종류의 케이블에만 있는 값. 공통 필드는 여기 되풀이하지 않는다. */
   cableFields: readonly ValueDef[];
   /**
@@ -154,10 +176,12 @@ export interface PortKind {
  * (스무 줄에서 다섯 줄을 찾는다), 「목록에 있으니 맞는 값이겠지」라는 잘못된 안심을 준다.
  * 목록에 없는 값은 「직접 입력」으로 적는다 — 그 문은 언제나 열려 있다.
  */
-/** 전압 — 위상까지 한 값으로(대장 표기가 그렇다). 자료: 220V(67) · 380V(46) · 48V(27) · 110V(1). */
-export const POWER_VOLTAGES = [
-  'AC 380V 3φ', 'AC 220V 3φ', 'AC 220V 1φ', 'AC 110V 1φ', 'DC 48V',
-] as const;
+/** 교류 전압 — 위상까지 한 값으로(대장 표기가 그렇다). 자료: 220V(67) · 380V(46) · 110V(1). */
+export const AC_VOLTAGES = ['AC 380V 3φ', 'AC 220V 3φ', 'AC 220V 1φ', 'AC 110V 1φ'] as const;
+/** 직류 전압 — 위상이 없다. 자료: 48V(27). */
+export const DC_VOLTAGES = ['DC 48V'] as const;
+/** 둘을 합친 것 — 갈래를 모르는 자리(케이블만 보고 있을 때)가 쓴다. */
+export const POWER_VOLTAGES = [...AC_VOLTAGES, ...DC_VOLTAGES] as const;
 
 /**
  * 전선 규격(공칭 단면적, sq=mm²) — 자료에 나온 것 그대로.
@@ -181,6 +205,11 @@ export const PORT_KINDS = [
   // 전원은 공급(OUT)과 소비(IN)가 갈린다 — 출력끼리 잇는 것은 물리적으로 불가능하다.
   {
     key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
+    /* 교류와 직류는 잇지 않는다 — 충전기가 교류를 받아 직류를 내보내는 것이 그 경계다. */
+    variants: [
+      { key: 'AC', name: '교류', voltages: AC_VOLTAGES },
+      { key: 'DC', name: '직류', voltages: DC_VOLTAGES },
+    ],
     /* 굵기는 **전원케이블 대장의 절반**이다 — 현장 대장은 「FR-5.5sq」처럼 종류와 굵기를
        붙여 적는다. 종류는 우리 케이블 품목이 이미 알고, 굵기는 적을 곳이 없었다. */
     cableFields: [
@@ -270,10 +299,20 @@ export type PortKindKey = (typeof PORT_KINDS)[number]['key'];
  * (선번장 meta 3열, 계통 전압열, 설계서 공량). 그래서 값을 하나 늘리려면 그 키를 읽는 곳을
  * 전부 찾아 고쳐야 했고, 종류마다 무엇을 적을 수 있는지는 코드를 읽어야만 알 수 있었다.
  */
-export function cableFieldsFor(medium: string, opts?: { managesFiberLine?: boolean }): ValueDef[] {
+export function cableFieldsFor(
+  medium: string,
+  opts?: { managesFiberLine?: boolean; variant?: string | null },
+): ValueDef[] {
+  const kind = portKind(medium);
+  /* 갈래를 알면 **그 갈래가 고를 수 있는 값**만 낸다 — 직류 회로에 「AC 220V 3φ」가 뜨면
+     고르는 사람이 그 목록을 믿지 않게 된다. 갈래를 모르는 자리(케이블만 보고 있을 때)는
+     종류 전체 목록 그대로. */
+  const variant = opts?.variant ? kind?.variants?.find((v) => v.key === opts.variant) : undefined;
+  const narrow = (f: ValueDef): ValueDef =>
+    variant?.voltages && f.key === 'voltage' ? { ...f, options: variant.voltages } : f;
   return [
     ...COMMON_CABLE_FIELDS,
-    ...(portKind(medium)?.cableFields ?? []),
+    ...(kind?.cableFields ?? []).map(narrow),
     /* 선로 값은 **종류의 선언**이 부른다 — 매체가 아니라(같은 광이어도 점퍼코드는 아니다). */
     ...(opts?.managesFiberLine ? FIBER_LINE_FIELDS : []),
   ];
@@ -386,6 +425,8 @@ export function portKind(key: string): PortKind | null {
 
 /** 장비 품목을 만들 때 "이 포트를 몇 개" 로 고를 수 있는 미리 정의된 묶음. */
 export interface PortPreset {
+  /** 종류 안의 갈래(전원의 교류·직류). 갈래가 없는 종류는 없다. */
+  variant?: string;
   /** 버튼에 적히는 이름 — `전원 입력` 처럼 방향까지 담는다. */
   name: string;
   medium: string;
@@ -427,10 +468,22 @@ export function portPresets(): PortPreset[] {
           }]
         : [single];
     }
-    return (['IN', 'OUT'] as const).map((direction) => {
+    return (['IN', 'OUT'] as const).flatMap((direction) => {
       const label = `${kind.name} ${portDirectionLabel(direction)}`;
       // 방향이 뜻을 갖는 종류(전원)에는 다심이 없다 — 1심 고정.
-      return { name: label, medium: kind.key, direction, groupKey: `${kind.key.toUpperCase()}-${direction}`, namePattern: `${label} {n}`, positions: 1 };
+      const base = { medium: kind.key, direction, positions: 1 };
+      /* 갈래가 있으면 **갈래마다 하나씩** 낸다 — 「전원 입력(교류)」·「전원 입력(직류)」.
+         화면에서 고를 수 있는 것이 곧 어휘이므로, 갈래도 여기서 갈라져야 만들 수 있다. */
+      if (!kind.variants) {
+        return [{ ...base, name: label, groupKey: `${kind.key.toUpperCase()}-${direction}`, namePattern: `${label} {n}` }];
+      }
+      return kind.variants.map((v) => ({
+        ...base,
+        name: `${label}(${v.name})`,
+        groupKey: `${kind.key.toUpperCase()}-${direction}-${v.key}`,
+        namePattern: `${label} {n}`,
+        variant: v.key,
+      }));
     });
   });
 }
@@ -440,6 +493,8 @@ export interface PortGroupRef {
   group: string;
   medium: string;
   direction: Direction;
+  /** 종류 안의 갈래(전원의 교류·직류) — 있으면 이름에 붙는다. */
+  variant?: string | null;
   /**
    * 그 그룹 포트 하나의 이름(예: `장비 1`). 같은 종류·방향이 둘 이상일 때 이걸로 가른다.
    * 그룹 키(`A`·`B`)는 영문만 허용되는 **식별자**라 사람에게 보여 줄 이름이 못 된다.
@@ -480,8 +535,12 @@ export function portGroupLabel(
   mediumName?: (medium: string) => string,
 ): string {
   const base = (g: PortGroupRef) => {
-    const name = mediumName?.(g.medium) ?? portKind(g.medium)?.name ?? g.medium;
-    return portKind(g.medium)?.pairing === 'opposite' ? `${name} ${portDirectionLabel(g.direction)}` : name;
+    const kind = portKind(g.medium);
+    const name = mediumName?.(g.medium) ?? kind?.name ?? g.medium;
+    if (kind?.pairing !== 'opposite') return name;
+    /* 갈래가 있으면 그것까지 불러야 두 구획이 갈린다 — 「전원 입력(교류)」·「전원 입력(직류)」. */
+    const variant = kind.variants?.find((v) => v.key === g.variant);
+    return `${name} ${portDirectionLabel(g.direction)}${variant ? `(${variant.name})` : ''}`;
   };
   const mine = base(target);
   const ambiguous = siblings.filter((s) => base(s) === mine).length > 1;

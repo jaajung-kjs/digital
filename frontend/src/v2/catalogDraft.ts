@@ -27,10 +27,11 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
     installManDays: t.installManDays,
     removeManDays: t.removeManDays,
     relocateManDays: t.relocateManDays,
-    ports: t.portTemplates.map(({ group, count, direction, medium, namePattern, positions }) => ({
+    ports: t.portTemplates.map(({ group, count, direction, medium, namePattern, positions, variant }) => ({
       group,
       count,
       direction,
+      variant,
       medium,
       namePattern,
       positions,

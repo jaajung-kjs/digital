@@ -6,7 +6,7 @@ export interface CatalogTypeRow {
   category: { key: string };
   laborCode: string | null; unitPrice?: number | null;
   installManDays: number | null; removeManDays: number | null; relocateManDays: number | null;
-  portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; sortOrder: number }[];
+  portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; variant?: string | null; sortOrder: number }[];
 }
 
 /**
@@ -28,6 +28,8 @@ export function portTemplatesFrom(
       medium: p.medium,
       namePattern: p.namePattern,
       positions: coreCount(p.positions),
+      /* 갈래(전원의 교류·직류)는 포트까지 그대로 따라간다 — 연결 검증이 본다. */
+      ...(p.variant ? { variant: p.variant } : {}),
     }));
 }
 

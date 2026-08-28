@@ -4,10 +4,18 @@ import { DEFAULT_CORE_COUNT, PORT_KINDS, cableFieldsFor, coreCount, isMultiCoreP
 describe('포트 프리셋', () => {
   const presets = portPresets();
 
-  it('방향이 뜻을 갖는 종류는 입력·출력 둘로 나뉜다 — "전원 입력 1개, 출력 2개" 가 두 번의 클릭이 되게', () => {
+  /**
+   * 전원은 **방향과 갈래**로 갈린다 — 「전원 입력(교류) 1개, 출력(직류) 2개」가 두 번의 클릭이다.
+   *
+   * 갈래를 화면에서 고를 수 없으면 만들 수도 없다: 충전기처럼 교류를 받아 직류를 내보내는
+   * 장비를 적을 방법이 사라진다.
+   */
+  it('방향이 뜻을 갖는 종류는 방향×갈래로 나뉜다', () => {
     const power = presets.filter((p) => p.medium === 'power');
-    expect(power.map((p) => p.name)).toEqual(['전원 입력', '전원 출력']);
-    expect(power.map((p) => p.direction)).toEqual(['IN', 'OUT']);
+    expect(power.map((p) => p.name)).toEqual([
+      '전원 입력(교류)', '전원 입력(직류)', '전원 출력(교류)', '전원 출력(직류)',
+    ]);
+    expect(power.map((p) => `${p.direction}·${p.variant}`)).toEqual(['IN·AC', 'IN·DC', 'OUT·AC', 'OUT·DC']);
   });
 
   it('방향을 따지지 않는 종류는 하나뿐', () => {

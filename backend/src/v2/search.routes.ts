@@ -132,6 +132,8 @@ searchRouter.get('/assets/:id/ports', async (req, res, next) => {
          그래서 대국 검색으로 OPGW 를 고르면 「심선 수가 다름」으로 막혔다. 연결 규칙이
          묻는 값은 다 실어 보낸다. */
       positions: p.positions,
+      /* 갈래(교류·직류)도 함께 — 다른 국의 포트를 고를 때도 같은 규칙이 서야 한다. */
+      variant: p.variant,
       occupied: occupiedSet.has(p.id),
     })));
   } catch (e) {

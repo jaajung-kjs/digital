@@ -31,6 +31,8 @@ export function instantiatePorts(
       direction: tpl.direction,
       medium: tpl.medium,
       positions,
+      /* 갈래(전원의 교류·직류)도 포트가 그대로 물려받는다 — 연결 검증이 그것을 본다. */
+      ...(tpl.variant ? { variant: tpl.variant } : {}),
     }));
   });
 }

@@ -47,15 +47,17 @@ describe('derivedLinks — 포트 선언에서 저절로 나오는 내부 통과
     );
     expect(got).toEqual({
       'OFD-SLOT': ['FIBER-TRUNK→FIBER byPosition'],
-      FEEDER: ['POWER-IN→POWER-OUT all'],
-      CHARGER: ['POWER-IN→POWER-OUT all'],
-      UPS: ['POWER-IN→POWER-OUT all'],
+      FEEDER: ['POWER-IN-AC→POWER-OUT-AC all'],
+      /* 충전기는 **교류를 받아 직류를 내보낸다** — 통과는 그대로 유도된다(변환도 통과다:
+         추적이 충전기 너머 직류 쪽으로 이어져야 「이 회로가 어디서 왔나」가 끊기지 않는다). */
+      CHARGER: ['POWER-IN-AC→POWER-OUT-DC all'],
+      UPS: ['POWER-IN-AC→POWER-OUT-AC all'],
       // 충전 입력과 방전 출력은 같은 DC 모선에 걸린다 — 시드에만 빠져 있었다.
-      BATTERY: ['POWER-IN→POWER-OUT all'],
-      'PWR-AC': ['POWER-IN→POWER-OUT all'],
+      BATTERY: ['POWER-IN-DC→POWER-OUT-DC all'],
+      'PWR-AC': ['POWER-IN-AC→POWER-OUT-AC all'],
       /* 직류 분전반도 같다 — 예전에는 네트워크 포트를 달고 있어서 통과가 유도되지 않았다
          (임시값이 남아 있던 자리다). 포트를 바로잡으니 규칙도 저절로 따라왔다. */
-      'PWR-DC': ['POWER-IN→POWER-OUT all'],
+      'PWR-DC': ['POWER-IN-DC→POWER-OUT-DC all'],
     });
   });
 });

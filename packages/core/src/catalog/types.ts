@@ -82,6 +82,13 @@ export interface PortTemplate {
    * 코어는 `positions` 으로 센다 — NetBox 의 RearPort(positions)/FrontPort 와 같다.
    */
   positions?: number;
+  /**
+   * 종류 안의 **갈래** — 전원의 교류·직류(`PortKind.variants`). 없으면 갈래가 없는 종류다.
+   *
+   * 갈래가 다른 포트끼리는 잇지 못한다(`validateConnection`). 매체를 나누지 않고 여기 둔
+   * 까닭은 매체 키가 곧 케이블 그룹 키라, 나누면 같은 F-CV 를 두 번 등록해야 하기 때문이다.
+   */
+  variant?: string | null;
 }
 
 /**
@@ -144,6 +151,8 @@ export interface PortRef {
   medium: string;
   /** 이 포트가 나르는 심선 수. 없거나 1이면 보통 포트. @see PortTemplate.positions */
   positions?: number;
+  /** 종류 안의 갈래(전원의 교류·직류). @see PortTemplate.variant */
+  variant?: string | null;
 }
 
 export interface CableRef {
@@ -171,7 +180,7 @@ export interface TypeUpsertBody {
   installManDays: number | null;
   removeManDays: number | null;
   relocateManDays: number | null;
-  ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number }>;
+  ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number; variant?: string | null }>;
 }
 
 /**

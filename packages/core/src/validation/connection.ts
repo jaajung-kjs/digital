@@ -1,7 +1,10 @@
 import type { PortRef } from '../catalog/types.js';
 import { coreCountsMatch, portHasRoom, portKind } from '../catalog/portKinds.js';
 
-export type ConnectError = 'same-port' | 'port-occupied' | 'medium-mismatch' | 'direction-mismatch' | 'core-count-mismatch';
+export type ConnectError =
+  | 'same-port' | 'port-occupied' | 'medium-mismatch' | 'direction-mismatch' | 'core-count-mismatch'
+  /** 교류와 직류 — 같은 전원이라도 서로 잇지 않는다. */
+  | 'variant-mismatch';
 
 /**
  * 케이블을 두 포트에 물릴 수 있는지 판정.
@@ -11,6 +14,8 @@ export type ConnectError = 'same-port' | 'port-occupied' | 'medium-mismatch' | '
  * - **상대**: 종류가 선언한 상대끼리만 붙는다.
  * - **방향**: 전원처럼 공급/소비가 갈리는 종류는 반대 방향끼리만 붙는다.
  *   `BI`(양방향)는 어느 쪽과도 맞는다 — "정해지지 않음" 이지 "같은 쪽" 이 아니다.
+ * - **갈래**: 종류가 갈래를 선언했으면(전원의 교류·직류) 같은 갈래끼리만 붙는다.
+ *   교류 출력에 직류 입력을 물리면 장비가 망가지는데, 예전에는 그것이 통과했다.
  *
  * @param cableCountByPortId 각 포트에 이미 물려 있는 케이블 수. 없으면 0으로 본다.
  * @param cableMedium 케이블 품목. 주면 포트 종류와 일치하는지도 본다.
@@ -44,6 +49,9 @@ export function validateConnection(
   if (kind?.pairing === 'opposite' && a.direction === b.direction && a.direction !== 'BI') {
     return 'direction-mismatch';
   }
+
+  /* 갈래가 둘 다 적혀 있을 때만 견준다 — 예전 자료에는 갈래가 없다(그때는 막지 않는다). */
+  if (kind?.variants && a.variant && b.variant && a.variant !== b.variant) return 'variant-mismatch';
 
   return null;
 }

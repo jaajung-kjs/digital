@@ -663,6 +663,24 @@ async function assertNoAttachedCables(tx: Tx, deletedAssetIds: string[]): Promis
   }
 }
 
+/**
+ * DB 포트 행 → 코어가 판정에 쓰는 형상.
+ *
+ * 두 자리(케이블 만들기·고치기)가 이 매핑을 각자 적고 있었고, **둘 다 심선 수와 갈래를
+ * 빠뜨렸다**. 그래서 서버는 24심 인입을 1심 어댑터에 물리는 것도, 교류 출력에 직류 입력을
+ * 무는 것도 통과시켰다 — 화면만 막고 있었다(브라우저로 확인했다). 매핑은 한 곳이다.
+ */
+function portRef(p: {
+  id: string; assetId: string; group: string; index: number; name: string;
+  direction: string; medium: string; positions: number; variant: string | null;
+}) {
+  return {
+    id: p.id, assetId: p.assetId, group: p.group, index: p.index, name: p.name,
+    direction: p.direction as Direction, medium: p.medium,
+    positions: p.positions, variant: p.variant,
+  };
+}
+
 async function applyCableUpdate(
   tx: Tx,
   substationId: string,
@@ -683,8 +701,8 @@ async function applyCableUpdate(
     const a = existing.aPort;
     const b = existing.bPort;
     const err = validateConnection(
-      { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as Direction, medium: a.medium },
-      { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as Direction, medium: b.medium },
+      portRef(a),
+      portRef(b),
       new Map<string, number>(),
       cableMedium,
     );
@@ -745,8 +763,8 @@ async function applyCableCreate(
   }
 
   const err = validateConnection(
-    { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as Direction, medium: a.medium },
-    { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as Direction, medium: b.medium },
+    portRef(a),
+    portRef(b),
     cableCountByPortId,
     cableMedium,
   );

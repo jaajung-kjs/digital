@@ -95,7 +95,7 @@ async function main() {
       await tx.assetPortTemplate.deleteMany({ where: { typeId: type.id } });
       for (const [i, p] of t.ports.entries()) {
         await tx.assetPortTemplate.create({
-          data: { typeId: type.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, sortOrder: i },
+          data: { typeId: type.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, variant: p.variant ?? null, sortOrder: i },
         });
       }
     }
