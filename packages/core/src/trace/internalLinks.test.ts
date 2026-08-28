@@ -46,16 +46,16 @@ describe('derivedLinks — 포트 선언에서 저절로 나오는 내부 통과
         .map(([k, links]) => [k, links.map((l) => `${l.fromGroup}→${l.toGroup} ${l.mapping}`)]),
     );
     expect(got).toEqual({
-      'OFD-SLOT': ['TRUNK→CORE byPosition'],
-      FEEDER: ['IN→OUT all'],
-      CHARGER: ['PWR-IN→PWR-OUT all'],
-      UPS: ['PWR-IN→PWR-OUT all'],
+      'OFD-SLOT': ['FIBER-TRUNK→FIBER byPosition'],
+      FEEDER: ['POWER-IN→POWER-OUT all'],
+      CHARGER: ['POWER-IN→POWER-OUT all'],
+      UPS: ['POWER-IN→POWER-OUT all'],
       // 충전 입력과 방전 출력은 같은 DC 모선에 걸린다 — 시드에만 빠져 있었다.
-      BATTERY: ['PWR-IN→PWR-OUT all'],
-      'PWR-AC': ['PWR-IN→PWR-OUT all'],
+      BATTERY: ['POWER-IN→POWER-OUT all'],
+      'PWR-AC': ['POWER-IN→POWER-OUT all'],
       /* 직류 분전반도 같다 — 예전에는 네트워크 포트를 달고 있어서 통과가 유도되지 않았다
          (임시값이 남아 있던 자리다). 포트를 바로잡으니 규칙도 저절로 따라왔다. */
-      'PWR-DC': ['PWR-IN→PWR-OUT all'],
+      'PWR-DC': ['POWER-IN→POWER-OUT all'],
     });
   });
 });

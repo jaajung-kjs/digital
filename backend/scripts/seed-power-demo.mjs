@@ -98,7 +98,7 @@ const boardAssembly = assemblyByName[BOARD_SET] ?? await (async () => {
     id: `tmp-${name}`, typeId: power.id, name,
     col: 0, row, colSpan: 4, rowSpan: 1,
     /* 회로 수는 **품목이 아니라 이 판의 것**이다 — 같은 종류라도 10구 판과 13구 판이 있다. */
-    portCounts: { 'PWR-OUT': CIRCUITS }, portPositions: {},
+    portCounts: { 'POWER-OUT': CIRCUITS }, portPositions: {},
   });
   return call('/catalog/assemblies', 'POST', {
     name: BOARD_SET,
@@ -196,17 +196,17 @@ const at = (placed, part, group, i = 1) => {
 
 const cables = [
   /* 소내전원반 : 밖에서 받는다(입력 미결선) → UPS·충전기를 먹이고 남는 회로는 부하로. */
-  wire(at(boards, '소내전원반', 'PWR-OUT', 1), at(boards, 'UPS', 'PWR-IN'), AC_3P),
-  wire(at(boards, '소내전원반', 'PWR-OUT', 2), at(charger, '충전기', 'PWR-IN'), AC_3P),
-  ...[3, 4, 5, 6].map((n) => wire(at(boards, '소내전원반', 'PWR-OUT', n), takeLoad(), AC_1P)),
+  wire(at(boards, '소내전원반', 'POWER-OUT', 1), at(boards, 'UPS', 'POWER-IN'), AC_3P),
+  wire(at(boards, '소내전원반', 'POWER-OUT', 2), at(charger, '충전기', 'POWER-IN'), AC_3P),
+  ...[3, 4, 5, 6].map((n) => wire(at(boards, '소내전원반', 'POWER-OUT', n), takeLoad(), AC_1P)),
 
   /* UPS : 열 회로 중 일곱을 쓴다 — 나머지는 예비(SPARE)로 남는다. */
-  ...[1, 2, 3, 4, 5, 6, 7].map((n) => wire(at(boards, 'UPS', 'PWR-OUT', n), takeLoad(), AC_1P)),
+  ...[1, 2, 3, 4, 5, 6, 7].map((n) => wire(at(boards, 'UPS', 'POWER-OUT', n), takeLoad(), AC_1P)),
 
   /* DC 48V : **충전기에서 받는다** — 대장의 「#1 충전기 : DC 48V #1」 그 줄이다. */
-  wire(at(charger, '충전기', 'PWR-OUT', 1), at(boards, 'DC 48V', 'PWR-IN'), DC),
+  wire(at(charger, '충전기', 'POWER-OUT', 1), at(boards, 'DC 48V', 'POWER-IN'), DC),
   ...Array.from({ length: CIRCUITS }, (_, i) =>
-    wire(at(boards, 'DC 48V', 'PWR-OUT', i + 1), takeLoad(), DC)),
+    wire(at(boards, 'DC 48V', 'POWER-OUT', i + 1), takeLoad(), DC)),
 ];
 
 await call(`/substations/${substation.id}/commit`, 'PUT', { cables: { creates: cables } });

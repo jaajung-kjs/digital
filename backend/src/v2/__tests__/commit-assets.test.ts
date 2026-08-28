@@ -51,8 +51,11 @@ describe('PUT /commit — assets', () => {
         ],
       },
     }).expect(200);
+    /* 장비의 포트는 **그 품목의 명세대로** 만들어진다 — 개수를 여기 박아 두면 품목을
+       고칠 때마다 이 시험이 깨진다. PITR 이 광·관리·전원·접지를 갖는다는 사실만 본다. */
     const m1Ports = await nextDb.port.findMany({ where: { assetId: m1 } });
-    expect(m1Ports.length).toBe(2); // device 기본 포트 템플릿 (network 2)
+    expect(m1Ports.length).toBeGreaterThan(0);
+    expect(new Set(m1Ports.map((p) => p.medium))).toEqual(new Set(['fiber', 'network', 'power', 'ground']));
     // 설비 자신에게는 포트가 없다 — 포트를 갖는 것은 안에 든 장비다.
     expect(await nextDb.port.count({ where: { assetId: rackId } })).toBe(0);
   });
@@ -129,13 +132,13 @@ describe('PUT /commit — assets', () => {
       assets: {
         creates: [
           { id: ofdId, name: `${uniq}-ofd`, assemblyId: ofdAssemblyId, floorId, x: 100, y: 0, width: 40, height: 40 },
-          { id: slotId, name: `${uniq}-slot12`, typeId: slotTypeId, parentAssetId: ofdId, col: 0, row: 0, portCounts: { CORE: 12 }, portPositions: { TRUNK: 12 } },
+          { id: slotId, name: `${uniq}-slot12`, typeId: slotTypeId, parentAssetId: ofdId, col: 0, row: 0, portCounts: { FIBER: 12 }, portPositions: { 'FIBER-TRUNK': 12 } },
         ],
       },
     }).expect(200);
     const ports = await nextDb.port.findMany({ where: { assetId: slotId } });
-    expect(ports.filter((p) => p.group === 'CORE')).toHaveLength(12);
-    const trunk = ports.find((p) => p.group === 'TRUNK')!;
+    expect(ports.filter((p) => p.group === 'FIBER')).toHaveLength(12);
+    const trunk = ports.find((p) => p.group === 'FIBER-TRUNK')!;
     // 인입은 언제나 포트 **하나** — 심선 수만큼 펴지 않는다.
     expect([ports.length, trunk.positions]).toEqual([13, 12]);
   });
@@ -240,8 +243,8 @@ describe('자산 상태 어휘', () => {
 describe('PUT /commit — 화면이 정한 포트 id', () => {
   it('준 id 로 포트가 만들어지고, 같은 커밋의 케이블이 그것을 가리킬 수 있다', async () => {
     const ofdId = randomUUID(), slotA = randomUUID(), slotB = randomUUID();
-    const idsA = { 'TRUNK:1': randomUUID(), 'CORE:1': randomUUID() };
-    const idsB = { 'TRUNK:1': randomUUID(), 'CORE:1': randomUUID() };
+    const idsA = { 'FIBER-TRUNK:1': randomUUID(), 'FIBER:1': randomUUID() };
+    const idsB = { 'FIBER-TRUNK:1': randomUUID(), 'FIBER:1': randomUUID() };
     const cableId = randomUUID();
     // 매체가 맞아야 이어진다 — 광 포트끼리는 광 그룹의 종류로만 잇는다.
     const cat = await nextDb.cableCategory.findFirstOrThrow({ where: { group: { key: 'fiber' } } });
@@ -255,13 +258,13 @@ describe('PUT /commit — 화면이 정한 포트 id', () => {
         ],
       },
       // 저장 전에 이어 둔 케이블 — 포트가 그 id 로 만들어지지 않으면 여기서 터진다.
-      cables: { creates: [{ id: cableId, aPortId: idsA['CORE:1'], bPortId: idsB['CORE:1'], categoryId: cat.id }] },
+      cables: { creates: [{ id: cableId, aPortId: idsA['FIBER:1'], bPortId: idsB['FIBER:1'], categoryId: cat.id }] },
     }).expect(200);
 
-    const trunk = await nextDb.port.findUnique({ where: { id: idsA['TRUNK:1'] } });
-    expect(trunk).toMatchObject({ assetId: slotA, group: 'TRUNK', index: 1, positions: 24 });
+    const trunk = await nextDb.port.findUnique({ where: { id: idsA['FIBER-TRUNK:1'] } });
+    expect(trunk).toMatchObject({ assetId: slotA, group: 'FIBER-TRUNK', index: 1, positions: 24 });
     const cable = await nextDb.cable.findUniqueOrThrow({ where: { id: cableId } });
-    expect([cable.aPortId, cable.bPortId]).toEqual([idsA['CORE:1'], idsB['CORE:1']]);
+    expect([cable.aPortId, cable.bPortId]).toEqual([idsA['FIBER:1'], idsB['FIBER:1']]);
   });
 
   /* 구조는 명세가 정한다 — 없는 포트의 id 를 줘도 그 포트가 생기지는 않는다. */
