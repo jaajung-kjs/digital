@@ -186,6 +186,49 @@ export function FloorPlanView({
     [effectiveAssets, activeFloorId],
   );
 
+  /**
+   * 고른 설비가 **화면 밖이면 그 자리로 옮긴다** — 층만 따라가서는 부족했다.
+   *
+   * 추적에서 마디를 누르거나 현황 표에서 줄을 고르면 오른쪽 패널은 바뀌는데, 도면은 보던
+   * 자리에 그대로 서 있었다. 고른 설비가 화면 밖이면 **아무 일도 안 일어난 것처럼** 보인다 —
+   * 「내가 지금 무엇을 보고 있나」가 도면에서 사라진다.
+   *
+   * 보이면 건드리지 않는다. 이미 눈에 있는 것을 가운데로 끌어오면 사람이 잡아 둔 자리를
+   * 화면이 빼앗는 꼴이라, 옮기는 일이 오히려 방해가 된다.
+   */
+  /* **고른 것이 바뀔 때 한 번만** 옮긴다. 매번 보면 그 설비를 끌어 가장자리로 미는 동안
+     화면이 그것을 따라와 손과 싸운다. */
+  const centeredFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedAssetId) { centeredFor.current = null; return; }
+    if (centeredFor.current === selectedAssetId) return;
+    const canvas = canvasRef.current;
+    const target = placedAssets.find((a) => a.id === selectedAssetId);
+    if (!canvas || !target) return;
+    centeredFor.current = selectedAssetId;
+
+    const dpr = backingScale.current;
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+    const scale = viewport.zoom / 100;
+    const left = viewport.panX + target.x * scale;
+    const top = viewport.panY + target.y * scale;
+    const right = left + target.width * scale;
+    const bottom = top + target.height * scale;
+
+    /* 가장자리에 걸친 것도 「안 보이는」 것으로 친다 — 반쯤 잘린 네모는 눈에 안 잡힌다. */
+    const MARGIN = 24;
+    const visible = left >= MARGIN && top >= MARGIN && right <= w - MARGIN && bottom <= h - MARGIN;
+    if (visible) return;
+
+    const cx = target.x + target.width / 2;
+    const cy = target.y + target.height / 2;
+    setViewport((prev) => ({ ...prev, panX: w / 2 - cx * (prev.zoom / 100), panY: h / 2 - cy * (prev.zoom / 100) }));
+    // 뷰포트는 **여기서 정한 값**으로만 바뀐다 — 그 값을 의존성에 넣으면 스스로를 다시 부른다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAssetId, placedAssets, activeFloorId]);
+
+
   // ── 뷰포트 ─────────────────────────────────────────────────────────────────
   const [viewport, setViewport] = useState<Viewport>({ zoom: 100, panX: 0, panY: 0 });
 
