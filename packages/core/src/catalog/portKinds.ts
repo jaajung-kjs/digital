@@ -67,6 +67,14 @@ export interface ValueDef {
    * schedule)가 OFF·SPARE 만 적어 두는 것과 같은 이유다.
    */
   defaultValue?: unknown;
+  /**
+   * 참·거짓을 **현장 말로** 뭐라 부르는가 — 개폐는 「투입」·「개방」이다.
+   *
+   * 없으면 화면이 `ON`·`OFF` 로 쓴다. 여기 적어 두면 표와 상세 카드가 같은 말을 쓴다 —
+   * 예전에는 표가 `ON`, 카드가 「투입」이라 같은 값이 두 이름으로 불렸다.
+   */
+  trueLabel?: string;
+  falseLabel?: string;
 }
 
 /**
@@ -105,6 +113,8 @@ export interface PortVariant {
   name: string;
   /** 이 갈래에서 고를 수 있는 전압. 없으면 그 종류의 전체 목록. */
   voltages?: readonly string[];
+  /** 적힌 값이 없을 때의 전압 — 현장에서 가장 흔한 것. */
+  defaultVoltage?: string;
 }
 
 export interface PortKind {
@@ -207,19 +217,12 @@ export const PORT_KINDS = [
     key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
     /* 교류와 직류는 잇지 않는다 — 충전기가 교류를 받아 직류를 내보내는 것이 그 경계다. */
     variants: [
-      { key: 'AC', name: '교류', voltages: AC_VOLTAGES },
-      { key: 'DC', name: '직류', voltages: DC_VOLTAGES },
+      { key: 'AC', name: '교류', voltages: AC_VOLTAGES, defaultVoltage: 'AC 220V 1φ' },
+      { key: 'DC', name: '직류', voltages: DC_VOLTAGES, defaultVoltage: 'DC 48V' },
     ],
     /* 굵기는 **전원케이블 대장의 절반**이다 — 현장 대장은 「FR-5.5sq」처럼 종류와 굵기를
        붙여 적는다. 종류는 우리 케이블 품목이 이미 알고, 굵기는 적을 곳이 없었다. */
     cableFields: [
-      /**
-       * 전압과 **위상이 한 칸**이다 — 대장이 「220V 3φ」로 붙여 적고, 그 편이 옳다.
-       *
-       * 따로 두면 DC 회로마다 위상 칸이 빈 채 남고, 「DC 48V 3φ」 같은 있을 수 없는 조합이
-       * 표현된다. 위상은 교류에만 있는 성질이라 값에 들어 있는 것이 정확하다.
-       */
-      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20 },
       /**
        * 도체의 **공칭 단면적**(5.5sq = 5.5mm²) — 현장 대장의 열 이름이 「규격(SQ)」이라 그대로 쓴다.
        *
@@ -237,8 +240,21 @@ export const PORT_KINDS = [
        (강릉 대장이 그렇다), 입력에도 있다(「200A AC MAIN」). 자산 필드로 두면 열세 회로가
        한 값을 나눠 갖게 된다. */
     portFields: [
+      /**
+       * 전압은 **포트의 것**이다 — 케이블의 것이 아니다.
+       *
+       * 같은 F-CV 한 가닥이 220V 회로에도 380V 회로에도 쓰인다. 전압을 정하는 것은 그 회로,
+       * 곧 포트다(장비의 입력은 「DC 48V 입력」으로 고정돼 있고, 분전반의 출력은 회로마다
+       * 다를 수 있다). 케이블에 적어 두었더니 한 가닥을 두 줄이 나눠 볼 때만 값이 맞아
+       * 보였을 뿐, 「이 포트가 몇 V 인가」는 어디에도 없었다.
+       *
+       * **위상도 이 값에 들어 있다**(「AC 220V 3φ」) — 따로 두면 직류 회로마다 빈 칸이 남고
+       * 「DC 48V 3φ」 같은 있을 수 없는 조합이 표현된다. 고를 수 있는 값과 기본값은 갈래가
+       * 정한다(`PortVariant.voltages`·`defaultVoltage`).
+       */
+      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20 },
       { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 30 },
-      { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true },
+      { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true, trueLabel: '투입', falseLabel: '개방' },
     ],
   },
   { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
@@ -324,10 +340,18 @@ export function cableFieldsFor(
  * 심선 수를 함께 묻는다: 코어별 값(`coreFields`)은 다심 포트에만 있다. 장비쪽 광 어댑터에는
  * OTDR 로 잴 것이 없는데, 예전에는 매체가 갈려 있어 그 사실이 매체 키로 표현됐다.
  */
-export function portFieldsFor(medium: string, positions?: number | null): ValueDef[] {
+export function portFieldsFor(medium: string, positions?: number | null, variantKey?: string | null): ValueDef[] {
   const kind = portKind(medium);
   if (!kind) return [];
-  return isMultiCorePort(positions) ? [...kind.portFields, ...(kind.coreFields ?? [])] : [...kind.portFields];
+  const fields = isMultiCorePort(positions) ? [...kind.portFields, ...(kind.coreFields ?? [])] : [...kind.portFields];
+  /* 갈래를 알면 **그 갈래의 값**만 낸다 — 직류 포트에 「AC 220V 3φ」가 뜨면 목록을 믿지 않게 된다. */
+  const variant = variantKey ? kind.variants?.find((v) => v.key === variantKey) : undefined;
+  if (!variant) return fields;
+  return fields.map((f) =>
+    f.key === 'voltage'
+      ? { ...f, options: variant.voltages ?? f.options, defaultValue: variant.defaultVoltage ?? f.defaultValue }
+      : f,
+  );
 }
 
 /**
@@ -502,6 +526,30 @@ export interface PortGroupRef {
   sampleName?: string;
   /** 심선 수 — 같은 매체 안에서 성단(다심)을 앞에 세우는 데 쓴다. */
   positions?: number | null;
+}
+
+/**
+ * 포트 하나 → 그 구획의 참조. **네 화면이 손으로 채우던 것**을 여기 모은다.
+ *
+ * 실제로 세 곳이 `variant` 를 빠뜨려, 교류 판과 직류 판이 같은 이름이 되어 이름 대신 그룹
+ * 키(`POWER-IN-AC`)가 튀어나왔다. 칸이 늘면 여기만 고친다.
+ */
+export function groupRefOf(port: {
+  group: string; medium: string; direction: Direction; name: string;
+  positions?: number | null; variant?: string | null;
+}): PortGroupRef {
+  return {
+    group: port.group, medium: port.medium, direction: port.direction,
+    sampleName: port.name, positions: port.positions, variant: port.variant,
+  };
+}
+
+/** 선언(포트 템플릿) → 구획 참조. 아직 포트가 없을 때(품목 편집·미리보기) 쓴다. */
+export function groupRefOfTemplate(tpl: {
+  group: string; medium: string; direction: Direction; namePattern: string;
+  positions?: number | null; variant?: string | null;
+}): PortGroupRef {
+  return groupRefOf({ ...tpl, name: tpl.namePattern.replace('{n}', '1'), positions: coreCount(tpl.positions) });
 }
 
 /** 포트 이름에서 번호를 떼어 그룹 이름을 얻는다 — `장비 1` → `장비`. */

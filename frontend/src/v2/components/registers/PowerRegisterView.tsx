@@ -10,15 +10,16 @@
  * 위쪽 드롭다운으로 반을 하나씩 골라 봐야 해서 「이 반이 어디에 매달렸나」는 어디에도 없었다.
  */
 import { useMemo, useState } from 'react';
-import { Th, Toggle, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW } from '../../../components/ui';
+import { Th, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW } from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { powerTree, POWER_MEDIUM } from '../../powerSelectors';
-import { cableFieldsFor, portFieldsFor, setPortValueAt, type ValueDef } from '@twin/core';
+import { cableFieldsFor, portFieldsFor, type ValueDef } from '@twin/core';
 import type { PowerCircuit, PowerNode } from '../../powerSelectors';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from '../InlineEditCell';
+import { PortValueControl } from '../detail/PortValueControl';
 
 interface Props {
   substationId: string;
@@ -29,60 +30,6 @@ interface Props {
 }
 
 // PeerCell은 공용 컴포넌트 사용 (M-2 — FiberRegisterView와 공유)
-
-/**
- * 포트에 딸린 값 한 칸 — **무엇을 적는 칸인지는 종류 선언이 정한다**.
- *
- * 전원 포트에는 둘이 있다: 차단기 **용량**과 **개폐**. 둘 다 자산이 아니라 **그 회로**의
- * 것이다 — 출력이 열셋인 판은 회로마다 용량도 개폐도 따로다. 화면은 키를 알지 않고,
- * 자료형만 보고 그린다(참/거짓이면 스위치, 아니면 고쳐 쓰는 칸).
- *
- * 예전에는 이 자리가 「개폐 전용」이었다. 그래서 칸이 하나 늘 때마다 표도 손으로 고쳐야 했다.
- */
-/* 값은 **나무가 준 것**을 받는다. 한때 여기서 스토어를 다시 뒤졌는데(`effectiveAssets().find`),
-   셀렉터가 매 렌더 새 객체를 돌려주는 바람에 「getSnapshot should be cached」 무한 렌더가 나
-   화면이 통째로 사라졌다 — 스토어 셀렉터는 원시값만 돌려준다(§스토어 규칙). */
-function PortValueCell({ assetId, portId, field, value }: { assetId: string; portId: string; field: ValueDef; value: unknown }) {
-
-  function write(next: unknown) {
-    const live = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === assetId);
-    const target = live?.ports.find((p) => p.id === portId);
-    if (!live || !target) return;
-    const ports = live.ports.map((p) =>
-      p.id === portId ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
-    );
-    useV2WorkingCopy.getState().stageAssetUpdate(assetId, { ports });
-  }
-
-  if (field.type === 'boolean') {
-    return (
-      <Toggle
-        checked={value === true}
-        onChange={write}
-        size="sm"
-        label={value === true ? 'ON' : 'OFF'}
-        aria-label={field.label}
-      />
-    );
-  }
-
-  return (
-    <InlineEditCell
-      value={value === null || value === undefined ? '' : String(value)}
-      onCommit={(raw) => {
-        const next = field.type === 'number' ? (raw.trim() === '' ? null : Number(raw)) : (raw.trim() || null);
-        if (field.type === 'number' && typeof next === 'number' && Number.isNaN(next)) return;
-        if ((value ?? null) === next) return;
-        write(next);
-      }}
-      type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : undefined}
-      label={field.label}
-      unit={field.unit}
-      /* 고를 수 있는 값이 선언돼 있으면 목록으로 — 화면이 그 목록을 알지 않는다. */
-      options={field.options}
-    />
-  );
-}
 
 // ── 케이블 값 인라인 편집 (케이블 없으면 EMPTY 비편집) ────────────────────────
 interface CableFieldInputProps {
@@ -166,7 +113,8 @@ function textPx(text: string): number {
  */
 export function powerColumnWidths(
   valueFields: readonly ValueDef[],
-  stateCount: number,
+  /** 스위치로 그리는 칸들 — 켜고 끈 말(「투입」·「개방」)까지 재야 잘리지 않는다. */
+  stateFields: readonly ValueDef[],
   /** 지금 표에 적혀 있는 값들 — 필드 키마다. 선언된 목록과 함께 잰다. */
   written: Record<string, readonly string[]> = {},
 ): number[] {
@@ -187,13 +135,14 @@ export function powerColumnWidths(
     ) + PADDING_PX;
 
   const CIRCUIT_PX = textPx('입력') + PADDING_PX;
-  /** 스위치(24) + 간격(6) + 「OFF」. */
-  const STATE_PX = 24 + 6 + textPx('OFF') + PADDING_PX;
+  /** 스위치(24) + 간격(6) + 그 칸이 쓰는 말 중 긴 쪽. */
+  const statePx = (f: ValueDef) =>
+    24 + 6 + Math.max(textPx(f.label), textPx(f.trueLabel ?? 'ON'), textPx(f.falseLabel ?? 'OFF')) + PADDING_PX;
   /* 비율의 기준 폭 — 상세 패널을 연 1440px 화면에서 이 판이 서는 크기다. 더 넓어지면 다 같이
      넓어지고 좁아지면 다 같이 좁아진다(어느 한 열만 굶지 않는다). */
   const REFERENCE_PX = 760;
 
-  const fixedPx = [CIRCUIT_PX, ...valueFields.map(widthPxOf), ...Array(stateCount).fill(STATE_PX)];
+  const fixedPx = [CIRCUIT_PX, ...valueFields.map(widthPxOf), ...stateFields.map(statePx)];
   const fixedPct = fixedPx.map((px) => Math.round((px / REFERENCE_PX) * 1000) / 10);
   const purpose = Math.round((100 - fixedPct.reduce((a, b) => a + b, 0)) * 10) / 10;
   return [fixedPct[0]!, purpose, ...fixedPct.slice(1)];
@@ -219,11 +168,12 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   /* **칸이 몇이고 무엇인지는 종류 선언이 정한다** — 포트의 것(용량·개폐)과 케이블의 것
      (길이·전압·굵기). 여기에 키를 적어 두면 어휘가 늘 때마다 표를 손으로 고쳐야 한다. */
-  const portFields = portFieldsFor(POWER_MEDIUM);
   /* 열을 세울 때는 갈래를 모른다(줄마다 다르다) — 칸이 무엇무엇인지만 여기서 정하고,
      **고를 수 있는 값**은 줄이 제 갈래로 좁힌다(직류 회로에 교류 전압이 뜨지 않게). */
+  const portFields = portFieldsFor(POWER_MEDIUM);
   const cableFields = cableFieldsFor(POWER_MEDIUM);
-  const fieldsFor = (variant?: string | null) => cableFieldsFor(POWER_MEDIUM, { variant });
+  const portFieldFor = (variant: string | null | undefined, key: string) =>
+    portFieldsFor(POWER_MEDIUM, 1, variant).find((f) => f.key === key);
   /**
    * 열 차례는 **대장 그대로**다: 회로 · 용량 · 용도 · 전원케이블 · 상태.
    *
@@ -265,7 +215,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     }
     return out;
   }, [nodes, valueColumns]);
-  const widths = powerColumnWidths(valueColumns.map((c) => c.field), stateFields.length, written);
+  const widths = powerColumnWidths(valueColumns.map((c) => c.field), stateFields, written);
 
   /* 회로가 마흔인 국에서 「그 회로」를 찾는 길이 눈으로 훑는 것뿐이면 표가 아니다.
      보이는 값을 통째로 훑는다 — 사람은 이름을 기억하지 그것이 몇 번째 열인지는 모른다. */
@@ -366,19 +316,20 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               {valueColumns.map(({ field, from }) => (
                 <td key={field.key} className={cn('px-3 py-1.5', alignOf(field))}>
                   {from === 'port' ? (
-                    <PortValueCell assetId={node.assetId} portId={src.portId} field={field} value={src.portValues[field.key]} />
-                  ) : (
-                    <CableFieldInput
-                      cableId={src.cableId}
-                      value={src.values[field.key]}
-                      field={fieldsFor(src.variant).find((f) => f.key === field.key) ?? field}
+                    <PortValueControl
+                      assetId={node.assetId}
+                      portId={src.portId}
+                      field={portFieldFor(src.variant, field.key) ?? field}
+                      value={src.portValues[field.key]}
                     />
+                  ) : (
+                    <CableFieldInput cableId={src.cableId} value={src.values[field.key]} field={field} />
                   )}
                 </td>
               ))}
               {stateFields.map((f) => (
                 <td key={f.key} className="px-3 py-1.5">
-                  <PortValueCell assetId={node.assetId} portId={src.portId} field={f} value={src.portValues[f.key]} />
+                  <PortValueControl assetId={node.assetId} portId={src.portId} field={f} value={src.portValues[f.key]} />
                 </td>
               ))}
             </tr>
@@ -398,19 +349,20 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             {valueColumns.map(({ field, from }) => (
               <td key={field.key} className={cn('px-3 py-1.5', alignOf(field))}>
                 {from === 'port' ? (
-                  <PortValueCell assetId={node.assetId} portId={c.portId} field={field} value={c.portValues[field.key]} />
-                ) : (
-                  <CableFieldInput
-                    cableId={c.cableId}
-                    value={c.values[field.key]}
-                    field={fieldsFor(c.variant).find((f) => f.key === field.key) ?? field}
+                  <PortValueControl
+                    assetId={node.assetId}
+                    portId={c.portId}
+                    field={portFieldFor(c.variant, field.key) ?? field}
+                    value={c.portValues[field.key]}
                   />
+                ) : (
+                  <CableFieldInput cableId={c.cableId} value={c.values[field.key]} field={field} />
                 )}
               </td>
             ))}
             {stateFields.map((f) => (
               <td key={f.key} className="px-3 py-1.5">
-                <PortValueCell assetId={node.assetId} portId={c.portId} field={f} value={c.portValues[f.key]} />
+                <PortValueControl assetId={node.assetId} portId={c.portId} field={f} value={c.portValues[f.key]} />
               </td>
             ))}
           </tr>

@@ -30,7 +30,7 @@
  */
 import { useMemo } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DEFAULT_CORE_COUNT, coreCount, isMultiCorePort, portGroupLabel, portPresets, uniqueGroupKey } from '@twin/core';
+import { DEFAULT_CORE_COUNT, groupRefOfTemplate, isMultiCorePort, portGroupLabel, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
 import { DetailCard, DetailCardHeader, EmptyState, ErrorStrip, cn, InsetBox } from '../../../components/ui';
 import { useMediumColor, useMediumLabel } from '../../hooks';
@@ -269,16 +269,9 @@ function labelOf(
   all: readonly PreviewRow[],
   mediumLabel: (key: string) => string,
 ): string {
-  const refs = all.map(({ row: r }) => ({
-    group: r.group,
-    medium: r.medium,
-    direction: r.direction,
-    sampleName: r.namePattern.replace('{n}', '1'),
-    positions: coreCount(r.positions),
-    /* 갈래까지 넘겨야 「전원 입력(교류)」·「전원 입력(직류)」로 갈린다 — 안 넘기면 두 줄이
-       같은 이름이 되어 이름 대신 그룹 키가 튀어나온다. */
-    variant: r.variant,
-  }));
+  /* 갈래까지 실린다 — 안 실으면 「전원 입력(교류)」·「전원 입력(직류)」 두 줄이 같은 이름이
+     되어 이름 대신 그룹 키가 튀어나온다. */
+  const refs = all.map(({ row: r }) => groupRefOfTemplate(r));
   const mine = refs.find((r) => r.group === row.group)!;
   return portGroupLabel(mine, refs, mediumLabel);
 }

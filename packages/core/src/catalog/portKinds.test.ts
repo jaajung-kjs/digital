@@ -61,7 +61,27 @@ describe('그룹 키 중복 피하기', () => {
 
 describe('케이블 파라미터 선언', () => {
   it('공통 + 종류별로 합쳐진다', () => {
-    expect(cableFieldsFor('power').map((f) => f.key)).toEqual(['lengthM', 'voltage', 'sizeSq']);
+    expect(cableFieldsFor('power').map((f) => f.key)).toEqual(['lengthM', 'sizeSq']);
+  });
+
+  /**
+   * **전압은 포트의 값**이다 — 케이블의 것이 아니다.
+   *
+   * 같은 F-CV 한 가닥이 220V 회로에도 380V 회로에도 쓰인다. 전압을 정하는 것은 그 회로,
+   * 곧 포트다. 케이블에 적어 두었을 때는 「이 포트가 몇 V 인가」를 물을 데가 없었다.
+   */
+  it('전압은 케이블이 아니라 포트에 적힌다', () => {
+    expect(cableFieldsFor('power').map((f) => f.key)).not.toContain('voltage');
+    expect(portFieldsFor('power').map((f) => f.key)).toContain('voltage');
+  });
+
+  it('갈래가 값과 기본값을 좁힌다 — 직류 포트에 교류 전압이 뜨지 않는다', () => {
+    const dc = portFieldsFor('power', 1, 'DC').find((f) => f.key === 'voltage')!;
+    expect(dc.options).toEqual(['DC 48V']);
+    expect(dc.defaultValue).toBe('DC 48V');
+    const ac = portFieldsFor('power', 1, 'AC').find((f) => f.key === 'voltage')!;
+    expect(ac.options?.every((v) => String(v).startsWith('AC'))).toBe(true);
+    expect(ac.defaultValue).toBe('AC 220V 1φ');
   });
 
   /* 현장 대장은 전원케이블을 「FR-5.5sq」로 적는다 — 종류는 케이블 품목이 알고, 굵기는
@@ -159,7 +179,7 @@ describe('케이블 파라미터 선언', () => {
  */
 describe('고를 수 있는 값', () => {
   it('전압·용량·굵기는 목록이 있다', () => {
-    const voltage = cableFieldsFor('power').find((f) => f.key === 'voltage');
+    const voltage = portFieldsFor('power').find((f) => f.key === 'voltage');
     const size = cableFieldsFor('power').find((f) => f.key === 'sizeSq');
     const ampere = portFieldsFor('power').find((f) => f.key === 'ampere');
     for (const f of [voltage, size, ampere]) expect(f?.options?.length).toBeGreaterThan(3);
@@ -168,7 +188,7 @@ describe('고를 수 있는 값', () => {
   /* 위상은 **교류에만 있는 성질**이라 전압 값에 들어 있다 — 따로 두면 「DC 48V 3φ」 같은
      있을 수 없는 조합이 표현되고 DC 회로마다 빈 칸이 남는다. */
   it('위상은 전압 값에 들어 있다 — DC 에는 위상이 없다', () => {
-    const voltage = cableFieldsFor('power').find((f) => f.key === 'voltage')!;
+    const voltage = portFieldsFor('power').find((f) => f.key === 'voltage')!;
     const opts = voltage.options!.map(String);
     expect(opts).toContain('AC 220V 3φ');
     expect(opts).toContain('AC 220V 1φ');
@@ -197,7 +217,7 @@ describe('고를 수 있는 값', () => {
     const ampere = portFieldsFor('power').find((f) => f.key === 'ampere')!.options!;
     for (const v of [250, 300, 500, 600]) expect(ampere).not.toContain(v);
     /* 자료에 있던 전압은 넷뿐이다(220·380·48·110) — DC 125V·24V 는 넣지 않는다. */
-    const voltage = cableFieldsFor('power').find((f) => f.key === 'voltage')!.options!.map(String);
+    const voltage = portFieldsFor('power').find((f) => f.key === 'voltage')!.options!.map(String);
     expect(voltage.some((v) => v.includes('125V'))).toBe(false);
     expect(voltage.some((v) => v.includes('24V'))).toBe(false);
   });

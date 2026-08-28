@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { comparePortGroups, coreCount, instantiatePorts, portGroupLabel } from '@twin/core';
+import { comparePortGroups, coreCount, groupRefOfTemplate, instantiatePorts, portGroupLabel } from '@twin/core';
 import type { Direction } from '@twin/core';
 import type { V2Port } from '../../types';
 
@@ -58,13 +58,7 @@ export function portSections(
   /* 개수가 0 인 선언도 구획으로 남긴다 — 편집기에서 「없는 종류」도 한 자리를 지켜야
      칸을 켜고 끌 때 판이 출렁이지 않는다. 그때는 `instantiatePorts` 가 포트를 하나도
      만들지 않으므로 선언에서 직접 짓는다. */
-  const refs = source.map((p) => ({
-    group: p.group,
-    medium: p.medium,
-    direction: p.direction,
-    sampleName: p.namePattern.replace('{n}', '1'),
-    positions: coreCount(p.positions),
-  }));
+  const refs = source.map(groupRefOfTemplate);
 
   return refs
     .slice()
@@ -77,7 +71,7 @@ export function portSections(
         labelText: label,
         accent: mediumColor(ref.medium),
         medium: ref.medium,
-        positions: ref.positions,
+        positions: coreCount(ref.positions),
         ports: byGroup.get(ref.group) ?? [],
       };
     });

@@ -483,6 +483,23 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
   });
 
   /**
+   * **포트 구획 참조는 손으로 짓지 않는다** — `groupRefOf`·`groupRefOfTemplate` 이 짓는다.
+   *
+   * 네 화면이 같은 객체를 손으로 채우고 있었는데 그중 셋이 `variant` 를 빠뜨렸다. 그래서
+   * 교류 판과 직류 판이 같은 이름이 되어, 이름 대신 그룹 키(`POWER-IN-AC`)가 화면에 튀어나왔다.
+   * 칸이 늘 때마다 네 곳을 같이 고쳐야 하는 모양 자체를 막는다.
+   */
+  it('구획 참조는 groupRefOf 로 짓는다 — 손으로 채우지 않는다', () => {
+    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      const src = readFileSync(f, 'utf8');
+      expect(
+        /sampleName:/.test(src),
+        `${f}: 구획 참조를 손으로 채우고 있다 — groupRefOf(포트) · groupRefOfTemplate(선언) 를 쓰세요`,
+      ).toBe(false);
+    }
+  });
+
+  /**
    * **보안 컨텍스트 전용 API 를 화면이 직접 부르지 않는다.**
    *
    * `crypto.randomUUID` 는 https·localhost 에서만 있다. 개발이 늘 localhost 라 아무도 몰랐고,

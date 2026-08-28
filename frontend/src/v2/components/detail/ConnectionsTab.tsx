@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import {
-  Accordion, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select, Toggle,
+  Accordion, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select,
   useConfirm, useDismissOnOutside, cn, SELECTABLE,
   EMPTY,
   type BadgeStatus,
@@ -34,14 +34,15 @@ import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { canPickPort } from '../../cableSelectors';
-import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
 import type { V2Asset, V2Cable, V2Port } from '../../types';
 import { PortFaceplate, type PortState } from './PortFaceplate';
 import type { CablePickRequest } from '../../cablePick';
-import { comparePortGroups, portGroupLabel } from '@twin/core';
+import { comparePortGroups, groupRefOf, portGroupLabel } from '@twin/core';
+import { PortValueControl } from './PortValueControl';
 
 /**
  * 장비별 판을 늘어놓는 자리 — 머리줄을 다느냐만 다르다.
@@ -186,13 +187,6 @@ export function ConnectionsTab({
     return field ? portValuesAt(port, 1)[field.key] !== true : false;
   }
 
-  function setPortSwitch(owner: V2Asset, port: V2Port, field: ValueDef, next: boolean) {
-    const ports = owner.ports.map((p) =>
-      p.id === port.id ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
-    );
-    useV2WorkingCopy.getState().stageAssetUpdate(owner.id, { ports });
-  }
-
   /* portId → 그 포트에 물린 **모든** 케이블.
      예전에는 포트당 하나만 담는 Map 이라 `set` 이 앞의 것을 덮어썼다. 접지 부스바처럼
      한 단자에 여러 가닥이 모이면 마지막 한 가닥만 보이고 나머지는 화면에서 사라졌다. */
@@ -241,10 +235,7 @@ export function ConnectionsTab({
         }
         for (const [, list] of byGroup) list.sort((x, y) => x.index - y.index);
 
-        const refs = [...byGroup.entries()].filter(([, ports]) => ports.length > 0).map(([group, ports]) => ({
-          group, medium: ports[0]!.medium, direction: ports[0]!.direction,
-          sampleName: ports[0]!.name, positions: ports[0]!.positions,
-        }));
+        const refs = [...byGroup.entries()].filter(([, ports]) => ports.length > 0).map(([, ports]) => groupRefOf(ports[0]!));
         // 차례는 어휘가 정한다(`comparePortGroups`) — 미리보기와 같은 함수를 써야 안 갈린다.
         const groups = refs
           .slice()
@@ -265,16 +256,29 @@ export function ConnectionsTab({
     [allPorts, selectedPortId],
   );
 
-  /* 고른 포트에 여닫을 값이 있으면 그 상태 — 편집은 여기서, 판은 보여 주기만.
-     포트를 가진 자산을 함께 들고 있어야 스테이지 대상이 정해진다(랙을 고르면 자식의
-     포트가 판에 뜨므로 `asset` 이 곧 주인이 아니다). */
-  const selectedSwitch = useMemo(() => {
+  /**
+   * 고른 포트에 **적을 것들** — 종류 선언이 준다(전원이면 전압 · 용량 · 개폐).
+   *
+   * 예전에는 개폐(참/거짓) 하나만 여기 있었다. 그래서 전압을 포트의 값으로 옮기고 나니
+   * 포트를 눌러 놓고도 그것을 적을 곳이 없었다 — 계통 표의 회로 줄에서만 적을 수 있었고,
+   * 입력 포트의 전압은 아예 적을 길이 없었다.
+   *
+   * 갈래(교류·직류)까지 넘긴다 — 직류 회로에 교류 전압 목록이 뜨면 안 된다.
+   * 주인 자산을 함께 들고 있어야 스테이지 대상이 정해진다(랙을 고르면 자식의 포트가
+   * 판에 뜨므로 `asset` 이 곧 주인이 아니다).
+   */
+  const selectedValues = useMemo(() => {
     if (!selectedPort) return null;
-    const field = switchField(selectedPort);
-    if (!field) return null;
     const owner = portOwners.find((o) => o.owner.id === selectedPort.assetId)?.owner;
     if (!owner) return null;
-    return { field, owner, closed: portValuesAt(selectedPort, 1)[field.key] === true };
+    const fields = portFieldsFor(selectedPort.medium, selectedPort.positions, selectedPort.variant);
+    if (fields.length === 0) return null;
+    const values = portValuesAt(selectedPort, 1);
+    return {
+      owner,
+      /* 적힌 값이 없으면 **선언된 기본값**이 답이다 — 계통 표가 읽는 것과 같은 규칙. */
+      rows: fields.map((field) => ({ field, value: values[field.key] ?? field.defaultValue ?? null })),
+    };
   }, [selectedPort, portOwners]);
   /* 고른 포트에 물린 대국 — 부스바는 여럿이다. 하나만 보여 주면 나머지가 없는 것처럼 읽힌다. */
   const selectedPeers = useMemo(() => {
@@ -720,18 +724,18 @@ export function ConnectionsTab({
                       ))
                     )}
 
-                    {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다. 이 값을 쓰는 문은 여기뿐이라
-                        (계통 표는 **출력** 포트만 다룬다) 빼면 입력측 차단기를 적을 곳이 없어진다. */}
-                    {selectedSwitch && (
-                      <DetailRow label={selectedSwitch.field.label}>
-                        <Toggle
-                          checked={selectedSwitch.closed}
-                          onChange={(next) => setPortSwitch(selectedSwitch.owner, sel, selectedSwitch.field, next)}
-                          label={selectedSwitch.closed ? '투입' : '개방'}
-                          aria-label={`${sel.name} ${selectedSwitch.field.label}`}
+                    {/* 이 포트의 값들 — 전압 · 용량 · 개폐. 계통 표는 **출력** 포트만 다루므로,
+                        입력측 차단기와 인입 전압을 적을 곳은 여기뿐이다. */}
+                    {selectedValues?.rows.map(({ field, value }) => (
+                      <DetailRow key={field.key} label={field.label}>
+                        <PortValueControl
+                          assetId={selectedValues.owner.id}
+                          portId={sel.id}
+                          field={field}
+                          value={value}
                         />
                       </DetailRow>
-                    )}
+                    ))}
 
                     {/* 추적 결과 — **누른 자리 바로 아래**에 편다.
                         맨 위 카드에 띄우면 장비가 열둘일 때 결과가 화면 밖으로 나가, 누르고도

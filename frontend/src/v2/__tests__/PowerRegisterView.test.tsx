@@ -48,8 +48,8 @@ function setStore(assets: V2Asset[], cables: V2Cable[]) {
 }
 
 const wired = () => [
-  cable('c1', 'main-o1', 'ups-in', { specParams: { lengthM: 8, voltage: 'AC 220V' } }),
-  cable('c2', 'ups-o1', 'load-in', { specParams: { voltage: 'AC 220V' } }),
+  cable('c1', 'main-o1', 'ups-in', { specParams: { lengthM: 8 } }),
+  cable('c2', 'ups-o1', 'load-in', {}),
 ];
 
 describe('계통 표 — 반이 묶음, 회로가 줄', () => {
@@ -127,26 +127,29 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
     expect(tableOf('분전반 · 소내전원반').getAllByRole('row').length).toBe(4);
   });
 
-  /* 정해진 값은 고른다 — 목록에 없는 값도 적을 수 있게 「직접 입력」이 함께 선다. */
-  it('전압처럼 정해진 값은 목록으로 고른다', () => {
+  /**
+   * **전압은 그 회로(포트)의 값**이지 케이블의 값이 아니다 — 같은 F-CV 한 가닥이 220V 회로에도
+   * 380V 회로에도 쓰인다. 정해진 값은 고르되, 목록에 없는 값도 적게 「직접 입력」이 함께 선다.
+   */
+  it('전압은 그 회로(포트)에 적힌다 — 목록으로 고른다', () => {
     setStore([rack, main, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const circuit = tableOf('분전반 · 소내전원반').getAllByRole('row')[2]!;
     fireEvent.click(within(circuit).getByRole('button', { name: '전압 고치기' }));
     const select = screen.getByRole('combobox', { name: '전압' }) as HTMLSelectElement;
-    const opts = [...select.options].map((o) => o.value);
-    expect(opts).toContain('AC 220V 1φ');
     expect([...select.options].map((o) => o.text)).toContain('직접 입력…');
-    /* 적힌 값이 목록에 없어도 지우지 않는다 — 화면이 사실을 감추면 안 된다. */
-    expect(opts).toContain('AC 220V');
 
-    fireEvent.change(select, { target: { value: 'AC 220V 1φ' } });
-    const staged = v2WorkingCopyStore.getState().overlays.cables.updates['c1'];
-    expect((staged?.specParams as Record<string, unknown>).voltage).toBe('AC 220V 1φ');
+    fireEvent.change(select, { target: { value: 'AC 220V 3φ' } });
+    /* 케이블이 아니라 **그 포트**에 담긴다. */
+    const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
+    const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[] | undefined)?.find(
+      (p) => p.id === 'main-o1',
+    );
+    expect(port?.fieldValues.voltage).toBe('AC 220V 3φ');
   });
 
-  it('길이·전압은 그 자리에서 고친다 — 케이블에 담긴다', () => {
+  it('길이는 그 자리에서 고친다 — 케이블에 담긴다', () => {
     setStore([rack, main, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
@@ -170,12 +173,12 @@ describe('계통 표 열 폭', () => {
     ...portFieldsFor('power').filter((f) => f.type !== 'boolean'),
     ...cableFieldsFor('power'),
   ].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
-  const stateCount = portFieldsFor('power').filter((f) => f.type === 'boolean').length;
-  const widths = powerColumnWidths(valueFields, stateCount);
+  const stateFields = portFieldsFor('power').filter((f) => f.type === 'boolean');
+  const widths = powerColumnWidths(valueFields, stateFields);
 
   it('합이 100 이다 — 표의 규약', () => {
     expect(Math.round(widths.reduce((a, b) => a + b, 0))).toBe(100);
-    expect(widths).toHaveLength(2 + valueFields.length + stateCount);
+    expect(widths).toHaveLength(2 + valueFields.length + stateFields.length);
   });
 
   /**

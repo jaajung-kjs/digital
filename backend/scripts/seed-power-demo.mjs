@@ -16,12 +16,13 @@
    실제로 그렇게 돼서 전압 목록에 위상 없는 값이 하나 섞여 있었다. */
 import { POWER_VOLTAGES } from '@twin/core';
 
-/** 삼상 220V — 반과 반 사이(소내분전반 → 충전기·UPS). 대장의 「220V 3φ (60A FR-38sq)」. */
+/**
+ * 삼상 220V — 반과 반 사이(소내분전반 → 충전기·UPS). 대장의 「220V 3φ (60A FR-38sq)」.
+ *
+ * **여기 적는 것은 이것 하나뿐**이다. 전압은 그 회로(포트)의 값이고 갈래마다 기본값이
+ * 선언돼 있으므로(교류 220V 1φ · 직류 48V), 시드는 **기본과 다른 것만** 적는다.
+ */
 const AC_3P = POWER_VOLTAGES.find((v) => v.includes('220V 3'));
-/** 단상 220V — 부하로 나가는 분기. */
-const AC_1P = POWER_VOLTAGES.find((v) => v.includes('220V 1'));
-/** 직류 48V — 충전기 아래. 직류에는 위상이 없다. */
-const DC = POWER_VOLTAGES.find((v) => v.startsWith('DC 48'));
 
 const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`);
@@ -117,7 +118,8 @@ const boardAssembly = assemblyByName[BOARD_SET] ?? await (async () => {
     /* 회로 수는 **품목이 아니라 이 판의 것**이다 — 같은 종류라도 10구 판과 13구 판이 있다. */
     portCounts: { [outGroup]: CIRCUITS }, portPositions: {},
   });
-  return call('/catalog/assemblies', 'POST', {
+  /* 만든 뒤 **다시 읽는다** — 만들기 응답은 항목을 돌려주지 않는다(id 가 필요하다). */
+  const made = await call('/catalog/assemblies', 'POST', {
     name: BOARD_SET,
     categoryId: catalog.assemblies[0].categoryId,
     sortOrder: catalog.assemblies.length,
@@ -128,6 +130,8 @@ const boardAssembly = assemblyByName[BOARD_SET] ?? await (async () => {
       item('DC 48V', 2, dc, 'POWER-OUT-DC'),
     ],
   });
+  const fresh = await call('/catalog');
+  return fresh.assemblies.find((a) => a.id === made.id) ?? made;
 })();
 
 /** 설비 품목 하나를 펴서 설비 + 부품 — 포트 id 를 여기서 붙인다. */
@@ -135,9 +139,13 @@ function place(assembly, name, floorId, x, y) {
   const equipmentId = crypto.randomUUID();
   const creates = [{ id: equipmentId, name, assemblyId: assembly.id, floorId, x, y, width: 70, height: 70 }];
   const ports = new Map();
+  /** 부품 이름 → 그 장비의 id — 포트 값을 고칠 때 **누구의 포트인지**를 서버가 확인한다. */
+  const parts = new Map();
   /** 이 설비가 가진 전원 입력들 — 부하로 쓸 자리다. */
   const powerIns = [];
   for (const item of assembly.items) {
+    const partId = crypto.randomUUID();
+    parts.set(item.name, partId);
     const templates = [...typeById[item.typeId].portTemplates].sort((a, b) => a.sortOrder - b.sortOrder);
     const portIds = {};
     for (const tpl of templates) {
@@ -152,7 +160,7 @@ function place(assembly, name, floorId, x, y) {
       }
     }
     creates.push({
-      id: crypto.randomUUID(), name: item.name, typeId: item.typeId, parentAssetId: equipmentId,
+      id: partId, name: item.name, typeId: item.typeId, parentAssetId: equipmentId,
       // 놓인 부품은 **구성의 어느 항목에서 나왔는지**를 들고 간다(화면이 그렇게 보낸다).
       assemblyItemId: item.id,
       col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
@@ -161,7 +169,7 @@ function place(assembly, name, floorId, x, y) {
       ...(item.portPositions ? { portPositions: item.portPositions } : {}),
     });
   }
-  return { creates, ports, powerIns, id: equipmentId };
+  return { creates, ports, parts, powerIns, id: equipmentId };
 }
 
 const substation = existing ?? await call('/org/substations', 'POST', { branchId: branch.id, name: SUB_NAME });
@@ -195,9 +203,11 @@ await call(`/substations/${substation.id}/commit`, 'PUT', {
 const powerGroup = catalog.cableGroups.find((g) => g.key === 'power');
 const POWER_CABLE = powerGroup.categories[0].id;
 
-const wire = (aPortId, bPortId, voltage) => ({
+/* 케이블에는 **길이만** 적는다 — 전압은 그 회로(포트)의 값이다(같은 F-CV 한 가닥이
+   220V 회로에도 380V 회로에도 쓰인다). */
+const wire = (aPortId, bPortId) => ({
   id: crypto.randomUUID(), aPortId, bPortId, categoryId: POWER_CABLE,
-  specParams: { voltage, lengthM: 5 },
+  specParams: { lengthM: 5 },
 });
 
 /** 부하가 될 포트들 — 여러 설비의 전원 입력을 차례로 꺼내 쓴다. */
@@ -219,20 +229,41 @@ const at = (placed, part, group, i = 1) => {
 
 const cables = [
   /* 소내전원반 : 밖에서 받는다(입력 미결선) → UPS·충전기를 먹이고 남는 회로는 부하로. */
-  wire(at(boards, '소내전원반', 'POWER-OUT-AC', 1), at(boards, 'UPS', 'POWER-IN-AC'), AC_3P),
-  wire(at(boards, '소내전원반', 'POWER-OUT-AC', 2), at(charger, '충전기', 'POWER-IN-AC'), AC_3P),
-  ...[3, 4, 5, 6].map((n) => wire(at(boards, '소내전원반', 'POWER-OUT-AC', n), takeLoad('AC'), AC_1P)),
+  wire(at(boards, '소내전원반', 'POWER-OUT-AC', 1), at(boards, 'UPS', 'POWER-IN-AC')),
+  wire(at(boards, '소내전원반', 'POWER-OUT-AC', 2), at(charger, '충전기', 'POWER-IN-AC')),
+  ...[3, 4, 5, 6].map((n) => wire(at(boards, '소내전원반', 'POWER-OUT-AC', n), takeLoad('AC'))),
 
   /* UPS : 열 회로 중 일곱을 쓴다 — 나머지는 예비(SPARE)로 남는다. */
-  ...[1, 2, 3, 4, 5, 6, 7].map((n) => wire(at(boards, 'UPS', 'POWER-OUT-AC', n), takeLoad('AC'), AC_1P)),
+  ...[1, 2, 3, 4, 5, 6, 7].map((n) => wire(at(boards, 'UPS', 'POWER-OUT-AC', n), takeLoad('AC'))),
 
   /* DC 48V : **충전기에서 받는다** — 대장의 「#1 충전기 : DC 48V #1」 그 줄이다. */
-  wire(at(charger, '충전기', 'POWER-OUT-DC', 1), at(boards, 'DC 48V', 'POWER-IN-DC'), DC),
+  wire(at(charger, '충전기', 'POWER-OUT-DC', 1), at(boards, 'DC 48V', 'POWER-IN-DC')),
   ...Array.from({ length: CIRCUITS }, (_, i) =>
-    wire(at(boards, 'DC 48V', 'POWER-OUT-DC', i + 1), takeLoad('DC'), DC)),
+    wire(at(boards, 'DC 48V', 'POWER-OUT-DC', i + 1), takeLoad('DC'))),
 ];
 
 await call(`/substations/${substation.id}/commit`, 'PUT', { cables: { creates: cables } });
+
+/* 삼상으로 가는 회로만 전압을 적는다 — 회로의 양 끝(내보내는 쪽·받는 쪽)이 같은 전압이다.
+   나머지는 갈래가 선언한 기본값(교류 220V 1φ · 직류 48V)이 그대로 답이다. */
+const threePhase = [
+  [boards, '소내전원반', 'POWER-OUT-AC', 1], [boards, 'UPS', 'POWER-IN-AC', 1],
+  [boards, '소내전원반', 'POWER-OUT-AC', 2], [charger, '충전기', 'POWER-IN-AC', 1],
+];
+const byAsset = new Map();
+for (const [placed, part, group, i] of threePhase) {
+  const assetId = placed.parts.get(part);
+  const list = byAsset.get(assetId) ?? [];
+  list.push({ portId: at(placed, part, group, i), fieldValues: { voltage: AC_3P } });
+  byAsset.set(assetId, list);
+}
+/* 고치는 것이므로 **본 판(version)** 을 함께 낸다 — 서버가 그사이 바뀌지 않았는지 본다. */
+const wc1 = await call(`/substations/${substation.id}/workingcopy`);
+const versionOf = Object.fromEntries(wc1.assets.map((a) => [a.id, a.updatedAt]));
+await call(`/substations/${substation.id}/commit`, 'PUT', {
+  assets: { updates: [...byAsset].map(([id, portFieldValues]) => ({ id, patch: { portFieldValues } })) },
+  baseVersions: Object.fromEntries([...byAsset.keys()].map((id) => [id, versionOf[id]])),
+});
 
 console.log(
   `[seed-power] ${SUB_NAME}: 반 3개(각 ${CIRCUITS}회로) · 충전기반 · 부하 설비 ${loads.length}대 · 전원케이블 ${cables.length}가닥\n` +

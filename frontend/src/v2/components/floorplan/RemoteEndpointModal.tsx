@@ -16,7 +16,7 @@
  * 상자의 **키는 걸음마다 바뀌지 않는다** — 목록이 길든 짧든 같은 자리에 서야 눈이 따라간다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { comparePortGroups, portGroupLabel } from '@twin/core';
+import { comparePortGroups, groupRefOf, portGroupLabel } from '@twin/core';
 import { Button, EmptyState, Input, Modal, SELECTABLE, cn } from '../../../components/ui';
 import { browseAssets, fetchAssetPorts } from '../../api';
 import { canPickPort } from '../../cableSelectors';
@@ -187,9 +187,7 @@ export function RemoteEndpointModal({
       else byGroup.set(p.group, [p]);
     }
     for (const [, list] of byGroup) list.sort((a, b) => a.index - b.index);
-    const refs = [...byGroup.entries()].map(([group, list]) => ({
-      group, medium: list[0]!.medium, direction: list[0]!.direction, sampleName: list[0]!.name, positions: list[0]!.positions,
-    }));
+    const refs = [...byGroup.entries()].map(([, list]) => groupRefOf(list[0]!));
     return refs
       .slice()
       .sort(comparePortGroups)
