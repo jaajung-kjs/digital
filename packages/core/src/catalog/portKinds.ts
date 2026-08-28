@@ -274,12 +274,17 @@ export const PORT_KINDS = [
        * 「DC 48V 3φ」 같은 있을 수 없는 조합이 표현된다. 고를 수 있는 값과 기본값은 갈래가
        * 정한다(`PortVariant.voltages`·`defaultVoltage`).
        *
-       * **적는 자리는 포트를 만들 때 한 곳뿐이다**(장비 관리의 포트 선언 → `PortTemplate.voltage`).
-       * 「이 장비의 전원 입력은 DC 48V」는 그 품목의 성질이지 설치할 때마다 고르는 값이 아니다.
-       * 그래서 여기서는 `readOnly` — 계통 표도 포트 카드도 **보여 주기만** 한다. 여러 곳에서
-       * 고칠 수 있게 두면 같은 회로의 두 끝이 다른 전압으로 적히고, 어느 쪽이 사실인지 알 길이 없다.
+       * **적는 자리는 계통 표**다 — 회로 대장의 그 열이다.
+       *
+       * 한때 품목의 포트 선언에 못 박아 두었다(「이 장비의 전원 입력은 DC 48V」). 기기의 입력은
+       * 실제로 그렇지만, **분배 회로는 그렇지 않다**: 380/220V 3상4선 반은 한 반에서 380V 3상과
+       * 220V 단상을 함께 내보낸다. 선언에 못 박으면 그 흔한 반을 표현할 수가 없다.
+       *
+       * 그래서 **품목은 갈래(AC·DC)만** 정하고 — 그건 물리적으로 못 섞이니 품목의 성질이 맞다 —
+       * 몇 V 인지는 회로마다 적는다. 포트가 생길 때는 그 갈래의 예사값이 실린다
+       * (`PortVariant.defaultVoltage`) — 대개 맞고, 다르면 계통 표에서 고친다.
        */
-      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20, readOnly: true, inLabel: true },
+      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20, inLabel: true },
       { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 30 },
       { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true, trueLabel: '투입', falseLabel: '개방' },
     ],
@@ -478,8 +483,6 @@ export function portKind(key: string): PortKind | null {
 export interface PortPreset {
   /** 종류 안의 갈래(전원의 AC·DC). 갈래가 없는 종류는 없다. */
   variant?: string;
-  /** 그 갈래의 예사 전압 — 포트를 켜는 순간 선언에 실린다(고쳐 고를 수 있다). */
-  voltage?: string | null;
   /** 버튼에 적히는 이름 — `전원 입력` 처럼 방향까지 담는다. */
   name: string;
   medium: string;
@@ -536,9 +539,6 @@ export function portPresets(): PortPreset[] {
         groupKey: `${kind.key.toUpperCase()}-${direction}-${v.key}`,
         namePattern: `${label} {n}`,
         variant: v.key,
-        /* 전압은 선언에 딸린다 — 프리셋이 그 갈래의 예사값을 들고 온다(고를 수 있는 값은
-           `PortVariant.voltages`). 그래서 포트를 놓는 순간 이미 「DC 48V 입력」이다. */
-        voltage: v.defaultVoltage ?? null,
       }));
     });
   });
@@ -607,16 +607,11 @@ export function labelDetailOf(
 /** 선언(포트 템플릿) → 구획 참조. 아직 포트가 없을 때(품목 편집·미리보기) 쓴다. */
 export function groupRefOfTemplate(tpl: {
   group: string; medium: string; direction: Direction; namePattern: string;
-  positions?: number | null; variant?: string | null; voltage?: string | null;
+  positions?: number | null; variant?: string | null;
 }): PortGroupRef {
-  return groupRefOf({
-    ...tpl,
-    name: tpl.namePattern.replace('{n}', '1'),
-    positions: coreCount(tpl.positions),
-    /* 선언에서는 그 값이 제 칸에 있다(`PortTemplate.voltage`) — 놓인 포트에서는
-       `fieldValues` 에 실려 있다. 이름을 짓는 규칙은 그 둘에 대해 같아야 한다. */
-    fieldValues: tpl.voltage ? { voltage: tpl.voltage } : null,
-  });
+  /* 선언은 **갈래까지만** 안다 — 몇 V 인지는 놓인 회로가 안다(계통 표). 그래서 품목 화면의
+     구획 이름은 「전원 출력(AC)」이고, 자산 화면에서는 「전원 출력(AC 220V 1φ)」가 된다. */
+  return groupRefOf({ ...tpl, name: tpl.namePattern.replace('{n}', '1'), positions: coreCount(tpl.positions) });
 }
 
 /** 포트 이름에서 번호를 떼어 그룹 이름을 얻는다 — `장비 1` → `장비`. */
@@ -648,18 +643,8 @@ export function portGroupLabel(
    * 판 구획은 「OPGW」, 자산 만들 때 매체 고르는 칸은 「광 인입」. 표시는 한 곳에서 나온다.
    */
   mediumName?: (medium: string) => string,
-  /**
-   * 값(`detail`)을 이름에 언제 실을 것인가.
-   *
-   * `always` 가 예사다 — 「전원 출력(DC 48V)」가 어디서 보든 한눈에 읽힌다.
-   * `whenAmbiguous` 는 **그 값을 따로 고치는 화면**(포트 편집기)이 쓴다: 값이 이름표의 칩으로
-   * 이미 서 있으므로 이름에 또 적으면 같은 말이 두 번 선다. 다만 그 값이 아니면 갈리지 않는
-   * 구획들(220V·110V 출력 둘)이 있으므로, **필요할 때만** 싣는다 — 안 그러면 뜻 없는 그룹
-   * 키가 튀어나온다(「전원 출력(AC) POWER-OUT-AC-2」).
-   */
-  detailMode: 'always' | 'whenAmbiguous' = 'always',
 ): string {
-  const base = (g: PortGroupRef, withDetail: boolean) => {
+  const base = (g: PortGroupRef) => {
     const kind = portKind(g.medium);
     const name = mediumName?.(g.medium) ?? kind?.name ?? g.medium;
     if (kind?.pairing !== 'opposite') return name;
@@ -667,25 +652,17 @@ export function portGroupLabel(
        「전원 출력(DC 48V)」는 갈래(직류)까지 함께 말하므로 둘을 겹쳐 적지 않는다.
        값이 아직 없는 선언(전압을 비운 품목)에서는 「전원 출력(DC)」로 물러선다. */
     const variant = kind.variants?.find((v) => v.key === g.variant);
-    const inParens = (withDetail ? g.detail : null) ?? variant?.name ?? null;
+    const inParens = g.detail ?? variant?.name ?? null;
     return `${name} ${portDirectionLabel(g.direction)}${inParens ? `(${inParens})` : ''}`;
   };
-  const showDetail = detailMode === 'always';
-  const mine = base(target, showDetail);
-  const ambiguous = siblings.filter((s) => base(s, showDetail) === mine).length > 1;
+  const mine = base(target);
+  const ambiguous = siblings.filter((s) => base(s) === mine).length > 1;
   if (!ambiguous) return mine;
-
-  /* 값을 아껴 두었다가 **여기서 꺼낸다** — 이름이 갈리는 데 그 값이 필요한 경우다.
-     (「전원 출력(AC)」 셋이 220V·110V·380V 로 갈린다.) */
-  if (!showDetail && target.detail) {
-    const withDetail = base(target, true);
-    if (siblings.filter((s) => base(s, true) === withDetail).length === 1) return withDetail;
-  }
   /* 가를 때는 **포트 이름을 그대로** 쓴다 — 매체 이름을 앞에 덧붙이지 않는다.
      성단 구획이 「광 OPGW」가 되던 자리다. OPGW 는 그 자체로 광이라 「광」이 군더더기고,
      맞은편도 「광 광 포트」가 될 판이었다. 이름이 이미 무엇인지 말하고 있으면 그것으로 족하다. */
   const byName = nameBase(target.sampleName);
-  const tied = siblings.filter((s) => base(s, showDetail) === mine && nameBase(s.sampleName) === byName);
+  const tied = siblings.filter((s) => base(s) === mine && nameBase(s.sampleName) === byName);
   if (byName != null && tied.length <= 1) return byName;
 
   /**
@@ -696,7 +673,7 @@ export function portGroupLabel(
    * 순번은 적어도 「둘 중 둘째」라고 말한다. 차례는 키 순서라 화면을 다시 그려도 흔들리지 않는다.
    */
   const rank =
-    [...(tied.length > 1 ? tied : siblings.filter((s) => base(s, showDetail) === mine))]
+    [...(tied.length > 1 ? tied : siblings.filter((s) => base(s) === mine))]
       .map((s) => s.group)
       .sort()
       .indexOf(target.group) + 1;

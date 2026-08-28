@@ -114,10 +114,9 @@ const portTemplateBodySchema = z.object({
   namePattern: z.string().min(1),
   /** 이 포트가 나르는 심선 수. 안 적으면 1(보통 포트). */
   positions: z.number().int().min(1).optional(),
-  /** 종류 안의 갈래 — 전원의 AC·DC. 갈래가 없는 종류는 비운다. */
+  /** 종류 안의 갈래 — 전원의 AC·DC. 갈래가 없는 종류는 비운다.
+      몇 V 인지는 여기서 정하지 않는다 — 회로마다 다르므로 계통 표가 적는다. */
   variant: z.string().min(1).nullish(),
-  /** 이 포트가 몇 V 인가 — 전원 포트만. 목록 밖의 값도 받는다(현장에 있는 값이 사실이다). */
-  voltage: z.string().min(1).nullish(),
 });
 /** 설비 품목 장비 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 const assemblyItemSchema = z.object({

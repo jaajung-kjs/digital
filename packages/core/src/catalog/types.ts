@@ -89,14 +89,6 @@ export interface PortTemplate {
    * 까닭은 매체 키가 곧 케이블 그룹 키라, 나누면 같은 F-CV 를 두 번 등록해야 하기 때문이다.
    */
   variant?: string | null;
-  /**
-   * 이 포트가 몇 V 인가 — **선언이 정하는 값**이다(전원 포트만 쓴다).
-   *
-   * 「이 장비의 전원 입력은 DC 48V」는 그 품목의 성질이지 설치할 때마다 고르는 값이 아니다.
-   * 그래서 여기 한 곳에서만 적고(장비 관리의 포트 선언), 놓인 포트는 이 값을 물려받아
-   * 보여 주기만 한다(`instantiatePorts` → `fieldValues.voltage`).
-   */
-  voltage?: string | null;
 }
 
 /**
@@ -188,7 +180,7 @@ export interface TypeUpsertBody {
   installManDays: number | null;
   removeManDays: number | null;
   relocateManDays: number | null;
-  ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number; variant?: string | null; voltage?: string | null }>;
+  ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number; variant?: string | null }>;
 }
 
 /**

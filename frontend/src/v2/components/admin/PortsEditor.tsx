@@ -24,7 +24,7 @@
  */
 import { useMemo, useState } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DEFAULT_CORE_COUNT, isMultiCorePort, portKind, portPresets, uniqueGroupKey } from '@twin/core';
+import { DEFAULT_CORE_COUNT, isMultiCorePort, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
 import {
   Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, MessageStrip,
@@ -183,24 +183,13 @@ const kindOf = (p: { medium: string; direction: Direction; positions?: number | 
   `${p.medium}|${p.direction}|${isMultiCorePort(p.positions) ? 'multi' : 'single'}|${p.variant ?? ''}`;
 
 /**
- * 이 선언이 고를 수 있는 전압 — **갈래가 정한다**(`PortVariant.voltages`).
- *
- * 갈래가 없는 종류(네트워크·광·접지)는 전압이라는 말 자체가 없으므로 빈 목록이고,
- * 그때는 칸도 서지 않는다.
- */
-function voltageOptionsOf(row: PortRow): readonly string[] {
-  const kind = portKind(row.medium);
-  return kind?.variants?.find((v) => v.key === row.variant)?.voltages ?? [];
-}
-
-/**
  * 이 줄이 말할 **세부** — 그 종류가 요구하는 값 하나. 없으면 null.
  *
- * 전원은 전압(갈래가 고를 값을 정한다), 다심은 코어 수. 나머지 종류(네트워크·접지·제어)는
- * 세부라는 것이 아예 없다 — 그런 줄에 대시를 세우면 「아직 안 적었다」로 읽힌다.
+ * 지금은 다심의 코어 수뿐이다. **전압은 여기 없다** — 회로마다 다르므로(380/220V 3상4선 반은
+ * 한 반에서 380V 3상과 220V 단상을 함께 낸다) 품목이 아니라 계통 표가 적는다. 품목이 정하는
+ * 것은 갈래(AC·DC)까지이고, 그건 구획 이름이 이미 말한다(「전원 출력(AC)」).
  */
-function detailOf(row: PortRow): 'voltage' | 'positions' | null {
-  if (voltageOptionsOf(row).length > 0) return 'voltage';
+function detailOf(row: PortRow): 'positions' | null {
   return isMultiCorePort(row.positions) ? 'positions' : null;
 }
 
@@ -256,10 +245,7 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   }, [ports]);
 
   const sections = useMemo(
-    /* 값은 이름표의 칩이 고치므로 이름에는 **필요할 때만** 싣는다 — 늘 실으면
-       「전원 출력(DC 48V) [DC 48V]」가 되고, 아예 안 실으면 220V·110V 출력이 같은 이름으로
-       서서 뜻 없는 그룹 키가 튀어나온다. */
-    () => portSections(declared.map((d) => d.row), mediumLabel, mediumColor, 'whenAmbiguous'),
+    () => portSections(declared.map((d) => d.row), mediumLabel, mediumColor),
     [declared, mediumLabel, mediumColor],
   );
 
@@ -296,8 +282,6 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
       namePattern: preset.namePattern,
       positions: preset.positions,
       variant: preset.variant,
-      /* 전압은 프리셋이 그 갈래의 예사값을 들고 온다 — 놓는 순간 이미 「DC 48V」다. */
-      voltage: preset.voltage,
     });
     setJustAdded(row.group);
     onChange({ ports: syncTrunkAdapters([...ports, row], row, null) });
@@ -335,19 +319,6 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
             if (next !== row.count) patch(row, { count: next });
           }}
         />
-        {detail === 'voltage' && (
-          <SilkValue
-            label={`${labelText} 전압`}
-            text={row.voltage ?? '전압'}
-            value={row.voltage ?? ''}
-            options={
-              row.voltage && !voltageOptionsOf(row).includes(row.voltage)
-                ? [row.voltage, ...voltageOptionsOf(row)]
-                : voltageOptionsOf(row)
-            }
-            onCommit={(raw) => patch(row, { voltage: raw.trim() || null })}
-          />
-        )}
         {detail === 'positions' && (
           <SilkValue
             label={`${labelText} 심선 수`}
@@ -386,7 +357,7 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   const twinNote = (() => {
     const seen = new Map<string, number>();
     for (const { row } of declared) {
-      const k = `${row.medium}|${row.direction}|${row.variant ?? ''}|${row.voltage ?? ''}|${row.positions ?? 1}`;
+      const k = `${row.medium}|${row.direction}|${row.variant ?? ''}|${row.positions ?? 1}`;
       seen.set(k, (seen.get(k) ?? 0) + 1);
     }
     const dup = [...seen.values()].some((n) => n > 1);

@@ -37,14 +37,12 @@ export function portRow(p: {
   namePattern: string;
   positions?: number | null;
   variant?: string | null;
-  voltage?: string | null;
 }): PortRow {
   return {
     group: p.group,
     count: p.count,
     direction: p.direction,
     variant: p.variant ?? null,
-    voltage: p.voltage ?? null,
     medium: p.medium,
     namePattern: p.namePattern,
     positions: coreCount(p.positions),

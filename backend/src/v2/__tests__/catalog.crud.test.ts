@@ -270,60 +270,6 @@ describe('catalog CRUD', () => {
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
   });
 
-  /**
-   * **전압은 포트 선언이 갖는다** — 「이 장비의 전원 입력은 DC 48V」는 품목의 성질이다.
-   *
-   * 값만 달라진 것은 구조 변경이 아니라 자산이 있어도 고칠 수 있어야 하는데, 구조 비교가
-   * 「그대로」라고 판단해 선언을 아예 다시 쓰지 않았다 — 200 이 떨어지고도 아무것도 안 바뀌었다.
-   * 놓인 포트에도 값이 실려 있으므로(읽는 자리가 여럿이다) **함께 따라가야** 한다.
-   */
-  it('PUT: 전압만 고쳐도 선언과 이미 놓인 포트가 함께 바뀐다', async () => {
-    const sub = await nextDb.substation.create({
-      data: {
-        name: `${uniq}-ss-v`,
-        branch: { create: { name: `${uniq}-br-v`, headquarters: { create: { name: `${uniq}-hq-v` } } } },
-      },
-    });
-    const pwrType = await request(app)
-      .post('/api/v2/catalog/types')
-      .set(admin)
-      .send(makeTypeBody(catId, {
-        name: `${uniq}-전원반`,
-        ports: [{ group: 'POWER-IN-DC', count: 1, direction: 'IN' as const, medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 48V' }],
-      }))
-      .expect(201);
-    const pwrTypeId = pwrType.body.id as string;
-
-    const asset = await nextDb.asset.create({ data: { name: `${uniq}-반`, typeId: pwrTypeId, substationId: sub.id } });
-    await nextDb.port.create({
-      data: { assetId: asset.id, group: 'POWER-IN-DC', index: 1, name: '전원 입력', direction: 'IN', medium: 'power', variant: 'DC', fieldValues: { voltage: 'DC 48V' } },
-    });
-
-    await request(app)
-      .put(`/api/v2/catalog/types/${pwrTypeId}`)
-      .set(admin)
-      .send(makeTypeBody(catId, {
-        name: `${uniq}-전원반`,
-        ports: [{ group: 'POWER-IN-DC', count: 1, direction: 'IN' as const, medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 125V' }],
-      }))
-      .expect(200);
-
-    const tpl = await nextDb.assetPortTemplate.findFirst({ where: { typeId: pwrTypeId } });
-    expect(tpl?.voltage).toBe('DC 125V');
-    const port = await nextDb.port.findFirst({ where: { assetId: asset.id } });
-    expect((port?.fieldValues as Record<string, unknown>).voltage).toBe('DC 125V');
-
-    // 정리
-    await nextDb.port.deleteMany({ where: { assetId: asset.id } });
-    await nextDb.asset.delete({ where: { id: asset.id } });
-    await nextDb.assetType.delete({ where: { id: pwrTypeId } });
-    await nextDb.substation.delete({ where: { id: sub.id } });
-    const branch = await nextDb.branch.findFirst({ where: { name: `${uniq}-br-v` } });
-    if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
-    const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq-v` } });
-    if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
-  });
-
   it('PUT: 인스턴스가 있으면 이미 있는 포트의 **뜻**을 바꿀 수 없다 — 409 TYPE_IN_USE', async () => {
     const sub = await nextDb.substation.create({
       data: {

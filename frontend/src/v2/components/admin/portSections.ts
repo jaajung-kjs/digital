@@ -13,8 +13,6 @@ export interface PreviewPort {
   positions?: number | null;
   /** 종류 안의 갈래(전원의 AC·DC) — 이름이 그것으로 갈린다. */
   variant?: string | null;
-  /** 이름 괄호에 실리는 값 — 「전원 출력(DC 48V)」. */
-  voltage?: string | null;
 }
 
 export interface PortSection {
@@ -41,14 +39,6 @@ export function portSections(
   source: readonly PreviewPort[],
   mediumLabel: (key: string) => string,
   mediumColor: (key: string) => string | null,
-  /**
-   * 이름 괄호에 값을 언제 실을 것인가 — 「전원 출력(DC 48V)」.
-   *
-   * 미리보기는 늘 싣는다(놓고 나면 그 이름으로 보이므로). **편집기는 필요할 때만** 싣는다 —
-   * 그 값을 이름표의 칩으로 따로 고치므로 같은 말이 두 번 서기 때문이다. 다만 그 값이
-   * 아니면 갈리지 않는 구획들(220V·110V 출력)에서는 실어야 한다.
-   */
-  detailMode: 'always' | 'whenAmbiguous' = 'always',
 ): PortSection[] {
   const ports: V2Port[] = instantiatePorts(
     source.map((p, i) => ({
@@ -76,7 +66,7 @@ export function portSections(
     .slice()
     .sort(comparePortGroups)
     .map((ref) => {
-      const label = portGroupLabel(ref, refs, mediumLabel, detailMode);
+      const label = portGroupLabel(ref, refs, mediumLabel);
       return {
         key: ref.group,
         label,

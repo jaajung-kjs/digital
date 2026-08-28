@@ -131,22 +131,30 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   });
 
   /**
-   * **전압은 그 포트가 들고 온 값**이다 — 여기서 고치지 않는다.
+   * **전압은 회로마다 다르다 — 그래서 여기서 고친다.**
    *
-   * 「이 장비의 전원 입력은 DC 48V」는 그 품목의 성질이라 적는 자리는 장비 관리의 포트 선언
-   * 하나뿐이다. 표에서도 고칠 수 있게 두면 같은 회로의 두 끝이 다른 전압으로 적히고, 어느
-   * 쪽이 사실인지 알 길이 없어진다.
+   * 한때 품목의 포트 선언에 못 박고 표는 읽기만 했다. 기기의 입력은 실제로 그렇지만
+   * (송광치의 DC 48V 입력) **분배 회로는 다르다**: 380/220V 3상4선 반은 한 반에서 380V
+   * 3상과 220V 단상을 함께 내보낸다. 그 흔한 반을 선언 하나로는 표현할 수 없다.
+   *
+   * 그래서 품목은 갈래(AC·DC)까지만 정하고, 몇 V 인지는 **회로 대장인 이 표**가 적는다.
    */
-  it('전압은 포트가 들고 온 값 — 표는 보여 주기만 한다', () => {
+  it('전압은 회로마다 고친다 — 한 반에서 380V 3상과 220V 단상이 섞인다', () => {
     const main3P = { ...main, ports: main.ports.map((p) => (p.id === 'main-o1' ? { ...p, fieldValues: { voltage: 'AC 380V 3φ' } } : p)) };
     setStore([rack, main3P, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
-    const circuit = tableOf('분전반 · 소내전원반').getAllByRole('row')[2]!;
-    expect(within(circuit).getByText('AC 380V 3φ')).toBeInTheDocument();
-    /* 고치는 단추가 없다 — 용량·개폐는 회로마다 다르니 여기서 고치지만, 전압은 아니다. */
-    expect(within(circuit).queryByRole('button', { name: '전압 고치기' })).toBeNull();
-    expect(within(circuit).getByRole('button', { name: '용량 고치기' })).toBeInTheDocument();
+    const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
+    /* 같은 반의 두 회로가 서로 다른 전압으로 선다. */
+    expect(within(rows[2]!).getByText('AC 380V 3φ')).toBeInTheDocument();
+    expect(within(rows[3]!).getByText('AC 220V 1φ')).toBeInTheDocument();
+
+    /* 그리고 그 자리에서 고친다 — 값은 **그 포트**에 담긴다(케이블이 아니라). */
+    fireEvent.click(within(rows[3]!).getByRole('button', { name: '전압 고치기' }));
+    fireEvent.change(screen.getByRole('combobox', { name: '전압' }), { target: { value: 'AC 380V 3φ' } });
+    const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
+    const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o2');
+    expect(port?.fieldValues.voltage).toBe('AC 380V 3φ');
   });
 
   it('길이는 그 자리에서 고친다 — 케이블에 담긴다', () => {

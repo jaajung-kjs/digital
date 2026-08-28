@@ -53,7 +53,7 @@ describe('초안의 포트 줄은 한 자리에서 짓는다', () => {
     const echoed = typeToDraft(mkType({
       portTemplates: [{
         id: 'pt-1', group: 'NETWORK', count: 24, direction: 'BI', medium: 'network',
-        namePattern: '네트워크 {n}', sortOrder: 1, positions: 1, variant: null, voltage: null,
+        namePattern: '네트워크 {n}', sortOrder: 1, positions: 1, variant: null,
       }],
     })).ports[0]!;
 
@@ -64,13 +64,13 @@ describe('초안의 포트 줄은 한 자리에서 짓는다', () => {
     const before = typeToDraft(mkType({ portTemplates: [] }));
     const afterAdd = {
       ...before,
-      ports: [portRow({ group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 48V' })],
+      ports: [portRow({ group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' })],
     };
     /* 저장 → 서버가 돌려준 것으로 원본이 바뀐다. 그 순간 단추는 꺼져야 한다. */
     const saved = mkType({
       portTemplates: [{
         id: 'pt-9', group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power',
-        namePattern: '전원 입력', sortOrder: 1, positions: 1, variant: 'DC', voltage: 'DC 48V',
+        namePattern: '전원 입력', sortOrder: 1, positions: 1, variant: 'DC',
       }],
     });
     expect(isDraftDirty(afterAdd, saved)).toBe(false);
@@ -81,7 +81,6 @@ describe('초안의 포트 줄은 한 자리에서 짓는다', () => {
     const row = portRow({ group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' });
     expect(row.positions).toBe(1);
     expect(row.variant).toBeNull();
-    expect(row.voltage).toBeNull();
   });
 });
 

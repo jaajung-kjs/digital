@@ -110,14 +110,14 @@ describe('PortsEditor', () => {
     expect(onChange.mock.calls[1][0].ports[0]).toMatchObject({ count: 24 });
   });
 
-  it('(b-2) 전원은 입력·출력이 따로 있고, AC·DC 도 따로다 — 전압까지 실려 온다', () => {
+  /* 품목이 정하는 것은 **갈래까지**다 — 몇 V 인지는 회로마다 다르므로 계통 표가 적는다. */
+  it('(b-2) 전원은 입력·출력이 따로 있고, AC·DC 도 따로다', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={mkDraft([])} onChange={onChange} issues={[]} />);
 
     addKind('전원 출력(DC)');
-    expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({
-      medium: 'power', direction: 'OUT', variant: 'DC', voltage: 'DC 48V',
-    });
+    expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({ medium: 'power', direction: 'OUT', variant: 'DC' });
+    expect(onChange.mock.calls[0][0].ports[0].voltage).toBeUndefined();
   });
 
   it('(b-3) 지우면 그 구획이 빠진다', () => {
@@ -293,45 +293,14 @@ describe('PortsEditor', () => {
     expect(onChange.mock.calls[0][0].ports.find((p: { group: string }) => p.group === 'TRUNK')).toMatchObject({ positions: 2 });
   });
 
-  /**
-   * **목록을 닫아 걸지 않는다.** 현장에는 목록 밖의 값이 있다(제어전원 DC 125V).
-   * 적힌 값이 목록에 없어도 **그 값이 목록에 실려** 보이고, 열자마자 다른 값으로 바뀌지 않는다.
-   */
-  it('(m) 목록 밖의 값도 지우지 않는다 — 직접 입력 자리가 있다', () => {
-    const draft = mkDraft([
-      { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 125V' },
+  /** **뜻이 같은 구획이 둘**이면 순번으로만 갈린다 — 대개 실수이므로 합치라고 말해 준다. */
+  it('(h) 뜻이 같은 구획이 둘이면 순번으로 갈리고, 합치라고 말해 준다', () => {
+    const two = mkDraft([
+      { group: 'POWER-OUT-AC', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'AC' },
+      { group: 'POWER-OUT-AC-2', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'AC' },
     ]);
-    render(<PortsEditor draft={draft} onChange={vi.fn()} issues={[]} />);
+    render(<PortsEditor draft={two} onChange={vi.fn()} issues={[]} />);
 
-    expect(screen.getByRole('button', { name: /전압 고치기/ }).textContent).toContain('DC 125V');
-    fireEvent.click(screen.getByRole('button', { name: /전압 고치기/ }));
-    const select = screen.getByLabelText(/전압/) as HTMLSelectElement;
-    expect(select.value).toBe('DC 125V');
-    expect([...select.options].map((o) => o.text)).toContain('직접 입력…');
-  });
-
-  /**
-   * **값을 고치다가 두 구획이 같아지는 순간**을 붙잡는다.
-   *
-   * 380V 를 220V 로 바꾸면 220V 출력이 둘이 된다 — 그 순간 이름이 갈릴 근거가 사라진다.
-   * 예전에는 그때 뜻 없는 그룹 키가 튀어나왔다(「전원 출력(AC) POWER-OUT-AC-2」).
-   * 이제 순번으로 갈리고, **대개 실수이므로** 하나로 합치라고 말해 준다.
-   */
-  it('(h) 전압이 겹치면 순번으로 갈리고, 합치라고 말해 준다', () => {
-    const two = (v2: string) => mkDraft([
-      { group: 'POWER-OUT-AC', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'AC', voltage: 'AC 220V 1φ' },
-      { group: 'POWER-OUT-AC-2', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'AC', voltage: v2 },
-    ]);
-
-    /* 값이 다를 때 — 값으로 갈린다. */
-    const apart = render(<PortsEditor draft={two('AC 380V 3φ')} onChange={vi.fn()} issues={[]} />);
-    expect(screen.getByRole('button', { name: '전원 출력(AC 220V 1φ) 개수 고치기' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '전원 출력(AC 380V 3φ) 개수 고치기' })).toBeInTheDocument();
-    expect(screen.queryByText(/구획이 둘입니다/)).toBeNull();
-    apart.unmount();
-
-    /* 같아진 뒤 — 순번으로 갈리고 안내가 뜬다. 키는 어디에도 없다. */
-    render(<PortsEditor draft={two('AC 220V 1φ')} onChange={vi.fn()} issues={[]} />);
     expect(screen.getByRole('button', { name: '전원 출력(AC) 1 개수 고치기' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '전원 출력(AC) 2 개수 고치기' })).toBeInTheDocument();
     expect(screen.getByText(/구획이 둘입니다/)).toBeInTheDocument();
@@ -339,28 +308,22 @@ describe('PortsEditor', () => {
   });
 
   /**
-   * **값은 그 구획의 이름표에** 붙는다 — 그 종류가 요구하는 것만.
-   * 전원은 전압, 다심은 코어 수, 나머지는 개수뿐이다.
+   * **세부는 다심의 코어 수뿐**이다.
+   *
+   * 전압은 이제 품목이 정하지 않는다 — 380/220V 3상4선 반은 한 반에서 380V 3상과 220V 단상을
+   * 함께 내보내므로, 회로마다 다른 값을 품목에 못 박을 수 없다(계통 표가 적는다).
    */
-  it('(e) 세부는 그 종류가 요구할 때만 이름표에 붙는다', () => {
+  it('(e) 품목이 정하는 것은 개수와 코어 수까지 — 전압 칩은 없다', () => {
     const draft = mkDraft([
-      { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 48V' },
-      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
+      { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
+      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 포트 {n}', positions: 1 },
     ]);
     render(<PortsEditor draft={draft} onChange={vi.fn()} issues={[]} />);
 
-    expect(screen.getByRole('button', { name: '전원 입력(DC) 전압 고치기' }).textContent).toBe('DC 48V');
-    editValue('전원 입력(DC) 전압');
-    const voltage = screen.getByLabelText('전원 입력(DC) 전압') as HTMLSelectElement;
-    /* 고를 수 있는 값은 갈래가 정한다 — DC 구획에 AC 전압이 뜨지 않는다. */
-    expect([...voltage.options].some((o) => o.text.startsWith('AC'))).toBe(false);
-    expect(screen.queryByRole('button', { name: '전원 입력(DC) 심선 수 고치기' })).toBeNull();
-
-    // 단심 광 어댑터에는 세부가 없다 — 개수뿐이다.
-    expect(screen.queryByRole('button', { name: '광 포트 전압 고치기' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '광 포트 심선 수 고치기' })).toBeNull();
-
+    expect(screen.queryByRole('button', { name: /전압 고치기/ })).toBeNull();
+    /* 갈래는 이름이 말한다. */
+    expect(screen.getByRole('button', { name: '전원 입력(DC) 개수 고치기' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'OPGW 심선 수 고치기' }).textContent).toBe('24코어');
   });
 });

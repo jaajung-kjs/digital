@@ -15,8 +15,8 @@ describe('포트 프리셋', () => {
     expect(power.map((p) => p.name)).toEqual([
       '전원 입력(AC)', '전원 입력(DC)', '전원 출력(AC)', '전원 출력(DC)',
     ]);
-    /* 프리셋이 그 갈래의 예사 전압을 들고 온다 — 포트를 켜는 순간 이미 「DC 48V」다. */
-    expect(power.map((p) => p.voltage)).toEqual(['AC 220V 1φ', 'DC 48V', 'AC 220V 1φ', 'DC 48V']);
+    /* 프리셋은 **갈래까지만** 정한다 — 몇 V 인지는 놓인 회로가 안다(계통 표). */
+    expect(power.every((p) => !('voltage' in p))).toBe(true);
     expect(power.map((p) => `${p.direction}·${p.variant}`)).toEqual(['IN·AC', 'IN·DC', 'OUT·AC', 'OUT·DC']);
   });
 
@@ -262,23 +262,21 @@ describe('포트 그룹 이름', () => {
   });
 
   /**
-   * **그 값을 따로 고치는 화면**(포트 편집기)은 이름에 값을 아껴 둔다 — 값이 이름표의 칩으로
-   * 이미 서 있어 두 번 적히기 때문이다. 다만 그 값이 아니면 갈리지 않는 구획들에서는
-   * **꺼내 쓴다** — 안 그러면 뜻 없는 그룹 키가 튀어나온다.
+   * **선언은 갈래까지만** 말한다 — 몇 V 인지는 놓인 회로가 안다(계통 표).
+   * 그래서 품목 화면의 구획 이름은 「전원 출력(AC)」이고, 자산 화면에서는 그 포트에 적힌
+   * 값까지 실려 「전원 출력(AC 220V 1φ)」가 된다.
    */
-  it('값은 필요할 때만 이름에 실린다(whenAmbiguous)', () => {
-    const out = (group, voltage) => groupRefOfTemplate({
-      group, medium: 'power', direction: 'OUT', namePattern: '전원 출력 {n}', variant: 'AC', voltage,
+  it('선언은 갈래까지, 놓인 포트는 그 값까지 이름에 싣는다', () => {
+    const tpl = groupRefOfTemplate({
+      group: 'POWER-OUT-AC', medium: 'power', direction: 'OUT', namePattern: '전원 출력 {n}', variant: 'AC',
     });
+    expect(portGroupLabel(tpl, [tpl])).toBe('전원 출력(AC)');
 
-    const one = [out('POWER-OUT-AC', 'AC 220V 1φ')];
-    expect(portGroupLabel(one[0]!, one, undefined, 'whenAmbiguous')).toBe('전원 출력(AC)');
-    expect(portGroupLabel(one[0]!, one)).toBe('전원 출력(AC 220V 1φ)'); // 자산 화면은 늘 싣는다
-
-    const many = [out('POWER-OUT-AC', 'AC 220V 1φ'), out('POWER-OUT-AC-2', 'AC 110V 1φ')];
-    expect(many.map((r) => portGroupLabel(r, many, undefined, 'whenAmbiguous'))).toEqual([
-      '전원 출력(AC 220V 1φ)', '전원 출력(AC 110V 1φ)',
-    ]);
+    const placed = groupRefOf({
+      group: 'POWER-OUT-AC', medium: 'power', direction: 'OUT', name: '전원 출력 1', positions: 1,
+      variant: 'AC', fieldValues: { voltage: 'AC 380V 3φ' },
+    });
+    expect(portGroupLabel(placed, [placed])).toBe('전원 출력(AC 380V 3φ)');
   });
 
   /**
@@ -288,8 +286,12 @@ describe('포트 그룹 이름', () => {
    * 380V 를 220V 로 고치는 **도중**에 이 상태가 된다 — 그때 뜻 없는 키가 튀어나오면 안 된다.
    */
   it('값까지 같으면 순번으로 가른다', () => {
-    const one = groupRefOfTemplate({ group: 'POWER-IN-AC', medium: 'power', direction: 'IN', namePattern: '전원 입력', variant: 'AC', voltage: 'AC 220V 1φ' });
-    const two = groupRefOfTemplate({ group: 'POWER-IN-AC-2', medium: 'power', direction: 'IN', namePattern: '전원 입력', variant: 'AC', voltage: 'AC 220V 1φ' });
+    const at = (group: string) => groupRefOf({
+      group, medium: 'power', direction: 'IN', name: '전원 입력', positions: 1,
+      variant: 'AC', fieldValues: { voltage: 'AC 220V 1φ' },
+    });
+    const one = at('POWER-IN-AC');
+    const two = at('POWER-IN-AC-2');
     const refs = [one, two];
     expect(portGroupLabel(one, refs)).toBe('전원 입력(AC 220V 1φ) 1');
     expect(portGroupLabel(two, refs)).toBe('전원 입력(AC 220V 1φ) 2');
@@ -317,16 +319,6 @@ describe('포트 그룹 이름', () => {
   it('값이 아직 없으면 갈래 이름으로 물러선다', () => {
     const refs = [groupRefOf({ ...g('PWR-OUT', 'power', 'OUT'), variant: 'DC', name: '출력 1' })];
     expect(portGroupLabel(refs[0]!, refs)).toBe('전원 출력(DC)');
-  });
-
-  /* 선언(품목)과 놓인 포트가 **같은 이름**을 내야 한다 — 한쪽만 값을 실으면 품목 화면과
-     자산 화면에서 같은 구획이 다른 이름으로 불린다. */
-  it('선언에서도 같은 이름이 나온다', () => {
-    const tpl = groupRefOfTemplate({
-      group: 'PWR-OUT', medium: 'power', direction: 'OUT', namePattern: '출력 {n}',
-      variant: 'DC', voltage: 'DC 48V',
-    });
-    expect(portGroupLabel(tpl, [tpl])).toBe('전원 출력(DC 48V)');
   });
 
   it('어휘에 없는 종류는 그 값을 쓴다 — 빈 이름이 되지 않게', () => {

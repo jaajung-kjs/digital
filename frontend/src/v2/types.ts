@@ -2,7 +2,7 @@ import type { Direction } from '@twin/core';
 export type { TypeUpsertBody } from '@twin/core';
 
 export interface V2Category { id: string; key: string; name: string; sortOrder: number }
-export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number; variant?: string | null; voltage?: string | null }
+export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number; variant?: string | null }
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number;
   assetCount: number;

@@ -45,7 +45,7 @@ async function createTypeStructure(
 ): Promise<void> {
   for (const [i, p] of body.ports.entries()) {
     await tx.assetPortTemplate.create({
-      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: coreCount(p.positions), variant: p.variant ?? null, voltage: p.voltage ?? null, sortOrder: i },
+      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: coreCount(p.positions), variant: p.variant ?? null, sortOrder: i },
     });
   }
 }
@@ -423,30 +423,6 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         await createTypeStructure(tx, id, body);
         // 늘린 것은 **이미 놓인 자산에도** 달아 준다 — 선언만 고치면 정작 그 자산은 그대로다.
         await addPortsToExistingAssets(tx, id, change.additions);
-      }
-
-      /* 값만 달라진 것(전원의 전압)은 **구조 변경이 아니다** — 포트를 다시 만들지 않으므로
-         자산이 있어도 고칠 수 있어야 한다. 위 분기는 구조가 그대로면 아예 돌지 않아서,
-         전압만 고치면 200 이 떨어지고도 아무것도 안 바뀌었다.
-
-         값은 놓인 포트에도 실려 있다(읽는 자리가 여럿이라 조회마다 선언을 뒤지지 않는다).
-         그래서 **함께 따라간다** — 적는 문이 여기 하나뿐이므로 두 값이 갈라질 길이 없다. */
-      for (const p of body.ports) {
-        await tx.assetPortTemplate.updateMany({
-          where: { typeId: id, group: p.group },
-          data: { voltage: p.voltage ?? null },
-        });
-        if (p.voltage) {
-          await tx.$executeRaw`
-            UPDATE "Port" SET "fieldValues" = jsonb_set("fieldValues", '{voltage}', to_jsonb(${p.voltage}::text))
-            WHERE "group" = ${p.group}
-              AND "assetId" IN (SELECT "id" FROM "Asset" WHERE "typeId" = ${id})`;
-        } else {
-          await tx.$executeRaw`
-            UPDATE "Port" SET "fieldValues" = "fieldValues" - 'voltage'
-            WHERE "group" = ${p.group}
-              AND "assetId" IN (SELECT "id" FROM "Asset" WHERE "typeId" = ${id})`;
-        }
       }
 
       const { _count, ...row } = await tx.assetType.findUniqueOrThrow({
