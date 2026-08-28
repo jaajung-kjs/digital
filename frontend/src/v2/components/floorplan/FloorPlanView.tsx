@@ -116,7 +116,10 @@ function placementReducer(state: PlacementState, action: PlacementAction): Place
 interface LatestRenderInputs {
   viewport: Viewport;
   placedAssets: PlacedAsset[];
+  /** **고른 것** — 지우기·크기 조절이 대상으로 삼는 그것(장비일 수 있다). */
   selectedAssetId: string | null;
+  /** **켜는 것** — 고른 것을 품은 설비(도면에 서는 것은 설비뿐이다). 그리기 전용. */
+  highlightedPlacedId: string | null;
   activeFloor: V2Floor | null;
   traceResult: TraceResult | null;
   effectiveCables: V2Cable[];
@@ -143,26 +146,27 @@ interface LatestRenderInputs {
 }
 
 export function FloorPlanView({
-  substationId, selectedAssetId: selection, onSelectAsset, traceResult, cableStartPortId, onCableStartConsumed, onPickPort,
+  substationId, selectedAssetId, onSelectAsset, traceResult, cableStartPortId, onCableStartConsumed, onPickPort,
 }: Props) {
   const { confirm, confirmDialog } = useConfirm();
   /* 화면이 보는 것 — 저장한 것과 저장 안 한 것을 합치는 일은 한 곳에서만 한다. */
   const effectiveAssets = useEffectiveAssets();
 
   /**
-   * 도면에서 켜지는 것 — **고른 것을 품은 설비**다.
+   * 도면에서 **켜지는** 것 — 고른 것을 품은 설비.
    *
    * 도면에 서는 것은 설비뿐이다(장비는 그 안에 들어 있다). 그런데 화면은 「누른 것」을 그대로
    * 넘긴다 — 표는 누른 줄에 불이 들어와야 하므로 장비 id 를 준다. 그것을 그대로 도면에서
    * 찾으면 **아무것도 못 찾는다**: 패널은 열려 있는데 도면에는 아무 표시가 없었다(추적·연결
    * 장비 링크로 넘어올 때마다 그랬다 — 그 길들은 늘 장비를 가리킨다).
    *
-   * 그래서 여기서 **한 번** 올라간다(`floorAnchorOf` — 층을 찾을 때 쓰던 그 걸음이다).
-   * 부르는 쪽마다 「설비인지 장비인지」를 따지게 두면 그 판단이 화면 수만큼 늘어난다.
+   * **고른 것과 켜는 것은 다른 값이다.** 한때 이 자리에서 프롭 이름을 바꿔 하나로 합쳤는데,
+   * 그러자 지우기와 크기 핸들까지 이 값을 보게 되어 **장비를 고르고 지우면 그 설비가 통째로
+   * 지워질 뻔했다.** 켜는 데만 쓰는 값이라고 이름이 말해야 그 일이 다시 일어나지 않는다.
    */
-  const selectedAssetId = useMemo(
-    () => (selection ? floorAnchorOf(selection, assetsById(effectiveAssets))?.id ?? selection : null),
-    [selection, effectiveAssets],
+  const highlightedPlacedId = useMemo(
+    () => (selectedAssetId ? floorAnchorOf(selectedAssetId, assetsById(effectiveAssets))?.id ?? selectedAssetId : null),
+    [selectedAssetId, effectiveAssets],
   );
   const effectiveCables = useEffectiveCables();
   const floors = useEffectiveFloors();
@@ -216,12 +220,12 @@ export function FloorPlanView({
      화면이 그것을 따라와 손과 싸운다. */
   const centeredFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedAssetId) { centeredFor.current = null; return; }
-    if (centeredFor.current === selectedAssetId) return;
+    if (!highlightedPlacedId) { centeredFor.current = null; return; }
+    if (centeredFor.current === highlightedPlacedId) return;
     const canvas = canvasRef.current;
-    const target = placedAssets.find((a) => a.id === selectedAssetId);
+    const target = placedAssets.find((a) => a.id === highlightedPlacedId);
     if (!canvas || !target) return;
-    centeredFor.current = selectedAssetId;
+    centeredFor.current = highlightedPlacedId;
 
     const dpr = backingScale.current;
     const w = canvas.width / dpr;
@@ -242,7 +246,7 @@ export function FloorPlanView({
     setViewport((prev) => ({ ...prev, panX: w / 2 - cx * (prev.zoom / 100), panY: h / 2 - cy * (prev.zoom / 100) }));
     // 뷰포트는 **여기서 정한 값**으로만 바뀐다 — 그 값을 의존성에 넣으면 스스로를 다시 부른다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAssetId, placedAssets, activeFloorId]);
+  }, [highlightedPlacedId, placedAssets, activeFloorId]);
 
 
   // ── 뷰포트 ─────────────────────────────────────────────────────────────────
@@ -292,13 +296,13 @@ export function FloorPlanView({
   // rafPending 게이팅으로 인해 여러 렌더에 걸쳐 재사용될 수 있으므로) stale 값을
   // 그릴 위험이 있기 때문.
   const latest = useRef<LatestRenderInputs>({
-    viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
+    viewport, placedAssets, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
     firstAnchorId, selectedCableId: cableState.selectedCableId,
     placingRect: null,
   });
   latest.current = {
-    viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
+    viewport, placedAssets, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
     firstAnchorId, selectedCableId: cableState.selectedCableId,
     /* 지금 보는 층의 것만 그린다 — 층을 옮겨 놓고도 남의 층 네모가 떠 있으면 안 된다. */
@@ -610,7 +614,7 @@ export function FloorPlanView({
         renderPlacedAssets(ctx, dimmedAssets, null, activePreview);
         ctx.restore();
         // 추적 자산: selectedAssetId 경유 하이라이트 유지하면서 추적 강조
-        renderPlacedAssets(ctx, tracedAssets, latest.current.selectedAssetId, activePreview);
+        renderPlacedAssets(ctx, tracedAssets, latest.current.highlightedPlacedId, activePreview);
       } else if (connectableIdsRef.current) {
         /* 케이블 도구가 켜져 있다 — **이을 수 있는 것만 또렷하게**. 추적의 어법과 같다
            (관계 없는 것은 alpha 0.3). 눌러 보고 나서 빈 판을 만나는 헛걸음이 없어진다. */
@@ -621,7 +625,7 @@ export function FloorPlanView({
         ctx.globalAlpha = 0.3;
         renderPlacedAssets(ctx, off, null, activePreview);
         ctx.restore();
-        renderPlacedAssets(ctx, on, latest.current.selectedAssetId, activePreview);
+        renderPlacedAssets(ctx, on, latest.current.highlightedPlacedId, activePreview);
 
         // 가리키고 있는 것 — 누를 수 있다는 사실을 손이 가기 전에 알린다.
         const hoverId = hoveredAssetIdRef.current;
@@ -634,7 +638,7 @@ export function FloorPlanView({
           ctx.restore();
         }
       } else {
-        renderPlacedAssets(ctx, latest.current.placedAssets, latest.current.selectedAssetId, activePreview);
+        renderPlacedAssets(ctx, latest.current.placedAssets, latest.current.highlightedPlacedId, activePreview);
       }
 
       // 6.5 케이블 첫 끝점 자산 강조 (점선 스트로크 — 일반 선택과 구분)
