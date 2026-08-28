@@ -49,48 +49,48 @@ const mkDraft = (portOverrides: TypeDraft['ports'] = []): TypeDraft => ({
 });
 
 // ─── 테스트 ──────────────────────────────────────────────────────────────────
-/** 이 줄의 어느 칸을 고치는 단추 — 읽는 줄이 기본이라 값은 단추로 선다. */
-const cell = (label: string) => screen.getByRole('button', { name: `${label} 고치기` });
+/** 판에서 그 구획을 고른다 — 포트를 아무거나 누르면 그 구획이 골라진다.
+    판의 포트는 「이름 + 상태」로 읽힌다(`PortFaceplate`). */
+const pickGroup = (portName: string) =>
+  fireEvent.click(screen.getByRole('button', { name: `${portName} 미연결` }));
+
+/** 종류를 골라 더한다 — 도구모음의 [목록] + [추가]. */
+const addKind = (name: string) => {
+  const select = screen.getByLabelText('포트 종류') as HTMLSelectElement;
+  const i = [...select.options].findIndex((o) => o.text === name);
+  fireEvent.change(select, { target: { value: String(i) } });
+  fireEvent.click(screen.getByRole('button', { name: /추가/ }));
+};
 
 describe('PortsEditor', () => {
-  it('(a) 없는 포트는 표에 없다 — 이 판이 갖는 구획만 선다', () => {
+  /**
+   * **판이 곧 목록이다.** 무슨 구획이 몇 개인지는 판이 그림으로 말한다 — 표로 다시 적지 않는다.
+   */
+  it('(a) 표가 아니라 판이 선다 — 구획과 포트가 그려진다', () => {
     const draft = mkDraft([
       { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '코어 {n}' },
     ]);
     render(<PortsEditor draft={draft} onChange={vi.fn()} issues={[]} />);
 
-    /* 그 줄의 개수는 읽는 값으로 서 있다(누르면 그때 상자가 된다).
-       이름은 **표에 선 것들 사이에서** 갈린다 — 광이 한 줄뿐이면 그냥 「광」이고,
-       성단이 함께 서면 그때 「광」·「광 다심」으로 갈린다(`portGroupLabel`). */
-    expect(cell('광 개수').textContent).toBe('12');
-    /* 안 고른 종류는 화면에 없다 — 예전에는 아홉 줄이 0 으로 서 있었다. */
-    for (const name of ['전원 입력(AC)', '네트워크', 'OPGW', '접지']) {
-      expect(screen.queryByRole('button', { name: `${name} 개수 고치기` })).toBeNull();
-    }
-    // 지어내야 하던 값들은 여전히 화면에 없다 — 종류가 이미 정했다.
-    expect(screen.queryByDisplayValue('A')).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
+    // 포트 열둘이 판에 실제로 그려진다(번호가 붙는다).
+    expect(screen.getByRole('button', { name: '코어 1 미연결' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '코어 12 미연결' })).toBeInTheDocument();
   });
 
-  it('(a-2) 포트가 하나도 없으면 표 대신 빈 상태가 선다', () => {
+  it('(a-2) 포트가 하나도 없으면 판 대신 빈 상태가 선다 — 더하는 길은 늘 열려 있다', () => {
     render(<PortsEditor draft={mkDraft([])} onChange={vi.fn()} issues={[]} />);
     expect(screen.getByText('포트가 없습니다')).toBeInTheDocument();
-    expect(screen.queryByRole('table')).toBeNull();
-    // 더하는 길은 늘 열려 있다.
-    expect(screen.getByRole('button', { name: /포트 추가/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('포트 종류')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /추가/ })).toBeInTheDocument();
   });
 
-  /* 더하는 일은 **명시적**이고, 고르는 자리는 표 안의 새 줄이다(§1.7-m). */
-  it('(b) ＋ 포트 추가 → 그 자리에 종류를 고르는 줄이 서고, 고르면 선언이 생긴다', () => {
+  /* 도구모음은 **한 줄로 고정**이다 — 고를 때만 생기는 칸이 아니라 자리가 늘 있는 칸이다. */
+  it('(b) 종류를 골라 더하면 그 구획이 판에 서고, 도구모음이 그 값을 든다', () => {
     const onChange = vi.fn();
-    render(<PortsEditor draft={mkDraft([])} onChange={onChange} issues={[]} />);
+    const { rerender } = render(<PortsEditor draft={mkDraft([])} onChange={onChange} issues={[]} />);
 
-    // 누르기 전에는 고르는 칸이 없다 — 갑자기 칸이 자라나는 일이 없다.
-    expect(screen.queryByLabelText('포트 종류')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /포트 추가/ }));
-
-    const select = screen.getByLabelText('포트 종류') as HTMLSelectElement;
-    const network = [...select.options].findIndex((o) => o.text === '네트워크');
-    fireEvent.change(select, { target: { value: String(network - 1) } }); // 0번은 안내 문구
+    addKind('네트워크');
 
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };
     expect(called.ports).toHaveLength(1);
@@ -98,24 +98,23 @@ describe('PortsEditor', () => {
     // 지어낼 필요가 없어야 한다 — 그룹 키·이름 패턴은 어휘가 준다.
     expect(called.ports[0]!.group).not.toBe('');
     expect(called.ports[0]!.namePattern).toContain('{n}');
+
+    /* 더한 구획은 **바로 고른 상태**다 — 개수를 고치는 손이 곧장 이어진다. */
+    rerender(<PortsEditor draft={mkDraft(called.ports)} onChange={onChange} issues={[]} />);
+    expect(screen.getByLabelText('네트워크 개수')).toBeInstanceOf(HTMLInputElement);
   });
 
   it('(b-2) 전원은 입력·출력이 따로 있고, AC·DC 도 따로다 — 전압까지 실려 온다', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={mkDraft([])} onChange={onChange} issues={[]} />);
-    fireEvent.click(screen.getByRole('button', { name: /포트 추가/ }));
 
-    const select = screen.getByLabelText('포트 종류') as HTMLSelectElement;
-    const i = [...select.options].findIndex((o) => o.text === '전원 출력(DC)');
-    fireEvent.change(select, { target: { value: String(i - 1) } });
-
+    addKind('전원 출력(DC)');
     expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({
       medium: 'power', direction: 'OUT', variant: 'DC', voltage: 'DC 48V',
     });
   });
 
-  /* 지우는 손은 그 줄에 있다 — 개수를 0 으로 만드는 것과 같은 일이다. */
-  it('(b-3) 줄을 지우면 그 선언이 빠진다', () => {
+  it('(b-3) 지우면 그 구획이 빠진다', () => {
     const existing = mkDraft([{ group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' }]);
     const onChange = vi.fn();
     render(<PortsEditor draft={existing} onChange={onChange} issues={[]} />);
@@ -133,9 +132,8 @@ describe('PortsEditor', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={draft} onChange={onChange} issues={[]} />);
 
-    fireEvent.click(cell('OPGW 심선 수'));
+    pickGroup('OPGW');
     fireEvent.change(screen.getByLabelText('OPGW 심선 수'), { target: { value: '12' } });
-    fireEvent.blur(screen.getByLabelText('OPGW 심선 수'));
 
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
     expect(ports.find((p) => p.group === 'TRUNK')!.positions).toBe(12);
@@ -146,12 +144,8 @@ describe('PortsEditor', () => {
   it('(f-3) 앞면이 없는 상태에서 성단을 더하면 광 포트가 함께 생긴다', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={mkDraft([])} onChange={onChange} issues={[]} />);
-    fireEvent.click(screen.getByRole('button', { name: /포트 추가/ }));
 
-    const select = screen.getByLabelText('포트 종류') as HTMLSelectElement;
-    const i = [...select.options].findIndex((o) => o.text === '광 다심');
-    fireEvent.change(select, { target: { value: String(i - 1) } });
-
+    addKind('광 다심');
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
     const trunk = ports.find((p) => (p.positions ?? 1) > 1)!;
     const adapter = ports.find((p) => p.medium === 'fiber' && (p.positions ?? 1) === 1)!;
@@ -168,28 +162,22 @@ describe('PortsEditor', () => {
     const onChange = vi.fn();
     render(<PortsEditor draft={draft} onChange={onChange} issues={[]} />);
 
-    fireEvent.click(cell('OPGW 심선 수'));
+    pickGroup('OPGW');
     fireEvent.change(screen.getByLabelText('OPGW 심선 수'), { target: { value: '12' } });
-    fireEvent.blur(screen.getByLabelText('OPGW 심선 수'));
 
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
     expect(ports.find((p) => p.group === 'CORE')!.count).toBe(48);
   });
 
-  /* 광은 단심과 다심이 **다른 줄**이다 — 어느 쪽인지는 심선 수가 가른다. */
-  it('(b-4) 광 다심 줄은 단심 광과 섞이지 않는다', () => {
+  /* 광은 단심과 다심이 **다른 구획**이다 — 어느 쪽인지는 심선 수가 가른다. */
+  it('(b-4) 광 다심 구획은 단심 광과 섞이지 않는다', () => {
     const existing = mkDraft([
       { group: 'FIBER', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
     ]);
     const onChange = vi.fn();
     render(<PortsEditor draft={existing} onChange={onChange} issues={[]} />);
 
-    expect(cell('광 개수').textContent).toBe('24');
-    fireEvent.click(screen.getByRole('button', { name: /포트 추가/ }));
-    const select = screen.getByLabelText('포트 종류') as HTMLSelectElement;
-    const i = [...select.options].findIndex((o) => o.text === '광 다심');
-    fireEvent.change(select, { target: { value: String(i - 1) } });
-
+    addKind('광 다심');
     const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
     expect(ports).toHaveLength(2);
     expect(ports[1]!.positions).toBeGreaterThan(1);
@@ -197,62 +185,10 @@ describe('PortsEditor', () => {
   });
 
   /**
-   * **읽는 줄이 기본이다**(§1.7-i) — 값마다 상자를 늘 세우지 않는다.
-   *
-   * 예전 판은 종류 아홉의 개수 칸이 늘 입력 상자였다. 조회하러 온 사람에게 편집기부터
-   * 들이미는 꼴이고, 실수로 바꾸기도 쉽다.
+   * **고른 구획의 값만 도구모음에 뜬다** — 그 종류가 요구하는 것만.
+   * 전원은 전압, 다심은 코어 수, 나머지는 개수뿐이다.
    */
-  it('(c) 값은 글자로 서고, 누를 때만 상자가 된다', () => {
-    const draft = mkDraft([
-      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
-    ]);
-    render(<PortsEditor draft={draft} onChange={vi.fn()} issues={[]} />);
-
-    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0);
-    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
-
-    fireEvent.click(cell('광 개수'));
-    expect(screen.getByLabelText('광 개수')).toBeInstanceOf(HTMLInputElement);
-  });
-
-  /**
-   * **같은 말을 두 번 세우지 않는다.** 「구획」과 「이름」이 따로 있었는데 둘이 사실상 같았다
-   * (「전원 입력(DC)」·「전원 입력 {n}」). 이름이 실제로 어떻게 붙는지는 아래 전면판이
-   * 번호까지 붙여 보여 준다.
-   */
-  it('(c-2) 이름 패턴 열은 없다 — 구획 이름이 그 줄의 이름이다', () => {
-    const draft = mkDraft([
-      { group: 'PWR', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC', voltage: 'DC 48V' },
-    ]);
-    render(<PortsEditor draft={draft} onChange={vi.fn()} issues={[]} />);
-
-    const table = screen.getByRole('table');
-    expect(within(table).getByText('전원 입력(DC)')).toBeInTheDocument();
-    expect(within(table).queryByText('전원 입력 {n}')).toBeNull();
-  });
-
-  /**
-   * **세부 열은 요구하는 줄이 있을 때만 선다.** 대시로만 채워진 열은 자리만 먹고 아무 말도
-   * 하지 않으며, 「아직 안 적었다」로 잘못 읽힌다 — 그 종류에는 세부라는 것이 아예 없다.
-   */
-  it('(e-2) 세부를 요구하는 줄이 없으면 그 열이 서지 않는다', () => {
-    const plain = mkDraft([
-      { group: 'CTRL', count: 12, direction: 'BI', medium: 'control', namePattern: '제어 {n}', positions: 1 },
-    ]);
-    const { unmount } = render(<PortsEditor draft={plain} onChange={vi.fn()} issues={[]} />);
-    expect(screen.queryByRole('columnheader', { name: '세부' })).toBeNull();
-    unmount();
-
-    const withPower = mkDraft([
-      { group: 'CTRL', count: 12, direction: 'BI', medium: 'control', namePattern: '제어 {n}', positions: 1 },
-      { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 48V' },
-    ]);
-    render(<PortsEditor draft={withPower} onChange={vi.fn()} issues={[]} />);
-    expect(screen.getByRole('columnheader', { name: '세부' })).toBeInTheDocument();
-  });
-
-  /* 전압은 **그 종류가 요구하는 칸**이다 — 전원 줄에만 서고, 갈래가 고를 값을 좁힌다. */
-  it('(e) 세부 칸은 그 종류의 것이다 — 전원은 전압, 다심은 코어', () => {
+  it('(e) 세부는 그 종류가 요구할 때만 도구모음에 선다', () => {
     const draft = mkDraft([
       { group: 'PWR', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC', voltage: 'DC 48V' },
       { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', positions: 1 },
@@ -260,15 +196,18 @@ describe('PortsEditor', () => {
     ]);
     render(<PortsEditor draft={draft} onChange={vi.fn()} issues={[]} />);
 
-    expect(cell('전원 입력(DC) 전압').textContent).toBe('DC 48V');
-    expect(screen.queryByRole('button', { name: '전원 입력(DC) 심선 수 고치기' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '광 심선 수 고치기' })).toBeNull(); // 단심 어댑터
-    expect(cell('OPGW 심선 수').textContent).toContain('24');
+    pickGroup('전원 입력');
+    const voltage = screen.getByLabelText('전원 입력(DC) 전압') as HTMLSelectElement;
+    expect(voltage.value).toBe('DC 48V');
+    /* 고를 수 있는 값은 갈래가 정한다 — DC 구획에 AC 전압이 뜨지 않는다. */
+    expect([...voltage.options].some((o) => o.text.startsWith('AC'))).toBe(false);
+    expect(screen.queryByLabelText('전원 입력(DC) 심선 수')).toBeNull();
 
-    /* 고를 수 있는 값은 갈래가 정한다 — DC 줄에 AC 전압이 뜨지 않는다. */
-    fireEvent.click(cell('전원 입력(DC) 전압'));
-    const opts = [...(screen.getByLabelText('전원 입력(DC) 전압') as HTMLSelectElement).options].map((o) => o.text);
-    expect(opts).toContain('DC 48V');
-    expect(opts.some((o) => o.startsWith('AC'))).toBe(false);
+    pickGroup('광 1');
+    expect(screen.queryByLabelText('광 전압')).toBeNull();
+    expect(screen.queryByLabelText('광 심선 수')).toBeNull(); // 단심 어댑터
+
+    pickGroup('OPGW');
+    expect((screen.getByLabelText('OPGW 심선 수') as HTMLInputElement).value).toBe('24');
   });
 });

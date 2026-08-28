@@ -1,27 +1,21 @@
 /**
- * PortsEditor — **이 장비가 무슨 포트를 갖는가**를 적는 표.
+ * PortsEditor — **판이 곧 화면이고, 그 위에 도구모음 한 줄**.
  *
- * 세 번 잘못 갔다.
+ * 네 번 잘못 갔다.
  *   1) 종류를 고를 때마다 카드가 쌓였다 — 네 그룹 398px(§1.6 위반).
- *   2) 일곱 줄 고정 표로 바꿨더니 한 자리 숫자 일곱 개에 세로 376px 를 썼다.
- *   3) 그래서 칩 한 줄로 눌러 담았다 — **종류 아홉이 늘 서 있고 개수만 적는 판**이 됐다.
- *      화면의 대부분이 「없는 포트」(0개)였고, 1 을 적는 순간 그 옆에 전압·코어 칸이
- *      자라나 「엥, 뭐가 생겼지」가 됐다. 조회하러 온 사람에게 입력 상자 아홉을 들이미는
- *      꼴이기도 했다(§1.7-i 가 선번장에서 걷어낸 바로 그것).
+ *   2) 일곱 줄 고정 표 — 한 자리 숫자 일곱 개에 세로 376px.
+ *   3) 칩 한 줄 — 종류 아홉이 늘 서 있고(대부분 0개), 1 을 적으면 옆에 칸이 자라났다.
+ *   4) 선언 표 — 그럴듯했지만 **판이 이미 말하는 것을 표가 다시 말했다**. 구획 이름도,
+ *      개수도(포트가 그만큼 그려져 있다) 두 번씩 섰고, 세부 열은 대부분 비어 있었다.
  *
- * 지금은 **선언 표**다 — 이 판이 실제로 갖는 구획만 한 줄씩 선다. DCIM 의 표준 어법이기도
- * 하다(NetBox 의 장비 타입 화면: 컴포넌트가 표로 서고 「Add Components」로 더한다).
- *   - **읽는 줄이 기본**이고 누르면 그때 상자가 선다(`InlineEditCell`).
- *   - **없는 포트는 화면에 없다.** 표는 「이 장비가 어떻게 생겼나」이지 「무엇을 안 골랐나」가 아니다.
- *   - 더하는 일은 **명시적**이고(「＋ 포트 추가」), 새 줄이 서서 그 줄 안에서 종류를 고른다.
- *     칸이 옆에서 튀어나오는 것이 아니라 **새 줄의 칸**이라 놀랄 일이 없다(§1.7-m: 만들기와
- *     고치기가 같은 상자).
- *   - 세부(전압·코어)는 **그 종류가 요구하는 칸**이다 — NetBox 의 리어 포트가 `positions` 를
- *     그 행에 갖는 것과 같다.
- *
- * **틀은 못 박는다**(§1.6·§1.7-b): 머리글과 「＋ 포트 추가」는 늘 그 자리에 있고, 표는 여덟
- * 줄까지 자란 뒤로는 **표 본문만** 흐른다. 전면판은 남는 자리를 그대로 채운다 — 포트가
- * 둘이든 스물다섯이든 카드 바깥은 움직이지 않는다.
+ * 지금은 **아래가 실물, 위가 도구**다. 이 화면에서 사람이 하는 일은 셋뿐이다 —
+ * 구획을 더하고, 개수를 고치고, 그 종류가 요구하는 값 하나(전압·코어)를 고른다.
+ *   - **판이 목록이다.** 무슨 구획이 몇 개인지는 판이 그림으로 말한다(구획 띠 + 번호 붙은
+ *     포트). 같은 말을 표로 다시 적지 않는다.
+ *   - **고른 구획의 값만 도구모음에** 뜬다. 줄이 몇이든 도구모음은 한 줄로 고정이라
+ *     화면이 출렁이지 않는다(§1.6·§1.7-b).
+ *   - 도구모음은 **늘 그 자리에 있다** — 아무것도 안 골랐을 때도 높이가 같다(안내 한 줄).
+ *     골랐을 때만 생기는 칸이 아니므로 「엥, 뭐가 생겼지」가 없다.
  *
  * **미리 잠그지 않는다.** 정말로 막히는 것은 「지우려는 그 포트에 케이블이 물렸을 때」뿐이고,
  * 그건 이 화면이 알 수 없다(케이블은 변전소마다 있다). 누를 수 있게 두고 저장할 때 서버가
@@ -32,10 +26,9 @@ import type { TypeSpecIssue } from '@twin/core';
 import { DEFAULT_CORE_COUNT, groupRefOfTemplate, isMultiCorePort, portGroupLabel, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, Select,
-  TABLE_ROW, TableCard, Th, cn, Td,} from '../../../components/ui';
+  Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, InsetBox, Select, cn,
+} from '../../../components/ui';
 import { Plus, Trash2 } from 'lucide-react';
-import { InlineEditCell } from '../InlineEditCell';
 import { useMediumColor, useMediumLabel } from '../../hooks';
 import type { TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
@@ -44,20 +37,42 @@ import { issueFor } from './adminUtils';
 
 type PortRow = TypeDraft['ports'][number];
 
-/**
- * 열은 **셋 아니면 넷**이다 — 포트 · (세부) · 개수 · 지우기. 합 100(§Table 규약).
- *
- * 「구획」과 「이름」을 따로 세웠더니 같은 말이 두 번 섰다(「전원 입력(DC)」·「전원 입력 {n}」).
- * 이름이 실제로 어떻게 붙는지는 **아래 전면판**이 번호까지 붙여 그대로 보여 준다.
- *
- * 세부(전압·코어)는 **그 종류에만 있는 것**이라, 한 줄도 쓰지 않는 품목에서는 열 자체가
- * 서지 않는다 — 대시로 채운 열은 자리만 먹고 아무 말도 하지 않는다.
- */
-const COLUMNS_WITH_DETAIL = [50, 26, 14, 10] as const;
-const COLUMNS_PLAIN = [76, 14, 10] as const;
-
 /** 줄을 새로 세울 때의 개수 — 하나로 시작해 필요한 만큼 늘린다(다심은 늘 1구다). */
 const DEFAULT_PORT_COUNT = 1;
+
+/**
+ * 도구모음의 수 칸 — 값이 곧 판의 모양이다(개수를 고치면 포트가 그 자리에서 늘고 준다).
+ *
+ * 폼 상자(38px)를 쓰면 도구모음 한 줄이 통째로 두꺼워진다. 테두리와 흰 배경으로
+ * 「고칠 수 있는 값」임은 남기고 크기만 줄인다.
+ */
+function NumberField({
+  label, value, min, unit, onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  unit: string;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <input
+        type="number"
+        aria-label={label}
+        value={String(value)}
+        min={min}
+        onChange={(e) => onChange(Math.max(Number(e.currentTarget.value) || min, min))}
+        className={cn(
+          'w-12 rounded bg-surface px-1 text-right text-sm tabular-nums text-content',
+          'border border-line focus:outline-none focus:ring-1 focus:ring-primary',
+          '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none',
+        )}
+      />
+      <span className="text-xs text-content-faint">{unit}</span>
+    </span>
+  );
+}
 
 interface PortsEditorProps {
   draft: TypeDraft;
@@ -119,14 +134,11 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     [declared, mediumLabel, mediumColor],
   );
 
-  /**
-   * 더하는 중인 줄 — **표 안에 실제로 선다**.
-   *
-   * 「추가」 상자를 따로 띄우지 않는다(§1.7-m). 빈 줄이 그 자리에 서고 첫 칸에서 종류를
-   * 고르면 그 줄이 채워진다 — 무엇을 만드는 중인지가 늘 화면에 있다. 고르지 않고 물리면
-   * 줄은 사라진다(덜 채운 것은 없는 것이다).
-   */
-  const [adding, setAdding] = useState(false);
+  /** 판에서 고른 구획 — 도구모음이 이 구획의 값을 든다. */
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  /* 무엇을 더할지는 **도구모음의 목록**이 든다(§1.6: [도구 버튼] + [대상 Select]).
+     항목이 몇이든 한 줄이고, 누르기 전에는 아무 칸도 생기지 않는다. */
+  const [presetIndex, setPresetIndex] = useState('0');
 
   function patch(row: PortRow, next: Partial<PortRow>) {
     const existing = ports.find((p) => p.group === row.group);
@@ -157,7 +169,8 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
       /* 전압은 프리셋이 그 갈래의 예사값을 들고 온다 — 놓는 순간 이미 「DC 48V」다. */
       ...(preset.voltage ? { voltage: preset.voltage } : {}),
     };
-    setAdding(false);
+    /* 더한 구획을 **바로 고른 상태로** 둔다 — 개수를 고치는 손이 곧장 이어진다. */
+    setSelectedGroup(row.group);
     onChange({ ports: syncTrunkAdapters([...ports, row], row, null) });
   }
 
@@ -169,147 +182,142 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     })
     .find(Boolean);
 
-  /* 세부 열은 **요구하는 줄이 하나라도 있을 때만** 선다 — 이 품목에 전원도 성단도 없으면
-     그 열은 통째로 없다(대시만 스물네 번 서는 열을 만들지 않는다). */
-  const hasDetail = declared.some(({ row }) => detailOf(row) !== null);
+  /**
+   * 지금 손대는 구획 — **판에서 고른 것**이 도구모음에 뜬다.
+   *
+   * 고른 것이 사라졌으면(지웠거나 종류를 바꿨다) 첫 구획으로 물러선다. 그래야 구획이
+   * 하나뿐인 흔한 경우에 아무것도 안 누르고 바로 개수를 고칠 수 있다.
+   */
+  const selected = declared.find(({ row }) => row.group === selectedGroup)?.row ?? declared[0]?.row ?? null;
+  const selectedLabel = selected ? labelOf(selected, declared, mediumLabel) : null;
 
+  /* 구획 이름표가 곧 **고르는 자리**다 — 판이 목록이므로 목록의 줄을 누르듯 이름표를 누른다.
+     고른 것은 이름표가 진하게 서서, 도구모음이 무엇을 들고 있는지 판에서 바로 읽힌다. */
   const faceplate = sections
     .filter((section) => section.ports.length > 0)
-    .map((section) => ({ key: section.key, label: section.labelText, accent: section.accent, ports: section.ports }));
+    .map((section) => ({
+      key: section.key,
+      label: (
+        <button
+          type="button"
+          aria-pressed={section.key === selected?.group}
+          onClick={() => setSelectedGroup(section.key)}
+          className={cn(
+            '-mx-1 rounded px-1 text-xs transition-colors',
+            section.key === selected?.group ? 'bg-black/10 font-semibold' : 'hover:bg-black/5',
+          )}
+        >
+          {section.labelText}
+        </button>
+      ),
+      accent: section.accent,
+      ports: section.ports,
+    }));
+
+  /** 그 포트가 어느 구획의 것인가 — 판에서 포트를 눌러도 그 구획이 골라진다. */
+  const groupOfPort = (portId: string) =>
+    sections.find((sec) => sec.ports.some((p) => p.id === portId))?.key ?? null;
 
   return (
     /* 카드가 세로를 다 쓰고, 판이 그 안에서 남는 자리를 채운다 — 캔버스는 화면 아래까지
        서야 한다(구성 격자와 같은 규칙). */
     <DetailCard className="flex min-h-0 flex-1 flex-col">
-      <DetailCardHeader
-        title="포트"
-        badge={`${total}개`}
-        badgeStatus={total > 0 ? 'success' : 'neutral'}
-        /* 더하는 단추는 **늘 이 자리**다 — 표가 길어져도 스크롤 밖에 남는다(§1.7-b). */
-        actions={
-          <Button size="sm" variant="ghost" onClick={() => setAdding(true)} disabled={adding}>
-            <Plus size={14} /> 포트 추가
-          </Button>
-        }
-      />
+      <DetailCardHeader title="포트" badge={`${total}개`} badgeStatus={total > 0 ? 'success' : 'neutral'} />
       <ErrorStrip message={issue ?? null} />
 
-      {(declared.length > 0 || adding) && (
-        /* 표는 **여덟 줄까지** 자라고 그 뒤로는 본문만 흐른다 — 머리글은 남는다(§1.6). */
-        <div className="min-h-0 max-h-[calc(8*2.25rem+2.25rem)] overflow-y-auto">
-          <TableCard widths={hasDetail ? COLUMNS_WITH_DETAIL : COLUMNS_PLAIN}>
-            <thead>
-              <tr className="sticky top-0 z-sticky">
-                <Th>포트</Th>
-                {hasDetail && <Th>세부</Th>}
-                <Th align="right">개수</Th>
-                <Th aria-label="지우기"><span className="sr-only">지우기</span></Th>
-              </tr>
-            </thead>
-            <tbody>
-              {declared.map(({ row }) => {
-                const label = labelOf(row, declared, mediumLabel);
-                const detail = detailOf(row);
-                return (
-                  <tr key={row.group} className={cn(TABLE_ROW, 'group')}>
-                    <Td className="text-sm text-content">
-                      <span className="block truncate">{label}</span>
-                    </Td>
-                    {/* 세부 — 그 종류가 요구하는 칸. 요구하지 않는 줄은 **비운다**(대시가 아니라):
-                        적을 것이 없는 자리와 아직 안 적은 자리는 다르다. */}
-                    {hasDetail && (
-                      <Td className="px-2">
-                        {detail === 'voltage' && (
-                          <InlineEditCell
-                            label={`${label} 전압`}
-                            value={row.voltage ?? ''}
-                            options={voltageOptionsOf(row)}
-                            onCommit={(raw) => patch(row, { voltage: raw.trim() || null })}
-                          />
-                        )}
-                        {detail === 'positions' && (
-                          <InlineEditCell
-                            label={`${label} 심선 수`}
-                            type="number"
-                            unit=" 코어"
-                            value={String(row.positions ?? DEFAULT_CORE_COUNT)}
-                            onCommit={(raw) => {
-                              const next = Math.max(Number(raw) || 2, 2);
-                              if (next !== row.positions) patch(row, { positions: next });
-                            }}
-                          />
-                        )}
-                      </Td>
-                    )}
-                    <Td align="right" className="px-2">
-                      <InlineEditCell
-                        label={`${label} 개수`}
-                        type="number"
-                        value={String(row.count)}
-                        onCommit={(raw) => {
-                          const next = Math.max(Number(raw) || 0, 0);
-                          if (next !== row.count) patch(row, { count: next });
-                        }}
-                      />
-                    </Td>
-                    {/* 지우는 손은 **그 줄에 닿았을 때만** 드러난다(§1.7). */}
-                    <Td align="right" className="px-1">
-                      <IconButton
-                        aria-label={`${label} 지우기`}
-                        title="지우기"
-                        size="sm"
-                        className="opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
-                        onClick={() => patch(row, { count: 0 })}
-                      >
-                        <Trash2 size={14} />
-                      </IconButton>
-                    </Td>
-                  </tr>
-                );
-              })}
+      {/* 도구모음 — **한 줄로 고정**이다. 왼쪽은 늘 같은 일(더하기), 오른쪽은 고른 구획의 값.
+          고를 때만 생기는 칸이 아니라 **자리가 늘 있는** 칸이라 화면이 출렁이지 않는다. */}
+      <InsetBox className="flex h-9 shrink-0 items-center gap-2 px-2">
+        {/* `Select` 는 제 자리를 다 쓴다(`w-full`) — 폭은 **감싼 자리**가 정한다.
+            도구모음은 한 줄이므로 이 목록이 남는 폭을 다 먹으면 뒤의 값 칸이 밀려난다. */}
+        <span className="w-44 shrink-0">
+          <Select
+            aria-label="포트 종류"
+            size="sm"
+            value={presetIndex}
+            onChange={(e) => setPresetIndex(e.currentTarget.value)}
+          >
+            {portPresets().map((preset, i) => (
+              <option key={preset.groupKey} value={i}>{preset.name}</option>
+            ))}
+          </Select>
+        </span>
+        <Button size="sm" variant="ghost" className="shrink-0 whitespace-nowrap" onClick={() => addPreset(Number(presetIndex))}>
+          <Plus size={14} /> 추가
+        </Button>
 
-              {adding && (
-                <tr className={TABLE_ROW}>
-                  <Td className="px-2" colSpan={hasDetail ? 4 : 3}>
-                    {/* 고르는 자리가 곧 그 줄이다 — 무엇을 만드는 중인지가 표 안에 있다. */}
-                    <Select
-                      aria-label="포트 종류"
-                      size="sm"
-                      autoFocus
-                      defaultValue=""
-                      onChange={(e) => addPreset(Number(e.currentTarget.value))}
-                      onBlur={() => setAdding(false)}
-                      onKeyDown={(e) => { if (e.key === 'Escape') setAdding(false); }}
-                    >
-                      <option value="" disabled>포트 종류를 고르세요</option>
-                      {portPresets().map((preset, i) => (
-                        <option key={preset.groupKey} value={i}>{preset.name}</option>
-                      ))}
-                    </Select>
-                  </Td>
-                </tr>
-              )}
-            </tbody>
-          </TableCard>
-        </div>
-      )}
+        {selected && selectedLabel ? (
+          <>
+            <span className="h-4 w-px shrink-0 bg-line" aria-hidden />
+            {/* 무엇을 고쳤는지가 화면에 남는다 — 값만 있고 이름이 없으면 무엇의 개수인지 모른다. */}
+            <span className="min-w-0 truncate text-xs text-content-muted">{selectedLabel}</span>
+            <NumberField
+              label={`${selectedLabel} 개수`}
+              value={selected.count}
+              min={1}
+              unit="개"
+              onChange={(next) => patch(selected, { count: next })}
+            />
+            {/* 세부는 **그 종류가 요구할 때만** — 전원이면 전압, 다심이면 코어 수. */}
+            {detailOf(selected) === 'voltage' && (
+              <span className="w-32 shrink-0">
+              <Select
+                aria-label={`${selectedLabel} 전압`}
+                size="sm"
+                value={selected.voltage ?? ''}
+                onChange={(e) => patch(selected, { voltage: e.currentTarget.value || null })}
+              >
+                {(selected.voltage && !voltageOptionsOf(selected).includes(selected.voltage)
+                  ? [selected.voltage, ...voltageOptionsOf(selected)]
+                  : voltageOptionsOf(selected)
+                ).map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </Select>
+              </span>
+            )}
+            {detailOf(selected) === 'positions' && (
+              <NumberField
+                label={`${selectedLabel} 심선 수`}
+                value={selected.positions ?? DEFAULT_CORE_COUNT}
+                min={2}
+                unit="코어"
+                onChange={(next) => patch(selected, { positions: next })}
+              />
+            )}
+            <IconButton
+              aria-label={`${selectedLabel} 지우기`}
+              title="지우기"
+              size="sm"
+              className="ml-auto shrink-0 hover:text-danger"
+              onClick={() => patch(selected, { count: 0 })}
+            >
+              <Trash2 size={14} />
+            </IconButton>
+          </>
+        ) : (
+          <span className="text-xs text-content-faint">종류를 고르고 「추가」를 누르면 판에 나타납니다.</span>
+        )}
+      </InsetBox>
 
       {/* 결과 — 이 장비 품목을 놓으면 생길 판.
           판은 **남는 자리를 다 쓴다**: 포트가 둘이든 스물다섯이든 캔버스는 같은 크기여야
           종류를 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 판 안에서 스크롤한다. */}
       {faceplate.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
-          <EmptyState title="포트가 없습니다" description="「＋ 포트 추가」로 이 장비가 갖는 포트를 적으면 판이 여기 나타납니다." />
+          <EmptyState title="포트가 없습니다" description="위에서 종류를 고르고 「추가」를 누르면 이 자리에 판이 그려집니다." />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* 판에서 포트를 누르면 **그 구획**이 골라진다 — 도구모음이 그 구획의 값을 든다.
+              판은 실물이므로 여기서는 포트 하나를 고르는 일에 뜻이 없다(그건 자산 화면의 일). */}
           <PortFaceplate
             fill
             sections={faceplate}
             stateOf={() => 'empty'}
             cableCountOf={() => 0}
             selectedPortId={null}
-            onSelect={() => {}}
+            onSelect={(portId) => { const g = groupOfPort(portId); if (g) setSelectedGroup(g); }}
           />
         </div>
       )}
