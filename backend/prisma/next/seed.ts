@@ -9,16 +9,23 @@ const prisma = new PrismaClient();
 
 async function main() {
   const counts = await prisma.$transaction(async (tx) => {
-    // ── Admin 시드 — 카탈로그 skip 여부와 독립(User 수만 검사) ──────────────
-    const userCount = await tx.user.count();
-    if (userCount === 0) {
+    /*
+     * ── Admin 시드 — **admin 이 없으면** 만든다(사용자 수가 아니라). ────────────
+     *
+     * 예전에는 「사용자가 하나도 없을 때만」이었다. 그런데 시험이 남긴 계정 하나만 있어도
+     * 그 조건이 거짓이 되어, admin 이 지워진 개발 DB 에서는 다시 만들어지지 않았다 —
+     * 시드를 몇 번 돌려도 로그인이 안 됐다(실제로 그렇게 막혔다).
+     *
+     * 있는 계정의 비밀번호는 **건드리지 않는다**: 배포 뒤 현장이 바꾼 비밀번호를 시드가
+     * 재시작마다 admin123 으로 되돌리면 그게 더 큰 사고다.
+     */
+    const admin = await tx.user.findUnique({ where: { username: 'admin' } });
+    if (!admin) {
       const passwordHash = await bcrypt.hash('admin123', 10);
-      await tx.user.create({
-        data: { username: 'admin', passwordHash, role: 'admin' },
-      });
+      await tx.user.create({ data: { username: 'admin', passwordHash, role: 'admin' } });
       console.log('[seed:next] admin user created');
     } else {
-      console.log('[seed:next] users already exist — skip admin seed');
+      console.log('[seed:next] admin already exists — skip (비밀번호는 건드리지 않는다)');
     }
 
     /*

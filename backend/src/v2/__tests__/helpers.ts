@@ -77,4 +77,8 @@ export async function sweepTestFixtures(): Promise<void> {
   // 6. auth 테스트 사용자 (auth.test.ts: test_auth_<ts> / viewer_<ts>)
   try { await nextDb.user.deleteMany({ where: { username: { startsWith: 'test_auth_' } } }); } catch { /* ignore */ }
   try { await nextDb.user.deleteMany({ where: { username: { startsWith: 'viewer_' } } }); } catch { /* ignore */ }
+  /* 잠금 시험이 남긴 계정도 걷는다 — 이게 남아 있으면 개발 DB 에 쓰레기 계정이 쌓이고,
+     예전 시드는 「사용자가 하나라도 있으면 admin 을 만들지 않는」 조건이라 그 바람에
+     admin 이 영영 되살아나지 않았다(로그인이 막혔다). */
+  try { await nextDb.user.deleteMany({ where: { username: { startsWith: 'test_lock_' } } }); } catch { /* ignore */ }
 }
