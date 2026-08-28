@@ -7,7 +7,7 @@
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
 import { useMemo, useState } from 'react';
-import { Th, cn, selectableRow, SELECTABLE, SELECTED, EMPTY, TABLE_ROW } from '../../../components/ui';
+import { Th, cn, selectableRow, SELECTABLE, SELECTED, EMPTY, TABLE_ROW, Td} from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -272,6 +272,9 @@ export function FiberRegisterView({
      가리키므로, 열로 세우면 같은 글자가 스물네 번 선다. 어떤 칸이 있는지는 그 케이블의
      **종류 선언**이 정한다(광 선로면 관리번호·선로명·접속개소가 더 붙는다). */
   const portMetaFields = portFieldsFor(FIBER_MEDIUM, DEFAULT_CORE_COUNT);
+  /* 값 칸의 **줄맞춤은 열이 정한다** — 수는 오른쪽, 글자는 왼쪽(계통 표와 같은 규칙).
+     칸이 저마다 정하면 같은 열에서 적힌 값과 대시가 서로 다른 자리에 선다. */
+  const alignOf = (f: ValueDef) => (f.type === 'number' ? 'right' as const : 'left' as const);
   const metaFields = portMetaFields;
   const totalCols = 1 + groups.length + 1 + metaFields.length;
 
@@ -333,7 +336,7 @@ export function FiberRegisterView({
           {metaFields.map((f) => (
             /* 단위는 머리글이 아니라 **값 뒤에** 붙는다(`-13 dB`) — 단위는 값의 성질이지
                열 이름의 일부가 아니고, 이름에 달면 그만큼 길어져 잘린다. */
-            <Th key={f.key}>{f.label}</Th>
+            <Th key={f.key} align={alignOf(f)}>{f.label}</Th>
           ))}
         </>
       }
@@ -357,19 +360,19 @@ export function FiberRegisterView({
                 )}
               >
                 {/* 코어 번호 */}
-                <td className="py-1.5 pl-3 pr-1 text-sm text-content-muted">{row.coreIndex}</td>
+                <Td className="py-1.5 pl-3 pr-1 text-sm text-content-muted">{row.coreIndex}</Td>
                 {/* 그룹별 피어 셀 */}
                 {row.cells.map((cell) => (
-                  <td key={cell.group} className="px-3 py-1.5">
+                  <Td key={cell.group}>
                     <PeerCell peer={cell.peer} />
-                  </td>
+                  </Td>
                 ))}
                 {/* 인입 건너편에서 이 심선이 닿는 곳 — 예전에는 대국 슬롯에서 끊겼다. */}
-                <td className="px-3 py-1.5">
+                <Td>
                   <PeerCell peer={row.farEnd} />
-                </td>
+                </Td>
                 {portMetaFields.map((f) => (
-                  <td key={f.key} className="px-3 py-1.5">
+                  <Td key={f.key} align={alignOf(f)}>
                     <PortFieldInput
                       value={row.meta.portValues[f.key]}
                       field={f}
@@ -377,7 +380,7 @@ export function FiberRegisterView({
                       assetId={row.meta.portAssetId}
                       position={row.coreIndex}
                     />
-                  </td>
+                  </Td>
                 ))}
               </tr>
               )),
@@ -388,9 +391,9 @@ export function FiberRegisterView({
           구분행은 그 줄에서 열 정의를 잃어(colSpan) 아래 행이 무슨 열인지 다시 말해 주지
           못한다. 업계 표준은 묶음마다 제 머리글을 가진 표를 따로 세우는 것이다. */}
       <tr>
-        <td colSpan={totalCols} className="px-3 py-6 text-center text-sm text-content-faint">
+        <Td colSpan={totalCols} className="px-3 py-6 text-center text-sm text-content-faint">
           {query.trim() ? `'${query.trim()}' 와 맞는 심이 없습니다` : '슬롯 데이터가 없습니다'}
-        </td>
+        </Td>
       </tr>
     </RegisterLayout>
   );

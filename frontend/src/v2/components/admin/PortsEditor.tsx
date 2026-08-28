@@ -33,8 +33,7 @@ import { DEFAULT_CORE_COUNT, groupRefOfTemplate, isMultiCorePort, portGroupLabel
 import type { Direction } from '@twin/core';
 import {
   Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, EMPTY, IconButton, Select,
-  TABLE_ROW, TableCard, Th, cn,
-} from '../../../components/ui';
+  TABLE_ROW, TableCard, Th, cn, Td,} from '../../../components/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import { InlineEditCell } from '../InlineEditCell';
 import { useMediumColor, useMediumLabel } from '../../hooks';
@@ -190,10 +189,10 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                 const voltages = voltageOptionsOf(row);
                 return (
                   <tr key={row.group} className={cn(TABLE_ROW, 'group')}>
-                    <td className="px-3 text-sm text-content">
+                    <Td className="text-sm text-content">
                       <span className="block truncate">{label}</span>
-                    </td>
-                    <td className="px-2">
+                    </Td>
+                    <Td align="right" className="px-2">
                       <InlineEditCell
                         label={`${label} 개수`}
                         type="number"
@@ -203,13 +202,13 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                           if (next !== row.count) patch(row, { count: next });
                         }}
                       />
-                    </td>
+                    </Td>
                     {/* 이름은 **어휘가 정한다** — 「{n}」 자리에 번호가 들어간다. 읽는 값이다. */}
-                    <td className="px-3 text-sm text-content-muted">
+                    <Td className="text-sm text-content-muted">
                       <span className="block truncate">{row.namePattern}</span>
-                    </td>
+                    </Td>
                     {/* 세부 — **그 종류가 요구하는 칸**이다. 전원이면 전압, 다심이면 코어 수. */}
-                    <td className="px-2">
+                    <Td className="px-2">
                       {voltages.length > 0 ? (
                         <InlineEditCell
                           label={`${label} 전압`}
@@ -231,9 +230,9 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                       ) : (
                         <span className="block px-1 text-sm text-content-faint">{EMPTY}</span>
                       )}
-                    </td>
+                    </Td>
                     {/* 지우는 손은 **그 줄에 닿았을 때만** 드러난다(§1.7). */}
-                    <td className="px-1 text-right">
+                    <Td align="right" className="px-1">
                       <IconButton
                         aria-label={`${label} 지우기`}
                         title="지우기"
@@ -243,14 +242,14 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                       >
                         <Trash2 size={14} />
                       </IconButton>
-                    </td>
+                    </Td>
                   </tr>
                 );
               })}
 
               {adding && (
                 <tr className={TABLE_ROW}>
-                  <td className="px-2" colSpan={5}>
+                  <Td className="px-2" colSpan={5}>
                     {/* 고르는 자리가 곧 그 줄이다 — 무엇을 만드는 중인지가 표 안에 있다. */}
                     <Select
                       aria-label="포트 종류"
@@ -266,7 +265,7 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
                         <option key={preset.groupKey} value={i}>{preset.name}</option>
                       ))}
                     </Select>
-                  </td>
+                  </Td>
                 </tr>
               )}
             </tbody>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { computeEstimate, computeReport, materialCostOf } from '@twin/core';
 import type { ReportItem, ReportKind } from '@twin/core';
-import { Badge, Button, Input, Select, Modal, EMPTY, cn } from '../../components/ui';
+import { Badge, Button, Input, Select, Modal, EMPTY, cn, Td} from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import { buildReportItems, estimateInput } from '../reportSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -53,34 +53,34 @@ function ReportRow({ item, laborName }: { item: ReportItem; laborName: (code: st
   const buys = item.kind === 'asset-install' || item.kind === 'cable-install';
   return (
     <tr className="border-b border-line last:border-0">
-      <td className="py-1.5 pr-3 align-middle">
+      <Td className="py-1.5 pr-3 align-middle">
         <Badge status={KIND_STATUS[item.kind]}>{KIND_LABEL[item.kind]}</Badge>
-      </td>
-      <td className="py-1.5 pr-3 align-middle">
+      </Td>
+      <Td className="py-1.5 pr-3 align-middle">
         <span className="text-sm text-content">{item.name}</span>
         {item.note && (
           <span className="ml-1.5 text-xs text-warning">{item.note}</span>
         )}
-      </td>
-      <td className="py-1.5 pr-3 align-middle text-sm text-content-muted">{item.typeName}</td>
-      <td className="py-1.5 pr-3 align-middle text-sm text-content tabular-nums text-right">
+      </Td>
+      <Td className="py-1.5 pr-3 align-middle text-sm text-content-muted">{item.typeName}</Td>
+      <Td align="right" className="py-1.5 pr-3 align-middle text-sm text-content ">
         {item.qty}{item.unit}
-      </td>
+      </Td>
       {/* 단가는 **적혀 있으면 늘 보인다** — 철거 줄에서도, 그것이 그 물건의 값이다. */}
-      <td className="py-1.5 pr-3 align-middle text-sm text-content-muted tabular-nums text-right">
+      <Td align="right" className="py-1.5 pr-3 align-middle text-sm text-content-muted ">
         {item.unitPrice == null ? EMPTY : won(item.unitPrice)}
-      </td>
-      <td className="py-1.5 pr-3 align-middle text-sm text-content tabular-nums text-right">
+      </Td>
+      <Td align="right" className="py-1.5 pr-3 align-middle text-sm text-content ">
         {buys ? won(material) : EMPTY}
-      </td>
+      </Td>
       {/* 산출 내역에 서는 것은 **직종 이름**이다 — 저장된 것은 코드이고, 이름은 적용 중인
           노임단가 판에서 읽는다(판을 갈면 이름도 따라 바뀐다). */}
-      <td className="py-1.5 pr-3 align-middle text-sm text-content-muted">
+      <Td className="py-1.5 pr-3 align-middle text-sm text-content-muted">
         {laborName(item.laborCode) ?? EMPTY}
-      </td>
-      <td className="py-1.5 align-middle text-sm text-content tabular-nums text-right">
+      </Td>
+      <Td align="right" className="py-1.5 align-middle text-sm text-content ">
         {item.manDays.toFixed(3)}
-      </td>
+      </Td>
     </tr>
   );
 }

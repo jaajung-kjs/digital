@@ -1,4 +1,4 @@
-import type { ReactNode, ThHTMLAttributes } from 'react';
+import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react';
 import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { cn } from './cn';
 
@@ -69,6 +69,33 @@ export function TableCard({
         {children}
       </table>
     </div>
+  );
+}
+
+/**
+ * 표 본문 한 칸 — **줄맞춤은 열이 정한다**.
+ *
+ * 칸 안의 내용이 제 줄맞춤을 정하면 같은 열에서 값과 대시가 어긋난다. 실제로 그랬다:
+ * 인라인 편집 칸이 「수면 오른쪽」이라고 스스로 정하는 바람에, 코어 수가 있는 줄은 오른쪽
+ * 끝에 서고 값이 없어 대시만 있는 줄은 왼쪽 끝에 서서 한 열이 뒤죽박죽으로 읽혔다.
+ *
+ * 그래서 `text-align` 은 **여기서만** 정하고 안쪽은 물려받는다(`[text-align:inherit]`).
+ * 수 칸은 자릿수 고정 글꼴까지 함께 받는다 — 자릿수가 세로로 맞아야 크기가 비교된다.
+ */
+export function Td({
+  children, className, align = 'left', ...rest
+}: Omit<TdHTMLAttributes<HTMLTableCellElement>, 'align'> & {
+  children?: ReactNode;
+  /** 수는 오른쪽으로. 같은 열의 머리글(`Th`)과 같은 값을 준다. */
+  align?: 'left' | 'right';
+}) {
+  return (
+    <td
+      className={cn('px-3 py-1.5', align === 'right' ? 'text-right tabular-nums' : 'text-left', className)}
+      {...rest}
+    >
+      {children}
+    </td>
   );
 }
 

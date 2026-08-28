@@ -483,6 +483,30 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
   });
 
   /**
+   * **표 칸의 줄맞춤은 열이 정한다** — 그래서 본문 칸은 `Td` 로만 세운다.
+   *
+   * 날 `<td>` 를 쓰면 줄맞춤을 칸마다 적게 되고, 같은 열에서 값과 대시가 어긋난다. 실제로
+   * 그랬다: 인라인 편집 칸이 「수면 오른쪽」이라고 스스로 정하는 바람에, 코어 수가 있는 줄은
+   * 오른쪽 끝, 값이 없어 대시만 있는 줄은 왼쪽 끝에 서서 한 열이 뒤죽박죽으로 읽혔다.
+   */
+  it('표 본문 칸은 Td 로 세운다 — 날 td 를 쓰지 않는다', () => {
+    const ALLOW = new Set(['frontend/src/components/ui/Table.tsx']);
+    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      if (ALLOW.has(relToRoot(f)) || f.includes('.test.')) continue;
+      const src = readFileSync(f, 'utf8');
+      expect(/<td[\s>]/.test(src), `${f}: 날 <td> 를 쓰고 있다 — Td 를 쓰세요(줄맞춤은 열이 정한다)`).toBe(false);
+    }
+  });
+
+  /**
+   * **칸의 내용은 제 줄맞춤을 정하지 않는다** — 열(`Td align`)에서 물려받는다.
+   */
+  it('인라인 편집 칸이 줄맞춤을 스스로 정하지 않는다', () => {
+    const src = readFileSync(join(frontendSrc, 'v2/components/InlineEditCell.tsx'), 'utf8');
+    expect(/text-(left|right)/.test(src), 'InlineEditCell 이 줄맞춤을 정하고 있다 — Td align 이 정한다').toBe(false);
+  });
+
+  /**
    * **포트 구획 참조는 손으로 짓지 않는다** — `groupRefOf`·`groupRefOfTemplate` 이 짓는다.
    *
    * 네 화면이 같은 객체를 손으로 채우고 있었는데 그중 셋이 `variant` 를 빠뜨렸다. 그래서

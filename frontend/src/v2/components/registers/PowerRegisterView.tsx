@@ -10,7 +10,7 @@
  * 위쪽 드롭다운으로 반을 하나씩 골라 봐야 해서 「이 반이 어디에 매달렸나」는 어디에도 없었다.
  */
 import { useMemo, useState } from 'react';
-import { Th, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW } from '../../../components/ui';
+import { Th, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW, Td} from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -243,7 +243,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   /* 값 칸의 **줄맞춤은 열이 정한다** — 수는 오른쪽, 글자는 왼쪽. 칸마다 정하면 같은 열에서
      대시가 들쭉날쭉해진다(케이블이 있는 줄은 편집기가, 없는 줄은 대시가 각자 맞췄다). */
-  const alignOf = (field: ValueDef) => (field.type === 'number' ? 'text-right tabular-nums' : 'text-left');
+  const alignOf = (field: ValueDef) => (field.type === 'number' ? 'right' as const : 'left' as const);
 
   return (
     <RegisterLayout
@@ -267,7 +267,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           <Th>용도</Th>
           {/* 단위는 머리글이 아니라 **값 뒤에** 붙는다 — 선번장과 같은 규칙. */}
           {[...valueColumns.map((c) => c.field), ...stateFields].map((f) => (
-            <Th key={f.key}>{f.label}</Th>
+            <Th key={f.key} align={alignOf(f)}>{f.label}</Th>
           ))}
         </>
       }
@@ -309,12 +309,12 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               {...selectableRow(selectedPortId, src.portId, () => onSelectAsset(node.assetId, src.portId))}
               className={cn(TABLE_ROW, 'bg-surface-sunken/60', SELECTABLE, selectedPortId === src.portId && SELECTED)}
             >
-              <td className="px-3 py-1.5 text-sm font-medium text-content">입력</td>
-              <td className="truncate px-3 py-1.5">
+              <Td className="text-sm font-medium text-content">입력</Td>
+              <Td className="truncate">
                 {src.from ? <PeerCell peer={src.from} /> : <span className="text-sm text-content-faint">{unwiredText(src.cableId)}</span>}
-              </td>
+              </Td>
               {valueColumns.map(({ field, from }) => (
-                <td key={field.key} className={cn('px-3 py-1.5', alignOf(field))}>
+                <Td key={field.key} align={alignOf(field)}>
                   {from === 'port' ? (
                     <PortValueControl
                       assetId={node.assetId}
@@ -325,12 +325,12 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                   ) : (
                     <CableFieldInput cableId={src.cableId} value={src.values[field.key]} field={field} />
                   )}
-                </td>
+                </Td>
               ))}
               {stateFields.map((f) => (
-                <td key={f.key} className="px-3 py-1.5">
+                <Td key={f.key}>
                   <PortValueControl assetId={node.assetId} portId={src.portId} field={f} value={src.portValues[f.key]} />
-                </td>
+                </Td>
               ))}
             </tr>
           )),
@@ -341,13 +341,13 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             /* 높이는 표가 정한다(`TABLE_ROW`) — 화면마다 적으면 같은 표가 다르게 보인다. */
             className={cn(TABLE_ROW, SELECTABLE, selectedPortId === c.portId && SELECTED)}
           >
-            <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{c.index}</td>
+            <Td className="text-sm text-content-muted tabular-nums">{c.index}</Td>
             {/* 용도 = 이 회로가 먹이는 것. 도면 밖 부하는 케이블에 적힌 대국까지가 전부다. */}
-            <td className="truncate px-3 py-1.5">
+            <Td className="truncate">
               <PeerCell peer={c.load} />
-            </td>
+            </Td>
             {valueColumns.map(({ field, from }) => (
-              <td key={field.key} className={cn('px-3 py-1.5', alignOf(field))}>
+              <Td key={field.key} align={alignOf(field)}>
                 {from === 'port' ? (
                   <PortValueControl
                     assetId={node.assetId}
@@ -358,12 +358,12 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                 ) : (
                   <CableFieldInput cableId={c.cableId} value={c.values[field.key]} field={field} />
                 )}
-              </td>
+              </Td>
             ))}
             {stateFields.map((f) => (
-              <td key={f.key} className="px-3 py-1.5">
+              <Td key={f.key}>
                 <PortValueControl assetId={node.assetId} portId={c.portId} field={f} value={c.portValues[f.key]} />
-              </td>
+              </Td>
             ))}
           </tr>
           )),

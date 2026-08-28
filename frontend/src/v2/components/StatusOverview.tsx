@@ -18,8 +18,7 @@ import {
   selectableRow,
   SelectionScope,
   SELECTABLE,
-  SELECTED,
-} from '../../components/ui';
+  SELECTED, Td,} from '../../components/ui';
 
 import type { StatusRow, StatusRowsResult } from '../statusRows';
 import { summarize } from '../statusSummary';
@@ -216,13 +215,13 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
           <tbody>
             {summary.groups.length === 0 && (
               <tr>
-                <td colSpan={colCount}>
+                <Td colSpan={colCount}>
                   {query.trim() || filter !== DEFAULT_FILTER ? (
                     <EmptyState title="조건과 맞는 설비가 없습니다" />
                   ) : (
                     <EmptyState title="설비가 없습니다" description="평면도에서 「배치」 로 놓으세요." />
                   )}
-                </td>
+                </Td>
               </tr>
             )}
 
@@ -241,7 +240,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                   className={cn(TABLE_ROW, 'border-b-0 border-t', SELECTABLE)}
                   onClick={() => setCollapsed((prev) => toggle(prev, group.categoryName))}
                 >
-                  <td className="px-3 py-1.5 text-content">
+                  <Td className="text-content">
                     <span className="flex items-center gap-1">
                       <button
                         type="button"
@@ -253,9 +252,9 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                       </button>
                       <span className="truncate font-semibold">{group.categoryName}</span>
                     </span>
-                  </td>
-                  <td className="px-3 py-1.5 text-right font-semibold tabular-nums text-content">{group.count}</td>
-                  <td colSpan={colCount - 2} />
+                  </Td>
+                  <Td align="right" className="font-semibold text-content">{group.count}</Td>
+                  <Td colSpan={colCount - 2} />
                 </tr>
 
                 {!collapsed.has(group.categoryName) &&
@@ -275,7 +274,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                           })
                         }
                       >
-                        <td className="truncate px-3 py-1.5 pl-8 text-content">
+                        <Td className="truncate pl-8 text-content">
                           <span className="flex items-center gap-1">
                             <button
                               type="button"
@@ -289,9 +288,9 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                               {item.kind}
                             </span>
                           </span>
-                        </td>
-                        <td className="px-3 py-1.5 text-right tabular-nums text-content">{item.count}</td>
-                        <td className="px-3 py-1.5">
+                        </Td>
+                        <Td align="right" className="text-content">{item.count}</Td>
+                        <Td>
                           {bad.length === 0 ? (
                             <span className="text-xs text-content-faint">{EMPTY}</span>
                           ) : (
@@ -303,15 +302,15 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                               ))}
                             </span>
                           )}
-                        </td>
+                        </Td>
                         {/* 접힌 줄은 **얼마나 · 성한가**만 말한다 — 자리는 펼치면 순서대로 나온다.
                             비어 있어도 **칸은 낸다**: 셀이 없으면 그 자리는 줄에 속하지 않아
                             손이 닿아도 칠해지지 않는다(호버가 설치일 앞에서 끊겼다). */}
-                        <td />
+                        <Td />
                         {fieldColumns.map((fd) => (
-                          <td key={fd.key} />
+                          <Td key={fd.key} />
                         ))}
-                        <td />
+                        <Td />
                       </tr>
 
                       {open &&
@@ -328,7 +327,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                           >
                             {/* 펼친 줄은 **그 품목이 실제로 어떤 것들인지**다 — 저장된 이름·상태·자리.
                                 열의 뜻은 그대로다(개수 칸은 비운다 — 하나짜리에 「1」은 군더더기다). */}
-                            <td className="px-3 py-1.5 pl-14 text-content">
+                            <Td className="pl-14 text-content">
                               <span className="flex items-center gap-1">
                                 <span className="min-w-0 truncate">{r.name}</span>
                                 {onOpenElsewhere && (
@@ -346,30 +345,24 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                                   </IconButton>
                                 )}
                               </span>
-                            </td>
-                            <td />
-                            <td className="px-3 py-1.5">
+                            </Td>
+                            <Td />
+                            <Td>
                               <StatusDot status={assetStatusTone(r.status) ?? 'neutral'}>{assetStatusLabel(r.status)}</StatusDot>
-                            </td>
-                            <td className="truncate px-3 py-1.5 text-content-muted">{whereOf(r)}</td>
+                            </Td>
+                            <Td className="truncate text-content-muted">{whereOf(r)}</Td>
                             {fieldColumns.map((fd) => {
                               const v = r.fieldValues[fd.key];
                               const text = v == null || v === '' ? EMPTY : fd.type === 'date' ? formatDate(String(v)) : String(v);
                               return (
-                                <td
-                                  key={fd.key}
-                                  className={cn(
-                                    'truncate px-3 py-1.5 text-content-muted',
-                                    fd.type === 'number' && 'text-right tabular-nums',
-                                  )}
-                                >
+                                <Td align="right" key={fd.key} className={cn( 'truncate text-content-muted', fd.type === 'number' && '', )}>
                                   {text}
-                                </td>
+                                </Td>
                               );
                             })}
-                            <td className="px-3 py-1.5 text-content-muted">
+                            <Td className="text-content-muted">
                               {formatDate(r.lastInspectedAt) || EMPTY}
-                            </td>
+                            </Td>
                           </tr>
                         ))}
                     </Fragment>

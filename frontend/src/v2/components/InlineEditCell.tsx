@@ -54,9 +54,10 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit, op
       <button
         type="button"
         aria-label={`${label} 고치기`}
+        /* 줄맞춤은 **열이 정한다**(`Td align`) — 여기서 정하면 값이 있는 줄과 대시만 있는
+           줄이 한 열에서 서로 다른 자리에 선다. 물려받기만 한다. */
         className={cn(
-          'w-full rounded px-1 text-left text-sm',
-          type === 'number' ? 'text-right tabular-nums' : '',
+          'w-full rounded px-1 text-sm [text-align:inherit]',
           value ? 'text-content' : 'text-content-faint',
           SELECTABLE,
         )}

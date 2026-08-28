@@ -25,8 +25,7 @@ import {
   cn,
   formatDate,
   SELECTABLE,
-  EMPTY,
-} from '../../../components/ui';
+  EMPTY, Td,} from '../../../components/ui';
 import {
   activateStandard,
   previewOverheadStandard,
@@ -319,18 +318,18 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-line last:border-0">
-                <td className="truncate px-3 py-1.5 text-content">
+                <Td className="truncate text-content">
                   <span className="mr-1.5 text-xs text-content-faint">{KIND_LABEL[row.kind] ?? row.kind}</span>
                   {row.sourceName}
-                </td>
-                <td className="truncate px-3 py-1.5 text-content">{row.effective}</td>
-                <td className="truncate px-3 py-1.5 text-content-muted">
+                </Td>
+                <Td className="truncate text-content">{row.effective}</Td>
+                <Td className="truncate text-content-muted">
                   {row.uploadedBy} · {formatDate(row.createdAt)}
-                </td>
+                </Td>
                 {/* 한 열은 한 컴포넌트다 — 세 값이 전부 점+글자로 서고 톤만 다르다.
                     노임은 갈아 끼울 판이 없다: 올린 값이 그대로 쌓이고 직종마다 가장 최근
                     값이 쓰인다(「임포트됨」은 반영이 안 된 것처럼 읽혔다). */}
-                <td className="truncate px-3 py-1.5">
+                <Td className="truncate ">
                   {row.kind !== 'overhead' ? (
                     <StatusDot status="info">값 반영됨</StatusDot>
                   ) : row.active ? (
@@ -338,9 +337,9 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
                   ) : (
                     <StatusDot status="neutral">미적용</StatusDot>
                   )}
-                </td>
+                </Td>
                 {/* 「적용」은 **제비율에만** 있다 — 눌러도 안 바뀌는 버튼을 두지 않는다. */}
-                <td className="px-3 py-1.5 text-right">
+                <Td align="right">
                   {row.kind === 'overhead' && !row.active && (
                     <button
                       type="button"
@@ -350,7 +349,7 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
                       적용
                     </button>
                   )}
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
@@ -413,16 +412,16 @@ function WageRatesCard() {
           <tbody>
             {shown.map((r) => (
               <tr key={r.code} className="border-b border-line last:border-0">
-                <td className="px-3 py-1.5 tabular-nums text-content-muted">{r.code}</td>
-                <td className="truncate px-3 py-1.5 text-content" title={r.markerNote ?? undefined}>
+                <Td className="tabular-nums text-content-muted">{r.code}</Td>
+                <Td className="truncate text-content" title={r.markerNote ?? undefined}>
                   {r.name}
                   {r.marker && <span className="ml-1 text-xs text-warning">{r.marker}</span>}
-                </td>
+                </Td>
                 {data.dates.map((d) => (
-                  <td key={d} className="px-3 py-1.5 text-right tabular-nums text-content">
+                  <Td align="right" key={d} className="text-content">
                     {/* 그 회차에 조사되지 않았으면 **칸이 아니라 없음**이다. */}
                     {r.wages[d]?.toLocaleString() ?? EMPTY}
-                  </td>
+                  </Td>
                 ))}
               </tr>
             ))}
@@ -473,16 +472,16 @@ function OverheadRatesCard() {
         <tbody>
           {sizes.map((size) => (
             <tr key={size} className="border-b border-line last:border-0">
-              <td className="px-3 py-1.5 text-content">{size}</td>
+              <Td className="text-content">{size}</Td>
               {durations.map((d) => (
-                <td key={`i-${d}`} className="px-3 py-1.5 text-right tabular-nums text-content">
+                <Td align="right" key={`i-${d}`} className="text-content">
                   {pct(t.byDuration.간접노무비[size]![d]!)}
-                </td>
+                </Td>
               ))}
               {durations.map((d) => (
-                <td key={`e-${d}`} className="px-3 py-1.5 text-right tabular-nums text-content-muted">
+                <Td align="right" key={`e-${d}`} className="text-content-muted">
                   {pct(t.byDuration.기타경비[size]![d]!)}
-                </td>
+                </Td>
               ))}
             </tr>
           ))}
@@ -501,9 +500,9 @@ function OverheadRatesCard() {
         <tbody>
           {sizes.map((size) => (
             <tr key={size} className="border-b border-line last:border-0">
-              <td className="px-3 py-1.5 text-content">{size}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums text-content">{pct(t.bySize.일반관리비[size]!)}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums text-content">{pct(t.bySize.이윤[size]!)}</td>
+              <Td className="text-content">{size}</Td>
+              <Td align="right" className="text-content">{pct(t.bySize.일반관리비[size]!)}</Td>
+              <Td align="right" className="text-content">{pct(t.bySize.이윤[size]!)}</Td>
             </tr>
           ))}
         </tbody>
@@ -520,11 +519,11 @@ function OverheadRatesCard() {
         <tbody>
           {SANAN_BANDS.map((band) => ({ band, v: t.sanan[band]! })).map(({ band, v }) => (
             <tr key={band} className="border-b border-line last:border-0">
-              <td className="px-3 py-1.5 text-content">{band}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums text-content">{pct(v.rate)}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
+              <Td className="text-content">{band}</Td>
+              <Td align="right" className="text-content">{pct(v.rate)}</Td>
+              <Td align="right" className="text-content-muted">
                 {v.base == null ? EMPTY : `${v.base.toLocaleString()}원`}
-              </td>
+              </Td>
             </tr>
           ))}
         </tbody>

@@ -31,8 +31,7 @@ import {
   useDismissOnOutside,
   SELECTABLE,
   SELECTED,
-  EMPTY,
-} from '../../../components/ui';
+  EMPTY, Td,} from '../../../components/ui';
 import { EMPTY_LABOR_SPEC, LABOR_CODE_LABEL, LABOR_WAGE_LABEL, WAGE_UNIT, WORK_KINDS, laborSpecColumns, manDaysOf } from '@twin/core';
 import type { LaborSpec } from '@twin/core';
 import type { V2Catalog, V2CableGroup } from '../../types';
@@ -367,34 +366,28 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                           /* 같은 것을 다시 누르면 풀린다 — 격자·상세 패널과 같은 규칙. */
                           onClick={() => setSelectedKey((cur) => (cur === row.key ? null : row.key))}
                         >
-                          <td className={cn('truncate px-3 py-1.5', bad?.name ? 'text-danger' : 'text-content')}>
+                          <Td className={cn('truncate ', bad?.name ? 'text-danger' : 'text-content')}>
                             {row.name.trim() || '(이름 없음)'}
-                          </td>
+                          </Td>
                           {/* 표에는 **이름**이 선다 — 저장되는 것은 코드다(`useWageCatalog`). */}
-                          <td className="truncate px-3 py-1.5 text-content-muted">
+                          <Td className="truncate text-content-muted">
                             {row.spec.laborCode ?? EMPTY}
-                          </td>
-                          <td className="truncate px-3 py-1.5 text-content-muted">
+                          </Td>
+                          <Td className="truncate text-content-muted">
                             {wage.nameOf(row.spec.laborCode) ?? EMPTY}
-                          </td>
-                          <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
+                          </Td>
+                          <Td align="right" className="text-content-muted">
                             {row.spec.laborCode == null
                               ? EMPTY
                               : (wage.wageOf(row.spec.laborCode)?.toLocaleString() ?? '단가 없음')}
-                          </td>
+                          </Td>
                           {/* 수는 오른쪽으로 — 자릿수가 세로로 맞아야 크기가 비교된다. */}
                           {SPEC_COLUMNS.map((c) => {
                             const v = row.spec[c.field] as number | null;
                             return (
-                              <td
-                                key={c.field}
-                                className={cn(
-                                  'px-3 py-1.5 text-right tabular-nums',
-                                  c.kind === 'manDays' && bad?.manDays ? 'text-danger' : 'text-content',
-                                )}
-                              >
+                              <Td align="right" key={c.field} className={cn(c.kind === 'manDays' && bad?.manDays ? 'text-danger' : 'text-content', )}>
                                 {v == null ? EMPTY : v.toLocaleString()}
-                              </td>
+                              </Td>
                             );
                           })}
                         </tr>

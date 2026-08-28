@@ -37,7 +37,7 @@ export const SELECTABLE = 'cursor-pointer select-none transition-colors hover:bg
  * 순서에 기대지 않으려면 우선순위를 명시해야 한다.
  *
  * 확실히 먹는 신호는 **배경과 굵기**다. `text-primary` 는 셀이 제 글자색을 지정하지 않은
- * 곳(조직트리·타입목록)에서만 적용된다 — 표의 `<td>` 는 열마다 색을 정하므로 덮인다.
+ * 곳(조직트리·타입목록)에서만 적용된다 — 표의 칸(`Td`)은 열마다 색을 정하므로 덮인다.
  */
 export const SELECTED = 'bg-info-bg font-medium text-primary hover:!bg-info-bg';
 
