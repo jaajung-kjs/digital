@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import {
-  Accordion, Badge, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select,
+  Accordion, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select,
   useConfirm, useDismissOnOutside, cn, SELECTABLE,
   EMPTY,
   type BadgeStatus,
@@ -411,8 +411,18 @@ export function ConnectionsTab({
     return port.direction === 'IN' ? '전원이 오는 길' : port.direction === 'OUT' ? '이 회로가 먹이는 곳' : null;
   }, [tracedPortId, allPorts]);
 
-  /** 거슬러 오르는 추적인가 — 그때는 길을 뒤집어 **흐르는 차례**로 보여 준다. */
-  const upstream = traceAsk === '전원이 오는 길';
+  /**
+   * 거슬러 오르는 **곧은 길** — 있으면 뒤집어 흐르는 차례로 보여 준다(출처 → … → 나).
+   *
+   * 갈래가 있으면(이중 인입) null 이다: 여러 길이 나에게서 합쳐지는 모양은 나무로 그릴 수
+   * 없고, 뒤집어 늘어놓으면 꼬리(나에게 가까운 마디들)가 길마다 되풀이된다. 그때는 나를
+   * 뿌리로 한 트리가 정직하다 — 「나에게 오는 길이 둘」로 읽힌다.
+   */
+  const upstreamChain = useMemo(() => {
+    if (traceAsk !== '전원이 오는 길') return null;
+    const chains = traceChains(traceTree);
+    return chains.length === 1 ? [...chains[0]!].reverse() : null;
+  }, [traceAsk, traceTree]);
 
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
@@ -773,28 +783,25 @@ export function ConnectionsTab({
                         {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다. */}
                         {traceTree.children.length > 0 && (
                           <div className="rounded-md bg-primary/5 p-1.5">
-                            {upstream ? (
-                              /* **거슬러 오르는 길은 흐르는 차례로 읽는다** — 출처가 위, 내가 아래.
-                                 트리로 두면 「내가 시작해서 어디로 뻗나」로 읽혀 방향이 뒤집힌다.
-                                 갈래가 있으면(이중 인입) 길이 여럿이고, 그때는 「이 두 길로 온다」가
-                                 맞는 답이다. */
-                              traceChains(traceTree).map((path) => (
-                                <TraceChain
-                                  key={path.map((n) => n.portId).join('>')}
-                                  path={[...path].reverse()}
-                                  label={portLabel}
-                                  assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                                  onSelectAsset={onSelectAsset}
-                                />
-                              ))
+                            {upstreamChain ? (
+                              /* **곧은 길은 흐르는 차례로** — 출처가 위, 내가 아래. 거슬러 오르는
+                                 추적의 답은 「출처에서 나에게 오는 길」이라 그렇게 읽어야 한다. */
+                              <TraceChain
+                                path={upstreamChain}
+                                label={portLabel}
+                                assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                                onSelectAsset={onSelectAsset}
+                              />
                             ) : (
+                              /* 갈래가 있으면 **나를 뿌리로 한 트리**다 — 여러 길이 나에게서
+                                 합쳐지는 모양은 나무로 그릴 수 없다(뒤집으면 꼬리가 길마다
+                                 되풀이된다). 내려가는 추적도 이 모양이다. */
                               <>
                                 <div className="flex items-baseline gap-1 text-sm">
                                   <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
-                                  <span className="min-w-0 flex-1 truncate px-1 font-medium text-content">
+                                  <span className="min-w-0 flex-1 truncate px-1 font-semibold text-content">
                                     {portLabel(sel.id)}
                                   </span>
-                                  <Badge status="info">여기</Badge>
                                 </div>
                                 {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
                                 <TraceBranches
@@ -803,7 +810,6 @@ export function ConnectionsTab({
                                   label={portLabel}
                                   assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
                                   onSelectAsset={onSelectAsset}
-                                  endLabel="끝"
                                 />
                               </>
                             )}
@@ -862,7 +868,7 @@ function TraceChain({
                 type="button"
                 className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
                 title={`${target.name} 으로 이동`}
-                onClick={() => onSelectAsset(target.id)}
+                onClick={() => onSelectAsset(target.id, node.portId)}
               >
                 {text}
               </button>
@@ -871,8 +877,7 @@ function TraceChain({
                 {text}
               </span>
             )}
-            {i === 0 && <Badge>출처</Badge>}
-            {last && <Badge status="info">여기</Badge>}
+
           </li>
         );
       })}
@@ -889,7 +894,7 @@ function TraceChain({
  * 마디는 눌러서 그 장비로 갈 수 있다(글자로만 두면 표에서 다시 찾아야 한다).
  */
 function TraceBranches({
-  nodes, depth, label, assetOf, onSelectAsset, endLabel,
+  nodes, depth, label, assetOf, onSelectAsset,
 }: {
   nodes: readonly TraceTreeNode[];
   depth: number;
@@ -897,13 +902,6 @@ function TraceBranches({
   assetOf: (portId: string) => { id: string; name: string } | null;
   /** 자산(또는 그 안의 장비)을 고른다 — 포트까지 함께 가리킬 수 있다. */
   onSelectAsset: (id: string, portId?: string | null) => void;
-  /**
-   * 더 갈 데가 없는 마디에 붙일 말 — 거슬러 오르면 「출처」, 내려가면 「끝」.
-   *
-   * 트리만 그려 두면 어디가 **답**인지가 안 보인다. 전원이 어디서 오는지 물었으면 그 끝이
-   * 답이고, 무엇을 먹이는지 물었으면 잎들이 답이다.
-   */
-  endLabel?: string;
 }) {
   if (nodes.length === 0) return null;
   return (
@@ -923,16 +921,17 @@ function TraceBranches({
                   type="button"
                   className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
                   title={`${target.name} 으로 이동`}
-                  onClick={() => onSelectAsset(target.id)}
+                  /* **그 포트를 고른 상태로** 간다 — 자산만 가리키면 첫 탭이 열려, 방금 본
+                     그 포트를 판에서 다시 찾아야 한다. */
+                  onClick={() => onSelectAsset(target.id, node.portId)}
                 >
                   {text}
                 </button>
               ) : (
                 <span className="min-w-0 flex-1 truncate px-1 text-content-muted">{text}</span>
               )}
-              {endLabel && node.children.length === 0 && <Badge>{endLabel}</Badge>}
             </div>
-            <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} endLabel={endLabel} />
+            <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
           </li>
         );
       })}
