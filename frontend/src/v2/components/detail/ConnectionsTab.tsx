@@ -300,6 +300,9 @@ export function ConnectionsTab({
         categoryName: allCategories.find((c) => c.id === conn.cable.categoryId)?.name ?? null,
         lengthM: typeof lengthM === 'number' ? `${lengthM}m` : null,
         entry: portIndex.get(conn.peerPortId),
+        /* 건너편 **포트**까지 들고 간다 — 눌렀을 때 그 포트를 고른 상태로 가야 한다.
+           자산만 가리키면 첫 탭이 열려서, 방금 본 그 포트를 판에서 다시 찾아야 한다. */
+        peerPortId: conn.peerPortId,
       }];
     });
   }, [selectedPort, cablesByPortId, portIndex, asset, catalog.data]);
@@ -705,7 +708,7 @@ export function ConnectionsTab({
                               className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
                               title={peer.entry ? `${peer.label} 으로 이동` : peer.label}
                               disabled={!peer.entry}
-                              onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
+                              onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id, peer.peerPortId)}
                             >
                               {peer.label}
                             </button>

@@ -143,11 +143,27 @@ interface LatestRenderInputs {
 }
 
 export function FloorPlanView({
-  substationId, selectedAssetId, onSelectAsset, traceResult, cableStartPortId, onCableStartConsumed, onPickPort,
+  substationId, selectedAssetId: selection, onSelectAsset, traceResult, cableStartPortId, onCableStartConsumed, onPickPort,
 }: Props) {
   const { confirm, confirmDialog } = useConfirm();
   /* 화면이 보는 것 — 저장한 것과 저장 안 한 것을 합치는 일은 한 곳에서만 한다. */
   const effectiveAssets = useEffectiveAssets();
+
+  /**
+   * 도면에서 켜지는 것 — **고른 것을 품은 설비**다.
+   *
+   * 도면에 서는 것은 설비뿐이다(장비는 그 안에 들어 있다). 그런데 화면은 「누른 것」을 그대로
+   * 넘긴다 — 표는 누른 줄에 불이 들어와야 하므로 장비 id 를 준다. 그것을 그대로 도면에서
+   * 찾으면 **아무것도 못 찾는다**: 패널은 열려 있는데 도면에는 아무 표시가 없었다(추적·연결
+   * 장비 링크로 넘어올 때마다 그랬다 — 그 길들은 늘 장비를 가리킨다).
+   *
+   * 그래서 여기서 **한 번** 올라간다(`floorAnchorOf` — 층을 찾을 때 쓰던 그 걸음이다).
+   * 부르는 쪽마다 「설비인지 장비인지」를 따지게 두면 그 판단이 화면 수만큼 늘어난다.
+   */
+  const selectedAssetId = useMemo(
+    () => (selection ? floorAnchorOf(selection, assetsById(effectiveAssets))?.id ?? selection : null),
+    [selection, effectiveAssets],
+  );
   const effectiveCables = useEffectiveCables();
   const floors = useEffectiveFloors();
 
