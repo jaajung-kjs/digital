@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { EmptyState, Select, SelectionScope, TableCard, TableSearch } from '../../../components/ui';
+import { EmptyState, Select, SelectionScope, TableCard, TableSearch, useScrollSelectedIntoView } from '../../../components/ui';
 import type { MediumContainerPick } from '../../useMediumContainer';
 
 export interface RegisterLayoutProps {
@@ -62,6 +62,13 @@ export interface RegisterLayoutProps {
    * 것보다 여백을 누르는 편이 빠르고, 그것이 사람들이 먼저 해 보는 동작이다.
    */
   onClearSelection?: () => void;
+  /**
+   * 지금 고른 줄의 키 — 이것이 바뀌면 그 줄을 화면 안으로 옮긴다.
+   *
+   * 상세 패널에서 고른 것이 이 표에도 있으면 색만 바뀌어서는 못 알아챈다(스무 줄 아래면
+   * 그 줄이 칠해진 것조차 안 보인다). 어느 줄인지는 표가 이미 `aria-selected` 로 말해 두었다.
+   */
+  selectedKey?: string | null;
 }
 
 /**
@@ -78,8 +85,9 @@ export interface RegisterLayoutProps {
  * 방법도 없다 — 이 컴포넌트는 자리와 건수만 맡는다(`TableSearch` 와 같은 규칙).
  */
 export function RegisterLayout({
-  picker, empty, search, widths, head, children, sections, note, onClearSelection,
+  picker, empty, search, widths, head, children, sections, note, onClearSelection, selectedKey = null,
 }: RegisterLayoutProps) {
+  const scrollRef = useScrollSelectedIntoView(selectedKey);
   /* 볼 것이 하나도 없으면 표 대신 까닭을 적는다 — 고르는 판이 있으면 그 목록이, 없으면
      묶음이 「볼 것이 있나」를 말한다. */
   const nothing = picker ? picker.options.length === 0 : (sections?.length ?? 0) === 0;
@@ -116,7 +124,7 @@ export function RegisterLayout({
       {/* 표가 **선택의 주인**이다 — 여백을 누르면 풀린다. 예전에는 이 상자에 직접
           `e.target === e.currentTarget` 을 걸어, 안쪽 여백(패딩·표 아래)은 안 걸렸다. */}
       <SelectionScope onClear={() => onClearSelection?.()} className="min-h-0 flex-1 overflow-auto">
-        <div className="p-4">
+        <div className="p-4" ref={scrollRef}>
         {sections ? (
           <div className="flex flex-col gap-4">
             {sections.map((section) => (

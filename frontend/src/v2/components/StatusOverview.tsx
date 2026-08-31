@@ -17,6 +17,7 @@ import {
   formatDate,
   selectableRow,
   SelectionScope,
+  useScrollSelectedIntoView,
   SELECTABLE,
   SELECTED, Td,} from '../../components/ui';
 
@@ -142,6 +143,10 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
     </button>
   );
 
+  /* 상세 패널에서 고른 것이 이 표에도 있으면 화면 안으로 옮긴다 — 색만 바뀌면 스무 줄
+     아래의 그 줄이 칠해졌다는 것조차 안 보인다. */
+  const scrollRef = useScrollSelectedIntoView<HTMLDivElement>(selectedId);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
       <div className="flex max-w-6xl shrink-0 items-center gap-2">
@@ -175,7 +180,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
         )}
       </div>
 
-      <SelectionScope onClear={() => onSelectAsset(null)} className="flex min-h-0 flex-1 flex-col">
+      <SelectionScope onClear={() => onSelectAsset(null)} className="flex min-h-0 flex-1 flex-col" ref={scrollRef}>
         <TableCard fill widths={widths}>
           <thead>
             <tr className="sticky top-0 z-sticky">

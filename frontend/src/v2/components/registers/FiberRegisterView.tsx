@@ -304,6 +304,7 @@ export function FiberRegisterView({
 
   return (
     <RegisterLayout
+      selectedKey={selectedPortId}
       picker={picked}
       empty={{
         title: '선번장에 표시할 광 설비가 없습니다',

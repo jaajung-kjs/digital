@@ -247,6 +247,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   return (
     <RegisterLayout
+      selectedKey={selectedPortId ?? selectedAssetId}
       empty={{
         title: '계통에 표시할 전원 설비가 없습니다',
         description: '분전반·UPS·충전기처럼 전원을 나눠 주는 장비를 놓으면 나타납니다.',

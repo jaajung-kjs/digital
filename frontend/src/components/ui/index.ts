@@ -17,6 +17,7 @@ export { TreePanel } from './TreePanel';
 export type { TreeKind, TreeNode, TreePanelProps } from './TreePanel';
 export { isCancelKey, isCommitKey, isComposing, isTypingTarget } from './keyboard';
 export { selectableRow, selectOrToggle } from './rowSelection';
+export { useScrollSelectedIntoView } from './useScrollSelectedIntoView';
 export { SelectionScope } from './SelectionScope';
 export { MessageStrip } from './MessageStrip';
 export { OverflowMenu } from './OverflowMenu';

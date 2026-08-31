@@ -18,6 +18,11 @@ let objectUrlSeq = 0;
 URL.createObjectURL = () => `blob:test-${++objectUrlSeq}`;
 URL.revokeObjectURL = () => {};
 
+/* jsdom 에는 `scrollIntoView` 가 없다 — 브라우저에는 모두 있으므로 제품 코드가 그것을
+   방어할 이유가 없다. 없는 쪽은 환경이니 환경에서 채운다. 무엇이 불렸는지 보고 싶은
+   시험은 이 자리를 제 손으로 덮어쓴다(`scrollSelectedIntoView.test.tsx`). */
+Element.prototype.scrollIntoView = () => {};
+
 // Mock HTMLCanvasElement
 HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   fillStyle: '',
