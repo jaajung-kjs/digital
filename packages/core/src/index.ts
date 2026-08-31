@@ -13,6 +13,7 @@ export * from './trace/internalLinks.js';
 export * from './trace/tree.js';
 export * from './topology/types.js';
 export * from './topology/graph.js';
+export * from './topology/rings.js';
 export * from './seed/catalog.js';
 export * from './seed/org.js';
 export * from './report/computeReport.js';
