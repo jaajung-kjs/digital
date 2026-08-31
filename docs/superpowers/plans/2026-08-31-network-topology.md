@@ -1403,9 +1403,11 @@ describe('TopologyModal', () => {
     expect(screen.getByText(/OFD - 가슬롯/)).toBeInTheDocument();
   });
 
+  /* 공용 `Modal` 은 `createPortal(document.body)` 로 그린다 — `render()` 가 돌려주는
+     지역 container 는 포털 밖이라 아무것도 안 잡힌다. 그림을 찾을 곳은 body 다. */
   it('구간 케이블이 줄로 그려진다', () => {
-    const { container } = render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
-    expect(container.querySelectorAll('svg line')).toHaveLength(1);
+    render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+    expect(document.body.querySelectorAll('svg line')).toHaveLength(1);
   });
 
   it('닫혀 있으면 아무것도 그리지 않는다', () => {
@@ -1627,9 +1629,10 @@ git commit -m "feat(topology): 연결 탭에서 토폴로지 상자를 연다 �
 `TopologyModal.test.tsx` 에 더한다:
 
 ```tsx
+/* 상자는 `document.body` 에서 찾는다 — 공용 `Modal` 이 포털로 그리기 때문이다. */
 it('마디 상자가 좌표에 놓이고 서로 겹치지 않는다', () => {
-  const { container } = render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
-  const boxes = [...container.querySelectorAll('[data-topo-node]')];
+  render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+  const boxes = [...document.body.querySelectorAll('[data-topo-node]')];
   expect(boxes).toHaveLength(2);
   const at = boxes.map((b) => (b as HTMLElement).style.transform);
   expect(new Set(at).size).toBe(2);
@@ -1637,14 +1640,13 @@ it('마디 상자가 좌표에 놓이고 서로 겹치지 않는다', () => {
 
 /* 코어가 지나간 줄만 굵다 — 강조는 두 단계뿐이다. */
 it('내 코어가 간 구간만 강조된다', () => {
-  const { container } = render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
-  const lit = container.querySelectorAll('line[data-lit="true"]');
-  expect(lit).toHaveLength(1);
+  render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+  expect(document.body.querySelectorAll('line[data-lit="true"]')).toHaveLength(1);
 });
 
 it('줄에 대고 물으면 양끝 경로슬롯 이름이 나온다', () => {
-  const { container } = render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
-  expect(container.querySelector('line title')?.textContent).toBe('가슬롯 ↔ 나슬롯');
+  render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+  expect(document.body.querySelector('line title')?.textContent).toBe('가슬롯 ↔ 나슬롯');
 });
 
 it('층 이름은 층이 둘 이상인 국에만 — 여기서는 안 나온다', () => {
