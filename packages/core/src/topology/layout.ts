@@ -130,51 +130,9 @@ function maxX(pos: Map<string, Point>): number {
  * 한 번만 고르면 그 뒤에 남는 덩어리는 이웃 관계를 통째로 잃고 한 줄로 흩뿌려지므로, 안
  * 놓인 마디가 없어질 때까지 이 과정을 반복한다.
  */
-/**
- * 이 마디를 **제 국 곁에** 놓는다 — 같은 국에 이미 놓인 마디가 있을 때.
- *
- * 국을 그냥 지나가도록 패치된 심선의 끝은 장비와 이어지지 않아 그래프에서 따로 노는 덩어리다.
- * 그것을 「이어지지 않았으니 오른쪽에 나란히」로 놓으면, T2 의 패치 끝이 T2 에서 멀찍이 떨어져
- * 서고 그 줄이 링 밖에 홀로 뜬다 — 사용자가 「실제 경로 안에서 보이게 하라」고 한 것이 이것이다.
- * 국을 아는 것은 마디 자신이므로(`substationName`) 배치가 따로 들을 것이 없다.
- *
- * 자리는 그 국 마디 둘레를 여덟 방향으로 돌며 **비어 있는 첫 자리**를 고른다 — 겹치면 반지름을
- * 한 칸 늘려 다시 돈다. 차례가 정해져 있으므로 같은 자료면 같은 자리가 나온다.
- */
-function placeBeside(anchor: Point, pos: Map<string, Point>): Point {
-  for (let ring = 1; ring <= 4; ring++) {
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI / 4) * i;
-      const p = {
-        x: anchor.x + NODE_GAP * ring * Math.cos(angle),
-        y: anchor.y + NODE_GAP * ring * Math.sin(angle),
-      };
-      let free = true;
-      for (const q of pos.values()) {
-        if (Math.hypot(q.x - p.x, q.y - p.y) < NODE_GAP * 0.95) { free = false; break; }
-      }
-      if (free) return p;
-    }
-  }
-  return { x: maxX(pos) + NODE_GAP, y: anchor.y };
-}
-
 function placeBranches(
   nodes: readonly TopoNode[], neighbors: Map<string, string[]>, pos: Map<string, Point>,
 ): void {
-  /* 국마다 이미 놓인 마디 — 「제 국 곁에」를 판단하는 자리. 국 이름은 마디가 들고 있다. */
-  const subOf = new Map(nodes.map((n) => [n.id, n.substationName]));
-  const anchorOfSub = (sub: string): Point | null => {
-    /* 국 이름이 없는 마디는 「제 국」이랄 것이 없다 — 그때는 이 규칙이 걸리지 않는다. */
-    if (!sub) return null;
-    for (const n of nodes) {
-      if (n.substationName !== sub) continue;
-      const p = pos.get(n.id);
-      if (p) return p;
-    }
-    return null;
-  };
-
   let queue = [...pos.keys()];
 
   for (;;) {
@@ -206,12 +164,7 @@ function placeBranches(
       const radius = Math.max(NODE_GAP, NODE_GAP / (2 * Math.sin(minGap / 2)));
 
       kids.forEach((k, i) => {
-        /* 제 국에 이미 놓인 마디가 있으면 그 곁이 제자리다 — 패치 끝이 남의 국 옆에
-           서면 그림이 거짓말을 한다. 없으면 부채꼴 차례대로 뻗는다. */
-        const home = anchorOfSub(subOf.get(k) ?? '\0');
-        pos.set(k, home
-          ? placeBeside(home, pos)
-          : { x: base.x + radius * Math.cos(angles[i]!), y: base.y + radius * Math.sin(angles[i]!) });
+        pos.set(k, { x: base.x + radius * Math.cos(angles[i]!), y: base.y + radius * Math.sin(angles[i]!) });
         queue.push(k);
       });
     }
@@ -226,10 +179,7 @@ function placeBranches(
       (a, b) => (neighbors.get(b.id)?.length ?? 0) - (neighbors.get(a.id)?.length ?? 0)
         || (a.id < b.id ? -1 : 1),
     )[0]!;
-    const home = anchorOfSub(subOf.get(root.id) ?? '\0');
-    pos.set(root.id, pos.size === 0
-      ? { x: 0, y: 0 }
-      : home ? placeBeside(home, pos) : { x: maxX(pos) + NODE_GAP, y: 0 });
+    pos.set(root.id, pos.size === 0 ? { x: 0, y: 0 } : { x: maxX(pos) + NODE_GAP, y: 0 });
     queue = [root.id];
   }
 }

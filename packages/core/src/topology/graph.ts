@@ -52,14 +52,6 @@ export function buildTopologyGraph(
     cables: input.cables.map((c) => ({ id: c.id, aPortId: c.aPortId, bPortId: c.bPortId })),
   });
 
-  /* 이 포트에 케이블이 물렸는가 — 패치 사슬의 **끝**을 가리는 데 쓴다.
-     끝이란 더 갈 데가 없는 자리이고, 성단 포트에서 그것은 「점퍼가 안 물렸다」는 뜻이다. */
-  const cabled = new Set<string>();
-  for (const c of input.cables) { cabled.add(c.aPortId); cabled.add(c.bPortId); }
-
-  const isSingleFiber = (p: Port | undefined): p is Port =>
-    p != null && p.medium === 'fiber' && !isMultiCorePort(p.positions);
-
   /** 이 홉들이 결국 닿은 **다른 장비**의 포트 — 슬롯·OPGW 를 지나는 홉은 건너뛴다. */
   const reachedEquipmentPortId = (hops: readonly TraceHop[], fromAssetId: string): string | null => {
     for (const h of hops) {
@@ -70,30 +62,29 @@ export function buildTopologyGraph(
   };
 
   /**
-   * 이 길이 **패치로 지나간 국**들 — 장비를 거치지 않고 남의 국 성단끼리 물려 통과한 자리.
+   * 이 길이 **거쳐 간 국**들 — 양끝 장비가 선 국은 뺀다.
    *
-   * 1번 국 광단말이 3번 국 광단말과 이어질 때 가운데 2번 국을 그냥 지나간다면, 그 국에는
-   * 슬롯끼리 물린 점퍼가 하나 있다. 그림에서 2번 국은 마디가 아니지만(장비를 안 거쳤으므로)
-   * 「이 길은 2번을 거쳐 간다」는 사실은 남아야 한다 — 줄에 작게 적는다.
+   * 1번 국 광단말이 3번 국 광단말과 이어지면서 가운데 2번 국을 그냥 지나간다면(그 국에서는
+   * 슬롯끼리 점퍼로 물려 통과), 2번은 장비를 안 거쳤으니 마디가 아니다. 그래도 「이 길은
+   * 2번을 거쳐 간다」는 사실은 남아야 하므로 줄에 적는다.
    *
-   * 「패치인가」는 이름이 아니라 케이블의 양끝으로 묻는다: 단심 광 포트 둘이 서로 물렸고
-   * 그 자산이 둘 다 장비가 아니면 성단끼리 이은 것, 곧 패치다.
+   * **「패치인가」를 따로 묻지 않는다.** 장비를 거쳤으면 거기서 길이 끝나 다음 줄이 되므로,
+   * 한 줄이 지나간 국 가운데 양끝이 아닌 국은 **장비를 안 거치고 지나간 국**일 수밖에 없다.
+   * 추적이 이미 답을 들고 있는데 판정을 하나 더 두면 규칙이 두 곳으로 갈라진다.
    */
-  const patchedThroughSubstations = (hops: readonly TraceHop[], untilPortId: string): string[] => {
-    const names: string[] = [];
+  const passedThroughSubstations = (hops: readonly TraceHop[], untilPortId: string): string[] => {
+    const subs: string[] = [];
+    const add = (portId: string) => {
+      const assetId = portById.get(portId)?.assetId;
+      const name = subById.get(assetById.get(assetId ?? '')?.substationId ?? '')?.name;
+      if (name && !subs.includes(name)) subs.push(name);
+    };
     for (const h of hops) {
-      if (h.kind === 'cable') {
-        const from = portById.get(h.fromPortId);
-        const to = portById.get(h.toPortId);
-        if (isSingleFiber(from) && isSingleFiber(to)
-          && !isEquipment(from.assetId) && !isEquipment(to.assetId)) {
-          const sub = subById.get(assetById.get(from.assetId)?.substationId ?? '')?.name;
-          if (sub && !names.includes(sub)) names.push(sub);
-        }
-      }
+      add(h.toPortId);
       if (h.toPortId === untilPortId) break; // 그 장비에 닿으면 이 길은 끝이다
     }
-    return names;
+    /* 첫 국은 제 국, 끝 국은 상대 장비의 국이다 — 가운데만 남긴다(이름은 이미 겹치지 않는다). */
+    return subs.slice(1, -1);
   };
 
   /*
@@ -123,7 +114,7 @@ export function buildTopologyGraph(
       const reachedPortId = reachedEquipmentPortId(hops, asset.id);
       if (!reachedPortId) continue;
       const reachedPort = portById.get(reachedPortId)!;
-      const via = patchedThroughSubstations(hops, reachedPortId);
+      const via = passedThroughSubstations(hops, reachedPortId);
       /* 줄의 id 는 정렬한 **포트** 쌍으로 정한다 — 양끝에서 같은 줄을 두 번 찾으므로
          겹치지 않게 담으려면 포트 쌍이 갈라야 맞다(같은 장비 쌍을 코어 둘로 이으면
          포트 쌍은 둘, id 도 둘이어야 한다).
