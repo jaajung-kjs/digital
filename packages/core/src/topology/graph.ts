@@ -61,6 +61,22 @@ export function buildTopologyGraph(
     return null;
   };
 
+  /*
+   * 시드를 장비 포트로 정규화한다 — 사용자는 경로슬롯의 앞면·OPGW 포트에서도 추적을
+   * 띄울 수 있다(`ConnectionsTab`), 그런데 「장비」는 여기서 마디의 뜻이므로 시드 표시·
+   * 강조는 장비 포트를 기준으로만 정할 수 있다. 시드가 이미 장비 포트면 그대로 쓰고,
+   * 아니면 그 포트에서 떠난 심선이 실제로 닿는 첫 장비 포트를 찾는다 — 줄을 찾을 때 쓰는
+   * 「닿은 장비 포트 찾기」를 그대로 재사용한다. 어느 장비에도 안 닿으면(성단 안 된 코어)
+   * 정규화가 실패하고, 그때는 시드 표·강조 줄이 없는 것이 맞다 — 그 포트는 정말 아무
+   * 장비에도 안 닿았다.
+   */
+  const seedPort = portById.get(seedPortId);
+  const normalizedSeedPortId = seedPort == null
+    ? null
+    : isEquipment(seedPort.assetId)
+      ? seedPortId
+      : reachedEquipmentPortId(traceFrom(traceGraph, seedPortId), seedPort.assetId);
+
   // ── 줄 — 장비마다 단심 광 포트에서 traceFrom 을 떠 닿은 장비 포트와 짝짓는다 ──────────
   const edgeByKey = new Map<string, TopoEdge>();
   const litKeys = new Set<string>();
@@ -79,12 +95,12 @@ export function buildTopologyGraph(
           sourcePortName: p1.name, targetPortName: p2.name,
         });
       }
-      if (port.id === seedPortId) litKeys.add(key);
+      if (port.id === normalizedSeedPortId) litKeys.add(key);
     }
   }
 
   // ── 마디 — 이 망에 걸린 장비 전부. 시드 장비가 맨 앞, 나머지는 이름 차례. ──────────────
-  const seedAssetId = portById.get(seedPortId)?.assetId ?? null;
+  const seedAssetId = normalizedSeedPortId ? portById.get(normalizedSeedPortId)?.assetId ?? null : null;
   const nodes: TopoNode[] = input.assets
     .filter((a) => isEquipment(a.id))
     .map((a) => ({

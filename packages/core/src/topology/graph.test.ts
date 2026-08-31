@@ -155,4 +155,29 @@ describe('buildTopologyGraph', () => {
     const seedEdge = edges.find((e) => [e.source, e.target].sort().join() === ['a-dev', 'b-dev'].sort().join())!;
     expect([...litEdgeIds]).toEqual([seedEdge.id]);
   });
+
+  /*
+   * 사용자는 경로슬롯의 앞면·OPGW 포트에서도 추적을 띄울 수 있다(`ConnectionsTab`).
+   * 마디의 뜻이 장비로 바뀐 지금, 시드가 장비 포트가 아니면 정규화해야 한다 — 안 그러면
+   * litEdgeIds 가 늘 비고 isSeed 가 모든 마디에서 false 다(사용자가 실제로 신고한
+   * 증상: 무관한 광단말 A 가 뜬다).
+   */
+  it('슬롯 앞면 포트에서 시작해도 그 심선이 닿는 장비가 「여기」로 선다', () => {
+    // a-front1 은 a-dev1 로 가는 점퍼와 OPGW 로 가는 내부 연결을 둘 다 가진 슬롯 포트다.
+    const { nodes, edges, litEdgeIds } = buildTopologyGraph(linked(), 'a-front1');
+    expect(litEdgeIds.size).toBe(1); // 빈 집합이 아니다
+    expect(nodes.find((n) => n.id === 'a-dev')!.isSeed).toBe(true);
+    const [litEdge] = edges.filter((e) => litEdgeIds.has(e.id));
+    expect([litEdge!.source, litEdge!.target].sort()).toEqual(['a-dev', 'b-dev']);
+  });
+
+  it('어느 장비에도 안 닿는 포트에서 시작하면 「여기」가 없다', () => {
+    // a-front2 는 어느 장비에도 점퍼가 안 물렸고, 그 코어(2)는 b 쪽도 성단이 안 됐다.
+    const { nodes, edges, litEdgeIds } = buildTopologyGraph(linked(), 'a-front2');
+    expect(litEdgeIds.size).toBe(0);
+    expect(nodes.some((n) => n.isSeed)).toBe(false);
+    // 그래도 이 망의 장비·줄은 시드와 무관하게 그대로 선다 — 조용히 무너진 것이 아니다.
+    expect(nodes).toHaveLength(2);
+    expect(edges).toHaveLength(1);
+  });
 });
