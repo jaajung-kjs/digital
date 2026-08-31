@@ -7,7 +7,7 @@
  *
  * `@xyflow/react` 는 다시 넣지 않았다. 마디가 수십 개고 조작이 호버뿐이라 쓸 이유가 없다.
  */
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { cn } from '../../../components/ui/cn';
 import type { Point, TopoEdge, TopoNode } from '@twin/core';
 
@@ -45,57 +45,91 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
     return p ? { x: p.x + shift.x, y: p.y + shift.y } : null;
   };
 
+  /* 판 크기를 재서 그림을 거기 맞춘다 — 링이 커져도 스크롤 없이 한눈에 들어오게. 못 재면
+     (시험 환경처럼 요소 크기가 0) 배율은 그냥 1이다. §1.7-q: 관찰은 이 판이 붙고 뗄 때마다
+     ref 콜백이 스스로 챙긴다 — useEffect(,[]) 는 처음 한 번뿐이라 조건부로 나타나는 판을
+     놓친다. */
+  const [panelSize, setPanelSize] = useState<{ width: number; height: number } | null>(null);
+  const detachPanel = useRef<(() => void) | null>(null);
+  const panelRef = useCallback((node: HTMLDivElement | null) => {
+    detachPanel.current?.();
+    detachPanel.current = null;
+    if (!node) return;
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (box) setPanelSize({ width: box.width, height: box.height });
+    });
+    ro.observe(node);
+    detachPanel.current = () => ro.disconnect();
+  }, []);
+
+  /* 축소만 한다(min(1, …)) — 마디 몇 개짜리 작은 그림을 판 크기까지 늘리면 글자만 커질
+     뿐 읽을 것은 늘지 않는다. */
+  const scale = panelSize
+    ? Math.min(1, panelSize.width / width, panelSize.height / height)
+    : 1;
+
   return (
-    <div className="h-[60vh] overflow-auto rounded-md bg-surface-2">
-      <div className="relative" style={{ width, height }}>
-        <svg className="absolute left-0 top-0" width={width} height={height}>
-          {edges.map((e, i) => {
-            const a = at(e.source);
-            const b = at(e.target);
-            if (!a || !b) return null;
-            const lit = litEdgeIds.has(e.id);
-            /* 같은 두 국을 잇는 줄이 여럿이면(이중화) 나란히 벌려 둘로 보이게 한다. */
-            const parallel = edges.filter((o) => sameEnds(o, e));
-            const offset = (parallel.indexOf(e) - (parallel.length - 1) / 2) * 14;
-            const [p, q] = shifted(edgeAt(a, b), offset);
+    <div ref={panelRef} className="h-[60vh] overflow-auto rounded-md bg-surface-2">
+      {/* 바깥 상자는 축소된 크기만큼만 차지한다 — 그래야 스크롤 판정(overflow)이 줄어든
+          그림을 보고 판단하지, 원래 크기를 보고 판단해 스크롤바가 남지 않는다. */}
+      <div style={{ width: width * scale, height: height * scale }}>
+        <div
+          data-topo-stage
+          className="relative"
+          style={{ width, height, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+        >
+          <svg className="absolute left-0 top-0" width={width} height={height}>
+            {edges.map((e, i) => {
+              const a = at(e.source);
+              const b = at(e.target);
+              if (!a || !b) return null;
+              const lit = litEdgeIds.has(e.id);
+              /* 같은 두 국을 잇는 줄이 여럿이면(이중화) 나란히 벌려 둘로 보이게 한다. */
+              const parallel = edges.filter((o) => sameEnds(o, e));
+              const offset = (parallel.indexOf(e) - (parallel.length - 1) / 2) * 14;
+              const [p, q] = shifted(edgeAt(a, b), offset);
+              return (
+                <line
+                  key={e.id ?? i}
+                  x1={p.x} y1={p.y} x2={q.x} y2={q.y}
+                  data-lit={lit}
+                  strokeWidth={lit ? 3 : 1.5}
+                  className={lit ? 'stroke-primary' : 'stroke-line'}
+                >
+                  <title>{`${e.sourcePortName} ↔ ${e.targetPortName}`}</title>
+                </line>
+              );
+            })}
+          </svg>
+
+          {nodes.map((node) => {
+            const p = at(node.id);
+            if (!p) return null;
+            /* 마디 = 장비 하나 — 장비 이름 위에 국·설비를 흐리게 붙인다. 층 이름은 core 가
+               채워 줬을 때만(그 국에 층이 둘 이상일 때만) 앞에 붙는다. 이름이 길어도
+               `break-words` 로 접힐 뿐 `truncate` 로 자르지 않는다 — 「…으로 생략된 경로도
+               다 보이게」가 이 화면을 여는 이유다. */
             return (
-              <line
-                key={e.id ?? i}
-                x1={p.x} y1={p.y} x2={q.x} y2={q.y}
-                data-lit={lit}
-                strokeWidth={lit ? 3 : 1.5}
-                className={lit ? 'stroke-primary' : 'stroke-line'}
+              <div
+                key={node.id}
+                data-topo-node={node.id}
+                className={cn(
+                  'absolute rounded-md border bg-surface px-2.5 py-1.5 shadow-sm',
+                  node.isSeed ? 'border-primary' : 'border-line',
+                )}
+                style={{ left: 0, top: 0, width: BOX_W, transform: `translate(${p.x - BOX_W / 2}px, ${p.y - BOX_H / 2}px)` }}
               >
-                <title>{`${e.sourcePortName} ↔ ${e.targetPortName}`}</title>
-              </line>
+                <div className="break-words text-sm font-medium text-content">{node.name}</div>
+                <div className="break-words text-xs text-content-muted">
+                  {node.floorName ? `[${node.floorName}] ` : ''}
+                  {node.substationName}
+                  {node.assemblyName ? ` · ${node.assemblyName}` : ''}
+                </div>
+              </div>
             );
           })}
-        </svg>
-
-        {nodes.map((node) => {
-          const p = at(node.id);
-          if (!p) return null;
-          /* 마디 = 장비 하나. 자리·꾸밈은 다음 태스크(장비 그림)가 다시 그린다 — 여기서는
-             바뀐 자료 모양(TopoNode)에 맞춰 컴파일만 되게 최소로 둔다. */
-          return (
-            <div
-              key={node.id}
-              data-topo-node={node.id}
-              className={cn(
-                'absolute rounded-md border bg-surface px-2.5 py-1.5 shadow-sm',
-                node.isSeed ? 'border-primary' : 'border-line',
-              )}
-              style={{ left: 0, top: 0, width: BOX_W, transform: `translate(${p.x - BOX_W / 2}px, ${p.y - BOX_H / 2}px)` }}
-            >
-              <div className="truncate text-sm font-medium text-content">{node.name}</div>
-              <div className="truncate text-xs text-content-muted">
-                {node.floorName ? `[${node.floorName}] ` : ''}
-                {node.substationName}
-                {node.assemblyName ? ` · ${node.assemblyName}` : ''}
-              </div>
-            </div>
-          );
-        })}
+        </div>
       </div>
     </div>
   );

@@ -103,4 +103,50 @@ describe('TopologyModal', () => {
     render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
     expect(screen.queryByText('1층')).not.toBeInTheDocument();
   });
+
+  /* 말줄임(`truncate`)이 있으면 「…으로 생략된 경로도 다 보이게」 요구를 못 지킨다 —
+     이름이 길면 잘리지 말고 접혀야 한다(`break-words`). */
+  it('마디 이름은 말줄임 대신 접힌다', () => {
+    render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+    expect(document.body.querySelectorAll('.truncate')).toHaveLength(0);
+    const box = document.body.querySelector('[data-topo-node]') as HTMLElement;
+    expect(box.querySelector('.text-sm')?.className).toMatch(/break-words/);
+    expect(box.querySelector('.text-xs')?.className).toMatch(/break-words/);
+  });
+
+  describe('배율 — 판에 맞춰 그림을 줄인다(눈대중 상수 없이 식으로)', () => {
+    it('판 크기를 잴 수 없으면(시험 환경) 배율은 1이다', () => {
+      render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+      const stage = document.body.querySelector('[data-topo-stage]') as HTMLElement;
+      expect(stage.style.transform).toBe('scale(1)');
+    });
+
+    /* 판 크기를 흉내 내는 가짜 ResizeObserver — 관찰을 시작하는 순간 정해 둔
+       contentRect 로 콜백을 부른다. 그림은 여러 마디짜리라 판(80×60)보다 훨씬 크므로
+       축소(<1)가 나와야 하고, 그 값은 눈대중이 아니라 `min(1, 판/그림)` 식과 일치해야 한다. */
+    it('판 크기를 재면 배율이 min(1, 판/그림) 식으로 나온다', () => {
+      class FakeResizeObserver {
+        constructor(private cb: ResizeObserverCallback) {}
+        observe() {
+          this.cb(
+            [{ contentRect: { width: 80, height: 60 } } as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          );
+        }
+        disconnect() {}
+        unobserve() {}
+      }
+      vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+
+      render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+      const stage = document.body.querySelector('[data-topo-stage]') as HTMLElement;
+      const figureW = parseFloat(stage.style.width);
+      const figureH = parseFloat(stage.style.height);
+      const expected = Math.min(1, 80 / figureW, 60 / figureH);
+      expect(stage.style.transform).toBe(`scale(${expected})`);
+      expect(expected).toBeLessThan(1); // 축소가 실제로 일어났는지 — 공허한 통과 방지
+
+      vi.unstubAllGlobals();
+    });
+  });
 });
