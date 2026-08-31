@@ -48,6 +48,15 @@ export function TopologyModal({ open, seedPortId, seedLabel, onClose }: Topology
               이어진 곳이 너무 많아 일부만 그렸습니다.
             </p>
           )}
+          {/* 판정은 여기서 다시 안 한다 — `nodes` 에 `isSeed` 인 마디가 하나도 없으면(정규화
+              실패) core 가 이미 그렇게 나타낸 것이다. 강조도 「여기」도 없는 그림이 뜨면
+              「무관한 남의 토폴로지가 떴다」로 읽히므로(사용자가 실제로 그렇게 읽었다) 이유를
+              한 줄로 밝힌다. */}
+          {!view.nodes.some((n) => n.isSeed) && (
+            <p className="mb-2 text-xs text-content-muted">
+              이 포트는 아직 어느 장비에도 닿지 않습니다 — 아래는 같은 광 계통의 장비들입니다.
+            </p>
+          )}
           <TopologyCanvas
             nodes={view.nodes}
             edges={view.edges}

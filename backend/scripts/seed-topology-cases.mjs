@@ -6,7 +6,11 @@
  * 978줄이 됐다. 지금 배치는 「바깥 테두리를 원으로 놓으면 공유 구간이 저절로 현이 된다」로
  * 그 일을 대신하므로, 그 가정이 맞는지 눈으로 확인할 자료가 있어야 한다.
  *
- * 국 하나 = OFD 설비 + 경로슬롯 몇. 국 사이는 OPGW(구간 케이블) 한 본.
+ * 마디는 **장비**다(경로슬롯이 아니다 — `isMultiCorePort` 로 갈린다). 그래서 국 하나 =
+ * OFD 설비(경로슬롯 몇) + 광단말 장비 하나이고, 장비의 광 포트를 서쪽·동쪽 슬롯에 나눠
+ * 빼면 그 장비가 곧 그 국의 통과 지점이 된다 — 중간 국에 앞면↔앞면 통과 점퍼를 따로 놓을
+ * 필요가 없다(2026-08-31: 옛 버전은 마디가 국이던 시절의 우회를 그대로 남겨 패치 위주로
+ * 읽혔다). 국 사이는 OPGW(구간 케이블) 한 본.
  *
  *   node backend/scripts/seed-topology-cases.mjs
  *   node backend/scripts/seed-topology-cases.mjs --clean
@@ -22,9 +26,6 @@ const API = `${arg('url', 'http://localhost:3000')}/api/v2`;
 /** 만들 국 스무 개 — 이름은 전부 `토폴로지-` 로 시작해 `--clean` 이 한 번에 걷는다. */
 const STATION_KEYS = Array.from({ length: 20 }, (_, i) => `T${i + 1}`);
 const fullName = (key) => `토폴로지-${key}`;
-
-/** 성단(앞면 ↔ 장비)을 놓는 국 — 나머지는 코어가 안 지나가는 마디가 어떻게 보이는지 보는 자리. */
-const WITH_EQUIPMENT = new Set(['T1', 'T2']);
 
 /**
  * 구간 케이블 — `[국A, 국A 쪽 슬롯 번호, 국B, 국B 쪽 슬롯 번호]`.
@@ -61,6 +62,19 @@ const SEGMENTS = [
   ['T18', 1, 'T19', 1],
   ['T19', 2, 'T20', 1],
 ];
+
+/**
+ * 국별 「이 슬롯이 이 국의 몇 번째 방향인가」 — `SEGMENTS` 를 등장 차례대로 훑어 만든다.
+ * 장비의 광 포트 번호(코어)는 이 차례를 그대로 따른다: 국 하나가 이 목록에 n 번 나오면
+ * 그 장비는 광 포트를 n 개 뺀다. 슬롯 번호가 국마다 안 겹치므로(위 배정) 국 안에서
+ * 같은 슬롯이 두 번 나오는 일도 없다.
+ */
+const directionsByStation = {};
+for (const [aKey, aSlot, bKey, bSlot] of SEGMENTS) {
+  for (const [key, slot] of [[aKey, aSlot], [bKey, bSlot]]) {
+    (directionsByStation[key] ??= []).push(slot);
+  }
+}
 
 let tok;
 async function call(path, method = 'GET', body) {
@@ -134,13 +148,21 @@ const fiberGroup = catalog.cableGroups.find((g) => g.key === 'fiber');
 const OPGW = fiberGroup.categories[0].id;
 const JUMPER = fiberGroup.categories.find((c) => /점퍼|jumper/i.test(c.name))?.id ?? fiberGroup.categories[0].id;
 
-/** 설비 품목 하나를 펴서 설비 + 부품 — 포트 id 를 여기서 붙인다(화면이 하는 그대로). */
-function place(assembly, name, floorId, x, y) {
+/**
+ * 설비 품목 하나를 펴서 설비 + 부품 — 포트 id 를 여기서 붙인다(화면이 하는 그대로).
+ * `itemNames` 를 주면 그 이름의 부품만 편다 — 송변전광단말장치처럼 부품이 많은 설비에서
+ * 광 경로에 안 쓰는 전원반·스위치까지 다 놓으면 그 부품들도 「다심 없는 자산」이라 마디로
+ * 잡혀(포트가 광이 아니라 전원·네트워크뿐이어도 `isMultiCorePort` 는 그 매체를 안 따진다)
+ * 국마다 안 닿는 마디가 여럿씩 늘어난다. 화면도 부품을 하나씩 나중에 더 놓을 수 있으므로
+ * (부품 추가) 일부만 펴는 것 자체는 화면이 못 만드는 자료가 아니다.
+ */
+function place(assembly, name, floorId, x, y, itemNames) {
   const equipmentId = crypto.randomUUID();
   const creates = [{ id: equipmentId, name, assemblyId: assembly.id, floorId, x, y, width: 70, height: 70 }];
   /** `부품이름|그룹|번호` → 포트 id */
   const ports = new Map();
-  for (const item of assembly.items) {
+  const items = itemNames ? assembly.items.filter((it) => itemNames.includes(it.name)) : assembly.items;
+  for (const item of items) {
     const templates = [...typeById[item.typeId].portTemplates].sort((a, b) => a.sortOrder - b.sortOrder);
     const portIds = {};
     for (const tpl of templates) {
@@ -182,15 +204,12 @@ for (const key of STATION_KEYS) {
   });
 
   const ofd = place(ofdAssembly, 'OFD', floor.id, 40, 40);
-  const assetCreates = [...ofd.creates];
-  let term;
-  if (WITH_EQUIPMENT.has(key)) {
-    term = place(termAssembly, '송광치', floor.id, 200, 40);
-    assetCreates.push(...term.creates);
-  }
+  // 모든 국에 광단말 장비를 둔다 — 장비가 곧 그 국의 통과 지점이라 빠지면 링이 끊긴다.
+  const term = place(termAssembly, '송광치', floor.id, 200, 40, ['광단말 A']);
+  const assetCreates = [...ofd.creates, ...term.creates];
   await call(`/substations/${substation.id}/commit`, 'PUT', { assets: { creates: assetCreates } });
   sites[key] = { key, name, substation, ofd, term };
-  console.log(`[seed-topology] ${name} — OFD(슬롯 4)${term ? ' · 송광치 1식' : ''}`);
+  console.log(`[seed-topology] ${name} — OFD(슬롯 4) · 광단말 A`);
 }
 
 // ── 구간 케이블 — 국과 국을 OPGW 로 잇는다 ──────────────────────────────────
@@ -209,63 +228,63 @@ for (const [aKey, aSlot, bKey, bSlot] of SEGMENTS) {
   console.log(`[seed-topology] OPGW  ${a.name}(슬롯${aSlot}) ⇄ ${b.name}(슬롯${bSlot})`);
 }
 
-// ── 통과 점퍼 — 중간 국에서 코어가 실제로 지나가게 한다 ─────────────────────
-/* `/reach` 는 케이블로 이어진 자산만 너비 우선으로 걷는다. 한 OFD 의 슬롯들은 같은
-   설비 밑 형제 자산일 뿐 서로 케이블로 이어져 있지 않으므로, 국 안에서 점퍼로 앞면끼리
-   잇지 않으면 BFS 가 그 국에서 멈춘다 — 어느 포트에서 추적해도 이웃 국 하나만 보이고
-   링·8자·구간공유·사슬이 그래프에 아예 안 잡힌다(서버 잘못이 아니라 시드가 통과 접속을
-   안 놓은 것). 슬롯을 순서대로 사슬처럼 이어 국 하나 안의 모든 방향을 한 덩어리로 묶는다.
-
-   T1·T2 는 이미 앞면 슬롯1·2 의 코어 1 을 장비로 뽑아 썼으므로(성단), 통과 점퍼는 코어 2 를
-   쓴다 — 포트가 겹치지 않는다. T3 만 코어 5 를 써서 「코어가 안 지나가는 국」을 만든다:
-   `/reach` 는 케이블만 보고 걸으므로 링을 한 바퀴 다 돌지만(코어 번호를 안 따짐), 광단말
-   A 의 코어 1 을 그대로 타고 가는 추적은 T3(정확히는 이미 코어 1 이 T1·T2 성단 안에서 끝나
-   있어 그보다 앞에서) 못 넘어가 T4 부터 마디만 서고 장비 목록이 빈다. */
-const BRIDGES = [
-  { key: 'T2', slots: [1, 2, 3], core: 2 },
-  { key: 'T3', slots: [1, 2, 3], core: 5 },
-  { key: 'T4', slots: [1, 2, 3, 4], core: 2 },
-  { key: 'T5', slots: [1, 2], core: 2 },
-  { key: 'T6', slots: [1, 2], core: 2 },
-  { key: 'T7', slots: [1, 2, 3], core: 2 },
-  { key: 'T8', slots: [1, 2], core: 2 },
-  { key: 'T9', slots: [1, 2, 3], core: 2 },
-  { key: 'T10', slots: [1, 2], core: 2 },
-  { key: 'T11', slots: [1, 2], core: 2 },
-  { key: 'T12', slots: [1, 2], core: 2 },
-  { key: 'T15', slots: [1, 2], core: 2 },
-  { key: 'T16', slots: [1, 2], core: 2 },
-];
-/* 사슬 가운데 슬롯은 앞·뒤 점퍼 둘을 받으므로 앞면 포트도 둘 필요하다(포트 하나엔 케이블
-   하나) — 「다음으로」는 core, 「이전으로」는 core+1 로 슬롯마다 서로 다른 포트를 쓴다. */
-for (const { key, slots, core } of BRIDGES) {
+// ── 국마다 장비의 광 포트를 방향 슬롯으로 뽑는다 ────────────────────────────
+/* 장비가 곧 통과 지점이다 — 국 안에서 슬롯끼리 잇는 통과 점퍼가 따로 필요 없다(파일 머리
+   주석 참고). 방향(=이 국이 잇는 이웃)마다 광단말 A 의 광 포트를 하나씩 그 슬롯의 코어 1
+   앞면에 꽂는다. 코어 1 은 어느 슬롯이든 이 점퍼 하나만 쓰므로(슬롯이 국마다 안 겹치듯
+   방향도 슬롯마다 하나) 국 사이에서 겹칠 일이 없다. */
+for (const key of STATION_KEYS) {
   const site = sites[key];
-  const creates = [];
-  for (let i = 0; i < slots.length - 1; i++) {
-    creates.push({
-      id: crypto.randomUUID(),
-      aPortId: at(site.ofd, `슬롯 ${slots[i]}`, 'FIBER', core + 1),
-      bPortId: at(site.ofd, `슬롯 ${slots[i + 1]}`, 'FIBER', core),
-      categoryId: JUMPER,
-      specParams: { lengthM: 3 },
-    });
-  }
+  const slots = directionsByStation[key] ?? [];
+  const creates = slots.map((slot, i) => ({
+    id: crypto.randomUUID(),
+    aPortId: at(site.ofd, `슬롯 ${slot}`, 'FIBER', 1),
+    bPortId: at(site.term, '광단말 A', 'FIBER', i + 1),
+    categoryId: JUMPER,
+    specParams: { lengthM: 15 },
+  }));
   await call(`/substations/${site.substation.id}/commit`, 'PUT', { cables: { creates } });
-  console.log(`[seed-topology] 통과 점퍼 — ${site.name} 슬롯 ${slots.join('-')} (코어 ${core})`);
+  console.log(`[seed-topology] 점퍼 — ${site.name} 슬롯 ${slots.join('·')} 앞면을 광단말 A 광 1~${slots.length} 로`);
 }
 
-// ── T1·T2 만 앞면 심선을 장비로 뽑는다 ──────────────────────────────────────
-/* 슬롯 1·2 는 곧 T1–T2 구간(평행 두 본)이므로, 그 앞면 코어를 광단말 A·B 로 이으면
-   「내 장비의 광 1」에서 추적을 걸었을 때 두 평행 구간이 각각 다른 장비 줄로 갈라져 보인다. */
-for (const key of [...WITH_EQUIPMENT]) {
-  const site = sites[key];
-  const jumpers = [
-    { id: crypto.randomUUID(), aPortId: at(site.ofd, '슬롯 1', 'FIBER', 1), bPortId: at(site.term, '광단말 A', 'FIBER', 1), categoryId: JUMPER, specParams: { lengthM: 15 } },
-    { id: crypto.randomUUID(), aPortId: at(site.ofd, '슬롯 2', 'FIBER', 1), bPortId: at(site.term, '광단말 B', 'FIBER', 1), categoryId: JUMPER, specParams: { lengthM: 15 } },
-  ];
-  await call(`/substations/${site.substation.id}/commit`, 'PUT', { cables: { creates: jumpers } });
-  console.log(`[seed-topology] 점퍼 — ${site.name} 앞면 슬롯1·2 심선을 광단말 A·B 로`);
+// ── T3 만 급행 심선 — 장비가 안 쓰는 코어로 국을 그냥 통과시킨다 ────────────
+/* 장비는 코어 1 만 썼다(위 루프). 코어 2 로 T3 의 서쪽(T2 쪽, 슬롯1)과 동쪽(T4 쪽, 슬롯2)
+   앞면을 직접 잇는다 — 장비를 안 거치므로 이 코어로 추적하면 T3 의 광단말 A 는 마디
+   목록에도 안 잡히고 T2·T4 가(간접적으로, 그 사이 어느 장비도 없이) 그대로 이어진다. */
+{
+  const t3 = sites['T3'];
+  await call(`/substations/${t3.substation.id}/commit`, 'PUT', {
+    cables: { creates: [{
+      id: crypto.randomUUID(),
+      aPortId: at(t3.ofd, '슬롯 1', 'FIBER', 2),
+      bPortId: at(t3.ofd, '슬롯 2', 'FIBER', 2),
+      categoryId: JUMPER,
+      specParams: { lengthM: 3 },
+    }] },
+  });
+  console.log(`[seed-topology] 급행 심선 — ${t3.name} 슬롯1↔슬롯2 코어2(장비를 안 거친다)`);
+}
+
+// ── T1 만 장비에 안 닿는 포트 — 성단은 됐지만 갈 곳이 없다 ──────────────────
+/* 슬롯 4 는 T1 의 어느 방향에도 안 쓰였다(방향 셋은 슬롯1·2·3). 그 앞면 코어1 을 슬롯1의
+   빈 코어(2)에 점퍼로 잇는다 — 케이블이 있어야 화면에 「추적」 버튼이 뜨므로 빈 포트가
+   아니라 성단된 포트로 남겨야 한다. 슬롯1 은 이미 링에 걸려 있으므로 `/reach` 는(자산
+   단위로 걷어) 이 포트에서 열어도 그 계통 장비를 그대로 보여 주지만, 이 포트 자신의
+   코어(슬롯1 코어2 → 슬롯4 코어1)는 그 어느 쪽도 장비로 안 나가 정규화가 실패한다. */
+{
+  const t1 = sites['T1'];
+  await call(`/substations/${t1.substation.id}/commit`, 'PUT', {
+    cables: { creates: [{
+      id: crypto.randomUUID(),
+      aPortId: at(t1.ofd, '슬롯 1', 'FIBER', 2),
+      bPortId: at(t1.ofd, '슬롯 4', 'FIBER', 1),
+      categoryId: JUMPER,
+      specParams: { lengthM: 3 },
+    }] },
+  });
+  console.log(`[seed-topology] 성단만 된 포트 — ${t1.name} 슬롯4 광1(슬롯1 코어2 로 성단, 장비엔 안 닿음)`);
 }
 
 console.log(`\n국 ${STATION_KEYS.length}개, 구간 케이블 ${SEGMENTS.length}본 — 이름은 모두 ${fullName('T*')}.`);
-console.log(`${fullName('T1')} 의 광단말 A 포트에서 추적 → 「토폴로지」 를 눌러 확인하세요.`);
+console.log(`${fullName('T1')} 의 광단말 A 광1 포트에서 추적 → 「토폴로지」 를 눌러 확인하세요.`);
+console.log(`장비에 안 닿는 포트 확인: ${fullName('T1')} 의 OFD 슬롯4 광1 포트.`);

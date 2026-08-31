@@ -114,6 +114,24 @@ describe('TopologyModal', () => {
     expect(box.querySelector('.text-xs')?.className).toMatch(/break-words/);
   });
 
+  /* 판정은 화면이 다시 계산하지 않는다 — `nodes` 에 `isSeed` 인 마디가 하나도 없으면
+     그 경우다(core 가 이미 정규화 실패를 그렇게 나타낸다, graph.test.ts 참고). */
+  describe('시드가 어느 장비에도 안 닿을 때', () => {
+    it('닿으면 안내가 없다', () => {
+      render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+      expect(screen.queryByText(/어느 장비에도/)).not.toBeInTheDocument();
+    });
+
+    it('안 닿으면 안내가 뜨고, 마디·줄은 그대로 선다', () => {
+      // a-front2 는 어느 케이블에도 안 물렸다 — 정규화가 실패해 isSeed 인 마디가 없다.
+      render(<TopologyModal open seedPortId="a-front2" onClose={() => {}} />);
+      expect(screen.getByText('이 포트는 아직 어느 장비에도 닿지 않습니다 — 아래는 같은 광 계통의 장비들입니다.')).toBeInTheDocument();
+      expect(screen.getByText('가단말')).toBeInTheDocument();
+      expect(screen.getByText('나단말')).toBeInTheDocument();
+      expect(document.body.querySelectorAll('svg line')).toHaveLength(1);
+    });
+  });
+
   describe('배율 — 판에 맞춰 그림을 줄인다(눈대중 상수 없이 식으로)', () => {
     it('판 크기를 잴 수 없으면(시험 환경) 배율은 1이다', () => {
       render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
