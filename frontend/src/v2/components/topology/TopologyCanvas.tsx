@@ -54,9 +54,12 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
      놓친다. */
   const [panelSize, setPanelSize] = useState<{ width: number; height: number } | null>(null);
   const detachPanel = useRef<(() => void) | null>(null);
+  /* 판 자체는 **옮긴 몫에 안 흔들린다** — 확대 기준을 여기서 잰다(아래 `onWheel` 참조). */
+  const panelEl = useRef<HTMLDivElement | null>(null);
   const panelRef = useCallback((node: HTMLDivElement | null) => {
     detachPanel.current?.();
     detachPanel.current = null;
+    panelEl.current = node;
     if (!node) return;
     const ro = new ResizeObserver((entries) => {
       const box = entries[0]?.contentRect;
@@ -87,16 +90,25 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
   const scale = fit * zoom;
 
   /* 휠은 **가리키는 자리를 붙든 채** 키운다 — 가운데를 기준으로 키우면 보고 있던 곳이
-     화면 밖으로 밀려나 매번 다시 찾아야 한다. 판 안에서만 먹고, 판 스크롤로 새지 않는다. */
+     화면 밖으로 밀려나 매번 다시 찾아야 한다.
+
+     가리킨 자리를 그림 좌표로 되돌린 뒤(`/scale`), 새 배율에서 그 점이 같은 화면 자리에
+     오도록 옮긴 몫을 다시 푼다. 기준으로 삼는 것은 **여백 상자**다 — 여백은 처음 맞춘 배율로
+     고정돼 있어(아래 `fit`) 키워도 안 움직이므로, 그것을 기준 삼아야 계산이 흔들리지 않는다. */
   const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const box = e.currentTarget.getBoundingClientRect();
-    const at = { x: e.clientX - box.left - pan.x, y: e.clientY - box.top - pan.y };
+    const box = panelEl.current?.getBoundingClientRect();
+    if (!box) return;
     const next = Math.min(4, Math.max(1, zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
     if (next === zoom) return;
-    const k = next / zoom;
+    /* 기준은 **판**에서 잰다. 여백 상자는 옮긴 몫(pan) 안에 들어 있어 이미 그만큼 움직여
+       있으므로, 거기서 재고 pan 을 또 빼면 두 번 세어 굴릴 때마다 기준이 밀린다
+       (사용자: 「실시간으로 계속 확대 기준값이 바뀌니까 어색하다」). */
+    const at = { x: e.clientX - box.left - gutter.left, y: e.clientY - box.top - gutter.top };
+    const inFigure = { x: (at.x - pan.x) / scale, y: (at.y - pan.y) / scale };
+    const nextScale = fit * next;
     setZoom(next);
-    setPan({ x: pan.x - at.x * (k - 1), y: pan.y - at.y * (k - 1) });
+    setPan({ x: at.x - inFigure.x * nextScale, y: at.y - inFigure.y * nextScale });
   };
 
   /* 끌어 옮기기 — 키운 뒤에는 판 밖으로 나간 데를 볼 길이 이것뿐이다. */
@@ -117,7 +129,10 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
      여백을 숫자로 계산해 두는 까닭은 그래야 시험이 그 값을 그대로 확인할 수 있어서다
      (flex 가운데 맞춤은 jsdom 에 배치가 없어 확인할 길이 없다). 배율이 늘 축소뿐이라
      그림은 판보다 클 수 없다 — 그래도 음수 여백은 막아 둔다. */
-  const stage = { width: width * scale, height: height * scale };
+  /* 여백은 **처음 맞춘 배율(fit)** 로만 잡는다 — 손으로 키운 몫까지 넣으면 키우는 순간
+     상자 크기와 여백이 함께 다시 계산돼 그림이 통째로 튄다(실제로 그랬다). 키운 몫은
+     여백을 건드리지 않고 옮긴 몫(pan)으로만 표현한다. */
+  const stage = { width: width * fit, height: height * fit };
   const gutter = panelSize
     ? {
       left: Math.max(0, (panelSize.width - stage.width) / 2),

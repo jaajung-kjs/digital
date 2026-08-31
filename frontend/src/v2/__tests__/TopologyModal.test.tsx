@@ -115,6 +115,11 @@ vi.mock('../hooks', () => ({
 
 /** `scale(0.73…)` 에서 숫자만 — 배율을 값으로 견주려고. */
 const scaleOf = (t: string) => parseFloat(/scale\(([\d.]+)\)/.exec(t)?.[1] ?? '1');
+/** `translate(12px, 34px)` 에서 두 수만. */
+const translateOf = (t: string) => {
+  const m = /translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(t);
+  return { x: parseFloat(m?.[1] ?? '0'), y: parseFloat(m?.[2] ?? '0') };
+};
 
 describe('TopologyModal', () => {
   it('장비가 마디로 선다 — 국 이름은 마디 안에 붙는다', () => {
@@ -270,20 +275,60 @@ describe('TopologyModal', () => {
        손으로 키울 수 있어야 한다. 휠은 가리키는 자리를 붙든 채 키운다(가운데 기준으로
        키우면 보고 있던 곳이 밖으로 밀려나 매번 다시 찾아야 한다). */
     it('휠을 굴리면 커지고, 가리킨 자리가 제자리에 남는다', () => {
+      /* 판 크기를 흉내 내야 「처음 맞춘 배율」이 1보다 작아지고 가운데 여백도 생긴다 —
+         그 여백이 배율에 딸려 다시 계산되면 키우는 순간 그림이 통째로 튄다(실제 버그). */
+      class FakeResizeObserver {
+        constructor(private cb: ResizeObserverCallback) {}
+        observe() {
+          this.cb([{ contentRect: { width: 400, height: 300 } } as ResizeObserverEntry],
+            this as unknown as ResizeObserver);
+        }
+        disconnect() {}
+        unobserve() {}
+      }
+      vi.stubGlobal('ResizeObserver', FakeResizeObserver);
       render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
       const panel = document.body.querySelector('[data-topo-gutter]')!.parentElement!.parentElement!;
       const stage = document.body.querySelector('[data-topo-stage]') as HTMLElement;
       const before = stage.style.transform;
 
-      fireEvent.wheel(panel, { deltaY: -100, clientX: 100, clientY: 100 });
-      const after = (document.body.querySelector('[data-topo-stage]') as HTMLElement).style.transform;
-      expect(after).not.toBe(before);
-      expect(scaleOf(after)).toBeCloseTo(scaleOf(before) * 1.1, 6);
+      /* 여백 상자는 화면에서 (0,0) 에 있다고 두고(jsdom 은 배치가 없어 모두 0이다),
+         (100,100) 을 가리켜 키운다. 그 자리에 있던 **그림 좌표**가 키운 뒤에도 같은 화면
+         자리에 있어야 한다 — 그러지 않으면 그림이 엉뚱한 데로 튄다. */
+      const gutter = () => document.body.querySelector('[data-topo-gutter]') as HTMLElement;
+      const panLayer = () => gutter().parentElement as HTMLElement;
+      const stageEl = () => document.body.querySelector('[data-topo-stage]') as HTMLElement;
+      /* 그림 좌표 한 점이 화면 어디에 오는가 — 판(jsdom 에서 0) + 여백 + 옮긴 몫 + 배율.
+         「가리킨 자리가 제자리에 남는다」는 이 값으로만 정직하게 잴 수 있다. */
+      const screenOf = (fx: number) =>
+        parseFloat(gutter().style.marginLeft) + translateOf(panLayer().style.transform).x
+        + fx * scaleOf(stageEl().style.transform);
+
+      const at = 100;
+      const anchor = (at - parseFloat(gutter().style.marginLeft)
+        - translateOf(panLayer().style.transform).x) / scaleOf(before);
+
+      const frameBefore = `${gutter().style.width}/${gutter().style.height}/${gutter().style.marginLeft}/${gutter().style.marginTop}`;
+
+      /* **여러 번 굴린다.** 한 번만 보면 기준이 조금씩 밀리는 것을 못 잡는다 — 사용자가
+         본 것이 그것이다(「실시간으로 계속 확대 기준값이 바뀌니까 어색하다」). */
+      for (let i = 0; i < 3; i++) {
+        fireEvent.wheel(panel, { deltaY: -100, clientX: at, clientY: at });
+        expect(screenOf(anchor)).toBeCloseTo(at, 6);
+      }
+      const after = stageEl().style.transform;
+      expect(scaleOf(after)).toBeCloseTo(scaleOf(before) * 1.1 ** 3, 6);
+
+      /* 여백 상자는 **꿈쩍도 하지 않아야** 한다 — 그것이 배율에 딸려 다시 계산되면 키우는
+         순간 그림이 통째로 튄다. 키운 몫은 옮긴 몫(pan)으로만 표현한다. */
+      expect(`${gutter().style.width}/${gutter().style.height}/${gutter().style.marginLeft}/${gutter().style.marginTop}`)
+        .toBe(frameBefore);
 
       /* 되돌리는 자리가 생긴다 — 끌다 길을 잃으면 여기서 처음으로 돌아온다. */
       const reset = screen.getByRole('button', { name: '맞춰 보기' });
       fireEvent.click(reset);
       expect((document.body.querySelector('[data-topo-stage]') as HTMLElement).style.transform).toBe(before);
+      vi.unstubAllGlobals();
     });
 
     /* 배율은 한 축만 꽉 채운다 — 다른 축에는 반드시 여백이 남는데, 그걸 그냥 두면 그림이
