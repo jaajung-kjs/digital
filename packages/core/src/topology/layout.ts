@@ -151,53 +151,52 @@ function blocks(group: readonly string[], neighbors: Map<string, string[]>): str
 }
 
 /**
- * 원 위에 놓을 차례 — **한 바퀴 도는 길**을 찾는다.
+ * 원 위에 놓을 차례 — **둘레에 실제 구간이 가장 많이 놓이는 차례**.
  *
- * 고리에 현이 끼면(급행 패치처럼 두 국을 질러가는 구간) 아무렇게나 걸었을 때 정작 고리를
- * 이루던 구간이 대각선으로 그려진다 — 실측으로 4각 고리의 네 변 중 둘이 그렇게 됐다.
- * 모든 마디를 한 번씩 밟고 제자리로 돌아오는 길을 찾으면 그 길이 곧 원의 둘레가 되고,
- * 현은 원을 가로지르는 선으로 남는다.
+ * 고리에 현이 끼면(급행 패치처럼 질러가는 구간) 아무렇게나 걸었을 때 정작 고리를 이루던
+ * 구간이 대각선으로 그려진다 — 실측으로 4각 고리의 네 변 중 둘이 그랬다. 한 바퀴 도는 길이
+ * 있으면 그것이 답이고(둘레 점수가 마디 수와 같다), 없으면(두 국 사이에 갈래가 셋인 모양처럼)
+ * **가장 많이 이어지는 차례**가 답이다 — 그때 남는 것만 현으로 가로지른다.
  *
- * 그런 길이 없거나(고리가 얽혀 한 바퀴로 못 도는 모양) 찾는 데 너무 오래 걸리면, 이웃을
- * 따라 걸을 수 있는 만큼 걷는다 — 그때 생기는 건너뜀도 그 자리에 실제로 있는 구간이다.
+ * 되짚어 가며 찾되 걸음 수에 뚜껑을 씌운다. 뚜껑에 걸리면 그때까지 찾은 것 중 가장 좋은
+ * 차례를 쓴다 — 이웃부터 시도하므로 첫 갈래가 곧 「이웃을 따라 걷기」이고, 그보다 나쁠 수 없다.
  */
 function walkOrder(ring: readonly string[], neighbors: Map<string, string[]>): string[] {
-  return roundTrip(ring, neighbors) ?? greedyWalk(ring, neighbors);
-}
-
-/** 되짚어 가며 한 바퀴 도는 길을 찾는다. 걸음 수에 뚜껑을 씌워 늘 끝난다. */
-function roundTrip(ring: readonly string[], neighbors: Map<string, string[]>): string[] | null {
-  const start = ring[0]!;
+  const n = ring.length;
   const inRing = new Set(ring);
-  const path = [start];
-  const seen = new Set([start]);
+  const linked = (a: string, b: string) => (neighbors.get(a) ?? []).includes(b);
+  const perimeter = (order: readonly string[]) =>
+    order.reduce((sum, id, i) => sum + (linked(id, order[(i + 1) % n]!) ? 1 : 0), 0);
+
+  let best = [...ring];
+  let bestScore = -1;
   let steps = 0;
+  const path: string[] = [];
+  const used = new Set<string>();
 
-  const step = (): boolean => {
-    if (steps++ > 20000) return false; // 촘촘한 덩어리에서 끝없이 되짚지 않게
-    const cur = path[path.length - 1]!;
-    if (path.length === ring.length) return (neighbors.get(cur) ?? []).includes(start);
-    for (const next of neighbors.get(cur) ?? []) {
-      if (!inRing.has(next) || seen.has(next)) continue;
-      path.push(next); seen.add(next);
-      if (step()) return true;
-      path.pop(); seen.delete(next);
+  const walk = (): void => {
+    if (steps++ > 20000 || bestScore === n) return;
+    if (path.length === n) {
+      const score = perimeter(path);
+      if (score > bestScore) { bestScore = score; best = [...path]; }
+      return;
     }
-    return false;
+    const cur = path[path.length - 1];
+    /* 이웃부터 — 둘레에 구간을 놓는 길이 먼저 나온다. 그 다음이 건너뛰기(현이 된다). */
+    const near = cur == null ? [] : (neighbors.get(cur) ?? []).filter((k) => inRing.has(k));
+    for (const id of [...new Set([...near, ...ring])]) {
+      if (used.has(id)) continue;
+      used.add(id); path.push(id);
+      walk();
+      path.pop(); used.delete(id);
+      if (bestScore === n) return;
+    }
   };
-  return step() ? path : null;
-}
 
-function greedyWalk(ring: readonly string[], neighbors: Map<string, string[]>): string[] {
-  const rest = new Set(ring);
-  const out: string[] = [];
-  let cur = ring[0]!;
-  for (;;) {
-    rest.delete(cur);
-    out.push(cur);
-    if (rest.size === 0) return out;
-    cur = (neighbors.get(cur) ?? []).find((k) => rest.has(k)) ?? ring.find((id) => rest.has(id))!;
-  }
+  /* 첫 마디는 고정해도 된다 — 원 위의 차례는 돌려 놓아도 같은 그림이다. */
+  used.add(ring[0]!); path.push(ring[0]!);
+  walk();
+  return best;
 }
 
 /**
