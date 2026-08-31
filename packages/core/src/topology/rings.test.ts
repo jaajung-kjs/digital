@@ -92,6 +92,20 @@ describe('detectRings', () => {
     for (const r of rings) expect(r.nodeIds.length).toBe(r.edgeIds.length);
   });
 
+  /* 두 마디 사이에 갈래가 셋이면 XOR 은 그중 넷으로 이뤄진 **멀쩡한 단일 순환**을 낸다.
+     그런데 그 순환은 다섯째 마디를 안 덮는다 — 그러면 배치가 그 마디를 가지로 뻗고, 그
+     가지의 줄이 반대편 허브 상자를 관통한다(실측). 제 묶음을 다 덮지 못하는 것은
+     바깥 테두리가 아니다. */
+  it('대링이 제 묶음의 마디를 다 덮지 못하면 내지 않는다', () => {
+    const rings = detectRings([
+      e('1', 'A', 'B'), e('2', 'B', 'C'),
+      e('3', 'C', 'D'), e('4', 'D', 'A'),
+      e('5', 'A', 'E'), e('6', 'E', 'C'),
+    ]);
+    expect(rings.filter((r) => r.level === 1)).toHaveLength(0);
+    expect(rings.filter((r) => r.level === 0).length).toBeGreaterThan(0);
+  });
+
   it('같은 입력이면 같은 답 — 링 id 까지', () => {
     const edges = [e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A')];
     expect(detectRings(edges)).toEqual(detectRings(edges));

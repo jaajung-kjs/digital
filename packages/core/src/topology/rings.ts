@@ -236,8 +236,17 @@ export function detectRings(edges: readonly TopoEdge[]): Ring[] {
        * 다 덮었는지(edgesWalked === outerEdgeIds.length)로 그걸 검사한다 — 못 덮었으면
        * 그릴 원이 없다는 뜻이므로 대링을 내지 않고 소링만 남긴다(빈 테두리도 이 검사에
        * 자연히 걸린다). 배치는 그때 소링들을 공유 마디에서 접하게 놓는다.
+       *
+       * 간선을 다 덮어도 **마디**를 다 덮는다는 보장은 없다 — 허브 둘 사이에 갈래가
+       * 셋이면 XOR 은 그중 넷으로 이뤄진 멀쩡한 단일 순환을 내지만, 다섯째 갈래의
+       * 마디는 그 순환에 안 든다. 대링이 제 소링 묶음의 마디를 다 못 덮으면 그 마디는
+       * 나중에 가지로 뻗어 나오고, 그 가지의 줄이 원 반대편 마디를 관통한다(실측). 제
+       * 묶음을 다 덮지 못하는 것은 바깥 테두리가 아니므로 이때도 대링을 내지 않는다.
        */
-      if (outerEdgeIds.length > 0 && edgesWalked === outerEdgeIds.length) {
+      const groupNodeIds = new Set(cycleIndices.flatMap((idx) => fundamentals[idx]!.nodeIds));
+      const coversGroupNodes = [...groupNodeIds].every((id) => outerNodeIds.includes(id));
+
+      if (outerEdgeIds.length > 0 && edgesWalked === outerEdgeIds.length && coversGroupNodes) {
         counter++;
         rings.push({
           id: `ring-${counter}`,
