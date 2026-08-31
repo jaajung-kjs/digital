@@ -1958,3 +1958,136 @@ npm run build
 - [ ] **시험 시드를 걷을지 정한다**
 
 `토폴로지-T*` 20개국은 개발용이다. 남길지 걷을지는 사람이 정한다 — `node backend/scripts/seed-topology-cases.mjs --clean` 으로 걷는다.
+
+---
+
+## Task 8: 마디는 장비다 — OPGW 는 매체이지 마디가 아니다
+
+**왜 바꾸나** (사용자 지적, 2026-08-31): 한 변전소에도 OPGW 경로가 여럿이고, **같은 슬롯 안에서도
+장비마다 다른 링을 탄다** — 광단말 A 는 춘천으로, B 는 서홍천으로 갈 수 있다. 그러니 「같은 변전소 =
+같은 링」이 아니다. 마디를 국으로 잡으면 서로 무관한 링들이 한 마디에 붙어 섞인다. **OPGW 자체를
+추적하는 것은 뜻이 없고, 실제 장비에 물린 포트만 추적해야 한다.**
+
+**Files:**
+- Modify: `packages/core/src/topology/types.ts`
+- Modify: `packages/core/src/topology/graph.ts`
+- Modify: `packages/core/src/topology/graph.test.ts`
+- Modify: `frontend/src/v2/components/topology/TopologyModal.tsx` (호출부)
+
+**Interfaces:**
+- Consumes: `buildTraceGraph`·`traceFrom` from `../trace/graph.js`, `isMultiCorePort`
+- Produces: `buildTopologyGraph(input, seedPortId) → { nodes, edges, litEdgeIds }` — **`hops` 인자가 없어진다**(안에서 필요한 만큼 직접 뜬다)
+
+**말이 바뀐다**
+
+```ts
+/** 마디 = **장비** 하나. 경로슬롯은 마디가 아니다 — 코어가 지나가는 자리일 뿐이다. */
+export interface TopoNode {
+  /** 장비 자산 id */
+  id: string;
+  name: string;
+  /** 이 장비를 담은 설비 — 「광단말 A」는 송광치마다 하나씩 있다. */
+  assemblyName: string | null;
+  /** 어느 국의 장비인가 */
+  substationName: string;
+  /** 그 국에 층이 둘 이상일 때만 채운다. */
+  floorName: string | null;
+  /** 추적을 시작한 포트가 달린 장비인가 — 「여기」를 도드라지게 둔다. */
+  isSeed: boolean;
+}
+
+/** 줄 = 장비와 장비를 잇는 **광 경로 한 구간**. 그 사이 슬롯·OPGW·통과 점퍼가 몇이든 한 줄이다. */
+export interface TopoEdge {
+  /** 양끝 포트 id 를 정렬해 붙인 것 — 같은 두 포트를 잇는 길은 하나다. */
+  id: string;
+  /** 장비 자산 id 둘 */
+  source: string;
+  target: string;
+  /** 양끝 포트 이름 — 줄에 물으면 나온다(`광 1 ↔ 광 3`). */
+  sourcePortName: string;
+  targetPortName: string;
+}
+```
+
+`TopoMember` 는 **삭제한다**(마디 안에 목록이 없다). `TopologyInput.ports` 에 `group`·`index`·`direction`
+을 더한다(추적 그래프를 세우는 데 필요하다 — `V2Reach` 는 이미 갖고 있다).
+
+**어떻게 세우나 — 휴리스틱 없이**
+
+- **장비인가**: 그 자산의 포트 중 **다심이 하나도 없으면** 장비다. 다심을 가졌으면 경로슬롯(지나가는
+  자리)이다. 이름·품목코드로 묻지 않는다 — `isMultiCorePort` 하나로 갈린다.
+- **줄**: 이어진 범위 안 **모든 장비의 단심 광 포트**에서 `traceFrom` 을 떠, 그 길이 닿은 **다른 장비의
+  포트**를 찾는다. 광 장비는 안으로 통하는 길이 없어(`derivedLinks`) 추적이 첫 장비에서 멈추므로,
+  한 포트당 상대는 0개 아니면 1개다. 양끝에서 같은 줄을 두 번 찾으므로 **정렬한 포트 쌍**을 id 로 삼아
+  겹치지 않게 담는다. 두 장비가 코어 둘로 이어져 있으면 포트 쌍이 다르므로 **줄도 둘**이다(이중화).
+- **`litEdgeIds`**: 시드 포트가 만든 줄. 코어 하나는 장비 둘을 잇는 길이므로 보통 한 줄이다.
+
+**Steps**
+
+- [ ] **Step 1: 시험을 먼저 고친다 (`graph.test.ts`)** — 기존 시험 여덟은 마디가 국이라는 전제 위에
+  서 있으므로 이 태스크에서 **뜻이 바뀐다.** 아래 표대로 다시 쓴다. 픽스처(`station`/`merge`)는 그대로
+  쓰되 포트에 `group`·`index`·`direction` 을 더한다.
+
+| 시험 | 무엇을 지키나 |
+|---|---|
+| 마디는 장비뿐 — 경로슬롯은 마디가 아니다 | `a단말`·`b단말` 둘만 마디, `a슬롯`·`b슬롯`은 없다 |
+| 줄은 장비와 장비를 잇는다 — 슬롯·OPGW 를 지나도 한 줄 | 줄 하나, 양끝이 `a단말`·`b단말` |
+| 코어 둘로 이어지면 줄도 둘 | 앞면 2심을 다 이으면 줄 둘, 포트 쌍이 다르다 |
+| 같은 국의 두 장비도 마디 둘이고 줄 하나다 | 국이 아니라 장비가 마디임을 못 박는다 |
+| 아무 데도 안 닿는 장비는 마디로만 선다 | 성단 안 된 장비 — 줄 없이 마디만 |
+| 시드 장비에 표가 붙는다 | `isSeed` |
+| 국 이름·설비 이름·층 이름이 마디에 붙는다 | 층은 그 국에 층이 둘 이상일 때만 |
+| `litEdgeIds` 는 시드 포트가 만든 줄 | 다른 줄은 안 켜진다 |
+
+- [ ] **Step 2: RED 확인** — `npx vitest run --root packages/core src/topology/graph.test.ts`
+- [ ] **Step 3: `graph.ts` 를 다시 쓴다** (위 규칙대로)
+- [ ] **Step 4: GREEN 확인** — 같은 명령
+- [ ] **Step 5: 호출부를 고친다** — `TopologyModal.tsx` 에서 `buildTraceGraph`/`traceFrom` 을 직접 부르던
+  것을 없애고 `buildTopologyGraph(data, seedPortId)` 하나로 바꾼다(추적은 이제 core 안에서 일어난다).
+- [ ] **Step 6: 전체 확인** — `npx vitest run --root packages/core` → `npm run build -w @twin/core` →
+  `npx vitest run --root frontend` → `npm run build`
+- [ ] **Step 7: 커밋** (경로를 지정해 add)
+
+```bash
+git commit -m "feat(topology): 마디는 장비다 — 한 국에서도 장비마다 다른 링을 탄다"
+```
+
+---
+
+## Task 9: 한눈에 — 그림에 맞춘 뷰포트, 잘리지 않는 이름
+
+**왜**: 지금 캔버스는 배율이 고정이라 링이 커지면 스크롤해야 하고(한눈에 안 들어옴), 마디 이름이
+`truncate` 로 잘린다. 사용자 지적: **「…으로 생략된 경로도 다 보이게, 절대 휴리스틱 없이 optimal 하게.」**
+
+**Files:**
+- Modify: `frontend/src/v2/components/topology/TopologyCanvas.tsx`
+- Modify: `frontend/src/v2/__tests__/TopologyModal.test.tsx`
+
+**Steps**
+
+- [ ] **Step 1: 시험을 고친다** — 마디 안 목록(`OFD - 슬롯`)이 없어지고 장비 이름·국 이름이 서는 것,
+  그리고 **배율이 그림 크기에서 계산되어 나오는 것**을 단언한다. 배율은 눈대중이 아니라 식으로 나온다:
+
+```
+scale = min(1, 판 너비 / 그림 너비, 판 높이 / 그림 높이)
+```
+
+  그림 너비·높이는 좌표의 최소·최대에 **마디 상자 크기와 여백**을 더한 것이다(마디는 좌표를 가운데로
+  놓이므로 양쪽에 상자 절반씩이 더 필요하다). 축소만 하고 확대는 하지 않는다(`min(1, …)`) — 마디 셋
+  짜리 그림을 크게 늘리면 글자만 커지고 읽을 것이 늘지 않는다.
+
+- [ ] **Step 2: RED 확인** — `npx vitest run --root frontend src/v2/__tests__/TopologyModal.test.tsx`
+- [ ] **Step 3: 캔버스를 고친다**
+  - 마디: **장비 이름**(`text-sm`) 위에 **국 · 설비**(`text-xs`, 흐리게). `truncate` 를 **없앤다** —
+    길면 접어서 다 보인다(`break-words`). 층 이름은 core 가 채워 줬을 때만 앞에 붙인다.
+  - 판 전체를 `transform: scale(scale)` 로 줄인다(`transform-origin: top left`). 좌표·상자 크기는
+    그대로 두고 **보는 배율만** 바꾼다 — 배치 계산을 화면이 다시 하지 않는다.
+  - 판 크기는 `ResizeObserver` 로 잰다. 잴 수 없으면(시험 환경) 배율 1 로 둔다.
+- [ ] **Step 4: GREEN 확인** — 같은 명령
+- [ ] **Step 5: 브라우저 확인** — `토폴로지-T1`·`T7`·`T14` 에서 열어 ① 그림이 스크롤 없이 한눈에
+  들어오는지 ② 마디에 「OFD - 슬롯」이 없고 장비·국만 있는지 ③ 이름이 `…` 로 잘리지 않는지
+- [ ] **Step 6: 전체 확인 + 커밋**
+
+```bash
+git commit -m "feat(topology): 한눈에 — 그림에 맞춘 배율, 잘리지 않는 이름, 마디는 장비와 국만"
+```
