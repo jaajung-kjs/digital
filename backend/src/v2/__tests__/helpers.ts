@@ -39,7 +39,7 @@ export function authHeader(role: 'admin' | 'viewer' = 'admin'): string {
  *   소속 변전소 이름에도 같은 prefix 를 붙여야 회수된다(카테고리명만 prefix면 잔존).
  */
 export async function sweepTestFixtures(): Promise<void> {
-  const nameStartsWith = ['t4-cb-', 't2a-', 't5-rc-', 't6-bg-'];
+  const nameStartsWith = ['t4-cb-', 't2a-', 't5-rc-', 't6-bg-', 't7-rh-'];
   const keyStartsWith = ['TEST_'];
 
   // 1. cables (substation name prefix 경유)

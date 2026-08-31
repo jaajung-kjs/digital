@@ -9,6 +9,7 @@ import { nodesRouter } from './nodes.routes.js';
 import { orderRouter } from './order.routes.js';
 import { orgRouter } from './org.routes.js';
 import { photosRouter } from './photos.routes.js';
+import { reachRouter } from './reach.routes.js';
 import { searchRouter } from './search.routes.js';
 import { standardsRouter } from './standards.routes.js';
 import { workingcopyRouter } from './workingcopy.routes.js';
@@ -28,6 +29,7 @@ v2Router.use('/', orgRouter);
 v2Router.use('/', workingcopyRouter);
 v2Router.use('/', commitRouter);
 v2Router.use('/', nodesRouter);
+v2Router.use('/', reachRouter);
 v2Router.use('/', searchRouter);
 v2Router.use('/', standardsRouter);
 
