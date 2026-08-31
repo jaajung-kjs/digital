@@ -50,13 +50,15 @@ function outerRings(rings: readonly Ring[]): Ring[] {
 }
 
 function adjacency(nodes: readonly TopoNode[], edges: readonly TopoEdge[]): Map<string, string[]> {
-  const map = new Map<string, string[]>(nodes.map((n) => [n.id, []]));
+  const sets = new Map<string, Set<string>>(nodes.map((n) => [n.id, new Set<string>()]));
   for (const e of edges) {
-    map.get(e.source)?.push(e.target);
-    map.get(e.target)?.push(e.source);
+    sets.get(e.source)?.add(e.target);
+    sets.get(e.target)?.add(e.source);
   }
-  /* 차례를 못 박는다 — 같은 자료면 같은 그림이어야 한다. */
-  for (const list of map.values()) list.sort();
+  /* 평행 구간(이중화 케이블 쌍)은 정상 입력이다 — 이웃 목록에 두 번 담으면 부채꼴 몫이
+     틀어지니 마디 하나당 한 번만 센다. 차례는 못 박는다 — 같은 자료면 같은 그림이어야 한다. */
+  const map = new Map<string, string[]>();
+  for (const [id, set] of sets) map.set(id, [...set].sort());
   return map;
 }
 
@@ -75,7 +77,7 @@ function placeRing(ring: Ring, pos: Map<string, Point>): void {
   /* 이미 놓인 마디를 공유한다 — 그 점에서 접하게. 중심을 바깥쪽으로 반지름만큼 밀고,
      공유 마디가 제자리에 오도록 시작각을 맞춘다. */
   const p = pos.get(anchor)!;
-  const dir = outward(p, pos);
+  const dir = outward(anchor, pos);
   const center = { x: p.x + dir.x * radius, y: p.y + dir.y * radius };
   const start = Math.atan2(p.y - center.y, p.x - center.x);
   placeOnCircle(rotateToFirst(ids, anchor), center, radius, start, pos);
@@ -93,10 +95,13 @@ function placeOnCircle(
 }
 
 /** 이 마디에서 **밖으로** 가는 방향 — 이미 놓인 것들의 무게중심 반대편. */
-function outward(p: Point, pos: Map<string, Point>): Point {
+function outward(id: string, pos: Map<string, Point>): Point {
+  const p = pos.get(id)!;
   let sx = 0, sy = 0, n = 0;
-  for (const q of pos.values()) {
-    if (q.x === p.x && q.y === p.y) continue;
+  /* 좌표가 아니라 id 로 나를 거른다 — 좌표가 같은 두 마디가 있으면(부채꼴이 좁아 겹친
+     경우) 좌표 비교는 둘 다 걸러 무게중심을 오염시킨다. */
+  for (const [qid, q] of pos) {
+    if (qid === id) continue;
     sx += q.x; sy += q.y; n++;
   }
   if (n === 0) return { x: 1, y: 0 };
@@ -117,45 +122,65 @@ function maxX(pos: Map<string, Point>): number {
   return m === -Infinity ? 0 : m;
 }
 
-/** 링에 안 든 마디 — 놓인 이웃에서 부채꼴로 뻗는다. */
+/**
+ * 링에 안 든 마디 — 놓인 이웃에서 부채꼴로 뻗는다.
+ *
+ * 덩어리(뿌리 하나에서 이어지는 마디들)마다 뿌리를 새로 고른다 — 링으로 이미 놓인 덩어리를
+ * 다 뻗고 나서도 자리를 못 얻은 마디가 남으면, 그것은 다른(끊어진) 덩어리다. 뿌리를 처음
+ * 한 번만 고르면 그 뒤에 남는 덩어리는 이웃 관계를 통째로 잃고 한 줄로 흩뿌려지므로, 안
+ * 놓인 마디가 없어질 때까지 이 과정을 반복한다.
+ */
 function placeBranches(
   nodes: readonly TopoNode[], neighbors: Map<string, string[]>, pos: Map<string, Point>,
 ): void {
-  const remaining = nodes.filter((n) => !pos.has(n.id));
-  if (remaining.length === 0) return;
+  let queue = [...pos.keys()];
 
-  if (pos.size === 0) {
-    /* 링이 하나도 없다 — 이웃이 가장 많은 마디를 뿌리로(같으면 id 차례). */
+  for (;;) {
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      const kids = (neighbors.get(id) ?? []).filter((k) => !pos.has(k));
+      if (kids.length === 0) continue;
+
+      const base = pos.get(id)!;
+      const dir = outward(id, pos);
+      const baseAngle = Math.atan2(dir.y, dir.x);
+      const weights = kids.map((k) => subtreeLeaves(k, id, neighbors, pos));
+      const total = weights.reduce((a, b) => a + b, 0);
+
+      const angles: number[] = [];
+      let acc = 0;
+      for (const w of weights) {
+        const share = w / total;
+        angles.push(baseAngle - BRANCH_SPREAD / 2 + (acc + share / 2) * BRANCH_SPREAD);
+        acc += share;
+      }
+      /* 잎 수 몫대로 각만 나누면 형제가 많을수록 사이가 좁아져 NODE_GAP 아래로 겹친다.
+         가장 좁은 틈에서 거리가 NODE_GAP 이 되도록 부채꼴 전체의 반지름을 밀어낸다 —
+         ringRadius 와 같은 셈법이다. 가지가 하나뿐이면 틈이랄 것이 없으니 부채꼴 폭
+         전체를 틈으로 본다. */
+      const minGap = angles.length < 2
+        ? BRANCH_SPREAD
+        : Math.min(...angles.slice(1).map((a, i) => a - angles[i]!));
+      const radius = Math.max(NODE_GAP, NODE_GAP / (2 * Math.sin(minGap / 2)));
+
+      kids.forEach((k, i) => {
+        pos.set(k, { x: base.x + radius * Math.cos(angles[i]!), y: base.y + radius * Math.sin(angles[i]!) });
+        queue.push(k);
+      });
+    }
+
+    const remaining = nodes.filter((n) => !pos.has(n.id));
+    if (remaining.length === 0) return;
+
+    /* 이 덩어리는 다 뻗었는데 아직 못 놓인 마디가 있다 — 다른 덩어리(또는 줄이 하나도
+       없는 외딴 국)다. 이웃이 가장 많은 것을 새 뿌리로(같으면 id 차례) 이미 그린 것
+       오른쪽에 놓고 또 뻗는다. */
     const root = [...remaining].sort(
       (a, b) => (neighbors.get(b.id)?.length ?? 0) - (neighbors.get(a.id)?.length ?? 0)
         || (a.id < b.id ? -1 : 1),
     )[0]!;
-    pos.set(root.id, { x: 0, y: 0 });
-  }
-
-  const queue = [...pos.keys()];
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    const kids = (neighbors.get(id) ?? []).filter((k) => !pos.has(k));
-    if (kids.length === 0) continue;
-    const base = pos.get(id)!;
-    const dir = outward(base, pos);
-    const baseAngle = Math.atan2(dir.y, dir.x);
-    const weights = kids.map((k) => subtreeLeaves(k, id, neighbors, pos));
-    const total = weights.reduce((a, b) => a + b, 0);
-    let acc = 0;
-    kids.forEach((k, i) => {
-      const share = weights[i]! / total;
-      const angle = baseAngle - BRANCH_SPREAD / 2 + (acc + share / 2) * BRANCH_SPREAD;
-      acc += share;
-      pos.set(k, { x: base.x + NODE_GAP * Math.cos(angle), y: base.y + NODE_GAP * Math.sin(angle) });
-      queue.push(k);
-    });
-  }
-
-  /* 어느 덩어리에도 안 붙은 마디(줄이 하나도 없는 국) — 오른쪽에 나란히 세운다. */
-  for (const node of nodes) {
-    if (!pos.has(node.id)) pos.set(node.id, { x: maxX(pos) + NODE_GAP, y: 0 });
+    pos.set(root.id, pos.size === 0 ? { x: 0, y: 0 } : { x: maxX(pos) + NODE_GAP, y: 0 });
+    queue = [root.id];
   }
 }
 

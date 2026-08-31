@@ -86,6 +86,42 @@ describe('computeLayout', () => {
     expect(pos.get('A')).toEqual({ x: 0, y: 0 });
   });
 
+  /* 폭을 고정하면 가지가 다섯만 되어도 형제 사이가 NODE_GAP 아래로 좁아진다 —
+     몫은 그대로 두고 부채꼴 전체를 밀어내야 한다. */
+  it('한 마디에 가지가 여섯이어도 겹치지 않는다', () => {
+    const kids = ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'];
+    const edges = kids.map((k, i) => e(`${i}`, 'H', k));
+    const pos = computeLayout([n('H'), ...kids.map(n)], edges, []);
+    expect(pos.size).toBe(7);
+    noOverlap(pos);
+  });
+
+  /* 뿌리를 한 번만 고르면 두 번째 덩어리는 이웃 관계가 통째로 버려진다. */
+  it('끊어진 덩어리가 둘이면 각각 제 이웃대로 놓인다', () => {
+    const edges = [e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'D', 'E'), e('4', 'E', 'F')];
+    const pos = computeLayout(['A', 'B', 'C', 'D', 'E', 'F'].map(n), edges, []);
+    expect(pos.size).toBe(6);
+    /* 이어진 두 마디는 NODE_GAP 만큼 떨어져 선다 — 한 줄로 흩뿌려진 것이 아니다. */
+    expect(dist(pos.get('D')!, pos.get('E')!)).toBeCloseTo(NODE_GAP, 6);
+    expect(dist(pos.get('E')!, pos.get('F')!)).toBeCloseTo(NODE_GAP, 6);
+    noOverlap(pos);
+  });
+
+  /* 두 국 사이 구간이 두 본이면 이웃 목록에 같은 마디가 두 번 들어간다 — 그러면 형제
+     전부의 몫이 틀어져, 무게가 같은 B 와 C 가 대칭으로 서지 않는다. */
+  it('평행 구간이 있어도 형제의 부채꼴 몫이 틀어지지 않는다', () => {
+    const edges = [e('1', 'A', 'B'), e('2', 'A', 'B'), e('3', 'A', 'C')];
+    const pos = computeLayout(['A', 'B', 'C'].map(n), edges, []);
+    const b = pos.get('B')!;
+    const c = pos.get('C')!;
+    expect(b.x).toBeCloseTo(c.x, 6);
+    expect(b.y).toBeCloseTo(-c.y, 6);
+  });
+
+  it('빈 입력이면 빈 답', () => {
+    expect(computeLayout([], [], []).size).toBe(0);
+  });
+
   it('같은 입력이면 같은 좌표 — 그림이 열 때마다 달라지지 않는다', () => {
     const edges = [e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A'), e('4', 'C', 'X')];
     const nodes = ['A', 'B', 'C', 'X'].map(n);
