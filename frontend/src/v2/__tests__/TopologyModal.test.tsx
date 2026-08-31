@@ -65,4 +65,30 @@ describe('TopologyModal', () => {
     render(<TopologyModal open={false} seedPortId="a-dev1" onClose={() => {}} />);
     expect(screen.queryByText('가국')).not.toBeInTheDocument();
   });
+
+  /* 공용 `Modal` 은 포털이라 여기도 body 에서 찾는다(위 주석 참조). */
+  it('마디 상자가 좌표에 놓이고 서로 겹치지 않는다', () => {
+    render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+    const boxes = [...document.body.querySelectorAll('[data-topo-node]')];
+    expect(boxes).toHaveLength(2);
+    const at = boxes.map((b) => (b as HTMLElement).style.transform);
+    expect(new Set(at).size).toBe(2);
+  });
+
+  /* 코어가 지나간 줄만 굵다 — 강조는 두 단계뿐이다. */
+  it('내 코어가 간 구간만 강조된다', () => {
+    render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+    const lit = document.body.querySelectorAll('line[data-lit="true"]');
+    expect(lit).toHaveLength(1);
+  });
+
+  it('줄에 대고 물으면 양끝 경로슬롯 이름이 나온다', () => {
+    render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+    expect(document.body.querySelector('line title')?.textContent).toBe('가슬롯 ↔ 나슬롯');
+  });
+
+  it('층 이름은 층이 둘 이상인 국에만 — 여기서는 안 나온다', () => {
+    render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+    expect(screen.queryByText('1층')).not.toBeInTheDocument();
+  });
 });
