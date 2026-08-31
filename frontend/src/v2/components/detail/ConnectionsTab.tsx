@@ -38,6 +38,7 @@ import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portKind,
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
+import { TopologyModal } from '../topology/TopologyModal';
 import type { V2Asset, V2Cable, V2Port } from '../../types';
 import { PortFaceplate, type PortState } from './PortFaceplate';
 import type { CablePickRequest } from '../../cablePick';
@@ -130,6 +131,8 @@ export function ConnectionsTab({
   /* 어느 포트에서 추적을 걸었나 — 결과를 **그 포트 밑**에 펴기 위해.
      `TraceResult` 는 출발 포트를 담지 않는다(평면도 강조가 쓰는 형상이라 그럴 이유도 없다). */
   const [tracedPortId, setTracedPortId] = useState<string | null>(null);
+  /* 토폴로지는 **추적을 한 뒤에만** 열 수 있다 — 그릴 시드가 있어야 한다. */
+  const [topologyOpen, setTopologyOpen] = useState(false);
   /* 케이블 품목을 고치는 중인 가닥 — 읽는 줄이 기본이고, 고칠 때만 상자가 선다. */
   const [editingCableId, setEditingCableId] = useState<string | null>(null);
   /* 펼친 장비 — 아래 `openPartId` 가 이 값을 「첫 장비」·「접힘」으로 풀어 읽는다. */
@@ -782,9 +785,14 @@ export function ConnectionsTab({
                           <span className="text-xs font-medium text-content-muted">
                             {traceTree.children.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
                           </span>
-                          <Button variant="secondary" size="sm" onClick={clearTrace}>
-                            지우기
-                          </Button>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button variant="secondary" size="sm" onClick={() => setTopologyOpen(true)}>
+                              토폴로지
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={clearTrace}>
+                              지우기
+                            </Button>
+                          </div>
                         </div>
                         {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다. */}
                         {traceTree.children.length > 0 && (
@@ -837,6 +845,12 @@ export function ConnectionsTab({
         </p>
       )}
       {confirmDialog}
+      <TopologyModal
+        open={topologyOpen}
+        seedPortId={tracedPortId}
+        seedLabel={tracedPortId ? traceLabel(tracedPortId).primary : undefined}
+        onClose={() => setTopologyOpen(false)}
+      />
     </div>
   );
 }

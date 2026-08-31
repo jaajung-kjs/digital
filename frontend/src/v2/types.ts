@@ -199,6 +199,27 @@ export interface V2Workingcopy {
   substation: { id: string; name: string; branchId: string; sortOrder: number };
   floors: V2Floor[]; assets: V2Asset[]; maintenanceLogs: V2MaintenanceLog[]; inspectionLogs: V2InspectionLog[]; cables: V2Cable[]; photos: V2AssetPhoto[];
 }
+/**
+ * 이 포트에서 케이블로 이어진 것 전부 — `POST /api/v2/reach` 의 답.
+ *
+ * 워킹카피와 달리 **국 경계가 없다**. 토폴로지는 추적이 못 넘던 그 바깥을 그리는 일이라
+ * 대국 자산이 있어야 한다.
+ */
+export interface V2Reach {
+  substations: { id: string; name: string }[];
+  floors: { id: string; name: string; substationId: string }[];
+  assets: {
+    id: string; name: string; typeId: string | null;
+    parentAssetId: string | null; substationId: string; floorId: string | null;
+  }[];
+  ports: {
+    id: string; assetId: string; group: string; index: number;
+    name: string; medium: string; direction: 'IN' | 'OUT' | 'BI'; positions: number;
+  }[];
+  cables: { id: string; aPortId: string; bPortId: string; categoryId: string | null }[];
+  /** 컴포넌트가 한계를 넘어 잘렸는가 — 그림이 「일부만」임을 알린다. */
+  truncated: boolean;
+}
 export interface V2NodeAssetRow {
   id: string; name: string; status: string; updatedAt: string; substationId: string; substationName: string;
   typeKey: string; typeName: string; parentAssetId: string | null; parentName: string | null; floorId: string | null;

@@ -14,6 +14,7 @@ import {
   fetchCatalog,
   fetchNodeAssets,
   fetchOrgTree,
+  fetchReach,
   fetchStandards,
   fetchWageRates,
   patchCategory,
@@ -47,6 +48,21 @@ export function useV2NodeAssets(nodeId: string | null) {
     staleTime: 30_000,
   });
 }
+/**
+ * 이어진 것 전부 — **모달이 열릴 때만** 부른다.
+ *
+ * 국 경계를 넘는 조회라 워킹카피보다 무겁다. 상세 패널을 여는 것만으로 이걸 부르면
+ * 아무도 안 볼 그림을 매번 계산하는 셈이다.
+ */
+export function useReach(portId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['v2', 'reach', portId],
+    queryFn: () => fetchReach(portId!),
+    enabled: enabled && portId != null,
+    staleTime: 30_000,
+  });
+}
+
 export function useTypesById(types: V2AssetType[] | undefined): Map<string, V2AssetType> {
   return useMemo(() => new Map((types ?? []).map((t) => [t.id, t])), [types]);
 }

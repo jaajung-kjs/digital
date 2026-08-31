@@ -1,7 +1,7 @@
 import { isAxiosError } from 'axios';
 import { httpClient as api } from './httpClient';
 import type { BackgroundDrawing } from '@twin/core';
-import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+import type { AssemblyUpsertBody, TypeUpsertBody, V2CableGroup, V2Catalog, V2OverheadStandard, V2Standard, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Reach, V2Workingcopy } from './types';
 
 /**
  * 검색으로 찾은 자산 — **이 도면 밖의 끝점**을 고를 때 쓴다.
@@ -39,6 +39,9 @@ export async function fetchWorkingcopy(substationId: string): Promise<V2Workingc
 }
 export async function fetchNodeAssets(nodeId: string): Promise<V2NodeAssetRow[]> {
   return (await api.get(`/v2/nodes/${nodeId}/assets`)).data;
+}
+export async function fetchReach(portId: string): Promise<V2Reach> {
+  return (await api.post('/v2/reach', { portId })).data;
 }
 /**
  * 저장 — 워킹 카피를 통째로 보낸다. **사진 파일도 이 요청에 실린다.**
