@@ -75,6 +75,23 @@ describe('detectRings', () => {
     expect(rotations.some((r) => r.join() === ids.join())).toBe(true);
   });
 
+  /* 링이 셋 이상 한 마디에서 만나면 테두리가 단일 순환이 아니다 — 그릴 원이 없으므로
+     대링을 내지 않는다. 한때 걷기가 시작점으로 먼저 돌아오며 멈춰, 간선은 열둘인데 마디는
+     여섯만 담긴 대링이 **오류 없이** 나왔다. */
+  it('링 셋이 한 허브에서 만나면 대링을 내지 않는다', () => {
+    /* A와 Z 를 잇는 마디가 안 겹치는 경로 넷 — 소링 셋이 A·Z 를 공유한다. */
+    const paths = [['P1'], ['P2'], ['P3'], ['P4']];
+    const edges = paths.flatMap((mid, i) => [
+      e(`${i}a`, 'A', mid[0]!),
+      e(`${i}b`, mid[0]!, 'Z'),
+    ]);
+    const rings = detectRings(edges);
+    expect(rings.filter((r) => r.level === 1)).toHaveLength(0);
+    expect(rings.filter((r) => r.level === 0).length).toBeGreaterThan(0);
+    /* 낸 링은 무엇이든 마디와 간선이 아귀가 맞아야 한다. */
+    for (const r of rings) expect(r.nodeIds.length).toBe(r.edgeIds.length);
+  });
+
   it('같은 입력이면 같은 답 — 링 id 까지', () => {
     const edges = [e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A')];
     expect(detectRings(edges)).toEqual(detectRings(edges));

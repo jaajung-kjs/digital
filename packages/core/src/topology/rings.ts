@@ -213,6 +213,7 @@ export function detectRings(edges: readonly TopoEdge[]): Ring[] {
 
       const outerNodeIds: string[] = [];
       const usedPairKeys = new Set<string>();
+      let edgesWalked = 0;
       const startId = outerEdgeIds.length > 0 ? edgeMap.get(outerEdgeIds[0]!)!.source : null;
       if (startId) {
         let cur = startId;
@@ -223,18 +224,29 @@ export function detectRings(edges: readonly TopoEdge[]): Ring[] {
           );
           if (next === undefined) break;
           usedPairKeys.add(pairKey(cur, next));
+          edgesWalked++;
           cur = next;
         } while (cur !== startId);
       }
 
-      counter++;
-      rings.push({
-        id: `ring-${counter}`,
-        nodeIds: outerNodeIds,
-        edgeIds: outerEdgeIds,
-        level: 1,
-        childRingIds: childIds,
-      });
+      /*
+       * 「테두리는 각 마디의 차수가 2인 순환」은 소링이 둘일 때만 참이다. 소링 셋 이상이
+       * 한 마디(허브)에서 만나면 XOR 결과에서 그 마디 차수가 4 이상이 되고, 걷기가
+       * 시작 마디로 먼저 돌아오며 멈춰 나머지 간선·마디를 못 담는다. 걷기가 XOR 간선을
+       * 다 덮었는지(edgesWalked === outerEdgeIds.length)로 그걸 검사한다 — 못 덮었으면
+       * 그릴 원이 없다는 뜻이므로 대링을 내지 않고 소링만 남긴다(빈 테두리도 이 검사에
+       * 자연히 걸린다). 배치는 그때 소링들을 공유 마디에서 접하게 놓는다.
+       */
+      if (outerEdgeIds.length > 0 && edgesWalked === outerEdgeIds.length) {
+        counter++;
+        rings.push({
+          id: `ring-${counter}`,
+          nodeIds: outerNodeIds,
+          edgeIds: outerEdgeIds,
+          level: 1,
+          childRingIds: childIds,
+        });
+      }
     }
   }
 
