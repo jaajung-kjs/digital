@@ -491,6 +491,23 @@ describe('detectRings', () => {
     expect(rotations.some((r) => r.join() === ids.join())).toBe(true);
   });
 
+  /* 링이 셋 이상 한 마디에서 만나면 테두리가 단일 순환이 아니다 — 그릴 원이 없으므로
+     대링을 내지 않는다. 한때 걷기가 시작점으로 먼저 돌아오며 멈춰, 간선은 열둘인데 마디는
+     여섯만 담긴 대링이 **오류 없이** 나왔다. */
+  it('링 셋이 한 허브에서 만나면 대링을 내지 않는다', () => {
+    /* A와 Z 를 잇는 마디가 안 겹치는 경로 넷 — 소링 셋이 A·Z 를 공유한다. */
+    const paths = [['P1'], ['P2'], ['P3'], ['P4']];
+    const edges = paths.flatMap((mid, i) => [
+      e(`${i}a`, 'A', mid[0]!),
+      e(`${i}b`, mid[0]!, 'Z'),
+    ]);
+    const rings = detectRings(edges);
+    expect(rings.filter((r) => r.level === 1)).toHaveLength(0);
+    expect(rings.filter((r) => r.level === 0).length).toBeGreaterThan(0);
+    /* 낸 링은 무엇이든 마디와 간선이 아귀가 맞아야 한다. */
+    for (const r of rings) expect(r.nodeIds.length).toBe(r.edgeIds.length);
+  });
+
   it('같은 입력이면 같은 답 — 링 id 까지', () => {
     const edges = [e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A')];
     expect(detectRings(edges)).toEqual(detectRings(edges));
@@ -539,12 +556,19 @@ export function detectRings(edges: readonly TopoEdge[]): Ring[];
   옛 코드는 `outerNodeIds` 를 Set 으로 모았는데 그러면 차례가 간선 목록 차례일 뿐이다.
   배치가 그 차례대로 원 위에 놓으므로, 도는 차례가 아니면 줄이 서로를 가로지른다.
   걷는 법: 테두리 간선으로 인접 목록을 만들고, 아무 마디에서 시작해 「아직 안 쓴 간선」을
-  따라 제자리로 돌아올 때까지 걷는다(테두리는 각 마디의 차수가 2인 순환이다)
+  따라 제자리로 돌아올 때까지 걷는다.
+- **걷고 나서 「단일 순환이었나」를 검사한다 — 아니면 그 묶음은 대링을 내지 않는다.**
+  「테두리는 차수 2인 순환」은 소링이 **둘**일 때만 참이다. 링이 셋 이상 한 마디에서 만나면
+  XOR 결과에서 그 마디의 차수가 4가 되고, 걷기는 시작점으로 먼저 돌아오며 멈춰 나머지를
+  통째로 빠뜨린다(마디가 안 겹치는 네 경로로 재현: 간선 12개인데 마디 6개만 담겼다).
+  대링은 **원을 하나 그리려고** 있는 것이므로, 그릴 원이 없으면 없다고 말하는 것이 답이다 —
+  걷기가 XOR 간선을 다 덮지 못했으면 그 묶음은 소링만 낸다. 배치는 소링들을 공유 마디에서
+  접하게 놓는다. (테두리 간선이 아예 없는 경우도 같은 검사에 걸린다.)
 
 - [ ] **Step 4: 시험이 통과하는지 본다**
 
 Run: `npx vitest run --root packages/core src/topology/rings.test.ts`
-Expected: PASS (7 tests)
+Expected: PASS (9 tests)
 
 - [ ] **Step 5: 내보내고 빌드한다**
 
