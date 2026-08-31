@@ -104,3 +104,22 @@ describe('시드 포트 그룹은 어휘가 내놓는 것뿐', () => {
     }
   });
 });
+
+/*
+ * **직종은 시드가 정하지 않는다** — 대장이 저장하는 것은 직종 **코드**이고, 이름과 단가는
+ * 노임단가 판이 정한다. 새 배포에는 그 판이 아직 없으므로 시드가 무엇을 적어 두든 어떤
+ * 판과도 안 맞아 「지금 기준에 없는 직종입니다」 경고만 깔린다(실제로 품목 47개가 그랬다).
+ * 비워 두면 화면이 「— 없음 —」으로 서고 노임단가를 먼저 올리라고 말한다 — 그게 사실이다.
+ */
+describe('직종은 노임단가를 올린 뒤에 고른다', () => {
+  it('장비 품목은 직종을 갖지 않는다 — 공량·자재비는 그대로다', () => {
+    expect(SEED_ASSET_TYPES.every((t) => t.labor.laborCode === null)).toBe(true);
+    /* 셈이 도는 모습은 남아야 한다 — 값이 전부 0이면 산출 내역이 무슨 화면인지 알 수 없다. */
+    expect(SEED_ASSET_TYPES.some((t) => t.labor.installManDays > 0)).toBe(true);
+  });
+
+  it('케이블 품목도 직종을 갖지 않는다', () => {
+    expect(SEED_CABLE_CATEGORIES.every((c) => c.laborCode === null)).toBe(true);
+    expect(SEED_CABLE_CATEGORIES.some((c) => (c.unitPrice ?? 0) > 0)).toBe(true);
+  });
+});

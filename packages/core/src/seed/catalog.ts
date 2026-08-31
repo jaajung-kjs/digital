@@ -8,10 +8,22 @@ export const SEED_CATEGORIES = [
   { key: '공조', name: '공조', sortOrder: 4 },
 ] as const;
 
-/* 품셈은 **종류마다** 다르다. 같은 광이라도 OPGW 는 외선 가공이고 점퍼코드는 실내 결선이다.
-   예전에는 그룹이 하나로 뭉쳐 갖고 있어 그 차이가 설계서에서 사라졌다. */
-const 내선 = '통신내선공';
-const 외선 = '통신외선공';
+/*
+ * **직종은 비워 둔다** — 노임단가를 아직 안 올린 상태가 배포 직후의 참모습이기 때문이다.
+ *
+ * 예전에는 여기에 「통신내선공」·「통신외선공」을 적어 두었다. 그런데 대장이 저장하는 것은
+ * **직종 코드**이고 이름은 노임단가 판에서 읽는다(`useWageCatalog`) — 이름을 코드 자리에
+ * 넣어 두면 어떤 판과도 안 맞아, 품목마다 「지금 기준에 없는 직종입니다」 경고가 떴다.
+ * 노임 자료가 하나도 없는 새 배포에서는 그 경고가 서른 줄 넘게 깔린다.
+ *
+ * 비워 두면 화면이 「— 없음 —」으로 서고 「기준정보에서 노임단가를 먼저 올리세요」라고
+ * 말한다 — 그것이 그때의 사실이다. 공량과 자재비는 그대로 두므로 산출 내역은 계속 돈다.
+ * 직종은 노임단가를 올린 뒤 품목 화면에서 고른다.
+ *
+ * (품셈이 종류마다 다르다는 것 자체는 그대로다 — 같은 광이라도 OPGW 는 외선 가공이고
+ *  점퍼코드는 실내 결선이다. 그 구분은 직종을 고를 때 사람이 짚는다.)
+ */
+const 직종없음 = null;
 
 /**
  * 품셈은 **임시값이다** — 실제 표준품셈·자재단가로 갈아 끼울 자리다.
@@ -23,7 +35,7 @@ const 외선 = '통신외선공';
  * 값은 통신내선공 기준의 어림수다. 확정 전에는 이 표만 고치면 된다 — 화면·서버는 손대지 않는다.
  */
 const labor = (installManDays: number, removeManDays: number, relocateManDays: number, unitPrice: number | null) =>
-  ({ laborCode: 내선, unitPrice, installManDays, removeManDays, relocateManDays });
+  ({ laborCode: 직종없음, unitPrice, installManDays, removeManDays, relocateManDays });
 
 export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   // ── 구 role: slot ──
@@ -568,7 +580,7 @@ export interface SeedCableCategory {
   name: string;
   sortOrder: number;
   /** 이 종류의 품셈 — 미터당. 설계서 공량의 근거다(품셈 × 길이). */
-  laborCode: string;
+  laborCode: string | null;
   /** 자재단가(원/m) — 자산 종류와 같은 뜻이다. 이 값도 임시값이다(`labor` 주석 참고). */
   unitPrice: number;
   installManDays: number;
@@ -576,28 +588,28 @@ export interface SeedCableCategory {
 }
 
 export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
-  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1, laborCode: 내선, unitPrice: 4_800, installManDays: 0.03,  removeManDays: 0.015 },
-  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2, laborCode: 내선, unitPrice: 6_200, installManDays: 0.035, removeManDays: 0.018 },
-  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3, laborCode: 내선, unitPrice: 3_900, installManDays: 0.03,  removeManDays: 0.015 },
-  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4, laborCode: 내선, unitPrice: 900, installManDays: 0.02,  removeManDays: 0.01  },
-  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5, laborCode: 내선, unitPrice: 700, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1, laborCode: 직종없음, unitPrice: 4_800, installManDays: 0.03,  removeManDays: 0.015 },
+  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2, laborCode: 직종없음, unitPrice: 6_200, installManDays: 0.035, removeManDays: 0.018 },
+  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3, laborCode: 직종없음, unitPrice: 3_900, installManDays: 0.03,  removeManDays: 0.015 },
+  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4, laborCode: 직종없음, unitPrice: 900, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5, laborCode: 직종없음, unitPrice: 700, installManDays: 0.02,  removeManDays: 0.01  },
   /* 광 4종은 한 그룹이다. 점퍼코드만 한 가닥에 한 심이고 나머지 셋은 다심인데, 그 구분은
      **포트의 심선 수**(`positions`)가 하지 케이블 품목이 하지 않는다 — 케이블에는 심선 수
      필드가 아예 없다. 종류는 무엇을 깔았는지를 적는 이름일 뿐이다. */
-  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 외선, unitPrice: 12_000, installManDays: 0.06,  removeManDays: 0.03  },
-  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborCode: 외선, unitPrice: 3_400, installManDays: 0.06,  removeManDays: 0.03  },
-  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8, laborCode: 외선, unitPrice: 5_600, installManDays: 0.06,  removeManDays: 0.03  },
-  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9, laborCode: 내선, unitPrice: 2_100, installManDays: 0.04,  removeManDays: 0.02  },
-  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10, laborCode: 내선, unitPrice: 1_500, installManDays: 0.02, removeManDays: 0.01 },
-  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11, laborCode: 내선, unitPrice: 2_600, installManDays: 0.02, removeManDays: 0.01 },
+  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 직종없음, unitPrice: 12_000, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborCode: 직종없음, unitPrice: 3_400, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8, laborCode: 직종없음, unitPrice: 5_600, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9, laborCode: 직종없음, unitPrice: 2_100, installManDays: 0.04,  removeManDays: 0.02  },
+  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10, laborCode: 직종없음, unitPrice: 1_500, installManDays: 0.02, removeManDays: 0.01 },
+  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11, laborCode: 직종없음, unitPrice: 2_600, installManDays: 0.02, removeManDays: 0.01 },
   // 제어케이블은 제어 그룹이다 — 예전에는 전원 그룹에 들어가 있어, 제어 포트에 물릴 수 있는
   // 케이블 품목이 하나도 없었다(포트 종류와 케이블 그룹이 어긋난 자리).
-  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12, laborCode: 내선, unitPrice: 2_800, installManDays: 0.025, removeManDays: 0.012 },
-  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13, laborCode: 내선, unitPrice: 1_200, installManDays: 0.02,  removeManDays: 0.01  },
-  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14, laborCode: 내선, unitPrice: 2_400, installManDays: 0.025, removeManDays: 0.012 },
-  { groupKey: 'control', name: '동축케이블',            sortOrder: 15, laborCode: 내선, unitPrice: 3_100, installManDays: 0.025, removeManDays: 0.012 },
-  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16, laborCode: 내선, unitPrice: 1_800, installManDays: 0.02,  removeManDays: 0.01  },
-  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17, laborCode: 내선, unitPrice: 2_200, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12, laborCode: 직종없음, unitPrice: 2_800, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13, laborCode: 직종없음, unitPrice: 1_200, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14, laborCode: 직종없음, unitPrice: 2_400, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'control', name: '동축케이블',            sortOrder: 15, laborCode: 직종없음, unitPrice: 3_100, installManDays: 0.025, removeManDays: 0.012 },
+  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16, laborCode: 직종없음, unitPrice: 1_800, installManDays: 0.02,  removeManDays: 0.01  },
+  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17, laborCode: 직종없음, unitPrice: 2_200, installManDays: 0.025, removeManDays: 0.012 },
 ];
 
 /**
