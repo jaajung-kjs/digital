@@ -74,25 +74,34 @@ const parallelReach: V2Reach = {
   truncated: false,
 };
 
-/* 패치 전용 픽스처 — 가운데 국(나국)을 그냥 지나가도록 이어 놓은 심선. 장비가 하나도
-   없으므로 마디는 양끝 슬롯이고, 줄은 가운데 국을 건너뛴 **직결** 하나다. */
+/* 패치 전용 픽스처 — 앞국 단말 ⇄ (가운데국을 그냥 지나) ⇄ 뒷국 단말. 가운데국에서는
+   슬롯끼리 점퍼로 물려 통과하므로 그 국은 마디가 아니고, 줄 하나에 「가운데국 (패치)」만
+   적힌다. */
 const patchReach: V2Reach = {
   substations: [{ id: 'p1', name: '앞국' }, { id: 'p2', name: '가운데국' }, { id: 'p3', name: '뒷국' }],
   floors: [],
   assets: [
+    { id: 'pda', name: '앞단말', typeId: null, parentAssetId: null, substationId: 'p1', floorId: null },
     { id: 'pa', name: '앞슬롯', typeId: null, parentAssetId: null, substationId: 'p1', floorId: null },
     { id: 'pw', name: '가운데서', typeId: null, parentAssetId: null, substationId: 'p2', floorId: null },
     { id: 'pe', name: '가운데동', typeId: null, parentAssetId: null, substationId: 'p2', floorId: null },
     { id: 'pc', name: '뒷슬롯', typeId: null, parentAssetId: null, substationId: 'p3', floorId: null },
+    { id: 'pdc', name: '뒷단말', typeId: null, parentAssetId: null, substationId: 'p3', floorId: null },
   ],
-  ports: ['pa', 'pw', 'pe', 'pc'].flatMap((id) => [
-    { id: `${id}-f1`, assetId: id, group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI' as const, positions: 1 },
-    { id: `${id}-t`, assetId: id, group: 'TRUNK', index: 1, name: 'OPGW', medium: 'fiber', direction: 'BI' as const, positions: 2 },
-  ]),
+  ports: [
+    ...['pa', 'pw', 'pe', 'pc'].flatMap((id) => [
+      { id: `${id}-f1`, assetId: id, group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI' as const, positions: 1 },
+      { id: `${id}-t`, assetId: id, group: 'TRUNK', index: 1, name: 'OPGW', medium: 'fiber', direction: 'BI' as const, positions: 2 },
+    ]),
+    { id: 'pda-1', assetId: 'pda', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI' as const, positions: 1 },
+    { id: 'pdc-1', assetId: 'pdc', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI' as const, positions: 1 },
+  ],
   cables: [
+    { id: 'j1', aPortId: 'pda-1', bPortId: 'pa-f1', categoryId: null },
     { id: 'opgw-1', aPortId: 'pa-t', bPortId: 'pw-t', categoryId: null },
     { id: 'patch', aPortId: 'pw-f1', bPortId: 'pe-f1', categoryId: null },
     { id: 'opgw-2', aPortId: 'pe-t', bPortId: 'pc-t', categoryId: null },
+    { id: 'j2', aPortId: 'pc-f1', bPortId: 'pdc-1', categoryId: null },
   ],
   truncated: false,
 };
@@ -177,11 +186,11 @@ describe('TopologyModal', () => {
   /* 국을 그냥 지나가도록 패치된 심선은 가운데 국을 건너뛴 **직결**로 선다. 장비끼리 이은
      길과 뜻이 다르니 무엇으로 이었는지를 줄 위에 적는다(사용자: 「직결할 때 패치한 포트
      내용을 간단하게 적어주면 되잖아, 엣지에」). */
-  it('패치로만 이어진 줄에는 무엇으로 이었는지가 줄 위에 적힌다', () => {
+  it('패치로 지나간 국이 줄 위에 적힌다', () => {
     vi.mocked(useReach).mockReturnValueOnce({ data: patchReach, isLoading: false, error: null } as never);
-    render(<TopologyModal open seedPortId="pa-f1" onClose={() => {}} />);
+    render(<TopologyModal open seedPortId="pda-1" onClose={() => {}} />);
     const labels = [...document.body.querySelectorAll('svg text')].map((t) => t.textContent);
-    expect(labels).toContain('패치 광 1 ↔ 광 1');
+    expect(labels).toContain('가운데국 (패치)');
     /* 장비끼리 이은 줄에는 글자를 안 단다 — 그림이 글자로 덮인다. */
     expect(labels).toHaveLength(1);
   });

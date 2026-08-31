@@ -69,6 +69,33 @@ export function buildTopologyGraph(
     return null;
   };
 
+  /**
+   * 이 길이 **패치로 지나간 국**들 — 장비를 거치지 않고 남의 국 성단끼리 물려 통과한 자리.
+   *
+   * 1번 국 광단말이 3번 국 광단말과 이어질 때 가운데 2번 국을 그냥 지나간다면, 그 국에는
+   * 슬롯끼리 물린 점퍼가 하나 있다. 그림에서 2번 국은 마디가 아니지만(장비를 안 거쳤으므로)
+   * 「이 길은 2번을 거쳐 간다」는 사실은 남아야 한다 — 줄에 작게 적는다.
+   *
+   * 「패치인가」는 이름이 아니라 케이블의 양끝으로 묻는다: 단심 광 포트 둘이 서로 물렸고
+   * 그 자산이 둘 다 장비가 아니면 성단끼리 이은 것, 곧 패치다.
+   */
+  const patchedThroughSubstations = (hops: readonly TraceHop[], untilPortId: string): string[] => {
+    const names: string[] = [];
+    for (const h of hops) {
+      if (h.kind === 'cable') {
+        const from = portById.get(h.fromPortId);
+        const to = portById.get(h.toPortId);
+        if (isSingleFiber(from) && isSingleFiber(to)
+          && !isEquipment(from.assetId) && !isEquipment(to.assetId)) {
+          const sub = subById.get(assetById.get(from.assetId)?.substationId ?? '')?.name;
+          if (sub && !names.includes(sub)) names.push(sub);
+        }
+      }
+      if (h.toPortId === untilPortId) break; // 그 장비에 닿으면 이 길은 끝이다
+    }
+    return names;
+  };
+
   /*
    * 시드를 장비 포트로 정규화한다 — 사용자는 경로슬롯의 앞면·OPGW 포트에서도 추적을
    * 띄울 수 있다(`ConnectionsTab`), 그런데 「장비」는 여기서 마디의 뜻이므로 시드 표시·
@@ -92,9 +119,11 @@ export function buildTopologyGraph(
     if (!isEquipment(asset.id)) continue;
     for (const port of portsByAsset.get(asset.id) ?? []) {
       if (port.medium !== 'fiber' || isMultiCorePort(port.positions)) continue;
-      const reachedPortId = reachedEquipmentPortId(traceFrom(traceGraph, port.id), asset.id);
+      const hops = traceFrom(traceGraph, port.id);
+      const reachedPortId = reachedEquipmentPortId(hops, asset.id);
       if (!reachedPortId) continue;
       const reachedPort = portById.get(reachedPortId)!;
+      const via = patchedThroughSubstations(hops, reachedPortId);
       /* 줄의 id 는 정렬한 **포트** 쌍으로 정한다 — 양끝에서 같은 줄을 두 번 찾으므로
          겹치지 않게 담으려면 포트 쌍이 갈라야 맞다(같은 장비 쌍을 코어 둘로 이으면
          포트 쌍은 둘, id 도 둘이어야 한다).
@@ -109,63 +138,17 @@ export function buildTopologyGraph(
       if (!edgeByKey.has(key)) {
         edgeByKey.set(key, {
           id: key, source: p1.assetId, target: p2.assetId,
-          sourcePortName: p1.name, targetPortName: p2.name, isPatch: false,
+          sourcePortName: p1.name, targetPortName: p2.name, viaSubstationNames: via,
         });
       }
       if (port.id === normalizedSeedPortId) litKeys.add(key);
     }
   }
 
-  /*
-   * ── 패치로만 이어지는 길 ──────────────────────────────────────────────────
-   *
-   * 국을 그냥 지나가도록 패치된 심선(급행)은 양끝이 장비가 아니라 남의 국 성단이다. 장비만
-   * 마디로 세우면 그런 길이 화면에서 통째로 사라진다 — 실재하는 연결인데도.
-   *
-   * **안 쓴 심선과는 갈라야 한다.** OPGW 24심 중 한 심선만 성단하면 나머지 스물셋도 「장비가
-   * 없는 사슬」이지만 그건 그냥 비어 있는 것이다(실측 252개). 가르는 것은 이름이 아니라
-   * 선언이다: 사슬 안에 **슬롯끼리 물린 점퍼**가 있으면 누군가 일부러 이어 놓은 길이고,
-   * 없으면 안 쓴 심선이다.
-   *
-   * 끝은 「더 갈 데가 없는 성단 포트」다. 한쪽이 캄캄한 OPGW 로 죽으면(성단 안 된 대국) 끝이
-   * 하나뿐이므로 줄로 세우지 않는다 — 그건 어디와 어디를 잇는 길이 아니다.
-   */
-  const patchEndAssetIds = new Set<string>();
-  const walked = new Set<string>();
-  for (const c of input.cables) {
-    const a = portById.get(c.aPortId);
-    const b = portById.get(c.bPortId);
-    if (!isSingleFiber(a) || !isSingleFiber(b)) continue;
-    if (isEquipment(a.assetId) || isEquipment(b.assetId)) continue; // 장비가 물린 점퍼는 위에서 다뤘다
-    if (walked.has(a.id)) continue;
-
-    const chain = [a.id, ...traceFrom(traceGraph, a.id).map((h) => h.toPortId)];
-    for (const id of chain) walked.add(id);
-    if (chain.some((id) => { const p = portById.get(id); return p && isEquipment(p.assetId); })) continue;
-
-    const ends = chain.filter((id) => isSingleFiber(portById.get(id)) && !cabled.has(id));
-    if (ends.length !== 2) continue;
-    const e1 = portById.get(ends[0]!)!;
-    const e2 = portById.get(ends[1]!)!;
-    const [k1, k2] = e1.id < e2.id ? [e1, e2] : [e2, e1];
-    const [p1, p2] = e1.assetId < e2.assetId ? [e1, e2] : [e2, e1];
-    const key = `${k1.id}\0${k2.id}`;
-    patchEndAssetIds.add(p1.assetId);
-    patchEndAssetIds.add(p2.assetId);
-    if (!edgeByKey.has(key)) {
-      edgeByKey.set(key, {
-        id: key, source: p1.assetId, target: p2.assetId,
-        sourcePortName: p1.name, targetPortName: p2.name, isPatch: true,
-      });
-    }
-    /* 시드가 이 사슬 위에 있으면(장비에 못 닿아 정규화가 실패한 그 경우다) 이 줄이 「내 길」이다. */
-    if (chain.includes(seedPortId)) litKeys.add(key);
-  }
-
-  // ── 마디 — 이 망에 걸린 장비 전부 + 패치가 끝나는 자리. 시드가 맨 앞, 나머지는 이름 차례. ──
+  // ── 마디 — 이 망에 걸린 장비 전부. 시드 장비가 맨 앞, 나머지는 이름 차례. ──────────────
   const seedAssetId = normalizedSeedPortId ? portById.get(normalizedSeedPortId)?.assetId ?? null : null;
   const nodes: TopoNode[] = input.assets
-    .filter((a) => isEquipment(a.id) || patchEndAssetIds.has(a.id))
+    .filter((a) => isEquipment(a.id))
     .map((a) => ({
       id: a.id,
       name: a.name,
@@ -175,7 +158,6 @@ export function buildTopologyGraph(
         ? floorById.get(a.floorId ?? '')?.name ?? null
         : null,
       isSeed: a.id === seedAssetId,
-      isPatchEnd: !isEquipment(a.id),
     }))
     .sort((a, b) => (a.isSeed ? -1 : b.isSeed ? 1 : a.name.localeCompare(b.name)));
 

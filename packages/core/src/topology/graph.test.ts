@@ -114,73 +114,67 @@ describe('buildTopologyGraph', () => {
   });
 
   /*
-   * 국을 그냥 지나가도록 패치된 심선(급행)은 양끝이 장비가 아니라 남의 국 성단이다.
-   * 장비만 마디로 세우면 그런 길이 화면에서 통째로 사라진다 — 실재하는 연결인데도
-   * (사용자 지적: 「그냥 패치로만 이어지는 경로도 화면에 표시했으면 좋겠어」).
+   * **패치로 지나간 국** — 1번 국 광단말이 3번 국 광단말과 이어지면서 가운데 2번 국을 그냥
+   * 지나간다면(그 국에서 슬롯끼리 점퍼로 물려 통과), 2번은 장비를 안 거쳤으니 마디가 아니다.
+   * 그래도 「이 길은 2번을 거쳐 간다」는 사실은 남아야 한다 — 줄에 적는다.
    *
-   * 안 쓴 심선과는 갈라야 한다: OPGW 24심 중 하나만 성단하면 나머지도 「장비 없는 사슬」이지만
-   * 그건 그냥 비어 있는 것이다(실측 252개). 가르는 것은 **슬롯끼리 물린 점퍼**의 유무다.
+   * 「패치인가」는 이름이 아니라 케이블의 양끝으로 묻는다: 단심 광 포트 둘이 서로 물렸고
+   * 그 자산이 둘 다 장비가 아니면 성단끼리 이은 것, 곧 패치다.
    */
-  describe('패치로만 이어지는 길', () => {
-    /** 슬롯 하나 = 앞면 2심 + OPGW 2심. 국 이름과 슬롯 id 만 다르다. */
+  describe('패치로 지나간 국', () => {
+    /** 슬롯 하나 = 앞면 2심 + OPGW 2심. */
     const slot = (id: string, sub: string) => ({
       asset: { id, name: `${id}슬롯`, parentAssetId: null, substationId: sub, floorId: null },
       ports: [
         { id: `${id}-f1`, assetId: id, group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI' as const, positions: 1 },
-        { id: `${id}-f2`, assetId: id, group: 'FIBER', index: 2, name: '광 2', medium: 'fiber', direction: 'BI' as const, positions: 1 },
         { id: `${id}-t`, assetId: id, group: 'FIBER-TRUNK', index: 1, name: 'OPGW', medium: 'fiber', direction: 'BI' as const, positions: 2 },
       ],
     });
+    const dev = (id: string, sub: string) => ({
+      asset: { id, name: `${id}단말`, parentAssetId: null, substationId: sub, floorId: null },
+      ports: [{ id: `${id}-p1`, assetId: id, group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI' as const, positions: 1 }],
+    });
 
-    /** A국 슬롯 — B국 슬롯 둘(패치로 이어짐) — C국 슬롯. 장비는 하나도 없다. */
-    const through = (): TopologyInput => {
-      const a = slot('a', 'sa');
-      const bw = slot('bw', 'sb');
-      const be = slot('be', 'sb');
-      const c = slot('c', 'sc');
+    /** 1국 단말 — 1국 슬롯 =OPGW= 2국 슬롯(서) -패치- 2국 슬롯(동) =OPGW= 3국 슬롯 — 3국 단말. */
+    const scene = (): TopologyInput => {
+      const parts = [slot('a', 's1'), dev('da', 's1'), slot('bw', 's2'), slot('be', 's2'), slot('c', 's3'), dev('dc', 's3')];
       return {
-        substations: [{ id: 'sa', name: 'A국' }, { id: 'sb', name: 'B국' }, { id: 'sc', name: 'C국' }],
+        substations: [{ id: 's1', name: '1국' }, { id: 's2', name: '2국' }, { id: 's3', name: '3국' }],
         floors: [],
-        assets: [a.asset, bw.asset, be.asset, c.asset],
-        ports: [...a.ports, ...bw.ports, ...be.ports, ...c.ports],
+        assets: parts.map((p) => p.asset),
+        ports: parts.flatMap((p) => p.ports),
         cables: [
-          cable('opgw-ab', 'a-t', 'bw-t'),
-          cable('patch-b', 'bw-f1', 'be-f1'), // B국을 그냥 지나가는 패치
-          cable('opgw-bc', 'be-t', 'c-t'),
+          cable('j1', 'da-p1', 'a-f1'),
+          cable('opgw1', 'a-t', 'bw-t'),
+          cable('patch', 'bw-f1', 'be-f1'), // 2국을 그냥 지나가는 패치
+          cable('opgw2', 'be-t', 'c-t'),
+          cable('j2', 'c-f1', 'dc-p1'),
         ],
       };
     };
 
-    it('패치가 물린 길은 양끝 슬롯이 마디로 서고 한 줄로 이어진다', () => {
-      const { nodes, edges } = buildTopologyGraph(through(), 'a-f1');
+    it('마디는 양끝 장비뿐 — 지나간 국의 슬롯은 마디가 아니다', () => {
+      const { nodes, edges } = buildTopologyGraph(scene(), 'da-p1');
+      expect(new Set(nodes.map((n) => n.id))).toEqual(new Set(['da', 'dc']));
       expect(edges).toHaveLength(1);
-      expect(new Set([edges[0]!.source, edges[0]!.target])).toEqual(new Set(['a', 'c']));
-      /* 지나가는 자리(B국 슬롯 둘)는 마디가 아니다 — 마디는 길이 끝나는 자리뿐이다. */
-      expect(new Set(nodes.map((n) => n.id))).toEqual(new Set(['a', 'c']));
-      expect(nodes.every((n) => n.isPatchEnd)).toBe(true);
+      expect(new Set([edges[0]!.source, edges[0]!.target])).toEqual(new Set(['da', 'dc']));
     });
 
-    it('시드가 그 길 위에 있으면 그 줄이 켜진다 — 장비에 못 닿아도', () => {
-      const { edges, litEdgeIds } = buildTopologyGraph(through(), 'a-f1');
-      expect(litEdgeIds.size).toBe(1);
-      expect(litEdgeIds.has(edges[0]!.id)).toBe(true);
+    it('그 줄에 지나간 국이 적힌다', () => {
+      const { edges } = buildTopologyGraph(scene(), 'da-p1');
+      expect(edges[0]!.viaSubstationNames).toEqual(['2국']);
     });
 
-    /* 점퍼가 하나도 없으면 그냥 안 쓴 심선이다 — 그리지 않는다. 안 그러면 24심 중 스물셋이
-       전부 줄로 서서 그림이 무의미해진다. */
-    it('점퍼가 없는 심선은 줄로 서지 않는다 — 안 쓴 심선일 뿐이다', () => {
-      const input = through();
-      input.cables = input.cables.filter((c) => c.id !== 'patch-b');
-      const { nodes, edges } = buildTopologyGraph(input, 'a-f1');
-      expect(edges).toEqual([]);
-      expect(nodes).toEqual([]);
-    });
-
-    /* 한쪽이 캄캄한 OPGW 로 죽으면 끝이 하나뿐이다 — 어디와 어디를 잇는 길이 아니다. */
-    it('한쪽 끝이 성단되지 않았으면 줄로 서지 않는다', () => {
-      const input = through();
-      input.cables = input.cables.filter((c) => c.id !== 'opgw-bc');
-      expect(buildTopologyGraph(input, 'a-f1').edges).toEqual([]);
+    /* 패치 없이 곧장 이어진 길에는 적을 것이 없다 — 다 적으면 그림이 글자로 덮인다. */
+    it('패치를 안 지난 줄에는 아무것도 안 적힌다', () => {
+      const input = scene();
+      /* 2국을 들어내고 1국 슬롯과 3국 슬롯을 바로 잇는다. */
+      input.assets = input.assets.filter((a) => !['bw', 'be'].includes(a.id));
+      input.ports = input.ports.filter((p) => !['bw', 'be'].includes(p.assetId));
+      input.cables = [cable('j1', 'da-p1', 'a-f1'), cable('opgw', 'a-t', 'c-t'), cable('j2', 'c-f1', 'dc-p1')];
+      const { edges } = buildTopologyGraph(input, 'da-p1');
+      expect(edges).toHaveLength(1);
+      expect(edges[0]!.viaSubstationNames).toEqual([]);
     });
   });
 

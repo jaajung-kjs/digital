@@ -121,10 +121,10 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
                 </line>
               );
             })}
-            {/* 패치로만 이어진 길은 **줄 위에 적는다** — 장비끼리 이은 길과 뜻이 다르고,
-                가운데 국을 건너뛴 직결이라 무엇으로 이었는지가 안 보이면 읽을 수 없다.
-                장비 줄까지 글자를 달면 그림이 글자로 덮이므로 패치에만 단다. */}
-            {edges.filter((e) => e.isPatch).map((e) => {
+            {/* **패치로 지나간 국**은 줄 위에 작게 적는다 — 그 국은 장비를 안 거쳤으니 마디가
+                아니지만, 「이 길은 저기를 거쳐 간다」는 사실은 남아야 한다. 지나간 국이 없는
+                줄에는 아무것도 안 적는다(다 적으면 그림이 글자로 덮인다). */}
+            {edges.filter((e) => e.viaSubstationNames.length > 0).map((e) => {
               const a = at(e.source);
               const b = at(e.target);
               if (!a || !b) return null;
@@ -135,7 +135,7 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
                   textAnchor="middle"
                   className="fill-content-muted text-xs"
                 >
-                  {`패치 ${e.sourcePortName} ↔ ${e.targetPortName}`}
+                  {`${e.viaSubstationNames.join(' · ')} (패치)`}
                 </text>
               );
             })}
@@ -148,28 +148,18 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
                채워 줬을 때만(그 국에 층이 둘 이상일 때만) 앞에 붙는다. 이름이 길어도
                `break-words` 로 접힐 뿐 `truncate` 로 자르지 않는다 — 「…으로 생략된 경로도
                다 보이게」가 이 화면을 여는 이유다.
-
-               **패치가 끝나는 자리**는 장비가 아니다 — 국을 그냥 지나가도록 이어 놓은 심선의
-               끝(성단까지만 오고 장비로 안 나간 슬롯)이다. 그것도 실재하는 연결이라 마디로
-               세우되, 테두리를 점선으로 두어 장비와 구별한다. */
+ */
             return (
               <div
                 key={node.id}
                 data-topo-node={node.id}
-                data-patch-end={node.isPatchEnd}
                 className={cn(
                   'absolute rounded-md border bg-surface px-2.5 py-1.5 shadow-sm',
-                  node.isPatchEnd && 'border-dashed',
                   node.isSeed ? 'border-primary' : 'border-line',
                 )}
                 style={{ left: 0, top: 0, width: BOX_W, transform: `translate(${p.x - BOX_W / 2}px, ${p.y - BOX_H / 2}px)` }}
               >
-                <div className={cn(
-                  'break-words text-sm font-medium',
-                  node.isPatchEnd ? 'text-content-muted' : 'text-content',
-                )}>
-                  {node.name}
-                </div>
+                <div className="break-words text-sm font-medium text-content">{node.name}</div>
                 <div className="break-words text-xs text-content-muted">
                   {node.floorName ? `[${node.floorName}] ` : ''}
                   {node.substationName}

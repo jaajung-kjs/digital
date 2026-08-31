@@ -263,6 +263,35 @@ for (const key of STATION_KEYS) {
     }] },
   });
   console.log(`[seed-topology] 급행 심선 — ${t3.name} 슬롯1↔슬롯2 코어2(장비를 안 거친다)`);
+
+  /* 그 급행 심선의 **양끝을 장비에 물린다** — T2 광단말 A ↔ (T3 를 그냥 지나) ↔ T4 광단말 A.
+     이래야 사용자가 말한 모양이 된다: 「1번 광단말 A 가 3번 광단말 A 와 사실상 직결인데,
+     가운데 2번 국을 경유한다」. 양끝이 장비여야 그림에 T2↔T4 줄 하나로 서고, 그 줄에
+     「T3(패치)」가 적힌다. 양끝을 안 물리면 어느 장비에도 안 닿는 캄캄한 심선일 뿐이다.
+
+     쓰는 포트: T2 는 방향이 셋(슬롯1·2·3)이라 광 1~3 을 썼으므로 광 4, T4 는 방향이
+     넷이라 광 5. 슬롯은 각자 T3 를 보는 방향(T2 는 슬롯 3, T4 는 슬롯 1)의 코어 2. */
+  const t2 = sites['T2'];
+  const t4 = sites['T4'];
+  await call(`/substations/${t2.substation.id}/commit`, 'PUT', {
+    cables: { creates: [{
+      id: crypto.randomUUID(),
+      aPortId: at(t2.ofd, '슬롯 3', 'FIBER', 2),
+      bPortId: at(t2.term, '광단말 A', 'FIBER', 4),
+      categoryId: JUMPER,
+      specParams: { lengthM: 15 },
+    }] },
+  });
+  await call(`/substations/${t4.substation.id}/commit`, 'PUT', {
+    cables: { creates: [{
+      id: crypto.randomUUID(),
+      aPortId: at(t4.ofd, '슬롯 1', 'FIBER', 2),
+      bPortId: at(t4.term, '광단말 A', 'FIBER', 5),
+      categoryId: JUMPER,
+      specParams: { lengthM: 15 },
+    }] },
+  });
+  console.log('[seed-topology] 급행 양끝 — T2 광단말 A 광 4 ⇄ (T3 패치) ⇄ T4 광단말 A 광 5');
 }
 
 // ── T1 만 장비에 안 닿는 포트 — 성단은 됐지만 갈 곳이 없다 ──────────────────
