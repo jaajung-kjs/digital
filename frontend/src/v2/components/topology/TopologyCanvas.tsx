@@ -16,6 +16,8 @@ const BOX_W = 180;
 const BOX_H = 76;
 /** 그림 둘레 여백 — 상자가 판 가장자리에 붙지 않게. */
 const PAD = 120;
+/** 같은 두 마디를 잇는 줄끼리 벌리는 폭 — 그림이 줄어도 두 줄로 읽힐 만큼. */
+const PARALLEL_GAP = 34;
 
 interface TopologyCanvasProps {
   nodes: TopoNode[];
@@ -101,9 +103,11 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
               const b = at(e.target);
               if (!a || !b) return null;
               const lit = litEdgeIds.has(e.id);
-              /* 같은 두 국을 잇는 줄이 여럿이면(이중화) 나란히 벌려 둘로 보이게 한다. */
+              /* 같은 두 마디를 잇는 줄이 여럿이면(이중화) 나란히 벌려 둘로 보이게 한다.
+                 벌림은 마디 사이 거리에 비례해 잡는다 — 상수로 두면 그림이 줄어들 때 함께
+                 줄어들어 두 줄이 한 줄처럼 붙어 보인다(0.74배에서 14px → 화면 10px). */
               const parallel = edges.filter((o) => sameEnds(o, e));
-              const offset = (parallel.indexOf(e) - (parallel.length - 1) / 2) * 14;
+              const offset = (parallel.indexOf(e) - (parallel.length - 1) / 2) * PARALLEL_GAP;
               const [p, q] = shifted(edgeAt(a, b), offset);
               return (
                 <line
@@ -115,6 +119,24 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
                 >
                   <title>{`${e.sourcePortName} ↔ ${e.targetPortName}`}</title>
                 </line>
+              );
+            })}
+            {/* 패치로만 이어진 길은 **줄 위에 적는다** — 장비끼리 이은 길과 뜻이 다르고,
+                가운데 국을 건너뛴 직결이라 무엇으로 이었는지가 안 보이면 읽을 수 없다.
+                장비 줄까지 글자를 달면 그림이 글자로 덮이므로 패치에만 단다. */}
+            {edges.filter((e) => e.isPatch).map((e) => {
+              const a = at(e.source);
+              const b = at(e.target);
+              if (!a || !b) return null;
+              return (
+                <text
+                  key={`t-${e.id}`}
+                  x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 6}
+                  textAnchor="middle"
+                  className="fill-content-muted text-xs"
+                >
+                  {`패치 ${e.sourcePortName} ↔ ${e.targetPortName}`}
+                </text>
               );
             })}
           </svg>

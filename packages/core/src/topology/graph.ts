@@ -109,7 +109,7 @@ export function buildTopologyGraph(
       if (!edgeByKey.has(key)) {
         edgeByKey.set(key, {
           id: key, source: p1.assetId, target: p2.assetId,
-          sourcePortName: p1.name, targetPortName: p2.name,
+          sourcePortName: p1.name, targetPortName: p2.name, isPatch: false,
         });
       }
       if (port.id === normalizedSeedPortId) litKeys.add(key);
@@ -155,7 +155,7 @@ export function buildTopologyGraph(
     if (!edgeByKey.has(key)) {
       edgeByKey.set(key, {
         id: key, source: p1.assetId, target: p2.assetId,
-        sourcePortName: p1.name, targetPortName: p2.name,
+        sourcePortName: p1.name, targetPortName: p2.name, isPatch: true,
       });
     }
     /* 시드가 이 사슬 위에 있으면(장비에 못 닿아 정규화가 실패한 그 경우다) 이 줄이 「내 길」이다. */

@@ -74,6 +74,29 @@ const parallelReach: V2Reach = {
   truncated: false,
 };
 
+/* 패치 전용 픽스처 — 가운데 국(나국)을 그냥 지나가도록 이어 놓은 심선. 장비가 하나도
+   없으므로 마디는 양끝 슬롯이고, 줄은 가운데 국을 건너뛴 **직결** 하나다. */
+const patchReach: V2Reach = {
+  substations: [{ id: 'p1', name: '앞국' }, { id: 'p2', name: '가운데국' }, { id: 'p3', name: '뒷국' }],
+  floors: [],
+  assets: [
+    { id: 'pa', name: '앞슬롯', typeId: null, parentAssetId: null, substationId: 'p1', floorId: null },
+    { id: 'pw', name: '가운데서', typeId: null, parentAssetId: null, substationId: 'p2', floorId: null },
+    { id: 'pe', name: '가운데동', typeId: null, parentAssetId: null, substationId: 'p2', floorId: null },
+    { id: 'pc', name: '뒷슬롯', typeId: null, parentAssetId: null, substationId: 'p3', floorId: null },
+  ],
+  ports: ['pa', 'pw', 'pe', 'pc'].flatMap((id) => [
+    { id: `${id}-f1`, assetId: id, group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI' as const, positions: 1 },
+    { id: `${id}-t`, assetId: id, group: 'TRUNK', index: 1, name: 'OPGW', medium: 'fiber', direction: 'BI' as const, positions: 2 },
+  ]),
+  cables: [
+    { id: 'opgw-1', aPortId: 'pa-t', bPortId: 'pw-t', categoryId: null },
+    { id: 'patch', aPortId: 'pw-f1', bPortId: 'pe-f1', categoryId: null },
+    { id: 'opgw-2', aPortId: 'pe-t', bPortId: 'pc-t', categoryId: null },
+  ],
+  truncated: false,
+};
+
 /* 이 상자가 부르는 훅은 `useReach` 하나뿐이다 — 카탈로그를 안 쓴다(모달 주석 참조).
    `vi.fn()` 으로 만들어 두는 이유는 평행 구간 시험 하나만 `mockReturnValueOnce` 로
    다른 자료를 흘려 넣기 위해서다 — 다른 시험은 전부 기본값(`reach`)을 그대로 쓴다. */
@@ -149,6 +172,18 @@ describe('TopologyModal', () => {
       return pts.map((p) => p.join(',')).join('|');
     });
     expect(new Set(at).size).toBe(2);
+  });
+
+  /* 국을 그냥 지나가도록 패치된 심선은 가운데 국을 건너뛴 **직결**로 선다. 장비끼리 이은
+     길과 뜻이 다르니 무엇으로 이었는지를 줄 위에 적는다(사용자: 「직결할 때 패치한 포트
+     내용을 간단하게 적어주면 되잖아, 엣지에」). */
+  it('패치로만 이어진 줄에는 무엇으로 이었는지가 줄 위에 적힌다', () => {
+    vi.mocked(useReach).mockReturnValueOnce({ data: patchReach, isLoading: false, error: null } as never);
+    render(<TopologyModal open seedPortId="pa-f1" onClose={() => {}} />);
+    const labels = [...document.body.querySelectorAll('svg text')].map((t) => t.textContent);
+    expect(labels).toContain('패치 광 1 ↔ 광 1');
+    /* 장비끼리 이은 줄에는 글자를 안 단다 — 그림이 글자로 덮인다. */
+    expect(labels).toHaveLength(1);
   });
 
   it('층 이름은 층이 둘 이상인 국에만 — 여기서는 안 나온다', () => {
