@@ -9,7 +9,7 @@
  */
 import { useMemo } from 'react';
 import { Modal } from '../../../components/ui';
-import { buildTopologyGraph, computeLayout, detectRings } from '@twin/core';
+import { buildTopologyGraph, computeLayout } from '@twin/core';
 import { useReach } from '../../hooks';
 import { TopologyCanvas } from './TopologyCanvas';
 
@@ -32,8 +32,7 @@ export function TopologyModal({ open, seedPortId, seedLabel, onClose }: Topology
     /* 장비·줄·「내 코어가 간 줄」을 core 가 한 번에 낸다 — 추적은 이제 core 안에서 일어난다
        (장비마다 단심 광 포트에서 traceFrom 을 뜨는 일까지 `buildTopologyGraph` 의 몫이다). */
     const { nodes, edges, litEdgeIds } = buildTopologyGraph(data, seedPortId);
-    const rings = detectRings(edges);
-    const positions = computeLayout(nodes, edges, rings);
+    const positions = computeLayout(nodes, edges);
     return { nodes, edges, litEdgeIds, positions };
   }, [reach.data, seedPortId]);
 

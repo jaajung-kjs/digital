@@ -61,14 +61,3 @@ export interface TopologyInput {
   }[];
   cables: { id: string; aPortId: string; bPortId: string }[];
 }
-
-/** 링 하나 — `detectRings` 가 낸다. */
-export interface Ring {
-  id: string;
-  nodeIds: string[];
-  edgeIds: string[];
-  /** 0 = 소링(기본 순환), 1 = 대링(간선을 공유하는 소링들의 바깥 테두리) */
-  level: 0 | 1;
-  /** 대링이면 그 안의 소링 id 들. 소링이면 빈 배열. */
-  childRingIds: string[];
-}

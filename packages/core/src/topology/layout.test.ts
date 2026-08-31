@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { NODE_GAP, computeLayout, ringRadius } from './layout.js';
-import { detectRings } from './rings.js';
 import type { TopoEdge, TopoNode } from './types.js';
 
 const e = (id: string, source: string, target: string): TopoEdge =>
@@ -23,7 +22,7 @@ function noOverlap(pos: Map<string, { x: number; y: number }>) {
 /** 줄이 제 끝이 아닌 마디를 관통하지 않는가 — 관통하면 상자에 가려 없는 연결처럼 읽힌다.
     화면의 마디 상자는 폭 180·높이 76(NODE_GAP 220 기준)이라, 중심에서 그 반쯤은 비어야 한다. */
 function noEdgeThroughNode(
-  pos: Map<string, { x: number; y: number }>, edges: TopoEdge[],
+  pos: Map<string, { x: number; y: number }>, edges: TopoEdge[], slack = 0,
 ) {
   for (const ed of edges) {
     const a = pos.get(ed.source)!;
@@ -33,7 +32,8 @@ function noEdgeThroughNode(
       for (let t = 0; t <= 1; t += 0.01) {
         const x = a.x + (b.x - a.x) * t;
         const y = a.y + (b.y - a.y) * t;
-        const inside = Math.abs(x - p.x) <= NODE_GAP * 0.41 && Math.abs(y - p.y) <= NODE_GAP * 0.18;
+        const inside = Math.abs(x - p.x) <= NODE_GAP * 0.41 + slack
+          && Math.abs(y - p.y) <= NODE_GAP * 0.18 + slack;
         expect(inside, `${ed.source}-${ed.target} 가 ${id} 를 관통한다`).toBe(false);
       }
     }
@@ -52,7 +52,7 @@ describe('computeLayout', () => {
   it('링 넷은 원 위에 같은 간격으로 선다', () => {
     const edges = [e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'D'), e('4', 'D', 'A')];
     const nodes = ['A', 'B', 'C', 'D'].map(n);
-    const pos = computeLayout(nodes, edges, detectRings(edges));
+    const pos = computeLayout(nodes, edges);
     const cx = [...pos.values()].reduce((s, p) => s + p.x, 0) / 4;
     const cy = [...pos.values()].reduce((s, p) => s + p.y, 0) / 4;
     const radii = [...pos.values()].map((p) => dist(p, { x: cx, y: cy }));
@@ -74,7 +74,7 @@ describe('computeLayout', () => {
       e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A'),
       e('4', 'C', 'X'), e('5', 'X', 'Y'),
     ];
-    const pos = computeLayout(['A', 'B', 'C', 'X', 'Y'].map(n), edges, detectRings(edges));
+    const pos = computeLayout(['A', 'B', 'C', 'X', 'Y'].map(n), edges);
     expect(pos.size).toBe(5);
     noOverlap(pos);
   });
@@ -84,7 +84,7 @@ describe('computeLayout', () => {
       e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A'),
       e('4', 'C', 'D'), e('5', 'D', 'E'), e('6', 'E', 'C'),
     ];
-    const pos = computeLayout(['A', 'B', 'C', 'D', 'E'].map(n), edges, detectRings(edges));
+    const pos = computeLayout(['A', 'B', 'C', 'D', 'E'].map(n), edges);
     expect(pos.size).toBe(5);
     noOverlap(pos);
   });
@@ -94,7 +94,7 @@ describe('computeLayout', () => {
       e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'D'), e('4', 'D', 'A'),
       e('5', 'A', 'F'), e('6', 'F', 'E'), e('7', 'E', 'D'),
     ];
-    const pos = computeLayout(['A', 'B', 'C', 'D', 'E', 'F'].map(n), edges, detectRings(edges));
+    const pos = computeLayout(['A', 'B', 'C', 'D', 'E', 'F'].map(n), edges);
     const cx = [...pos.values()].reduce((s, p) => s + p.x, 0) / 6;
     const cy = [...pos.values()].reduce((s, p) => s + p.y, 0) / 6;
     const radii = [...pos.values()].map((p) => dist(p, { x: cx, y: cy }));
@@ -111,14 +111,14 @@ describe('computeLayout', () => {
       e('5', 'A', 'E'), e('6', 'E', 'C'),
     ];
     const nodes = ['A', 'B', 'C', 'D', 'E'].map(n);
-    const pos = computeLayout(nodes, edges, detectRings(edges));
+    const pos = computeLayout(nodes, edges);
     expect(pos.size).toBe(5);
     noOverlap(pos);
     noEdgeThroughNode(pos, edges);
   });
 
   it('따로 노는 마디도 자리를 얻는다 — 줄이 하나도 없는 국', () => {
-    const pos = computeLayout([n('A')], [], []);
+    const pos = computeLayout([n('A')], []);
     expect(pos.get('A')).toEqual({ x: 0, y: 0 });
   });
 
@@ -155,13 +155,30 @@ describe('computeLayout', () => {
   });
 
   it('빈 입력이면 빈 답', () => {
-    expect(computeLayout([], [], []).size).toBe(0);
+    expect(computeLayout([], []).size).toBe(0);
+  });
+
+  /* 닫힌 링 넷 + 8자 — 여섯 마디가 한 원에 서고 고리를 잇던 구간 일부가 현이 된다.
+     정육각형에서 **한 칸 건너뛰는 현**은 그 사이 마디에서 겨우 0.5R 떨어지므로, 반지름을
+     이웃 간격만 보고 잡으면 줄이 마디 상자를 스친다(실측: 220 → 110, 상자 반대각은 98).
+     현이 있으면 그만큼 원을 키워야 한다. */
+  it('현이 있는 고리는 줄이 마디를 스치지 않을 만큼 원이 커진다', () => {
+    const edges = [
+      e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'D'), e('4', 'D', 'A'),
+      e('5', 'D', 'E'), e('6', 'E', 'F'), e('7', 'F', 'D'),
+    ];
+    const nodes = ['A', 'B', 'C', 'D', 'E', 'F'].map(n);
+    const pos = computeLayout(nodes, edges);
+    expect(pos.size).toBe(6);
+    noOverlap(pos);
+    /* 화면은 평행 줄을 ±17 만큼 벌리므로 현이 그만큼 마디 쪽으로 밀린다 — 그 여유까지
+       두고 재야 실제로 스치는지 알 수 있다(브라우저에서 이 여유가 모자라 관통했다). */
+    noEdgeThroughNode(pos, edges, 17);
   });
 
   it('같은 입력이면 같은 좌표 — 그림이 열 때마다 달라지지 않는다', () => {
     const edges = [e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A'), e('4', 'C', 'X')];
     const nodes = ['A', 'B', 'C', 'X'].map(n);
-    const rings = detectRings(edges);
-    expect([...computeLayout(nodes, edges, rings)]).toEqual([...computeLayout(nodes, edges, rings)]);
+        expect([...computeLayout(nodes, edges)]).toEqual([...computeLayout(nodes, edges)]);
   });
 });
