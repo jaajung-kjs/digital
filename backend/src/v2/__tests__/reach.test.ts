@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
+import { collectComponent } from '../reach.routes.js';
 import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 /**
@@ -124,6 +125,37 @@ describe('POST /api/v2/reach', () => {
     expect(res.body.assets.map((a: { id: string }) => a.id)).toEqual([loneId]);
     expect(res.body.cables).toEqual([]);
     expect(res.body.truncated).toBe(false);
+  });
+
+  /* 응답은 스스로 아귀가 맞아야 한다 — 줄의 끝을 못 찾는 케이블이 있으면 화면이 마디를
+     못 세운다. 잘리지 않은 보통 응답에서도 이 불변식은 지켜져야 한다. */
+  it('모든 케이블의 끝점 자산이 assets 안에 있다', async () => {
+    const res = await request(app).post('/api/v2/reach').set(admin)
+      .send({ portId: await coreOf(slotAId, 1) }).expect(200);
+    const assetIds = new Set(res.body.assets.map((a: { id: string }) => a.id));
+    const assetOfPort = new Map(res.body.ports.map((p: { id: string; assetId: string }) => [p.id, p.assetId]));
+    for (const c of res.body.cables) {
+      expect(assetIds.has(assetOfPort.get(c.aPortId))).toBe(true);
+      expect(assetIds.has(assetOfPort.get(c.bPortId))).toBe(true);
+    }
+  });
+
+  /* 한계에 걸려 잘려도 끊긴 케이블을 남기지 않는다 — 한쪽 끝을 못 실었으면 그 케이블도 뺀다.
+     픽스처의 연결 성분은 슬롯A–슬롯B 둘뿐이라, 한계를 1(시작 자산 하나)로 두면 슬롯A→슬롯B
+     케이블이 한계를 넘겨 통째로 빠지는 경로를 그대로 밟는다 — 이전 버그는 이 경우 케이블은
+     담기고 슬롯B 만 빠져, cables 가 assets 에 없는 끝점을 가리켰다. */
+  it('한계에 걸리면 truncated 이고, 담긴 케이블은 양끝이 다 실려 있다', async () => {
+    const start = (await nextDb.port.findFirstOrThrow({ where: { id: await coreOf(slotAId, 1) } })).assetId;
+    const r = await collectComponent(start, 1);
+    expect(r.truncated).toBe(true);
+    for (const cid of r.cableIds) {
+      const c = await nextDb.cable.findUniqueOrThrow({
+        where: { id: cid },
+        include: { aPort: { select: { assetId: true } }, bPort: { select: { assetId: true } } },
+      });
+      expect(r.assetIds.has(c.aPort.assetId)).toBe(true);
+      expect(r.assetIds.has(c.bPort.assetId)).toBe(true);
+    }
   });
 
   it('없는 포트는 404', async () => {
