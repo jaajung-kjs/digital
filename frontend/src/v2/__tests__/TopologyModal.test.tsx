@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { V2Reach } from '../types';
 import { TopologyModal } from '../components/topology/TopologyModal';
+import { useReach } from '../hooks';
 
 const reach: V2Reach = {
   substations: [{ id: 'sa', name: '가국' }, { id: 'sb', name: '나국' }],
@@ -46,9 +47,38 @@ const reach: V2Reach = {
   truncated: false,
 };
 
-/* 이 상자가 부르는 훅은 `useReach` 하나뿐이다 — 카탈로그를 안 쓴다(모달 주석 참조). */
+/* 평행 구간 전용 픽스처 — 같은 장비 둘을 코어 둘로 잇되, 포트 id 를 일부러 엇갈리게
+   짓는다(dev-x 쪽 zz2 가 dev-y 쪽 aa2 보다 사전순으로 뒤). `buildTopologyGraph` 가 줄의
+   source/target 을 포트 id 로 정하면 이 두 줄만 방향이 반대로 서고, 캔버스는 그 방향에서
+   평행선의 벌림을 구하므로 반대 방향인 두 줄은 벌림이 상쇄돼 완전히 겹쳐 그려진다
+   (2026-08-31, 사용자가 화면에서 신고). 위 `reach` 를 그대로 쓰지 않는 이유는 기존
+   시험들이 「구간 케이블은 줄 하나」를 전제하기 때문이다 — 거기에 평행 구간을 더하면
+   그 시험들이 깨진다. */
+const parallelReach: V2Reach = {
+  substations: [{ id: 's', name: 's국' }],
+  floors: [],
+  assets: [
+    { id: 'dev-x', name: '장비X', typeId: null, parentAssetId: null, substationId: 's', floorId: null },
+    { id: 'dev-y', name: '장비Y', typeId: null, parentAssetId: null, substationId: 's', floorId: null },
+  ],
+  ports: [
+    { id: 'x1', assetId: 'dev-x', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI', positions: 1 },
+    { id: 'y1', assetId: 'dev-y', group: 'FIBER', index: 1, name: '광 A', medium: 'fiber', direction: 'BI', positions: 1 },
+    { id: 'zz2', assetId: 'dev-x', group: 'FIBER', index: 2, name: '광 2', medium: 'fiber', direction: 'BI', positions: 1 },
+    { id: 'aa2', assetId: 'dev-y', group: 'FIBER', index: 2, name: '광 B', medium: 'fiber', direction: 'BI', positions: 1 },
+  ],
+  cables: [
+    { id: 'c1', aPortId: 'x1', bPortId: 'y1', categoryId: null },
+    { id: 'c2', aPortId: 'zz2', bPortId: 'aa2', categoryId: null },
+  ],
+  truncated: false,
+};
+
+/* 이 상자가 부르는 훅은 `useReach` 하나뿐이다 — 카탈로그를 안 쓴다(모달 주석 참조).
+   `vi.fn()` 으로 만들어 두는 이유는 평행 구간 시험 하나만 `mockReturnValueOnce` 로
+   다른 자료를 흘려 넣기 위해서다 — 다른 시험은 전부 기본값(`reach`)을 그대로 쓴다. */
 vi.mock('../hooks', () => ({
-  useReach: () => ({ data: reach, isLoading: false, error: null }),
+  useReach: vi.fn(() => ({ data: reach, isLoading: false, error: null })),
 }));
 
 describe('TopologyModal', () => {
@@ -97,6 +127,28 @@ describe('TopologyModal', () => {
   it('줄에 대고 물으면 양끝 포트 이름이 나온다', () => {
     render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
     expect(document.body.querySelector('line title')?.textContent).toBe('광 1 ↔ 광 A');
+  });
+
+  /* 그래프 자료(edges)는 코어 둘로 잇는 두 줄을 정확히 갈라 담지만, 포트 id 가 줄마다
+     엇갈리면 캔버스가 벌리는 방향까지 어긋나 두 줄이 완전히 겹쳐 그려질 수 있었다
+     (`packages/core/src/topology/graph.test.ts` 의 같은 이름 시험 참고 — 거기는 자료가
+     옳은지, 여기는 그 자료로 실제 화면이 옳게 그려지는지를 본다). 개수부터 먼저
+     단언해 공허하게 통과하지 않게 한다. */
+  it('평행 구간은 두 줄로 갈라져 보인다 — 포트 id 가 줄마다 엇갈려도', () => {
+    vi.mocked(useReach).mockReturnValueOnce({ data: parallelReach, isLoading: false, error: null });
+    render(<TopologyModal open seedPortId="x1" onClose={() => {}} />);
+    const lines = [...document.body.querySelectorAll('svg line')];
+    expect(lines).toHaveLength(2);
+    /* 두 끝점을 정렬해 방향과 무관한 자리로 견준다 — 방향만 뒤집힌 같은 자리(P→Q 와
+       Q→P)를 「다른 줄」로 잘못 세면 겹쳐 그려진 버그도 공허하게 통과한다. */
+    const at = lines.map((l) => {
+      const pts = [
+        [l.getAttribute('x1'), l.getAttribute('y1')],
+        [l.getAttribute('x2'), l.getAttribute('y2')],
+      ].sort(([ax, ay], [bx, by]) => Number(ax) - Number(bx) || Number(ay) - Number(by));
+      return pts.map((p) => p.join(',')).join('|');
+    });
+    expect(new Set(at).size).toBe(2);
   });
 
   it('층 이름은 층이 둘 이상인 국에만 — 여기서는 안 나온다', () => {
@@ -163,6 +215,39 @@ describe('TopologyModal', () => {
       const expected = Math.min(1, 80 / figureW, 60 / figureH);
       expect(stage.style.transform).toBe(`scale(${expected})`);
       expect(expected).toBeLessThan(1); // 축소가 실제로 일어났는지 — 공허한 통과 방지
+
+      vi.unstubAllGlobals();
+    });
+
+    /* 배율은 한 축만 꽉 채운다 — 다른 축에는 반드시 여백이 남는데, 그걸 그냥 두면 그림이
+       왼쪽 위로 쏠리고 반대쪽에만 빈 판이 펼쳐진다(사용자 지적). 남는 자리는 양쪽으로
+       똑같이 나뉘어야 한다. */
+    it('남는 자리를 양쪽으로 나눠 그림이 판 가운데 선다', () => {
+      class FakeResizeObserver {
+        constructor(private cb: ResizeObserverCallback) {}
+        observe() {
+          this.cb(
+            [{ contentRect: { width: 900, height: 300 } } as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          );
+        }
+        disconnect() {}
+        unobserve() {}
+      }
+      vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+
+      render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+      const stage = document.body.querySelector('[data-topo-stage]') as HTMLElement;
+      const gutter = document.body.querySelector('[data-topo-gutter]') as HTMLElement;
+      const figureW = parseFloat(stage.style.width);
+      const figureH = parseFloat(stage.style.height);
+      const scale = Math.min(1, 900 / figureW, 300 / figureH);
+      /* 판이 가로로 길어 배율은 높이가 정한다 — 그래서 가로에 여백이 남고, 그 절반이
+         왼쪽에 와야 한다. 여백이 실제로 남는 상황인지 먼저 못 박는다(공허한 통과 방지). */
+      const slackX = 900 - figureW * scale;
+      expect(slackX).toBeGreaterThan(0);
+      expect(parseFloat(gutter.style.marginLeft)).toBeCloseTo(slackX / 2, 6);
+      expect(parseFloat(gutter.style.marginTop)).toBeCloseTo(Math.max(0, 300 - figureH * scale) / 2, 6);
 
       vi.unstubAllGlobals();
     });

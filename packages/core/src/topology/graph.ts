@@ -52,6 +52,14 @@ export function buildTopologyGraph(
     cables: input.cables.map((c) => ({ id: c.id, aPortId: c.aPortId, bPortId: c.bPortId })),
   });
 
+  /* 이 포트에 케이블이 물렸는가 — 패치 사슬의 **끝**을 가리는 데 쓴다.
+     끝이란 더 갈 데가 없는 자리이고, 성단 포트에서 그것은 「점퍼가 안 물렸다」는 뜻이다. */
+  const cabled = new Set<string>();
+  for (const c of input.cables) { cabled.add(c.aPortId); cabled.add(c.bPortId); }
+
+  const isSingleFiber = (p: Port | undefined): p is Port =>
+    p != null && p.medium === 'fiber' && !isMultiCorePort(p.positions);
+
   /** 이 홉들이 결국 닿은 **다른 장비**의 포트 — 슬롯·OPGW 를 지나는 홉은 건너뛴다. */
   const reachedEquipmentPortId = (hops: readonly TraceHop[], fromAssetId: string): string | null => {
     for (const h of hops) {
@@ -87,8 +95,17 @@ export function buildTopologyGraph(
       const reachedPortId = reachedEquipmentPortId(traceFrom(traceGraph, port.id), asset.id);
       if (!reachedPortId) continue;
       const reachedPort = portById.get(reachedPortId)!;
-      const [p1, p2] = port.id < reachedPortId ? [port, reachedPort] : [reachedPort, port];
-      const key = `${p1.id}\0${p2.id}`;
+      /* 줄의 id 는 정렬한 **포트** 쌍으로 정한다 — 양끝에서 같은 줄을 두 번 찾으므로
+         겹치지 않게 담으려면 포트 쌍이 갈라야 맞다(같은 장비 쌍을 코어 둘로 이으면
+         포트 쌍은 둘, id 도 둘이어야 한다).
+         하지만 source/target(및 그 포트 이름)의 **차례**는 포트 id 가 아니라 정렬한
+         **장비(자산) id** 로 정한다 — 포트 id 로 정하면 같은 장비 쌍을 잇는 두 줄이
+         서로 다른 포트 쌍을 갖는 탓에 방향이 줄마다 뒤집힐 수 있고, 캔버스는 그 방향으로
+         평행선을 벌리므로(수직 벡터가 방향에서 나온다) 방향이 반대인 두 줄은 벌림이
+         상쇄돼 완전히 겹쳐 그려진다(평행 구간이 한 줄로 보이는 버그, 2026-08-31). */
+      const [keyA, keyB] = port.id < reachedPortId ? [port, reachedPort] : [reachedPort, port];
+      const key = `${keyA.id}\0${keyB.id}`;
+      const [p1, p2] = port.assetId < reachedPort.assetId ? [port, reachedPort] : [reachedPort, port];
       if (!edgeByKey.has(key)) {
         edgeByKey.set(key, {
           id: key, source: p1.assetId, target: p2.assetId,
@@ -99,10 +116,56 @@ export function buildTopologyGraph(
     }
   }
 
-  // ── 마디 — 이 망에 걸린 장비 전부. 시드 장비가 맨 앞, 나머지는 이름 차례. ──────────────
+  /*
+   * ── 패치로만 이어지는 길 ──────────────────────────────────────────────────
+   *
+   * 국을 그냥 지나가도록 패치된 심선(급행)은 양끝이 장비가 아니라 남의 국 성단이다. 장비만
+   * 마디로 세우면 그런 길이 화면에서 통째로 사라진다 — 실재하는 연결인데도.
+   *
+   * **안 쓴 심선과는 갈라야 한다.** OPGW 24심 중 한 심선만 성단하면 나머지 스물셋도 「장비가
+   * 없는 사슬」이지만 그건 그냥 비어 있는 것이다(실측 252개). 가르는 것은 이름이 아니라
+   * 선언이다: 사슬 안에 **슬롯끼리 물린 점퍼**가 있으면 누군가 일부러 이어 놓은 길이고,
+   * 없으면 안 쓴 심선이다.
+   *
+   * 끝은 「더 갈 데가 없는 성단 포트」다. 한쪽이 캄캄한 OPGW 로 죽으면(성단 안 된 대국) 끝이
+   * 하나뿐이므로 줄로 세우지 않는다 — 그건 어디와 어디를 잇는 길이 아니다.
+   */
+  const patchEndAssetIds = new Set<string>();
+  const walked = new Set<string>();
+  for (const c of input.cables) {
+    const a = portById.get(c.aPortId);
+    const b = portById.get(c.bPortId);
+    if (!isSingleFiber(a) || !isSingleFiber(b)) continue;
+    if (isEquipment(a.assetId) || isEquipment(b.assetId)) continue; // 장비가 물린 점퍼는 위에서 다뤘다
+    if (walked.has(a.id)) continue;
+
+    const chain = [a.id, ...traceFrom(traceGraph, a.id).map((h) => h.toPortId)];
+    for (const id of chain) walked.add(id);
+    if (chain.some((id) => { const p = portById.get(id); return p && isEquipment(p.assetId); })) continue;
+
+    const ends = chain.filter((id) => isSingleFiber(portById.get(id)) && !cabled.has(id));
+    if (ends.length !== 2) continue;
+    const e1 = portById.get(ends[0]!)!;
+    const e2 = portById.get(ends[1]!)!;
+    const [k1, k2] = e1.id < e2.id ? [e1, e2] : [e2, e1];
+    const [p1, p2] = e1.assetId < e2.assetId ? [e1, e2] : [e2, e1];
+    const key = `${k1.id}\0${k2.id}`;
+    patchEndAssetIds.add(p1.assetId);
+    patchEndAssetIds.add(p2.assetId);
+    if (!edgeByKey.has(key)) {
+      edgeByKey.set(key, {
+        id: key, source: p1.assetId, target: p2.assetId,
+        sourcePortName: p1.name, targetPortName: p2.name,
+      });
+    }
+    /* 시드가 이 사슬 위에 있으면(장비에 못 닿아 정규화가 실패한 그 경우다) 이 줄이 「내 길」이다. */
+    if (chain.includes(seedPortId)) litKeys.add(key);
+  }
+
+  // ── 마디 — 이 망에 걸린 장비 전부 + 패치가 끝나는 자리. 시드가 맨 앞, 나머지는 이름 차례. ──
   const seedAssetId = normalizedSeedPortId ? portById.get(normalizedSeedPortId)?.assetId ?? null : null;
   const nodes: TopoNode[] = input.assets
-    .filter((a) => isEquipment(a.id))
+    .filter((a) => isEquipment(a.id) || patchEndAssetIds.has(a.id))
     .map((a) => ({
       id: a.id,
       name: a.name,
@@ -112,6 +175,7 @@ export function buildTopologyGraph(
         ? floorById.get(a.floorId ?? '')?.name ?? null
         : null,
       isSeed: a.id === seedAssetId,
+      isPatchEnd: !isEquipment(a.id),
     }))
     .sort((a, b) => (a.isSeed ? -1 : b.isSeed ? 1 : a.name.localeCompare(b.name)));
 

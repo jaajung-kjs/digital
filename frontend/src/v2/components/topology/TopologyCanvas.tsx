@@ -69,11 +69,27 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
     ? Math.min(1, panelSize.width / width, panelSize.height / height)
     : 1;
 
+  /* 남는 자리를 **양쪽으로 나눈다** — 배율은 한 축만 꽉 채우므로 다른 축에는 반드시 여백이
+     남는데, 그것을 그냥 두면 그림이 왼쪽 위로 쏠리고 반대쪽에만 빈 판이 펼쳐진다.
+     여백을 숫자로 계산해 두는 까닭은 그래야 시험이 그 값을 그대로 확인할 수 있어서다
+     (flex 가운데 맞춤은 jsdom 에 배치가 없어 확인할 길이 없다). 배율이 늘 축소뿐이라
+     그림은 판보다 클 수 없다 — 그래도 음수 여백은 막아 둔다. */
+  const stage = { width: width * scale, height: height * scale };
+  const gutter = panelSize
+    ? {
+      left: Math.max(0, (panelSize.width - stage.width) / 2),
+      top: Math.max(0, (panelSize.height - stage.height) / 2),
+    }
+    : { left: 0, top: 0 };
+
   return (
     <div ref={panelRef} className="h-[60vh] overflow-auto rounded-md bg-surface-2">
       {/* 바깥 상자는 축소된 크기만큼만 차지한다 — 그래야 스크롤 판정(overflow)이 줄어든
           그림을 보고 판단하지, 원래 크기를 보고 판단해 스크롤바가 남지 않는다. */}
-      <div style={{ width: width * scale, height: height * scale }}>
+      <div
+        data-topo-gutter
+        style={{ width: stage.width, height: stage.height, marginLeft: gutter.left, marginTop: gutter.top }}
+      >
         <div
           data-topo-stage
           className="relative"
@@ -109,18 +125,29 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
             /* 마디 = 장비 하나 — 장비 이름 위에 국·설비를 흐리게 붙인다. 층 이름은 core 가
                채워 줬을 때만(그 국에 층이 둘 이상일 때만) 앞에 붙는다. 이름이 길어도
                `break-words` 로 접힐 뿐 `truncate` 로 자르지 않는다 — 「…으로 생략된 경로도
-               다 보이게」가 이 화면을 여는 이유다. */
+               다 보이게」가 이 화면을 여는 이유다.
+
+               **패치가 끝나는 자리**는 장비가 아니다 — 국을 그냥 지나가도록 이어 놓은 심선의
+               끝(성단까지만 오고 장비로 안 나간 슬롯)이다. 그것도 실재하는 연결이라 마디로
+               세우되, 테두리를 점선으로 두어 장비와 구별한다. */
             return (
               <div
                 key={node.id}
                 data-topo-node={node.id}
+                data-patch-end={node.isPatchEnd}
                 className={cn(
                   'absolute rounded-md border bg-surface px-2.5 py-1.5 shadow-sm',
+                  node.isPatchEnd && 'border-dashed',
                   node.isSeed ? 'border-primary' : 'border-line',
                 )}
                 style={{ left: 0, top: 0, width: BOX_W, transform: `translate(${p.x - BOX_W / 2}px, ${p.y - BOX_H / 2}px)` }}
               >
-                <div className="break-words text-sm font-medium text-content">{node.name}</div>
+                <div className={cn(
+                  'break-words text-sm font-medium',
+                  node.isPatchEnd ? 'text-content-muted' : 'text-content',
+                )}>
+                  {node.name}
+                </div>
                 <div className="break-words text-xs text-content-muted">
                   {node.floorName ? `[${node.floorName}] ` : ''}
                   {node.substationName}

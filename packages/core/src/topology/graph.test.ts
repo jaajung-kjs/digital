@@ -76,6 +76,114 @@ describe('buildTopologyGraph', () => {
     expect(edges.every((e) => [e.source, e.target].sort().join() === ['a-dev', 'b-dev'].sort().join())).toBe(true);
   });
 
+  /*
+   * 줄의 id 는 정렬한 **포트** 쌍으로 정해야 겹치지 않게 담긴다(위 시험). 그런데 예전엔
+   * source/target 의 **차례**도 그 포트 쌍 정렬에서 그대로 가져다 썼다 — 같은 장비 쌍을
+   * 코어 둘로 이으면 포트 쌍은 줄마다 다르므로, 포트 id 가 하필 엇갈리면(한 줄은 장비X
+   * 쪽 포트 id 가 더 작고, 다른 줄은 장비Y 쪽이 더 작으면) 줄마다 source/target 이
+   * 서로 반대로 섰다. 캔버스는 그 방향에서 평행선의 벌림(수직 벡터)을 구하므로, 방향이
+   * 반대인 두 줄은 벌림이 상쇄돼 완전히 겹쳐 그려졌다(2026-08-31, 사용자가 화면에서
+   * 「평행 구간이 한 줄로 보인다」로 신고). source/target 은 **장비(자산) id** 로 정해야
+   * 포트 id 가 아무리 엇갈려도 같은 장비 쌍이면 늘 같은 방향으로 선다.
+   */
+  it('같은 장비 쌍을 잇는 줄은 몇 개든 같은 방향으로 선다 — 포트 id 순서가 줄마다 엇갈려도', () => {
+    const input: TopologyInput = {
+      substations: [{ id: 's', name: 's국' }],
+      floors: [],
+      assets: [
+        { id: 'dev-x', name: '장비X', parentAssetId: null, substationId: 's', floorId: null },
+        { id: 'dev-y', name: '장비Y', parentAssetId: null, substationId: 's', floorId: null },
+      ],
+      ports: [
+        { id: 'x1', assetId: 'dev-x', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI', positions: 1 },
+        { id: 'y1', assetId: 'dev-y', group: 'FIBER', index: 1, name: '광 A', medium: 'fiber', direction: 'BI', positions: 1 },
+        // 코어 둘째 짝은 포트 id 를 일부러 엇갈리게 짓는다 — dev-x 쪽(zz2)이 사전순으로
+        // dev-y 쪽(aa2)보다 뒤라, 포트 id 로 정렬했다면 이 줄만 방향이 뒤집혔을 것이다.
+        { id: 'zz2', assetId: 'dev-x', group: 'FIBER', index: 2, name: '광 2', medium: 'fiber', direction: 'BI', positions: 1 },
+        { id: 'aa2', assetId: 'dev-y', group: 'FIBER', index: 2, name: '광 B', medium: 'fiber', direction: 'BI', positions: 1 },
+      ],
+      cables: [cable('c1', 'x1', 'y1'), cable('c2', 'zz2', 'aa2')],
+    };
+
+    const { edges } = buildTopologyGraph(input, 'x1');
+    expect(edges).toHaveLength(2); // 포트 쌍이 다르니 줄도 둘 — 상쇄돼 하나로 뭉치지 않는다
+    expect(edges.every((e) => e.source === 'dev-x' && e.target === 'dev-y')).toBe(true);
+    // 포트 이름이 제 끝과 짝이 맞는지 — source 쪽 이름은 늘 dev-x 의 이름이어야 한다.
+    expect(new Set(edges.map((e) => e.sourcePortName))).toEqual(new Set(['광 1', '광 2']));
+    expect(new Set(edges.map((e) => e.targetPortName))).toEqual(new Set(['광 A', '광 B']));
+  });
+
+  /*
+   * 국을 그냥 지나가도록 패치된 심선(급행)은 양끝이 장비가 아니라 남의 국 성단이다.
+   * 장비만 마디로 세우면 그런 길이 화면에서 통째로 사라진다 — 실재하는 연결인데도
+   * (사용자 지적: 「그냥 패치로만 이어지는 경로도 화면에 표시했으면 좋겠어」).
+   *
+   * 안 쓴 심선과는 갈라야 한다: OPGW 24심 중 하나만 성단하면 나머지도 「장비 없는 사슬」이지만
+   * 그건 그냥 비어 있는 것이다(실측 252개). 가르는 것은 **슬롯끼리 물린 점퍼**의 유무다.
+   */
+  describe('패치로만 이어지는 길', () => {
+    /** 슬롯 하나 = 앞면 2심 + OPGW 2심. 국 이름과 슬롯 id 만 다르다. */
+    const slot = (id: string, sub: string) => ({
+      asset: { id, name: `${id}슬롯`, parentAssetId: null, substationId: sub, floorId: null },
+      ports: [
+        { id: `${id}-f1`, assetId: id, group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI' as const, positions: 1 },
+        { id: `${id}-f2`, assetId: id, group: 'FIBER', index: 2, name: '광 2', medium: 'fiber', direction: 'BI' as const, positions: 1 },
+        { id: `${id}-t`, assetId: id, group: 'FIBER-TRUNK', index: 1, name: 'OPGW', medium: 'fiber', direction: 'BI' as const, positions: 2 },
+      ],
+    });
+
+    /** A국 슬롯 — B국 슬롯 둘(패치로 이어짐) — C국 슬롯. 장비는 하나도 없다. */
+    const through = (): TopologyInput => {
+      const a = slot('a', 'sa');
+      const bw = slot('bw', 'sb');
+      const be = slot('be', 'sb');
+      const c = slot('c', 'sc');
+      return {
+        substations: [{ id: 'sa', name: 'A국' }, { id: 'sb', name: 'B국' }, { id: 'sc', name: 'C국' }],
+        floors: [],
+        assets: [a.asset, bw.asset, be.asset, c.asset],
+        ports: [...a.ports, ...bw.ports, ...be.ports, ...c.ports],
+        cables: [
+          cable('opgw-ab', 'a-t', 'bw-t'),
+          cable('patch-b', 'bw-f1', 'be-f1'), // B국을 그냥 지나가는 패치
+          cable('opgw-bc', 'be-t', 'c-t'),
+        ],
+      };
+    };
+
+    it('패치가 물린 길은 양끝 슬롯이 마디로 서고 한 줄로 이어진다', () => {
+      const { nodes, edges } = buildTopologyGraph(through(), 'a-f1');
+      expect(edges).toHaveLength(1);
+      expect(new Set([edges[0]!.source, edges[0]!.target])).toEqual(new Set(['a', 'c']));
+      /* 지나가는 자리(B국 슬롯 둘)는 마디가 아니다 — 마디는 길이 끝나는 자리뿐이다. */
+      expect(new Set(nodes.map((n) => n.id))).toEqual(new Set(['a', 'c']));
+      expect(nodes.every((n) => n.isPatchEnd)).toBe(true);
+    });
+
+    it('시드가 그 길 위에 있으면 그 줄이 켜진다 — 장비에 못 닿아도', () => {
+      const { edges, litEdgeIds } = buildTopologyGraph(through(), 'a-f1');
+      expect(litEdgeIds.size).toBe(1);
+      expect(litEdgeIds.has(edges[0]!.id)).toBe(true);
+    });
+
+    /* 점퍼가 하나도 없으면 그냥 안 쓴 심선이다 — 그리지 않는다. 안 그러면 24심 중 스물셋이
+       전부 줄로 서서 그림이 무의미해진다. */
+    it('점퍼가 없는 심선은 줄로 서지 않는다 — 안 쓴 심선일 뿐이다', () => {
+      const input = through();
+      input.cables = input.cables.filter((c) => c.id !== 'patch-b');
+      const { nodes, edges } = buildTopologyGraph(input, 'a-f1');
+      expect(edges).toEqual([]);
+      expect(nodes).toEqual([]);
+    });
+
+    /* 한쪽이 캄캄한 OPGW 로 죽으면 끝이 하나뿐이다 — 어디와 어디를 잇는 길이 아니다. */
+    it('한쪽 끝이 성단되지 않았으면 줄로 서지 않는다', () => {
+      const input = through();
+      input.cables = input.cables.filter((c) => c.id !== 'opgw-bc');
+      expect(buildTopologyGraph(input, 'a-f1').edges).toEqual([]);
+    });
+  });
+
   it('같은 국의 두 장비도 마디 둘이고 줄 하나다 — 국이 아니라 장비가 마디다', () => {
     const input: TopologyInput = {
       substations: [{ id: 's', name: 's국' }],
