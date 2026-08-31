@@ -1,20 +1,24 @@
 import { isMultiCorePort } from '../catalog/portKinds.js';
-import type { TraceHop } from '../trace/graph.js';
-import type { TopoEdge, TopoMember, TopoNode, TopologyInput } from './types.js';
+import { buildTraceGraph, traceFrom, type TraceGraph, type TraceHop } from '../trace/graph.js';
+import type { TopoEdge, TopoNode, TopologyInput } from './types.js';
+
+type Port = TopologyInput['ports'][number];
 
 /**
- * 국 단위 그래프 — **마디는 변전소, 줄은 구간 케이블**.
+ * 장비 단위 그래프 — **마디는 장비, 줄은 장비 사이 광 경로 한 구간**.
  *
- * 「구간인가」는 양끝이 다심 포트인가로 묻는다. 다심 한 가닥이 국과 국을 잇는 그 케이블이
- * 곧 추적이 못 넘던 경계이고, 토폴로지는 정확히 그 바깥을 그린다.
+ * 「장비인가」는 그 자산의 포트 중 다심이 하나도 없는가로 묻는다. 다심 포트(OPGW·인입)를
+ * 가진 자산은 경로슬롯이다 — 코어가 지나가는 자리일 뿐 마디가 아니다. 한 국 안에도 슬롯이
+ * 여럿이고 슬롯마다 다른 링을 타므로, 국을 마디로 잡으면 무관한 링들이 한 마디에 섞인다.
  *
- * 마디 안에 서는 것은 **추적이 그 국에서 지나간 장비**다. 「이 망에 걸린 것 전부」로 두면
- * 링의 다른 국까지 장비 목록이 채워져, 내 코어와 무관한 것이 답처럼 보인다.
+ * 줄은 케이블 하나가 아니다 — **장비의 단심 광 포트에서 traceFrom 을 떠 닿은 다른 장비의
+ * 포트**다. 광 장비는 안으로 통하는 길이 유도되지 않으므로(`derivedLinks`) 추적은 반드시
+ * 첫 장비에서 멈춘다: 한 포트당 상대는 0개 아니면 1개다. 양끝에서 같은 줄을 두 번 찾으므로
+ * 정렬한 포트 쌍을 id 로 삼아 겹치지 않게 담는다.
  */
 export function buildTopologyGraph(
   input: TopologyInput,
   seedPortId: string,
-  hops: readonly TraceHop[],
 ): { nodes: TopoNode[]; edges: TopoEdge[]; litEdgeIds: Set<string> } {
   const assetById = new Map(input.assets.map((a) => [a.id, a]));
   const portById = new Map(input.ports.map((p) => [p.id, p]));
@@ -25,65 +29,75 @@ export function buildTopologyGraph(
   const floorCount = new Map<string, number>();
   for (const f of input.floors) floorCount.set(f.substationId, (floorCount.get(f.substationId) ?? 0) + 1);
 
-  const subOf = (portId: string): string | null => {
-    const asset = assetById.get(portById.get(portId)?.assetId ?? '');
-    return asset?.substationId ?? null;
-  };
-
-  // ── 줄 ─────────────────────────────────────────────────────────────────
-  const edges: TopoEdge[] = [];
-  for (const c of input.cables) {
-    const a = portById.get(c.aPortId);
-    const b = portById.get(c.bPortId);
-    if (!a || !b) continue;
-    if (!isMultiCorePort(a.positions) || !isMultiCorePort(b.positions)) continue;
-    const sa = subOf(c.aPortId);
-    const sb = subOf(c.bPortId);
-    if (!sa || !sb || sa === sb) continue;
-    edges.push({
-      id: c.id, source: sa, target: sb,
-      sourceSlotName: assetById.get(a.assetId)?.name ?? '',
-      targetSlotName: assetById.get(b.assetId)?.name ?? '',
-    });
+  const portsByAsset = new Map<string, Port[]>();
+  for (const p of input.ports) {
+    const list = portsByAsset.get(p.assetId);
+    if (list) list.push(p);
+    else portsByAsset.set(p.assetId, [p]);
   }
 
-  // ── 마디 안 목록 — 홉이 지나간 차례 ────────────────────────────────────
-  const memberIds: string[] = [];
-  const pushAsset = (portId: string) => {
-    const assetId = portById.get(portId)?.assetId;
-    if (assetId && !memberIds.includes(assetId)) memberIds.push(assetId);
+  /* 장비 판정 — 포트가 하나도 없는 자산(설비 상자 자체)은 지나갈 것도 마디가 될 것도 없다. */
+  const isEquipment = (assetId: string): boolean => {
+    const ports = portsByAsset.get(assetId);
+    return ports != null && ports.length > 0 && ports.every((p) => !isMultiCorePort(p.positions));
   };
-  pushAsset(seedPortId);
-  for (const h of hops) pushAsset(h.toPortId);
 
-  const membersBySub = new Map<string, TopoMember[]>();
-  for (const assetId of memberIds) {
-    const asset = assetById.get(assetId);
-    if (!asset) continue;
-    const list = membersBySub.get(asset.substationId) ?? [];
-    list.push({
-      assetId,
-      assemblyName: asset.parentAssetId ? assetById.get(asset.parentAssetId)?.name ?? null : null,
-      assetName: asset.name,
-      floorName: (floorCount.get(asset.substationId) ?? 0) > 1
-        ? floorById.get(asset.floorId ?? '')?.name ?? null
+  const traceGraph: TraceGraph = buildTraceGraph({
+    types: {}, // 자산 안 통과는 포트 인스턴스에서 유도되므로(internalLinkMap) 품목 명세는 안 읽는다.
+    assets: input.assets.map((a) => ({ id: a.id, typeKey: '', name: a.name, parentAssetId: a.parentAssetId })),
+    ports: input.ports.map((p) => ({
+      id: p.id, assetId: p.assetId, group: p.group, index: p.index,
+      name: p.name, direction: p.direction, medium: p.medium, positions: p.positions,
+    })),
+    cables: input.cables.map((c) => ({ id: c.id, aPortId: c.aPortId, bPortId: c.bPortId })),
+  });
+
+  /** 이 홉들이 결국 닿은 **다른 장비**의 포트 — 슬롯·OPGW 를 지나는 홉은 건너뛴다. */
+  const reachedEquipmentPortId = (hops: readonly TraceHop[], fromAssetId: string): string | null => {
+    for (const h of hops) {
+      const toAssetId = portById.get(h.toPortId)?.assetId;
+      if (toAssetId && toAssetId !== fromAssetId && isEquipment(toAssetId)) return h.toPortId;
+    }
+    return null;
+  };
+
+  // ── 줄 — 장비마다 단심 광 포트에서 traceFrom 을 떠 닿은 장비 포트와 짝짓는다 ──────────
+  const edgeByKey = new Map<string, TopoEdge>();
+  const litKeys = new Set<string>();
+  for (const asset of input.assets) {
+    if (!isEquipment(asset.id)) continue;
+    for (const port of portsByAsset.get(asset.id) ?? []) {
+      if (port.medium !== 'fiber' || isMultiCorePort(port.positions)) continue;
+      const reachedPortId = reachedEquipmentPortId(traceFrom(traceGraph, port.id), asset.id);
+      if (!reachedPortId) continue;
+      const reachedPort = portById.get(reachedPortId)!;
+      const [p1, p2] = port.id < reachedPortId ? [port, reachedPort] : [reachedPort, port];
+      const key = `${p1.id}\0${p2.id}`;
+      if (!edgeByKey.has(key)) {
+        edgeByKey.set(key, {
+          id: key, source: p1.assetId, target: p2.assetId,
+          sourcePortName: p1.name, targetPortName: p2.name,
+        });
+      }
+      if (port.id === seedPortId) litKeys.add(key);
+    }
+  }
+
+  // ── 마디 — 이 망에 걸린 장비 전부. 시드 장비가 맨 앞, 나머지는 이름 차례. ──────────────
+  const seedAssetId = portById.get(seedPortId)?.assetId ?? null;
+  const nodes: TopoNode[] = input.assets
+    .filter((a) => isEquipment(a.id))
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      assemblyName: a.parentAssetId ? assetById.get(a.parentAssetId)?.name ?? null : null,
+      substationName: subById.get(a.substationId)?.name ?? '',
+      floorName: (floorCount.get(a.substationId) ?? 0) > 1
+        ? floorById.get(a.floorId ?? '')?.name ?? null
         : null,
-    });
-    membersBySub.set(asset.substationId, list);
-  }
+      isSeed: a.id === seedAssetId,
+    }))
+    .sort((a, b) => (a.isSeed ? -1 : b.isSeed ? 1 : a.name.localeCompare(b.name)));
 
-  // ── 마디 — 줄에 닿은 국 + 목록이 있는 국. 시드 국이 맨 앞, 나머지는 이름 차례. ──
-  const nodeIds = new Set<string>([...edges.flatMap((e) => [e.source, e.target]), ...membersBySub.keys()]);
-  const seedSub = subOf(seedPortId);
-  if (seedSub) nodeIds.add(seedSub);
-  const nodes: TopoNode[] = [...nodeIds]
-    .map((id) => ({ id, name: subById.get(id)?.name ?? id, members: membersBySub.get(id) ?? [] }))
-    .sort((a, b) => (a.id === seedSub ? -1 : b.id === seedSub ? 1 : a.name.localeCompare(b.name)));
-
-  const edgeIds = new Set(edges.map((e) => e.id));
-  const litEdgeIds = new Set(
-    hops.flatMap((h) => (h.cableId !== undefined && edgeIds.has(h.cableId) ? [h.cableId] : [])),
-  );
-
-  return { nodes, edges, litEdgeIds };
+  return { nodes, edges: [...edgeByKey.values()], litEdgeIds: litKeys };
 }

@@ -16,8 +16,6 @@ const BOX_W = 180;
 const BOX_H = 76;
 /** 그림 둘레 여백 — 상자가 판 가장자리에 붙지 않게. */
 const PAD = 120;
-/** 한 마디에 늘어놓을 장비 줄 수 — 넘으면 접는다. */
-const MAX_MEMBERS = 8;
 
 interface TopologyCanvasProps {
   nodes: TopoNode[];
@@ -68,7 +66,7 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
                 strokeWidth={lit ? 3 : 1.5}
                 className={lit ? 'stroke-primary' : 'stroke-line'}
               >
-                <title>{`${e.sourceSlotName} ↔ ${e.targetSlotName}`}</title>
+                <title>{`${e.sourcePortName} ↔ ${e.targetPortName}`}</title>
               </line>
             );
           })}
@@ -77,26 +75,24 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
         {nodes.map((node) => {
           const p = at(node.id);
           if (!p) return null;
-          const shown = node.members.slice(0, MAX_MEMBERS);
-          const hidden = node.members.length - shown.length;
+          /* 마디 = 장비 하나. 자리·꾸밈은 다음 태스크(장비 그림)가 다시 그린다 — 여기서는
+             바뀐 자료 모양(TopoNode)에 맞춰 컴파일만 되게 최소로 둔다. */
           return (
             <div
               key={node.id}
               data-topo-node={node.id}
               className={cn(
                 'absolute rounded-md border bg-surface px-2.5 py-1.5 shadow-sm',
-                node.members.length > 0 ? 'border-primary' : 'border-line',
+                node.isSeed ? 'border-primary' : 'border-line',
               )}
               style={{ left: 0, top: 0, width: BOX_W, transform: `translate(${p.x - BOX_W / 2}px, ${p.y - BOX_H / 2}px)` }}
             >
               <div className="truncate text-sm font-medium text-content">{node.name}</div>
-              {shown.map((m) => (
-                <div key={m.assetId} className="truncate text-xs text-content-muted">
-                  {m.floorName ? `[${m.floorName}] ` : ''}
-                  {m.assemblyName ? `${m.assemblyName} - ${m.assetName}` : m.assetName}
-                </div>
-              ))}
-              {hidden > 0 && <div className="text-xs text-content-faint">외 {hidden}개</div>}
+              <div className="truncate text-xs text-content-muted">
+                {node.floorName ? `[${node.floorName}] ` : ''}
+                {node.substationName}
+                {node.assemblyName ? ` · ${node.assemblyName}` : ''}
+              </div>
             </div>
           );
         })}

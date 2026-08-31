@@ -5,41 +5,35 @@
  * 그래프를 import 하면 서로를 부르게 된다.
  */
 
+import type { Direction } from '../catalog/types.js';
+
 export interface Point { x: number; y: number }
 
-/** 마디 박스 안에 서는 장비 하나. */
-export interface TopoMember {
-  assetId: string;
-  /** 이 장비를 담고 있는 설비 — `설비 - 장비` 로 부를 때 앞에 붙는다. */
-  assemblyName: string | null;
-  assetName: string;
-  /** 그 국에 층이 둘 이상일 때만 채운다 — 평면도가 못 그리는 「층을 넘는 줄」이 여기서 보인다. */
-  floorName: string | null;
-}
-
+/** 마디 = **장비** 하나. 경로슬롯은 마디가 아니다 — 코어가 지나가는 자리일 뿐이다. */
 export interface TopoNode {
-  /** 변전소 id */
+  /** 장비 자산 id */
   id: string;
   name: string;
-  /**
-   * **내 코어의 길이 이 국에서 지나간 장비들**, 지나간 차례로.
-   *
-   * 「이 망에 걸린 장비 전부」가 아니다. 링의 다른 국은 케이블로는 이어져 있어도 내 코어와
-   * 무관하므로 비어 있다(국 이름만 선다). 추적이 답한 것은 마디 안, 그 다음은 줄 — 그 규칙이
-   * 목록의 내용과 차례를 둘 다 정한다.
-   */
-  members: TopoMember[];
+  /** 이 장비를 담은 설비 — 「광단말 A」는 송광치마다 하나씩 있다. */
+  assemblyName: string | null;
+  /** 어느 국의 장비인가 */
+  substationName: string;
+  /** 그 국에 층이 둘 이상일 때만 채운다. */
+  floorName: string | null;
+  /** 추적을 시작한 포트가 달린 장비인가 — 「여기」를 도드라지게 둔다. */
+  isSeed: boolean;
 }
 
+/** 줄 = 장비와 장비를 잇는 **광 경로 한 구간**. 그 사이 슬롯·OPGW·통과 점퍼가 몇이든 한 줄이다. */
 export interface TopoEdge {
-  /** 케이블 id */
+  /** 양끝 포트 id 를 정렬해 붙인 것 — 같은 두 포트를 잇는 길은 하나다. */
   id: string;
-  /** 변전소 id 둘 */
+  /** 장비 자산 id 둘 */
   source: string;
   target: string;
-  /** 양끝 다심 포트가 달린 자산(경로슬롯)의 이름 — 줄에 마우스를 대면 이것이 뜬다. */
-  sourceSlotName: string;
-  targetSlotName: string;
+  /** 양끝 포트 이름 — 줄에 물으면 나온다(`광 1 ↔ 광 3`). */
+  sourcePortName: string;
+  targetPortName: string;
 }
 
 /**
@@ -53,7 +47,10 @@ export interface TopologyInput {
     id: string; name: string; parentAssetId: string | null;
     substationId: string; floorId: string | null;
   }[];
-  ports: { id: string; assetId: string; name: string; medium: string; positions: number }[];
+  ports: {
+    id: string; assetId: string; group: string; index: number;
+    name: string; medium: string; direction: Direction; positions: number;
+  }[];
   cables: { id: string; aPortId: string; bPortId: string }[];
 }
 

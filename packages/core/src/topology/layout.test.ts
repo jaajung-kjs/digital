@@ -4,8 +4,9 @@ import { detectRings } from './rings.js';
 import type { TopoEdge, TopoNode } from './types.js';
 
 const e = (id: string, source: string, target: string): TopoEdge =>
-  ({ id, source, target, sourceSlotName: '', targetSlotName: '' });
-const n = (id: string): TopoNode => ({ id, name: id, members: [] });
+  ({ id, source, target, sourcePortName: '', targetPortName: '' });
+const n = (id: string): TopoNode =>
+  ({ id, name: id, assemblyName: null, substationName: '', floorName: null, isSeed: false });
 
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 

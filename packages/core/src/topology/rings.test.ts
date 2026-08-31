@@ -3,7 +3,7 @@ import { detectRings } from './rings.js';
 import type { TopoEdge } from './types.js';
 
 const e = (id: string, source: string, target: string): TopoEdge =>
-  ({ id, source, target, sourceSlotName: '', targetSlotName: '' });
+  ({ id, source, target, sourcePortName: '', targetPortName: '' });
 
 /** 링 하나를 마디 이름 집합으로 견준다 — 차례는 뜻이 없다. */
 const nodesOf = (r: { nodeIds: string[] }) => [...r.nodeIds].sort();

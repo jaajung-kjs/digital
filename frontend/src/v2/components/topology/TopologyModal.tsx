@@ -9,7 +9,7 @@
  */
 import { useMemo } from 'react';
 import { Modal } from '../../../components/ui';
-import { buildTopologyGraph, buildTraceGraph, computeLayout, detectRings, traceFrom } from '@twin/core';
+import { buildTopologyGraph, computeLayout, detectRings } from '@twin/core';
 import { useReach } from '../../hooks';
 import { TopologyCanvas } from './TopologyCanvas';
 
@@ -29,26 +29,9 @@ export function TopologyModal({ open, seedPortId, seedLabel, onClose }: Topology
     if (!reach.data || !seedPortId) return null;
     const data = reach.data;
 
-    /* 「내 코어가 간 길」은 **추적 엔진이 그대로** 낸다 — 이번엔 자료에 대국이 다 있으므로
-       코어가 국을 넘어 끝까지 간다. 토폴로지 전용 추적 규칙을 새로 만들지 않는다.
-
-       품목 명세(`types`)는 넘기지 않아도 된다: 자산 안의 통과는 **포트 인스턴스**에서
-       유도되므로(`internalLinkMap`), `buildTraceGraph` 는 `types` 를 실제로 읽지 않는다.
-       그래서 이 상자는 카탈로그를 부르지 않는다 — 안 쓰는 것을 기다리면 그림만 늦어진다. */
-    const graph = buildTraceGraph({
-      types: {},
-      assets: data.assets.map((a) => ({
-        id: a.id, typeKey: a.typeId ?? '', name: a.name, parentAssetId: a.parentAssetId,
-      })),
-      ports: data.ports.map((p) => ({
-        id: p.id, assetId: p.assetId, group: p.group, index: p.index,
-        name: p.name, direction: p.direction, medium: p.medium, positions: p.positions,
-      })),
-      cables: data.cables.map((c) => ({ id: c.id, aPortId: c.aPortId, bPortId: c.bPortId, categoryKey: null })),
-    });
-    const hops = traceFrom(graph, seedPortId);
-
-    const { nodes, edges, litEdgeIds } = buildTopologyGraph(data, seedPortId, hops);
+    /* 장비·줄·「내 코어가 간 줄」을 core 가 한 번에 낸다 — 추적은 이제 core 안에서 일어난다
+       (장비마다 단심 광 포트에서 traceFrom 을 뜨는 일까지 `buildTopologyGraph` 의 몫이다). */
+    const { nodes, edges, litEdgeIds } = buildTopologyGraph(data, seedPortId);
     const rings = detectRings(edges);
     const positions = computeLayout(nodes, edges, rings);
     return { nodes, edges, litEdgeIds, positions };
