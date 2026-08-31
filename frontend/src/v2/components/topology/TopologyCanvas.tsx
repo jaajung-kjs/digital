@@ -8,6 +8,7 @@
  * `@xyflow/react` 는 다시 넣지 않았다. 마디가 수십 개고 조작이 호버뿐이라 쓸 이유가 없다.
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
+import type * as React from 'react';
 import { cn } from '../../../components/ui/cn';
 import type { Point, TopoEdge, TopoNode } from '@twin/core';
 
@@ -66,10 +67,50 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
   }, []);
 
   /* 축소만 한다(min(1, …)) — 마디 몇 개짜리 작은 그림을 판 크기까지 늘리면 글자만 커질
-     뿐 읽을 것은 늘지 않는다. */
-  const scale = panelSize
+     뿐 읽을 것은 늘지 않는다. 이것이 **처음 보이는 배율**이고, 사람이 손으로 키운 몫은
+     따로 곱한다. */
+  const fit = panelSize
     ? Math.min(1, panelSize.width / width, panelSize.height / height)
     : 1;
+
+  /* 사람이 키운 몫과 끌어 옮긴 몫 — 그림이 바뀌면(다른 포트에서 다시 열면) 처음으로 되돌린다.
+     키를 좌표에서 뽑는 까닭은 마디 수만 세면 다른 망인데 같은 수일 때 안 되돌아가기 때문이다. */
+  const graphKey = `${positions.size}:${width}x${height}`;
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const shown = useRef(graphKey);
+  if (shown.current !== graphKey) {
+    shown.current = graphKey;
+    if (zoom !== 1) setZoom(1);
+    if (pan.x !== 0 || pan.y !== 0) setPan({ x: 0, y: 0 });
+  }
+  const scale = fit * zoom;
+
+  /* 휠은 **가리키는 자리를 붙든 채** 키운다 — 가운데를 기준으로 키우면 보고 있던 곳이
+     화면 밖으로 밀려나 매번 다시 찾아야 한다. 판 안에서만 먹고, 판 스크롤로 새지 않는다. */
+  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const box = e.currentTarget.getBoundingClientRect();
+    const at = { x: e.clientX - box.left - pan.x, y: e.clientY - box.top - pan.y };
+    const next = Math.min(4, Math.max(1, zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
+    if (next === zoom) return;
+    const k = next / zoom;
+    setZoom(next);
+    setPan({ x: pan.x - at.x * (k - 1), y: pan.y - at.y * (k - 1) });
+  };
+
+  /* 끌어 옮기기 — 키운 뒤에는 판 밖으로 나간 데를 볼 길이 이것뿐이다. */
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current) return;
+    setPan({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y });
+  };
+  const endDrag = () => { drag.current = null; };
 
   /* 남는 자리를 **양쪽으로 나눈다** — 배율은 한 축만 꽉 채우므로 다른 축에는 반드시 여백이
      남는데, 그것을 그냥 두면 그림이 왼쪽 위로 쏠리고 반대쪽에만 빈 판이 펼쳐진다.
@@ -85,7 +126,27 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
     : { left: 0, top: 0 };
 
   return (
-    <div ref={panelRef} className="h-[60vh] overflow-auto rounded-md bg-surface-2">
+    <div
+      ref={panelRef}
+      className={cn('relative h-[60vh] overflow-hidden rounded-md bg-surface-2',
+        zoom > 1 ? 'cursor-grab active:cursor-grabbing' : '')}
+      onWheel={onWheel}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      {/* 키운 몫을 되돌리는 자리 — 끌다 길을 잃으면 여기서 처음으로 돌아온다. */}
+      {(zoom !== 1 || pan.x !== 0 || pan.y !== 0) && (
+        <button
+          type="button"
+          className="absolute right-2 top-2 z-10 rounded border border-line bg-surface px-2 py-1 text-xs text-content-muted shadow-sm"
+          onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+        >
+          맞춰 보기
+        </button>
+      )}
+      <div style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
       {/* 바깥 상자는 축소된 크기만큼만 차지한다 — 그래야 스크롤 판정(overflow)이 줄어든
           그림을 보고 판단하지, 원래 크기를 보고 판단해 스크롤바가 남지 않는다. */}
       <div
@@ -168,6 +229,7 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </div>

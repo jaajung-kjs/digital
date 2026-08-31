@@ -10,7 +10,7 @@
  * 마디를 하나도 못 낸다(경로슬롯은 마디가 아니므로).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { V2Reach } from '../types';
 import { TopologyModal } from '../components/topology/TopologyModal';
 import { useReach } from '../hooks';
@@ -112,6 +112,9 @@ const patchReach: V2Reach = {
 vi.mock('../hooks', () => ({
   useReach: vi.fn(() => ({ data: reach, isLoading: false, error: null })),
 }));
+
+/** `scale(0.73…)` 에서 숫자만 — 배율을 값으로 견주려고. */
+const scaleOf = (t: string) => parseFloat(/scale\(([\d.]+)\)/.exec(t)?.[1] ?? '1');
 
 describe('TopologyModal', () => {
   it('장비가 마디로 선다 — 국 이름은 마디 안에 붙는다', () => {
@@ -261,6 +264,26 @@ describe('TopologyModal', () => {
       expect(expected).toBeLessThan(1); // 축소가 실제로 일어났는지 — 공허한 통과 방지
 
       vi.unstubAllGlobals();
+    });
+
+    /* 판에 맞춘 배율은 **처음 보이는 배율**일 뿐이다 — 촘촘한 링은 그대로는 못 읽으므로
+       손으로 키울 수 있어야 한다. 휠은 가리키는 자리를 붙든 채 키운다(가운데 기준으로
+       키우면 보고 있던 곳이 밖으로 밀려나 매번 다시 찾아야 한다). */
+    it('휠을 굴리면 커지고, 가리킨 자리가 제자리에 남는다', () => {
+      render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
+      const panel = document.body.querySelector('[data-topo-gutter]')!.parentElement!.parentElement!;
+      const stage = document.body.querySelector('[data-topo-stage]') as HTMLElement;
+      const before = stage.style.transform;
+
+      fireEvent.wheel(panel, { deltaY: -100, clientX: 100, clientY: 100 });
+      const after = (document.body.querySelector('[data-topo-stage]') as HTMLElement).style.transform;
+      expect(after).not.toBe(before);
+      expect(scaleOf(after)).toBeCloseTo(scaleOf(before) * 1.1, 6);
+
+      /* 되돌리는 자리가 생긴다 — 끌다 길을 잃으면 여기서 처음으로 돌아온다. */
+      const reset = screen.getByRole('button', { name: '맞춰 보기' });
+      fireEvent.click(reset);
+      expect((document.body.querySelector('[data-topo-stage]') as HTMLElement).style.transform).toBe(before);
     });
 
     /* 배율은 한 축만 꽉 채운다 — 다른 축에는 반드시 여백이 남는데, 그걸 그냥 두면 그림이
