@@ -601,6 +601,24 @@ git commit -m "feat(topology): 링 인식 — 소링(기본 순환)과 대링(�
 - Consumes: `TopoNode`·`TopoEdge`·`Ring`·`Point` from `./types.js`
 - Produces: `computeLayout(nodes, edges, rings) → Map<string, Point>`, `NODE_GAP`, `ringRadius(n)`
 
+**규칙 넷이 지켜야 하는 것 — 「마디는 겹치지 않는다」**
+
+리뷰가 아래 Step 3 참조 코드에서 그 불변식을 깨는 자리 넷을 찾았다(사용자 판정: **넷 다 고친다**).
+Step 3 의 코드를 옮기되 이 넷은 고쳐서 쓴다.
+
+- **부채꼴은 각을 고정하지 말고 거리를 민다.** 폭 120°를 고정하면 한 마디에 가지가 다섯이면
+  형제 사이가 91.5px(여섯이면 76.4)로 좁아져 실제로 겹친다. 잎 수에 비례한 몫은 그대로 두고,
+  **가장 좁은 이웃 각(`minGap`)에서 거리가 `NODE_GAP` 이 되도록** 부채꼴 전체를 밀어낸다:
+  `radius = Math.max(NODE_GAP, NODE_GAP / (2 * Math.sin(minGap / 2)))`. 링 반지름과 같은 셈법이다.
+- **뿌리는 덩어리마다 고른다.** 뿌리를 한 번만 고르면 끊어진 두 번째 덩어리는 이웃 관계가
+  통째로 버려지고 x축에 한 줄로 늘어선다. 남은 마디가 있으면 그중에서 다시 뿌리를 골라
+  (이웃이 가장 많은 것, 같으면 id 차례) 이미 그린 것 오른쪽에 놓고 또 뻗는다.
+- **인접 목록에서 평행 간선을 겹쳐 세지 않는다.** 두 국 사이 구간이 두 본이면(이중화 —
+  Task 7 시드가 만드는 바로 그 모양) 이웃 목록에 같은 마디가 두 번 들어가 **형제 전부의**
+  부채꼴 몫이 틀어진다. 이웃은 마디 하나당 한 번이다.
+- **`outward` 는 「나 자신」을 id 로 거른다.** 좌표값으로 거르면 다른 두 마디가 우연히 같은
+  자리에 놓였을 때 둘 다 무게중심에서 빠져, 그 뒤 배치가 연쇄로 어긋난다.
+
 - [ ] **Step 1: 실패하는 시험을 쓴다 (`layout.test.ts`)**
 
 ```ts
@@ -690,6 +708,42 @@ describe('computeLayout', () => {
   it('따로 노는 마디도 자리를 얻는다 — 줄이 하나도 없는 국', () => {
     const pos = computeLayout([n('A')], [], []);
     expect(pos.get('A')).toEqual({ x: 0, y: 0 });
+  });
+
+  /* 폭을 고정하면 가지가 다섯만 되어도 형제 사이가 NODE_GAP 아래로 좁아진다 —
+     몫은 그대로 두고 부채꼴 전체를 밀어내야 한다. */
+  it('한 마디에 가지가 여섯이어도 겹치지 않는다', () => {
+    const kids = ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'];
+    const edges = kids.map((k, i) => e(`${i}`, 'H', k));
+    const pos = computeLayout([n('H'), ...kids.map(n)], edges, []);
+    expect(pos.size).toBe(7);
+    noOverlap(pos);
+  });
+
+  /* 뿌리를 한 번만 고르면 두 번째 덩어리는 이웃 관계가 통째로 버려진다. */
+  it('끊어진 덩어리가 둘이면 각각 제 이웃대로 놓인다', () => {
+    const edges = [e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'D', 'E'), e('4', 'E', 'F')];
+    const pos = computeLayout(['A', 'B', 'C', 'D', 'E', 'F'].map(n), edges, []);
+    expect(pos.size).toBe(6);
+    /* 이어진 두 마디는 NODE_GAP 만큼 떨어져 선다 — 한 줄로 흩뿌려진 것이 아니다. */
+    expect(dist(pos.get('D')!, pos.get('E')!)).toBeCloseTo(NODE_GAP, 6);
+    expect(dist(pos.get('E')!, pos.get('F')!)).toBeCloseTo(NODE_GAP, 6);
+    noOverlap(pos);
+  });
+
+  /* 두 국 사이 구간이 두 본이면 이웃 목록에 같은 마디가 두 번 들어간다 — 그러면 형제
+     전부의 몫이 틀어져, 무게가 같은 B 와 C 가 대칭으로 서지 않는다. */
+  it('평행 구간이 있어도 형제의 부채꼴 몫이 틀어지지 않는다', () => {
+    const edges = [e('1', 'A', 'B'), e('2', 'A', 'B'), e('3', 'A', 'C')];
+    const pos = computeLayout(['A', 'B', 'C'].map(n), edges, []);
+    const b = pos.get('B')!;
+    const c = pos.get('C')!;
+    expect(b.x).toBeCloseTo(c.x, 6);
+    expect(b.y).toBeCloseTo(-c.y, 6);
+  });
+
+  it('빈 입력이면 빈 답', () => {
+    expect(computeLayout([], [], []).size).toBe(0);
   });
 
   it('같은 입력이면 같은 좌표 — 그림이 열 때마다 달라지지 않는다', () => {
@@ -890,7 +944,7 @@ function subtreeLeaves(
 - [ ] **Step 4: 시험이 통과하는지 본다**
 
 Run: `npx vitest run --root packages/core src/topology/layout.test.ts`
-Expected: PASS (8 tests)
+Expected: PASS (12 tests)
 
 - [ ] **Step 5: core 전체 시험 + 빌드**
 
