@@ -79,6 +79,40 @@ describe('computeLayout', () => {
     noOverlap(pos);
   });
 
+  /* 고리에 현이 끼면(급행 패치처럼 두 국을 질러가는 구간) 아무렇게나 걸었을 때 정작 고리를
+     이루던 구간이 대각선으로 그려진다 — 실측으로 4각 고리의 네 변 중 둘이 그랬다. 한 바퀴
+     도는 길을 찾으면 그 길이 원의 둘레가 되고 현만 가로지른다. */
+  it('현이 낀 고리도 고리 구간이 둘레에 선다 — 현만 가로지른다', () => {
+    /* 이름을 일부러 엇갈리게 지었다 — A 의 이웃을 사전순으로 훑으면 **현(A–B)이 먼저**
+       걸린다. 그냥 이웃을 따라 걸으면 거기로 새어 고리 구간 A–C 가 대각선이 된다. */
+    const edges = [
+      e('1', 'A', 'C'), e('2', 'C', 'B'), e('3', 'B', 'K'), e('4', 'K', 'A'),
+      e('5', 'A', 'B'), // 질러가는 현 — 고리에서 마주 보는 두 마디를 잇는다
+    ];
+    const pos = computeLayout(['A', 'B', 'C', 'K'].map(n), edges);
+    const d = (x: string, y: string) => dist(pos.get(x)!, pos.get(y)!);
+    for (const [x, y] of [['A', 'C'], ['C', 'B'], ['B', 'K'], ['K', 'A']]) {
+      expect(d(x!, y!)).toBeCloseTo(NODE_GAP, 6); // 네 변은 둘레
+    }
+    expect(d('A', 'B')).toBeGreaterThan(NODE_GAP * 1.3); // 현은 가로지른다
+  });
+
+  /* 8자는 **원 둘**이어야 링으로 읽힌다. 한 원에 몰아넣으면 현이 잔뜩 그어진 다각형이 되어
+     「그냥 복잡한 그래프」처럼 보인다(사용자 지적). 공유하는 마디에서 접해야 한다. */
+  it('마디만 공유하는 두 고리는 원 둘로 서고 그 마디에서 접한다', () => {
+    const edges = [
+      e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A'),
+      e('4', 'C', 'D'), e('5', 'D', 'E'), e('6', 'E', 'C'),
+    ];
+    const pos = computeLayout(['A', 'B', 'C', 'D', 'E'].map(n), edges);
+    const d = (a: string, b: string) => dist(pos.get(a)!, pos.get(b)!);
+    /* 두 고리가 각자 정삼각형이다 — 한 원이면 다섯 마디가 한 오각형에 서므로 이 값이 깨진다. */
+    for (const [x, y] of [['A', 'B'], ['B', 'C'], ['C', 'A'], ['C', 'D'], ['D', 'E'], ['E', 'C']]) {
+      expect(d(x!, y!)).toBeCloseTo(NODE_GAP, 6);
+    }
+    noOverlap(pos);
+  });
+
   it('마디를 공유하는 링 둘 — 다섯 마디가 다 자리를 얻고 겹치지 않는다', () => {
     const edges = [
       e('1', 'A', 'B'), e('2', 'B', 'C'), e('3', 'C', 'A'),

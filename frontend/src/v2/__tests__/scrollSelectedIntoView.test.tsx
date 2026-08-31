@@ -17,6 +17,9 @@ function Table({ selected }: { selected: string | null }) {
   return (
     <div ref={ref}>
       <table>
+        <thead>
+          <tr style={{ position: 'sticky' }} data-head>머리글</tr>
+        </thead>
         <tbody>
           {['a', 'b', 'c'].map((id) => (
             <tr key={id} data-row={id} {...selectableRow(selected, id, () => {})}>
@@ -53,6 +56,18 @@ describe('useScrollSelectedIntoView', () => {
 
     rerender(<Table selected="c" />);
     expect(calls).toEqual(['b', 'c']);
+  });
+
+  /* 머리글이 붙박이면 그 아래로 밀려 들어가 정작 안 보인다 — 그만큼 여백을 둬야 한다.
+     높이는 재서 쓴다(머리글이 한 줄인지 두 줄인지는 표마다 다르다). */
+  it('붙박이 머리글 높이만큼 여백을 두고 멈춘다', () => {
+    watchScroll();
+    Element.prototype.getBoundingClientRect = function rect(this: Element) {
+      return { height: this.hasAttribute('data-head') ? 48 : 36 } as DOMRect;
+    };
+    const { container } = render(<Table selected="b" />);
+    const row = container.querySelector('[data-row="b"]') as HTMLElement;
+    expect(row.style.scrollMarginTop).toBe('48px');
   });
 
   it('아무것도 안 골랐으면 옮기지 않는다', () => {

@@ -24,9 +24,18 @@ export function useScrollSelectedIntoView<T extends HTMLElement = HTMLDivElement
   const ref = useRef<T>(null);
   useEffect(() => {
     if (selectedKey == null) return;
-    ref.current
-      ?.querySelector('[aria-selected="true"]')
-      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const row = ref.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!row) return;
+    /* 표 머리글은 `sticky` 라 스크롤 상자 안에 떠 있다 — 그걸 모르는 채로 옮기면 줄이 머리글
+       **아래로 밀려 들어가** 정작 안 보인다. 머리글 높이만큼 여백을 주면 그만큼 위에서
+       멈춘다. 스크롤 값을 손으로 계산하지 않는 까닭은 그 일을 CSS 가 이미 맡고 있어서다
+       (`scroll-margin`). 높이는 재서 쓴다 — 머리글이 한 줄인지 두 줄인지는 표마다 다르다. */
+    const head = row.closest('table')?.querySelector('thead tr');
+    const stuck = head && getComputedStyle(head).position === 'sticky'
+      ? head.getBoundingClientRect().height
+      : 0;
+    row.style.scrollMarginTop = `${stuck}px`;
+    row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [selectedKey]);
   return ref;
 }

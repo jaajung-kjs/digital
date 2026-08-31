@@ -3,15 +3,21 @@ import type { Point, TopoEdge, TopoNode } from './types.js';
 /**
  * 좌표 — **고리는 원으로, 나머지는 방사로**. 매개변수 0개, 같은 자료면 같은 그림.
  *
- * 원으로 서야 하는 것은 「고리를 이루는 부분」이다. 그것을 찾는 데 순환 기저 같은 것이
- * 필요 없다: **잎을 반복해서 떼면 남는 것이 곧 고리 부분**이다(2-core). 그 마디들을 이웃을
- * 따라 도는 차례로 원 위에 놓으면 고리는 원이 되고, 고리를 가로지르는 구간은 **저절로 현이
- * 된다** — 계산할 것이 없다. 떼어 낸 가지는 붙어 있던 자리에서 방사로 뻗는다.
+ * 그릴 고리를 고르는 일은 **이중연결 성분**(블록) 하나로 끝난다 — 표준 DFS 한 번이고,
+ * 절점을 찾는 그 알고리즘이다. 블록은 「마디를 하나 떼어 내도 안 끊기는 덩어리」이므로:
  *
- * 예전에는 기본순환 기저 + Union-Find + 대링 + 덮개 검사로 「그릴 링」을 골랐다. 260줄이
- * 들었고 거기서 버그가 둘 나왔다 — 허브에서 마디를 빠뜨린 것과, 대링이 제 묶음을 다 못
- * 덮은 것. 잎을 떼는 쪽은 그 두 가지가 **생길 수가 없다**: 남는 것이 곧 고리이므로 고를
- * 일이 없고, 덩어리의 마디는 원 위에 놓이거나 가지로 뻗거나 둘 중 하나라 빠질 데가 없다.
+ * - **마디만 공유하는 두 고리(8자)** → 블록이 둘 → 원이 둘, 그 마디에서 접한다
+ * - **간선을 공유하는 두 고리** → 블록이 하나 → 원 하나, 공유 구간은 **저절로 현이 된다**
+ * - **다리·가지**(마디 둘짜리 블록) → 고리가 아니다 → 방사로 뻗는다
+ *
+ * 고리가 몇 겹이든, 한 블록 안에 순환이 몇 개든 이 규칙은 그대로다 — 블록은 그 순환을
+ * 세지 않고 「끊어지지 않는 덩어리」만 본다. 아주 촘촘한 블록(그물에 가까운 것)은 현이 많은
+ * 원으로 보이는데, 그건 그 자료가 실제로 링이 아니라 그물이라는 뜻이다.
+ *
+ * 예전에는 기본순환 기저 + Union-Find + 대링 + 덮개 검사로 같은 일을 했다. 260줄이 들었고
+ * 거기서 버그가 둘 나왔다(허브에서 마디를 빠뜨린 것, 대링이 제 묶음을 다 못 덮은 것).
+ * 블록은 그 둘이 생길 수가 없다 — 무엇을 고를지 세지 않고, 마디는 어느 블록엔가 반드시 들며,
+ * 어느 블록에도 안 들면 그건 가지다.
  */
 
 /** 이웃한 두 마디의 중심 거리 — 마디 상자 폭 + 여백. */
@@ -42,11 +48,10 @@ export function computeLayout(
   const neighbors = adjacency(nodes, edges);
 
   for (const group of components(nodes, neighbors)) {
-    const core = twoCore(group, neighbors);
-    if (core.length >= 3) {
-      const ids = walkOrder(core, neighbors);
-      const radius = circleRadius(ids, neighbors);
-      placeOnCircle(ids, { x: nextX(pos) + radius, y: 0 }, radius, pos);
+    const rings = blocks(group, neighbors);
+    if (rings.length > 0) {
+      /* 큰 고리부터 놓는다 — 작은 고리가 먼저 자리를 잡으면 큰 고리가 그 둘레를 돌아야 한다. */
+      for (const ring of [...rings].sort((a, b) => b.length - a.length)) placeRing(ring, neighbors, pos);
     } else {
       /* 고리가 없는 덩어리(사슬·나무·외딴 마디) — 이웃이 가장 많은 것을 뿌리로 삼는다. */
       const root = [...group].sort(
@@ -99,37 +104,99 @@ function components(nodes: readonly TopoNode[], neighbors: Map<string, string[]>
   return out;
 }
 
-/** 고리 부분 — 이웃이 하나 이하인 마디를 더 뗄 것이 없을 때까지 뗀다. */
-function twoCore(group: readonly string[], neighbors: Map<string, string[]>): string[] {
-  const left = new Set(group);
-  for (let peeled = true; peeled;) {
-    peeled = false;
-    for (const id of [...left]) {
-      const deg = (neighbors.get(id) ?? []).filter((k) => left.has(k)).length;
-      if (deg <= 1) { left.delete(id); peeled = true; }
+/**
+ * 고리 덩어리들 — **이중연결 성분** 가운데 마디가 셋 이상인 것.
+ *
+ * 표준 DFS 한 번이다(Hopcroft–Tarjan). 간선을 훑으며 쌓아 두었다가, 절점을 만나면 그때까지
+ * 쌓인 간선이 한 덩어리다. 마디 둘짜리 덩어리는 **다리**이지 고리가 아니므로 뺀다 — 두 국을
+ * 잇는 구간이 두 본이어도(이중화) 이웃 목록에서는 한 번만 세므로 여기서 다리로 갈린다.
+ */
+function blocks(group: readonly string[], neighbors: Map<string, string[]>): string[][] {
+  const disc = new Map<string, number>();
+  const low = new Map<string, number>();
+  const stack: [string, string][] = [];
+  const found: string[][] = [];
+  let time = 0;
+
+  const walk = (u: string, parent: string | null): void => {
+    time += 1;
+    disc.set(u, time);
+    low.set(u, time);
+    for (const v of neighbors.get(u) ?? []) {
+      if (v === parent) continue; // 부모로 되돌아가는 간선은 고리가 아니다
+      if (!disc.has(v)) {
+        stack.push([u, v]);
+        walk(v, u);
+        low.set(u, Math.min(low.get(u)!, low.get(v)!));
+        if (low.get(v)! >= disc.get(u)!) {
+          /* u 가 절점 — 여기서 한 덩어리가 닫힌다. 쌓아 둔 간선을 이 간선까지 걷어 낸다. */
+          const ids: string[] = [];
+          for (;;) {
+            const [a, b] = stack.pop()!;
+            if (!ids.includes(a)) ids.push(a);
+            if (!ids.includes(b)) ids.push(b);
+            if (a === u && b === v) break;
+          }
+          found.push(ids);
+        }
+      } else if (disc.get(v)! < disc.get(u)!) {
+        stack.push([u, v]);
+        low.set(u, Math.min(low.get(u)!, disc.get(v)!));
+      }
     }
-  }
-  return group.filter((id) => left.has(id));
+  };
+
+  for (const id of group) if (!disc.has(id)) walk(id, null);
+  return found.filter((b) => b.length >= 3);
 }
 
 /**
- * 원 위에 놓을 차례 — 이웃을 따라 걷는다.
+ * 원 위에 놓을 차례 — **한 바퀴 도는 길**을 찾는다.
  *
- * 고리를 이루므로 이웃을 따라가면 도는 차례가 그대로 나온다. 갈 데가 없으면(고리가 여럿이
- * 얽힌 자리) 아직 안 놓인 것 중 첫 마디로 건너뛴다 — 그때 생기는 건너뜀은 원을 가로지르는
- * 현이 되고, 그건 그 자리에 실제로 있는 구간이다.
+ * 고리에 현이 끼면(급행 패치처럼 두 국을 질러가는 구간) 아무렇게나 걸었을 때 정작 고리를
+ * 이루던 구간이 대각선으로 그려진다 — 실측으로 4각 고리의 네 변 중 둘이 그렇게 됐다.
+ * 모든 마디를 한 번씩 밟고 제자리로 돌아오는 길을 찾으면 그 길이 곧 원의 둘레가 되고,
+ * 현은 원을 가로지르는 선으로 남는다.
+ *
+ * 그런 길이 없거나(고리가 얽혀 한 바퀴로 못 도는 모양) 찾는 데 너무 오래 걸리면, 이웃을
+ * 따라 걸을 수 있는 만큼 걷는다 — 그때 생기는 건너뜀도 그 자리에 실제로 있는 구간이다.
  */
-function walkOrder(core: readonly string[], neighbors: Map<string, string[]>): string[] {
-  const rest = new Set(core);
+function walkOrder(ring: readonly string[], neighbors: Map<string, string[]>): string[] {
+  return roundTrip(ring, neighbors) ?? greedyWalk(ring, neighbors);
+}
+
+/** 되짚어 가며 한 바퀴 도는 길을 찾는다. 걸음 수에 뚜껑을 씌워 늘 끝난다. */
+function roundTrip(ring: readonly string[], neighbors: Map<string, string[]>): string[] | null {
+  const start = ring[0]!;
+  const inRing = new Set(ring);
+  const path = [start];
+  const seen = new Set([start]);
+  let steps = 0;
+
+  const step = (): boolean => {
+    if (steps++ > 20000) return false; // 촘촘한 덩어리에서 끝없이 되짚지 않게
+    const cur = path[path.length - 1]!;
+    if (path.length === ring.length) return (neighbors.get(cur) ?? []).includes(start);
+    for (const next of neighbors.get(cur) ?? []) {
+      if (!inRing.has(next) || seen.has(next)) continue;
+      path.push(next); seen.add(next);
+      if (step()) return true;
+      path.pop(); seen.delete(next);
+    }
+    return false;
+  };
+  return step() ? path : null;
+}
+
+function greedyWalk(ring: readonly string[], neighbors: Map<string, string[]>): string[] {
+  const rest = new Set(ring);
   const out: string[] = [];
-  let cur = core[0]!;
+  let cur = ring[0]!;
   for (;;) {
     rest.delete(cur);
     out.push(cur);
     if (rest.size === 0) return out;
-    const next = (neighbors.get(cur) ?? []).find((k) => rest.has(k))
-      ?? core.find((id) => rest.has(id))!;
-    cur = next;
+    cur = (neighbors.get(cur) ?? []).find((k) => rest.has(k)) ?? ring.find((id) => rest.has(id))!;
   }
 }
 
@@ -153,12 +220,37 @@ function circleRadius(ids: readonly string[], neighbors: Map<string, string[]>):
     : ringRadius(n);
 }
 
+/**
+ * 고리 하나를 원으로 — 이미 놓인 마디를 공유하면 **그 점에서 접하게**.
+ *
+ * 8자를 한 원에 몰아넣으면 현이 잔뜩 그어진 다각형이 되어 링으로 안 읽힌다. 공유하는 마디를
+ * 제자리에 두고 새 원을 그 바깥으로 밀면 두 고리가 그 점에서 만나는 그림이 된다.
+ */
+function placeRing(
+  ring: readonly string[], neighbors: Map<string, string[]>, pos: Map<string, Point>,
+): void {
+  const ids = walkOrder(ring, neighbors);
+  const radius = circleRadius(ids, neighbors);
+  const anchor = ids.find((id) => pos.has(id));
+  if (anchor === undefined) {
+    placeOnCircle(ids, { x: nextX(pos) + radius, y: 0 }, radius, -Math.PI / 2, pos);
+    return;
+  }
+  const p = pos.get(anchor)!;
+  const dir = outward(anchor, pos);
+  const center = { x: p.x + dir.x * radius, y: p.y + dir.y * radius };
+  const at = ids.indexOf(anchor);
+  const rotated = [...ids.slice(at), ...ids.slice(0, at)];
+  placeOnCircle(rotated, center, radius, Math.atan2(p.y - center.y, p.x - center.x), pos);
+}
+
 function placeOnCircle(
-  ids: readonly string[], center: Point, radius: number, pos: Map<string, Point>,
+  ids: readonly string[], center: Point, radius: number, start: number, pos: Map<string, Point>,
 ): void {
   const step = (2 * Math.PI) / ids.length;
   ids.forEach((id, i) => {
-    const angle = -Math.PI / 2 + step * i;
+    if (pos.has(id)) return; // 공유하는 마디는 제자리에 둔다
+    const angle = start + step * i;
     pos.set(id, { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) });
   });
 }
