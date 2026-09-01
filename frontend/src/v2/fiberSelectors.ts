@@ -148,8 +148,14 @@ export function buildFiberRows(
   const { cablesByAPortId: byA, cablesByBPortId: byB } = indexCablesByPort(cables);
   const portIndex = buildPortIndex(assets);
 
+  /* **인입이 물린 판만** 적는다 — 선번장은 실제로 들어온 광케이블의 성단표다. 케이블이
+     없는 판은 코어마다 빈 줄만 스물넉 줄을 만들어, 정작 읽을 줄을 파묻는다. */
   const slots = assets
-    .filter((a) => a.parentAssetId === container.id && trunkPortOf(a) !== null)
+    .filter((a) => {
+      if (a.parentAssetId !== container.id) return false;
+      const trunk = trunkPortOf(a);
+      return trunk !== null && cableAt(trunk.id, byA, byB) !== null;
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // 열 = 슬롯들이 가진 단심 광 포트 그룹의 합집합(포트 순서 보존).

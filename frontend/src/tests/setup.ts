@@ -23,31 +23,47 @@ URL.revokeObjectURL = () => {};
    시험은 이 자리를 제 손으로 덮어쓴다(`scrollSelectedIntoView.test.tsx`). */
 Element.prototype.scrollIntoView = () => {};
 
-// Mock HTMLCanvasElement
-HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+/* 캔버스도 없는 쪽이라 환경에서 채운다 — **`vi.fn` 이 아니라 보통 함수로.**
+   이 프로젝트는 `mockReset: true` 라(vitest.config) 시험이 시작될 때마다 모든 mock 의
+   구현이 지워진다. 여기를 `vi.fn(() => …)` 으로 두면 첫 시험이 끝난 뒤부터
+   `getContext()` 가 `undefined` 를 돌려주어, 캔버스를 그리는 화면이 조용히 깨진다.
+   불린 횟수를 세고 싶은 시험은 제 손으로 덮어쓰면 된다. */
+const noop = () => {};
+HTMLCanvasElement.prototype.getContext = (() => ({
   fillStyle: '',
   strokeStyle: '',
   lineWidth: 0,
   lineCap: 'butt',
   lineJoin: 'miter',
   globalAlpha: 1,
-  clearRect: vi.fn(),
-  fillRect: vi.fn(),
-  strokeRect: vi.fn(),
-  beginPath: vi.fn(),
-  moveTo: vi.fn(),
-  lineTo: vi.fn(),
-  arc: vi.fn(),
-  stroke: vi.fn(),
-  fill: vi.fn(),
-  save: vi.fn(),
-  restore: vi.fn(),
-  translate: vi.fn(),
-  rotate: vi.fn(),
-  scale: vi.fn(),
-  setLineDash: vi.fn(),
-  fillText: vi.fn(),
-  measureText: vi.fn(() => ({ width: 0 })),
+  clearRect: noop,
+  fillRect: noop,
+  strokeRect: noop,
+  beginPath: noop,
+  moveTo: noop,
+  lineTo: noop,
+  arc: noop,
+  stroke: noop,
+  fill: noop,
+  save: noop,
+  restore: noop,
+  translate: noop,
+  rotate: noop,
+  scale: noop,
+  setLineDash: noop,
+  setTransform: noop,
+  resetTransform: noop,
+  transform: noop,
+  closePath: noop,
+  rect: noop,
+  clip: noop,
+  quadraticCurveTo: noop,
+  bezierCurveTo: noop,
+  ellipse: noop,
+  drawImage: noop,
+  createLinearGradient: () => ({ addColorStop: noop }),
+  fillText: noop,
+  measureText: () => ({ width: 0 }),
 })) as any;
 
 // Mock IntersectionObserver

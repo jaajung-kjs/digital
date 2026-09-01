@@ -1,5 +1,6 @@
 import { PORT_KINDS, type PortKindKey } from '../catalog/portKinds.js';
 import type { AssetTypeSpec } from '../catalog/types.js';
+import { ASSEMBLY_GRID } from '../catalog/assembly.js';
 
 export const SEED_CATEGORIES = [
   { key: '구조', name: '구조', sortOrder: 1 },
@@ -482,11 +483,25 @@ export const SEED_ASSEMBLIES: {
            portCounts?: Record<string, number>; portPositions?: Record<string, number> }[];
 }[] = [
   {
-    /* 성단 판을 담는 함체 — 도면에 이것을 놓는다(예전의 OFD 자산 + 그 안의 슬롯들).
-       판은 가로로 나란히 꽂힌다. 세로 1열로 두면 세로로만 쌓는 판이 되어 버린다. */
+    /*
+     * 성단 판을 담는 함체 — 도면에 이것을 놓는다(예전의 OFD 자산 + 그 안의 슬롯들).
+     *
+     * 판은 **가로로 나란히** 꽂힌다(세로 1열로 두면 세로로만 쌓는 판이 되어 버린다).
+     *
+     * **슬롯 하나 = 판 한 장(24심 성단 단위)** 이다. 선로가 아니다 — 48심 한 가닥은 판 두
+     * 장에 나눠 성단되고 선번장도 그렇게 적힌다((구)춘천의 「강원D/D #1」이 두 번 나오는
+     * 것이 그것이다: 코어가 1~24, 25~48 로 이어진다).
+     *
+     * **자리를 넉넉히 세워 둔다** — 실제 함체는 판 자리를 미리 갖고 있고, 선로가 늘 때마다
+     * 함체를 사는 것이 아니라 빈 자리에 판을 꽂는다. 안 쓰는 자리는 그냥 비어 있고, 쓰는
+     * 자리는 OPGW 를 이으면 이름이 저절로 붙는다(「제 국 - 상대 국 - 순번」).
+     */
     key: 'OFD', name: 'OFD(광분배함)', categoryKey: '통신', sortOrder: 20,
-    items: Array.from({ length: 4 }, (_, i) => ({
-      typeKey: 'OFD-SLOT', name: `슬롯 ${i + 1}`, col: i, row: 0, colSpan: 1, rowSpan: 2,
+    /* 광분배함의 슬롯은 **가로로 꽂히는 카드**다 — 한 자리가 폭을 다 쓰고(`colSpan` = 도화지
+       전체), 높이 한 칸씩 스무 줄로 쌓인다. 그래야 「(구)춘천 - 북춘천 - 1」 같은 이름이
+       잘리지 않고 다 보인다. */
+    items: Array.from({ length: 8 }, (_, i) => ({
+      typeKey: 'OFD-SLOT', name: `슬롯 ${i + 1}`, col: 0, row: i, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1,
     })),
   },
   {

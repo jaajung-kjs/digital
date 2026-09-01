@@ -38,6 +38,8 @@ const slot = asset('slot', '슬롯1', {
   ],
 });
 const dev = asset('dev', '장비1', { ports: [port('d1', 'dev', 'P', 1, { name: '포트 1' })] });
+/** 그 판에 들어온 광 — 선번장은 **인입이 물린 판만** 적으므로 어느 시험에나 이것이 있어야 한다. */
+const trunkCable = cable('in', 't1', 'far-trunk');
 
 describe('fiberContainers', () => {
   /* 예전에는 "광 포트를 가진 자식" 이면 다 걸려서 장비쪽 광 포트만 있는 광단말까지 대상이 됐다.
@@ -54,7 +56,7 @@ describe('fiberContainers', () => {
 
 describe('buildFiberRows', () => {
   it('행은 인입의 코어 수만큼 — 성단 열은 단심 광 그룹에서 나온다', () => {
-    const cables = [cable('c1', 'd1', 'a1')];
+    const cables = [trunkCable, cable('c1', 'd1', 'a1')];
     const { groups, rows } = buildFiberRows(ofd as never, [ofd, slot, dev] as never, cables as never);
     expect(groups).toEqual(['CORE']);
     expect(rows).toHaveLength(2); // 인입 positions=2
@@ -66,7 +68,7 @@ describe('buildFiberRows', () => {
 
   /* 손실은 인입 포트 하나에 코어 번호 아래 담긴다 — 심선마다 포트를 만들지 않는다. */
   it('심선 값은 인입 포트에서 코어 번호로 갈라져 나온다', () => {
-    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [] as never);
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [trunkCable] as never);
     expect(rows[0]!.meta.portId).toBe('t1');
     expect(rows[0]!.meta.portValues).toEqual({ lossDb: 0.3 });
     expect(rows[1]!.meta.portValues).toEqual({}); // 코어 2는 아직 안 잼
@@ -132,6 +134,17 @@ describe('buildFiberRows', () => {
     expect(rows[1]!.farEnd).toMatchObject({ assetName: '광단말 B', portIndex: 2, substationName: '국사B', remote: true });
   });
 
+  /* 선번장은 **들어온 광의 성단표**다 — 아직 아무 광도 안 물린 판은 코어마다 빈 줄만
+     스물넉 줄을 만들어, 정작 읽을 줄을 파묻는다. 판이 서 있는 것과 적히는 것은 다르다. */
+  it('인입 케이블이 없는 판은 적지 않는다 — 자리는 서 있어도 적을 것이 없다', () => {
+    const empty = asset('slot3', '슬롯3', {
+      parentAssetId: 'ofd',
+      ports: [port('s3a1', 'slot3', 'CORE', 1), trunk('t3', 'slot3', 2)],
+    });
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot, empty] as never, [trunkCable] as never);
+    expect(rows.map((r) => r.slotId)).toEqual(['slot', 'slot']);
+  });
+
   /* 12심 판과 24심 판이 한 함체에 섞여 있어도 각자 자기 코어 수만큼만 나온다 —
      예전에는 그 슬롯의 포트 최대 번호로 셌기 때문에 열의 정의와 행의 정의가 따로 놀았다. */
   it('행 수는 그 슬롯 인입의 코어 수 — 판마다 다르다', () => {
@@ -139,7 +152,8 @@ describe('buildFiberRows', () => {
       parentAssetId: 'ofd',
       ports: [port('s2a1', 'slot2', 'CORE', 1), trunk('t2', 'slot2', 4)],
     });
-    const { rows } = buildFiberRows(ofd as never, [ofd, slot, big] as never, [] as never);
+    const cables = [trunkCable, cable('in2', 't2', 'far-trunk2')];
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot, big] as never, cables as never);
     expect(rows.filter((r) => r.slotId === 'slot')).toHaveLength(2);
     expect(rows.filter((r) => r.slotId === 'slot2')).toHaveLength(4);
     // 성단 포트가 없는 코어도 행은 있다 — 아직 안 나간 심선에도 손실을 적어야 한다.

@@ -54,6 +54,24 @@ describe('validateAssembly', () => {
     expect(validateAssembly(twoCol, types)).toBeNull();
   });
 
+  /**
+   * 이름·포트 수도 **여기서** 본다.
+   *
+   * 예전에는 이 둘이 서버의 요청 형식 검사(zod)에만 있었다. 그래서 화면은 「저장할 수 있다」고
+   * 하고, 누르면 서버가 400 으로 거절했다 — 게다가 그 문구는 영어라 사람은 무엇을 고쳐야
+   * 하는지 알 길이 없었다. 규칙이 한 곳에 있어야 두 쪽이 같은 답을 낸다.
+   */
+  it('이름이 비었으면 유효하지 않다 — 공백만 친 것도 빈 것이다', () => {
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', name: '' })] }, types)).toBe('empty-name');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', name: '   ' })] }, types)).toBe('empty-name');
+  });
+
+  it('포트 수는 1 이상의 정수여야 한다 — 심선 수도 같다', () => {
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', portCounts: { FIBER: 0 } })] }, types)).toBe('bad-port-count');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', portPositions: { 'FIBER-TRUNK': 1.5 } })] }, types)).toBe('bad-port-count');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', portCounts: { FIBER: 24 } })] }, types)).toBeNull();
+  });
+
   it('빈 설비 품목도 유효하다 — 놓고 나서 채울 수 있다', () => {
     expect(validateAssembly({ ...optSet, items: [] }, types)).toBeNull();
   });

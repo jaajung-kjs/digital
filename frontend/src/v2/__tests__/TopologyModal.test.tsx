@@ -9,7 +9,7 @@
  * 코어가 슬롯을 지나 장비까지 뚫린다. 앞면만 있고 장비가 없던 예전 픽스처는 이제
  * 마디를 하나도 못 낸다(경로슬롯은 마디가 아니므로).
  */
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { V2Reach } from '../types';
 import { TopologyModal } from '../components/topology/TopologyModal';
@@ -109,9 +109,14 @@ const patchReach: V2Reach = {
 /* 이 상자가 부르는 훅은 `useReach` 하나뿐이다 — 카탈로그를 안 쓴다(모달 주석 참조).
    `vi.fn()` 으로 만들어 두는 이유는 평행 구간 시험 하나만 `mockReturnValueOnce` 로
    다른 자료를 흘려 넣기 위해서다 — 다른 시험은 전부 기본값(`reach`)을 그대로 쓴다. */
-vi.mock('../hooks', () => ({
-  useReach: vi.fn(() => ({ data: reach, isLoading: false, error: null })),
-}));
+vi.mock('../hooks', () => ({ useReach: vi.fn() }));
+
+/* 기본 답은 **시험마다 다시 심는다** — 이 프로젝트는 `mockReset: true` 라(vitest.config)
+   시험 하나가 끝날 때마다 구현이 지워진다. 만들 때 한 번만 심어 두면 그 뒤로는 전부
+   `undefined` 를 받아 상자가 첫 줄에서 깨진다. */
+beforeEach(() => {
+  vi.mocked(useReach).mockReturnValue({ data: reach, isLoading: false, error: null } as never);
+});
 
 /** `scale(0.73…)` 에서 숫자만 — 배율을 값으로 견주려고. */
 const scaleOf = (t: string) => parseFloat(/scale\(([\d.]+)\)/.exec(t)?.[1] ?? '1');

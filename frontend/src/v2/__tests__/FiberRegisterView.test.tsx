@@ -67,6 +67,9 @@ const slot = asset('slot', '슬롯1', {
   ],
 });
 
+/** 그 판에 들어온 광 — 선번장은 **인입이 물린 판만** 적으므로 어느 시험에나 이것이 있어야 한다. */
+const trunkCable = cable('in', 't1', 'far-trunk');
+
 function setStore(assets: V2Asset[], cables: V2Cable[]) {
   v2WorkingCopyStore.setState({
     substationId: 'sub-1',
@@ -105,7 +108,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
   });
 
   it('코어 측정값을 고치면 그 코어 자리만 바뀌고, **측정일이 그날로 찍힌다**', () => {
-    setStore([ofd, slot], []);
+    setStore([ofd, slot], [trunkCable]);
     render(<FiberRegisterView
         substationId="sub-1"
         selectedAssetId={null}
@@ -139,7 +142,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
    * 표만 아는 지역 상태라, 판에서 고르면 표는 아무것도 몰랐다).
    */
   it('줄을 누르면 그 심선의 포트를 알린다', () => {
-    setStore([ofd, slot], []);
+    setStore([ofd, slot], [trunkCable]);
     const onSelect = vi.fn();
     const { container } = render(
       <FiberRegisterView substationId="sub-1" selectedAssetId={null} selectedPortId={null} onSelectAsset={onSelect} />,
@@ -154,7 +157,7 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
   });
 
   it('주소가 가리키는 포트의 줄만 칠해진다 — 판에서 골라도 같다', () => {
-    setStore([ofd, slot], []);
+    setStore([ofd, slot], [trunkCable]);
     const { container } = render(
       <FiberRegisterView substationId="sub-1" selectedAssetId="slot" selectedPortId="a1" onSelectAsset={vi.fn()} />,
     );
@@ -180,9 +183,12 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     expect(screen.getByText(/선번장에 표시할 광 설비가 없습니다/)).toBeTruthy();
   });
 
-  it('인입 케이블이 없는 슬롯은 **그 사실을 말한다** — 값을 담을 자리가 거기이기 때문이다', () => {
+  /* 선번장은 **들어온 광의 성단표**다. 아직 아무 광도 안 물린 판은 코어마다 빈 줄만
+     스물넉 줄을 만들어, 정작 읽을 줄을 파묻는다 — 판이 서 있는 것과 적히는 것은 다르다.
+     (한때 그런 판도 「인입 케이블 없음」이라 적고 세웠다.) */
+  it('인입 케이블이 없는 슬롯은 표에 오르지 않는다', () => {
     setStore([ofd, slot], []);
-    render(<FiberRegisterView
+    const { container } = render(<FiberRegisterView
         substationId="sub-1"
         selectedAssetId={null}
         selectedPortId={null}
@@ -191,9 +197,8 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
         onSelectAsset={vi.fn()}
       />);
 
-    /* 길이·선로명은 **인입 케이블의 값**이다. 케이블이 없으면 적을 곳이 없는데, 그 자리를
-       그냥 비워 두면 「왜 이 슬롯만 칸이 없나」가 된다. */
-    expect(screen.getByText('인입 케이블 없음')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: '길이 고치기' })).toBeNull();
+    expect(screen.queryByText('슬롯1')).toBeNull();
+    const dataRows = [...container.querySelectorAll('tbody tr')].filter((r) => r.querySelectorAll('td').length > 3);
+    expect(dataRows).toHaveLength(0);
   });
 });

@@ -516,6 +516,36 @@ describe('catalog CRUD', () => {
     await request(app).delete(`/api/v2/catalog/types/${t.body.id}`).set(admin).expect(204);
   });
 
+  /**
+   * **400 은 어느 칸이 왜 틀렸는지 말한다.**
+   *
+   * 화면은 서버가 준 `message` 를 그대로 띄운다. 그래서 그것이 「요청 형식이 잘못되었습니다」
+   * 한 줄이면, 스무 칸짜리 폼에서 사람은 앞이 막힌다 — 실제로 설비 품목에서 부품 이름을 지운
+   * 채 저장해 400 을 받고 무엇을 고쳐야 하는지 알 수 없는 일이 있었다. 번역은 한 곳
+   * (`zodMessage`)에서 하므로, 여기서 못 박으면 어느 엔드포인트든 같은 어법이 된다.
+   */
+  it('요청 형식이 틀리면 어느 칸이 왜 틀렸는지 말한다', async () => {
+    const t = await request(app).post('/api/v2/catalog/types').set(admin)
+      .send(makeTypeBody(catId, { key: `${KEY_PREFIX}_MSG` })).expect(201);
+    const asm = (body: object) => ({ name: `${uniq}-asm-msg`, categoryId: catId, sortOrder: 998, items: [], ...body });
+    const part = (over: object) => ({
+      id: 'tmp-1', typeId: t.body.id, name: '부품', col: 0, row: 0, colSpan: 1, rowSpan: 1, ...over,
+    });
+    const post = async (body: object) =>
+      (await request(app).post('/api/v2/catalog/assemblies').set(admin).send(body).expect(400)).body;
+
+    expect(await post(asm({ items: [part({ name: '' })] })))
+      .toMatchObject({ error: 'BAD_REQUEST', message: '구성 1번째 이름: 값을 입력하세요' });
+    expect(await post(asm({ items: [part({ portCounts: { AC: 0 } })] })))
+      .toMatchObject({ message: '구성 1번째 포트 수 AC: 1 이상이어야 합니다' });
+    expect(await post(asm({ unitPrice: 1000.5 }))).toMatchObject({ message: '자재단가: 정수여야 합니다' });
+    /* 조립 규칙이 걸릴 때도 마찬가지다 — 「명세가 유효하지 않습니다」로는 고칠 수가 없다. */
+    expect(await post(asm({ items: [part({ col: 9, colSpan: 3 })] })))
+      .toMatchObject({ error: 'INVALID_ASSEMBLY', message: '격자 밖에 놓인 장비가 있습니다' });
+
+    await request(app).delete(`/api/v2/catalog/types/${t.body.id}`).set(admin).expect(204);
+  });
+
   /* 이름은 그룹 안에서 유니크하다 — 한 줄씩 고치면 맞바꾸는 순간 중간 상태가 제약에 걸린다. */
   it('종류 이름을 서로 맞바꿔도 저장된다', async () => {
     const seeded = await nextDb.cableCategory.findMany({ where: { groupId: cableGroupId }, orderBy: { sortOrder: 'asc' } });

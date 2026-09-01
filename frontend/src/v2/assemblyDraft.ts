@@ -103,6 +103,8 @@ const ERROR_MESSAGE: Record<AssemblyError, string> = {
   'unknown-type': '품목을 고르지 않은 장비가 있습니다',
   'out-of-range': '격자 밖에 놓인 장비가 있습니다',
   overlap: '같은 자리에 겹쳐 놓인 장비가 있습니다',
+  'empty-name': '이름이 비어 있는 장비가 있습니다',
+  'bad-port-count': '포트 수가 1보다 작은 장비가 있습니다',
 };
 
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;

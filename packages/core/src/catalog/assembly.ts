@@ -35,7 +35,7 @@ export interface AssemblyItemSpec {
   portPositions?: Record<string, number>;
 }
 
-export type AssemblyError = 'unknown-type' | 'out-of-range' | 'overlap';
+export type AssemblyError = 'unknown-type' | 'out-of-range' | 'overlap' | 'empty-name' | 'bad-port-count';
 
 /**
  * 설비 품목이 말이 되는가. null = 유효.
@@ -51,6 +51,15 @@ export function validateAssembly(
   const placed: GridOccupant[] = [];
   for (const item of spec.items) {
     if (!typeKeys.has(item.typeKey)) return 'unknown-type';
+    /* 이름과 포트 수도 **여기서** 본다 — 예전에는 서버의 요청 형식 검사(zod)에만 있었다.
+       그래서 이름을 지운 채 저장하면 화면은 막지 않고 서버가 400 으로 거절했다: 사람은
+       왜 튕겼는지 모른 채 저장 단추만 다시 눌렀다. 같은 규칙을 두 곳에 두면 반드시 갈린다. */
+    if (item.name.trim() === '') return 'empty-name';
+    for (const counts of [item.portCounts, item.portPositions]) {
+      for (const n of Object.values(counts ?? {})) {
+        if (!Number.isInteger(n) || n < 1) return 'bad-port-count';
+      }
+    }
     const at = placementAt(item);
     const issue = validateGridPlacement({ grid: ASSEMBLY_GRID, ...(at ?? { col: null, row: null, colSpan: 1, rowSpan: 1 }), occupants: placed });
     if (issue) return issue;

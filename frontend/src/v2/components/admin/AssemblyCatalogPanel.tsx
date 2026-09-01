@@ -11,6 +11,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { EmptyState, TreePanel, useConfirm, IssueReveal, type TreeKind, type TreeNode } from '../../../components/ui';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations, useReorder } from '../../hooks';
+import { apiErrorMessage } from '../../apiError';
 import {
   assemblyIssues, assemblyToDraft, draftToAssemblyBody, emptyAssemblyDraft,
   type AssemblyDraft,
@@ -96,7 +97,10 @@ export function AssemblyCatalogPanel({
         useV2Notice.getState().showSuccess(`'${draft.name}' 을 저장했습니다`);
       }
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : '저장하지 못했습니다');
+      /* **서버가 말한 이유를 그대로** — 이 자리가 예전에는 `e.message` 였다. 그것은 axios 가
+         지은 「Request failed with status code 400」이라, 어느 칸이 틀렸는지는커녕 한국어도
+         아니었다. 번역은 한 곳에서만 한다(`apiErrorMessage`). */
+      setSaveError(apiErrorMessage(e, '저장하지 못했습니다'));
     }
   }
 

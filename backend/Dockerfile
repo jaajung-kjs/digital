@@ -70,7 +70,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/backend/package*.json /app/backen
 COPY --from=builder --chown=nodejs:nodejs /app/backend/node_modules /app/backend/node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/backend/dist /app/backend/dist
 COPY --from=builder --chown=nodejs:nodejs /app/backend/prisma /app/backend/prisma
-# C-2: seed.ts imports ../../src/generated/next-client — copy so seed can run in prod image
+# Prisma 클라이언트는 src/generated 로 생성된다 — dist 가 이것을 상대경로로 부른다.
 COPY --from=builder --chown=nodejs:nodejs /app/backend/src/generated /app/backend/src/generated
 
 WORKDIR /app/backend
@@ -79,4 +79,9 @@ USER nodejs
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy --schema prisma/next/schema.prisma && npm run db:next:seed && node dist/index.js"]
+# 시드는 **컴파일된 것**을 돌린다(`dist/seed/next.js`) — 개발이 tsx 로 돌리는 것과 같은
+# 파일이다. 예전에는 `prisma/next/seed.ts` 를 tsx 로 돌렸는데, 그 시드가 서버 코드
+# (`src/v2/commit.service`)를 부르기 시작하자 프로덕션 이미지에는 `src/` 가 없어(dist 만
+# 담는다) 배포가 기동 중에 죽었다 — 개발에서는 보이지 않는 종류의 실패다. 애플리케이션
+# 코드를 부르는 시드는 애플리케이션 코드와 **같은 길로** 빌드되어야 한다.
+CMD ["sh", "-c", "npx prisma migrate deploy --schema prisma/next/schema.prisma && node dist/seed/next.js && node dist/index.js"]

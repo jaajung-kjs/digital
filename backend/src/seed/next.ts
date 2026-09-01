@@ -3,7 +3,8 @@ import {
   SEED_ASSET_TYPES, SEED_ASSEMBLIES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES,
   SEED_ORG, DIRECT_BRANCH,
 } from '@twin/core';
-import { PrismaClient } from '../../src/generated/next-client/index.js';
+import { PrismaClient } from '../generated/next-client/index.js';
+import { seedJikhalGangwon } from './jikhalGangwon.js';
 
 const prisma = new PrismaClient();
 
@@ -160,6 +161,10 @@ async function main() {
   if (counts !== null) {
     console.log('[seed:next]', JSON.stringify(counts));
   }
+
+  /* 강원본부 직할 — 국·OFD·OPGW. 카탈로그가 선 **뒤에**, 그리고 위 트랜잭션 **밖에서**
+     돈다(커밋 서비스가 제 트랜잭션을 연다). 첫 배포(빈 DB)에만 만든다. */
+  await seedJikhalGangwon();
 }
 
 main()

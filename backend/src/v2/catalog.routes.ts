@@ -1,5 +1,5 @@
 import { comparePortStructure, coreCount, portName, specFromUpsert, validateAssembly, validateTypeSpec } from '@twin/core';
-import type { PortChange } from '@twin/core';
+import type { AssemblyError, PortChange } from '@twin/core';
 import { z } from 'zod';
 import type { TypeUpsertBody } from '@twin/core';
 import { Router } from 'express';
@@ -605,6 +605,15 @@ async function writeAssemblyItems(
   }
 }
 
+/** 조립이 왜 안 되는지 — **화면이 쓰는 문장과 같은 말**이어야 두 곳이 어긋나 보이지 않는다. */
+const ASSEMBLY_ISSUE_MESSAGE: Record<AssemblyError, string> = {
+  'unknown-type': '품목을 고르지 않은 장비가 있습니다',
+  'out-of-range': '격자 밖에 놓인 장비가 있습니다',
+  overlap: '같은 자리에 겹쳐 놓인 장비가 있습니다',
+  'empty-name': '이름이 비어 있는 장비가 있습니다',
+  'bad-port-count': '포트 수가 1보다 작은 장비가 있습니다',
+};
+
 /** 설비 품목 명세를 코어가 판정할 수 있는 형태로 — 타입 id 를 키로 바꾼다. */
 async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
   const types = await nextDb.assetType.findMany({ where: { id: { in: body.items.map((i) => i.typeId) } } });
@@ -626,7 +635,7 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
     const body = { ...parsed, key: parsed.key ?? (await nextKey('assembly', 'AS')) };
     const { spec, typeKeys } = await assemblySpecOf(body);
     const issue = validateAssembly(spec, typeKeys);
-    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '설비 품목 명세가 유효하지 않습니다', [{ reason: issue }]);
+    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', ASSEMBLY_ISSUE_MESSAGE[issue], [{ reason: issue }]);
 
     const created = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.create({
@@ -655,7 +664,7 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
     const body = { ...parsed, key: parsed.key ?? (await nextKey('assembly', 'AS')) };
     const { spec, typeKeys } = await assemblySpecOf(body);
     const issue = validateAssembly(spec, typeKeys);
-    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '설비 품목 명세가 유효하지 않습니다', [{ reason: issue }]);
+    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', ASSEMBLY_ISSUE_MESSAGE[issue], [{ reason: issue }]);
 
     const updated = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.update({
