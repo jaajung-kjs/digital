@@ -1,5 +1,5 @@
 import { comparePortStructure, coreCount, portName, specFromUpsert, validateAssembly, validateTypeSpec } from '@twin/core';
-import type { AssemblyError, PortChange } from '@twin/core';
+import type { AssemblyError, Direction, PortChange } from '@twin/core';
 import { z } from 'zod';
 import type { TypeUpsertBody } from '@twin/core';
 import { Router } from 'express';
@@ -150,7 +150,11 @@ catalogRouter.get('/', async (_req, res, next) => {
         orderBy: { sortOrder: 'asc' },
       }),
       nextDb.assembly.findMany({
-        include: { items: { orderBy: { sortOrder: 'asc' } } },
+        include: {
+          items: { orderBy: { sortOrder: 'asc' } },
+          /* 내부 배선도 함께 — 놓을 때 이 줄들로 케이블이 선다(`placeAssembly`). */
+          links: { orderBy: { sortOrder: 'asc' } },
+        },
         orderBy: { sortOrder: 'asc' },
       }),
       /* 적용 중인 기준정보를 **카탈로그에 실어 보낸다** — 노임은 노무유형 드롭다운의
@@ -584,13 +588,16 @@ async function writeAssemblyItems(
   tx: Prisma.TransactionClient,
   assemblyId: string,
   items: z.infer<typeof assemblyUpsertSchema>['items'],
-): Promise<void> {
+): Promise<Map<string, string>> {
   const existing = new Set(
     (await tx.assemblyItem.findMany({ where: { assemblyId }, select: { id: true } })).map((r) => r.id),
   );
   const keep = items.map((i) => i.id).filter((id) => existing.has(id));
   await tx.assemblyItem.deleteMany({ where: { assemblyId, id: { notIn: keep } } });
 
+  /* **화면이 쓰던 id → 실제 id.** 새 항목은 서버가 id 를 붙이므로(`tmp-…` 는 저장되지
+     않는다) 그 항목을 가리키는 배선이 길을 잃는다. 대응표를 돌려주어 배선이 따라오게 한다. */
+  const idMap = new Map<string, string>();
   for (const [i, item] of items.entries()) {
     const data = {
       typeId: item.typeId,
@@ -600,8 +607,46 @@ async function writeAssemblyItems(
       portPositions: (item.portPositions ?? {}) as object,
       sortOrder: i,
     };
-    if (existing.has(item.id)) await tx.assemblyItem.update({ where: { id: item.id }, data });
-    else await tx.assemblyItem.create({ data: { ...data, assemblyId } });
+    if (existing.has(item.id)) {
+      await tx.assemblyItem.update({ where: { id: item.id }, data });
+      idMap.set(item.id, item.id);
+    } else {
+      const row = await tx.assemblyItem.create({ data: { ...data, assemblyId } });
+      idMap.set(item.id, row.id);
+    }
+  }
+  return idMap;
+}
+
+/**
+ * 내부 배선을 갈아 끼운다 — 항목과 같은 어법으로 **통째로 덮어쓴다**.
+ *
+ * 항목이 먼저 저장돼 있어야 한다: 새 항목의 실제 id 를 `idMap` 이 알려 준다.
+ */
+async function writeAssemblyLinks(
+  tx: Prisma.TransactionClient,
+  assemblyId: string,
+  links: z.infer<typeof assemblyUpsertSchema>['links'],
+  idMap: ReadonlyMap<string, string>,
+): Promise<void> {
+  await tx.assemblyLink.deleteMany({ where: { assemblyId } });
+  for (const [i, l] of links.entries()) {
+    const aItemId = idMap.get(l.aItemId);
+    const bItemId = idMap.get(l.bItemId);
+    /* 검증이 이미 걸렀지만(`link-endpoint`), 여기서도 조용히 지나가지 않는다. */
+    if (!aItemId || !bItemId) {
+      throw new HttpError(400, 'INVALID_ASSEMBLY', ASSEMBLY_ISSUE_MESSAGE['link-endpoint']);
+    }
+    await tx.assemblyLink.create({
+      data: {
+        assemblyId,
+        aItemId, aGroup: l.aGroup, aIndex: l.aIndex,
+        bItemId, bGroup: l.bGroup, bIndex: l.bIndex,
+        categoryId: l.categoryId ?? null,
+        specParams: (l.specParams ?? {}) as object,
+        sortOrder: i,
+      },
+    });
   }
 }
 
@@ -619,16 +664,27 @@ const ASSEMBLY_ISSUE_MESSAGE: Record<AssemblyError, string> = {
 
 /** 설비 품목 명세를 코어가 판정할 수 있는 형태로 — 타입 id 를 키로 바꾼다. */
 async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
-  const types = await nextDb.assetType.findMany({ where: { id: { in: body.items.map((i) => i.typeId) } } });
+  /* 포트 선언까지 실어 온다 — 내부 배선의 양끝이 실재하는지, 그 둘이 이어질 수 있는지를
+     보려면 그 종류가 무슨 포트를 갖는지 알아야 한다(`validateAssembly` 의 `portsOf`). */
+  const types = await nextDb.assetType.findMany({
+    where: { id: { in: body.items.map((i) => i.typeId) } },
+    include: { portTemplates: { orderBy: { sortOrder: 'asc' } } },
+  });
   const keyById = new Map(types.map((t) => [t.id, t.key]));
+  const portsByKey = new Map(types.map((t) => [t.key, t.portTemplates.map((p) => ({
+    group: p.group, count: p.count, direction: p.direction as Direction, medium: p.medium,
+    namePattern: p.namePattern, positions: p.positions, variant: p.variant,
+  }))]));
   return {
     spec: {
       // 키는 검사에 쓰이지 않는다(격자 안·겹침만 본다) — 아직 안 붙었으면 빈 값으로 둔다.
       key: body.key ?? '',
       name: body.name,
       items: body.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
+      links: body.links,
     },
     typeKeys: new Set(types.map((t) => t.key)),
+    portsOf: (typeKey: string) => portsByKey.get(typeKey),
   };
 }
 
@@ -636,8 +692,8 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
   try {
     const parsed = assemblyUpsertSchema.parse(req.body);
     const body = { ...parsed, key: parsed.key ?? (await nextKey('assembly', 'AS')) };
-    const { spec, typeKeys } = await assemblySpecOf(body);
-    const issue = validateAssembly(spec, typeKeys);
+    const { spec, typeKeys, portsOf } = await assemblySpecOf(body);
+    const issue = validateAssembly(spec, typeKeys, portsOf);
     if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', ASSEMBLY_ISSUE_MESSAGE[issue], [{ reason: issue }]);
 
     const created = await nextDb.$transaction(async (tx) => {
@@ -650,7 +706,8 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
           sortOrder: body.sortOrder,
         },
       });
-      await writeAssemblyItems(tx, row.id, body.items);
+      const idMap = await writeAssemblyItems(tx, row.id, body.items);
+      await writeAssemblyLinks(tx, row.id, body.links, idMap);
       return row;
     });
     res.status(201).json(created);
@@ -665,8 +722,8 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
     const id = idParamSchema.parse(req.params.id);
     const parsed = assemblyUpsertSchema.parse(req.body);
     const body = { ...parsed, key: parsed.key ?? (await nextKey('assembly', 'AS')) };
-    const { spec, typeKeys } = await assemblySpecOf(body);
-    const issue = validateAssembly(spec, typeKeys);
+    const { spec, typeKeys, portsOf } = await assemblySpecOf(body);
+    const issue = validateAssembly(spec, typeKeys, portsOf);
     if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', ASSEMBLY_ISSUE_MESSAGE[issue], [{ reason: issue }]);
 
     const updated = await nextDb.$transaction(async (tx) => {
@@ -680,7 +737,8 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
           sortOrder: body.sortOrder,
         },
       });
-      await writeAssemblyItems(tx, row.id, body.items);
+      const idMap = await writeAssemblyItems(tx, row.id, body.items);
+      await writeAssemblyLinks(tx, row.id, body.links, idMap);
       return row;
     });
     res.json(updated);

@@ -1,6 +1,6 @@
 import { DEFAULT_ASSET_STATUS } from '@twin/core';
 import { portsForNewAsset } from './newAsset';
-import type { V2Assembly, V2Asset, V2AssetType } from './types';
+import type { V2Assembly, V2Asset, V2AssetType, V2Cable } from './types';
 import { newId } from './newId';
 
 /**
@@ -15,9 +15,14 @@ import { newId } from './newId';
  * **구성은 스냅샷** — 설비 품목을 고쳐도 이미 놓인 설비의 안쪽은 그대로고, 그 설비만 따로
  * 고칠 수 있다.
  *
+ * **내부 배선도 함께 선다**(`assembly.links`) — 랙 한 대짜리 설비의 안쪽 배선은 어느 국에
+ * 놓든 같다. 예전에는 자산과 포트만 만들어서, 같은 결선을 설비를 놓을 때마다 손으로 다시
+ * 이어야 했다. 포트 id 를 여기서 붙이므로(`portsForNewAsset`) 링크의 `묶음:번호` 를 그
+ * 자리에서 풀 수 있다 — 서버에 새 길을 낼 것이 없다(커밋이 이미 케이블을 받는다).
+ *
  * @returns 설비가 첫 번째. 커밋이 이 순서대로 만들면서 부모를 찾는다.
  */
-export function assemblyToAssets(args: {
+export function assemblyToPlacement(args: {
   assembly: V2Assembly;
   substationId: string;
   /** 설비 이름 — 설비 품목 이름이 아니라 현장 이름이 붙는다("통신랙 A"). */
@@ -26,7 +31,7 @@ export function assemblyToAssets(args: {
   rect: { x: number; y: number; width: number; height: number };
   /** 장비의 포트를 지금 만들기 위한 장비 품목들 — 저장 전에도 포트가 보여야 한다. */
   typesById: Map<string, V2AssetType>;
-}): V2Asset[] {
+}): { assets: V2Asset[]; cables: V2Cable[] } {
   const equipmentId = newId();
 
   const equipment: V2Asset = {
@@ -81,5 +86,31 @@ export function assemblyToAssets(args: {
     };
   });
 
-  return [equipment, ...parts];
+  /* 구성 항목 id → 그 항목에서 나온 자산. 배선이 항목을 가리키므로 이 다리가 필요하다. */
+  const partByItem = new Map(args.assembly.items.map((item, i) => [item.id, parts[i]!]));
+  const portIdAt = (itemId: string, group: string, index: number): string | undefined =>
+    partByItem.get(itemId)?.ports.find((p) => p.group === group && p.index === index)?.id;
+
+  const cables: V2Cable[] = [];
+  for (const link of args.assembly.links ?? []) {
+    const aPortId = portIdAt(link.aItemId, link.aGroup, link.aIndex);
+    const bPortId = portIdAt(link.bItemId, link.bGroup, link.bIndex);
+    /* 한쪽이라도 없으면 **그 줄만 거른다** — 설비는 그대로 선다. 품목을 고치면서 포트 수를
+       줄이면 번호가 사라질 수 있는데(저장은 막지만 이미 놓인 설비는 스냅샷이다), 그때
+       설비 전체를 못 놓게 하는 것은 과하다. */
+    if (!aPortId || !bPortId) continue;
+    cables.push({
+      id: newId(),
+      name: null,
+      substationId: args.substationId,
+      aPortId,
+      bPortId,
+      categoryId: link.categoryId,
+      pathPoints: [],
+      specParams: link.specParams ?? {},
+      updatedAt: '',
+    });
+  }
+
+  return { assets: [equipment, ...parts], cables };
 }

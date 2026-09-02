@@ -131,6 +131,27 @@ const assemblyItemSchema = z.object({
   portPositions: z.record(z.number().int().min(1)).optional(),
 });
 
+/**
+ * 설비 안에서 이미 이어져 있는 줄 — 양끝은 **구성 항목의 포트**다.
+ *
+ * 포트 id 로 가리키지 않는 까닭: 구성 항목에는 포트가 없다(자산이 생길 때 선언에서 펴진다).
+ * 그래서 선언이 이름을 붙이는 방식 그대로 `묶음:번호` 로 부른다.
+ *
+ * 항목 id 는 **화면이 쓰는 id**다 — 새 항목이면 `tmp-…` 이고, 서버가 항목을 만들면서
+ * 실제 id 로 바꿔 준다(`writeAssemblyLinks`).
+ */
+const assemblyLinkSchema = z.object({
+  id: z.string().min(1),
+  aItemId: z.string().min(1),
+  aGroup: z.string().min(1),
+  aIndex: z.number().int().min(1),
+  bItemId: z.string().min(1),
+  bGroup: z.string().min(1),
+  bIndex: z.number().int().min(1),
+  categoryId: z.string().uuid().nullish(),
+  specParams: z.record(z.unknown()).optional(),
+});
+
 export const assemblyUpsertSchema = z.object({
   /** 새로 만들 때는 비워 둔다 — 서버가 붙인다(참조용 식별자이지 현장에서 쓰는 값이 아니다). */
   key: z.string().regex(keyRe).optional(),
@@ -146,6 +167,8 @@ export const assemblyUpsertSchema = z.object({
   sortOrder: z.number().int(),
   // 빈 설비 품목도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
   items: z.array(assemblyItemSchema),
+  /* 내부 배선 — 없는 설비 품목이 예사다(OFD 는 판끼리 안 잇는다). */
+  links: z.array(assemblyLinkSchema).default([]),
 });
 
 export const typeUpsertSchema = z.object({

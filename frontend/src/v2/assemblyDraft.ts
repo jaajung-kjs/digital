@@ -1,5 +1,5 @@
 import { validateAssembly, type AssemblyError } from '@twin/core';
-import type { V2Assembly, V2AssemblyItem, V2AssetType } from './types';
+import type { V2Assembly, V2AssemblyItem, V2AssemblyLink, V2AssetType } from './types';
 
 /**
  * 편집 중인 설비 품목 — 서버 형상(`V2Assembly`)에서 저장에 필요 없는 것만 걷어낸 모양.
@@ -22,9 +22,32 @@ export interface AssemblyDraft {
   relocateManDays: number | null;
   sortOrder: number;
   items: AssemblyDraftItem[];
+  /** 내부 배선 — 놓으면 이 케이블들이 함께 선다. */
+  links: AssemblyDraftLink[];
 }
 
 export type AssemblyDraftItem = Omit<V2AssemblyItem, 'sortOrder'>;
+export type AssemblyDraftLink = Omit<V2AssemblyLink, 'sortOrder'>;
+
+/**
+ * 배선 한 줄을 짓는 **유일한 자리** — 줄을 손으로 지으면 서버가 돌려주는 줄과 글자가 달라져
+ * 「고친 것이 있는가」가 거짓말을 한다(`isDirty` 는 JSON 으로 견준다). 항목 줄과 같은 규칙이다.
+ */
+export function assemblyLinkRow(l: {
+  id: string;
+  aItemId: string; aGroup: string; aIndex: number;
+  bItemId: string; bGroup: string; bIndex: number;
+  categoryId?: string | null;
+  specParams?: Record<string, unknown> | null;
+}): AssemblyDraftLink {
+  return {
+    id: l.id,
+    aItemId: l.aItemId, aGroup: l.aGroup, aIndex: l.aIndex,
+    bItemId: l.bItemId, bGroup: l.bGroup, bIndex: l.bIndex,
+    categoryId: l.categoryId ?? null,
+    specParams: l.specParams ?? {},
+  };
+}
 
 /**
  * 초안의 장비 한 줄을 짓는 **유일한 자리**.
@@ -75,6 +98,7 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
     /* 줄을 짓는 자리는 하나다(`assemblyItemRow`) — 판에서 놓는 줄과 **같은 글자**여야
        「고친 것이 있는가」가 맞는 답을 낸다. */
     items: [...a.items].sort((x, y) => x.sortOrder - y.sortOrder).map(assemblyItemRow),
+    links: [...(a.links ?? [])].sort((x, y) => x.sortOrder - y.sortOrder).map(assemblyLinkRow),
   };
 }
 
@@ -84,7 +108,7 @@ export function emptyAssemblyDraft(): AssemblyDraft {
     key: '', name: '', categoryId: '',
     laborCode: null,
     unitPrice: null, installManDays: null, removeManDays: null, relocateManDays: null,
-    sortOrder: 0, items: [],
+    sortOrder: 0, items: [], links: [],
   };
 }
 
@@ -129,13 +153,17 @@ export function assemblyIssues(draft: AssemblyDraft, types: V2AssetType[]): Asse
   if (draft.categoryId === '') issues.push({ path: 'category', message: '분류를 고르세요' });
 
   const keyById = new Map(types.map((t) => [t.id, t.key]));
+  /* 배선을 보려면 그 종류가 무슨 포트를 갖는지 알아야 한다 — 항목에는 포트가 없다. */
+  const portsByKey = new Map(types.map((t) => [t.key, t.portTemplates]));
   const issue = validateAssembly(
     {
       key: draft.key,
       name: draft.name,
       items: draft.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
+      links: draft.links,
     },
     new Set(types.map((t) => t.key)),
+    (typeKey) => portsByKey.get(typeKey),
   );
   if (issue) issues.push({ path: 'items', message: ERROR_MESSAGE[issue] });
   return issues;
@@ -155,5 +183,6 @@ export function draftToAssemblyBody(draft: AssemblyDraft) {
     relocateManDays: draft.relocateManDays,
     sortOrder: draft.sortOrder,
     items: draft.items,
+    links: draft.links,
   };
 }

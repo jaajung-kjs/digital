@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { assemblyToAssets } from '../placeAssembly';
+import { assemblyToPlacement } from '../placeAssembly';
 import { buildCommitPayload } from '../store/buildCommitPayload';
 import type { V2Assembly, V2AssetType } from '../types';
 
 const type: V2AssetType = {
   id: '11111111-1111-4111-8111-111111111111',
   key: 'OFD-SLOT', name: '광슬롯', categoryId: 'c1', sortOrder: 0,
-  fields: [], portTemplates: [],
+  fields: [],
+  /* 배선을 풀려면 포트가 있어야 한다 — 놓을 때 이 선언에서 펴진다. */
+  portTemplates: [
+    { id: 'pt-in', group: 'DC-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', sortOrder: 1, positions: 1, variant: 'DC' },
+    { id: 'pt-out', group: 'DC-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력', sortOrder: 2, positions: 1, variant: 'DC' },
+  ],
 } as unknown as V2AssetType;
 
 const assembly: V2Assembly = {
@@ -16,10 +21,13 @@ const assembly: V2Assembly = {
     { id: 'item-1', typeId: type.id, name: '슬롯 1', col: 0, row: 0, colSpan: 1, rowSpan: 1, sortOrder: 0 },
     { id: 'item-2', typeId: type.id, name: '슬롯 2', col: 1, row: 0, colSpan: 1, rowSpan: 1, sortOrder: 1 },
   ],
+  links: [
+    { id: 'link-1', aItemId: 'item-1', aGroup: 'DC-OUT', aIndex: 1, bItemId: 'item-2', bGroup: 'DC-IN', bIndex: 1, categoryId: 'cat-1', specParams: { sizeSq: 38 }, sortOrder: 0 },
+  ],
 } as unknown as V2Assembly;
 
 const place = () =>
-  assemblyToAssets({
+  assemblyToPlacement({
     assembly,
     substationId: 's1',
     name: '통신랙 A',
@@ -37,15 +45,45 @@ const place = () =>
  */
 describe('설비 품목 배치', () => {
   it('부품마다 제 구성 항목을 가리킨다', () => {
-    const [equipment, ...parts] = place();
+    const [equipment, ...parts] = place().assets;
     expect(equipment!.assemblyId).toBe(assembly.id);
     /* 설비 자신은 항목에서 나온 것이 아니다 — 항목을 가진 쪽이다. */
     expect(equipment!.assemblyItemId).toBeUndefined();
     expect(parts.map((p) => p.assemblyItemId)).toEqual(['item-1', 'item-2']);
   });
 
+  /**
+   * **내부 배선도 함께 선다.**
+   *
+   * 랙 한 대짜리 설비의 안쪽 배선은 어느 국에 놓든 같다. 예전에는 자산과 포트만 만들어서,
+   * 같은 결선을 설비를 놓을 때마다 손으로 다시 이어야 했다.
+   */
+  it('설비 품목의 배선이 케이블로 함께 선다 — 양끝은 그 자리에서 만든 포트다', () => {
+    const { assets, cables } = place();
+    const [, part1, part2] = assets;
+    expect(cables).toHaveLength(1);
+    const cable = cables[0]!;
+    expect(cable.aPortId).toBe(part1!.ports.find((p) => p.group === 'DC-OUT')!.id);
+    expect(cable.bPortId).toBe(part2!.ports.find((p) => p.group === 'DC-IN')!.id);
+    /* 종류와 값도 프리셋이 들고 온다 — 놓자마자 산출 내역에 잡힌다. */
+    expect(cable.categoryId).toBe('cat-1');
+    expect(cable.specParams).toEqual({ sizeSq: 38 });
+  });
+
+  /* 품목을 고치면서 포트 번호가 사라질 수 있다(이미 놓인 설비는 스냅샷이다) — 그때
+     설비 전체를 못 놓게 하는 것은 과하다. 그 줄만 거르고 나머지는 그대로 선다. */
+  it('가리키는 포트가 없는 줄은 그것만 거른다 — 설비는 그대로 선다', () => {
+    const broken = { ...assembly, links: [{ ...assembly.links[0]!, bIndex: 9 }] } as V2Assembly;
+    const { assets, cables } = assemblyToPlacement({
+      assembly: broken, substationId: 's1', name: '통신랙 A', floorId: 'f1',
+      rect: { x: 0, y: 0, width: 4, height: 2 }, typesById: new Map([[type.id, type]]),
+    });
+    expect(assets).toHaveLength(3);
+    expect(cables).toEqual([]);
+  });
+
   it('저장에 함께 실린다 — 서버까지 가지 않으면 없는 고리다', () => {
-    const assets = place();
+    const { assets } = place();
     const empty = { creates: {}, updates: {}, deletes: [] as string[] };
     const payload = buildCommitPayload(
       {

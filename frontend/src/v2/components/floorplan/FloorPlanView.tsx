@@ -42,7 +42,7 @@ import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCa
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorAnchorOf, floorIdOf } from '../../assetTree';
-import { assemblyToAssets } from '../../placeAssembly';
+import { assemblyToPlacement } from '../../placeAssembly';
 import { AssetResizeHandles } from './AssetResizeHandles';
 import { RemoteEndpointModal } from './RemoteEndpointModal';
 import { SNAP_GRID, SELECTION_STYLES } from '../../canvas/constants';
@@ -1803,16 +1803,17 @@ export function FloorPlanView({
           assembly={drawnAssembly}
           onClose={handleModalClose}
           onPlace={(name: string) => {
-            for (const asset of assemblyToAssets({
+            /* 자산과 **내부 배선**이 한 번에 선다 — 설비 품목이 들고 있는 결선이다. */
+            const placed = assemblyToPlacement({
               assembly: drawnAssembly,
               substationId,
               name,
               floorId: drawModal.floorId,
               rect: drawModal.rect,
               typesById,
-            })) {
-              useV2WorkingCopy.getState().stageAssetCreate(asset);
-            }
+            });
+            for (const asset of placed.assets) useV2WorkingCopy.getState().stageAssetCreate(asset);
+            for (const cable of placed.cables) useV2WorkingCopy.getState().stageCableCreate(cable);
             handleModalClose();
           }}
         />

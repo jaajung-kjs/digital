@@ -38,6 +38,21 @@ export interface V2AssemblyItem {
 }
 
 /**
+ * 설비 안에서 **이미 이어져 있는 줄** — 놓으면 이 케이블들이 함께 선다.
+ *
+ * 양끝은 구성 항목의 포트다(`묶음:번호`) — 항목에는 포트가 없으므로(자산이 생길 때 펴진다)
+ * 가리킬 포트 id 가 아직 없다.
+ */
+export interface V2AssemblyLink {
+  id: string;
+  aItemId: string; aGroup: string; aIndex: number;
+  bItemId: string; bGroup: string; bIndex: number;
+  categoryId: string | null;
+  specParams: Record<string, unknown>;
+  sortOrder: number;
+}
+
+/**
  * 설비 품목 — 장비를 조립해 만든 **한 설비**(「송변전광단말장치 1식」).
  *
  * 고쳐도 이미 놓인 설비는 그대로다(스냅샷) — 놓을 때의 이름을 뿌리 자산에 굳혀 둔다.
@@ -56,6 +71,8 @@ export interface V2Assembly {
   relocateManDays: number | null;
   sortOrder: number;
   items: V2AssemblyItem[];
+  /** 내부 배선 — 없는 설비 품목이 예사다(OFD 는 판끼리 안 잇는다). */
+  links: V2AssemblyLink[];
 }
 
 /** 설비 품목 저장 바디 — 장비 목록을 통째로 갈아 끼운다(덮어쓰기). */
@@ -69,6 +86,7 @@ export interface AssemblyUpsertBody {
   relocateManDays: number | null;
   sortOrder: number;
   items: Omit<V2AssemblyItem, 'sortOrder'>[];
+  links: Omit<V2AssemblyLink, 'sortOrder'>[];
 }
 
 /**
