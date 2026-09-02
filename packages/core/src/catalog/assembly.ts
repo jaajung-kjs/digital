@@ -1,6 +1,7 @@
-import type { AssetTypeSpec, PortRef } from './types.js';
+import type { AssetTypeSpec, PortRef, PortTemplate } from './types.js';
 import { instantiatePorts } from './instantiatePorts.js';
 import { placementAt, validateGridPlacement, type GridOccupant } from '../validation/gridPlacement.js';
+import { validateConnection } from '../validation/connection.js';
 
 /**
  * 설비 품목 — **격자 하나에 장비를 놓아 만든 한 설비**.
@@ -19,6 +20,58 @@ export interface AssemblySpec {
   key: string;
   name: string;
   items: AssemblyItemSpec[];
+  /**
+   * **설비 안에서 이미 이어져 있는 것** — 놓으면 이 케이블들이 함께 선다.
+   *
+   * 랙 한 대짜리 설비의 안쪽 배선은 어느 국에 놓든 같다(정류기 출력이 모선에 물리는 자리는
+   * 설비의 생김새이지 그 국의 사정이 아니다). 없으면 빈 것으로 읽는다 — 링크가 없는 설비
+   * 품목이 예사다(OFD 는 판끼리 안 잇는다).
+   */
+  links?: AssemblyLinkSpec[];
+}
+
+/**
+ * 구성 항목의 포트 하나와 또 하나를 잇는 줄.
+ *
+ * **왜 포트 id 가 아니라 `묶음:번호` 인가**: 구성 항목에는 포트가 없다. 포트는 자산이 생길
+ * 때 타입의 선언에서 펴진다(`instantiatePorts`). 그래서 가리킬 id 가 아직 없고, 선언이
+ * 이름을 붙이는 방식 그대로 부른다 — 자산을 만들 때 포트 id 를 `묶음:번호` 로 키 잡아
+ * 넘기는 것과 같은 이름표다(`placeAssembly`).
+ */
+export interface AssemblyLinkSpec {
+  id: string;
+  /** 이 설비 품목 안의 항목 id. */
+  aItemId: string;
+  aGroup: string;
+  /** 1부터. */
+  aIndex: number;
+  bItemId: string;
+  bGroup: string;
+  bIndex: number;
+  /** 케이블 종류 — 안 정했으면 null. */
+  categoryId?: string | null;
+  /** 그 케이블의 값(규격 sq 등). */
+  specParams?: Record<string, unknown>;
+}
+
+/** 링크가 가리키는 한쪽 끝. */
+export interface AssemblyLinkEnd {
+  itemId: string;
+  group: string;
+  index: number;
+}
+
+/** 링크의 양끝을 짝지어 읽는다 — 두 곳에서 `a…`/`b…` 를 따로 풀지 않게. */
+export function linkEnds(link: AssemblyLinkSpec): [AssemblyLinkEnd, AssemblyLinkEnd] {
+  return [
+    { itemId: link.aItemId, group: link.aGroup, index: link.aIndex },
+    { itemId: link.bItemId, group: link.bGroup, index: link.bIndex },
+  ];
+}
+
+/** 포트 하나를 가리키는 열쇠 — 자산을 만들 때 포트 id 를 키 잡는 방식과 **같은 글자**다. */
+export function linkPortKey(end: AssemblyLinkEnd): string {
+  return `${end.itemId}|${end.group}:${end.index}`;
 }
 
 /** 설비 품목의 격자에 놓인 장비 하나 — 어느 타입을, 격자의 어느 자리에. */
@@ -35,7 +88,14 @@ export interface AssemblyItemSpec {
   portPositions?: Record<string, number>;
 }
 
-export type AssemblyError = 'unknown-type' | 'out-of-range' | 'overlap' | 'empty-name' | 'bad-port-count';
+export type AssemblyError =
+  | 'unknown-type' | 'out-of-range' | 'overlap' | 'empty-name' | 'bad-port-count'
+  /** 링크가 없는 항목이나 없는 포트를 가리킨다 — 항목을 지웠는데 줄이 남은 경우. */
+  | 'link-endpoint'
+  /** 이을 수 없는 짝 — 매체·방향·갈래·심선 수(`validateConnection` 이 판정한다). */
+  | 'link-invalid'
+  /** 한 포트에 둘을 물렸다. */
+  | 'link-occupied';
 
 /**
  * 설비 품목이 말이 되는가. null = 유효.
@@ -46,6 +106,14 @@ export type AssemblyError = 'unknown-type' | 'out-of-range' | 'overlap' | 'empty
 export function validateAssembly(
   spec: AssemblySpec,
   typeKeys: ReadonlySet<string>,
+  /**
+   * 그 종류가 선언한 포트 — **링크를 볼 때만** 필요하다.
+   *
+   * 구성 항목에는 포트가 없으므로(자산이 생길 때 펴진다) 링크의 양끝이 실재하는지,
+   * 그 둘이 이어질 수 있는지를 보려면 선언을 읽어야 한다. 링크가 없는 설비 품목이
+   * 예사이므로 선택 인자로 둔다.
+   */
+  portsOf?: (typeKey: string) => readonly PortTemplate[] | undefined,
 ): AssemblyError | null {
   /* 하나씩 얹으며 본다 — 앞서 놓인 것들이 곧 그 다음 것의 점유다. */
   const placed: GridOccupant[] = [];
@@ -64,6 +132,55 @@ export function validateAssembly(
     const issue = validateGridPlacement({ grid: ASSEMBLY_GRID, ...(at ?? { col: null, row: null, colSpan: 1, rowSpan: 1 }), occupants: placed });
     if (issue) return issue;
     placed.push({ assetId: item.id, ...at! });
+  }
+  return validateLinks(spec, portsOf);
+}
+
+/**
+ * 내부 배선이 말이 되는가 — **판정은 케이블을 이을 때와 같은 함수가 한다.**
+ *
+ * 구성 항목의 포트를 실제로 펴서(`instantiatePorts`) `validateConnection` 에 그대로 넘긴다.
+ * 여기서 규칙을 다시 쓰면 설비 품목에서는 이어지는데 놓고 나서 그 케이블이 규칙 위반이
+ * 되는 조립을 만들 수 있다 — 전원 출력끼리 이어 둔 프리셋 같은 것.
+ *
+ * 하나씩 얹으며 본다 — 앞서 놓인 줄이 곧 그 다음 줄의 점유다(격자를 보는 방식과 같다).
+ */
+function validateLinks(
+  spec: AssemblySpec,
+  portsOf?: (typeKey: string) => readonly PortTemplate[] | undefined,
+): AssemblyError | null {
+  const links = spec.links ?? [];
+  if (links.length === 0) return null;
+
+  /* 항목마다 포트를 한 번만 편다 — 링크가 많아도 같은 항목을 되풀이해 펴지 않는다. */
+  const portsByItem = new Map<string, Map<string, PortRef>>();
+  for (const item of spec.items) {
+    const templates = portsOf?.(item.typeKey);
+    if (!templates) continue;
+    const ports = instantiatePorts(templates, item.id, item.portCounts, item.portPositions);
+    portsByItem.set(
+      item.id,
+      new Map(ports.map((p) => {
+        const end = { itemId: item.id, group: p.group, index: p.index };
+        return [`${p.group}:${p.index}`, { ...p, id: linkPortKey(end) }];
+      })),
+    );
+  }
+
+  const cableCount = new Map<string, number>();
+  for (const link of links) {
+    const ends = linkEnds(link);
+    const ports = ends.map((e) => portsByItem.get(e.itemId)?.get(`${e.group}:${e.index}`));
+    const [a, b] = ports;
+    /* 없는 항목·없는 포트를 가리킨다 — 항목을 지웠는데 줄이 남았거나, 그 종류의 포트 수를
+       줄여 번호가 사라진 경우다. */
+    if (!a || !b) return 'link-endpoint';
+
+    const issue = validateConnection(a, b, cableCount);
+    if (issue === 'port-occupied') return 'link-occupied';
+    if (issue) return 'link-invalid';
+
+    for (const p of [a, b]) cableCount.set(p.id, (cableCount.get(p.id) ?? 0) + 1);
   }
   return null;
 }

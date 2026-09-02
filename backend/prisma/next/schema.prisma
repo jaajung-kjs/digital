@@ -165,6 +165,8 @@ model Assembly {
   removeManDays   Float?
   relocateManDays Float?
   items      AssemblyItem[]
+  /// 이 설비 **안에서 이미 이어져 있는 것** — 놓으면 이 케이블들이 함께 선다.
+  links      AssemblyLink[]
   assets     Asset[]
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
@@ -191,7 +193,44 @@ model AssemblyItem {
   portPositions Json          @default("{}")
   /// 이 항목에서 나온 자산들 — 자리를 옮겨도 「구성의 무엇인가」는 이 고리가 안다.
   assets        Asset[]
+  linksA        AssemblyLink[] @relation("AssemblyLinkA")
+  linksB        AssemblyLink[] @relation("AssemblyLinkB")
   sortOrder    Int            @default(0)
+}
+
+/// 구성 항목의 포트 하나와 또 하나를 잇는 줄 — **설비 품목이 들고 다니는 내부 배선**.
+///
+/// 랙 한 대짜리 설비의 안쪽 배선은 어느 국에 놓든 같다(정류기 출력이 모선에 물리는 자리는
+/// 설비의 생김새이지 그 국의 사정이 아니다). 그런데 놓을 때 자산과 포트만 생겼기 때문에,
+/// 같은 결선을 설비를 놓을 때마다 손으로 다시 이어야 했다.
+///
+/// **왜 포트 id 가 아니라 `묶음:번호` 인가**: 구성 항목에는 포트가 없다. 포트는 자산이 생길
+/// 때 타입의 선언에서 펴진다(`instantiatePorts`). 그래서 가리킬 id 가 아직 없고, 선언이
+/// 이름을 붙이는 방식 그대로 부른다 — 자산을 만들 때 포트 id 를 `묶음:번호` 로 키 잡아
+/// 넘기는 것과 같은 이름표다(`placeAssembly`).
+model AssemblyLink {
+  id         String   @id @default(uuid())
+  assemblyId String
+  assembly   Assembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+
+  aItemId String
+  aItem   AssemblyItem @relation("AssemblyLinkA", fields: [aItemId], references: [id], onDelete: Cascade)
+  aGroup  String
+  /// 1부터.
+  aIndex  Int
+  bItemId String
+  bItem   AssemblyItem @relation("AssemblyLinkB", fields: [bItemId], references: [id], onDelete: Cascade)
+  bGroup  String
+  bIndex  Int
+
+  /// 케이블 종류 — 놓자마자 산출 내역에 잡히게. 안 정했으면 null.
+  categoryId String?
+  category   CableCategory? @relation(fields: [categoryId], references: [id])
+  /// 그 케이블의 값(규격 sq 등) — 설비마다 **같은 것만** 여기 적는다(길이는 국마다 다르다).
+  specParams Json   @default("{}")
+  sortOrder  Int    @default(0)
+
+  @@index([assemblyId])
 }
 
 // ---------- 케이블 카탈로그 ----------
@@ -228,6 +267,8 @@ model CableCategory {
   /// 이름으로 「OPGW」를 찾지 않는다 — 이름은 본부마다 다르고 바뀐다. 선언이 정한다.
   managesFiberLine Boolean @default(false)
   cables    Cable[]
+  /// 설비 품목의 내부 배선이 이 종류를 가리킬 수 있다 — 놓을 때 이 종류로 케이블이 선다.
+  assemblyLinks AssemblyLink[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 

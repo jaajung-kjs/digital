@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateAssembly, ASSEMBLY_GRID, type AssemblySpec } from './assembly.js';
+import type { PortTemplate } from './types.js';
 import type { AssetTypeSpec } from './types.js';
 
 const item = (over: Partial<AssemblySpec['items'][number]> & { id: string }) => ({
@@ -15,6 +16,75 @@ const optSet: AssemblySpec = {
   ],
 };
 const types = new Set(['OPT-TERM', 'NET-SW']);
+
+/* 링크를 볼 때 필요한 선언 — 실물 모양 그대로(정류기는 교류를 받아 직류를 낸다). */
+const TEMPLATES: Record<string, PortTemplate[]> = {
+  'IR-48': [
+    { group: 'AC-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
+    { group: 'DC-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력', variant: 'DC' },
+  ],
+  'BUS': [
+    { group: 'DC-IN', count: 3, direction: 'IN', medium: 'power', namePattern: '전원 입력 {n}', variant: 'DC' },
+    { group: 'DC-OUT', count: 3, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'DC' },
+  ],
+};
+const portsOf = (k: string) => TEMPLATES[k];
+
+/** 정류기 둘과 배전부 하나 — 실제 충전기의 최소 모양. */
+const charger = (links: AssemblySpec['links']): AssemblySpec => ({
+  key: 'CHG', name: '통신용 충전기',
+  items: [
+    { id: 'r1', typeKey: 'IR-48', name: '정류기 1', col: 0, row: 0, colSpan: 1, rowSpan: 1 },
+    { id: 'r2', typeKey: 'IR-48', name: '정류기 2', col: 0, row: 1, colSpan: 1, rowSpan: 1 },
+    { id: 'bus', typeKey: 'BUS', name: '배전부', col: 0, row: 2, colSpan: 1, rowSpan: 1 },
+  ],
+  links,
+});
+const link = (o: Partial<AssemblySpec['links'][number]> & { id: string }) => ({
+  aItemId: 'r1', aGroup: 'DC-OUT', aIndex: 1, bItemId: 'bus', bGroup: 'DC-IN', bIndex: 1, ...o,
+});
+
+/**
+ * 설비 품목이 들고 다니는 **내부 배선**.
+ *
+ * 판정은 케이블을 이을 때와 **같은 함수**(`validateConnection`)가 한다 — 여기서 규칙을 다시
+ * 쓰면 설비 품목에서는 이어지는데 놓고 나서 그 케이블이 규칙 위반이 되는 조립을 만들 수 있다.
+ */
+describe('validateAssembly — 내부 배선', () => {
+  const types = new Set(['IR-48', 'BUS']);
+
+  it('정류기 출력이 배전부 입력으로 — 이어진다', () => {
+    const spec = charger([link({ id: 'l1' }), link({ id: 'l2', aItemId: 'r2', bIndex: 2 })]);
+    expect(validateAssembly(spec, types, portsOf)).toBeNull();
+  });
+
+  it('링크가 없으면 볼 것이 없다 — 예사인 설비 품목이다', () => {
+    expect(validateAssembly(charger([]), types, portsOf)).toBeNull();
+    expect(validateAssembly(charger(undefined), types, portsOf)).toBeNull();
+  });
+
+  /* 전원은 공급과 소비가 갈린다 — 출력끼리 잇는 것은 물리적으로 불가능하다. */
+  it('출력끼리는 못 잇는다', () => {
+    const bad = charger([link({ id: 'l1', bItemId: 'r2', bGroup: 'DC-OUT', bIndex: 1 })]);
+    expect(validateAssembly(bad, types, portsOf)).toBe('link-invalid');
+  });
+
+  it('교류 출력에 직류 입력을 물리지 못한다 — 갈래가 다르다', () => {
+    const bad = charger([link({ id: 'l1', aGroup: 'AC-IN', bGroup: 'DC-IN' })]);
+    expect(validateAssembly(bad, types, portsOf)).toBe('link-invalid');
+  });
+
+  it('한 포트에 둘을 물리지 못한다', () => {
+    const bad = charger([link({ id: 'l1' }), link({ id: 'l2', aItemId: 'r2' })]);
+    expect(validateAssembly(bad, types, portsOf)).toBe('link-occupied');
+  });
+
+  /* 항목을 지웠는데 줄이 남았거나, 포트 수를 줄여 번호가 사라진 경우. */
+  it('없는 항목·없는 포트를 가리키면 흠이다', () => {
+    expect(validateAssembly(charger([link({ id: 'l1', aItemId: '없음' })]), types, portsOf)).toBe('link-endpoint');
+    expect(validateAssembly(charger([link({ id: 'l1', bIndex: 9 })]), types, portsOf)).toBe('link-endpoint');
+  });
+});
 
 describe('validateAssembly', () => {
   it('격자 안에 겹치지 않게 놓였으면 유효', () => {

@@ -105,6 +105,9 @@ const ERROR_MESSAGE: Record<AssemblyError, string> = {
   overlap: '같은 자리에 겹쳐 놓인 장비가 있습니다',
   'empty-name': '이름이 비어 있는 장비가 있습니다',
   'bad-port-count': '포트 수가 1보다 작은 장비가 있습니다',
+  'link-endpoint': '없는 장비나 없는 포트를 가리키는 배선이 있습니다',
+  'link-invalid': '이을 수 없는 배선이 있습니다 (매체·방향·갈래를 확인하세요)',
+  'link-occupied': '한 포트에 배선이 둘 물려 있습니다',
 };
 
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
