@@ -17,10 +17,20 @@ describe('validateTypeSpec', () => {
   it('유효한 스펙은 이슈 0', () => {
     expect(validateTypeSpec(base(), CTX)).toEqual([]);
   });
-  it('key 형식 위반(공백/한글/빈값)과 name 빈값을 거부한다', () => {
+  it('key 형식 위반(공백/한글)과 name 빈값을 거부한다', () => {
     expect(validateTypeSpec(base({ key: '한 글' }), CTX).some((i) => i.path === 'key')).toBe(true);
-    expect(validateTypeSpec(base({ key: '' }), CTX).some((i) => i.path === 'key')).toBe(true);
     expect(validateTypeSpec(base({ name: '  ' }), CTX).some((i) => i.path === 'name')).toBe(true);
+  });
+
+  /**
+   * **빈 키는 「아직 안 붙었다」이지 틀린 것이 아니다.**
+   *
+   * 키는 사람이 짓지 않고 서버가 붙인다. 이걸 흠으로 세는 동안 화면은 새 장비 품목을 아예
+   * 저장할 수 없었다 — 단추를 눌러도 「입력 오류 1건」만 뜨고, 정작 그 흠을 가리킬 칸이
+   * 화면에 없어 무엇이 막는지 알 길도 없었다. 설비 품목은 처음부터 이 규칙이었다.
+   */
+  it('빈 키는 흠이 아니다 — 서버가 붙일 자리다', () => {
+    expect(validateTypeSpec(base({ key: '' }), CTX).some((i) => i.path === 'key')).toBe(false);
   });
   it('categoryKey 미존재를 거부한다', () => {
     expect(validateTypeSpec(base({ categoryKey: '없음' }), CTX).some((i) => i.path === 'categoryKey')).toBe(true);

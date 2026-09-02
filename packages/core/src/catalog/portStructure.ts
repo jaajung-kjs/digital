@@ -109,3 +109,28 @@ export function comparePortStructure(
 export function portName(namePattern: string, index: number): string {
   return namePattern.replace('{n}', String(index));
 }
+
+/**
+ * 사람이 친 이름 → **저장할 이름 규칙**. 번호 자리를 개수에 맞춰 붙이고 뗀다.
+ *
+ * 사람은 「내부통신」이라고 치지 `내부통신 {n}` 이라고 치지 않는다. 그런데 저장되는 것은
+ * 규칙이라, 구획이 셋이면 번호가 붙어야 하고(`내부통신 1·2·3`) 하나면 붙으면 안 된다
+ * (「경보 접점 1」은 하나뿐인 것에 번호를 단 이상한 이름이다).
+ *
+ * **개수가 바뀔 때도 같은 함수가 돈다** — 하나짜리를 셋으로 늘리면 번호가 저절로 붙는다.
+ * 두 곳에 적으면 이름을 고칠 때와 개수를 고칠 때가 어긋난다(실제로 그런 자리가 있었다).
+ *
+ * 친 이름에 `{n}` 이 들어 있으면 **그 자리를 그대로 존중한다** — 「광 {n} 심」처럼 번호가
+ * 가운데 오는 이름을 지을 길을 막지 않는다.
+ */
+export function portNamePattern(typed: string, count: number): string {
+  const name = typed.trim();
+  if (name === '') return '';
+  if (name.includes('{n}')) return name;
+  return count > 1 ? `${name} {n}` : name;
+}
+
+/** 규칙에서 **사람이 친 이름**만 — 번호 자리를 떼고 다듬는다(고칠 때 상자에 담을 값). */
+export function portNameBase(namePattern: string): string {
+  return namePattern.replace('{n}', '').replace(/\s+/g, ' ').trim();
+}

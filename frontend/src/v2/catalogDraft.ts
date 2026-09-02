@@ -67,6 +67,19 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
   };
 }
 
+/**
+ * 초안 → 저장 바디. **빈 키는 보내지 않는다** — 서버가 붙일 자리를 비워 둔다.
+ *
+ * 키는 사람이 짓지 않고 서버가 붙인다(`nextKey`). 그런데 초안을 그대로 보내면 `key: ''` 가
+ * 실리고, 서버 스키마는 키가 있으면 형식을 보므로(`regex`) 빈 글자에서 400 이 났다 — 화면에서
+ * **새 장비 품목을 만들 수가 없었다.** 설비 품목은 처음부터 이렇게 하고 있었다
+ * (`draftToAssemblyBody`); 같은 규칙을 두 곳에 두면 한쪽만 틀린다.
+ */
+export function draftToTypeBody(draft: TypeDraft) {
+  const { key, ...rest } = draft;
+  return key === '' ? rest : { key, ...rest };
+}
+
 /** 새 타입 초기 편집 상태 */
 export function emptyDraft(categoryId: string): TypeDraft {
   return {

@@ -19,7 +19,7 @@ import {
   PageState,
 } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
-import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID } from '../catalogDraft';
+import { typeToDraft, emptyDraft, draftIssues, isDraftDirty, NEW_ID, draftToTypeBody } from '../catalogDraft';
 import { useEditorGate } from '../useEditorGate';
 import type { TypeDraft } from '../catalogDraft';
 import { useUnsavedMark } from '../useUnsavedMark';
@@ -131,12 +131,12 @@ export default function V2AssetTypesPage() {
     try {
       if (isNew) {
         // 신규 생성
-        const created = await mutations.createType.mutateAsync(draft);
+        const created = await mutations.createType.mutateAsync(draftToTypeBody(draft));
         setSelectedTypeId(created.id);
         useV2Notice.getState().showSuccess(`'${draft.name}' 장비 품목을 만들었습니다`);
       } else {
         // 수정
-        await mutations.updateType.mutateAsync({ id: selectedTypeId!, body: draft });
+        await mutations.updateType.mutateAsync({ id: selectedTypeId!, body: draftToTypeBody(draft) });
         /* 저장 바가 사라지는 것만으로는 「정말 저장됐나」를 알 수 없다 — 그래서 저장을
            두 번 누르게 된다. 값을 바꾼 모든 길은 결과를 말한다. */
         useV2Notice.getState().showSuccess(`'${draft.name}' 을 저장했습니다`);

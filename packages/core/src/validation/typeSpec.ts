@@ -17,7 +17,12 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
   const issues: TypeSpecIssue[] = [];
   const push = (path: string, message: string) => issues.push({ path, message });
 
-  if (!KEY_RE.test(spec.key)) push('key', '키는 영문/숫자/대시/언더스코어만 허용됩니다');
+  /* **빈 키는 「아직 안 붙었다」이지 틀린 것이 아니다.** 키는 사람이 짓지 않고 서버가 붙인다
+     (`nextKey`) — 그래서 만드는 중인 초안의 키는 늘 비어 있다. 이걸 흠으로 세는 바람에
+     화면은 새 장비 품목을 **아예 저장할 수 없었고**(단추를 눌러도 「입력 오류 1건」만 떴다),
+     정작 그 흠을 가리킬 칸이 화면에 없어서 무엇이 막는지 알 길도 없었다. 서버는 키를 먼저
+     붙이고 검증하므로 거기서는 이 가지가 돌지 않는다. 설비 품목도 같은 규칙이다. */
+  if (spec.key !== '' && !KEY_RE.test(spec.key)) push('key', '키는 영문/숫자/대시/언더스코어만 허용됩니다');
   if (spec.name.trim() === '') push('name', '이름을 입력하세요');
   if (!ctx.categoryKeys.includes(spec.categoryKey)) push('categoryKey', '존재하지 않는 분류입니다');
 

@@ -57,7 +57,10 @@ function ruleText(issue: { code: string; [k: string]: unknown }): string {
       if (issue.expected === 'integer') return '정수여야 합니다';
       if (issue.expected === 'number') return '숫자여야 합니다';
       return '형식이 올바르지 않습니다';
+    /* 형식(regex·uuid)과 목록(enum)은 다른 흠이다 — 「고를 수 없는 값」이라고 하면 목록이
+       있는 줄 알고 목록을 찾게 된다. */
     case 'invalid_string':
+      return '형식이 올바르지 않습니다';
     case 'invalid_enum_value':
     case 'invalid_union':
       return '고를 수 없는 값입니다';

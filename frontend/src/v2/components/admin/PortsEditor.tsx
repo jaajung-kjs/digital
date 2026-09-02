@@ -24,7 +24,10 @@
  */
 import { useMemo, useState } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DEFAULT_CORE_COUNT, isMultiCorePort, portPresets, uniqueGroupKey } from '@twin/core';
+import {
+  DEFAULT_CORE_COUNT, PORT_DIRECTIONS, isMultiCorePort, portDirectionLabel, portNameBase,
+  portNamePattern, portPresets, uniqueGroupKey,
+} from '@twin/core';
 import type { Direction } from '@twin/core';
 import {
   Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, MessageStrip,
@@ -55,7 +58,7 @@ const DEFAULT_PORT_COUNT = 1;
 const FREE_INPUT = '\u0000free';
 
 function SilkValue({
-  label, text, value, options, min, autoEdit = false, onCommit,
+  label, text, value, options, text_, min, autoEdit = false, onCommit,
 }: {
   label: string;
   /** 읽을 때 보이는 말 — `×2`·`DC 48V` 처럼 단위까지 붙은 글자. */
@@ -63,6 +66,8 @@ function SilkValue({
   value: string;
   /** 고를 값이 정해져 있으면 목록으로 — 없으면 수를 친다. */
   options?: readonly string[];
+  /** 수가 아니라 **글자**를 치는 칸(구획 이름) — 목록이 없을 때만 본다. */
+  text_?: boolean;
   min?: number;
   /**
    * 만들어지자마자 **고치는 상태로** 시작한다 — 갓 더한 구획의 개수가 그렇다.
@@ -146,6 +151,23 @@ function SilkValue({
         onClose={() => { setPrompting(false); setEditing(false); }}
       />
     </>
+  ) : text_ ? (
+    /* 구획 이름 — 자유 글자다. 번호 자리(`{n}`)는 사람이 칠 것이 아니라
+       개수에 맞춰 붙는다(`portNamePattern`), 그래서 여기서는 이름만 받는다. */
+    <input
+      {...common}
+      type="text"
+      defaultValue={value}
+      size={16}
+      placeholder="이름"
+      onFocus={(e) => e.currentTarget.select()}
+      className={cn(common.className, 'w-40')}
+      onBlur={(e) => done(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        common.onKeyDown(e);
+        if (isCommitKey(e)) e.currentTarget.blur();
+      }}
+    />
   ) : (
     <input
       {...common}
@@ -254,18 +276,30 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   /** 방금 더한 구획 — 그 개수 칸이 열린 채로 선다(더하기와 개수 정하기가 한 걸음이 된다). */
   const [justAdded, setJustAdded] = useState<string | null>(null);
 
+  /**
+   * 구획 하나를 고친다 — **이름 규칙의 번호 자리는 여기서만 손댄다.**
+   *
+   * 이름을 고칠 때와 개수를 고칠 때가 둘 다 이 문을 지나므로, 정규화를 여기 한 번 두면
+   * 「하나짜리를 셋으로 늘렸는데 셋 다 같은 이름」 같은 어긋남이 생길 수 없다.
+   */
   function patch(row: PortRow, next: Partial<PortRow>) {
     const existing = ports.find((p) => p.group === row.group);
+    const merged = { ...row, ...next };
+    /* 지우는 길(개수 0)에서는 이름을 만지지 않는다 — 그 줄은 사라진다. */
+    const normalized: PortRow = next.count === 0 ? merged : {
+      ...merged,
+      namePattern: portNamePattern(portNameBase(merged.namePattern), merged.count),
+    };
     let after: PortRow[];
     if (!existing) {
       if ((next.count ?? 0) <= 0) return;
-      after = [...ports, { ...row, ...next }];
+      after = [...ports, normalized];
     } else if (next.count === 0) {
       after = ports.filter((p) => p !== existing);
     } else {
-      after = ports.map((p) => (p === existing ? { ...p, ...next } : p));
+      after = ports.map((p) => (p === existing ? normalized : p));
     }
-    onChange({ ports: syncTrunkAdapters(after, { ...row, ...next }, existing ?? null) });
+    onChange({ ports: syncTrunkAdapters(after, normalized, existing ?? null) });
   }
 
   /** 고른 종류로 줄을 하나 만든다 — 그룹 키는 어휘가 주고, 겹치면 번호가 붙는다. */
@@ -274,12 +308,16 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     if (!preset) return;
     /* 줄은 **한 자리에서** 짓는다(`portRow`) — 손으로 지으면 서버가 돌려주는 줄과 글자가
        달라져, 저장하고도 「고칠 것이 남았다」로 읽힌다(`isDirty` 는 JSON 으로 견준다). */
+    const count = preset.positions > 1 ? 1 : DEFAULT_PORT_COUNT;
     const row = portRow({
       group: uniqueGroupKey(preset.groupKey, ports.map((p) => p.group)),
-      count: preset.positions > 1 ? 1 : DEFAULT_PORT_COUNT,
+      count,
       direction: preset.direction,
       medium: preset.medium,
-      namePattern: preset.namePattern,
+      /* 더할 때도 **개수에 맞춰** 번호 자리를 붙인다 — 프리셋은 「전원 입력 {n}」이라 적어
+         두었지만 한 구뿐이면 「전원 입력 1」이 되어 하나뿐인 것에 번호가 달린다. 이름을
+         고칠 때·개수를 고칠 때와 같은 함수를 쓰므로 세 길이 같은 답을 낸다. */
+      namePattern: portNamePattern(portNameBase(preset.namePattern), count),
       positions: preset.positions,
       variant: preset.variant,
     });
@@ -306,7 +344,19 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     const detail = detailOf(row);
     return (
       <span className="group/silk inline-flex items-center gap-1">
-        <span>{labelText}</span>
+        {/* **이름이 곧 이름표다.** 눌러서 그 자리에서 고친다 — 「경보 접점」·「감시 시리얼」
+            처럼 같은 매체 안에서 서로 다른 물건을 가르는 유일한 수단이다. 비워 두면 어휘가
+            지어 준 이름(「제어 1」)으로 돌아간다(`portGroupLabel`). */}
+        <SilkValue
+          label={`${labelText} 이름`}
+          text={labelText}
+          value={portNameBase(row.namePattern)}
+          text_
+          onCommit={(raw) => {
+            const namePattern = portNamePattern(raw, row.count);
+            if (namePattern !== row.namePattern) patch(row, { namePattern });
+          }}
+        />
         <SilkValue
           label={`${labelText} 개수`}
           text={`${row.count}개`}
@@ -317,6 +367,19 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
             setJustAdded(null);
             const next = Math.max(Number(raw) || 1, 1);
             if (next !== row.count) patch(row, { count: next });
+          }}
+        />
+        {/* **방향** — 경보 접점은 내보내기만 하고(OUT), 받는 쪽은 IN 이다. 어휘가 방향으로
+            짝을 가르므로(`pairing`) 이걸 못 고치면 그 짝을 만들 수가 없다.
+            자산이 이미 있으면 서버가 막는다(409) — 여기서 미리 잠그지 않는다. */}
+        <SilkValue
+          label={`${labelText} 방향`}
+          text={portDirectionLabel(row.direction)}
+          value={portDirectionLabel(row.direction)}
+          options={PORT_DIRECTIONS.map((d) => d.label)}
+          onCommit={(raw) => {
+            const next = PORT_DIRECTIONS.find((d) => d.label === raw)?.value;
+            if (next && next !== row.direction) patch(row, { direction: next });
           }}
         />
         {detail === 'positions' && (
@@ -357,7 +420,9 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
   const twinNote = (() => {
     const seen = new Map<string, number>();
     for (const { row } of declared) {
-      const k = `${row.medium}|${row.direction}|${row.variant ?? ''}|${row.positions ?? 1}`;
+      /* **이름도 뜻이다.** 이름을 지을 수 있게 된 뒤로는 같은 매체·방향이라도 「경보 접점」과
+         「감시 시리얼」은 서로 다른 물건이다 — 이름을 안 보면 그 둘을 겹쳤다고 잘못 말한다. */
+      const k = `${row.medium}|${row.direction}|${row.variant ?? ''}|${row.positions ?? 1}|${portNameBase(row.namePattern)}`;
       seen.set(k, (seen.get(k) ?? 0) + 1);
     }
     const dup = [...seen.values()].some((n) => n > 1);
