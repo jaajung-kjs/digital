@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { derivedLinks, internalLinkMap } from './internalLinks.js';
-import { SEED_ASSET_TYPES } from '../seed/catalog.js';
 import type { Direction, PortRef } from '../catalog/types.js';
 
 const tpl = (group: string, medium: string, direction: Direction, positions = 1) => ({ group, medium, direction, positions });
@@ -37,29 +36,34 @@ describe('derivedLinks — 포트 선언에서 저절로 나오는 내부 통과
     ])).toEqual([]);
   });
 
-  /* 예전에 시드가 손으로 적고 있던 다섯 규칙이 전부, 그리고 빠져 있던 축전지까지 나온다. */
-  it('시드 전 타입: 손으로 적던 다섯 규칙 + 빠져 있던 축전지가 유도된다', () => {
-    const got = Object.fromEntries(
-      SEED_ASSET_TYPES
-        .map((t) => [t.key, derivedLinks(t.ports)] as const)
-        .filter(([, links]) => links.length > 0)
-        .map(([k, links]) => [k, links.map((l) => `${l.fromGroup}→${l.toGroup} ${l.mapping}`)]),
-    );
-    expect(got).toEqual({
-      'OFD-SLOT': ['FIBER-TRUNK→FIBER byPosition'],
-      FEEDER: ['POWER-IN-AC→POWER-OUT-AC all'],
-      /* 충전기는 **교류를 받아 직류를 내보낸다** — 통과는 그대로 유도된다(변환도 통과다:
-         추적이 충전기 너머 직류 쪽으로 이어져야 「이 회로가 어디서 왔나」가 끊기지 않는다). */
-      CHARGER: ['POWER-IN-AC→POWER-OUT-DC all'],
-      UPS: ['POWER-IN-AC→POWER-OUT-AC all'],
-      // 충전 입력과 방전 출력은 같은 DC 모선에 걸린다 — 시드에만 빠져 있었다.
-      BATTERY: ['POWER-IN-DC→POWER-OUT-DC all'],
-      'PWR-AC': ['POWER-IN-AC→POWER-OUT-AC all'],
-      /* 직류 분전반도 같다 — 예전에는 네트워크 포트를 달고 있어서 통과가 유도되지 않았다
-         (임시값이 남아 있던 자리다). 포트를 바로잡으니 규칙도 저절로 따라왔다. */
-      'PWR-DC': ['POWER-IN-DC→POWER-OUT-DC all'],
-    });
+  /**
+   * **실물 장비의 생김새로 확인한다** — 규칙이 선언에서만 나온다는 것이 요점이다.
+   *
+   * 예전에는 시드 카탈로그를 픽스처로 삼아 「시드의 여섯 종류에서 이런 규칙이 나온다」를
+   * 못 박았다. 그런데 카탈로그는 현장이 만드는 것이 됐고(임시 품목 서른 종은 지웠다),
+   * 시드에 무엇이 들었는지는 이 규칙과 아무 상관이 없다 — 규칙은 **포트 선언**만 본다.
+   * 그래서 픽스처를 여기로 들여왔다. 지키는 것은 그대로다.
+   */
+  it('전원이 통과하는 실물 모양들 — 충전기·축전지·분전반', () => {
+    const power = (group: string, dir: 'IN' | 'OUT', variant: 'AC' | 'DC') =>
+      ({ ...tpl(group, 'power', dir), variant });
+    const links = (ports: ReturnType<typeof power>[]) =>
+      derivedLinks(ports).map((l) => `${l.fromGroup}→${l.toGroup} ${l.mapping}`);
+
+    /* 충전기는 **교류를 받아 직류를 내보낸다** — 변환도 통과다: 추적이 충전기 너머 직류
+       쪽으로 이어져야 「이 회로가 어디서 왔나」가 끊기지 않는다. */
+    expect(links([power('POWER-IN-AC', 'IN', 'AC'), power('POWER-OUT-DC', 'OUT', 'DC')]))
+      .toEqual(['POWER-IN-AC→POWER-OUT-DC all']);
+
+    // 축전지 — 충전 입력과 방전 출력은 같은 DC 모선에 걸린다.
+    expect(links([power('POWER-IN-DC', 'IN', 'DC'), power('POWER-OUT-DC', 'OUT', 'DC')]))
+      .toEqual(['POWER-IN-DC→POWER-OUT-DC all']);
+
+    // 분전반 — 받아서 회로마다 내보낸다.
+    expect(links([power('POWER-IN-AC', 'IN', 'AC'), power('POWER-OUT-AC', 'OUT', 'AC')]))
+      .toEqual(['POWER-IN-AC→POWER-OUT-AC all']);
   });
+
 });
 
 describe('internalLinkMap — 규칙은 포트 선언에서만 나온다', () => {

@@ -82,28 +82,13 @@ describe('validateTypeSpec', () => {
       expect({ key: t.key, issues: validateTypeSpec(t, ctx) }).toEqual({ key: t.key, issues: [] });
     }
   });
-  it('전원 장비(CHARGER/UPS/BATTERY)는 power 매체 포트를 갖는다 (이월 해소)', () => {
-    for (const key of ['CHARGER', 'UPS', 'BATTERY']) {
-      const t = SEED_ASSET_TYPES.find((x) => x.key === key)!;
-      // `every` 가 아니라 `some` — 이 장비들은 접지 포트도 갖는다.
-      expect(t.ports.some((p) => p.medium === 'power')).toBe(true);
-    }
-  });
-
-  /* 전원은 공급과 소비가 갈린다(`PORT_KINDS.power.pairing === 'opposite'`).
-     선언이 전부 `BI` 면 규칙이 사실상 꺼진 것과 같으므로 시드가 방향을 제대로 적어야 한다. */
-  it('전원 장비의 전원 포트는 입력·출력이 갈려 있다 — BI 로 뭉뚱그리지 않는다', () => {
-    for (const key of ['CHARGER', 'UPS', 'BATTERY']) {
-      const t = SEED_ASSET_TYPES.find((x) => x.key === key)!;
-      const dirs = t.ports.filter((p) => p.medium === 'power').map((p) => p.direction);
-      expect(dirs).toContain('IN');
-      expect(dirs).toContain('OUT');
-      expect(dirs).not.toContain('BI');
-    }
-  });
-
-  it('접지 부스바가 선언돼 있다 — 여러 기기의 접지선이 모이는 곳', () => {
-    const t = SEED_ASSET_TYPES.find((x) => x.key === 'GROUNDING')!;
-    expect(t.ports.some((p) => p.medium === 'ground')).toBe(true);
-  });
+  /*
+   * 여기 있던 시험 셋(충전기·UPS·축전지의 전원 포트 방향, 접지 부스바 선언)은 **시드에 그
+   * 품목들이 있다**는 사실을 못 박고 있었다. 임시로 넣었던 그 서른 종을 지우면서 함께
+   * 걷어냈다 — 카탈로그는 이제 시드가 아니라 현장이 만든다.
+   *
+   * 그 시험들이 지키려던 규칙 자체는 살아 있다: 전원이 공급과 소비로 갈리는 것은
+   * `PORT_KINDS.power.pairing === 'opposite'` 이 정하고 `validateConnection` 이 강제하며,
+   * 만들 때 갈라져 나오는 것은 `portPresets` 가 낸다(입력·출력이 따로 선다).
+   */
 });
