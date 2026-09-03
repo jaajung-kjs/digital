@@ -54,3 +54,19 @@ export function connectCable(args: {
   });
   return null;
 }
+
+/**
+ * 설비 품목이 들고 온 **내부 배선**을 스테이지한다.
+ *
+ * 랙 한 대짜리 설비의 안쪽 배선은 어느 국에 놓든 같아서, 설비 품목이 그 목록을 들고 다닌다
+ * (`AssemblyLink`). 놓을 때 자산과 함께 케이블도 서야 하는데, **케이블을 스테이지하는 일은
+ * 이 파일 밖에서 하지 않는다** — 같은 일에 문이 둘이면 한쪽만 고쳐진다.
+ *
+ * **여기서 다시 판정하지 않는다.** 그 짝은 설비 품목을 저장할 때 이미 `validateConnection`
+ * 을 통과했고(`validateAssembly`), 지금 만든 포트는 그때 본 **같은 선언에서** 펴진 것이라
+ * 구성상 유효하다. 게다가 이 자산들은 아직 워킹카피에 없어서(같은 걸음에 함께 스테이지된다)
+ * 여기서 포트를 되짚을 방법도 없다 — 없는 것을 보는 척하는 검사는 두지 않는다.
+ */
+export function stageAssemblyCables(cables: readonly V2Cable[]): void {
+  for (const cable of cables) useV2WorkingCopy.getState().stageCableCreate(cable);
+}

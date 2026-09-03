@@ -3,7 +3,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
 import { collectComponent } from '../reach.routes.js';
-import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
+import { authHeader, makeApp, sweepTestFixtures, ensureTestTypes } from './helpers.js';
 
 /**
  * `/reach` — 이 포트에서 케이블로 이어진 것 **전부**를 국 경계 없이.
@@ -24,6 +24,7 @@ const coreOf = (assetId: string, index: number) =>
   nextDb.port.findFirstOrThrow({ where: { assetId, group: 'FIBER', index } }).then((p) => p.id);
 
 beforeAll(async () => {
+  await ensureTestTypes();
   await sweepTestFixtures();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   const br = await nextDb.branch.create({ data: { name: `${uniq}-br`, headquartersId: hq.id } });

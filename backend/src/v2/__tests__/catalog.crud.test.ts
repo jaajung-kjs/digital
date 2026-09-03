@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
+import { authHeader, makeApp, sweepTestFixtures, ensureTestTypes } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-cat-${Date.now()}`;
@@ -65,6 +65,7 @@ describe('catalog CRUD', () => {
   let groupColor: string;
 
   beforeAll(async () => {
+  await ensureTestTypes();
     await sweepTestFixtures();
     // 케이블그룹은 시드에서 이미 존재 — 첫 번째 것 사용
     const group = await nextDb.cableGroup.findFirst({ orderBy: { sortOrder: 'asc' } });

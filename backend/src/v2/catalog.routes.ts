@@ -378,7 +378,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
       throw new HttpError(
         409,
         'TYPE_IN_USE',
-        `사용 중인 타입입니다 (자산 ${assetCount}개) — 이미 있는 포트의 방향·매체·이름·심선 수는 바꿀 수 없습니다`,
+        `사용 중인 타입입니다 (자산 ${assetCount}개) — 이미 있는 포트의 방향·매체·갈래(AC·DC)·심선 수는 바꿀 수 없습니다`,
       );
     }
 

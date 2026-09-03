@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
+import { authHeader, makeApp, sweepTestFixtures, ensureTestTypes } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-rn-${Date.now()}`;
@@ -10,6 +10,7 @@ const admin = { Authorization: authHeader('admin') };
 let hqId: string, brId: string, subId: string, sub2Id: string, a1Id: string;
 
 beforeAll(async () => {
+  await ensureTestTypes();
   await sweepTestFixtures();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   hqId = hq.id;

@@ -96,9 +96,12 @@ describe('PortsEditor', () => {
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };
     expect(called.ports).toHaveLength(1);
     expect(called.ports[0]).toMatchObject({ medium: 'network', direction: 'BI', count: 1 });
-    // 지어낼 필요가 없어야 한다 — 그룹 키·이름 패턴은 어휘가 준다.
+    // 지어낼 필요가 없어야 한다 — 그룹 키·이름은 어휘가 준다.
     expect(called.ports[0]!.group).not.toBe('');
-    expect(called.ports[0]!.namePattern).toContain('{n}');
+    /* **하나뿐인 것에는 번호를 안 단다.** 프리셋은 「네트워크 {n}」이라 적어 두었지만 한 구로
+       서므로 번호 자리가 떨어진다(`portNamePattern`) — 「네트워크 1」은 하나뿐인 것에 번호를
+       단 이상한 이름이다. 개수를 늘리면 그때 저절로 붙는다(아래에서 확인한다). */
+    expect(called.ports[0]!.namePattern).toBe('네트워크');
 
     /* 더하기와 개수 정하기가 **한 걸음**이다 — 갓 더한 구획의 개수 칸이 열린 채로 선다.
        포트 구획을 더하는 사람은 거의 언제나 개수를 함께 정한다(24구 판·12심 슬롯). */
@@ -108,7 +111,9 @@ describe('PortsEditor', () => {
 
     fireEvent.change(count, { target: { value: '24' } });
     fireEvent.blur(count);
-    expect(onChange.mock.calls[1][0].ports[0]).toMatchObject({ count: 24 });
+    /* 개수가 둘 이상이 되면 번호 자리가 **저절로** 붙는다 — 더할 때·이름 고칠 때·개수 고칠
+       때가 같은 함수를 지나므로 세 길이 어긋날 수 없다. */
+    expect(onChange.mock.calls[1][0].ports[0]).toMatchObject({ count: 24, namePattern: '네트워크 {n}' });
   });
 
   /* 품목이 정하는 것은 **갈래까지**다 — 몇 V 인지는 회로마다 다르므로 계통 표가 적는다. */

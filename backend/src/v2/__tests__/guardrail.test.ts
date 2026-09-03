@@ -551,7 +551,13 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
    * 서로 다른 것을 고른 채 나란히 섰다. 선택이 사는 자리가 둘이면 반드시 어긋난다.
    */
   it('고른 포트를 화면이 따로 들고 있지 않는다 — 주소가 쥔다', () => {
+    /* **설비 품목 편집기는 작업공간이 아니다.** 이 규칙이 막는 것은 「같은 포트를 보는 두
+       화면이 서로 다른 것을 고른 채 나란히 서는 일」인데, 구성 편집에는 판이 하나뿐이라
+       어긋날 상대가 없다. 게다가 그 화면에는 주소가 쥘 것이 없다 — 저장 전 초안이고
+       `useWorkspaceRoute`(변전소·층·자산)가 아예 안 도는 자리다. */
+    const ALLOW = new Set(['frontend/src/v2/components/admin/AssemblyPanel.tsx']);
     for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      if (ALLOW.has(relToRoot(f))) continue;
       const src = readFileSync(f, 'utf8');
       const hit = src.match(/const \[selected(Port|Core)\w*\s*,/);
       expect(hit?.[0], `${f}: 고른 포트를 지역 상태로 들고 있다 — 주소(useWorkspaceRoute)가 쥐게 하세요`).toBeUndefined();

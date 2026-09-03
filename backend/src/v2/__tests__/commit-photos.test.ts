@@ -5,7 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
 import { assetPhotoDir } from '../photoFiles.js';
-import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
+import { authHeader, makeApp, sweepTestFixtures, ensureTestTypes } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-ph-${Date.now()}`;
@@ -46,6 +46,7 @@ const onDisk = (filePath: string) => fs.existsSync(path.join(assetPhotoDir(), pa
 const diskNames = () => new Set(fs.readdirSync(assetPhotoDir()));
 
 beforeAll(async () => {
+  await ensureTestTypes();
   await sweepTestFixtures();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   const br = await nextDb.branch.create({ data: { name: `${uniq}-br`, headquartersId: hq.id } });

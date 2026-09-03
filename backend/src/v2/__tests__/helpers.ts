@@ -82,3 +82,112 @@ export async function sweepTestFixtures(): Promise<void> {
      admin 이 영영 되살아나지 않았다(로그인이 막혔다). */
   try { await nextDb.user.deleteMany({ where: { username: { startsWith: 'test_lock_' } } }); } catch { /* ignore */ }
 }
+
+/**
+ * 시험이 쓰는 **장비 품목 픽스처** — 없으면 만든다.
+ *
+ * 예전에는 시드 카탈로그를 픽스처로 삼았다(`GROUNDING`·`CHARGER`·`PWR-AC`…). 그런데 그
+ * 서른 종은 재구축 초기에 「대충 이런 게 있겠지」로 세워 둔 임시값이었고, 실물을 보고
+ * 카탈로그를 다시 짜면서 지웠다 — 그러자 시험 열넷이 함께 무너졌다.
+ *
+ * **시드는 운영 설정이지 시험 픽스처가 아니다.** 운영에서 품목 하나를 지웠다고 시험이
+ * 무너지면, 그 시험은 제가 무엇을 지키는지 말하지 못하는 것이다. 그래서 시험이 쓰는
+ * 모양은 여기서 **시험이 직접** 세운다.
+ *
+ * 키는 시드와 같은 것을 쓴다(`GROUNDING` 등) — 시드에 그 키가 되살아나도 충돌하지 않고
+ * 그대로 쓰이며, 시험 파일들을 한 줄도 고치지 않아도 된다.
+ */
+export async function ensureTestTypes(): Promise<void> {
+  const category = await nextDb.assetCategory.upsert({
+    where: { key: '구조' },
+    update: {},
+    create: { key: '구조', name: '구조', sortOrder: 1 },
+  });
+
+  /** 키 → 그 품목이 갖는 포트 선언. 시드가 갖고 있던 모양 그대로다. */
+  const SPECS: Record<string, { name: string; ports: {
+    group: string; count: number; direction: string; medium: string; namePattern: string;
+    positions?: number; variant?: string | null;
+  }[] }> = {
+    'OFD-SLOT': { name: '광슬롯', ports: [
+      { group: 'FIBER-TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 24 },
+      { group: 'FIBER', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
+    ] },
+    GROUNDING: { name: '접지함체', ports: [
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ] },
+    HVAC: { name: '공조설비', ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ] },
+    /* 충전기는 **교류를 받아 직류를 내보낸다** — 갈래가 갈리는 자리라 갈래 시험이 이걸 쓴다. */
+    CHARGER: { name: '충전기', ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
+      { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력', variant: 'DC' },
+    ] },
+    'PWR-AC': { name: '전원(AC)', ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 13, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'AC' },
+    ] },
+    'PWR-DC': { name: '전원(DC)', ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 13, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}', variant: 'DC' },
+    ] },
+    /* 매체 넷을 다 갖는다 — 「설비를 놓으면 포트가 저절로 선다」를 보는 시험이 그 넷을 센다. */
+    'PITR-5000': { name: 'PITR-5000', ports: [
+      { group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
+      { group: 'NETWORK', count: 2, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ] },
+  };
+
+  for (const [key, spec] of Object.entries(SPECS)) {
+    const existing = await nextDb.assetType.findUnique({
+      where: { key },
+      include: { _count: { select: { assets: true } } },
+    });
+    /* 이미 있으면 **선언을 여기 적은 모양으로 맞춘다** — 픽스처를 고쳤는데 옛 행이 남아
+       시험이 엉뚱하게 무너지는 일을 없앤다.
+       다만 **자산이 하나라도 있으면 손대지 않는다.** 시드가 만든 광슬롯은 강원 직할
+       12국의 판 26장이 그것으로 서 있다 — 시험 픽스처가 실데이터의 선언을 갈아엎으면 안 된다. */
+    if (existing && existing._count.assets > 0) continue;
+    const type = existing
+      ? (await nextDb.assetPortTemplate.deleteMany({ where: { typeId: existing.id } }), existing)
+      : await nextDb.assetType.create({
+          data: { key, name: spec.name, categoryId: category.id, sortOrder: 0 },
+        });
+    for (const [i, p] of spec.ports.entries()) {
+      await nextDb.assetPortTemplate.create({
+        data: {
+          typeId: type.id, group: p.group, count: p.count, direction: p.direction,
+          medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1,
+          variant: p.variant ?? null, sortOrder: i,
+        },
+      });
+    }
+  }
+
+  /* 설비 품목 픽스처 — 「장비 여럿을 격자에 놓은 것」을 놓는 시험이 쓴다. */
+  const ASSEMBLIES: Record<string, { name: string; items: { typeKey: string; name: string; row: number }[] }> = {
+    'OPT-SET': { name: '송변전광단말장치', items: [
+      { typeKey: 'PITR-5000', name: 'PITR 1', row: 0 },
+      { typeKey: 'PITR-5000', name: 'PITR 2', row: 1 },
+    ] },
+  };
+  for (const [key, spec] of Object.entries(ASSEMBLIES)) {
+    if (await nextDb.assembly.findUnique({ where: { key } })) continue;
+    const asm = await nextDb.assembly.create({
+      data: { key, name: spec.name, categoryId: category.id, sortOrder: 0 },
+    });
+    for (const [i, item] of spec.items.entries()) {
+      const type = await nextDb.assetType.findUniqueOrThrow({ where: { key: item.typeKey } });
+      await nextDb.assemblyItem.create({
+        data: {
+          assemblyId: asm.id, typeId: type.id, name: item.name,
+          col: 0, row: item.row, colSpan: 10, rowSpan: 1, sortOrder: i,
+        },
+      });
+    }
+  }
+}

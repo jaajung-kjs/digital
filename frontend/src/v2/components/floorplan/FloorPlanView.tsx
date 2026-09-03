@@ -30,7 +30,7 @@ import { normalizeRect, isDrawLargeEnough } from '../../floorPlacement';
 import { placedAssetsOf } from '../../floorPlanSelectors';
 import { cableCountByPortId, cableSegments, distanceToPolyline } from '../../cableSelectors';
 import { cableToolReducer, connectErrorLabel, connectableAssetIds, initialCableToolState } from './cableTool';
-import { connectCable } from '../../cableActions';
+import { connectCable, stageAssemblyCables } from '../../cableActions';
 import { deleteAssetWithConfirm, deleteCableWithConfirm } from '../../deleteActions';
 import { useFloorAdmin } from './useFloorAdmin';
 import { useEffectiveAssets, useEffectiveCables, useEffectiveFloors } from '../../store/useWorkingCopy';
@@ -1813,7 +1813,9 @@ export function FloorPlanView({
               typesById,
             });
             for (const asset of placed.assets) useV2WorkingCopy.getState().stageAssetCreate(asset);
-            for (const cable of placed.cables) useV2WorkingCopy.getState().stageCableCreate(cable);
+            /* 케이블을 스테이지하는 문은 하나다(`cableActions`) — 같은 일에 문이 둘이면
+               한쪽만 고쳐진다. */
+            stageAssemblyCables(placed.cables);
             handleModalClose();
           }}
         />

@@ -13,6 +13,13 @@ export interface PortDeclaration {
   medium: string;
   namePattern: string;
   positions?: number | null;
+  /**
+   * 종류 안의 **갈래**(전원의 교류·직류).
+   *
+   * 여기 없던 동안 `meaningChanged` 가 갈래를 볼 수가 없었다 — 비교할 칸이 아예 없었으니
+   * 「빠뜨렸다」기보다 **물어볼 수 없었다.** 형상에 없는 사실은 규칙에도 없다.
+   */
+  variant?: string | null;
 }
 
 /** 한 구획이 몇 개 늘거나 줄었는가 — 자산에 실제로 포트를 붙이고 뗄 때 이 값을 쓴다. */
@@ -46,6 +53,15 @@ function meaningChanged(before: PortDeclaration, after: PortDeclaration): boolea
   return (
     before.direction !== after.direction ||
     before.medium !== after.medium ||
+    /* **갈래도 뜻이다.** 교류 포트를 직류로 뒤집으면 거기 물린 케이블이 그 순간 규칙 위반이
+       된다(`validateConnection` 의 `variant-mismatch`) — 방향을 뒤집는 것과 같은 무게다.
+       한동안 여기서 빠져 있었다. 갈래를 고치는 길이 화면에 없어서 사고가 안 났을 뿐,
+       API 로는 통과했다. 「지금 부를 수 없다」는 「막을 필요가 없다」가 아니다.
+
+       `?? null` 로 맞추는 까닭: 갈래 없는 포트를 DB 는 `null` 로, 요청 바디는 **적지 않아**
+       `undefined` 로 나른다. 그대로 견주면 접지 포트만 있는 종류를 그대로 저장해도
+       「뜻이 바뀌었다」가 되어 409 로 튕긴다. */
+    (before.variant ?? null) !== (after.variant ?? null) ||
     coreCount(before.positions) !== coreCount(after.positions)
   );
 }

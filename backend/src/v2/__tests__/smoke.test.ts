@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
+import { authHeader, ensureTestTypes, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-smoke-${Date.now()}`;
@@ -10,6 +10,7 @@ const admin = { Authorization: authHeader('admin') };
 
 beforeAll(async () => {
   await sweepTestFixtures();
+  await ensureTestTypes();
 });
 
 afterAll(async () => {
