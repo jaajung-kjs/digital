@@ -209,3 +209,94 @@ describe('buildTraceGraph + traceFrom', () => {
     ]);
   });
 });
+
+/**
+ * **모선에 매달린 축전지** — 방향 없는 자리(`BI`)가 추적을 어떻게 지나는가.
+ *
+ * 분배부는 직류 입력(정류기에서) · 직류 출력(부하로) · 직류 모선(축전지) 셋을 갖는다.
+ * 축전지는 평상시 충전되고 정전이면 공급한다 — **양쪽 다 보여야 한다.**
+ *
+ * 그러면서 상류 추적이 **형제 회로로 새면 안 된다**. 모선은 출력들과도 통하므로, 방향을
+ * 「BI 는 다 통과」로 두면 그 반이 먹이는 출력들이 상류에 딸려 나온다(방향 규칙이 애초에
+ * 막던 그 버그다). 방향 없는 끝이 상대의 반대 노릇을 하면 그 길이 저절로 막힌다.
+ */
+describe('모선 — 방향 없는 자리를 지나는 추적', () => {
+  const bus: AssetTypeSpec = {
+    ...device,
+    key: 'BUS',
+    name: '분배부',
+    ports: [
+      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: '직류 입력', variant: 'DC' },
+      { group: 'OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: '직류 출력 {n}', variant: 'DC' },
+      { group: 'BUS', count: 1, direction: 'BI', medium: 'power', namePattern: '직류 모선', variant: 'DC' },
+    ],
+  };
+  const batt: AssetTypeSpec = {
+    ...device,
+    key: 'BATT',
+    name: '축전지',
+    ports: [{ group: 'T', count: 1, direction: 'BI', medium: 'power', namePattern: '축전지 단자', variant: 'DC' }],
+  };
+  const load: AssetTypeSpec = {
+    ...device, key: 'LOAD', name: '부하',
+    ports: [{ group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' }],
+  };
+  const rect: AssetTypeSpec = {
+    ...device, key: 'RECT', name: '정류기',
+    ports: [{ group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력', variant: 'DC' }],
+  };
+  const scene = () => {
+    const t = { BUS: bus, BATT: batt, LOAD: load, RECT: rect } as unknown as typeof types;
+    const mk = (key: string, id: string) => {
+      const spec = ({ BUS: bus, BATT: batt, LOAD: load, RECT: rect } as Record<string, AssetTypeSpec>)[key]!;
+      return {
+        asset: { id, typeKey: key, name: id } as AssetRef,
+        ports: instantiatePorts(spec.ports, id).map((q) => ({ ...q, id: `${id}:${q.group}${q.index}` })),
+      };
+    };
+    const b = mk('BUS', 'bus'); const a = mk('BATT', 'batt');
+    const l1 = mk('LOAD', 'load1'); const l2 = mk('LOAD', 'load2'); const r = mk('RECT', 'rect');
+    const cables: CableRef[] = [
+      { id: 'cr', aPortId: 'rect:OUT1', bPortId: 'bus:IN1' },
+      { id: 'cb', aPortId: 'bus:BUS1', bPortId: 'batt:T1' },
+      { id: 'c1', aPortId: 'bus:OUT1', bPortId: 'load1:IN1' },
+      { id: 'c2', aPortId: 'bus:OUT2', bPortId: 'load2:IN1' },
+    ];
+    return buildTraceGraph({
+      types: t,
+      assets: [b.asset, a.asset, l1.asset, l2.asset, r.asset],
+      ports: [...b.ports, ...a.ports, ...l1.ports, ...l2.ports, ...r.ports],
+      cables,
+    });
+  };
+
+  /** 정전이면 축전지가 공급원이다 — 「내 전원이 어디서 오나」에 나와야 한다. */
+  it('상류: 부하에서 거슬러 오르면 정류기와 축전지가 둘 다 나온다', () => {
+    const reached = traceFrom(scene(), 'load1:IN1').map((h) => h.toPortId);
+    expect(reached).toContain('rect:OUT1');
+    expect(reached).toContain('batt:T1');
+  });
+
+  /* **이것이 회귀 감시다.** 모선은 형제 출력들과도 통하지만, 거기로 가는 것은 상류가
+     아니라 하류다 — 상류 추적에 남의 회로가 딸려 나오면 안 된다. */
+  it('상류: 형제 회로로 되쏟아지지 않는다', () => {
+    const reached = traceFrom(scene(), 'load1:IN1').map((h) => h.toPortId);
+    expect(reached).not.toContain('bus:OUT2');
+    expect(reached).not.toContain('load2:IN1');
+  });
+
+  /** 평상시에는 정류기가 축전지를 부동충전한다 — 「무엇을 먹이나」에도 나와야 한다. */
+  it('하류: 정류기 출력에서 내려가면 부하 둘과 축전지가 다 나온다', () => {
+    const reached = traceFrom(scene(), 'rect:OUT1').map((h) => h.toPortId);
+    expect(reached).toContain('load1:IN1');
+    expect(reached).toContain('load2:IN1');
+    expect(reached).toContain('batt:T1');
+  });
+
+  /** 축전지 자신을 누르면 방향이 없으니 양쪽으로 퍼진다 — 충전도 방전도 제 일이다. */
+  it('축전지 단자에서는 양쪽으로 퍼진다', () => {
+    const reached = traceFrom(scene(), 'batt:T1').map((h) => h.toPortId);
+    expect(reached).toContain('rect:OUT1');
+    expect(reached).toContain('load1:IN1');
+  });
+});

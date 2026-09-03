@@ -1,4 +1,4 @@
-import type { AssetRef, AssetTypeSpec, CableRef, PortRef } from '../catalog/types.js';
+import type { AssetRef, AssetTypeSpec, CableRef, Direction, PortRef } from '../catalog/types.js';
 import { isMultiCorePort, portKind } from '../catalog/portKinds.js';
 import { internalLinkMap } from './internalLinks.js';
 
@@ -14,6 +14,48 @@ export interface TraceEdge {
    * 번호를 간선에 적어 두고 traceFrom 이 들고 다니면서 같은 번호로만 빠져나가게 한다.
    */
   position?: number;
+  /**
+   * 이 간선을 **전기가 어느 쪽으로 지나는가** — `from → to` 를 기준으로.
+   *
+   * 예전에는 걷는 쪽이 **출발 포트 하나만** 보고 판단했다(`dir === 'IN'` 이면 거슬러 오르는
+   * 길). 양끝이 다 입력 아니면 출력인 동안에는 맞는 말이었다 — 케이블은 반대끼리만 이어지고
+   * (`pairing: 'opposite'`) 내부 통과도 입력↔출력만 유도되니, 한쪽만 알면 다른 쪽이 정해졌다.
+   *
+   * **방향 없는 자리(`BI`)가 생기면 그 전제가 깨진다.** 축전지 단자가 그렇다: 한 쌍으로
+   * 충전도 방전도 오간다. 출발 포트만 보면 그 자리에서 어느 쪽으로 흐르는지 알 길이 없고,
+   * 「방향 없으면 다 통과」로 두면 모선에서 **형제 회로로 되쏟아진다**(그 반이 먹이는
+   * 출력들이 상류 추적에 딸려 나온다 — 방향 규칙이 애초에 막던 그 버그다).
+   *
+   * 그래서 **양끝을 함께 본다.** 방향 없는 끝은 상대의 반대 노릇을 한다 — 모선 단자가
+   * 출력과 이어지면 그 자리에서는 공급원(IN)이고, 입력과 이어지면 소비자(OUT)다. 양끝이 다
+   * 방향 없으면(모선끼리 이음) 정해지지 않는다.
+   *
+   * 방향이 없는 종류(광·네트워크·제어)는 `'either'` — 그 선로에는 상·하류가 없다.
+   */
+  along: EdgeFlow;
+}
+
+/** 간선을 지나는 방향 — `from → to` 로 갈 때 전기와 **같은 쪽**인가 거스르는가. */
+export type EdgeFlow = 'downstream' | 'upstream' | 'either';
+
+/**
+ * 이 간선을 전기가 어느 쪽으로 지나는가 — **양끝의 방향이 함께 정한다.**
+ *
+ * @param sourceRole 전기가 **나오는** 쪽의 방향. 케이블은 출력에서 나오고(`OUT`), 기기
+ *   안에서는 입력에서 나온다(`IN`). 이 한 값이 두 경우의 차이 전부다.
+ * @param to 상대 끝의 방향. 이 워킹 카피에 없는 끝점(국을 넘는 케이블의 건너편)이면
+ *   `undefined` — 그때는 예전처럼 출발 포트만 보고 정한다(아는 것까지만 말한다).
+ */
+export function edgeFlow(
+  sourceRole: 'IN' | 'OUT',
+  from: Direction,
+  to: Direction | undefined,
+): EdgeFlow {
+  /* 양끝이 다 방향 없는 자리 — 모선끼리의 이음이다. 어느 쪽으로도 흐를 수 있다. */
+  if (from === 'BI' && (to === 'BI' || to === undefined)) return 'either';
+  /* 방향 없는 끝은 **상대의 반대 노릇**을 한다: 출력과 이어졌으면 그 자리에서는 공급원이다. */
+  const effective = from === 'BI' ? (to === 'IN' ? 'OUT' : 'IN') : from;
+  return effective === sourceRole ? 'downstream' : 'upstream';
 }
 
 export interface TraceGraph {
@@ -52,9 +94,21 @@ export function buildTraceGraph(args: {
     else edges.set(from, [edge]);
   };
 
+  const portById = new Map(args.ports.map((p) => [p.id, p]));
+  const dirOf = (id: string): Direction | undefined => portById.get(id)?.direction;
+  /* 방향이 뜻을 갖는 종류에서만 간선에 방향이 있다 — 광·네트워크에는 상·하류가 없다.
+     매체는 **출발 포트가** 안다(상대는 이 카피에 없을 수 있다). */
+  const directed = (id: string) => portKind(portById.get(id)?.medium ?? '')?.pairing === 'opposite';
+  const along = (sourceRole: 'IN' | 'OUT', from: string, to: string): EdgeFlow => {
+    const d = dirOf(from);
+    if (d === undefined || !directed(from)) return 'either';
+    return edgeFlow(sourceRole, d, dirOf(to));
+  };
+
   for (const c of args.cables) {
-    push(c.aPortId, { kind: 'cable', cableId: c.id, toPortId: c.bPortId });
-    push(c.bPortId, { kind: 'cable', cableId: c.id, toPortId: c.aPortId });
+    /* 전기는 **출력에서 케이블로 나온다**. */
+    push(c.aPortId, { kind: 'cable', cableId: c.id, toPortId: c.bPortId, along: along('OUT', c.aPortId, c.bPortId) });
+    push(c.bPortId, { kind: 'cable', cableId: c.id, toPortId: c.aPortId, along: along('OUT', c.bPortId, c.aPortId) });
   }
 
   const portsByAsset = new Map<string, PortRef[]>();
@@ -64,7 +118,6 @@ export function buildTraceGraph(args: {
     else portsByAsset.set(p.assetId, [p]);
   }
 
-  const portById = new Map(args.ports.map((p) => [p.id, p]));
   const isMulti = (id: string) => isMultiCorePort(portById.get(id)?.positions);
 
   // 자산 내부 통과(포트 ↔ 포트)는 상세 화면도 그대로 보여줘야 하므로 계산을 공유한다.
@@ -76,7 +129,8 @@ export function buildTraceGraph(args: {
         const single = isMulti(fromId) !== isMulti(toPortId)
           ? portById.get(isMulti(fromId) ? toPortId : fromId)
           : undefined;
-        const edge: TraceEdge = { kind: 'internal', toPortId };
+        /* 기기 안에서 전기는 **입력에서 출력으로** 지난다. */
+        const edge: TraceEdge = { kind: 'internal', toPortId, along: along('IN', fromId, toPortId) };
         if (single) edge.position = single.index;
         push(fromId, edge);
       }
@@ -109,7 +163,6 @@ type Flow = 'upstream' | 'downstream' | 'both';
 export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
   const hops: TraceHop[] = [];
   const isMulti = (id: string) => isMultiCorePort(graph.ports.get(id)?.positions);
-  const directionOf = (id: string) => graph.ports.get(id)?.direction;
 
   /* 흐름이 있는 종류에서만 방향을 지킨다 — 광·네트워크는 상·하류가 없다. */
   const startPort = graph.ports.get(startPortId);
@@ -119,17 +172,14 @@ export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
     : startPort.direction === 'IN' ? 'upstream' : 'downstream';
 
   /**
-   * 이 간선이 그 방향으로 가는 길인가.
+   * 이 간선이 그 방향으로 가는 길인가 — **판단은 그래프가 이미 끝냈다**(`along`).
    *
-   * 거슬러 오를 때: **내 입력에서** 케이블을 건너 상류의 출력으로 가고, 그 기기 **안에서는
-   * 출력에서 입력으로** 거슬러 지난다. 내려갈 때는 그 반대다.
+   * 예전에는 여기서 출발 포트의 방향을 보고 정했다. 그러면 방향 없는 자리(`BI`)에서
+   * 판단할 것이 없어, 「막지 않는다」로 두면 모선에서 형제 회로로 되쏟아졌다. 양끝을
+   * 함께 봐야 하는 판단이므로 양끝을 다 아는 자리(그래프를 세우는 곳)로 옮겼다.
    */
-  const allowed = (fromPortId: string, edge: TraceEdge): boolean => {
-    if (flow === 'both') return true;
-    const dir = directionOf(fromPortId);
-    if (edge.kind === 'cable') return dir === (flow === 'upstream' ? 'IN' : 'OUT');
-    return dir === (flow === 'upstream' ? 'OUT' : 'IN');
-  };
+  const allowed = (edge: TraceEdge): boolean =>
+    flow === 'both' || edge.along === 'either' || edge.along === flow;
 
   /* 방문 표시는 **포트 하나에 한 번**이다. 코어 번호는 어느 길로 빠져나갈지를 거르는 데만
      쓴다 — 번호까지 키에 넣으면 인입 포트가 코어마다 다른 노드로 보여, 앞면 4포트를 거쳐
@@ -141,7 +191,7 @@ export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
     const cur = queue.shift();
     if (cur === undefined) break;
     for (const e of graph.edges.get(cur.portId) ?? []) {
-      if (!allowed(cur.portId, e)) continue;
+      if (!allowed(e)) continue;
       let position = cur.position;
       if (e.position !== undefined) {
         if (isMulti(cur.portId)) {

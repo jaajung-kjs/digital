@@ -148,3 +148,40 @@ describe('포트 상세가 쓰는 이웃', () => {
     expect(internalLinkMap([lone]).get('n')).toBeUndefined();
   });
 });
+
+/**
+ * 방향 없는 자리(모선 단자) — 축전지가 매달리는 자리.
+ *
+ * 방향 있는 자리에 매달면 반쪽만 맞는다: 출력에 매달면 공급원으로 안 보이고, 입력에
+ * 매달면 충전 경로가 사라진다. 모선에는 방향이 없다.
+ */
+describe('derivedLinks — 방향 없는 자리는 모선에 합류한다', () => {
+  const p = (group: string, direction: 'IN' | 'OUT' | 'BI', variant: string | null = 'DC') =>
+    ({ group, medium: 'power', direction, variant });
+  const show = (rules: ReturnType<typeof derivedLinks>) =>
+    rules.map((r) => `${r.fromGroup}→${r.toGroup}`).sort();
+
+  it('같은 갈래의 입력과도 출력과도 통한다', () => {
+    expect(show(derivedLinks([p('IN-DC', 'IN'), p('OUT-DC', 'OUT'), p('BUS-DC', 'BI')])))
+      .toEqual(['BUS-DC→IN-DC', 'BUS-DC→OUT-DC', 'IN-DC→OUT-DC']);
+  });
+
+  /* 단자는 아무것도 바꾸지 않는다 — 교류를 직류로 만드는 일은 정류기가 한다. */
+  it('갈래는 넘지 않는다 — 같은 갈래가 없으면 외따로다', () => {
+    expect(show(derivedLinks([p('IN-AC', 'IN', 'AC'), p('OUT-AC', 'OUT', 'AC'), p('BUS-DC', 'BI')])))
+      .toEqual(['IN-AC→OUT-AC']);
+  });
+
+  /** 축전지는 단자 하나뿐이다 — 통과할 것이 없다. */
+  it('방향 없는 자리 하나뿐이면 아무 데도 안 이어진다', () => {
+    expect(derivedLinks([p('BUS-DC', 'BI')])).toEqual([]);
+  });
+
+  /* 접지는 방향을 따지지 않는 종류라(`pairing: 'any'`) 이 규칙 밖이다 — 접지 단자가
+     전원 모선에 합류하면 추적이 접지선을 타고 온 국을 돌아다닌다. */
+  it('방향을 따지지 않는 종류는 그대로다', () => {
+    const ground = { group: 'GND', medium: 'ground', direction: 'BI' as const, variant: null };
+    expect(derivedLinks([p('IN-DC', 'IN'), p('OUT-DC', 'OUT'), ground]))
+      .toEqual([{ fromGroup: 'IN-DC', toGroup: 'OUT-DC', mapping: 'all' }]);
+  });
+});

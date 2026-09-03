@@ -144,6 +144,17 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'POWER-OUT-AC', count: 3, direction: 'OUT', medium: 'power', namePattern: '교류 출력 {n}', variant: 'AC' },
       { group: 'POWER-IN-DC', count: 3, direction: 'IN', medium: 'power', namePattern: '직류 입력 {n}', variant: 'DC' },
       { group: 'POWER-OUT-DC', count: 3, direction: 'OUT', medium: 'power', namePattern: '직류 출력 {n}', variant: 'DC' },
+      /*
+       * **축전지가 매달리는 자리** — 방향이 없다(`BI`).
+       *
+       * 한때 축전지를 「직류 출력」에 매달았다. 그러면 추적이 축전지를 **부하로만** 본다 —
+       * 정전이면 그것이 공급원인데 「내 전원이 어디서 오나」에 안 나온다. 「직류 입력」으로
+       * 옮기면 반대로 부동충전 경로가 사라진다. 모선에는 방향이 없으니 방향 있는 자리에
+       * 매다는 것 자체가 틀린 것이었다(`derivedLinks` 의 「모선 합류」).
+       *
+       * 둘인 것은 축전지를 1군·2군으로 나눠 다는 실물 결선을 따른다.
+       */
+      { group: 'POWER-BI-DC', count: 2, direction: 'BI', medium: 'power', namePattern: '축전지 모선 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
@@ -245,15 +256,19 @@ export const SEED_ASSEMBLIES: {
      * 전원 일곱 본 + 내부통신 두 본.
      *
      * 흐름: 교류가 분배부로 들어와 정류기 둘로 갈리고, 정류기가 만든 직류가 분배부로 돌아와
-     * 축전지·강압기·감시제어부로 갈린다. **분배부는 그 앞뒤를 두 번 지난다** — 바꾸는 것은
+     * 강압기·감시제어부로 갈린다. **분배부는 그 앞뒤를 두 번 지난다** — 바꾸는 것은
      * 정류기뿐이다.
+     *
+     * 축전지는 그 흐름을 **거치지 않는다** — 모선에 나란히 매달린다(`POWER-BI-DC`).
+     * 평상시에는 정류기가 부하를 먹이며 축전지를 부동충전하고, 정전이면 그때 방전한다.
+     * 그 둘을 한 자리로 적을 수 있는 것은 그 자리에 방향이 없기 때문이다.
      */
     links: [
       { aItem: '충전기 분배부', aGroup: 'POWER-OUT-AC', aIndex: 1, bItem: 'IR-48 50A #1', bGroup: 'POWER-IN-AC', bIndex: 1 },
       { aItem: '충전기 분배부', aGroup: 'POWER-OUT-AC', aIndex: 2, bItem: 'IR-48 50A #2', bGroup: 'POWER-IN-AC', bIndex: 1 },
       { aItem: 'IR-48 50A #1', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '충전기 분배부', bGroup: 'POWER-IN-DC', bIndex: 1 },
       { aItem: 'IR-48 50A #2', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '충전기 분배부', bGroup: 'POWER-IN-DC', bIndex: 2 },
-      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '축전지', bGroup: 'POWER-DC', bIndex: 1 },
+      { aItem: '충전기 분배부', aGroup: 'POWER-BI-DC', aIndex: 1, bItem: '축전지', bGroup: 'POWER-DC', bIndex: 1 },
       { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 2, bItem: 'SID-125', bGroup: 'POWER-IN-DC', bIndex: 1 },
       { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 3, bItem: 'IRCU', bGroup: 'POWER-IN-DC', bIndex: 1 },
       { aItem: 'IRCU', aGroup: 'SERIAL', aIndex: 1, bItem: 'IR-48 50A #1', bGroup: 'SERIAL', bIndex: 1 },
