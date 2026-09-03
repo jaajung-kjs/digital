@@ -24,8 +24,8 @@ const coreOf = (assetId: string, index: number) =>
   nextDb.port.findFirstOrThrow({ where: { assetId, group: 'FIBER', index } }).then((p) => p.id);
 
 beforeAll(async () => {
-  await ensureTestTypes();
   await sweepTestFixtures();
+  await ensureTestTypes();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   const br = await nextDb.branch.create({ data: { name: `${uniq}-br`, headquartersId: hq.id } });
   const [a, b, c] = await Promise.all([

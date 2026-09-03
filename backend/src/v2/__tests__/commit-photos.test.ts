@@ -46,8 +46,8 @@ const onDisk = (filePath: string) => fs.existsSync(path.join(assetPhotoDir(), pa
 const diskNames = () => new Set(fs.readdirSync(assetPhotoDir()));
 
 beforeAll(async () => {
-  await ensureTestTypes();
   await sweepTestFixtures();
+  await ensureTestTypes();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   const br = await nextDb.branch.create({ data: { name: `${uniq}-br`, headquartersId: hq.id } });
   const s1 = await nextDb.substation.create({ data: { name: `${uniq}-ss1`, branchId: br.id } });

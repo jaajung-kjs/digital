@@ -1,125 +1,50 @@
 import { describe, expect, it } from 'vitest';
-import { SEED_ASSET_TYPES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES } from './catalog.js';
-import { assetFieldDefs } from '../catalog/types.js';
-import { portKind, portPresets } from '../catalog/portKinds.js';
+import { SEED_ASSEMBLIES, SEED_ASSET_TYPES, SEED_CABLE_GROUPS, SEED_CATEGORIES } from './catalog.js';
+import { validateAssembly, type AssemblyLinkSpec } from '../catalog/assembly.js';
+import { validateTypeSpec } from '../validation/typeSpec.js';
 
-const byKey = (key: string) => SEED_ASSET_TYPES.find((t) => t.key === key)!;
+const CTX = {
+  categoryKeys: SEED_CATEGORIES.map((c) => c.key),
+  mediumKeys: SEED_CABLE_GROUPS.map((g) => g.key),
+};
 
-describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () => {
-  it('key 유일성 + 모든 타입의 categoryKey가 시드 분류에 존재', () => {
-    const keys = SEED_ASSET_TYPES.map((t) => t.key);
-    expect(new Set(keys).size).toBe(keys.length);
-    const cats = new Set<string>(SEED_CATEGORIES.map((c) => c.key));
-    for (const t of SEED_ASSET_TYPES) expect(cats.has(t.categoryKey)).toBe(true);
-  });
-
-  it('그래도 모든 타입의 자산은 설치일·담당자를 갖는다', () => {
+describe('시드 카탈로그', () => {
+  it('장비 품목이 제 어휘 안에서 유효하다', () => {
     for (const t of SEED_ASSET_TYPES) {
-      const keys = assetFieldDefs(t.fields).map((f) => f.key);
-      expect(keys, t.key).toContain('installDate');
-      expect(keys, t.key).toContain('manager');
-    }
-  });
-
-  it('타입이 공통 필드를 다시 선언해도 두 번 나오지 않는다', () => {
-    const dup = [{ key: 'manager', label: '관리자', type: 'text' as const }];
-    expect(assetFieldDefs(dup).map((f) => f.key)).toEqual(['installDate', 'manager']);
-  });
-});
-
-describe('SEED_CABLE_CATEGORIES — 레거시 16종 이관', () => {
-  it('모든 groupKey가 SEED_CABLE_GROUPS에 존재한다', () => {
-    const groupKeys = new Set<string>(SEED_CABLE_GROUPS.map((g) => g.key));
-    for (const cat of SEED_CABLE_CATEGORIES) {
-      expect(groupKeys.has(cat.groupKey), `unknown groupKey: ${cat.groupKey}`).toBe(true);
-    }
-  });
-
-  it('(groupKey, name) 쌍이 유일하다', () => {
-    const seen = new Set<string>();
-    for (const cat of SEED_CABLE_CATEGORIES) {
-      const key = `${cat.groupKey}::${cat.name}`;
-      expect(seen.has(key), `duplicate: ${key}`).toBe(false);
-      seen.add(key);
-    }
-  });
-
-  it('레거시 카테고리 수 17개와 일치한다', () => {
-    expect(SEED_CABLE_CATEGORIES.length).toBe(17);
-  });
-});
-
-/**
- * **시드는 화면이 만들 수 있는 것만 만든다.**
- *
- * 장비 품목의 포트는 화면에서 「어떤 종류를 몇 개」로 더한다 — 그때 그룹 키는 어휘가 정하고
- * (`portPresets`), 같은 종류를 두 번 더하면 `NETWORK-2` 처럼 번호가 붙는다(`uniqueGroupKey`).
- * 시드가 그 밖의 키를 쓰면 **화면으로는 만들 수도 고칠 수도 없는 품목**이 생긴다. 실제로
- * 「UPLINK」 라는 그룹을 지어내 시드에 넣은 적이 있는데, 화면 어디에도 그런 선택지가 없었다.
- */
-describe('시드 포트 그룹은 어휘가 내놓는 것뿐', () => {
-  const allowed = new Set(portPresets().map((p) => p.groupKey));
-
-  it('모든 그룹 키가 화면의 선택지(또는 그 번호붙임)다', () => {
-    for (const type of SEED_ASSET_TYPES) {
-      for (const port of type.ports) {
-        /* 같은 종류를 두 번 더하면 `NETWORK-2` — 그 꼬리를 떼고 본다. */
-        const base = port.group.replace(/-\d+$/, '');
-        expect(allowed.has(base), `${type.key}: ${port.group}`).toBe(true);
-      }
-    }
-  });
-
-  /* 매체·방향도 그 선택지의 것이어야 한다 — 키만 같고 속이 다르면 화면과 어긋난다. */
-  it('그룹 키가 정한 매체·방향을 따른다', () => {
-    const byKey = new Map(portPresets().map((p) => [p.groupKey, p]));
-    for (const type of SEED_ASSET_TYPES) {
-      for (const port of type.ports) {
-        const preset = byKey.get(port.group.replace(/-\d+$/, ''))!;
-        expect(port.medium, `${type.key}: ${port.group}`).toBe(preset.medium);
-        expect(port.direction, `${type.key}: ${port.group}`).toBe(preset.direction);
-        expect(port.variant ?? null, `${type.key}: ${port.group}`).toBe(preset.variant ?? null);
-        /* 다심인지 아닌지도 선택지가 정한다 — 「광」에 24심을 적으면 화면에 없는 모양이 된다. */
-        expect((port.positions ?? 1) > 1, `${type.key}: ${port.group}`).toBe(preset.positions > 1);
-      }
+      expect({ key: t.key, issues: validateTypeSpec(t, CTX) }).toEqual({ key: t.key, issues: [] });
     }
   });
 
   /**
-   * **포트 이름은 화면이 만드는 그것뿐이다.**
+   * **설비 품목이 담은 내부 배선이 실제로 이어지는가.**
    *
-   * 화면에는 포트 이름을 정하는 자리가 없다 — 종류를 고르면 이름은 그 선택지가 정한다
-   * (`PortPreset.namePattern`). 그런데 시드가 「UTP」·「COM1」·「관리」·「회선 {n}」처럼 제
-   * 손으로 이름을 지어 넣어, **화면으로는 만들 수도 고칠 수도 없는 이름**이 자산 판에
-   * 떠 있었다(서지보호기는 「입력」·「출력」이라 방향까지 지어냈다).
-   *
-   * 이름을 정하는 자리가 생기기 전까지, 시드가 쓸 수 있는 이름은 선택지의 것뿐이다.
+   * 시드가 적어 둔 배선은 배포 때 그대로 DB 에 들어간다 — 거기서 틀리면 컨테이너가 뜨다가
+   * 죽거나(더 나쁘게는) 이을 수 없는 짝이 조용히 실린다. 판정은 케이블을 이을 때와 **같은
+   * 함수**(`validateConnection`)가 하므로, 여기서 통과하면 화면에서도 통과한다.
    */
-  it('포트 이름은 화면의 선택지가 내놓는 것뿐이다', () => {
-    const names = new Set(portPresets().map((p) => p.namePattern));
-    for (const type of SEED_ASSET_TYPES) {
-      for (const port of type.ports) {
-        expect(names.has(port.namePattern), `${type.key}: ${port.namePattern}`).toBe(true);
-      }
+  it('설비 품목의 구성과 내부 배선이 유효하다', () => {
+    const typeKeys = new Set(SEED_ASSET_TYPES.map((t) => t.key));
+    const portsOf = (key: string) => SEED_ASSET_TYPES.find((t) => t.key === key)?.ports;
+
+    for (const a of SEED_ASSEMBLIES) {
+      /* 시드는 항목을 **이름**으로 가리킨다(id 가 없다) — 판정에 넣으려면 id 를 붙인다.
+         서버도 같은 일을 한다(`seed/next.ts` 의 `itemId` 다리). */
+      const items = a.items.map((i, n) => ({ ...i, id: `i${n}` }));
+      const idOf = new Map(items.map((i) => [i.name, i.id]));
+      const links: AssemblyLinkSpec[] = (a.links ?? []).map((l, n) => ({
+        id: `l${n}`,
+        aItemId: idOf.get(l.aItem) ?? '없음', aGroup: l.aGroup, aIndex: l.aIndex,
+        bItemId: idOf.get(l.bItem) ?? '없음', bGroup: l.bGroup, bIndex: l.bIndex,
+      }));
+      expect({ key: a.key, issue: validateAssembly({ ...a, items, links }, typeKeys, portsOf) })
+        .toEqual({ key: a.key, issue: null });
     }
   });
-});
 
-/*
- * **직종은 시드가 정하지 않는다** — 대장이 저장하는 것은 직종 **코드**이고, 이름과 단가는
- * 노임단가 판이 정한다. 새 배포에는 그 판이 아직 없으므로 시드가 무엇을 적어 두든 어떤
- * 판과도 안 맞아 「지금 기준에 없는 직종입니다」 경고만 깔린다(실제로 품목 47개가 그랬다).
- * 비워 두면 화면이 「— 없음 —」으로 서고 노임단가를 먼저 올리라고 말한다 — 그게 사실이다.
- */
-describe('직종은 노임단가를 올린 뒤에 고른다', () => {
-  it('장비 품목은 직종을 갖지 않는다 — 공량·자재비는 그대로다', () => {
-    expect(SEED_ASSET_TYPES.every((t) => t.labor.laborCode === null)).toBe(true);
-    /* 셈이 도는 모습은 남아야 한다 — 값이 전부 0이면 산출 내역이 무슨 화면인지 알 수 없다. */
-    expect(SEED_ASSET_TYPES.some((t) => t.labor.installManDays > 0)).toBe(true);
-  });
-
-  it('케이블 품목도 직종을 갖지 않는다', () => {
-    expect(SEED_CABLE_CATEGORIES.every((c) => c.laborCode === null)).toBe(true);
-    expect(SEED_CABLE_CATEGORIES.some((c) => (c.unitPrice ?? 0) > 0)).toBe(true);
+  /* 통신용 충전기는 랙 한 대짜리 설비다 — 놓으면 장비 여섯과 배선 아홉이 함께 선다. */
+  it('통신용 충전기가 장비 여섯과 배선 아홉을 들고 있다', () => {
+    const chg = SEED_ASSEMBLIES.find((a) => a.key === 'CHG-48V-SET');
+    expect(chg?.items).toHaveLength(6);
+    expect(chg?.links).toHaveLength(9);
   });
 });

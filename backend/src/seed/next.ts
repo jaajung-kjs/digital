@@ -122,14 +122,32 @@ async function main() {
           sortOrder: a.sortOrder,
         },
       });
+      /* 항목 이름 → 만들어진 id. 배선이 이름으로 항목을 가리키므로(시드에는 id 가 없다)
+         이 다리가 필요하다. 이름은 한 설비 품목 안에서 유일하다. */
+      const itemId = new Map<string, string>();
       for (const [i, item] of a.items.entries()) {
         const type = await tx.assetType.findUniqueOrThrow({ where: { key: item.typeKey } });
-        await tx.assemblyItem.create({
+        const row = await tx.assemblyItem.create({
           data: {
             assemblyId: asm.id, typeId: type.id, name: item.name,
             col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
             portCounts: (item.portCounts ?? {}) as object,
             portPositions: (item.portPositions ?? {}) as object,
+            sortOrder: i,
+          },
+        });
+        itemId.set(item.name, row.id);
+      }
+      /* 내부 배선 — 놓으면 이 케이블들이 함께 선다(`placeAssembly`). */
+      for (const [i, l] of (a.links ?? []).entries()) {
+        const aItemId = itemId.get(l.aItem);
+        const bItemId = itemId.get(l.bItem);
+        if (!aItemId || !bItemId) throw new Error(`배선이 없는 항목을 가리킨다: ${l.aItem} ↔ ${l.bItem}`);
+        await tx.assemblyLink.create({
+          data: {
+            assemblyId: asm.id,
+            aItemId, aGroup: l.aGroup, aIndex: l.aIndex,
+            bItemId, bGroup: l.bGroup, bIndex: l.bIndex,
             sortOrder: i,
           },
         });

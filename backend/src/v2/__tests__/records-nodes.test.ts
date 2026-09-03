@@ -10,8 +10,8 @@ const admin = { Authorization: authHeader('admin') };
 let hqId: string, brId: string, subId: string, sub2Id: string, a1Id: string;
 
 beforeAll(async () => {
-  await ensureTestTypes();
   await sweepTestFixtures();
+  await ensureTestTypes();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   hqId = hq.id;
   const br = await nextDb.branch.create({ data: { name: `${uniq}-br`, headquartersId: hq.id } });

@@ -68,6 +68,103 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'FIBER', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
     ],
   },
+
+  // ── 통신용 충전기(48V) 1식을 이루는 다섯 ─────────────────────────────────
+  //
+  // 강원 직할 (구)춘천S/S 의 실물을 보고 지었다(2026-09). 랙 한 대가 통째로 48V 직류전원
+  // 장치이고, 그 안이 이 다섯으로 나뉜다: 감시제어 · 정류 · 강압 · 분배 · 축전지.
+  {
+    key: 'IRCU',
+    name: 'IRCU(감시제어부)',
+    categoryKey: '전원',
+    sortOrder: 40,
+    labor: labor(1.0, 0.5, 1.0, 3_500_000),
+    /* 계통 전압·전류를 재고 정류기를 제어하며 경보를 낸다.
+       **경보 접점은 내보내기만 한다**(OUT) — 무전압 접점 넷(RFA·ACF·HVA·LVA)이 한 가닥으로
+       나가므로 포트도 하나다. 넷으로 나누면 케이블이 4본이 되어 공량이 부풀어 오른다.
+       내부통신은 정류기 슬롯 수(3)만큼 — 예비 슬롯 몫이 하나 남는다. */
+    ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
+      { group: 'ALARM', count: 1, direction: 'OUT', medium: 'control', namePattern: '경보 접점' },
+      { group: 'RS232', count: 1, direction: 'BI', medium: 'control', namePattern: '감시 시리얼(RS-232)' },
+      { group: 'SERIAL', count: 3, direction: 'BI', medium: 'control', namePattern: '내부통신 {n}' },
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    key: 'RECT-48',
+    name: 'IR-48 50A(정류기)',
+    categoryKey: '전원',
+    sortOrder: 41,
+    labor: labor(1.5, 0.7, 1.5, 4_500_000),
+    /* **교류가 직류로 바뀌는 유일한 자리**다 — 계통에서 갈래가 갈리는 경계.
+       입력은 3상(앞면 INPUT N.F.B. 가 3구다). 몇 V 인지는 회로마다 적는다. */
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'AC' },
+      { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력', variant: 'DC' },
+      { group: 'SERIAL', count: 1, direction: 'BI', medium: 'control', namePattern: '내부통신' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    key: 'SID-125',
+    name: 'SID-125(강압기)',
+    categoryKey: '전원',
+    sortOrder: 42,
+    labor: labor(1.0, 0.5, 1.0, 2_800_000),
+    /* 실리콘 드롭퍼 — 균등충전으로 모선이 56V 까지 올라가도 **부하로 나가는 선만** 다이오드
+       단으로 떨어뜨려 48V 근처를 지킨다. 축전지는 이걸 거치지 않는다. */
+    ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    key: 'CHG-DIST',
+    name: '충전기 분배부',
+    categoryKey: '전원',
+    sortOrder: 43,
+    labor: labor(0.8, 0.4, 0.8, 1_500_000),
+    /*
+     * 동바(직류 모선) + 단자대 + 차단기 세 개 + SPD 를 묶은 한 덩어리.
+     *
+     * **아무것도 바꾸지 않는다** — 교류를 받아 정류기로 내보내고, 정류기가 만든 직류를 받아
+     * 부하로 내보낸다. 그래서 전원 포트가 넷이다(교류 입출력 + 직류 입출력). 바꾸는 것은
+     * 정류기뿐이고, 이 판은 그 앞뒤를 **두 번** 지난다.
+     *
+     * 교류 회로와 직류 회로는 한 함체 안에 있을 뿐 서로 만나지 않는다 — 갈래가 그것을
+     * 강제한다(`validateConnection` 의 `variant-mismatch`).
+     *
+     * **이 모양은 정류기반 특유**라 다른 랙에는 안 맞는다. 이름이 그 사실을 말하게 둔다.
+     */
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '교류 입력', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 3, direction: 'OUT', medium: 'power', namePattern: '교류 출력 {n}', variant: 'AC' },
+      { group: 'POWER-IN-DC', count: 3, direction: 'IN', medium: 'power', namePattern: '직류 입력 {n}', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 3, direction: 'OUT', medium: 'power', namePattern: '직류 출력 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    key: 'BATTERY',
+    name: '축전지',
+    categoryKey: '전원',
+    sortOrder: 44,
+    labor: labor(3.0, 1.5, 3.0, 6_500_000),
+    /*
+     * **단자는 (+)(−) 한 쌍뿐이고, 그 한 쌍으로 충전도 방전도 오간다** — 그래서 포트 하나,
+     * 방향은 양방향이다. 입력과 출력으로 나눠 두면 없는 단자를 하나 더 그리는 셈이 된다.
+     *
+     * 축전지는 계통을 **거치는** 것이 아니라 모선에 나란히 매달린 저수조다: 평상시에는
+     * 정류기가 부하를 먹이며 축전지를 부동충전하고(전류 0), 정전이면 그때 방전한다.
+     */
+    ports: [
+      { group: 'POWER-DC', count: 1, direction: 'BI', medium: 'power', namePattern: '축전지 단자', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
 ];
 
 /**
@@ -87,6 +184,13 @@ export const SEED_ASSEMBLIES: {
   key: string; name: string; categoryKey: string; sortOrder: number;
   items: { typeKey: string; name: string; col: number; row: number; colSpan: number; rowSpan: number;
            portCounts?: Record<string, number>; portPositions?: Record<string, number> }[];
+  /**
+   * 설비 안에서 **이미 이어져 있는 것** — 놓으면 이 케이블들이 함께 선다.
+   *
+   * 양끝을 **구성 항목의 이름**으로 가리킨다(`aItem`) — 시드에는 id 가 없고, 이름은 같은
+   * 배열 안에서 유일하다. 서버가 항목을 만들면서 실제 id 로 바꿔 준다.
+   */
+  links?: { aItem: string; aGroup: string; aIndex: number; bItem: string; bGroup: string; bIndex: number }[];
 }[] = [
   /*
    * **임시로 넣었던 설비 품목들은 지웠다**(2026-09-02) — 분전반·접지함체·공조설비·
@@ -114,6 +218,47 @@ export const SEED_ASSEMBLIES: {
     items: Array.from({ length: 8 }, (_, i) => ({
       typeKey: 'OFD-SLOT', name: `슬롯 ${i + 1}`, col: 0, row: i, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1,
     })),
+  },
+  {
+    /*
+     * **통신용 충전기(48V) 1식** — 랙 한 대가 통째로 48V 직류전원장치다.
+     *
+     * 강원 직할 (구)춘천S/S 실물 그대로다(명판: DC48V 100A, 입력 AC380V). 캐비닛 42U 를
+     * 격자 20행에 담으므로 **1행 ≈ 2U** 이고, 실장된 것만 차례로 쌓는다(빈 U 는 표현하지
+     * 않는다). 정류기 자리는 셋인데 둘만 꽂혀 있어 그 사이가 비어 있다.
+     *
+     * 안쪽 배선은 **어느 국에 놓든 같다** — 그래서 설비 품목이 들고 다닌다. 놓으면 케이블
+     * 아홉 본이 함께 선다. 밖으로 나가는 것(AC 소내분전반 · 분전반 · 원격감시반 · 접지)만
+     * 현장이 잇는다.
+     */
+    key: 'CHG-48V-SET', name: '통신용 충전기(48V)', categoryKey: '전원', sortOrder: 40,
+    items: [
+      { typeKey: 'IRCU', name: 'IRCU', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'RECT-48', name: 'IR-48 50A #1', col: 0, row: 2, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'RECT-48', name: 'IR-48 50A #2', col: 0, row: 4, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      // 6~7행은 비운다 — 정류기 예비 슬롯(실물 U30~32).
+      { typeKey: 'SID-125', name: 'SID-125', col: 0, row: 8, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'CHG-DIST', name: '충전기 분배부', col: 0, row: 10, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'BATTERY', name: '축전지', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
+    ],
+    /*
+     * 전원 일곱 본 + 내부통신 두 본.
+     *
+     * 흐름: 교류가 분배부로 들어와 정류기 둘로 갈리고, 정류기가 만든 직류가 분배부로 돌아와
+     * 축전지·강압기·감시제어부로 갈린다. **분배부는 그 앞뒤를 두 번 지난다** — 바꾸는 것은
+     * 정류기뿐이다.
+     */
+    links: [
+      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-AC', aIndex: 1, bItem: 'IR-48 50A #1', bGroup: 'POWER-IN-AC', bIndex: 1 },
+      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-AC', aIndex: 2, bItem: 'IR-48 50A #2', bGroup: 'POWER-IN-AC', bIndex: 1 },
+      { aItem: 'IR-48 50A #1', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '충전기 분배부', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: 'IR-48 50A #2', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '충전기 분배부', bGroup: 'POWER-IN-DC', bIndex: 2 },
+      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '축전지', bGroup: 'POWER-DC', bIndex: 1 },
+      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 2, bItem: 'SID-125', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 3, bItem: 'IRCU', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: 'IRCU', aGroup: 'SERIAL', aIndex: 1, bItem: 'IR-48 50A #1', bGroup: 'SERIAL', bIndex: 1 },
+      { aItem: 'IRCU', aGroup: 'SERIAL', aIndex: 2, bItem: 'IR-48 50A #2', bGroup: 'SERIAL', bIndex: 1 },
+    ],
   },
 ];
 

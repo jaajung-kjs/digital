@@ -65,8 +65,8 @@ describe('catalog CRUD', () => {
   let groupColor: string;
 
   beforeAll(async () => {
-  await ensureTestTypes();
     await sweepTestFixtures();
+    await ensureTestTypes();
     // 케이블그룹은 시드에서 이미 존재 — 첫 번째 것 사용
     const group = await nextDb.cableGroup.findFirst({ orderBy: { sortOrder: 'asc' } });
     if (!group) throw new Error('cableGroup not seeded');

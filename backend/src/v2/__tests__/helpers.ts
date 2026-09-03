@@ -74,7 +74,29 @@ export async function sweepTestFixtures(): Promise<void> {
     try { await nextDb.branch.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
     try { await nextDb.headquarters.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
   }
-  // 6. auth 테스트 사용자 (auth.test.ts: test_auth_<ts> / viewer_<ts>)
+  /* 6. 시험이 세운 카탈로그 픽스처 — 개발 DB 에 남으면 사람 화면에 그대로 선다.
+        **자산이 물린 것은 손대지 않는다**: 시드가 만든 광슬롯처럼 실데이터가 걸린 종류를
+        시험이 걷어 버리면 안 된다(강원 12국의 판 26장이 그것으로 서 있다). */
+  for (const key of TEST_FIXTURE_ASSEMBLY_KEYS) {
+    try {
+      const asm = await nextDb.assembly.findUnique({ where: { key }, include: { _count: { select: { assets: true } } } });
+      if (asm && asm._count.assets === 0) await nextDb.assembly.delete({ where: { id: asm.id } });
+    } catch { /* ignore */ }
+  }
+  for (const key of TEST_FIXTURE_TYPE_KEYS) {
+    try {
+      const t = await nextDb.assetType.findUnique({
+        where: { key },
+        include: { _count: { select: { assets: true, assemblyItems: true } } },
+      });
+      if (t && t._count.assets === 0 && t._count.assemblyItems === 0) {
+        await nextDb.assetPortTemplate.deleteMany({ where: { typeId: t.id } });
+        await nextDb.assetType.delete({ where: { id: t.id } });
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 7. auth 테스트 사용자 (auth.test.ts: test_auth_<ts> / viewer_<ts>)
   try { await nextDb.user.deleteMany({ where: { username: { startsWith: 'test_auth_' } } }); } catch { /* ignore */ }
   try { await nextDb.user.deleteMany({ where: { username: { startsWith: 'viewer_' } } }); } catch { /* ignore */ }
   /* 잠금 시험이 남긴 계정도 걷는다 — 이게 남아 있으면 개발 DB 에 쓰레기 계정이 쌓이고,
@@ -97,6 +119,18 @@ export async function sweepTestFixtures(): Promise<void> {
  * 키는 시드와 같은 것을 쓴다(`GROUNDING` 등) — 시드에 그 키가 되살아나도 충돌하지 않고
  * 그대로 쓰이며, 시험 파일들을 한 줄도 고치지 않아도 된다.
  */
+/**
+ * 시험이 세우는 품목의 키 — **만들 때와 걷을 때가 같은 목록을 본다.**
+ *
+ * 시험은 개발 DB 에 대고 돈다. 그래서 픽스처를 남겨 두면 그것이 **사람의 카탈로그 화면에
+ * 그대로 선다** — 실제로 시험을 한 번 돌린 뒤 「PITR-5000·전원(AC) 이 왜 있냐」는 말을
+ * 들었다. 세운 것은 걷는다.
+ */
+export const TEST_FIXTURE_TYPE_KEYS = [
+  'GROUNDING', 'HVAC', 'CHARGER', 'PWR-AC', 'PWR-DC', 'PITR-5000',
+] as const;
+export const TEST_FIXTURE_ASSEMBLY_KEYS = ['OPT-SET'] as const;
+
 export async function ensureTestTypes(): Promise<void> {
   const category = await nextDb.assetCategory.upsert({
     where: { key: '구조' },

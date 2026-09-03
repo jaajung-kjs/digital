@@ -13,8 +13,8 @@ const portOf = async (assetId: string, index: number) =>
   (await nextDb.port.findFirstOrThrow({ where: { assetId, group: 'FIBER', index } })).id;
 
 beforeAll(async () => {
-  await ensureTestTypes();
   await sweepTestFixtures();
+  await ensureTestTypes();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   const br = await nextDb.branch.create({ data: { name: `${uniq}-br`, headquartersId: hq.id } });
   const sA = await nextDb.substation.create({ data: { name: `${uniq}-국사A`, branchId: br.id } });

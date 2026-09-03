@@ -10,6 +10,8 @@ export interface LinkablePort {
   medium: string;
   direction: Direction;
   positions?: number;
+  /** 종류 안의 **갈래**(전원의 교류·직류) — 통과가 갈래를 넘는지 여기서 갈린다. */
+  variant?: string | null;
 }
 
 const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
@@ -48,10 +50,25 @@ export function derivedLinks(ports: readonly LinkablePort[]): InternalLinkRule[]
     const kind = portKind(from.medium);
     if (kind == null) continue;
 
-    // 전원처럼 공급/소비가 갈리는 종류 — 입력 그룹 하나하나가 모든 출력 그룹과 통한다.
+    /*
+     * 전원처럼 공급/소비가 갈리는 종류 — 들어온 것은 나간다.
+     *
+     * **갈래를 넘는 통과(변환)는 갈 곳이 그것뿐일 때만 일어난다.** 교류를 받아 직류를
+     * 내보내는 기기가 실제로 있고(정류기·충전기), 추적은 그 너머로 이어져야 「이 회로가
+     * 어디서 왔나」가 안 끊긴다. 그러나 **교류와 직류를 함께 나르는 판**에서는 그 유도가
+     * 거짓말이 된다 — 충전기의 분배부가 그렇다(교류 입출력과 직류 입출력을 다 갖는다).
+     * 갈래를 안 보던 동안 그 판은 「교류를 직류로 바꾼다」고, 심지어 「직류를 교류로
+     * 바꾼다」고까지 유도됐다. 추적이 정류기를 건너뛰고 지나가 버린다.
+     *
+     * 그래서 **같은 갈래의 출구가 있으면 그쪽으로만** 나간다. 없을 때만 갈래를 넘는다.
+     * 「후보가 둘 이상이면 유도하지 않는다」는 다심 인입의 규칙과 같은 결이다 —
+     * 선언에서 알 수 있는 것만 유도한다.
+     */
     if (kind.pairing === 'opposite' && from.direction === 'IN') {
-      for (const to of all) {
-        if (to.medium === from.medium && to.direction === 'OUT') add(from.group, to.group, 'all');
+      const outs = all.filter((t) => t.medium === from.medium && t.direction === 'OUT');
+      const sameVariant = outs.filter((t) => (t.variant ?? null) === (from.variant ?? null));
+      for (const to of (sameVariant.length > 0 ? sameVariant : outs)) {
+        add(from.group, to.group, 'all');
       }
     }
 
