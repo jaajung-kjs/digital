@@ -34,7 +34,7 @@ import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { canPickPort } from '../../cableSelectors';
-import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portKind, portValuesAt } from '@twin/core';
+import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
@@ -420,18 +420,6 @@ export function ConnectionsTab({
     [traceResult, tracedPortId],
   );
 
-  /**
-   * 이 추적이 **어느 쪽으로 간 것인가** — 누른 포트의 방향이 정한다(`traceFrom` 과 같은 규칙).
-   *
-   * 화면이 말로 적지는 않는다(글자가 늘 뿐이다). 다만 **거슬러 오르는 길은 뒤집어** 흐르는
-   * 차례로 그려야 하므로, 그 판단에는 방향이 필요하다.
-   */
-  const upstreamTrace = useMemo(() => {
-    const port = tracedPortId ? allPorts.find((p) => p.id === tracedPortId) : null;
-    if (!port || portKind(port.medium)?.pairing !== 'opposite') return false;
-    return port.direction === 'IN';
-  }, [tracedPortId, allPorts]);
-
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
     onTrace(traceHighlight(inputs, portId));
@@ -797,36 +785,28 @@ export function ConnectionsTab({
                         {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다. */}
                         {traceTree.children.length > 0 && (
                           <div className="rounded-md bg-primary/5 p-1.5">
-                            {upstreamTrace ? (
-                              /* **거슬러 오르는 길은 좌우로 뒤집은 트리** — 출처가 왼쪽에
-                                 세로로 서고 오른쪽으로 모인다. 뿌리(나)가 오른쪽 끝이다. */
-                              <div className="overflow-x-auto">
-                                <TraceMergeNode
-                                  node={traceTree}
-                                  root
-                                  label={traceLabel}
-                                  assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                                  onSelectAsset={onSelectAsset}
-                                />
-                              </div>
-                            ) : (
-                              /* 내려가는 추적 — **나를 뿌리로 한 트리**다. 이 회로가 무엇을
-                                 먹이는지는 갈라지며 뻗어 나가는 모양이 그대로 답이다. */
-                              <>
-                                <div className="flex items-baseline gap-1 text-sm">
-                                  <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
-                                  <TraceNodeText label={traceLabel(sel.id)} />
-                                </div>
-                                {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
-                                <TraceBranches
-                                  nodes={traceTree.children}
-                                  depth={1}
-                                  label={traceLabel}
-                                  assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                                  onSelectAsset={onSelectAsset}
-                                />
-                              </>
-                            )}
+                            {/* **두 방향이 같은 그림이다.** 내려가는 길은 나에게서 뻗어 나가고,
+                                거슬러 오르는 길은 나에게로 흘러 든다 — 어느 쪽인지는 이제
+                                **포트 이름이 말한다**: 뿌리가 「전원 입력」이면 자식은 전부
+                                「…출력」이고, 그것이 곧 나에게 들어온다는 뜻이다.
+
+                                한때 거슬러 오르는 길을 따로 그렸다(경로마다 한 줄 → 위아래
+                                뒤집기 → 좌우 뒤집기). 좌우로 뒤집은 것은 뜻이 맞았지만 깊이
+                                셋에서 394px 가 필요한데 판이 303px 이라 반드시 넘쳤다. 세로
+                                트리는 깊이가 늘어도 들여쓰기가 12px 씩 늘 뿐이라 **넘치지
+                                않는다** — 좁고 긴 판에서는 이쪽이 답이다. */}
+                            <div className="flex items-baseline gap-1 text-sm">
+                              <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
+                              <TraceNodeText label={traceLabel(sel.id)} />
+                            </div>
+                            {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
+                            <TraceBranches
+                              nodes={traceTree.children}
+                              depth={1}
+                              label={traceLabel}
+                              assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                              onSelectAsset={onSelectAsset}
+                            />
                           </div>
                         )}
                       </div>
@@ -888,83 +868,6 @@ function TraceNodeText({
     >
       {body}
     </button>
-  );
-}
-
-/**
- * 거슬러 오르는 추적 — **내려가는 트리를 좌우로 뒤집은 것.**
- *
- *   축전지    ┐
- *   SID-125   ┼─ 충전기 분배부 ─ IR-48 50A #2
- *   IRCU      ┘
- *
- * 출처가 왼쪽에 세로로 서고 오른쪽으로 모인다. 뿌리(나)가 오른쪽 끝이다 — 「어디에서부터
- * 나에게로 오나」가 왼쪽에서 오른쪽으로 읽힌다.
- *
- * 앞서 두 번 헛짚었다. 한 번은 **경로마다 한 줄**로 폈고(계단이 되어 같은 켜인지 안 보였다),
- * 한 번은 위아래로 뒤집었다(자식이 부모 위에 오는 낯선 규칙이었다). 둘 다 트리가 아니었다.
- * 이것은 트리다 — 갈래는 세로로 나란히 서고, 모이는 자리에 등뼈가 선다.
- *
- * 자리는 **flex 가 잡는다**(`items-center`): 이 마디는 제 출처들의 한가운데에 선다. 칸 폭을
- * 미리 정하지 않으므로 이름이 길어져도 어긋나지 않는다.
- */
-function TraceMergeNode({
-  node, label, assetOf, onSelectAsset, root = false,
-}: {
-  node: TraceTreeNode;
-  label: (portId: string) => { primary: string; secondary: string | null };
-  assetOf: (portId: string) => { id: string; name: string } | null;
-  onSelectAsset: (id: string, portId?: string | null) => void;
-  /** 뿌리(내가 선 자리) — 표시를 달고 진하게 둔다. */
-  root?: boolean;
-}) {
-  const kids = node.children;
-  const target = assetOf(node.portId);
-  return (
-    <div className="flex items-center">
-      {kids.length > 0 && (
-        <>
-          <div className="flex flex-col gap-0.5">
-            {kids.map((child, i) => (
-              <div key={child.portId} className="flex items-center">
-                <TraceMergeNode
-                  node={child}
-                  label={label}
-                  assetOf={assetOf}
-                  onSelectAsset={onSelectAsset}
-                />
-                {/* 이 출처에서 등뼈로 나가는 이음선. 등뼈는 **갈래가 여럿일 때만** 서고,
-                    첫 갈래는 아래로, 끝 갈래는 위로만 뻗어 모이는 폭이 그대로 보인다. */}
-                <span aria-hidden className="relative w-2.5 shrink-0 self-stretch">
-                  <span className="absolute inset-x-0 top-1/2 h-px bg-line" />
-                  {kids.length > 1 && (
-                    <span
-                      className={cn(
-                        'absolute right-0 w-px bg-line',
-                        i === 0 ? 'bottom-0 top-1/2' : i === kids.length - 1 ? 'bottom-1/2 top-0' : 'inset-y-0',
-                      )}
-                    />
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
-          {/* 등뼈에서 이 마디로 — 갈래가 여럿이면 여기가 **모이는 자리**다. */}
-          <span aria-hidden className="h-px w-2.5 shrink-0 bg-line" />
-        </>
-      )}
-      {/* 마디 하나는 줄바꿈하지 않는다 — 칸이 세로로 흔들리면 등뼈가 어긋난다. */}
-      <div className="flex shrink-0 items-baseline gap-1 whitespace-nowrap text-sm">
-        {root && <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>}
-        <TraceNodeText
-          label={label(node.portId)}
-          muted={!root}
-          {...(target && !root
-            ? { onClick: () => onSelectAsset(target.id, node.portId), title: `${target.name} 으로 이동` }
-            : {})}
-        />
-      </div>
-    </div>
   );
 }
 
