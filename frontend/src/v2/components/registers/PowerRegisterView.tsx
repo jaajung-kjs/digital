@@ -312,7 +312,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             >
               <Td className="text-sm font-medium text-content">입력</Td>
               <Td className="truncate">
-                {src.from ? <PeerCell peer={src.from} /> : <span className="text-sm text-content-faint">{unwiredText(src.cableId)}</span>}
+                {src.from ? <PeerCell peer={src.from} onSelect={onSelectAsset} /> : <span className="text-sm text-content-faint">{unwiredText(src.cableId)}</span>}
               </Td>
               {valueColumns.map(({ field, from }) => (
                 <Td key={field.key} align={alignOf(field)}>
@@ -345,7 +345,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             <Td className="text-sm text-content-muted tabular-nums">{c.index}</Td>
             {/* 용도 = 이 회로가 먹이는 것. 도면 밖 부하는 케이블에 적힌 대국까지가 전부다. */}
             <Td className="truncate">
-              <PeerCell peer={c.load} />
+              <PeerCell peer={c.load} onSelect={onSelectAsset} />
             </Td>
             {valueColumns.map(({ field, from }) => (
               <Td key={field.key} align={alignOf(field)}>

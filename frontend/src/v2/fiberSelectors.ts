@@ -116,6 +116,9 @@ export function resolveFiberFarEnd(
         portIndex: core.portIndex,
         substationName: ref!.substationName,
         remote: ref!.substationId !== localSubstationId,
+        /* 상대 국의 장비다 — 이 워킹 카피에 없으므로 갈 자리가 없다. */
+        assetId: null,
+        portId: null,
       };
     }
     /* 건너편 심선이 아직 장비로 안 나갔다 — **대국이 없는 것이다.**

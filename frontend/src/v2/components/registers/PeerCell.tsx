@@ -15,9 +15,17 @@ import { endpointLabel, endpointLabelParts, type PeerInfo } from '../../peerReso
 
 interface PeerCellProps {
   peer: PeerInfo | null;
+  /**
+   * 이 대국으로 **간다** — 그 장비를 열고 그 포트를 고른 상태로.
+   *
+   * 추적 마디는 눌러서 갈 수 있는데(`TraceNodeText`) 대장의 대국 칸은 글자였다. 「이 대국이
+   * 대체 어느 장비지」 싶으면 도면으로 나가 이름으로 다시 찾아야 했다 — 이름은 여기 이미
+   * 있는데. 어디서 장비 이름을 누르든 **같은 일**이 일어나게 둔다.
+   */
+  onSelect?: (assetId: string, portId: string) => void;
 }
 
-export function PeerCell({ peer }: PeerCellProps) {
+export function PeerCell({ peer, onSelect }: PeerCellProps) {
   if (!peer) return <span className="text-content-faint">{EMPTY}</span>;
   /**
    * 국 이름은 **붙이지 않는다** — 슬롯 이름이 이미 그것을 말한다.
@@ -32,16 +40,32 @@ export function PeerCell({ peer }: PeerCellProps) {
   /* 앞자리와 번호를 가른다 — 앞은 그 줄들이 공유하는 자리, 뒤는 그 줄만의 번호다.
      경계는 이름을 지은 곳이 알려 준다(`#` 를 찾던 때는 코어 이름에서 갈리지 않았다). */
   const { prefix, tail } = endpointLabelParts(peer);
+  const body = prefix ? (
+    <>
+      <span className="truncate text-content-muted">{prefix}</span>
+      <span className="shrink-0 font-medium text-content">{tail}</span>
+    </>
+  ) : (
+    <span className="truncate text-content">{label}</span>
+  );
+
+  /* 갈 자리가 없으면(상대 국·삭제된 끝점) 글자 그대로 둔다 — 눌리는 것처럼 보이는데 아무
+     일도 안 일어나는 칸이 열마다 서면 그게 더 나쁘다. */
+  if (!peer.assetId || !peer.portId || !onSelect) {
+    return <span className="flex min-w-0 text-sm" title={full}>{body}</span>;
+  }
+  const { assetId, portId } = peer;
   return (
-    <span className="flex min-w-0 text-sm" title={full}>
-      {prefix ? (
-        <>
-          <span className="truncate text-content-muted">{prefix}</span>
-          <span className="shrink-0 font-medium text-content">{tail}</span>
-        </>
-      ) : (
-        <span className="truncate text-content">{label}</span>
-      )}
-    </span>
+    <button
+      type="button"
+      /* 색은 그대로 둔다 — 대국 열이 통째로 파랗게 서면 표가 시끄러워지고, 정작 줄마다
+         다른 것(뒤의 번호)이 안 도드라진다. 눌린다는 것은 밑줄과 커서가 말한다. */
+      className="flex min-w-0 cursor-pointer text-left text-sm hover:underline"
+      title={`${full} 으로 이동`}
+      /* 줄 자신도 누르면 골라진다 — 여기서 멈추지 않으면 갈 곳과 고를 곳이 함께 일어난다. */
+      onClick={(e) => { e.stopPropagation(); onSelect(assetId, portId); }}
+    >
+      {body}
+    </button>
   );
 }

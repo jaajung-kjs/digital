@@ -4,6 +4,18 @@ import type { V2Asset, V2Cable, V2CableRef } from './types';
 export interface PeerInfo extends Endpoint {
   substationName: string | null;
   remote: boolean;
+  /**
+   * 이 워킹 카피 안의 자리 — **눌러서 갈 수 있는가**를 이것이 정한다.
+   *
+   * 이름만으로는 못 간다. 「광단말 A」는 송광치마다 있고, 표에서 대국을 보고 그리로 가려면
+   * 도면으로 나가 다시 찾아야 했다. 상대 국의 끝점이나 삭제된 자산은 이름만 남고 자리가
+   * 없다(`null`).
+   *
+   * **선택 칸이면 안 된다** — 대국을 짓는 자리가 셋이라(로컬·저장된 ref·코어별 대국) 하나만
+   * 빠뜨려도 「눌러도 아무 일 없는 칸」이 조용히 생긴다. 필수로 두면 컴파일러가 막는다.
+   */
+  assetId: string | null;
+  portId: string | null;
 }
 
 /**
@@ -175,6 +187,8 @@ export function resolvePeer(
       portIndex: entry.port.index,
       substationName: null,
       remote: false,
+      assetId: entry.asset.id,
+      portId: otherPortId,
     };
   }
 
@@ -188,6 +202,9 @@ export function resolvePeer(
       portIndex: ref.portIndex,
       substationName: ref.substationName ?? null,
       remote: ref.substationId !== localSubstationId,
+      /* 이 워킹 카피에 없는 끝점이다 — 이름은 알아도 갈 자리는 없다. */
+      assetId: null,
+      portId: null,
     };
   }
 

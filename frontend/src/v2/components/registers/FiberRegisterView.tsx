@@ -365,12 +365,12 @@ export function FiberRegisterView({
                 {/* 그룹별 피어 셀 */}
                 {row.cells.map((cell) => (
                   <Td key={cell.group}>
-                    <PeerCell peer={cell.peer} />
+                    <PeerCell peer={cell.peer} onSelect={onSelectAsset} />
                   </Td>
                 ))}
                 {/* 인입 건너편에서 이 심선이 닿는 곳 — 예전에는 대국 슬롯에서 끊겼다. */}
                 <Td>
-                  <PeerCell peer={row.farEnd} />
+                  <PeerCell peer={row.farEnd} onSelect={onSelectAsset} />
                 </Td>
                 {portMetaFields.map((f) => (
                   <Td key={f.key} align={alignOf(f)}>
