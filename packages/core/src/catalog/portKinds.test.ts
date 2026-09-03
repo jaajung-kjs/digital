@@ -9,15 +9,21 @@ describe('포트 프리셋', () => {
    *
    * 갈래를 화면에서 고를 수 없으면 만들 수도 없다: 충전기처럼 교류를 받아 직류를 내보내는
    * 장비를 적을 방법이 사라진다.
+   *
+   * **양방향도 낸다** — 방향 없는 자리(모선 단자)가 실제로 있다. 축전지는 단자 한 쌍으로
+   * 충전도 방전도 오간다. 이게 없으면 그 자리를 만드는 길이 「입력을 만든 뒤 방향을
+   * 바꾼다」는 우회뿐이고, 그러면 묶음 키가 어긋난다.
    */
   it('방향이 뜻을 갖는 종류는 방향×갈래로 나뉜다', () => {
     const power = presets.filter((p) => p.medium === 'power');
     expect(power.map((p) => p.name)).toEqual([
       '전원 입력(AC)', '전원 입력(DC)', '전원 출력(AC)', '전원 출력(DC)',
+      '전원 양방향(AC)', '전원 양방향(DC)',
     ]);
     /* 프리셋은 **갈래까지만** 정한다 — 몇 V 인지는 놓인 회로가 안다(계통 표). */
     expect(power.every((p) => !('voltage' in p))).toBe(true);
-    expect(power.map((p) => `${p.direction}·${p.variant}`)).toEqual(['IN·AC', 'IN·DC', 'OUT·AC', 'OUT·DC']);
+    expect(power.map((p) => `${p.direction}·${p.variant}`))
+      .toEqual(['IN·AC', 'IN·DC', 'OUT·AC', 'OUT·DC', 'BI·AC', 'BI·DC']);
   });
 
   it('방향을 따지지 않는 종류는 하나뿐', () => {

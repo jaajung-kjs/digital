@@ -516,7 +516,11 @@ export function portPresets(): PortPreset[] {
           }]
         : [single];
     }
-    return (['IN', 'OUT'] as const).flatMap((direction) => {
+    /* `BI` 도 낸다 — **방향 없는 자리**(모선 단자)가 실제로 있다: 축전지는 단자 한 쌍으로
+       충전도 방전도 오간다. 이게 없으면 그 자리를 만드는 길이 「입력을 만든 뒤 방향을
+       바꾼다」는 두 걸음짜리 우회뿐이고, 그러면 묶음 키가 `POWER-IN-DC-2` 로 어긋난다.
+       화면에서 고를 수 있는 것이 곧 어휘다. */
+    return (['IN', 'OUT', 'BI'] as const).flatMap((direction) => {
       const label = `${kind.name} ${portDirectionLabel(direction)}`;
       // 방향이 뜻을 갖는 종류(전원)에는 다심이 없다 — 1심 고정.
       const base = { medium: kind.key, direction, positions: 1 };
