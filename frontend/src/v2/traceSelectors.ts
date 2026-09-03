@@ -27,8 +27,8 @@ export function expandToPlacedAncestors(
   return result;
 }
 
-import { buildTraceGraph, traceChains, traceFrom, specFromCatalog } from '@twin/core';
-import type { AssetRef, AssetTypeSpec, CableRef, PortRef, TraceHop, TraceTreeNode } from '@twin/core';
+import { buildTraceGraph, traceFrom, specFromCatalog } from '@twin/core';
+import type { AssetRef, AssetTypeSpec, CableRef, PortRef, TraceHop } from '@twin/core';
 import type { V2Asset, V2AssetType, V2Cable, V2Category } from './types';
 
 export interface TraceInputs {
@@ -161,21 +161,4 @@ export function traceHighlight(inputs: TraceInputs, startPortId: string): TraceR
   }
 
   return { assetIds, cableIds, hops };
-}
-
-/**
- * 거슬러 오르는 추적을 **흐르는 차례로** 편다 — 출처가 앞, 내가 끝.
- *
- * 한때 화면이 **곧은 길일 때만** 뒤집고 갈라지면 나를 뿌리로 한 트리로 떨어뜨렸다. 그 트리는
- * 내려가는 추적과 **똑같이 생겼다** — 정류기 둘이 먹이는 강압기의 입력을 추적하면 「내 전원이
- * 어디서 오나」를 물었는데 「내가 무엇을 먹이나」처럼 그려졌다.
- *
- * 갈래가 있고 없고는 **묻는 방향과 아무 상관이 없다**: 갈라진다는 것은 출처가 둘이라는 뜻일
- * 뿐이다. 그래서 조건 없이 언제나 뒤집는다 — 방향마다 규칙 하나씩(오르면 줄, 내려가면 트리).
- *
- * @returns 거슬러 오르는 추적이면 길들, 내려가는 추적이면 `null`(그때는 트리가 답이다).
- */
-export function upstreamChainsOf(tree: TraceTreeNode, isUpstream: boolean): TraceTreeNode[][] | null {
-  if (!isUpstream) return null;
-  return traceChains(tree).map((chain) => [...chain].reverse());
 }

@@ -22,7 +22,7 @@ import {
   InsetBox,
 } from '../../../components/ui';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
-import { buildTraceTree, type TraceTreeNode } from '@twin/core';
+import { buildTraceTree, traceFlowRows, type TraceFlowCell, type TraceTreeNode } from '@twin/core';
 import { buildPortIndex, endpointLabel, endpointRef, indexCablesByPort, resolvePeer } from '../../peerResolve';
 import { resolveFiberFarEnd } from '../../fiberSelectors';
 
@@ -35,7 +35,7 @@ import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { canPickPort } from '../../cableSelectors';
 import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portKind, portValuesAt } from '@twin/core';
-import { buildTraceInputs, traceHighlight, upstreamChainsOf } from '../../traceSelectors';
+import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
 import { TopologyModal } from '../topology/TopologyModal';
@@ -388,7 +388,14 @@ export function ConnectionsTab({
   function traceLabel(portId: string): { primary: string; secondary: string | null } {
     const entry = portIndex.get(portId);
     if (entry) {
-      return { primary: `${entry.asset.name}#${entry.port.index}`, secondary: entry.assemblyName };
+      /* 설비는 **다른 설비일 때만** 적는다 — 국 이름을 그렇게 다루는 규칙(아래)과 같다.
+         랙 한 대 안에서 도는 추적은 마디가 넷이면 같은 설비 이름이 넷 선다: 아무것도
+         말해 주지 않으면서 줄을 넓혀 합류가 화면 밖으로 밀린다. */
+      const sameAssembly = entry.assemblyName != null && entry.assemblyName === tracedAssembly;
+      return {
+        primary: `${entry.asset.name}#${entry.port.index}`,
+        secondary: sameAssembly ? null : entry.assemblyName,
+      };
     }
     const cableEntry = cablesByPortId.get(portId)?.[0];
     const ref = cableEntry ? endpointRef(cableEntry.cable, portId) : null;
@@ -400,6 +407,9 @@ export function ConnectionsTab({
     }
     return { primary: '포트 —', secondary: null };
   }
+
+  /** 추적을 건 자리의 설비 — 그 이름은 마디마다 되풀이하지 않는다(`traceLabel`). */
+  const tracedAssembly = tracedPortId ? portIndex.get(tracedPortId)?.assemblyName ?? null : null;
 
   /* 평평한 홉 목록을 트리로 — 장비 안의 통과는 접힌다(마디는 케이블로 닿은 자리뿐). */
   const traceTree = useMemo(
@@ -420,18 +430,15 @@ export function ConnectionsTab({
   }, [tracedPortId, allPorts]);
 
   /**
-   * 거슬러 오르는 길들 — **흐르는 차례로 뒤집어** 보여 준다(출처 → … → 나).
+   * 거슬러 오르는 추적을 **합류로 편 줄들** — 출처가 왼쪽, 내가 오른쪽.
    *
-   * 한때는 **곧은 길일 때만** 뒤집고, 갈라지면 나를 뿌리로 한 트리로 떨어뜨렸다. 그런데 그
-   * 트리는 내려가는 추적과 **똑같이 생겼다** — 정류기 둘이 먹이는 강압기의 입력을 추적하면
-   * 「내 전원이 어디서 오나」를 물었는데 「내가 무엇을 먹이나」처럼 그려졌다. 갈래가 있고
-   * 없고는 **묻는 방향과 아무 상관이 없다**: 갈라진다는 것은 출처가 둘이라는 뜻일 뿐이다.
-   *
-   * 그래서 방향마다 규칙 하나씩이다 — 거슬러 오르면 길마다 한 줄, 내려가면 트리.
-   * 꼬리(나에게 가까운 마디)가 길마다 되풀이되지만, **실제로 길이 둘**이라 그게 사실이다.
+   * 상류는 트리가 아니라 **합류**다: 출처 여럿이 나에게로 모인다. 길을 하나씩 펴면 겹치는
+   * 꼬리가 길마다 되풀이되고(출처 셋이면 꼬리도 세 번), 나를 뿌리로 한 트리로 그리면
+   * **내려가는 추적과 똑같이 생긴다** — 「내 전원이 어디서 오나」가 「내가 무엇을 먹이나」로
+   * 읽힌다. 겹치는 꼬리를 한 번만 그리면 둘 다 피한다(`traceFlowRows`).
    */
-  const upstreamChains = useMemo(
-    () => upstreamChainsOf(traceTree, upstreamTrace),
+  const upstreamRows = useMemo(
+    () => (upstreamTrace ? traceFlowRows(traceTree) : null),
     [upstreamTrace, traceTree],
   );
 
@@ -800,25 +807,17 @@ export function ConnectionsTab({
                         {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다. */}
                         {traceTree.children.length > 0 && (
                           <div className="rounded-md bg-primary/5 p-1.5">
-                            {upstreamChains ? (
-                              /* **거슬러 오르는 길은 흐르는 차례로** — 출처가 위, 내가 아래.
-                                 출처가 둘이면 줄도 둘이다(「이 두 길로 전원이 온다」). */
-                              <div className="space-y-2">
-                                {upstreamChains.map((chain, i) => (
-                                  <div key={chain.map((n) => n.portId).join('|')}>
-                                    {/* 길이 하나뿐이면 번호를 안 붙인다 — 셀 것이 없다. */}
-                                    {upstreamChains.length > 1 && (
-                                      <div className="mb-0.5 text-xs text-content-faint">경로 {i + 1}</div>
-                                    )}
-                                    <TraceChain
-                                      path={chain}
-                                      label={traceLabel}
-                                      assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                                      onSelectAsset={onSelectAsset}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
+                            {upstreamRows ? (
+                              /* **거슬러 오르는 길은 합류로** — 출처가 왼쪽, 내가 오른쪽.
+                                 겹치는 꼬리는 마지막 줄에 한 번만 그리고, 앞선 줄들은 그
+                                 자리에서 합류한다(`⟩`). 자리는 **오른쪽 끝(나)** 을 기준으로
+                                 맞춰, 같은 마디가 줄마다 같은 칸에 선다. */
+                              <TraceFlow
+                                rows={upstreamRows}
+                                label={traceLabel}
+                                assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                                onSelectAsset={onSelectAsset}
+                              />
                             ) : (
                               /* 내려가는 추적 — **나를 뿌리로 한 트리**다. 이 회로가 무엇을
                                  먹이는지는 갈라지며 뻗어 나가는 모양이 그대로 답이다. */
@@ -902,41 +901,64 @@ function TraceNodeText({
 }
 
 /**
- * 한 길 — **전기가 흐르는 차례**로 위에서 아래로.
+ * 거슬러 오르는 추적을 **합류로** 그린다 — 출처가 왼쪽, 내가 오른쪽.
  *
- * 거슬러 오르는 추적의 답은 「출처에서 나에게 오는 길」이다. 트리는 「내가 시작해서 어디로
- * 뻗나」를 말하므로 그대로 두면 방향이 뒤집혀 읽힌다. 그래서 길을 뽑아 뒤집고, 마지막 줄
- * (내가 선 자리)을 도드라지게 둔다 — 눈이 위에서 아래로 흘러 나에게 닿는다.
+ * 상류는 합류다(출처 여럿이 나에게로 모인다). 겹치는 꼬리를 줄마다 되풀이하지 않으려면 그
+ * 꼬리를 **한 번만** 그리고, 앞선 줄들이 어느 자리에서 합쳐지는지를 보여야 한다.
+ *
+ *   분배부#1 → IR-48#1
+ *   분배부#2 → IR-48#2 ⟩ 분배부#2 → SID-125
+ *
+ * 자리는 **오른쪽 끝(나)** 을 기준으로 맞춘다(`distance`) — 격자로 그려야 같은 마디가
+ * 줄마다 같은 칸에 서고, 앞선 줄이 어느 칸에서 끊기는지가 곧 합류 자리가 된다. 글자 폭에
+ * 기대면 이름 길이에 따라 칸이 어긋나 합류가 안 읽힌다.
  */
-function TraceChain({
-  path, label, assetOf, onSelectAsset,
+function TraceFlow({
+  rows, label, assetOf, onSelectAsset,
 }: {
-  /** 출처 → … → 나. 마지막이 추적을 시작한 자리다. */
-  path: readonly TraceTreeNode[];
+  rows: readonly (readonly TraceFlowCell[])[];
   label: (portId: string) => { primary: string; secondary: string | null };
   assetOf: (portId: string) => { id: string; name: string } | null;
   onSelectAsset: (id: string, portId?: string | null) => void;
 }) {
+  /** 가장 먼 출처가 몇 걸음인가 — 칸 수가 그만큼이다. */
+  const span = Math.max(...rows.flatMap((r) => r.map((c) => c.distance))) + 1;
   return (
-    <ol className="space-y-0.5">
-      {path.map((node, i) => {
-        const last = i === path.length - 1;
-        const target = assetOf(node.portId);
-        return (
-          <li key={node.portId} className="flex items-baseline gap-1 text-sm">
-            {/* 흐르는 방향을 화살표가 말한다 — 첫 줄은 출처라 들어오는 화살표가 없다. */}
-            <span aria-hidden className="w-3 shrink-0 text-xs text-content-faint">{i === 0 ? '◉' : '↓'}</span>
-            <TraceNodeText
-              label={label(node.portId)}
-              muted={!last}
-              {...(target && !last
-                ? { onClick: () => onSelectAsset(target.id, node.portId), title: `${target.name} 으로 이동` }
-                : {})}
-            />
-          </li>
-        );
-      })}
-    </ol>
+    <div className="overflow-x-auto">
+      <div
+        className="grid w-max gap-x-1 gap-y-1"
+        style={{ gridTemplateColumns: `repeat(${span}, max-content)` }}
+      >
+        {rows.map((row, ri) =>
+          row.map((cell) => {
+            const target = assetOf(cell.node.portId);
+            /* 왼쪽이 먼 자리다 — `distance` 가 클수록 앞 칸. */
+            const col = span - cell.distance;
+            return (
+              <div
+                key={`${ri}-${cell.node.portId}`}
+                className="flex items-baseline gap-1"
+                style={{ gridColumn: col, gridRow: ri + 1 }}
+              >
+                {/* 흐름과 합류를 이음선이 말한다 — 맨 왼쪽(출처)에는 들어오는 것이 없다. */}
+                {cell.distance < span - 1 && (
+                  <span aria-hidden className="shrink-0 text-xs text-content-faint">
+                    {cell.merge ? '⟩' : '→'}
+                  </span>
+                )}
+                <TraceNodeText
+                  label={label(cell.node.portId)}
+                  muted={cell.distance > 0}
+                  {...(target && cell.distance > 0
+                    ? { onClick: () => onSelectAsset(target.id, cell.node.portId), title: `${target.name} 으로 이동` }
+                    : {})}
+                />
+              </div>
+            );
+          }),
+        )}
+      </div>
+    </div>
   );
 }
 
