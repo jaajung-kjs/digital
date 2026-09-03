@@ -19,8 +19,11 @@ import {
   EMPTY,
 } from '../../../components/ui';
 import { AssemblyGrid } from '../AssemblyGrid';
-import { PortsPreview } from './PortsPreview';
-import { assemblyItemRow, newItemId, type AssemblyDraft, type AssemblyDraftItem, type AssemblyIssue } from '../../assemblyDraft';
+import { AssemblyWiring, type WiringPick } from './AssemblyWiring';
+import {
+  assemblyItemRow, assemblyLinkRow, newItemId, newLinkId,
+  type AssemblyDraft, type AssemblyDraftItem, type AssemblyIssue,
+} from '../../assemblyDraft';
 import type { V2Catalog } from '../../types';
 
 interface AssemblyPanelProps {
@@ -71,8 +74,43 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   }
 
   function removePart(itemId: string) {
-    onChange({ ...draft, items: draft.items.filter((i) => i.id !== itemId) });
+    /* 장비를 빼면 **그 장비에 물린 배선도 함께** 간다 — 없는 자리를 가리키는 줄이 남으면
+       저장이 막히고(`link-endpoint`), 사람은 안 보이는 줄 때문에 막힌 줄 모른다. */
+    onChange({
+      ...draft,
+      items: draft.items.filter((i) => i.id !== itemId),
+      links: draft.links.filter((l) => l.aItemId !== itemId && l.bItemId !== itemId),
+    });
     setSelectedItemId(null);
+    setPick(null);
+  }
+
+  /* 고르는 중인 자리 — 격자에서 장비를 옮겨 다녀도 남아야 해서 여기가 든다. */
+  const [pick, setPick] = useState<WiringPick | null>(null);
+  const [selectedPortKey, setSelectedPortKey] = useState<string | null>(null);
+
+  function addLink(fromKey: string, toKey: string) {
+    const at = (key: string) => {
+      const [itemId, rest] = key.split('|');
+      const [group, index] = (rest ?? '').split(':');
+      return { itemId: itemId!, group: group!, index: Number(index) };
+    };
+    const a = at(fromKey);
+    const b = at(toKey);
+    onChange({
+      ...draft,
+      links: [...draft.links, assemblyLinkRow({
+        id: newLinkId(),
+        aItemId: a.itemId, aGroup: a.group, aIndex: a.index,
+        bItemId: b.itemId, bGroup: b.group, bIndex: b.index,
+      })],
+    });
+    setPick(null);
+    setSelectedPortKey(toKey);
+  }
+
+  function removeLink(link: { id: string }) {
+    onChange({ ...draft, links: draft.links.filter((l) => l.id !== link.id) });
   }
 
   /**
@@ -179,11 +217,17 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             {/* 넣기 전에 「이걸 넣으면 포트가 뭐가 생기나」를 여기서 본다.
                 카드는 남는 자리를 다 쓴다 — 포트가 둘이든 스물다섯이든 같은 크기여야 장비를
                 옮겨 다닐 때 화면이 출렁이지 않는다. 넘치면 카드 안에서 스크롤한다. */}
-            <PortsPreview
-              fill
-              ports={typeById.get(selected.typeId)?.portTemplates ?? []}
-              title="포트"
-              empty="이 장비 품목에는 포트가 선언돼 있지 않습니다."
+            {/* 포트를 보는 자리이자 **잇는 자리**다 — 놓기 전에 결선을 여기서 짠다. */}
+            <AssemblyWiring
+              draft={draft}
+              item={selected}
+              types={catalog.types}
+              pick={pick}
+              onPick={setPick}
+              onLink={addLink}
+              onUnlink={removeLink}
+              selectedPortKey={selectedPortKey}
+              onSelectPort={setSelectedPortKey}
             />
           </>
         ) : (

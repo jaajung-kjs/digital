@@ -1,4 +1,7 @@
-import { validateAssembly, type AssemblyError } from '@twin/core';
+import {
+  instantiatePorts, linkEnds, linkPortKey, validateAssembly, validateConnection,
+  type AssemblyError, type AssemblyLinkEnd, type PortRef,
+} from '@twin/core';
 import type { V2Assembly, V2AssemblyItem, V2AssemblyLink, V2AssetType } from './types';
 
 /**
@@ -117,6 +120,11 @@ export function newItemId(): string {
   return `tmp-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** 배선 줄의 임시 id — 항목과 같은 어법이다(저장하면 서버가 제 id 를 붙인다). */
+export function newLinkId(): string {
+  return `lnk-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export interface AssemblyIssue {
   path: 'key' | 'name' | 'category' | 'items';
   message: string;
@@ -185,4 +193,59 @@ export function draftToAssemblyBody(draft: AssemblyDraft) {
     items: draft.items,
     links: draft.links,
   };
+}
+
+// ── 내부 배선 ────────────────────────────────────────────────────────────────
+
+/**
+ * 구성 항목의 포트를 **실제로 펴서** 본다 — 항목에는 포트가 없다(자산이 생길 때 펴진다).
+ *
+ * 놓을 때와 같은 문(`instantiatePorts`)을 쓴다. 그래야 배선 화면에서 고른 자리가 놓고 나서도
+ * 같은 자리다.
+ */
+export function draftItemPorts(
+  item: AssemblyDraftItem,
+  types: readonly V2AssetType[],
+): (PortRef & { key: string })[] {
+  const type = types.find((t) => t.id === item.typeId);
+  if (!type) return [];
+  return instantiatePorts(type.portTemplates, item.id, item.portCounts, item.portPositions)
+    .map((p) => {
+      const key = linkPortKey({ itemId: item.id, group: p.group, index: p.index });
+      return { ...p, id: key, key };
+    });
+}
+
+/** 그 포트에 물린 배선 — 없으면 null. */
+export function linkAt(links: readonly AssemblyDraftLink[], key: string): AssemblyDraftLink | null {
+  return links.find((l) => linkEnds(l).some((e) => linkPortKey(e) === key)) ?? null;
+}
+
+/** 배선의 **반대쪽 끝** — 화면이 「→ 축전지 전원 입력」이라고 말할 수 있게. */
+export function linkPeer(link: AssemblyDraftLink, key: string): AssemblyLinkEnd {
+  const [a, b] = linkEnds(link);
+  return linkPortKey(a) === key ? b : a;
+}
+
+/**
+ * 이 포트에서 **이을 수 있는 상대** — 판이 그것만 또렷하게 한다.
+ *
+ * 판정은 케이블을 이을 때와 **같은 함수**(`validateConnection`)가 한다. 여기서 규칙을 다시
+ * 쓰면 화면에서는 이어지는데 저장할 때 튕기는 짝을 만들 수 있다.
+ */
+export function linkTargets(
+  draft: AssemblyDraft,
+  types: readonly V2AssetType[],
+  fromKey: string,
+): Set<string> {
+  const all = draft.items.flatMap((i) => draftItemPorts(i, types));
+  const from = all.find((p) => p.key === fromKey);
+  if (!from) return new Set();
+  /* 이미 물린 자리는 셈에 넣는다 — 한 포트에 둘을 물리지 못한다. */
+  const counts = new Map<string, number>();
+  for (const l of draft.links) for (const e of linkEnds(l)) {
+    const k = linkPortKey(e);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return new Set(all.filter((to) => validateConnection(from, to, counts) === null).map((p) => p.key));
 }

@@ -39,6 +39,14 @@ export function portSections(
   source: readonly PreviewPort[],
   mediumLabel: (key: string) => string,
   mediumColor: (key: string) => string | null,
+  /**
+   * 포트에 붙일 id — 안 주면 미리보기용 임시값이다.
+   *
+   * 배선을 잇는 화면은 판에서 누른 포트가 **구성의 어느 자리인지** 되짚어야 해서, 그
+   * 자리를 그대로 담은 id 가 필요하다(`묶음:번호`). 판은 id 를 그저 나르므로 이 한 자리만
+   * 열어 두면 된다.
+   */
+  idOf?: (group: string, index: number) => string,
 ): PortSection[] {
   const ports: V2Port[] = instantiatePorts(
     source.map((p, i) => ({
@@ -50,9 +58,18 @@ export function portSections(
       namePattern: p.namePattern,
       sortOrder: i,
       positions: coreCount(p.positions),
+      /* 갈래(전원의 AC·DC)도 실어 보낸다 — 예전에는 여기서 떨어져 나가 판의 포트가 갈래를
+         잃었다. 이름은 구획 선언에서 나오므로 티가 안 났지만, 갈래를 보고 판정하는 곳
+         (배선을 이을 수 있나)에서는 교류와 직류가 같아 보였다. */
+      variant: p.variant,
     })),
     'preview',
-  ).map((p, i) => ({ ...p, id: `pv-${i}`, positions: coreCount(p.positions), fieldValues: {} }));
+  ).map((p, i) => ({
+    ...p,
+    id: idOf?.(p.group, p.index) ?? `pv-${i}`,
+    positions: coreCount(p.positions),
+    fieldValues: {},
+  }));
 
   const byGroup = new Map<string, V2Port[]>();
   for (const p of ports) byGroup.set(p.group, [...(byGroup.get(p.group) ?? []), p]);
