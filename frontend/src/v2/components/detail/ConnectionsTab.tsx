@@ -22,7 +22,7 @@ import {
   InsetBox,
 } from '../../../components/ui';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
-import { buildTraceTree, traceChains, type TraceTreeNode } from '@twin/core';
+import { buildTraceTree, type TraceTreeNode } from '@twin/core';
 import { buildPortIndex, endpointLabel, endpointRef, indexCablesByPort, resolvePeer } from '../../peerResolve';
 import { resolveFiberFarEnd } from '../../fiberSelectors';
 
@@ -35,7 +35,7 @@ import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { canPickPort } from '../../cableSelectors';
 import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portKind, portValuesAt } from '@twin/core';
-import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
+import { buildTraceInputs, traceHighlight, upstreamChainsOf } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
 import { TopologyModal } from '../topology/TopologyModal';
@@ -420,17 +420,20 @@ export function ConnectionsTab({
   }, [tracedPortId, allPorts]);
 
   /**
-   * 거슬러 오르는 **곧은 길** — 있으면 뒤집어 흐르는 차례로 보여 준다(출처 → … → 나).
+   * 거슬러 오르는 길들 — **흐르는 차례로 뒤집어** 보여 준다(출처 → … → 나).
    *
-   * 갈래가 있으면(이중 인입) null 이다: 여러 길이 나에게서 합쳐지는 모양은 나무로 그릴 수
-   * 없고, 뒤집어 늘어놓으면 꼬리(나에게 가까운 마디들)가 길마다 되풀이된다. 그때는 나를
-   * 뿌리로 한 트리가 정직하다 — 「나에게 오는 길이 둘」로 읽힌다.
+   * 한때는 **곧은 길일 때만** 뒤집고, 갈라지면 나를 뿌리로 한 트리로 떨어뜨렸다. 그런데 그
+   * 트리는 내려가는 추적과 **똑같이 생겼다** — 정류기 둘이 먹이는 강압기의 입력을 추적하면
+   * 「내 전원이 어디서 오나」를 물었는데 「내가 무엇을 먹이나」처럼 그려졌다. 갈래가 있고
+   * 없고는 **묻는 방향과 아무 상관이 없다**: 갈라진다는 것은 출처가 둘이라는 뜻일 뿐이다.
+   *
+   * 그래서 방향마다 규칙 하나씩이다 — 거슬러 오르면 길마다 한 줄, 내려가면 트리.
+   * 꼬리(나에게 가까운 마디)가 길마다 되풀이되지만, **실제로 길이 둘**이라 그게 사실이다.
    */
-  const upstreamChain = useMemo(() => {
-    if (!upstreamTrace) return null;
-    const chains = traceChains(traceTree);
-    return chains.length === 1 ? [...chains[0]!].reverse() : null;
-  }, [upstreamTrace, traceTree]);
+  const upstreamChains = useMemo(
+    () => upstreamChainsOf(traceTree, upstreamTrace),
+    [upstreamTrace, traceTree],
+  );
 
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
@@ -797,19 +800,28 @@ export function ConnectionsTab({
                         {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다. */}
                         {traceTree.children.length > 0 && (
                           <div className="rounded-md bg-primary/5 p-1.5">
-                            {upstreamChain ? (
-                              /* **곧은 길은 흐르는 차례로** — 출처가 위, 내가 아래. 거슬러 오르는
-                                 추적의 답은 「출처에서 나에게 오는 길」이라 그렇게 읽어야 한다. */
-                              <TraceChain
-                                path={upstreamChain}
-                                label={traceLabel}
-                                assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                                onSelectAsset={onSelectAsset}
-                              />
+                            {upstreamChains ? (
+                              /* **거슬러 오르는 길은 흐르는 차례로** — 출처가 위, 내가 아래.
+                                 출처가 둘이면 줄도 둘이다(「이 두 길로 전원이 온다」). */
+                              <div className="space-y-2">
+                                {upstreamChains.map((chain, i) => (
+                                  <div key={chain.map((n) => n.portId).join('|')}>
+                                    {/* 길이 하나뿐이면 번호를 안 붙인다 — 셀 것이 없다. */}
+                                    {upstreamChains.length > 1 && (
+                                      <div className="mb-0.5 text-xs text-content-faint">경로 {i + 1}</div>
+                                    )}
+                                    <TraceChain
+                                      path={chain}
+                                      label={traceLabel}
+                                      assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                                      onSelectAsset={onSelectAsset}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
                             ) : (
-                              /* 갈래가 있으면 **나를 뿌리로 한 트리**다 — 여러 길이 나에게서
-                                 합쳐지는 모양은 나무로 그릴 수 없다(뒤집으면 꼬리가 길마다
-                                 되풀이된다). 내려가는 추적도 이 모양이다. */
+                              /* 내려가는 추적 — **나를 뿌리로 한 트리**다. 이 회로가 무엇을
+                                 먹이는지는 갈라지며 뻗어 나가는 모양이 그대로 답이다. */
                               <>
                                 <div className="flex items-baseline gap-1 text-sm">
                                   <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
