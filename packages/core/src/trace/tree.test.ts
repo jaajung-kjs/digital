@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTraceTree, traceChains, traceUpstreamRows, traceTreeSize } from './tree.js';
+import { buildTraceTree, traceChains, traceTreeSize } from './tree.js';
 import type { TraceTreeNode } from './tree.js';
 import type { TraceHop } from './graph.js';
 
@@ -127,63 +127,5 @@ describe('traceChains', () => {
 
   it('혼자면 그 자신이 한 길이다', () => {
     expect(traceChains(leaf('me')).map((path) => path.map((n) => n.portId))).toEqual([['me']]);
-  });
-});
-
-/**
- * 거슬러 오르는 추적은 **모여드는 줄들**이다 — 출처가 위, 내가 맨 아래.
- *
- * 나를 뿌리로 한 트리를 그대로 그리면 내려가는 추적과 **똑같이 생긴다**. 자식을 먼저 내고
- * 부모를 그 아래에 두면 들여쓰기가 아래로 갈수록 줄어들어, 뻗는 모양과 모이는 모양이
- * 한눈에 갈린다. 겹치는 꼬리는 그러면서 한 번만 그려진다.
- */
-describe('traceUpstreamRows — 모여드는 줄', () => {
-  const n = (portId: string, ...children: TraceTreeNode[]): TraceTreeNode =>
-    ({ portId, children } as TraceTreeNode);
-  const show = (rows: ReturnType<typeof traceUpstreamRows>) =>
-    rows.map((r) => `${'  '.repeat(r.depth)}${r.first ? '┌' : '├'}${r.node.portId}`);
-
-  /** 강압기의 상류 — 정류기 둘이 모선을 먹인다. 꼬리(모선→나)는 한 번만 그린다. */
-  it('출처가 둘이면 위에서 모여 내려오고, 꼬리는 아래에 한 번', () => {
-    const tree = n('SID', n('분배부DC', n('IR1', n('분배부AC1')), n('IR2', n('분배부AC2'))));
-    expect(show(traceUpstreamRows(tree))).toEqual([
-      '      ┌분배부AC1',
-      '    ┌IR1',
-      '      ┌분배부AC2',
-      '    ├IR2',
-      '  ┌분배부DC',
-      '┌SID',
-    ]);
-  });
-
-  /** 출처가 하나면 곧은 사다리 — 곧은 길에 특수 케이스를 두지 않는다. */
-  it('곧은 길은 한 칸씩 좁혀지며 내려온다', () => {
-    expect(show(traceUpstreamRows(n('IR1', n('분배부AC1'))))).toEqual([
-      '  ┌분배부AC1',
-      '┌IR1',
-    ]);
-  });
-
-  /* 맨 위만 `┌` 다 — 같은 자리로 모이는 나머지는 `├` 로 이어 붙는다. */
-  it('같은 자리로 모이는 것들은 맨 위만 ┌ 다', () => {
-    const rows = traceUpstreamRows(n('나', n('A', n('B', n('C1'), n('C2')), n('B2', n('D1'), n('D2')))));
-    expect(show(rows)).toEqual([
-      '      ┌C1',
-      '      ├C2',
-      '    ┌B',
-      '      ┌D1',
-      '      ├D2',
-      '    ├B2',
-      '  ┌A',
-      '┌나',
-    ]);
-  });
-
-  /** 마지막 줄이 **나** 이고 들여쓰기가 0 이다 — 깔때기의 꼭짓점. */
-  it('내가 맨 아래, 맨 왼쪽에 선다', () => {
-    const rows = traceUpstreamRows(n('SID', n('분배부DC', n('IR1'), n('IR2'))));
-    expect(rows.map((r) => `${r.node.portId}:${r.depth}`)).toEqual([
-      'IR1:2', 'IR2:2', '분배부DC:1', 'SID:0',
-    ]);
   });
 });
