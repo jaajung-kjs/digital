@@ -35,7 +35,7 @@ import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { canPickPort } from '../../cableSelectors';
 import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portKind, portValuesAt } from '@twin/core';
-import { buildTraceInputs, traceHighlight, upstreamChainsOf } from '../../traceSelectors';
+import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
 import { TopologyModal } from '../topology/TopologyModal';
@@ -430,10 +430,8 @@ export function ConnectionsTab({
    * 그래서 방향마다 규칙 하나씩이다 — 거슬러 오르면 길마다 한 줄, 내려가면 트리.
    * 꼬리(나에게 가까운 마디)가 길마다 되풀이되지만, **실제로 길이 둘**이라 그게 사실이다.
    */
-  const upstreamChains = useMemo(
-    () => upstreamChainsOf(traceTree, upstreamTrace),
-    [upstreamTrace, traceTree],
-  );
+  /* 트리는 두 방향이 같은 그림이라, 화면에 필요한 것은 **방향 하나**뿐이다. */
+  const upstream = upstreamTrace;
 
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
@@ -800,43 +798,32 @@ export function ConnectionsTab({
                         {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다. */}
                         {traceTree.children.length > 0 && (
                           <div className="rounded-md bg-primary/5 p-1.5">
-                            {upstreamChains ? (
-                              /* **거슬러 오르는 길은 흐르는 차례로** — 출처가 위, 내가 아래.
-                                 출처가 둘이면 줄도 둘이다(「이 두 길로 전원이 온다」). */
-                              <div className="space-y-2">
-                                {upstreamChains.map((chain, i) => (
-                                  <div key={chain.map((n) => n.portId).join('|')}>
-                                    {/* 길이 하나뿐이면 번호를 안 붙인다 — 셀 것이 없다. */}
-                                    {upstreamChains.length > 1 && (
-                                      <div className="mb-0.5 text-xs text-content-faint">경로 {i + 1}</div>
-                                    )}
-                                    <TraceChain
-                                      path={chain}
-                                      label={traceLabel}
-                                      assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                                      onSelectAsset={onSelectAsset}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              /* 내려가는 추적 — **나를 뿌리로 한 트리**다. 이 회로가 무엇을
-                                 먹이는지는 갈라지며 뻗어 나가는 모양이 그대로 답이다. */
-                              <>
-                                <div className="flex items-baseline gap-1 text-sm">
-                                  <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
-                                  <TraceNodeText label={traceLabel(sel.id)} />
-                                </div>
-                                {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
-                                <TraceBranches
-                                  nodes={traceTree.children}
-                                  depth={1}
-                                  label={traceLabel}
-                                  assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
-                                  onSelectAsset={onSelectAsset}
-                                />
-                              </>
-                            )}
+                            {/* **방향을 가리지 않고 트리 하나로.**
+
+                                한때는 거슬러 오를 때만 길을 하나씩 펴서 뒤집어 늘어놓았다.
+                                갈래가 하나면 읽기 좋았지만, 갈래 위에 갈래가 얹히면 길이
+                                **곱으로** 늘고 꼬리(나에게 가까운 마디)가 길마다 되풀이된다.
+
+                                트리는 그 모양을 그대로 담는다: 자식이 여럿이면 출처가 여럿이고,
+                                깊어지면 그만큼 거슬러 오른 것이다. 마디 수만큼만 줄이 늘고
+                                되풀이가 없다. 두 방향이 **같은 그림**이므로 다른 것은 그 자식이
+                                「내가 먹이는 곳」인가 「나에게 오는 곳」인가뿐 — 이음선의 화살표와
+                                아래 한 줄이 그것을 말한다. */}
+                            <div className="mb-1 text-xs text-content-faint">
+                              {upstream ? '이 전원이 오는 곳' : '이 회로가 닿는 곳'}
+                            </div>
+                            <div className="flex items-baseline gap-1 text-sm">
+                              <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
+                              <TraceNodeText label={traceLabel(sel.id)} />
+                            </div>
+                            <TraceBranches
+                              nodes={traceTree.children}
+                              depth={1}
+                              label={traceLabel}
+                              assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
+                              onSelectAsset={onSelectAsset}
+                              upstream={upstream}
+                            />
                           </div>
                         )}
                       </div>
@@ -901,44 +888,6 @@ function TraceNodeText({
   );
 }
 
-/**
- * 한 길 — **전기가 흐르는 차례**로 위에서 아래로.
- *
- * 거슬러 오르는 추적의 답은 「출처에서 나에게 오는 길」이다. 트리는 「내가 시작해서 어디로
- * 뻗나」를 말하므로 그대로 두면 방향이 뒤집혀 읽힌다. 그래서 길을 뽑아 뒤집고, 마지막 줄
- * (내가 선 자리)을 도드라지게 둔다 — 눈이 위에서 아래로 흘러 나에게 닿는다.
- */
-function TraceChain({
-  path, label, assetOf, onSelectAsset,
-}: {
-  /** 출처 → … → 나. 마지막이 추적을 시작한 자리다. */
-  path: readonly TraceTreeNode[];
-  label: (portId: string) => { primary: string; secondary: string | null };
-  assetOf: (portId: string) => { id: string; name: string } | null;
-  onSelectAsset: (id: string, portId?: string | null) => void;
-}) {
-  return (
-    <ol className="space-y-0.5">
-      {path.map((node, i) => {
-        const last = i === path.length - 1;
-        const target = assetOf(node.portId);
-        return (
-          <li key={node.portId} className="flex items-baseline gap-1 text-sm">
-            {/* 흐르는 방향을 화살표가 말한다 — 첫 줄은 출처라 들어오는 화살표가 없다. */}
-            <span aria-hidden className="w-3 shrink-0 text-xs text-content-faint">{i === 0 ? '◉' : '↓'}</span>
-            <TraceNodeText
-              label={label(node.portId)}
-              muted={!last}
-              {...(target && !last
-                ? { onClick: () => onSelectAsset(target.id, node.portId), title: `${target.name} 으로 이동` }
-                : {})}
-            />
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
 
 /**
  * 추적 트리 한 켜 — **갈래는 들여쓰기와 이음선으로** 말한다.
@@ -949,7 +898,7 @@ function TraceChain({
  * 마디는 눌러서 그 장비로 갈 수 있다(글자로만 두면 표에서 다시 찾아야 한다).
  */
 function TraceBranches({
-  nodes, depth, label, assetOf, onSelectAsset,
+  nodes, depth, label, assetOf, onSelectAsset, upstream,
 }: {
   nodes: readonly TraceTreeNode[];
   depth: number;
@@ -957,6 +906,14 @@ function TraceBranches({
   assetOf: (portId: string) => { id: string; name: string } | null;
   /** 자산(또는 그 안의 장비)을 고른다 — 포트까지 함께 가리킬 수 있다. */
   onSelectAsset: (id: string, portId?: string | null) => void;
+  /**
+   * 거슬러 오르는 추적인가 — **이음선이 그 방향을 말한다.**
+   *
+   * 트리의 모양은 두 방향이 같다(나를 뿌리로, 자식은 한 걸음 떨어진 자리). 다른 것은 그
+   * 자식이 「내가 먹이는 곳」인가 「나에게 오는 곳」인가뿐이라, 이음선에 화살표를 붙여
+   * 가른다. 예전에는 이 표시가 없어서 두 방향이 **똑같이 그려졌다.**
+   */
+  upstream: boolean;
 }) {
   if (nodes.length === 0) return null;
   return (
@@ -969,7 +926,9 @@ function TraceBranches({
           <li key={node.portId} className="text-sm text-content">
             <div className="flex items-baseline gap-1">
               {/* 갈라지는 자리를 눈으로 잡아 주는 이음선 — 깊이는 들여쓰기가 말한다. */}
-              <span aria-hidden className="shrink-0 text-xs text-content-faint">{last ? '└' : '├'}</span>
+              <span aria-hidden className="shrink-0 text-xs text-content-faint">
+                {last ? '└' : '├'}{upstream ? '←' : ''}
+              </span>
               <TraceNodeText
                 label={label(node.portId)}
                 muted
@@ -978,7 +937,7 @@ function TraceBranches({
                 {...(target ? { onClick: () => onSelectAsset(target.id, node.portId), title: `${target.name} 으로 이동` } : {})}
               />
             </div>
-            <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
+            <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} upstream={upstream} />
           </li>
         );
       })}
