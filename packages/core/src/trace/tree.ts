@@ -89,41 +89,47 @@ export function traceTreeSize(node: TraceTreeNode): number {
   return node.children.reduce((n, c) => n + 1 + traceTreeSize(c), 0);
 }
 
-/** 합류로 편 줄에 선 마디 하나 — 왼쪽에서 오른쪽으로 흐른다. */
-export interface TraceFlowCell {
+/** 거슬러 오르는 줄 하나 — 위에서 아래로 **모여든다.** */
+export interface TraceUpstreamRow {
   node: TraceTreeNode;
-  /** 오른쪽 끝(내가 선 자리)에서 몇 걸음 떨어졌나 — 0이 나다. 줄 사이 자리를 맞추는 데 쓴다. */
-  distance: number;
-  /** 여기서 **앞선 줄들이 합류한다** — 이 마디부터는 함께 흐른다. */
-  merge: boolean;
+  /** 나에게서 몇 걸음인가 — 0이 나다. 들여쓰기가 곧 이것이고, 아래로 갈수록 줄어든다. */
+  depth: number;
+  /** 같은 자리로 모이는 것들 중 **맨 위**인가 — 이음선이 갈린다(`┌` / `├`). */
+  first: boolean;
 }
 
 /**
- * 거슬러 오르는 추적을 **흐르는 차례의 줄들**로 편다 — 출처가 왼쪽, 내가 오른쪽.
+ * 거슬러 오르는 추적을 **모여드는 줄들**로 편다 — 출처가 위, 내가 맨 아래.
  *
- * 상류는 트리가 아니라 **합류**다: 출처 여럿이 나에게로 모인다. 트리는 갈라지기만 하므로
- * 그 모양을 담을 수 없고, 길을 하나씩 펴면 겹치는 꼬리가 길마다 되풀이된다(출처가 셋이면
- * 꼬리도 세 번).
+ * 상류는 트리가 아니라 **합류**다: 출처 여럿이 나에게로 모인다. 나를 뿌리로 한 트리를
+ * 그대로 그리면 **내려가는 추적과 똑같이 생겨서**, 「내 전원이 어디서 오나」가 「내가
+ * 무엇을 먹이나」로 읽힌다.
  *
- * 그래서 **겹치는 꼬리는 한 번만 그린다.** 갈라지는 앞부분은 줄마다 따로 서고, 합류점부터는
- * 마지막 줄에 이어 붙는다 — 그 자리에 합류 표시가 선다.
+ * 한때는 이것을 **가로로** 폈다(출처가 왼쪽, 내가 오른쪽). 뜻은 맞았지만 상세 패널은
+ * 350px 인데 마디 하나가 120~150px 이라 세 홉이면 들어갈 수가 없었다 — 가로 스크롤이
+ * 생기고 정작 오른쪽 끝(나)이 화면 밖으로 밀렸다. 좁은 세로 판에서 가로는 답이 아니다.
  *
- *   분배부#1 → IR-48#1
- *   분배부#2 → IR-48#2  ⟩  분배부#2 → SID-125
+ * 그래서 **세로로 모은다.** 자식을 먼저 내고 부모를 그 아래에 두면, 들여쓰기가 아래로
+ * 갈수록 줄어들며 깔때기 모양이 된다 — 내려가는 추적이 오른쪽 아래로 **뻗는** 것과
+ * 한눈에 갈린다.
  *
- * `distance` 로 줄 사이 자리를 맞춘다(오른쪽 끝이 나). 앞선 줄이 어느 칸에서 끊기는지가
- * 곧 어느 자리에서 합류하는지다.
+ *       분배부AC1
+ *     IR-48#1
+ *       분배부AC2
+ *     IR-48#2
+ *   분배부DC
+ *  나
+ *
+ * 겹치는 꼬리(분배부DC → 나)는 **한 번만** 그려진다 — 길을 하나씩 펴면 출처가 셋일 때
+ * 꼬리도 세 번 되풀이된다.
  */
-export function traceFlowRows(root: TraceTreeNode): TraceFlowCell[][] {
-  /** 나에게서 몇 걸음인가 — 잎(출처)이 가장 멀다. */
-  const walk = (node: TraceTreeNode, distance: number): TraceFlowCell[][] => {
-    if (node.children.length === 0) return [[{ node, distance, merge: false }]];
-    const rows = node.children.flatMap((child) => walk(child, distance + 1));
-    /* 마지막 줄에 나를 잇는다. 합류는 **이 마디의 자식이 여럿일 때** 일어난다 — 줄 수로
-       세면 안 된다: 깊은 데서 갈라진 줄이 그대로 올라오므로, 자식 하나짜리 마디까지
-       합류로 표시된다(강압기가 그랬다). */
-    rows[rows.length - 1]!.push({ node, distance, merge: node.children.length > 1 });
-    return rows;
+export function traceUpstreamRows(root: TraceTreeNode): TraceUpstreamRow[] {
+  const rows: TraceUpstreamRow[] = [];
+  /* 자식을 먼저, 부모를 나중에 — 이 차례가 곧 「출처에서 나에게로」다. */
+  const walk = (node: TraceTreeNode, depth: number, first: boolean): void => {
+    node.children.forEach((child, i) => walk(child, depth + 1, i === 0));
+    rows.push({ node, depth, first });
   };
-  return walk(root, 0);
+  walk(root, 0, true);
+  return rows;
 }

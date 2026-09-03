@@ -22,7 +22,7 @@ import {
   InsetBox,
 } from '../../../components/ui';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
-import { buildTraceTree, traceFlowRows, type TraceFlowCell, type TraceTreeNode } from '@twin/core';
+import { buildTraceTree, traceUpstreamRows, type TraceUpstreamRow, type TraceTreeNode } from '@twin/core';
 import { buildPortIndex, endpointLabel, endpointRef, indexCablesByPort, resolvePeer } from '../../peerResolve';
 import { resolveFiberFarEnd } from '../../fiberSelectors';
 
@@ -433,15 +433,14 @@ export function ConnectionsTab({
   }, [tracedPortId, allPorts]);
 
   /**
-   * 거슬러 오르는 추적을 **합류로 편 줄들** — 출처가 왼쪽, 내가 오른쪽.
+   * 거슬러 오르는 추적을 **모여드는 줄들** — 출처가 위, 내가 맨 아래.
    *
-   * 상류는 트리가 아니라 **합류**다: 출처 여럿이 나에게로 모인다. 길을 하나씩 펴면 겹치는
-   * 꼬리가 길마다 되풀이되고(출처 셋이면 꼬리도 세 번), 나를 뿌리로 한 트리로 그리면
-   * **내려가는 추적과 똑같이 생긴다** — 「내 전원이 어디서 오나」가 「내가 무엇을 먹이나」로
-   * 읽힌다. 겹치는 꼬리를 한 번만 그리면 둘 다 피한다(`traceFlowRows`).
+   * 한때 이것을 가로로 폈다(출처가 왼쪽, 내가 오른쪽). 뜻은 맞았지만 이 판은 350px 인데
+   * 마디 하나가 120~150px 이라 세 홉이면 들어갈 수가 없다 — 가로 스크롤이 생기고 정작
+   * 오른쪽 끝(나)이 화면 밖으로 밀렸다. 좁은 세로 판에서 가로는 답이 아니다.
    */
   const upstreamRows = useMemo(
-    () => (upstreamTrace ? traceFlowRows(traceTree) : null),
+    () => (upstreamTrace ? traceUpstreamRows(traceTree) : null),
     [upstreamTrace, traceTree],
   );
 
@@ -811,11 +810,10 @@ export function ConnectionsTab({
                         {traceTree.children.length > 0 && (
                           <div className="rounded-md bg-primary/5 p-1.5">
                             {upstreamRows ? (
-                              /* **거슬러 오르는 길은 합류로** — 출처가 왼쪽, 내가 오른쪽.
-                                 겹치는 꼬리는 마지막 줄에 한 번만 그리고, 앞선 줄들은 그
-                                 자리에서 합류한다(`⟩`). 자리는 **오른쪽 끝(나)** 을 기준으로
-                                 맞춰, 같은 마디가 줄마다 같은 칸에 선다. */
-                              <TraceFlow
+                              /* **거슬러 오르는 길은 모여든다** — 출처가 위, 내가 맨 아래.
+                                 들여쓰기가 아래로 갈수록 줄어드는 깔때기라, 오른쪽 아래로
+                                 뻗는 내려가는 추적과 한눈에 갈린다. */
+                              <TraceMerge
                                 rows={upstreamRows}
                                 label={traceLabel}
                                 assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
@@ -904,63 +902,59 @@ function TraceNodeText({
 }
 
 /**
- * 거슬러 오르는 추적을 **합류로** 그린다 — 출처가 왼쪽, 내가 오른쪽.
+ * 거슬러 오르는 추적을 **모여드는 줄들**로 그린다 — 출처가 위, 내가 맨 아래.
  *
- * 상류는 합류다(출처 여럿이 나에게로 모인다). 겹치는 꼬리를 줄마다 되풀이하지 않으려면 그
- * 꼬리를 **한 번만** 그리고, 앞선 줄들이 어느 자리에서 합쳐지는지를 보여야 한다.
+ * 한때는 가로로 폈다(출처가 왼쪽, 내가 오른쪽). 뜻은 맞았지만 이 판은 350px 인데 마디
+ * 하나가 120~150px 이라 세 홉이면 들어갈 수가 없었다 — 가로 스크롤이 생기고 정작
+ * 오른쪽 끝(나)이 화면 밖으로 밀렸다. 좁은 세로 판에서 가로 배치는 답이 아니다.
  *
- *   분배부#1 → IR-48#1
- *   분배부#2 → IR-48#2 ⟩ 분배부#2 → SID-125
+ * 자식을 먼저 내고 부모를 그 아래에 두면 들여쓰기가 아래로 갈수록 줄어들어 **깔때기**가
+ * 된다 — 오른쪽 아래로 뻗는 내려가는 추적과 한눈에 갈린다. 이음선도 뒤집는다(`┌`·`├`):
+ * 이 마디가 **아래로 흘러 든다**는 뜻이다.
  *
- * 자리는 **오른쪽 끝(나)** 을 기준으로 맞춘다(`distance`) — 격자로 그려야 같은 마디가
- * 줄마다 같은 칸에 서고, 앞선 줄이 어느 칸에서 끊기는지가 곧 합류 자리가 된다. 글자 폭에
- * 기대면 이름 길이에 따라 칸이 어긋나 합류가 안 읽힌다.
+ *       분배부 · 교류 출력 1
+ *     IR-48 50A #1 · 전원 출력
+ *   충전기 분배부 · 직류 출력 1
+ *  ◉ SID-125 · 전원 입력
+ *
+ * 자리는 들여쓰기 하나로 맞춘다 — 격자로 칸을 나누면 이름 길이에 따라 판이 넓어져,
+ * 좁은 패널에서 다시 가로로 넘친다.
  */
-function TraceFlow({
+function TraceMerge({
   rows, label, assetOf, onSelectAsset,
 }: {
-  rows: readonly (readonly TraceFlowCell[])[];
+  rows: readonly TraceUpstreamRow[];
   label: (portId: string) => { primary: string; secondary: string | null };
   assetOf: (portId: string) => { id: string; name: string } | null;
   onSelectAsset: (id: string, portId?: string | null) => void;
 }) {
-  /** 가장 먼 출처가 몇 걸음인가 — 칸 수가 그만큼이다. */
-  const span = Math.max(...rows.flatMap((r) => r.map((c) => c.distance))) + 1;
   return (
-    <div className="overflow-x-auto">
-      <div
-        className="grid w-max gap-x-1 gap-y-1"
-        style={{ gridTemplateColumns: `repeat(${span}, max-content)` }}
-      >
-        {rows.map((row, ri) =>
-          row.map((cell) => {
-            const target = assetOf(cell.node.portId);
-            /* 왼쪽이 먼 자리다 — `distance` 가 클수록 앞 칸. */
-            const col = span - cell.distance;
-            return (
-              <div
-                key={`${ri}-${cell.node.portId}`}
-                className="flex items-baseline gap-1"
-                style={{ gridColumn: col, gridRow: ri + 1 }}
-              >
-                {/* 흐름과 합류를 이음선이 말한다 — 맨 왼쪽(출처)에는 들어오는 것이 없다. */}
-                {cell.distance < span - 1 && (
-                  <span aria-hidden className="shrink-0 text-xs text-content-faint">
-                    {cell.merge ? '⟩' : '→'}
-                  </span>
-                )}
-                <TraceNodeText
-                  label={label(cell.node.portId)}
-                  muted={cell.distance > 0}
-                  {...(target && cell.distance > 0
-                    ? { onClick: () => onSelectAsset(target.id, cell.node.portId), title: `${target.name} 으로 이동` }
-                    : {})}
-                />
-              </div>
-            );
-          }),
-        )}
-      </div>
+    <div className="space-y-0.5">
+      {rows.map((row) => {
+        const target = assetOf(row.node.portId);
+        /* 맨 아래(내가 선 자리)는 뿌리 표시를 달고 진하게 둔다 — 내려가는 추적의 뿌리와
+           같은 어법이라, 그 표시가 위에 있나 아래에 있나로 방향이 읽힌다. */
+        const me = row.depth === 0;
+        return (
+          <div
+            key={`${row.depth}-${row.node.portId}`}
+            className="flex items-baseline gap-1 text-sm"
+            /* 들여쓰기 = 나에게서 몇 걸음 — 아래로 갈수록 좁아진다. */
+            style={{ paddingLeft: row.depth * 12 }}
+          >
+            <span aria-hidden className="shrink-0 text-xs text-content-faint">
+              {me ? '◉' : row.first ? '┌' : '├'}
+            </span>
+            <TraceNodeText
+              label={label(row.node.portId)}
+              muted={!me}
+              {...(target && !me
+                ? { onClick: () => onSelectAsset(target.id, row.node.portId), title: `${target.name} 으로 이동` }
+                : {})}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTraceTree, traceChains, traceFlowRows, traceTreeSize } from './tree.js';
+import { buildTraceTree, traceChains, traceUpstreamRows, traceTreeSize } from './tree.js';
 import type { TraceTreeNode } from './tree.js';
 import type { TraceHop } from './graph.js';
 
@@ -131,50 +131,59 @@ describe('traceChains', () => {
 });
 
 /**
- * 상류는 트리가 아니라 **합류**다 — 출처 여럿이 나에게로 모인다.
+ * 거슬러 오르는 추적은 **모여드는 줄들**이다 — 출처가 위, 내가 맨 아래.
  *
- * 길을 하나씩 펴면 겹치는 꼬리가 길마다 되풀이되고(출처 셋이면 꼬리도 세 번), 나를 뿌리로
- * 한 트리로 그리면 내려가는 추적과 **똑같이 생긴다**. 겹치는 꼬리를 한 번만 그리는 것이
- * 그 둘을 다 피하는 길이다.
+ * 나를 뿌리로 한 트리를 그대로 그리면 내려가는 추적과 **똑같이 생긴다**. 자식을 먼저 내고
+ * 부모를 그 아래에 두면 들여쓰기가 아래로 갈수록 줄어들어, 뻗는 모양과 모이는 모양이
+ * 한눈에 갈린다. 겹치는 꼬리는 그러면서 한 번만 그려진다.
  */
-describe('traceFlowRows — 합류로 편 줄', () => {
+describe('traceUpstreamRows — 모여드는 줄', () => {
   const n = (portId: string, ...children: TraceTreeNode[]): TraceTreeNode =>
     ({ portId, children } as TraceTreeNode);
-  const show = (rows: ReturnType<typeof traceFlowRows>) =>
-    rows.map((r) => r.map((c) => `${c.merge ? '>' : ''}${c.node.portId}`).join('→'));
+  const show = (rows: ReturnType<typeof traceUpstreamRows>) =>
+    rows.map((r) => `${'  '.repeat(r.depth)}${r.first ? '┌' : '├'}${r.node.portId}`);
 
   /** 강압기의 상류 — 정류기 둘이 모선을 먹인다. 꼬리(모선→나)는 한 번만 그린다. */
-  it('출처가 둘이면 갈라진 앞부분만 줄이 되고, 꼬리는 마지막 줄에 한 번', () => {
+  it('출처가 둘이면 위에서 모여 내려오고, 꼬리는 아래에 한 번', () => {
     const tree = n('SID', n('분배부DC', n('IR1', n('분배부AC1')), n('IR2', n('분배부AC2'))));
-    expect(show(traceFlowRows(tree))).toEqual([
-      '분배부AC1→IR1',
-      '분배부AC2→IR2→>분배부DC→SID',
+    expect(show(traceUpstreamRows(tree))).toEqual([
+      '      ┌분배부AC1',
+      '    ┌IR1',
+      '      ┌분배부AC2',
+      '    ├IR2',
+      '  ┌분배부DC',
+      '┌SID',
     ]);
   });
 
-  /** 출처가 하나면 줄도 하나 — 곧은 길에 특수 케이스를 두지 않는다. */
-  it('곧은 길은 한 줄이고 합류 표시가 없다', () => {
-    expect(show(traceFlowRows(n('IR1', n('분배부AC1'))))).toEqual(['분배부AC1→IR1']);
-  });
-
-  /* 합류는 **그 마디의 자식이 여럿일 때** 일어난다 — 줄 수로 세면 깊은 데서 갈라진 줄이
-     그대로 올라와, 자식 하나짜리 마디까지 합류로 표시된다(강압기가 그랬다). */
-  it('갈래가 겹쳐도 합류는 갈라지는 그 자리에만 선다', () => {
-    const tree = n('나', n('A', n('B', n('C1'), n('C2')), n('B2', n('D1'), n('D2'))));
-    expect(show(traceFlowRows(tree))).toEqual([
-      'C1',
-      'C2→>B',
-      'D1',
-      'D2→>B2→>A→나',
+  /** 출처가 하나면 곧은 사다리 — 곧은 길에 특수 케이스를 두지 않는다. */
+  it('곧은 길은 한 칸씩 좁혀지며 내려온다', () => {
+    expect(show(traceUpstreamRows(n('IR1', n('분배부AC1'))))).toEqual([
+      '  ┌분배부AC1',
+      '┌IR1',
     ]);
   });
 
-  /** 자리 맞춤은 **오른쪽 끝(나)** 을 기준으로 — 그래야 겹치는 꼬리가 줄마다 같은 칸에 선다. */
-  it('마디마다 나에게서 몇 걸음인지를 들고 있다', () => {
-    const rows = traceFlowRows(n('SID', n('분배부DC', n('IR1'), n('IR2'))));
-    expect(rows.map((r) => r.map((c) => `${c.node.portId}:${c.distance}`))).toEqual([
-      ['IR1:2'],
-      ['IR2:2', '분배부DC:1', 'SID:0'],
+  /* 맨 위만 `┌` 다 — 같은 자리로 모이는 나머지는 `├` 로 이어 붙는다. */
+  it('같은 자리로 모이는 것들은 맨 위만 ┌ 다', () => {
+    const rows = traceUpstreamRows(n('나', n('A', n('B', n('C1'), n('C2')), n('B2', n('D1'), n('D2')))));
+    expect(show(rows)).toEqual([
+      '      ┌C1',
+      '      ├C2',
+      '    ┌B',
+      '      ┌D1',
+      '      ├D2',
+      '    ├B2',
+      '  ┌A',
+      '┌나',
+    ]);
+  });
+
+  /** 마지막 줄이 **나** 이고 들여쓰기가 0 이다 — 깔때기의 꼭짓점. */
+  it('내가 맨 아래, 맨 왼쪽에 선다', () => {
+    const rows = traceUpstreamRows(n('SID', n('분배부DC', n('IR1'), n('IR2'))));
+    expect(rows.map((r) => `${r.node.portId}:${r.depth}`)).toEqual([
+      'IR1:2', 'IR2:2', '분배부DC:1', 'SID:0',
     ]);
   });
 });
