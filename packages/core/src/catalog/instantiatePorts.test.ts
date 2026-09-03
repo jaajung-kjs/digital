@@ -28,6 +28,9 @@ describe('instantiatePorts', () => {
       name: '장비 1',
       direction: 'BI',
       medium: '광',
+      /* 갈래가 없는 종류도 **`null` 을 적는다** — 빼면 「모른다」가 되어, 받는 쪽이 갈래
+         없는 포트와 구별할 수 없다(`PortRef.variant` 가 필수인 까닭). */
+      variant: null,
       positions: 1,
     });
     expect(ports[7]!.name).toBe('선로 4');

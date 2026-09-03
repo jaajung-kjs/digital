@@ -149,10 +149,26 @@ export interface PortRef {
   name: string;
   direction: Direction;
   medium: string;
-  /** 이 포트가 나르는 심선 수. 없거나 1이면 보통 포트. @see PortTemplate.positions */
-  positions?: number;
-  /** 종류 안의 갈래(전원의 교류·직류). @see PortTemplate.variant */
-  variant?: string | null;
+  /**
+   * 이 포트가 나르는 심선 수. 1 = 보통 포트. @see PortTemplate.positions
+   *
+   * **선택 칸이 아니다** — 아래 `variant` 와 함께 그 까닭을 적는다.
+   */
+  positions: number;
+  /**
+   * 종류 안의 갈래(전원의 교류·직류). 갈래가 없는 종류는 `null`. @see PortTemplate.variant
+   *
+   * **이 둘은 선택 칸이면 안 된다.** 한때 둘 다 `?` 였고, 둘 다 같은 사고를 냈다:
+   * 포트를 이 형상으로 옮겨 담는 자리(화면·서버·토폴로지)가 **조용히 빠뜨렸고**, core 는
+   * 빠진 것을 「없는 것」으로 읽어 틀린 그림 위에서 판단했다.
+   *   - `positions` 를 빠뜨리자 다심 인입이 1심으로 보여 2번 이후 심선의 추적이 끊겼다.
+   *   - `variant` 를 빠뜨리자 교류·직류를 함께 나르는 판이 「교류를 직류로 바꾼다」고
+   *     유도되어, 추적이 정류기를 건너뛰고 형제 정류기로 되쏟아졌다.
+   *
+   * 필수로 두면 **컴파일러가 막는다.** 옮겨 담는 자리가 새로 생겨도 빠뜨릴 수가 없다 —
+   * 글자를 훑는 가드레일과 달리 빠져나갈 구멍이 없다.
+   */
+  variant: string | null;
 }
 
 export interface CableRef {

@@ -105,7 +105,9 @@ reachRouter.post('/reach', async (req, res, next) => {
         where: { assetId: { in: ids } },
         select: {
           id: true, assetId: true, group: true, index: true,
-          name: true, medium: true, direction: true, positions: true,
+          /* 갈래(AC·DC)까지 — 안 실으면 토폴로지의 추적이 교류와 직류를 함께 나르는 판에서
+             갈래를 넘어 통과한다(`derivedLinks`). */
+          name: true, medium: true, direction: true, positions: true, variant: true,
         },
         orderBy: [{ assetId: 'asc' }, { group: 'asc' }, { index: 'asc' }],
       }),

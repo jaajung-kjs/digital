@@ -39,8 +39,10 @@ export function instantiatePorts(
       direction: tpl.direction,
       medium: tpl.medium,
       positions,
-      /* 갈래(전원의 AC·DC)도 포트가 그대로 물려받는다 — 연결 검증이 그것을 본다. */
-      ...(tpl.variant ? { variant: tpl.variant } : {}),
+      /* 갈래(전원의 AC·DC)도 포트가 그대로 물려받는다 — 연결 검증이 그것을 본다.
+         **없으면 `null` 을 적는다** — 빼면 그 사실이 「모른다」가 되어, 받는 쪽이 갈래
+         없는 포트와 구별할 수 없다(`PortRef` 가 이 칸을 필수로 두는 까닭이다). */
+      variant: tpl.variant ?? null,
       /* **그 갈래의 예사값**이 실려 나온다(`PortVariant.defaultVoltage`) — 포트가 생기는
          순간 이미 「DC 48V」다. 대개 맞고, 다르면 계통 표에서 회로마다 고친다.
          품목에 못 박지 않는 까닭: 380/220V 3상4선 반은 한 반에서 380V 3상과 220V 단상을

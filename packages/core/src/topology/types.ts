@@ -58,6 +58,8 @@ export interface TopologyInput {
   ports: {
     id: string; assetId: string; group: string; index: number;
     name: string; medium: string; direction: Direction; positions: number;
+    /** 종류 안의 갈래(전원의 AC·DC) — 통과가 갈래를 넘는지 이 값이 가른다. */
+    variant?: string | null;
   }[];
   cables: { id: string; aPortId: string; bPortId: string }[];
 }

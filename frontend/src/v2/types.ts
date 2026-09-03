@@ -169,8 +169,13 @@ export interface V2Port {
   id: string; assetId: string; group: string; index: number; name: string; direction: Direction; medium: string;
   /** 이 포트가 나르는 심선 수. 1 = 보통 포트, N = 다심 인입(OPGW 한 가닥에 N심). */
   positions: number;
-  /** 종류 안의 갈래 — 전원의 교류·직류. 갈래가 다르면 잇지 못한다(`validateConnection`). */
-  variant?: string | null;
+  /**
+   * 종류 안의 갈래 — 전원의 교류·직류. 갈래가 다르면 잇지 못한다(`validateConnection`).
+   *
+   * **선택 칸이 아니다**(`PortRef.variant` 주석 참고) — 갈래가 없는 종류는 `null` 이다.
+   * 「안 적음」과 「갈래 없음」이 갈리지 않으면, 옮겨 담는 자리가 조용히 흘려도 아무도 모른다.
+   */
+  variant: string | null;
   /** 이 포트에 딸린 값. 다심 포트에서는 코어 번호를 키로 한 겹 중첩된다 — `portValuesAt` 로만 읽는다. */
   fieldValues: Record<string, unknown>;
 }
@@ -233,6 +238,8 @@ export interface V2Reach {
   ports: {
     id: string; assetId: string; group: string; index: number;
     name: string; medium: string; direction: 'IN' | 'OUT' | 'BI'; positions: number;
+    /** 종류 안의 갈래(전원의 AC·DC) — 통과가 갈래를 넘는지 이 값이 가른다. */
+    variant?: string | null;
   }[];
   cables: { id: string; aPortId: string; bPortId: string; categoryId: string | null }[];
   /** 컴포넌트가 한계를 넘어 잘렸는가 — 그림이 「일부만」임을 알린다. */

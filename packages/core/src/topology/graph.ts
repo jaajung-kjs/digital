@@ -47,7 +47,10 @@ export function buildTopologyGraph(
     assets: input.assets.map((a) => ({ id: a.id, typeKey: '', name: a.name, parentAssetId: a.parentAssetId })),
     ports: input.ports.map((p) => ({
       id: p.id, assetId: p.assetId, group: p.group, index: p.index,
+      /* 갈래(AC·DC)까지 넘긴다 — 안 넘기면 교류와 직류를 함께 나르는 판에서 통과가
+         갈래를 넘어 유도된다(`derivedLinks`). */
       name: p.name, direction: p.direction, medium: p.medium, positions: p.positions,
+      variant: p.variant ?? null,
     })),
     cables: input.cables.map((c) => ({ id: c.id, aPortId: c.aPortId, bPortId: c.bPortId })),
   });
