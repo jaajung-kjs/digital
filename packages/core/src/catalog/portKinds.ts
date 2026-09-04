@@ -130,6 +130,17 @@ export interface PortKind {
   /** 이 종류의 포트가 붙을 수 있는 상대 종류. 지금은 모두 자기 자신뿐이다. */
   connectsTo: readonly string[];
   pairing: PortPairing;
+  /**
+   * 방향 없는 자리(모선 단자)에서 추적할 때 **두 답을 부르는 이름**.
+   *
+   * 축전지 단자처럼 방향이 없는 자리는 물음이 둘이라 답도 둘이다(`traceFlows`). 그 둘을
+   * 「나에게 오는 쪽」·「내가 가는 쪽」처럼 화면이 지어 부르면, 방향이 뜻을 갖는 종류가
+   * 하나 더 생겼을 때(신호의 송·수신 같은 것) 전원의 말이 그대로 쓰인다. 종류가 제 말을
+   * 갖는다 — 전원은 **전원 측·부하 측**이 업계 표준이다.
+   *
+   * 방향을 따지지 않는 종류(`pairing: 'any'`)에는 답이 하나뿐이라 이 이름이 필요 없다.
+   */
+  flowLabels?: { upstream: string; downstream: string };
   /** 한 포트에 물릴 수 있는 케이블 수. `null` = 제한 없음(접지 부스바). */
   maxCables: number | null;
   /**
@@ -227,6 +238,8 @@ export const PORT_KINDS = [
   // 전원은 공급(OUT)과 소비(IN)가 갈린다 — 출력끼리 잇는 것은 물리적으로 불가능하다.
   {
     key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
+    /* 전원 측(電源側)·부하 측(負荷側) — 배전 도면과 대장이 쓰는 말 그대로다. */
+    flowLabels: { upstream: '전원 측', downstream: '부하 측' },
     /* 교류와 직류는 잇지 않는다 — 충전기가 교류를 받아 직류를 내보내는 것이 그 경계다. */
     variants: [
       { key: 'AC', name: 'AC', voltages: AC_VOLTAGES, defaultVoltage: 'AC 220V 1φ' },
@@ -587,6 +600,16 @@ function nameBase(sample: string | undefined): string | null {
   if (!sample) return null;
   const base = sample.replace(/\s*\d+\s*$/, '').trim();
   return base.length > 0 ? base : null;
+}
+
+/**
+ * 방향 없는 자리(모선 단자)에서 갈라 물은 **두 답을 부르는 이름**.
+ *
+ * 이름은 종류가 갖는다(`PortKind.flowLabels`) — 화면이 지어 부르면 방향이 뜻을 갖는 종류가
+ * 하나 더 생겼을 때 전원의 말이 그대로 쓰인다.
+ */
+export function portFlowLabel(medium: string, flow: 'upstream' | 'downstream'): string {
+  return portKind(medium)?.flowLabels?.[flow] ?? (flow === 'upstream' ? '들어오는 쪽' : '나가는 쪽');
 }
 
 /**

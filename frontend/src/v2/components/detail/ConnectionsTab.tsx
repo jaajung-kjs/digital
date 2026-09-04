@@ -34,7 +34,7 @@ import { withDescendants } from '../../assetTree';
 import { deleteCableWithConfirm } from '../../deleteActions';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { canPickPort } from '../../cableSelectors';
-import { internalLinkMap, isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt } from '@twin/core';
+import { internalLinkMap, isMultiCorePort, portFieldsFor, portFlowLabel, portHasRoom, portValuesAt } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
@@ -797,7 +797,8 @@ export function ConnectionsTab({
                           <div key={flow} className="mt-1.5 rounded-md bg-primary/5 p-1.5">
                             {traceTrees.length > 1 && (
                               <div className="mb-1 text-xs font-medium text-content-muted">
-                                {flow === 'upstream' ? '나를 먹이는 쪽' : '내가 먹이는 쪽'}
+                                {/* 이름은 **종류가 갖는다** — 전원은 전원 측·부하 측이다. */}
+                                {portFlowLabel(sel.medium, flow === 'upstream' ? 'upstream' : 'downstream')}
                               </div>
                             )}
                             <div className="flex items-baseline gap-1 text-sm">
