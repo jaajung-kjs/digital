@@ -50,7 +50,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   // ── 구 role: slot ──
   {
     key: 'OFD-SLOT',
-    name: '광슬롯',
+    name: 'OFD 슬롯',
     categoryKey: '통신',
     sortOrder: 21,
     labor: labor(0.5, 0.25, 0.5, 350_000),
@@ -123,12 +123,12 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   },
   {
     key: 'CHG-DIST',
-    name: '충전기 분배부',
+    name: '충전기 분전반',
     categoryKey: '전원',
     sortOrder: 43,
     labor: labor(0.8, 0.4, 0.8, 1_500_000),
     /*
-     * 동바(직류 모선) + 단자대 + 차단기 세 개 + SPD 를 묶은 한 덩어리.
+     * 동바 + 단자대 + 차단기 세 개 + SPD 를 묶은 한 덩어리.
      *
      * **아무것도 바꾸지 않는다** — 교류를 받아 정류기로 내보내고, 정류기가 만든 직류를 받아
      * 부하로 내보낸다. 그래서 전원 포트가 넷이다(교류 입출력 + 직류 입출력). 바꾸는 것은
@@ -154,13 +154,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
        *
        * 둘인 것은 축전지를 1군·2군으로 나눠 다는 실물 결선을 따른다.
        */
-      { group: 'POWER-BI-DC', count: 2, direction: 'BI', medium: 'power', namePattern: '축전지 모선 {n}', variant: 'DC' },
+      { group: 'POWER-BI-DC', count: 2, direction: 'BI', medium: 'power', namePattern: '축전지 {n}', variant: 'DC' },
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
   {
     key: 'BATTERY',
-    name: '축전지',
+    name: '충전기 축전지',
     categoryKey: '전원',
     sortOrder: 44,
     labor: labor(3.0, 1.5, 3.0, 6_500_000),
@@ -210,17 +210,22 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   },
   {
     key: 'UPS-DCBUS',
-    name: 'UPS 직류 모선',
+    name: 'UPS DC 링크',
     categoryKey: '전원',
     sortOrder: 51,
     labor: labor(0, 0, 0, 0),
     /*
-     * 정류기·인버터·축전지가 만나는 자리 — **충전기 분배부와 같은 모양**이다.
+     * 정류기·인버터·축전지가 **한 마디에서 만나는 자리**다.
+     *
+     * 국내 UPS 자료가 이 자리를 **DC 링크**라 부른다(「정류기와 인버터 사이의 직류 전원
+     * 연결 부분이며 축전지도 여기 연결된다」). 표준 구성에서는 장비가 아니라 **연결
+     * 부분**이지만, 셋이 한 마디에 붙는데 전원 포트 하나에는 케이블 한 본만 물리므로
+     * 그 마디를 담을 물건이 필요하다.
      *
      * 축전지 자리는 방향이 없다(`BI`): 평상시 정류기가 충전하고 정전이면 축전지가 인버터를
      * 먹인다. 방향 있는 자리에 매달면 반쪽만 보인다(충전기에서 겪은 그대로).
      *
-     * 축전지 모선이 둘인 것은 뱅크를 1군·2군으로 나눠 다는 실물 결선을 따른다.
+     * 축전지 자리가 둘인 것은 뱅크를 1군·2군으로 나눠 다는 실물 결선을 따른다.
      */
     ports: [
       { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '직류 입력', variant: 'DC' },
@@ -379,14 +384,14 @@ export const SEED_ASSEMBLIES: {
       { typeKey: 'RECT-48', name: 'IR-48 50A #2', col: 0, row: 4, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
       // 6~7행은 비운다 — 정류기 예비 슬롯(실물 U30~32).
       { typeKey: 'SID-125', name: 'SID-125', col: 0, row: 8, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
-      { typeKey: 'CHG-DIST', name: '충전기 분배부', col: 0, row: 10, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
-      { typeKey: 'BATTERY', name: '축전지', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
+      { typeKey: 'CHG-DIST', name: '충전기 분전반', col: 0, row: 10, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'BATTERY', name: '충전기 축전지', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
     ],
     /*
      * 전원 일곱 본 + 내부통신 두 본.
      *
-     * 흐름: 교류가 분배부로 들어와 정류기 둘로 갈리고, 정류기가 만든 직류가 분배부로 돌아와
-     * 강압기·감시제어부로 갈린다. **분배부는 그 앞뒤를 두 번 지난다** — 바꾸는 것은
+     * 흐름: 교류가 분전반으로 들어와 정류기 둘로 갈리고, 정류기가 만든 직류가 분전반으로
+     * 돌아와 강압기·감시제어부로 갈린다. **분전반은 그 앞뒤를 두 번 지난다** — 바꾸는 것은
      * 정류기뿐이다.
      *
      * 축전지는 그 흐름을 **거치지 않는다** — 모선에 나란히 매달린다(`POWER-BI-DC`).
@@ -394,13 +399,13 @@ export const SEED_ASSEMBLIES: {
      * 그 둘을 한 자리로 적을 수 있는 것은 그 자리에 방향이 없기 때문이다.
      */
     links: [
-      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-AC', aIndex: 1, bItem: 'IR-48 50A #1', bGroup: 'POWER-IN-AC', bIndex: 1 },
-      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-AC', aIndex: 2, bItem: 'IR-48 50A #2', bGroup: 'POWER-IN-AC', bIndex: 1 },
-      { aItem: 'IR-48 50A #1', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '충전기 분배부', bGroup: 'POWER-IN-DC', bIndex: 1 },
-      { aItem: 'IR-48 50A #2', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '충전기 분배부', bGroup: 'POWER-IN-DC', bIndex: 2 },
-      { aItem: '충전기 분배부', aGroup: 'POWER-BI-DC', aIndex: 1, bItem: '축전지', bGroup: 'POWER-DC', bIndex: 1 },
-      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 2, bItem: 'SID-125', bGroup: 'POWER-IN-DC', bIndex: 1 },
-      { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 3, bItem: 'IRCU', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: '충전기 분전반', aGroup: 'POWER-OUT-AC', aIndex: 1, bItem: 'IR-48 50A #1', bGroup: 'POWER-IN-AC', bIndex: 1 },
+      { aItem: '충전기 분전반', aGroup: 'POWER-OUT-AC', aIndex: 2, bItem: 'IR-48 50A #2', bGroup: 'POWER-IN-AC', bIndex: 1 },
+      { aItem: 'IR-48 50A #1', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '충전기 분전반', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: 'IR-48 50A #2', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '충전기 분전반', bGroup: 'POWER-IN-DC', bIndex: 2 },
+      { aItem: '충전기 분전반', aGroup: 'POWER-BI-DC', aIndex: 1, bItem: '충전기 축전지', bGroup: 'POWER-DC', bIndex: 1 },
+      { aItem: '충전기 분전반', aGroup: 'POWER-OUT-DC', aIndex: 2, bItem: 'SID-125', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: '충전기 분전반', aGroup: 'POWER-OUT-DC', aIndex: 3, bItem: 'IRCU', bGroup: 'POWER-IN-DC', bIndex: 1 },
       { aItem: 'IRCU', aGroup: 'SERIAL', aIndex: 1, bItem: 'IR-48 50A #1', bGroup: 'SERIAL', bIndex: 1 },
       { aItem: 'IRCU', aGroup: 'SERIAL', aIndex: 2, bItem: 'IR-48 50A #2', bGroup: 'SERIAL', bIndex: 1 },
     ],
@@ -410,7 +415,7 @@ export const SEED_ASSEMBLIES: {
      * **UPS 1식** — 랙 한 대가 통째로 무정전전원장치다.
      *
      * 함체 앞면 차단기가 곧 밖으로 나가는 자리다: `AC INPUT`(UPS 정류기) · `AC BYPASS`
-     * (UPS 절체 스위치) · `AC OUTPUT`(UPS 절체 스위치) · `BATTERY`(UPS 직류 모선).
+     * (UPS 절체 스위치) · `AC OUTPUT`(UPS 절체 스위치) · `BATTERY`(UPS DC 링크).
      * **포트 이름이 그 라벨 그대로**라 현장에서 눈으로 맞출 수 있다. 그 넷만 현장이 잇고,
      * 안쪽 여섯 본은 놓으면 함께 선다.
      *
@@ -426,19 +431,19 @@ export const SEED_ASSEMBLIES: {
     items: [
       { typeKey: 'UPS-CTRL', name: 'UPS 감시제어반', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
       { typeKey: 'UPS-RECT', name: 'UPS 정류기', col: 0, row: 3, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
-      { typeKey: 'UPS-DCBUS', name: 'UPS 직류 모선', col: 0, row: 7, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'UPS-DCBUS', name: 'UPS DC 링크', col: 0, row: 7, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
       { typeKey: 'UPS-INV', name: 'UPS 인버터', col: 0, row: 10, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
       { typeKey: 'UPS-STS', name: 'UPS 절체 스위치', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
     ],
     /*
-     * 흐름: 상용 교류가 정류기로 들어와 직류가 되고, 직류 모선에서 축전지와 만나고,
+     * 흐름: 상용 교류가 정류기로 들어와 직류가 되고, DC 링크에서 축전지와 만나고,
      * 인버터가 다시 교류로 만들어 절체 스위치로 보낸다. 절체 스위치는 그것과 바이패스
      * 중 하나를 골라 부하로 낸다 — **바이패스로 도는 동안에는 축전지가 부하를 못 받친다**는
      * 사실이 이 배선에서 그대로 읽힌다.
      */
     links: [
-      { aItem: 'UPS 정류기', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: 'UPS 직류 모선', bGroup: 'POWER-IN-DC', bIndex: 1 },
-      { aItem: 'UPS 직류 모선', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: 'UPS 인버터', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: 'UPS 정류기', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: 'UPS DC 링크', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: 'UPS DC 링크', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: 'UPS 인버터', bGroup: 'POWER-IN-DC', bIndex: 1 },
       { aItem: 'UPS 인버터', aGroup: 'POWER-OUT-AC', aIndex: 1, bItem: 'UPS 절체 스위치', bGroup: 'POWER-IN-AC', bIndex: 1 },
       /* 감시제어부는 **전원을 나르지 않는다** — 제어부와 전력단 사이는 함체 안의 하네스라
          케이블 대장에 오르지 않는다. 충전기의 IRCU↔정류기 내부통신은 정류기가 뽑아 쓰는
@@ -451,7 +456,7 @@ export const SEED_ASSEMBLIES: {
      * **UPS 축전지반 1식** — 단전지를 직렬로 쌓은 별개 함체.
      *
      * 뱅크 하나가 자산 하나다: 단전지 사이 결선은 뱅크 안쪽이라 케이블 대장에 오르지
-     * 않는다. UPS 의 「축전지 모선」과는 케이블 한 본으로 잇는다(현장) — 그 한 본은 실물
+     * 않는다. UPS DC 링크의 `BATTERY` 와는 케이블 한 본으로 잇는다(현장) — 그 한 본은 실물
      * 케이블이라 대장에 올라야 한다.
      */
     key: 'UPS-BATT-RACK', name: 'UPS 축전지반', categoryKey: '전원', sortOrder: 42,

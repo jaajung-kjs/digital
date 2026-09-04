@@ -39,7 +39,7 @@ describe('derivedLinks — 포트 선언에서 저절로 나오는 내부 통과
   /**
    * **갈래를 넘는 통과(변환)는 갈 곳이 그것뿐일 때만.**
    *
-   * 교류와 직류를 함께 나르는 판이 있다 — 충전기의 분배부가 그렇다(교류를 받아 정류기로
+   * 교류와 직류를 함께 나르는 판이 있다 — 충전기의 분전반이 그렇다(교류를 받아 정류기로
    * 내보내고, 정류기가 만든 직류를 받아 부하로 내보낸다). 갈래를 안 보던 동안 그 판은
    * 「교류를 직류로 바꾼다」고, 심지어 「직류를 교류로 바꾼다」고까지 유도됐다 — 추적이
    * **정류기를 건너뛰고** 지나가 버린다.
@@ -47,11 +47,11 @@ describe('derivedLinks — 포트 선언에서 저절로 나오는 내부 통과
   it('교류·직류를 함께 나르는 판은 갈래끼리만 통한다 — 변환하지 않는다', () => {
     const p = (group: string, dir: 'IN' | 'OUT', variant: 'AC' | 'DC') =>
       ({ ...tpl(group, 'power', dir), variant });
-    const 분배부 = derivedLinks([
+    const 분전반 = derivedLinks([
       p('AC-IN', 'IN', 'AC'), p('AC-OUT', 'OUT', 'AC'),
       p('DC-IN', 'IN', 'DC'), p('DC-OUT', 'OUT', 'DC'),
     ]).map((l) => `${l.fromGroup}→${l.toGroup}`);
-    expect(분배부).toEqual(['AC-IN→AC-OUT', 'DC-IN→DC-OUT']);
+    expect(분전반).toEqual(['AC-IN→AC-OUT', 'DC-IN→DC-OUT']);
   });
 
   /* 반대로 **갈 곳이 그것뿐이면 넘는다** — 정류기가 그렇고, 추적은 그 너머로 이어져야 한다. */

@@ -149,14 +149,14 @@ describe('traceLanes — 모이는 그림', () => {
 
   /** 강압기의 상류 — 정류기 둘이 각자 교류에서 오고, 모선에서 합쳐져 나에게 온다. */
   it('출처가 위, 내가 맨 아래 — 합류 자리에서 레인이 닫힌다', () => {
-    const tree = n('SID', n('분배부DC', n('IR1', n('AC1')), n('IR2', n('AC2')), n('축전지')));
+    const tree = n('SID', n('분전반DC', n('IR1', n('AC1')), n('IR2', n('AC2')), n('축전지')));
     expect(show(traceLanes(tree))).toEqual([
       '● AC1',
       '● IR1',
       '│● AC2',
       '│● IR2',
       '││● 축전지',
-      '●╯╯ 분배부DC',
+      '●╯╯ 분전반DC',
       '● SID',
     ]);
   });
