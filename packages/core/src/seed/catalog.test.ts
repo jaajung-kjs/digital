@@ -118,3 +118,37 @@ describe('UPS 1식 — 놓았을 때의 추적', () => {
     expect(reached.some((id) => id.startsWith('UPS DC 링크'))).toBe(false);
   });
 });
+
+/**
+ * **분전반 — 계통끼리 섞이지 않는가.**
+ *
+ * 한 함체에 상용·무정전·직류 계통이 산다. 계통마다 장비를 나눈 유일한 까닭이
+ * 「상용 회로와 UPS 회로가 서로 다른 부스바에 있다」이므로 그것을 잰다 — 한 장비에
+ * 교류 입력을 둘 두면 통과 유도가 「모든 분기가 두 입력 어디서든 온다」고 말하고,
+ * 그러면 **정전 때 죽는 회로와 사는 회로가 구별되지 않는다.**
+ */
+describe('정보통신용 전원분전반 — 계통은 서로 안 섞인다', () => {
+  const spec = SEED_ASSEMBLIES.find((a) => a.key === 'PWR-DIST-SET')!;
+  const typeOf = (key: string) => SEED_ASSET_TYPES.find((t) => t.key === key)!;
+
+  it('상용 피더의 분기를 거슬러 올라도 UPS 피더로 새지 않는다', () => {
+    const assets = spec.items.map((i) => ({ id: i.name, typeKey: i.typeKey, name: i.name }));
+    const ports = spec.items.flatMap((i) =>
+      instantiatePorts(typeOf(i.typeKey).ports, i.name).map((p) => ({ ...p, id: `${i.name}:${p.group}${p.index}` })));
+    /* 밖에서 오는 것 둘 — 상용은 소내전원반에서, 무정전은 UPS 출력에서. */
+    const src = ['소내전원반', 'UPS'].map((id) => ({ id, typeKey: 'AC-FEEDER', name: id }));
+    const srcPorts = src.flatMap((a) =>
+      instantiatePorts(typeOf('AC-FEEDER').ports, a.id).map((p) => ({ ...p, id: `${a.id}:${p.group}${p.index}` })));
+    const cables = [
+      { id: 'c1', aPortId: '소내전원반:POWER-OUT-AC1', bPortId: '상용 피더:POWER-IN-AC1' },
+      { id: 'c2', aPortId: 'UPS:POWER-OUT-AC1', bPortId: 'UPS 피더:POWER-IN-AC1' },
+    ];
+    const graph = buildTraceGraph({
+      types: {}, assets: [...assets, ...src], ports: [...ports, ...srcPorts] as never, cables,
+    });
+    const up = traceFrom(graph, '상용 피더:POWER-OUT-AC3', 'upstream').map((h) => h.toPortId);
+    expect(up).toContain('소내전원반:POWER-OUT-AC1');      // 제 계통의 전원
+    expect(up.some((id) => id.startsWith('UPS 피더'))).toBe(false);  // 남의 계통으로 안 샌다
+    expect(up.some((id) => id.startsWith('직류 피더'))).toBe(false);
+  });
+});

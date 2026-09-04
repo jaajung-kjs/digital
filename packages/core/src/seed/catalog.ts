@@ -73,6 +73,51 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   //
   // 강원 직할 (구)춘천S/S 의 실물을 보고 지었다(2026-09). 랙 한 대가 통째로 48V 직류전원
   // 장치이고, 그 안이 이 다섯으로 나뉜다: 감시제어 · 정류 · 강압 · 분배 · 축전지.
+  /*
+   * ── 피더 — **한 부스바 + MAIN 하나 + 분기 여럿** ─────────────────────────────────
+   *
+   * 분전반 한 함체 안에 계통이 여럿 산다: 상용(소내전원반에서) · 무정전(UPS 출력에서) ·
+   * 직류(충전기에서). 실물 사진의 노란 MAIN 라벨이 그 셋을 그대로 말한다.
+   *
+   * **계통마다 부스바가 따로다.** 그래서 계통 하나가 장비 하나다 — 한 장비에 교류 입력을
+   * 둘 두면 통과 유도가 「모든 분기가 두 입력 어디서든 온다」고 말한다(같은 갈래끼리
+   * 이어지므로). 그러면 정전 때 죽는 회로와 사는 회로가 구별되지 않는다 — 이 대장이
+   * 답해야 할 바로 그 물음이다.
+   *
+   * **소내전원반도 피더다.** 위쪽(변전소 계통)은 전기 파트 것이라 우리가 안 그릴 뿐,
+   * 구조는 같다 — MAIN 이 안 물린 피더다. 품목을 따로 두려면 함체 라벨이 실제로 다르다는
+   * 근거가 있어야 하는데, 그 함체는 아직 본 적이 없다.
+   *
+   * **이름에 전압을 넣지 않는다.** 같은 피더가 380V 국에도 220V 국에도 쓰인다(3상 4선식
+   * 380/220V 는 같은 계통에서 선간 380V·상전압 220V 를 함께 낸다). 전압은 놓은 뒤 그
+   * 포트에 적는 값이다.
+   *
+   * 품은 **설비가 1식으로** 든다 — 분전반은 함체째 사는 물건이다.
+   */
+  {
+    key: 'AC-FEEDER',
+    name: 'AC 피더',
+    categoryKey: '전원',
+    sortOrder: 30,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: 'MAIN', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 20, direction: 'OUT', medium: 'power', namePattern: '분기 {n}', variant: 'AC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    key: 'DC-FEEDER',
+    name: 'DC 피더',
+    categoryKey: '전원',
+    sortOrder: 31,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: 'MAIN', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 20, direction: 'OUT', medium: 'power', namePattern: '분기 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
   {
     key: 'IRCU',
     name: 'IRCU(감시제어부)',
@@ -364,6 +409,38 @@ export const SEED_ASSEMBLIES: {
     items: Array.from({ length: 8 }, (_, i) => ({
       typeKey: 'OFD-SLOT', name: `슬롯 ${i + 1}`, col: 0, row: i, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1,
     })),
+  },
+  {
+    /*
+     * **정보통신용 전원분전반 1식** — 명판 그대로다.
+     *
+     * 한 함체에 계통 셋이 세로로 산다. 밖에서 오는 것이 셋이고(소내전원반 · UPS 출력 ·
+     * 충전기), 그래서 **내부 배선이 없다** — 「UPS입력」 차단기도 상용 피더의 분기에서
+     * UPS 함체로 나가는 케이블이라 밖이다.
+     *
+     * UPS 계통이 없는 국도 있다(그 국은 UPS 가 부하에 직결이거나 UPS 가 없다) — 놓은 뒤
+     * 그 자산 하나만 지우면 된다. 구성은 스냅샷이다.
+     */
+    key: 'PWR-DIST-SET', name: '정보통신용 전원분전반', categoryKey: '전원', sortOrder: 30,
+    labor: labor(2.0, 1.0, 2.0, 6_000_000),
+    items: [
+      { typeKey: 'AC-FEEDER', name: '상용 피더', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
+      { typeKey: 'AC-FEEDER', name: 'UPS 피더', col: 0, row: 7, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
+      { typeKey: 'DC-FEEDER', name: '직류 피더', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
+    ],
+  },
+  {
+    /*
+     * **AC 소내전원반** — 통신 쪽에서 보면 **교류가 시작되는 자리**다.
+     *
+     * 위쪽(변전소 계통)은 전기 파트 것이라 그리지 않는다. `MAIN` 을 안 물리면 추적이
+     * 여기서 멈추고, 그것이 곧 「우리가 아는 끝」이라는 정직한 답이다.
+     */
+    key: 'ACHOUSE-SET', name: 'AC 소내전원반', categoryKey: '전원', sortOrder: 31,
+    labor: labor(3.0, 1.5, 3.0, 8_000_000),
+    items: [
+      { typeKey: 'AC-FEEDER', name: '소내 피더', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
+    ],
   },
   {
     /*
