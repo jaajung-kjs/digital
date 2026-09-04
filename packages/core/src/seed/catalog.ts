@@ -176,6 +176,127 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
+
+  /*
+   * ── UPS(무정전전원장치) 1식을 이루는 모듈들 ────────────────────────────────────────
+   *
+   * **블록은 사진의 단자에서 나온다.** 함체 앞면의 차단기가 곧 외부 단자다:
+   * `AC INPUT` · `AC BYPASS` · `BATTERY` · `AC OUTPUT`. 교류가 들어오고 직류가 축전지로
+   * 가고 교류가 나가면 **정류와 인버팅이 반드시 있고**, 바이패스 입력이 출력에 닿으려면
+   * **고르는 스위치가 반드시 있다** — 지어낸 구조가 아니라 단자에서 나오는 결론이다.
+   *
+   * **왜 쪼개는가.** UPS 를 장비 하나로 두면 포트가 교류 입력·교류 출력·축전지(DC)인데,
+   * 통과는 같은 갈래끼리 유도되므로 축전지가 **아무 데도 안 이어진다** — 부하를 추적해도
+   * 정전 때의 전원이 안 나온다. 쪼개면 모듈마다 「입력 하나·출력 하나」라 갈래 유도가
+   * 실물대로 돈다(정류기는 교류→직류, 인버터는 직류→교류). 무엇보다 **바이패스로 도는
+   * 동안에는 축전지가 부하를 받쳐 주지 않는다**는 사실이 그림에 나타난다.
+   *
+   * **품은 설비가 1식으로 든다**(`SEED_ASSEMBLIES` 의 `labor`). UPS 는 통째로 사고 통째로
+   * 설치하는 물건이라, 다섯으로 쪼개 값을 나누면 없는 단가를 지어내는 셈이다.
+   */
+  {
+    key: 'UPS-RECT',
+    name: 'UPS 정류기부',
+    categoryKey: '전원',
+    sortOrder: 50,
+    labor: labor(0, 0, 0, 0),
+    /* 상용 교류를 직류로 — 같은 갈래의 출구가 없으므로 통과가 **갈래를 넘는다**(정류). */
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '교류 입력', variant: 'AC' },
+      { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '직류 출력', variant: 'DC' },
+    ],
+  },
+  {
+    key: 'UPS-DCBUS',
+    name: 'UPS 직류 모선',
+    categoryKey: '전원',
+    sortOrder: 51,
+    labor: labor(0, 0, 0, 0),
+    /*
+     * 정류기·인버터·축전지가 만나는 자리 — **충전기 분배부와 같은 모양**이다.
+     *
+     * 축전지 자리는 방향이 없다(`BI`): 평상시 정류기가 충전하고 정전이면 축전지가 인버터를
+     * 먹인다. 방향 있는 자리에 매달면 반쪽만 보인다(충전기에서 겪은 그대로).
+     *
+     * 축전지 모선이 둘인 것은 뱅크를 1군·2군으로 나눠 다는 실물 결선을 따른다.
+     */
+    ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '직류 입력', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '직류 출력', variant: 'DC' },
+      { group: 'POWER-BI-DC', count: 2, direction: 'BI', medium: 'power', namePattern: '축전지 모선 {n}', variant: 'DC' },
+    ],
+  },
+  {
+    key: 'UPS-INV',
+    name: 'UPS 인버터부',
+    categoryKey: '전원',
+    sortOrder: 52,
+    labor: labor(0, 0, 0, 0),
+    /* 직류를 교류로 — 정류기의 반대다. 여기서도 통과가 갈래를 넘는다(인버팅). */
+    ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '직류 입력', variant: 'DC' },
+      { group: 'POWER-OUT-AC', count: 1, direction: 'OUT', medium: 'power', namePattern: '교류 출력', variant: 'AC' },
+    ],
+  },
+  {
+    key: 'UPS-STS',
+    name: 'UPS 절체 스위치',
+    categoryKey: '전원',
+    sortOrder: 53,
+    labor: labor(0, 0, 0, 0),
+    /*
+     * 인버터 출력과 바이패스 중 하나를 골라 부하로 — **UPS 가 UPS 인 까닭**이 이 자리다.
+     *
+     * 입력 둘을 **묶음 둘로** 나눈다: 한 묶음에 2구로 두면 이름이 「교류 입력 1·2」가 되어
+     * 어느 쪽이 바이패스인지 판에서 안 읽힌다. 바이패스는 설비 **밖에서** 들어오는 자리라
+     * 더 그렇다.
+     */
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '인버터 입력', variant: 'AC' },
+      { group: 'POWER-IN-AC-BYPASS', count: 1, direction: 'IN', medium: 'power', namePattern: '바이패스 입력', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 1, direction: 'OUT', medium: 'power', namePattern: '교류 출력', variant: 'AC' },
+    ],
+  },
+  {
+    key: 'UPS-CTRL',
+    name: 'UPS 감시제어부',
+    categoryKey: '전원',
+    sortOrder: 54,
+    labor: labor(0, 0, 0, 0),
+    /*
+     * 앞면 조작반(HMI)과 원격 감시 — **전원을 나르지 않으므로 전원 포트가 없다.**
+     *
+     * 포트는 전부 **밖으로 나가는 것**이다: 제어부와 전력단 사이는 함체 안의 하네스라
+     * 케이블 대장에 오르지 않는다(충전기의 IRCU↔정류기 내부통신은 정류기가 뽑아 쓰는
+     * 별개 모듈이라 실제로 선이 오갔던 것이고, 일체형 UPS 는 사정이 다르다).
+     */
+    ports: [
+      { group: 'SERIAL', count: 1, direction: 'BI', medium: 'control', namePattern: '감시 시리얼' },
+      { group: 'ALARM', count: 2, direction: 'OUT', medium: 'control', namePattern: '경보 접점 {n}' },
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+    ],
+  },
+  {
+    key: 'UPS-BATTERY',
+    name: 'UPS 축전지',
+    categoryKey: '전원',
+    sortOrder: 55,
+    labor: labor(4.0, 2.0, 4.0, 9_000_000),
+    /*
+     * **뱅크 하나 = 자산 하나.** 단전지가 스물몇 개 직렬로 묶여 있지만, 그 사이 결선은
+     * 뱅크 안쪽이라 케이블 대장에 오르지 않는다. 하나씩 자산으로 두면 국마다 자산이
+     * 서른 개씩 늘면서 정작 대장에는 아무 줄도 안 생긴다(통신용 충전기에서 내린 결정과 같다).
+     *
+     * 단자는 통신용 축전지와 같이 방향이 없다 — 한 쌍으로 충전도 방전도 오간다.
+     *
+     * 전압은 시드가 정하지 않는다: UPS 뱅크는 보통 240V·384V 급인데 우리 목록은 통신·제어
+     * 계열(48·125V)이라 없다. 놓고 나서 「직접 입력」으로 적는다.
+     */
+    ports: [
+      { group: 'POWER-DC', count: 1, direction: 'BI', medium: 'power', namePattern: '축전지 단자', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
 ];
 
 /**
@@ -193,6 +314,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
  */
 export const SEED_ASSEMBLIES: {
   key: string; name: string; categoryKey: string; sortOrder: number;
+  /**
+   * **「1식」 공량** — 설비를 통째로 놓거나 걷을 때의 품.
+   *
+   * 비워 두면 안에 든 자산의 공량을 합쳐 센다. UPS 처럼 **통째로 사는 물건**은 여기 적고
+   * 모듈은 0 으로 둔다 — 다섯으로 쪼개 값을 나누면 없는 단가를 지어내는 셈이다.
+   */
+  labor?: ReturnType<typeof labor>;
   items: { typeKey: string; name: string; col: number; row: number; colSpan: number; rowSpan: number;
            portCounts?: Record<string, number>; portPositions?: Record<string, number> }[];
   /**
@@ -273,6 +401,60 @@ export const SEED_ASSEMBLIES: {
       { aItem: '충전기 분배부', aGroup: 'POWER-OUT-DC', aIndex: 3, bItem: 'IRCU', bGroup: 'POWER-IN-DC', bIndex: 1 },
       { aItem: 'IRCU', aGroup: 'SERIAL', aIndex: 1, bItem: 'IR-48 50A #1', bGroup: 'SERIAL', bIndex: 1 },
       { aItem: 'IRCU', aGroup: 'SERIAL', aIndex: 2, bItem: 'IR-48 50A #2', bGroup: 'SERIAL', bIndex: 1 },
+    ],
+  },
+  {
+    /*
+     * **UPS 1식** — 랙 한 대가 통째로 무정전전원장치다.
+     *
+     * 함체 앞면 차단기가 곧 밖으로 나가는 자리다: `AC INPUT`(정류기부) · `AC BYPASS`
+     * (절체 스위치) · `AC OUTPUT`(절체 스위치) · `BATTERY`(직류 모선). 그 넷만 현장이 잇고,
+     * 안쪽 여섯 본은 놓으면 함께 선다.
+     *
+     * **축전지는 여기 없다.** 별개 함체라 설비도 따로다(`UPS-BATT-RACK`) — 한 설비로
+     * 묶으면 평면도에서 사각형 하나가 되어, 몇 미터 떨어진 축전지반을 UPS 자리에 그리게
+     * 된다. 나눠 두면 축전지반을 제 자리에 놓을 수 있고 **뱅크 2군**도 표현된다.
+     *
+     * 품은 **여기 1식으로** 든다 — 모듈은 따로 사는 물건이 아니다.
+     */
+    key: 'UPS-SET', name: 'UPS(무정전전원장치)', categoryKey: '전원', sortOrder: 41,
+    labor: labor(4.0, 2.0, 4.0, 18_000_000),
+    /* 전기가 지나는 차례대로 위에서 아래로 쌓는다 — 판만 봐도 흐름이 읽힌다. */
+    items: [
+      { typeKey: 'UPS-CTRL', name: '감시제어부', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'UPS-RECT', name: '정류기부', col: 0, row: 3, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: 'UPS-DCBUS', name: '직류 모선', col: 0, row: 7, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'UPS-INV', name: '인버터부', col: 0, row: 10, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: 'UPS-STS', name: '절체 스위치', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+    ],
+    /*
+     * 흐름: 상용 교류가 정류기부로 들어와 직류가 되고, 직류 모선에서 축전지와 만나고,
+     * 인버터부가 다시 교류로 만들어 절체 스위치로 보낸다. 절체 스위치는 그것과 바이패스
+     * 중 하나를 골라 부하로 낸다 — **바이패스로 도는 동안에는 축전지가 부하를 못 받친다**는
+     * 사실이 이 배선에서 그대로 읽힌다.
+     */
+    links: [
+      { aItem: '정류기부', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '직류 모선', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: '직류 모선', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '인버터부', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: '인버터부', aGroup: 'POWER-OUT-AC', aIndex: 1, bItem: '절체 스위치', bGroup: 'POWER-IN-AC', bIndex: 1 },
+      /* 감시제어부는 **전원을 나르지 않는다** — 제어부와 전력단 사이는 함체 안의 하네스라
+         케이블 대장에 오르지 않는다. 충전기의 IRCU↔정류기 내부통신은 정류기가 뽑아 쓰는
+         **별개 모듈**이라 실제로 선이 오갔던 것이고, 일체형 UPS 는 사정이 다르다.
+         제어부의 포트는 **밖으로 나가는 것뿐**이다(원격 감시반·경보 접점·SNMP). */
+    ],
+  },
+  {
+    /*
+     * **UPS 축전지반 1식** — 단전지를 직렬로 쌓은 별개 함체.
+     *
+     * 뱅크 하나가 자산 하나다: 단전지 사이 결선은 뱅크 안쪽이라 케이블 대장에 오르지
+     * 않는다. UPS 의 「축전지 모선」과는 케이블 한 본으로 잇는다(현장) — 그 한 본은 실물
+     * 케이블이라 대장에 올라야 한다.
+     */
+    key: 'UPS-BATT-RACK', name: 'UPS 축전지반', categoryKey: '전원', sortOrder: 42,
+    labor: labor(4.0, 2.0, 4.0, 9_000_000),
+    items: [
+      { typeKey: 'UPS-BATTERY', name: '축전지', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
     ],
   },
 ];

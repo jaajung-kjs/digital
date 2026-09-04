@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { SEED_ASSEMBLIES, SEED_ASSET_TYPES, SEED_CABLE_GROUPS, SEED_CATEGORIES } from './catalog.js';
 import { validateAssembly, type AssemblyLinkSpec } from '../catalog/assembly.js';
 import { validateTypeSpec } from '../validation/typeSpec.js';
+import { instantiatePorts } from '../catalog/instantiatePorts.js';
+import { buildTraceGraph, traceFrom } from '../trace/graph.js';
 
 const CTX = {
   categoryKeys: SEED_CATEGORIES.map((c) => c.key),
@@ -46,5 +48,73 @@ describe('시드 카탈로그', () => {
     const chg = SEED_ASSEMBLIES.find((a) => a.key === 'CHG-48V-SET');
     expect(chg?.items).toHaveLength(6);
     expect(chg?.links).toHaveLength(9);
+  });
+});
+
+/**
+ * **UPS 1식을 놓으면 추적이 무엇을 말하는가.**
+ *
+ * 시드의 배선이 유효하다는 것과, 그 배선이 **쓸모 있는 답을 낸다**는 것은 다른 말이다.
+ * UPS 를 쪼갠 유일한 까닭이 「부하를 추적하면 전원 셋이 다 나온다」이므로 그것을 잰다 —
+ * 안 그러면 나중에 누가 모듈을 합치면서 조용히 축전지를 잃어버린다.
+ */
+describe('UPS 1식 — 놓았을 때의 추적', () => {
+  const spec = SEED_ASSEMBLIES.find((a) => a.key === 'UPS-SET')!;
+  const typeOf = (key: string) => SEED_ASSET_TYPES.find((t) => t.key === key)!;
+
+  /** 설비를 편다 — 항목마다 자산 하나, 배선마다 케이블 하나(`assemblyToPlacement` 과 같은 계산). */
+  const place = () => {
+    const assets = spec.items.map((i) => ({ id: i.name, typeKey: i.typeKey, name: i.name }));
+    const ports = spec.items.flatMap((i) =>
+      instantiatePorts(typeOf(i.typeKey).ports, i.name).map((p) => ({ ...p, id: `${i.name}:${p.group}${p.index}` })));
+    const cables = (spec.links ?? []).map((l, n) => ({
+      id: `L${n}`, aPortId: `${l.aItem}:${l.aGroup}${l.aIndex}`, bPortId: `${l.bItem}:${l.bGroup}${l.bIndex}`,
+    }));
+    return { assets, ports, cables };
+  };
+
+  it('부하를 거슬러 오르면 상용·바이패스·축전지가 다 나온다', () => {
+    const { assets, ports, cables } = place();
+    /* 밖에서 이을 것들을 붙인다 — 소내배전반(상용·바이패스) · 축전지반 · 부하. */
+    const ext = [
+      { id: '소내배전반', typeKey: 'CHG-DIST', name: '소내배전반' },
+      { id: 'UPS 축전지', typeKey: 'UPS-BATTERY', name: 'UPS 축전지' },
+      { id: '부하', typeKey: 'SID-125', name: '부하' },
+    ];
+    const extPorts = ext.flatMap((a) =>
+      instantiatePorts(typeOf(a.typeKey).ports, a.id).map((p) => ({ ...p, id: `${a.id}:${p.group}${p.index}` })));
+    const wired = [
+      ...cables,
+      { id: 'AC-IN', aPortId: '소내배전반:POWER-OUT-AC1', bPortId: '정류기부:POWER-IN-AC1' },
+      { id: 'AC-BYPASS', aPortId: '소내배전반:POWER-OUT-AC2', bPortId: '절체 스위치:POWER-IN-AC-BYPASS1' },
+      { id: 'BATT', aPortId: '직류 모선:POWER-BI-DC1', bPortId: 'UPS 축전지:POWER-DC1' },
+      { id: 'AC-OUT', aPortId: '절체 스위치:POWER-OUT-AC1', bPortId: '부하:POWER-IN-DC1' },
+    ];
+    /* 부하의 입력은 직류라 교류 출력과 못 잇는다 — 부하 쪽만 교류 입력으로 바꿔 둔다. */
+    const allPorts = [...ports, ...extPorts].map((p) =>
+      p.id === '부하:POWER-IN-DC1' ? { ...p, medium: 'power', direction: 'IN' as const, variant: 'AC' } : p);
+
+    const graph = buildTraceGraph({
+      types: {}, assets: [...assets, ...ext], ports: allPorts as never, cables: wired,
+    });
+    const reached = new Set(traceFrom(graph, '부하:POWER-IN-DC1', 'upstream').map((h) => h.toPortId));
+
+    expect([...reached]).toContain('소내배전반:POWER-OUT-AC1');   // 상용
+    expect([...reached]).toContain('소내배전반:POWER-OUT-AC2');   // 바이패스
+    expect([...reached]).toContain('UPS 축전지:POWER-DC1');       // 축전지
+  });
+
+  /**
+   * **바이패스로 도는 길에는 축전지가 없다** — UPS 를 쪼갠 값이 여기서 나온다.
+   *
+   * 바이패스 입력에서 내려가면 절체 스위치를 지나 부하로 갈 뿐, 직류 모선 쪽으로는 가지
+   * 않는다(그쪽은 인버터가 먹이는 길이다).
+   */
+  it('바이패스에서 내려가면 축전지를 거치지 않는다', () => {
+    const { assets, ports, cables } = place();
+    const graph = buildTraceGraph({ types: {}, assets, ports: ports as never, cables });
+    const reached = traceFrom(graph, '절체 스위치:POWER-IN-AC-BYPASS1', 'downstream').map((h) => h.toPortId);
+    expect(reached).toContain('절체 스위치:POWER-OUT-AC1');
+    expect(reached.some((id) => id.startsWith('직류 모선'))).toBe(false);
   });
 });

@@ -66,23 +66,30 @@ async function main() {
       });
     }
 
-    // Stage 6 이후 카탈로그는 관리자 편집 대상(운영 데이터) — 빈 카탈로그일 때만 시드.
-    // (운영 데이터 원복 방지 원칙: 참조데이터 upsert 는 편집 UI 가 없던 Stage 5 까지의 정책)
-    const existing = await tx.assetType.count();
-    if (existing > 0) {
-      console.log('[seed:next] catalog already populated — skip');
-      return null;
-    }
-
+    /*
+     * 카탈로그는 관리자 편집 대상(운영 데이터)이다 — **있는 것은 절대 안 건드린다.**
+     *
+     * 예전에는 「장비 품목이 하나라도 있으면 통째로 건너뛴다」였다. 안쪽이 `upsert` +
+     * 포트 선언 delete-and-recreate 라, 그러지 않으면 재시작마다 현장이 고친 선언이
+     * 원본으로 되돌아갔기 때문이다.
+     *
+     * 그런데 그 가드는 **새 표준 품목이 영영 못 들어온다**는 뜻이기도 했다 — 실물을 보고
+     * 품목을 하나 더 표준화할 때마다 운영 DB 에 손으로 넣어야 한다. 가드를 통째로 두는
+     * 대신 **없는 것만 만든다**로 바꾼다: 새 키는 들어오고, 있는 키는 손대지 않는다.
+     */
     for (const c of SEED_CATEGORIES) {
+      /* 있으면 손대지 않는다 — 이름·순서를 현장이 고쳤을 수 있다(가드를 푼 뒤로는
+         `update` 가 매 시작마다 그것을 되돌린다). */
       await tx.assetCategory.upsert({
         where: { key: c.key },
-        update: { name: c.name, sortOrder: c.sortOrder },
+        update: {},
         create: { key: c.key, name: c.name, sortOrder: c.sortOrder },
       });
     }
 
     for (const t of SEED_ASSET_TYPES) {
+      /* **있으면 손대지 않는다** — 이름도 품셈도 포트 선언도 현장이 고쳤을 수 있다. */
+      if (await tx.assetType.findUnique({ where: { key: t.key } })) continue;
       const category = await tx.assetCategory.findUniqueOrThrow({ where: { key: t.categoryKey } });
       const base = {
         name: t.name,
@@ -94,13 +101,7 @@ async function main() {
         removeManDays: t.labor.removeManDays,
         relocateManDays: t.labor.relocateManDays,
       };
-      const type = await tx.assetType.upsert({
-        where: { key: t.key },
-        update: base,
-        create: { key: t.key, ...base },
-      });
-      // 명세는 delete-and-recreate (타입 편집 전 단계라 참조 없음 — 멱등)
-      await tx.assetPortTemplate.deleteMany({ where: { typeId: type.id } });
+      const type = await tx.assetType.create({ data: { key: t.key, ...base } });
       for (const [i, p] of t.ports.entries()) {
         await tx.assetPortTemplate.create({
           data: { typeId: type.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, variant: p.variant ?? null, sortOrder: i },
@@ -120,6 +121,9 @@ async function main() {
         data: {
           key: a.key, name: a.name, categoryId: category.id,
           sortOrder: a.sortOrder,
+          /* 「1식」 공량 — 통째로 사는 설비(UPS)는 여기 적고 안의 모듈은 0 이다.
+             안 적으면(null) 안에 든 자산의 공량을 합쳐 센다. */
+          ...(a.labor ?? {}),
         },
       });
       /* 항목 이름 → 만들어진 id. 배선이 이름으로 항목을 가리키므로(시드에는 id 가 없다)
@@ -156,9 +160,10 @@ async function main() {
 
     for (const cat of SEED_CABLE_CATEGORIES) {
       const group = await tx.cableGroup.findUniqueOrThrow({ where: { key: cat.groupKey } });
+      /* 있으면 손대지 않는다 — 위와 같은 이유. */
       await tx.cableCategory.upsert({
         where: { groupId_name: { groupId: group.id, name: cat.name } },
-        update: { sortOrder: cat.sortOrder },
+        update: {},
         create: {
           groupId: group.id, name: cat.name, sortOrder: cat.sortOrder,
           laborCode: cat.laborCode, unitPrice: cat.unitPrice,
