@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTraceTree, traceChains, traceTreeSize } from './tree.js';
+import { buildTraceTree, traceChains, traceLanes, traceTreeSize } from './tree.js';
 import type { TraceTreeNode } from './tree.js';
 import type { TraceHop } from './graph.js';
 
@@ -127,5 +127,74 @@ describe('traceChains', () => {
 
   it('혼자면 그 자신이 한 길이다', () => {
     expect(traceChains(leaf('me')).map((path) => path.map((n) => n.portId))).toEqual([['me']]);
+  });
+});
+
+/**
+ * 레인 그래프 — **모이는 그림**을 좁은 세로 칸에.
+ *
+ * 트리는 갈라지는 것만 그린다. 거슬러 오르는 길은 여럿이 나에게로 모이므로 트리가 아니고,
+ * 그래서 커밋 그래프와 같은 레인으로 그린다. 값이 되는 성질: **깊이가 늘어도 폭이 안 변한다.**
+ */
+describe('traceLanes — 모이는 그림', () => {
+  const n = (portId: string, ...children: TraceTreeNode[]): TraceTreeNode =>
+    ({ portId, children } as TraceTreeNode);
+  /** 한 줄을 글자로 — 레인 자리에 마디(●)·합류(╯)·지나감(│)을 찍는다. */
+  const show = (rows: ReturnType<typeof traceLanes>) => rows.map((r) => {
+    const width = Math.max(r.lane, ...r.merges, ...r.through) + 1;
+    const cells = Array.from({ length: width }, (_, i) =>
+      i === r.lane ? '●' : r.merges.includes(i) ? '╯' : r.through.includes(i) ? '│' : ' ');
+    return `${cells.join('')} ${r.node.portId}`;
+  });
+
+  /** 강압기의 상류 — 정류기 둘이 각자 교류에서 오고, 모선에서 합쳐져 나에게 온다. */
+  it('출처가 위, 내가 맨 아래 — 합류 자리에서 레인이 닫힌다', () => {
+    const tree = n('SID', n('분배부DC', n('IR1', n('AC1')), n('IR2', n('AC2')), n('축전지')));
+    expect(show(traceLanes(tree))).toEqual([
+      '● AC1',
+      '● IR1',
+      '│● AC2',
+      '│● IR2',
+      '││● 축전지',
+      '●╯╯ 분배부DC',
+      '● SID',
+    ]);
+  });
+
+  /** 곧은 길은 레인 하나 — 깊어져도 폭이 안 는다(들여쓰기 트리와 갈리는 자리). */
+  it('깊어져도 레인은 하나뿐 — 폭이 안 변한다', () => {
+    const deep = n('나', n('A', n('B', n('C', n('D')))));
+    const rows = traceLanes(deep);
+    expect(rows.map((r) => r.lane)).toEqual([0, 0, 0, 0, 0]);
+    expect(rows.map((r) => r.node.portId)).toEqual(['D', 'C', 'B', 'A', '나']);
+  });
+
+  /**
+   * 닫힌 레인은 **되쓴다** — 안 그러면 갈래가 끝나도 폭이 안 준다.
+   *
+   * a2 가 쓰던 레인 1은 A 에서 닫히고, 곧바로 b1 이 그 자리를 받는다. 폭은 **그때
+   * 동시에 살아 있는 갈래 수**가 정한다 — b2 를 낼 때 A(0)·b1(1)·b2(2) 셋이라 셋이다.
+   */
+  it('닫힌 레인을 되쓴다 — 폭은 동시에 살아 있는 갈래 수', () => {
+    const tree = n('나', n('A', n('a1'), n('a2')), n('B', n('b1'), n('b2')));
+    const rows = traceLanes(tree);
+    expect(rows.find((r) => r.node.portId === 'b1')!.lane).toBe(1); // a2 가 쓰던 자리
+    expect(Math.max(...rows.map((r) => r.lane))).toBe(2);
+    expect(show(rows)).toEqual([
+      '● a1',
+      '│● a2',
+      '●╯ A',
+      '│● b1',
+      '││● b2',
+      '│●╯ B',
+      '●╯ 나',
+    ]);
+  });
+
+  /** 뿌리(나)에서 레인이 끝나고, 잎(출처)에서 시작한다. */
+  it('레인은 출처에서 시작해 나에게서 끝난다', () => {
+    const rows = traceLanes(n('나', n('A')));
+    expect(rows.map((r) => [r.node.portId, r.fromAbove, r.toBelow]))
+      .toEqual([['A', false, true], ['나', true, false]]);
   });
 });

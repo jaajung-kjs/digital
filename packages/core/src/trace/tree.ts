@@ -88,3 +88,76 @@ export function traceChains(root: TraceTreeNode): TraceTreeNode[][] {
 export function traceTreeSize(node: TraceTreeNode): number {
   return node.children.reduce((n, c) => n + 1 + traceTreeSize(c), 0);
 }
+
+/** 레인 그래프의 줄 하나 — 마디 하나와 그 옆을 지나는 레인들. */
+export interface TraceLaneRow {
+  node: TraceTreeNode;
+  /** 이 마디가 선 레인(0부터). */
+  lane: number;
+  /** 이 줄에서 **닫히는** 레인들 — 위에서 내려와 이 마디로 꺾여 든다(합류). */
+  merges: readonly number[];
+  /** 마디도 합류도 아닌, 이 줄을 위아래로 **그냥 지나가는** 레인들. */
+  through: readonly number[];
+  /** 이 마디의 레인이 위에서 이어져 오는가 — 잎(출처)이면 여기서 시작한다. */
+  fromAbove: boolean;
+  /** 이 마디의 레인이 아래로 이어지는가 — 뿌리(나)면 여기서 끝난다. */
+  toBelow: boolean;
+}
+
+/**
+ * 거슬러 오르는 추적을 **레인 그래프**로 편다 — 출처가 위, 내가 맨 아래.
+ *
+ * 트리로는 이 모양을 담을 수 없다. **트리는 갈라지는 것만 그린다.** 내려가는 추적은
+ * 나에게서 갈라져 나가니 트리가 딱 맞지만, 거슬러 오르는 길은 **여럿이 나에게로 모인다**.
+ * 그것을 트리에 억지로 담으려다 세 번 깨졌다: 경로마다 한 줄로 펴면 겹치는 꼬리가
+ * 되풀이되고, 위아래로 뒤집으면 「자식이 부모 위」라는 낯선 규칙을 익혀야 하고, 좌우로
+ * 뒤집으면 깊이 셋에서 이미 판을 넘친다(394px 대 303px).
+ *
+ * 모이는 그림을 좁은 세로 칸에 그리는 방법은 이미 있다 — **커밋 그래프**다
+ * (`git log --graph`). 마디는 한 줄씩 내려가고, 레인은 세로줄로 남고, 합류는 꺾임으로
+ * 그린다. 값이 되는 성질: **깊이가 늘어도 폭이 안 변한다.** 폭을 먹는 것은 깊이가 아니라
+ * 「동시에 살아 있는 갈래 수」이고, 상류에서 그것은 곧 출처의 수다(보통 둘·셋).
+ *
+ *   ● 분배부 · 교류 출력 1
+ *   ● IR-48 #1 · 전원 출력
+ *   │ ● 분배부 · 교류 출력 2
+ *   │ ● IR-48 #2 · 전원 출력
+ *   │ │ ● 축전지 · 축전지 단자
+ *   ●─┴─╯ 분배부 · 직류 출력 2
+ *   ◉ SID-125 · 전원 입력
+ *
+ * 커밋 그래프의 어려운 부분(금지 열 계산, 레인 파편화)은 머지가 부모를 여럿 갖기
+ * 때문인데, 추적 결과는 마디마다 부모가 하나뿐이라(`traceFrom` 의 `visited`) 그 사정이
+ * 없다. 자식을 먼저 내고, 마디는 **첫 자식의 레인을 물려받고**, 나머지 자식의 레인은
+ * 그 자리에서 닫는다. 닫힌 레인은 **다시 쓴다** — 안 그러면 갈래가 끝나도 폭이 안 준다.
+ */
+export function traceLanes(root: TraceTreeNode): TraceLaneRow[] {
+  const rows: TraceLaneRow[] = [];
+  /** 지금 살아 있는 레인들 — 닫히면 그 번호를 되쓴다. */
+  const open = new Set<number>();
+  const take = (): number => {
+    let i = 0;
+    while (open.has(i)) i += 1;
+    open.add(i);
+    return i;
+  };
+  /** 이 줄을 그냥 지나가는 레인들 — 살아 있는 것 중 제 레인이 아닌 것. */
+  const passing = (lane: number): number[] => [...open].filter((l) => l !== lane).sort((a, b) => a - b);
+
+  const walk = (node: TraceTreeNode, root_: boolean): number => {
+    if (node.children.length === 0) {
+      const lane = take();
+      rows.push({ node, lane, merges: [], through: passing(lane), fromAbove: false, toBelow: !root_ });
+      return lane;
+    }
+    /* 자식(출처)을 먼저 낸다 — 이 차례가 곧 「출처에서 나에게로」다. */
+    const lanes = node.children.map((c) => walk(c, false));
+    const lane = lanes[0]!;
+    const merges = lanes.slice(1);
+    for (const l of merges) open.delete(l);
+    rows.push({ node, lane, merges, through: passing(lane), fromAbove: true, toBelow: !root_ });
+    return lane;
+  };
+  walk(root, true);
+  return rows;
+}

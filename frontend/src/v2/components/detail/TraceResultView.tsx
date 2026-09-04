@@ -12,6 +12,7 @@ import type { TraceTreeNode } from '@twin/core';
 import { Button, SELECTABLE, cn } from '../../../components/ui';
 import type { TraceNodeLabel } from '../../traceLabels';
 import type { TraceResult } from '../../traceSelectors';
+import { TraceLaneGraph } from './TraceLaneGraph';
 
 /**
  * 추적 마디 한 줄 — **무엇인가**(굵게) 위에 서고 **어디인가**(흐리게)가 그 아래 붙는다.
@@ -34,7 +35,9 @@ export function TraceNodeText({
       {label.secondary && <span className="block break-words text-xs text-content-faint">{label.secondary}</span>}
     </>
   );
-  if (!onClick) return <span className={cn('min-w-0 flex-1 px-1', muted ? 'text-content-muted' : 'text-content')}>{body}</span>;
+  /* `block` 이어야 한다 — 안쪽이 블록 두 줄이라 인라인으로 두면 브라우저가 줄상자를
+     하나 더 만들어 줄 높이가 배로 뛴다(레인 그래프처럼 flex 밖에 놓일 때 드러난다). */
+  if (!onClick) return <span className={cn('block min-w-0 flex-1 px-1', muted ? 'text-content-muted' : 'text-content')}>{body}</span>;
   return (
     <button
       type="button"
@@ -143,12 +146,23 @@ export function TraceResultView({
               {portFlowLabel(startMedium, flow === 'upstream' ? 'upstream' : 'downstream')}
             </div>
           )}
-          <div className="flex items-baseline gap-1 text-sm">
-            <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
-            <TraceNodeText label={label(startPortId)} />
-          </div>
-          {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
-          <TraceBranches nodes={tree.children} depth={1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
+          {flow === 'upstream' ? (
+            /* **모이는 물음은 레인으로.** 트리는 갈라지는 것만 그린다 — 여럿이 나에게로
+               모이는 그림을 트리에 담으려다 세 번 깨졌다. 커밋 그래프와 같은 어법이라
+               출처가 위, 내가 맨 아래에 서고 **깊이가 늘어도 폭이 안 변한다**. */
+            <TraceLaneGraph tree={tree} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
+          ) : (
+            /* **갈라지는 물음은 트리로.** 나에게서 뻗어 나가는 것은 트리 그 자체이고,
+               들여쓰기 트리는 형제가 열이어도 폭이 안 는다 — 레인으로 그리면 회로 수만큼
+               레인이 서서 이름 칸을 먹는다(분전반 열 회로면 레인 열). */
+            <>
+              <div className="flex items-baseline gap-1 text-sm">
+                <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
+                <TraceNodeText label={label(startPortId)} />
+              </div>
+              <TraceBranches nodes={tree.children} depth={1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
+            </>
+          )}
         </div>
       ))}
     </div>
