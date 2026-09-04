@@ -85,10 +85,10 @@ describe('UPS 1식 — 놓았을 때의 추적', () => {
       instantiatePorts(typeOf(a.typeKey).ports, a.id).map((p) => ({ ...p, id: `${a.id}:${p.group}${p.index}` })));
     const wired = [
       ...cables,
-      { id: 'AC-IN', aPortId: '소내배전반:POWER-OUT-AC1', bPortId: '정류기부:POWER-IN-AC1' },
-      { id: 'AC-BYPASS', aPortId: '소내배전반:POWER-OUT-AC2', bPortId: '절체 스위치:POWER-IN-AC-BYPASS1' },
-      { id: 'BATT', aPortId: '직류 모선:POWER-BI-DC1', bPortId: 'UPS 축전지:POWER-DC1' },
-      { id: 'AC-OUT', aPortId: '절체 스위치:POWER-OUT-AC1', bPortId: '부하:POWER-IN-DC1' },
+      { id: 'AC-IN', aPortId: '소내배전반:POWER-OUT-AC1', bPortId: 'UPS 정류기:POWER-IN-AC1' },
+      { id: 'AC-BYPASS', aPortId: '소내배전반:POWER-OUT-AC2', bPortId: 'UPS 절체 스위치:POWER-IN-AC-BYPASS1' },
+      { id: 'BATT', aPortId: 'UPS 직류 모선:POWER-BI-DC1', bPortId: 'UPS 축전지:POWER-DC1' },
+      { id: 'AC-OUT', aPortId: 'UPS 절체 스위치:POWER-OUT-AC1', bPortId: '부하:POWER-IN-DC1' },
     ];
     /* 부하의 입력은 직류라 교류 출력과 못 잇는다 — 부하 쪽만 교류 입력으로 바꿔 둔다. */
     const allPorts = [...ports, ...extPorts].map((p) =>
@@ -113,8 +113,8 @@ describe('UPS 1식 — 놓았을 때의 추적', () => {
   it('바이패스에서 내려가면 축전지를 거치지 않는다', () => {
     const { assets, ports, cables } = place();
     const graph = buildTraceGraph({ types: {}, assets, ports: ports as never, cables });
-    const reached = traceFrom(graph, '절체 스위치:POWER-IN-AC-BYPASS1', 'downstream').map((h) => h.toPortId);
-    expect(reached).toContain('절체 스위치:POWER-OUT-AC1');
-    expect(reached.some((id) => id.startsWith('직류 모선'))).toBe(false);
+    const reached = traceFrom(graph, 'UPS 절체 스위치:POWER-IN-AC-BYPASS1', 'downstream').map((h) => h.toPortId);
+    expect(reached).toContain('UPS 절체 스위치:POWER-OUT-AC1');
+    expect(reached.some((id) => id.startsWith('UPS 직류 모선'))).toBe(false);
   });
 });

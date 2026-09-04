@@ -196,13 +196,15 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
    */
   {
     key: 'UPS-RECT',
-    name: 'UPS 정류기부',
+    name: 'UPS 정류기',
     categoryKey: '전원',
     sortOrder: 50,
     labor: labor(0, 0, 0, 0),
     /* 상용 교류를 직류로 — 같은 갈래의 출구가 없으므로 통과가 **갈래를 넘는다**(정류). */
+    /* `AC INPUT` 은 **함체 앞면에 찍힌 글자 그대로**다 — 현장에서 차단기 라벨과 화면을
+       눈으로 맞출 수 있어야 한다. 라벨이 없는 안쪽 자리는 우리말로 적는다. */
     ports: [
-      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '교류 입력', variant: 'AC' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: 'AC INPUT', variant: 'AC' },
       { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '직류 출력', variant: 'DC' },
     ],
   },
@@ -223,12 +225,12 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ports: [
       { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '직류 입력', variant: 'DC' },
       { group: 'POWER-OUT-DC', count: 1, direction: 'OUT', medium: 'power', namePattern: '직류 출력', variant: 'DC' },
-      { group: 'POWER-BI-DC', count: 2, direction: 'BI', medium: 'power', namePattern: '축전지 모선 {n}', variant: 'DC' },
+      { group: 'POWER-BI-DC', count: 2, direction: 'BI', medium: 'power', namePattern: 'BATTERY {n}', variant: 'DC' },
     ],
   },
   {
     key: 'UPS-INV',
-    name: 'UPS 인버터부',
+    name: 'UPS 인버터',
     categoryKey: '전원',
     sortOrder: 52,
     labor: labor(0, 0, 0, 0),
@@ -253,13 +255,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
      */
     ports: [
       { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '인버터 입력', variant: 'AC' },
-      { group: 'POWER-IN-AC-BYPASS', count: 1, direction: 'IN', medium: 'power', namePattern: '바이패스 입력', variant: 'AC' },
-      { group: 'POWER-OUT-AC', count: 1, direction: 'OUT', medium: 'power', namePattern: '교류 출력', variant: 'AC' },
+      { group: 'POWER-IN-AC-BYPASS', count: 1, direction: 'IN', medium: 'power', namePattern: 'AC BYPASS', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 1, direction: 'OUT', medium: 'power', namePattern: 'AC OUTPUT', variant: 'AC' },
     ],
   },
   {
     key: 'UPS-CTRL',
-    name: 'UPS 감시제어부',
+    name: 'UPS 감시제어반',
     categoryKey: '전원',
     sortOrder: 54,
     labor: labor(0, 0, 0, 0),
@@ -407,8 +409,9 @@ export const SEED_ASSEMBLIES: {
     /*
      * **UPS 1식** — 랙 한 대가 통째로 무정전전원장치다.
      *
-     * 함체 앞면 차단기가 곧 밖으로 나가는 자리다: `AC INPUT`(정류기부) · `AC BYPASS`
-     * (절체 스위치) · `AC OUTPUT`(절체 스위치) · `BATTERY`(직류 모선). 그 넷만 현장이 잇고,
+     * 함체 앞면 차단기가 곧 밖으로 나가는 자리다: `AC INPUT`(UPS 정류기) · `AC BYPASS`
+     * (UPS 절체 스위치) · `AC OUTPUT`(UPS 절체 스위치) · `BATTERY`(UPS 직류 모선).
+     * **포트 이름이 그 라벨 그대로**라 현장에서 눈으로 맞출 수 있다. 그 넷만 현장이 잇고,
      * 안쪽 여섯 본은 놓으면 함께 선다.
      *
      * **축전지는 여기 없다.** 별개 함체라 설비도 따로다(`UPS-BATT-RACK`) — 한 설비로
@@ -421,22 +424,22 @@ export const SEED_ASSEMBLIES: {
     labor: labor(4.0, 2.0, 4.0, 18_000_000),
     /* 전기가 지나는 차례대로 위에서 아래로 쌓는다 — 판만 봐도 흐름이 읽힌다. */
     items: [
-      { typeKey: 'UPS-CTRL', name: '감시제어부', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
-      { typeKey: 'UPS-RECT', name: '정류기부', col: 0, row: 3, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
-      { typeKey: 'UPS-DCBUS', name: '직류 모선', col: 0, row: 7, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
-      { typeKey: 'UPS-INV', name: '인버터부', col: 0, row: 10, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
-      { typeKey: 'UPS-STS', name: '절체 스위치', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'UPS-CTRL', name: 'UPS 감시제어반', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'UPS-RECT', name: 'UPS 정류기', col: 0, row: 3, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: 'UPS-DCBUS', name: 'UPS 직류 모선', col: 0, row: 7, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'UPS-INV', name: 'UPS 인버터', col: 0, row: 10, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: 'UPS-STS', name: 'UPS 절체 스위치', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
     ],
     /*
-     * 흐름: 상용 교류가 정류기부로 들어와 직류가 되고, 직류 모선에서 축전지와 만나고,
-     * 인버터부가 다시 교류로 만들어 절체 스위치로 보낸다. 절체 스위치는 그것과 바이패스
+     * 흐름: 상용 교류가 정류기로 들어와 직류가 되고, 직류 모선에서 축전지와 만나고,
+     * 인버터가 다시 교류로 만들어 절체 스위치로 보낸다. 절체 스위치는 그것과 바이패스
      * 중 하나를 골라 부하로 낸다 — **바이패스로 도는 동안에는 축전지가 부하를 못 받친다**는
      * 사실이 이 배선에서 그대로 읽힌다.
      */
     links: [
-      { aItem: '정류기부', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '직류 모선', bGroup: 'POWER-IN-DC', bIndex: 1 },
-      { aItem: '직류 모선', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '인버터부', bGroup: 'POWER-IN-DC', bIndex: 1 },
-      { aItem: '인버터부', aGroup: 'POWER-OUT-AC', aIndex: 1, bItem: '절체 스위치', bGroup: 'POWER-IN-AC', bIndex: 1 },
+      { aItem: 'UPS 정류기', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: 'UPS 직류 모선', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: 'UPS 직류 모선', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: 'UPS 인버터', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: 'UPS 인버터', aGroup: 'POWER-OUT-AC', aIndex: 1, bItem: 'UPS 절체 스위치', bGroup: 'POWER-IN-AC', bIndex: 1 },
       /* 감시제어부는 **전원을 나르지 않는다** — 제어부와 전력단 사이는 함체 안의 하네스라
          케이블 대장에 오르지 않는다. 충전기의 IRCU↔정류기 내부통신은 정류기가 뽑아 쓰는
          **별개 모듈**이라 실제로 선이 오갔던 것이고, 일체형 UPS 는 사정이 다르다.
@@ -454,7 +457,7 @@ export const SEED_ASSEMBLIES: {
     key: 'UPS-BATT-RACK', name: 'UPS 축전지반', categoryKey: '전원', sortOrder: 42,
     labor: labor(4.0, 2.0, 4.0, 9_000_000),
     items: [
-      { typeKey: 'UPS-BATTERY', name: '축전지', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
+      { typeKey: 'UPS-BATTERY', name: 'UPS 축전지', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
     ],
   },
 ];
