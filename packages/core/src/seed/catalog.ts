@@ -423,10 +423,14 @@ export const SEED_ASSEMBLIES: {
      */
     key: 'PWR-DIST-SET', name: '정보통신용 전원분전반', categoryKey: '전원', sortOrder: 30,
     labor: labor(2.0, 1.0, 2.0, 6_000_000),
+    /*
+     * 계통은 **가로로 나란히** 선다 — 실물이 그렇다(문을 열면 차단기 열이 좌우로 늘어선다).
+     * 랙(충전기·UPS)은 장비를 세로로 쌓지만 분전반은 계통을 옆으로 편다.
+     */
     items: [
-      { typeKey: 'AC-FEEDER', name: '상용 피더', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
-      { typeKey: 'AC-FEEDER', name: 'UPS 피더', col: 0, row: 7, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
-      { typeKey: 'DC-FEEDER', name: '직류 피더', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 6 },
+      { typeKey: 'AC-FEEDER', name: '상용 피더', col: 0, row: 0, colSpan: 3, rowSpan: ASSEMBLY_GRID.rows },
+      { typeKey: 'AC-FEEDER', name: 'UPS 피더', col: 3, row: 0, colSpan: 3, rowSpan: ASSEMBLY_GRID.rows },
+      { typeKey: 'DC-FEEDER', name: '직류 피더', col: 6, row: 0, colSpan: 3, rowSpan: ASSEMBLY_GRID.rows },
     ],
   },
   {
