@@ -161,3 +161,38 @@ export function traceLanes(root: TraceTreeNode): TraceLaneRow[] {
   walk(root, true);
   return rows;
 }
+
+/** 들여쓰기 트리의 줄 하나 — 마디 하나와 그 왼쪽을 지나는 세로선들. */
+export interface TraceIndentRow {
+  node: TraceTreeNode;
+  /** 들여쓰기 켜 — 뿌리가 0. */
+  depth: number;
+  /** 이 줄 왼쪽을 **지나가는** 켜들 — 위 조상 중 아직 형제가 남은 것. */
+  rails: readonly number[];
+  /** 제 형제 중 마지막인가 — 이음선이 꺾여 끝난다(└). 아니면 이어진다(├). */
+  last: boolean;
+}
+
+/**
+ * 내려가는 추적을 **들여쓰기 줄들**로 편다 — 나에게서 갈라져 나간다.
+ *
+ * 트리 모양 그대로지만 **평평한 줄 목록**으로 낸다. 그러면 레인 그래프와 **같은 조각으로**
+ * 그릴 수 있다: 두 그림이 같은 점·같은 선·같은 눈높이를 쓴다.
+ *
+ * 예전에는 중첩 `<ul>` 에 `border-l` 과 `└`·`├` **글자**로 그렸다. 글자 이음선은 줄
+ * 사이(line-height)에서 끊겨 실선이 점선처럼 보이고, 굵기와 색이 그린 선과 달라 같은
+ * 화면에 두 어법이 섰다.
+ */
+export function traceIndentRows(root: TraceTreeNode): TraceIndentRow[] {
+  const rows: TraceIndentRow[] = [];
+  const walk = (node: TraceTreeNode, depth: number, rails: number[], last: boolean): void => {
+    rows.push({ node, depth, rails: [...rails], last });
+    /* 내 자식들의 줄에서 **내 이음선 켜**(`depth - 1`)에 세로선이 계속 지나가는가 —
+       내가 형제 중 마지막이 아니라면 그렇다. 그게 「아래에 형제가 더 있다」는 표시다. */
+    const forChildren = depth > 0 && !last ? [...rails, depth - 1] : rails;
+    node.children.forEach((child, i) =>
+      walk(child, depth + 1, forChildren, i === node.children.length - 1));
+  };
+  walk(root, 0, [], true);
+  return rows;
+}

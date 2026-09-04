@@ -7,12 +7,13 @@
  *
  * **거동은 그대로다** — 옮기기만 했다.
  */
-import { buildTraceTree, portFlowLabel } from '@twin/core';
+import { buildTraceTree, portFlowLabel, traceIndentRows } from '@twin/core';
 import type { TraceTreeNode } from '@twin/core';
 import { Button, SELECTABLE, cn } from '../../../components/ui';
 import type { TraceNodeLabel } from '../../traceLabels';
 import type { TraceResult } from '../../traceSelectors';
 import { TraceLaneGraph } from './TraceLaneGraph';
+import { TraceGutterRow, type GutterCell } from './TraceGutter';
 
 /**
  * 추적 마디 한 줄 — **무엇인가**(굵게) 위에 서고 **어디인가**(흐리게)가 그 아래 붙는다.
@@ -51,48 +52,56 @@ export function TraceNodeText({
 }
 
 /**
- * 추적 트리 한 켜 — **갈래는 들여쓰기와 이음선으로** 말한다.
+ * 내려가는 추적 — **나에게서 갈라져 나간다.**
  *
- * 예전에는 번호 붙은 한 줄짜리 목록이었다. 그러면 분전반 한 대에서 나가는 열 회로가 2·3·4…
- * 로 줄줄이 서서 **직렬로 읽힌다** — 실제로는 같은 자리에서 갈라지는 형제인데.
+ *   ◎ SID-125 · 전원 입력
+ *   ├ 충전기 분배부 · 직류 출력 2
+ *   │ └ …
  *
- * 마디는 눌러서 그 장비로 갈 수 있다(글자로만 두면 표에서 다시 찾아야 한다).
+ * 갈래는 들여쓰기가 말한다. 형제가 열이어도 폭이 안 는다 — 레인으로 그리면 회로 수만큼
+ * 레인이 서서 이름 칸을 먹는다(분전반 열 회로면 140px). 거슬러 오르는 쪽과 그림이 갈리는
+ * 까닭은 **폭을 먹는 축이 반대**여서다: 트리는 깊이에, 레인은 갈래에 약하다.
+ *
+ * 점과 선은 레인 그래프와 **같은 조각**이다(`TraceGutter`). 예전에는 `└`·`├` 글자로
+ * 그렸는데, 글자 이음선은 줄 사이에서 끊겨 실선이 점선처럼 보였고 굵기와 색도 달랐다.
  */
-function TraceBranches({
-  nodes, depth, label, assetOf, onSelectAsset,
+function TraceIndentTree({
+  tree, label, assetOf, onSelectAsset,
 }: {
-  nodes: readonly TraceTreeNode[];
-  depth: number;
-  label: (portId: string) => { primary: string; secondary: string | null };
+  tree: TraceTreeNode;
+  label: (portId: string) => TraceNodeLabel;
   assetOf: (portId: string) => { id: string; name: string } | null;
-  /** 자산(또는 그 안의 장비)을 고른다 — 포트까지 함께 가리킬 수 있다. */
   onSelectAsset: (id: string, portId?: string | null) => void;
 }) {
-  if (nodes.length === 0) return null;
+  const rows = traceIndentRows(tree);
+  const width = Math.max(...rows.map((r) => r.depth)) + 1;
+
   return (
-    <ul className={cn('space-y-0.5', depth > 0 && 'ml-3 border-l border-line pl-2')}>
-      {nodes.map((node, i) => {
-        const target = assetOf(node.portId);
-        /* 마지막 갈래는 꺾여 끝나고(└), 그 위는 계속 이어진다(├) — 형제가 몇인지 눈에 잡힌다. */
-        const last = i === nodes.length - 1;
+    <div>
+      {rows.map((row, i) => {
+        const target = assetOf(row.node.portId);
+        const isRoot = row.depth === 0;
+        const cells: GutterCell[] = [
+          { lane: row.depth, node: true, toBelow: row.node.children.length > 0 },
+          /* 부모에서 나에게로 꺾여 드는 이음선 — 형제가 더 남았으면 아래로 이어진다(├),
+             마지막이면 여기서 끝난다(└). */
+          ...(isRoot ? [] : [{ lane: row.depth - 1, fromAbove: true, toNode: true, toBelow: !row.last }]),
+          /* 위 조상 중 아직 형제가 남은 켜 — 세로선이 그냥 지나간다. */
+          ...row.rails.map((lane) => ({ lane, fromAbove: true, toBelow: true })),
+        ];
         return (
-          <li key={node.portId} className="text-sm text-content">
-            <div className="flex items-baseline gap-1">
-              {/* 갈라지는 자리를 눈으로 잡아 주는 이음선 — 깊이는 들여쓰기가 말한다. */}
-              <span aria-hidden className="shrink-0 text-xs text-content-faint">{last ? '└' : '├'}</span>
-              <TraceNodeText
-                label={label(node.portId)}
-                muted
-                /* **그 포트를 고른 상태로** 간다 — 자산만 가리키면 첫 탭이 열려, 방금 본
-                   그 포트를 판에서 다시 찾아야 한다. */
-                {...(target ? { onClick: () => onSelectAsset(target.id, node.portId), title: `${target.name} 으로 이동` } : {})}
-              />
-            </div>
-            <TraceBranches nodes={node.children} depth={depth + 1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
-          </li>
+          <TraceGutterRow key={`${i}-${row.node.portId}`} cells={cells} width={width} root={isRoot}>
+            <TraceNodeText
+              label={label(row.node.portId)}
+              muted={!isRoot}
+              {...(target && !isRoot
+                ? { onClick: () => onSelectAsset(target.id, row.node.portId), title: `${target.name} 으로 이동` }
+                : {})}
+            />
+          </TraceGutterRow>
         );
       })}
-    </ul>
+    </div>
   );
 }
 
@@ -147,21 +156,11 @@ export function TraceResultView({
             </div>
           )}
           {flow === 'upstream' ? (
-            /* **모이는 물음은 레인으로.** 트리는 갈라지는 것만 그린다 — 여럿이 나에게로
-               모이는 그림을 트리에 담으려다 세 번 깨졌다. 커밋 그래프와 같은 어법이라
-               출처가 위, 내가 맨 아래에 서고 **깊이가 늘어도 폭이 안 변한다**. */
+            /* **모이는 물음은 레인으로.** 트리는 갈라지는 것만 그린다. */
             <TraceLaneGraph tree={tree} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
           ) : (
-            /* **갈라지는 물음은 트리로.** 나에게서 뻗어 나가는 것은 트리 그 자체이고,
-               들여쓰기 트리는 형제가 열이어도 폭이 안 는다 — 레인으로 그리면 회로 수만큼
-               레인이 서서 이름 칸을 먹는다(분전반 열 회로면 레인 열). */
-            <>
-              <div className="flex items-baseline gap-1 text-sm">
-                <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
-                <TraceNodeText label={label(startPortId)} />
-              </div>
-              <TraceBranches nodes={tree.children} depth={1} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
-            </>
+            /* **갈라지는 물음은 트리로.** 형제가 열이어도 폭이 안 든다. */
+            <TraceIndentTree tree={tree} label={label} assetOf={assetOf} onSelectAsset={onSelectAsset} />
           )}
         </div>
       ))}

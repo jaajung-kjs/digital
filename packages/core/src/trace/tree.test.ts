@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTraceTree, traceChains, traceLanes, traceTreeSize } from './tree.js';
+import { buildTraceTree, traceChains, traceIndentRows, traceLanes, traceTreeSize } from './tree.js';
 import type { TraceTreeNode } from './tree.js';
 import type { TraceHop } from './graph.js';
 
@@ -196,5 +196,28 @@ describe('traceLanes — 모이는 그림', () => {
     const rows = traceLanes(n('나', n('A')));
     expect(rows.map((r) => [r.node.portId, r.fromAbove, r.toBelow]))
       .toEqual([['A', false, true], ['나', true, false]]);
+  });
+});
+
+/** 내려가는 추적 — 트리 모양 그대로지만 레인 그래프와 **같은 조각으로** 그릴 수 있게 편다. */
+describe('traceIndentRows — 갈라지는 그림', () => {
+  const n = (portId: string, ...children: TraceTreeNode[]): TraceTreeNode =>
+    ({ portId, children } as TraceTreeNode);
+  const show = (rows: ReturnType<typeof traceIndentRows>) => rows.map((r) => {
+    const cells = Array.from({ length: r.depth }, (_, i) =>
+      i === r.depth - 1 ? (r.last ? '└' : '├') : r.rails.includes(i) ? '│' : ' ');
+    return `${cells.join('')}${r.node.portId}`;
+  });
+
+  it('뿌리가 맨 위, 갈래는 들여쓰기로 — 마지막 형제는 꺾여 끝난다', () => {
+    expect(show(traceIndentRows(n('나', n('A', n('a1'), n('a2')), n('B')))))
+      .toEqual(['나', '├A', '│├a1', '│└a2', '└B']);
+  });
+
+  /** 형제가 더 남았으면 그 켜에 세로선이 계속 지나간다 — 마지막이면 끊긴다. */
+  it('지나가는 세로선은 형제가 남은 켜에만', () => {
+    const rows = traceIndentRows(n('나', n('A', n('a1')), n('B', n('b1'))));
+    expect(rows.map((r) => `${r.node.portId}:${r.rails.join(',')}`))
+      .toEqual(['나:', 'A:', 'a1:0', 'B:', 'b1:']);
   });
 });
