@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetRef, AssetTypeSpec, CableRef, PortRef } from '../catalog/types.js';
 import { instantiatePorts } from '../catalog/instantiatePorts.js';
-import { buildTraceGraph, traceFrom } from './graph.js';
+import { buildTraceGraph, traceFlows, traceFrom } from './graph.js';
 
 const device: AssetTypeSpec = {
   key: 'DEV',
@@ -298,5 +298,36 @@ describe('모선 — 방향 없는 자리를 지나는 추적', () => {
     const reached = traceFrom(scene(), 'batt:T1').map((h) => h.toPortId);
     expect(reached).toContain('rect:OUT1');
     expect(reached).toContain('load1:IN1');
+  });
+
+  /**
+   * **답이 둘인 물음**은 따로 답한다 — 한 그루에 섞으면 공급원과 부하가 형제로 서서
+   * 넷이 같은 것처럼 읽힌다.
+   */
+  it('모선 단자는 질문이 둘, 방향 있는 자리는 하나', () => {
+    const g = scene();
+    expect(traceFlows(g.ports.get('batt:T1'))).toEqual(['upstream', 'downstream']);
+    expect(traceFlows(g.ports.get('load1:IN1'))).toEqual(['upstream']);
+    expect(traceFlows(g.ports.get('rect:OUT1'))).toEqual(['downstream']);
+  });
+
+  it('질문을 갈라 물으면 나를 먹이는 쪽과 내가 먹이는 쪽이 나뉜다', () => {
+    const g = scene();
+    const up = traceFrom(g, 'batt:T1', 'upstream').map((h) => h.toPortId);
+    const down = traceFrom(g, 'batt:T1', 'downstream').map((h) => h.toPortId);
+    /* 나를 먹이는 쪽 — 정류기뿐이다. */
+    expect(up).toContain('rect:OUT1');
+    expect(up).not.toContain('load1:IN1');
+    /* 내가 먹이는 쪽 — 부하뿐이다. */
+    expect(down).toContain('load1:IN1');
+    expect(down).toContain('load2:IN1');
+    expect(down).not.toContain('rect:OUT1');
+  });
+
+  /** 광은 상·하류가 없다 — 방향 없는 자리라도 질문은 하나다(어휘가 정한다). */
+  it('방향을 따지지 않는 종류는 질문이 하나뿐', () => {
+    const s = makeAsset('OFD-SLOT', 'slotX');
+    const g = buildTraceGraph({ types, assets: [s.asset], ports: s.ports, cables: [] });
+    expect(traceFlows(g.ports.get('slotX:A1'))).toEqual(['both']);
   });
 });

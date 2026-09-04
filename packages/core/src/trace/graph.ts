@@ -146,7 +146,28 @@ export function buildTraceGraph(args: {
  * 입력을 누르면 「내 전원이 어디서 오나」이고, 출력을 누르면 「이 회로가 무엇을 먹이나」다.
  * 방향이 없는 종류(광·네트워크·제어)는 양쪽으로 퍼진다 — 그 선로에는 상·하류가 없다.
  */
-type Flow = 'upstream' | 'downstream' | 'both';
+export type Flow = 'upstream' | 'downstream' | 'both';
+
+/**
+ * 이 포트에 **물을 수 있는 질문들** — 하나면 그 답 하나, 둘이면 따로 답해야 한다.
+ *
+ * 입력은 「어디서 오나」 하나, 출력은 「어디로 가나」 하나다. 방향을 따지지 않는 종류
+ * (광·네트워크·제어)는 상·하류가 없으니 한 번에 다 퍼진다 — 질문이 하나다.
+ *
+ * **방향이 뜻을 갖는 종류의 방향 없는 자리(모선 단자)만 질문이 둘이다.** 축전지가 그렇다:
+ * 평상시엔 정류기가 나를 충전하고, 정전이면 내가 부하를 먹인다. 두 답을 한 그루에 섞으면
+ * 공급원과 부하가 **형제로** 서서 넷이 같은 것처럼 읽힌다 — 실제로는 방향이 반대인 둘씩이다.
+ * 답이 둘인 물음에 그루를 하나만 그린 것이 잘못이었다.
+ *
+ * 화면은 이 목록의 길이만 보면 된다 — 「방향 없는 자리면 둘로 나눈다」를 화면이 다시 적으면
+ * 어휘가 늘 때마다 그 판단이 두 곳에서 갈린다.
+ */
+export function traceFlows(port: { medium: string; direction: Direction } | undefined): Flow[] {
+  if (port == null || portKind(port.medium)?.pairing !== 'opposite') return ['both'];
+  if (port.direction === 'IN') return ['upstream'];
+  if (port.direction === 'OUT') return ['downstream'];
+  return ['upstream', 'downstream'];
+}
 
 /**
  * 시작 포트에서 도달 가능한 모든 hop을 방문 순서(BFS)로 반환한다.
@@ -160,16 +181,14 @@ type Flow = 'upstream' | 'downstream' | 'both';
  * 출력들로 되쏟아진다** — 단말 하나에서 추적했는데 그 반이 먹이는 스물세 자산이 다 딸려
  * 나왔다(실측 120홉). 내 전원이 어디서 오는지 묻는 사람에게 남의 회로는 답이 아니다.
  */
-export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
+export function traceFrom(graph: TraceGraph, startPortId: string, ask?: Flow): TraceHop[] {
   const hops: TraceHop[] = [];
   const isMulti = (id: string) => isMultiCorePort(graph.ports.get(id)?.positions);
 
-  /* 흐름이 있는 종류에서만 방향을 지킨다 — 광·네트워크는 상·하류가 없다. */
-  const startPort = graph.ports.get(startPortId);
-  const directed = portKind(startPort?.medium ?? '')?.pairing === 'opposite';
-  const flow: Flow = !directed || startPort == null || startPort.direction === 'BI'
-    ? 'both'
-    : startPort.direction === 'IN' ? 'upstream' : 'downstream';
+  /* 묻는 방향 — 누른 포트가 정한다(`traceFlows`). 질문이 둘인 자리(모선 단자)는 부르는
+     쪽이 어느 질문인지 말해 준다. 안 말하면 예전처럼 한 번에 다 퍼진다. */
+  const questions = traceFlows(graph.ports.get(startPortId));
+  const flow: Flow = ask ?? (questions.length === 1 ? questions[0]! : 'both');
 
   /**
    * 이 간선이 그 방향으로 가는 길인가 — **판단은 그래프가 이미 끝냈다**(`along`).

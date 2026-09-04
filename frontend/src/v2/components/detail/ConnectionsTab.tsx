@@ -414,9 +414,17 @@ export function ConnectionsTab({
   /** 추적을 건 자리의 설비 — 그 이름은 마디마다 되풀이하지 않는다(`traceLabel`). */
   const tracedAssembly = tracedPortId ? portIndex.get(tracedPortId)?.assemblyName ?? null : null;
 
-  /* 평평한 홉 목록을 트리로 — 장비 안의 통과는 접힌다(마디는 케이블로 닿은 자리뿐). */
-  const traceTree = useMemo(
-    () => buildTraceTree(traceResult?.hops ?? [], tracedPortId ?? ''),
+  /**
+   * 물음마다 그루 하나 — 평평한 홉 목록을 트리로(장비 안의 통과는 접힌다).
+   *
+   * **몇 그루인지는 어휘가 정한다**(`traceFlows` → `TraceResult.sections`). 방향 있는 자리는
+   * 하나, 축전지 같은 모선 단자는 둘이다: 「나를 먹이는 쪽」과 「내가 먹이는 쪽」을 한 그루에
+   * 섞으면 정류기와 부하가 **형제로** 서서 넷이 같은 것처럼 읽힌다.
+   */
+  const traceTrees = useMemo(
+    () => (traceResult?.sections ?? [])
+      .map((s) => ({ flow: s.flow, tree: buildTraceTree(s.hops, tracedPortId ?? '') }))
+      .filter((t) => t.tree.children.length > 0),
     [traceResult, tracedPortId],
   );
 
@@ -771,7 +779,7 @@ export function ConnectionsTab({
                       <div ref={traceRef} className="border-t border-line pt-1.5">
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-content-muted">
-                            {traceTree.children.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
+                            {traceTrees.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
                           </span>
                           <div className="flex shrink-0 items-center gap-1">
                             <Button variant="secondary" size="sm" onClick={() => setTopologyOpen(true)}>
@@ -782,33 +790,30 @@ export function ConnectionsTab({
                             </Button>
                           </div>
                         </div>
-                        {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다. */}
-                        {traceTree.children.length > 0 && (
-                          <div className="rounded-md bg-primary/5 p-1.5">
-                            {/* **두 방향이 같은 그림이다.** 내려가는 길은 나에게서 뻗어 나가고,
-                                거슬러 오르는 길은 나에게로 흘러 든다 — 어느 쪽인지는 이제
-                                **포트 이름이 말한다**: 뿌리가 「전원 입력」이면 자식은 전부
-                                「…출력」이고, 그것이 곧 나에게 들어온다는 뜻이다.
-
-                                한때 거슬러 오르는 길을 따로 그렸다(경로마다 한 줄 → 위아래
-                                뒤집기 → 좌우 뒤집기). 좌우로 뒤집은 것은 뜻이 맞았지만 깊이
-                                셋에서 394px 가 필요한데 판이 303px 이라 반드시 넘쳤다. 세로
-                                트리는 깊이가 늘어도 들여쓰기가 12px 씩 늘 뿐이라 **넘치지
-                                않는다** — 좁고 긴 판에서는 이쪽이 답이다. */}
+                        {/* 경로 전체를 옅게 칠해 「여기까지가 한 길」임을 눈으로 묶는다.
+                            물음이 둘이면 그루도 둘이고, 그때만 어느 답인지 이름을 붙인다 —
+                            하나뿐일 때 이름을 달면 「어디서 오나」를 두 번 말하는 꼴이다. */}
+                        {traceTrees.map(({ flow, tree }) => (
+                          <div key={flow} className="mt-1.5 rounded-md bg-primary/5 p-1.5">
+                            {traceTrees.length > 1 && (
+                              <div className="mb-1 text-xs font-medium text-content-muted">
+                                {flow === 'upstream' ? '나를 먹이는 쪽' : '내가 먹이는 쪽'}
+                              </div>
+                            )}
                             <div className="flex items-baseline gap-1 text-sm">
                               <span aria-hidden className="shrink-0 text-xs text-content-faint">◉</span>
                               <TraceNodeText label={traceLabel(sel.id)} />
                             </div>
                             {/* 갈래는 갈래로 — 곧은 길이면 한 줄로 내려간다(`buildTraceTree`). */}
                             <TraceBranches
-                              nodes={traceTree.children}
+                              nodes={tree.children}
                               depth={1}
                               label={traceLabel}
                               assetOf={(portId) => portIndex.get(portId)?.asset ?? null}
                               onSelectAsset={onSelectAsset}
                             />
                           </div>
-                        )}
+                        ))}
                       </div>
                     )}
                   </InsetBox>

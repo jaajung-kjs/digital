@@ -27,8 +27,8 @@ export function expandToPlacedAncestors(
   return result;
 }
 
-import { buildTraceGraph, traceFrom, specFromCatalog } from '@twin/core';
-import type { AssetRef, AssetTypeSpec, CableRef, PortRef, TraceHop } from '@twin/core';
+import { buildTraceGraph, traceFlows, traceFrom, specFromCatalog } from '@twin/core';
+import type { AssetRef, AssetTypeSpec, CableRef, Flow, PortRef, TraceHop } from '@twin/core';
 import type { V2Asset, V2AssetType, V2Cable, V2Category } from './types';
 
 export interface TraceInputs {
@@ -38,10 +38,25 @@ export interface TraceInputs {
   cables: CableRef[];
 }
 
+/** 물음 하나와 그 답 — 방향 있는 자리는 하나, 모선 단자는 둘(`traceFlows`). */
+export interface TraceSection {
+  flow: Flow;
+  hops: TraceHop[];
+}
+
 export interface TraceResult {
   assetIds: Set<string>;
   cableIds: Set<string>;
+  /** 도면에 칠할 것 — 물음이 둘이면 두 답을 합친 것이다(칠하는 데는 방향이 없다). */
   hops: TraceHop[];
+  /**
+   * 물음마다 하나씩 — **상세 패널은 이걸 그린다.**
+   *
+   * 답이 둘인 자리(축전지 같은 모선 단자)를 한 그루에 섞으면 공급원과 부하가 형제로 서서
+   * 넷이 같은 것처럼 읽힌다. 몇 그루인지는 어휘가 정한다(`traceFlows`) — 화면이 「방향
+   * 없으면 둘」을 다시 적으면 어휘가 늘 때 그 판단이 두 곳에서 갈린다.
+   */
+  sections: TraceSection[];
 }
 
 /**
@@ -142,11 +157,17 @@ export function buildTraceInputs(args: {
  */
 export function traceHighlight(inputs: TraceInputs, startPortId: string): TraceResult {
   const graph = buildTraceGraph(inputs);
-  const hops = traceFrom(graph, startPortId);
 
   // 시작 포트의 assetId 수집 (hops에 등장하지 않을 수 있으므로 직접 조회)
   const portMap = new Map(inputs.ports.map((p) => [p.id, p]));
   const startPort = portMap.get(startPortId);
+
+  /* 물음의 수는 **어휘가 정한다** — 방향 있는 자리는 하나, 모선 단자는 둘. */
+  const sections: TraceSection[] = traceFlows(startPort).map((flow) => ({
+    flow, hops: traceFrom(graph, startPortId, flow),
+  }));
+  /* 도면 칠하기는 방향을 안 따진다 — 두 답에 같은 홉이 겹칠 수 있으나 Set 이 걸러 준다. */
+  const hops = sections.flatMap((s) => s.hops);
 
   const assetIds = new Set<string>();
   const cableIds = new Set<string>();
@@ -160,5 +181,5 @@ export function traceHighlight(inputs: TraceInputs, startPortId: string): TraceR
     if (hop.cableId) cableIds.add(hop.cableId);
   }
 
-  return { assetIds, cableIds, hops };
+  return { assetIds, cableIds, hops, sections };
 }
