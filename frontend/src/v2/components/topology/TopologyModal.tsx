@@ -47,21 +47,32 @@ export function TopologyModal({ open, seedPortId, seedLabel, onClose }: Topology
               이어진 곳이 너무 많아 일부만 그렸습니다.
             </p>
           )}
-          {/* 판정은 여기서 다시 안 한다 — `nodes` 에 `isSeed` 인 마디가 하나도 없으면(정규화
-              실패) core 가 이미 그렇게 나타낸 것이다. 강조도 「여기」도 없는 그림이 뜨면
-              「무관한 남의 토폴로지가 떴다」로 읽히므로(사용자가 실제로 그렇게 읽었다) 이유를
-              한 줄로 밝힌다. */}
-          {!view.nodes.some((n) => n.isSeed) && (
-            <p className="mb-2 text-xs text-content-muted">
-              이 포트는 아직 어느 장비에도 닿지 않습니다 — 아래는 같은 광 계통의 장비들입니다.
+          {/* 판정은 여기서 다시 안 한다 — core 가 낸 것을 그대로 읽는다.
+
+              **그릴 것이 없으면 빈 판을 내놓지 않는다.** 예전에는 국을 안 벗어나는 자리에서
+              열어도 이 국 장비들이 선 없이 늘어섰다(전원뿐인 랙에서 박스 여섯 개) — 이어진
+              것처럼 보이지만 사실은 「여집합이 없다」였다. */}
+          {view.nodes.length === 0 ? (
+            <p className="p-4 text-sm text-content-muted">
+              이 국 밖으로 이어진 곳이 없습니다 — 이 자리는 추적이 이미 다 보여 줍니다.
             </p>
+          ) : (
+            <>
+              {/* 강조도 「여기」도 없는 그림이 뜨면 「무관한 남의 토폴로지가 떴다」로 읽히므로
+                  (사용자가 실제로 그렇게 읽었다) 이유를 한 줄로 밝힌다. */}
+              {!view.nodes.some((n) => n.isSeed) && (
+                <p className="mb-2 text-xs text-content-muted">
+                  이 포트는 아직 어느 장비에도 닿지 않습니다 — 아래는 같은 광 계통의 장비들입니다.
+                </p>
+              )}
+              <TopologyCanvas
+                nodes={view.nodes}
+                edges={view.edges}
+                litEdgeIds={view.litEdgeIds}
+                positions={view.positions}
+              />
+            </>
           )}
-          <TopologyCanvas
-            nodes={view.nodes}
-            edges={view.edges}
-            litEdgeIds={view.litEdgeIds}
-            positions={view.positions}
-          />
         </>
       )}
     </Modal>

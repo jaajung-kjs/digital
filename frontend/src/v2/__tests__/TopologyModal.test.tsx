@@ -22,9 +22,11 @@ const reach: V2Reach = {
     { id: 'a-ofd', name: 'OFD', typeId: null, parentAssetId: null, substationId: 'sa', floorId: 'fa' },
     { id: 'a-slot', name: '가슬롯', typeId: 'slot', parentAssetId: 'a-ofd', substationId: 'sa', floorId: null },
     { id: 'a-dev', name: '가단말', typeId: 'dev', parentAssetId: null, substationId: 'sa', floorId: 'fa' },
-    /* 설비(OFD) 아래 장비 — assemblyName 이 실제로 채워지는 경우를 지킨다. 아무 데도
-       안 이어지지 않은 채로 둔다 — 성단 안 된 장비도 마디로만 서는지 함께 지킨다. */
+    /* 설비(OFD) 아래 장비 — assemblyName 이 실제로 채워지는 경우를 지킨다.
+       상대는 **다른 국**에 둔다: 토폴로지는 국을 벗어나는 줄만 그리므로(추적의 여집합)
+       한 국 안에서만 이어진 장비는 마디가 되지 않는다. */
     { id: 'a-tx', name: 'TX1', typeId: 'dev', parentAssetId: 'a-ofd', substationId: 'sa', floorId: 'fa' },
+    { id: 'b-tx', name: 'TX2', typeId: 'dev', parentAssetId: null, substationId: 'sb', floorId: null },
     { id: 'b-slot', name: '나슬롯', typeId: 'slot', parentAssetId: null, substationId: 'sb', floorId: null },
     { id: 'b-dev', name: '나단말', typeId: 'dev', parentAssetId: null, substationId: 'sb', floorId: null },
   ],
@@ -38,8 +40,10 @@ const reach: V2Reach = {
     { id: 'b-front1', assetId: 'b-slot', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI', positions: 1 },
     { id: 'b-opgw', assetId: 'b-slot', group: 'TRUNK', index: 1, name: 'OPGW', medium: 'fiber', direction: 'BI', positions: 2 },
     { id: 'b-dev1', assetId: 'b-dev', group: 'FIBER', index: 1, name: '광 A', medium: 'fiber', direction: 'BI', positions: 1 },
+    { id: 'b-tx1', assetId: 'b-tx', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI', positions: 1 },
   ],
   cables: [
+    { id: 'tx', aPortId: 'a-tx1', bPortId: 'b-tx1', categoryId: null },
     { id: 'jumper', aPortId: 'a-dev1', bPortId: 'a-front1', categoryId: null },
     { id: 'opgw', aPortId: 'a-opgw', bPortId: 'b-opgw', categoryId: null },
     { id: 'b-jumper', aPortId: 'b-dev1', bPortId: 'b-front1', categoryId: null },
@@ -55,11 +59,12 @@ const reach: V2Reach = {
    시험들이 「구간 케이블은 줄 하나」를 전제하기 때문이다 — 거기에 평행 구간을 더하면
    그 시험들이 깨진다. */
 const parallelReach: V2Reach = {
-  substations: [{ id: 's', name: 's국' }],
+  /* 국을 갈라 둔다 — 토폴로지는 국을 벗어나는 줄만 그리므로 한 국에 두면 줄이 안 선다. */
+  substations: [{ id: 's', name: 's국' }, { id: 't', name: 't국' }],
   floors: [],
   assets: [
     { id: 'dev-x', name: '장비X', typeId: null, parentAssetId: null, substationId: 's', floorId: null },
-    { id: 'dev-y', name: '장비Y', typeId: null, parentAssetId: null, substationId: 's', floorId: null },
+    { id: 'dev-y', name: '장비Y', typeId: null, parentAssetId: null, substationId: 't', floorId: null },
   ],
   ports: [
     { id: 'x1', assetId: 'dev-x', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI', positions: 1 },
@@ -131,11 +136,12 @@ describe('TopologyModal', () => {
     render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
     expect(screen.getByText('가단말')).toBeInTheDocument();
     expect(screen.getByText('나단말')).toBeInTheDocument();
-    expect(screen.getByText('가국')).toBeInTheDocument();
-    expect(screen.getByText('나국')).toBeInTheDocument();
+    /* 국 이름은 마디마다 붙으므로 한 국에 장비가 둘이면 두 번 나온다 — 있기만 하면 된다. */
+    expect(screen.getAllByText('가국').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('나국').length).toBeGreaterThan(0);
   });
 
-  it('설비 아래 장비는 설비 이름과 함께 선다 — 아무 데도 안 닿아도 마디로는 선다', () => {
+  it('설비 아래 장비는 설비 이름과 함께 선다', () => {
     render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
     expect(screen.getByText('TX1')).toBeInTheDocument();
     expect(screen.getByText('가국 · OFD')).toBeInTheDocument();
@@ -145,7 +151,7 @@ describe('TopologyModal', () => {
      지역 container 는 포털 밖이라 아무것도 안 잡힌다. 그림을 찾을 곳은 body 다. */
   it('구간 케이블이 줄로 그려진다 — 슬롯·OPGW 를 지나도 장비 사이는 한 줄', () => {
     render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
-    expect(document.body.querySelectorAll('svg line')).toHaveLength(1);
+    expect(document.body.querySelectorAll('svg line')).toHaveLength(2); // 가↔나, TX1↔TX2
   });
 
   it('닫혀 있으면 아무것도 그리지 않는다', () => {
@@ -157,9 +163,9 @@ describe('TopologyModal', () => {
   it('마디 상자가 좌표에 놓이고 서로 겹치지 않는다', () => {
     render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
     const boxes = [...document.body.querySelectorAll('[data-topo-node]')];
-    expect(boxes).toHaveLength(3); // 가단말 · TX1 · 나단말
+    expect(boxes).toHaveLength(4); // 가단말 · 나단말 · TX1 · TX2
     const at = boxes.map((b) => (b as HTMLElement).style.transform);
-    expect(new Set(at).size).toBe(3);
+    expect(new Set(at).size).toBe(4);
   });
 
   /* 코어가 지나간 줄만 굵다 — 강조는 두 단계뿐이다. */
@@ -237,7 +243,7 @@ describe('TopologyModal', () => {
       expect(screen.getByText('이 포트는 아직 어느 장비에도 닿지 않습니다 — 아래는 같은 광 계통의 장비들입니다.')).toBeInTheDocument();
       expect(screen.getByText('가단말')).toBeInTheDocument();
       expect(screen.getByText('나단말')).toBeInTheDocument();
-      expect(document.body.querySelectorAll('svg line')).toHaveLength(1);
+      expect(document.body.querySelectorAll('svg line')).toHaveLength(2); // 가↔나, TX1↔TX2
     });
   });
 
@@ -344,7 +350,7 @@ describe('TopologyModal', () => {
         constructor(private cb: ResizeObserverCallback) {}
         observe() {
           this.cb(
-            [{ contentRect: { width: 900, height: 300 } } as ResizeObserverEntry],
+            [{ contentRect: { width: 1600, height: 120 } } as ResizeObserverEntry],
             this as unknown as ResizeObserver,
           );
         }
@@ -358,13 +364,13 @@ describe('TopologyModal', () => {
       const gutter = document.body.querySelector('[data-topo-gutter]') as HTMLElement;
       const figureW = parseFloat(stage.style.width);
       const figureH = parseFloat(stage.style.height);
-      const scale = Math.min(1, 900 / figureW, 300 / figureH);
+      const scale = Math.min(1, 1600 / figureW, 120 / figureH);
       /* 판이 가로로 길어 배율은 높이가 정한다 — 그래서 가로에 여백이 남고, 그 절반이
          왼쪽에 와야 한다. 여백이 실제로 남는 상황인지 먼저 못 박는다(공허한 통과 방지). */
-      const slackX = 900 - figureW * scale;
+      const slackX = 1600 - figureW * scale;
       expect(slackX).toBeGreaterThan(0);
       expect(parseFloat(gutter.style.marginLeft)).toBeCloseTo(slackX / 2, 6);
-      expect(parseFloat(gutter.style.marginTop)).toBeCloseTo(Math.max(0, 300 - figureH * scale) / 2, 6);
+      expect(parseFloat(gutter.style.marginTop)).toBeCloseTo(Math.max(0, 120 - figureH * scale) / 2, 6);
 
       vi.unstubAllGlobals();
     });

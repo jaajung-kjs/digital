@@ -100,6 +100,16 @@ export function buildTopologyGraph(
    * 장비에도 안 닿았다.
    */
   const seedPort = portById.get(seedPortId);
+  /**
+   * 내가 선 국 — **이 그림이 그리지 않을 곳**이다.
+   *
+   * 토폴로지는 추적의 여집합이다: 추적은 워킹카피 위에서 도는데 워킹카피는 한 국만 든다
+   * (`/workingcopy/:substationId`). 그래서 「추적이 못 본 것」과 「이 국이 아닌 것」은
+   * 정확히 같은 집합이다 — 짐작이 아니라 이미 있는 경계를 읽는 것이다.
+   */
+  const seedSubstationId = assetById.get(seedPort?.assetId ?? '')?.substationId ?? null;
+  const substationOf = (assetId: string) => assetById.get(assetId)?.substationId ?? null;
+
   const normalizedSeedPortId = seedPort == null
     ? null
     : isEquipment(seedPort.assetId)
@@ -129,6 +139,11 @@ export function buildTopologyGraph(
       const [keyA, keyB] = port.id < reachedPortId ? [port, reachedPort] : [reachedPort, port];
       const key = `${keyA.id}\0${keyB.id}`;
       const [p1, p2] = port.assetId < reachedPort.assetId ? [port, reachedPort] : [reachedPort, port];
+      /* **국을 안 벗어나는 줄은 그리지 않는다** — 그것은 추적이 이미 답한 것이다.
+         양끝이 다 내 국이면 여집합이 아니다(같은 국 안 장비끼리의 광 점퍼가 그렇다). */
+      if (seedSubstationId != null
+        && substationOf(p1.assetId) === seedSubstationId
+        && substationOf(p2.assetId) === seedSubstationId) continue;
       if (!edgeByKey.has(key)) {
         edgeByKey.set(key, {
           id: key, source: p1.assetId, target: p2.assetId,
@@ -139,10 +154,19 @@ export function buildTopologyGraph(
     }
   }
 
-  // ── 마디 — 이 망에 걸린 장비 전부. 시드 장비가 맨 앞, 나머지는 이름 차례. ──────────────
+  // ── 마디 — **줄에 걸린 장비만.** 시드 장비가 맨 앞, 나머지는 이름 차례. ────────────────
   const seedAssetId = normalizedSeedPortId ? portById.get(normalizedSeedPortId)?.assetId ?? null : null;
+  /**
+   * **선이 하나도 없는 마디는 마디가 아니다.**
+   *
+   * 연결도에서 박스 하나가 홀로 서 있으면 아무것도 말해 주지 않는다. 예전에는 서버가 준
+   * 장비를 다 세웠고(`/reach` 는 케이블로 이어진 성분 전부를 준다), 그래서 전원뿐인 랙에서
+   * 추적을 띄우면 **간선 0개에 박스 여섯 개**가 한 줄로 늘어섰다 — 이어진 것처럼 보이지만
+   * 선이 없어서, 사실은 「그릴 것이 없다」였다.
+   */
+  const linked = new Set([...edgeByKey.values()].flatMap((e) => [e.source, e.target]));
   const nodes: TopoNode[] = input.assets
-    .filter((a) => isEquipment(a.id))
+    .filter((a) => isEquipment(a.id) && linked.has(a.id))
     .map((a) => ({
       id: a.id,
       name: a.name,

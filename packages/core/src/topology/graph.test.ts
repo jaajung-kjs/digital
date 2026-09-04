@@ -88,11 +88,13 @@ describe('buildTopologyGraph', () => {
    */
   it('같은 장비 쌍을 잇는 줄은 몇 개든 같은 방향으로 선다 — 포트 id 순서가 줄마다 엇갈려도', () => {
     const input: TopologyInput = {
-      substations: [{ id: 's', name: 's국' }],
+      /* 국을 갈라 둔다 — 토폴로지는 **국을 벗어나는 줄만** 그리므로(추적의 여집합),
+         한 국 안에 두면 이 시험이 재려는 「방향」 자체가 안 선다. */
+      substations: [{ id: 's', name: 's국' }, { id: 't', name: 't국' }],
       floors: [],
       assets: [
         { id: 'dev-x', name: '장비X', parentAssetId: null, substationId: 's', floorId: null },
-        { id: 'dev-y', name: '장비Y', parentAssetId: null, substationId: 's', floorId: null },
+        { id: 'dev-y', name: '장비Y', parentAssetId: null, substationId: 't', floorId: null },
       ],
       ports: [
         { id: 'x1', assetId: 'dev-x', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI', positions: 1 },
@@ -178,7 +180,13 @@ describe('buildTopologyGraph', () => {
     });
   });
 
-  it('같은 국의 두 장비도 마디 둘이고 줄 하나다 — 국이 아니라 장비가 마디다', () => {
+  /**
+   * **국을 안 벗어나는 줄은 그리지 않는다** — 그것은 추적이 이미 답한 것이다.
+   *
+   * 토폴로지는 추적의 여집합이다: 추적은 워킹카피 위에서 돌고 워킹카피는 한 국만 든다.
+   * 그러니 「추적이 못 본 것」과 「이 국이 아닌 것」은 같은 집합이다.
+   */
+  it('같은 국 안에서만 이어진 줄은 그리지 않는다 — 추적이 이미 답했다', () => {
     const input: TopologyInput = {
       substations: [{ id: 's', name: 's국' }],
       floors: [],
@@ -193,19 +201,32 @@ describe('buildTopologyGraph', () => {
       cables: [cable('xy', 'x1', 'y1')],
     };
     const { nodes, edges } = buildTopologyGraph(input, 'x1');
-    expect(nodes.map((n) => n.id).sort()).toEqual(['dev-x', 'dev-y']);
-    expect(nodes.every((n) => n.substationName === 's국')).toBe(true);
+    expect(edges).toEqual([]);
+    expect(nodes).toEqual([]);
+  });
+
+  /** 국을 벗어나면 **국이 아니라 장비가 마디**다 — 한 국에 장비가 여럿이면 마디도 여럿. */
+  it('국을 벗어나는 줄은 장비 대 장비로 선다 — 국이 마디가 아니다', () => {
+    const { nodes, edges } = buildTopologyGraph(linked(), 'a-dev1');
+    expect(nodes.map((n) => n.id).sort()).toEqual(['a-dev', 'b-dev']);
     expect(edges).toHaveLength(1);
   });
 
-  it('아무 데도 안 닿는 장비는 마디로만 선다', () => {
+  /**
+   * **선이 하나도 없는 마디는 마디가 아니다.**
+   *
+   * 연결도에서 홀로 선 박스는 아무 말도 안 한다. 예전에는 서버가 준 장비를 다 세웠고
+   * (`/reach` 는 케이블로 이어진 성분 전부를 준다), 그래서 전원뿐인 랙에서 추적을 띄우면
+   * **간선 0개에 박스 여섯 개**가 한 줄로 늘어섰다 — 이어진 것처럼 보이지만 사실은
+   * 「그릴 것이 없다」였다.
+   */
+  it('아무 데도 안 닿는 장비는 그리지 않는다', () => {
     const input = linked();
     input.assets.push({ id: 'c-dev', name: 'c단말', parentAssetId: null, substationId: 'a', floorId: 'a-f1' });
     input.ports.push({ id: 'c-dev1', assetId: 'c-dev', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI', positions: 1 });
 
-    const { nodes, edges } = buildTopologyGraph(input, 'a-dev1');
-    expect(nodes.map((n) => n.id)).toContain('c-dev');
-    expect(edges.some((e) => e.source === 'c-dev' || e.target === 'c-dev')).toBe(false);
+    const { nodes } = buildTopologyGraph(input, 'a-dev1');
+    expect(nodes.map((n) => n.id)).not.toContain('c-dev');
   });
 
   it('시드 장비에 표가 붙는다', () => {
@@ -216,10 +237,12 @@ describe('buildTopologyGraph', () => {
 
   it('국 이름·설비 이름·층 이름이 마디에 붙는다 — 층은 그 국에 층이 둘 이상일 때만', () => {
     const input = linked();
-    // 설비(OFD) 아래 장비 하나를 더 둬 assemblyName 이 실제로 채워지는 경우를 함께 지킨다.
+    /* 설비(OFD) 아래 장비 하나를 더 둬 assemblyName 이 채워지는 경우를 함께 지킨다.
+       상대는 **다른 국**에 둔다 — 같은 국끼리의 줄은 그리지 않으므로(추적의 여집합)
+       한 국에 두면 이 장비가 마디로 서지도 않는다. */
     input.assets.push(
       { id: 'a-tx', name: 'TX1', parentAssetId: 'a-ofd', substationId: 'a', floorId: 'a-f1' },
-      { id: 'c-dev', name: 'c단말', parentAssetId: null, substationId: 'a', floorId: 'a-f1' },
+      { id: 'c-dev', name: 'c단말', parentAssetId: null, substationId: 'b', floorId: null },
     );
     input.ports.push(
       { id: 'a-tx1', assetId: 'a-tx', group: 'FIBER', index: 1, name: '광 1', medium: 'fiber', direction: 'BI', positions: 1 },
