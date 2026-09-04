@@ -30,6 +30,9 @@ export const NODE_Y = 11;
  */
 const STROKE = 'bg-content-faint/50';
 
+/** 마디(점)와 글씨 사이. */
+const TEXT_GAP = 8;
+
 /**
  * 거터 한 칸 — 어느 켜에 무엇이 서는가.
  *
@@ -67,9 +70,15 @@ export function TraceGutterRow({
 }) {
   const nodeLane = cells.find((c) => c.node)?.lane ?? 0;
   const x = (lane: number) => lane * LANE + LANE / 2;
+  /* 글씨는 이 줄이 **실제로 선을 긋는 가장 오른쪽 켜** 뒤에서 시작한다. 마디 켜만 보면
+     합류하는 가로선이 글씨 밑으로 들어간다(합류는 오른쪽에서 온다). */
+  const textFrom = Math.max(nodeLane, ...cells.filter((c) => c.toNode).map((c) => c.lane));
   return (
     <div className="relative flex items-start">
-      <div aria-hidden className="relative shrink-0 self-stretch" style={{ width: width * LANE }}>
+      {/* 거터는 줄 **위에 겹쳐** 그린다 — 글씨를 밀어내지 않아야 켜마다 다른 자리에서
+          시작할 수 있다. 폭을 차지하는 칸으로 두면 모든 줄의 글씨가 같은 자리에 서서
+          그림의 켜가 글씨에는 안 나타난다. */}
+      <div aria-hidden className="absolute inset-y-0 left-0" style={{ width: width * LANE }}>
         {cells.map((c) => {
           const dot = c.node ? (root ? 4 : 2.5) : 0;
           return (
@@ -101,7 +110,11 @@ export function TraceGutterRow({
           );
         })}
       </div>
-      <div className="min-w-0 flex-1 pb-1.5 text-sm">{children}</div>
+      {/* 글씨는 **제 점 바로 뒤**에서 시작한다 — 켜가 깊을수록 오른쪽이라, 그림의 켜가
+          글줄에도 그대로 나타난다. */}
+      <div className="min-w-0 flex-1 pb-1.5 text-sm" style={{ paddingLeft: x(textFrom) + TEXT_GAP }}>
+        {children}
+      </div>
     </div>
   );
 }
