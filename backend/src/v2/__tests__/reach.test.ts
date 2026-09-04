@@ -43,7 +43,9 @@ beforeAll(async () => {
      만든다 — remote-cables.test.ts 의 placeSlot 과 같은 어법이다. */
   const assembly = await nextDb.assembly.findUniqueOrThrow({
     where: { key: 'OFD' },
-    include: { items: { orderBy: { col: 'asc' } } },
+    /* 운영과 같은 차례로 읽는다(`sortOrder`) — `col` 하나로는 동점이라 차례가 안 정해진다
+       (OFD 의 슬롯 여덟은 전부 col 0 이다). remote-cables.test.ts 와 같은 이유. */
+    include: { items: { orderBy: { sortOrder: 'asc' } } },
   });
   const ofdAId = randomUUID();
   const itemIds = assembly.items.map(() => randomUUID());

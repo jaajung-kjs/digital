@@ -136,7 +136,11 @@ describe('선로가 짓는 슬롯 이름', () => {
   async function placeSlot(substationId: string, label: string, opts: { vertical?: boolean; nth?: number } = {}): Promise<string> {
     const assembly = await nextDb.assembly.findFirstOrThrow({
       where: { items: { some: { type: { key: 'OFD-SLOT' } } } },
-      include: { items: { orderBy: { col: 'asc' } } },
+      /* **운영과 같은 차례로 읽는다**(`sortOrder`) — 화면이 구성 항목을 그 차례로 편다.
+         한때 `col` 하나로 정렬했는데, OFD 의 슬롯 여덟은 전부 같은 칸(col 0)이라 동점이었다.
+         동점의 차례는 Postgres 가 보장하지 않으므로(힙 차례), 다른 시험이 그 표를 건드리면
+         첫 항목이 「슬롯 1」이 아니라 「슬롯 7」로 나왔다 — 전체 실행에서만 절반쯤 깨졌다. */
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
     });
     const ofdId = randomUUID();
     /* 설비 품목을 놓으면 **구성이 선언한 자식이 다 생긴다** — 실제 배치가 그렇다. */
