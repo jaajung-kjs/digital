@@ -171,6 +171,13 @@ export interface TraceIndentRow {
   rails: readonly number[];
   /** 제 형제 중 마지막인가 — 이음선이 꺾여 끝난다(└). 아니면 이어진다(├). */
   last: boolean;
+  /**
+   * **갈래에서 갈라져 나온 줄인가.**
+   *
+   * 거짓이면 위 줄에서 **곧게 이어져 내려온 것**이다(외자식) — 켜가 그대로고 꺾이는
+   * 이음선도 없다. 구별할 형제가 없는데 한 칸 들여써 봐야 아무것도 말해 주지 않는다.
+   */
+  branch: boolean;
 }
 
 /**
@@ -185,14 +192,18 @@ export interface TraceIndentRow {
  */
 export function traceIndentRows(root: TraceTreeNode): TraceIndentRow[] {
   const rows: TraceIndentRow[] = [];
-  const walk = (node: TraceTreeNode, depth: number, rails: number[], last: boolean): void => {
-    rows.push({ node, depth, rails: [...rails], last });
+  const walk = (node: TraceTreeNode, depth: number, rails: number[], last: boolean, branch: boolean): void => {
+    rows.push({ node, depth, rails: [...rails], last, branch });
     /* 내 자식들의 줄에서 **내 이음선 켜**(`depth - 1`)에 세로선이 계속 지나가는가 —
-       내가 형제 중 마지막이 아니라면 그렇다. 그게 「아래에 형제가 더 있다」는 표시다. */
-    const forChildren = depth > 0 && !last ? [...rails, depth - 1] : rails;
-    node.children.forEach((child, i) =>
-      walk(child, depth + 1, forChildren, i === node.children.length - 1));
+       내가 갈래에서 갈라져 나왔고 형제 중 마지막이 아니라면 그렇다. */
+    const forChildren = branch && !last ? [...rails, depth - 1] : rails;
+    const kids = node.children;
+    /* **자식이 하나뿐이면 켜가 그대로다** — 레인 그래프가 곧은 사슬에서 레인을 안 늘리는
+       것과 같은 규칙이다(켜가 늘어나는 것은 갈래가 갈릴 때뿐이다). 예전에는 외자식도
+       한 칸씩 들여써서, 같은 곧은 길이 거슬러 오를 때는 한 줄이고 내려갈 때는 계단이었다. */
+    if (kids.length === 1) { walk(kids[0]!, depth, forChildren, true, false); return; }
+    kids.forEach((child, i) => walk(child, depth + 1, forChildren, i === kids.length - 1, true));
   };
-  walk(root, 0, [], true);
+  walk(root, 0, [], true, false);
   return rows;
 }

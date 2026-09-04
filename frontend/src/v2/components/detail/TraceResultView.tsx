@@ -80,12 +80,15 @@ function TraceIndentTree({
     <div>
       {rows.map((row, i) => {
         const target = assetOf(row.node.portId);
-        const isRoot = row.depth === 0;
+        /* 뿌리는 **맨 첫 줄**이다(전위 순회) — 깊이로 물으면 안 된다: 곧은 사슬은 이제
+           온 줄이 깊이 0 이라 전부 뿌리로 그려진다. */
+        const isRoot = i === 0;
         const cells: GutterCell[] = [
-          { lane: row.depth, node: true, toBelow: row.node.children.length > 0 },
-          /* 부모에서 나에게로 꺾여 드는 이음선 — 형제가 더 남았으면 아래로 이어진다(├),
-             마지막이면 여기서 끝난다(└). */
-          ...(isRoot ? [] : [{ lane: row.depth - 1, fromAbove: true, toNode: true, toBelow: !row.last }]),
+          /* **이어진 줄**(외자식)은 위에서 곧게 내려온다 — 꺾이는 이음선이 없다. */
+          { lane: row.depth, node: true, fromAbove: !isRoot && !row.branch, toBelow: row.node.children.length > 0 },
+          /* 갈래에서 갈라져 나온 줄만 부모 켜에서 꺾여 든다 — 형제가 더 남았으면 아래로
+             이어지고(├), 마지막이면 여기서 끝난다(└). */
+          ...(row.branch ? [{ lane: row.depth - 1, fromAbove: true, toNode: true, toBelow: !row.last }] : []),
           /* 위 조상 중 아직 형제가 남은 켜 — 세로선이 그냥 지나간다. */
           ...row.rails.map((lane) => ({ lane, fromAbove: true, toBelow: true })),
         ];
