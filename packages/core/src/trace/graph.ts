@@ -191,14 +191,36 @@ export function traceFrom(graph: TraceGraph, startPortId: string, ask?: Flow): T
   const flow: Flow = ask ?? (questions.length === 1 ? questions[0]! : 'both');
 
   /**
-   * 이 간선이 그 방향으로 가는 길인가 — **판단은 그래프가 이미 끝냈다**(`along`).
+   * **묻는 방향이 곧 출발 자리의 방향이다.**
    *
-   * 예전에는 여기서 출발 포트의 방향을 보고 정했다. 그러면 방향 없는 자리(`BI`)에서
-   * 판단할 것이 없어, 「막지 않는다」로 두면 모선에서 형제 회로로 되쏟아졌다. 양끝을
-   * 함께 봐야 하는 판단이므로 양끝을 다 아는 자리(그래프를 세우는 곳)로 옮겼다.
+   * 입력을 누르면 그 포트는 제 케이블로 나간다 — 제 장비 안을 옆으로 헤집지 않는다
+   * (`직류 출력 2` 에서 형제 출력으로 새지 않는 것이 그것이다). 방향 있는 자리는 선언된
+   * 방향이 그 일을 이미 하고 있었다.
+   *
+   * 방향 없는 자리(모선 단자)에는 선언이 없어서, 그래프가 적어 둔 `along`(양끝으로 정한
+   * 것)을 그대로 쓰면 **첫걸음부터 제 모선 안으로 퍼진다** — 축전지 단자를 물었는데
+   * 정류기와 부하가 다 나왔다. 그런데 물음이 이미 답을 준다: 「전원 측」으로 묻는다는 것은
+   * **이 자리를 입력으로 놓고 묻는다**는 뜻이다.
+   *
+   * 그래서 출발 자리에서 나가는 간선만 그 방향으로 다시 잰다. 한 걸음 건너간 뒤부터는
+   * 선언된 방향이 다시 다스린다 — 축전지 단자에서 물으면 모선 너머가 그대로 나온다.
    */
-  const allowed = (edge: TraceEdge): boolean =>
-    flow === 'both' || edge.along === 'either' || edge.along === flow;
+  const startDir = graph.ports.get(startPortId)?.direction;
+  const askedDir: Direction | null = startDir === 'BI' && flow !== 'both'
+    ? (flow === 'upstream' ? 'IN' : 'OUT')
+    : null;
+  const alongOf = (fromPortId: string, edge: TraceEdge): EdgeFlow => {
+    if (askedDir === null || fromPortId !== startPortId) return edge.along;
+    /* 케이블은 출력에서 나오고, 기기 안에서는 입력에서 나온다 — `edgeFlow` 와 같은 규칙. */
+    return edgeFlow(edge.kind === 'cable' ? 'OUT' : 'IN', askedDir, graph.ports.get(edge.toPortId)?.direction);
+  };
+
+  /** 이 간선이 그 방향으로 가는 길인가 — 판단은 그래프가 끝냈다(`along`). */
+  const allowed = (fromPortId: string, edge: TraceEdge): boolean => {
+    if (flow === 'both') return true;
+    const along = alongOf(fromPortId, edge);
+    return along === 'either' || along === flow;
+  };
 
   /* 방문 표시는 **포트 하나에 한 번**이다. 코어 번호는 어느 길로 빠져나갈지를 거르는 데만
      쓴다 — 번호까지 키에 넣으면 인입 포트가 코어마다 다른 노드로 보여, 앞면 4포트를 거쳐
@@ -210,7 +232,7 @@ export function traceFrom(graph: TraceGraph, startPortId: string, ask?: Flow): T
     const cur = queue.shift();
     if (cur === undefined) break;
     for (const e of graph.edges.get(cur.portId) ?? []) {
-      if (!allowed(e)) continue;
+      if (!allowed(cur.portId, e)) continue;
       let position = cur.position;
       if (e.position !== undefined) {
         if (isMulti(cur.portId)) {

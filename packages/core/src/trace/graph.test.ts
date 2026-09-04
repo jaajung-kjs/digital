@@ -324,6 +324,33 @@ describe('모선 — 방향 없는 자리를 지나는 추적', () => {
     expect(down).not.toContain('rect:OUT1');
   });
 
+  /**
+   * **묻는 방향이 곧 출발 자리의 방향이다** — 방향 있는 자리가 늘 그러던 것과 같다.
+   *
+   * 입력을 누르면 제 케이블로 나가지 제 장비 안을 옆으로 헤집지 않는다. 모선 단자에는
+   * 선언된 방향이 없어 그 규칙이 빠졌었고, 그래서 단자 하나를 물었는데 모선에 달린 것이
+   * 전부 나왔다.
+   */
+  it('모선 단자를 물으면 제 케이블 건너편만 — 제 모선 안으로 퍼지지 않는다', () => {
+    const g = scene();
+    /* 분배부의 모선 단자(축전지가 물린 자리). 입력으로 물어도 출력으로 물어도 축전지뿐이다. */
+    for (const flow of ['upstream', 'downstream'] as const) {
+      const reached = traceFrom(g, 'bus:BUS1', flow).map((h) => h.toPortId);
+      expect(reached).toEqual(['batt:T1']);
+    }
+  });
+
+  /** 한 걸음 건너가면 선언된 방향이 다시 다스린다 — 축전지에서 물으면 모선 너머가 나온다. */
+  it('모선을 건너간 뒤부터는 선언된 방향이 다스린다', () => {
+    const g = scene();
+    const up = traceFrom(g, 'batt:T1', 'upstream').map((h) => h.toPortId);
+    expect(up).toContain('bus:BUS1');
+    expect(up).toContain('rect:OUT1');
+    const down = traceFrom(g, 'batt:T1', 'downstream').map((h) => h.toPortId);
+    expect(down).toContain('load1:IN1');
+    expect(down).toContain('load2:IN1');
+  });
+
   /** 광은 상·하류가 없다 — 방향 없는 자리라도 질문은 하나다(어휘가 정한다). */
   it('방향을 따지지 않는 종류는 질문이 하나뿐', () => {
     const s = makeAsset('OFD-SLOT', 'slotX');
