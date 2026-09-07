@@ -43,8 +43,12 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
    * 열 때마다 **첫 프레임은 초안이 `null`** 이라 오른쪽이 빈 채로 그려졌다가 다음 프레임에
    * 채워졌다 — 재어 보니 20ms, 눈에는 화면이 깜빡이는 것으로 남았다.
    *
-   * 어느 것을 고쳤는지(`id`)까지 함께 들면 **고른 것이 바뀌는 순간 편집이 저절로 버려진다** —
-   * 비우는 effect 도, 저장 뒤 다시 뜨는 effect 도 필요 없다.
+   * 어느 것을 고쳤는지(`id`)를 함께 드는 것은 **누구의 편집인지 가리기 위해서지, 버리는
+   * 방법이 아니다.** 한때 그것을 버리는 방법으로 여겼다(「고른 것이 바뀌면 저절로 버려진다」).
+   * 그런데 id 가 다르면 안 보일 뿐 남아 있어서, **돌아오면 되살아났다** — 설비 품목의 빈
+   * 자리를 눌러 장비를 하나 만든 뒤 다른 품목으로 옮기면 「변경 1건이 사라집니다」에 「이동」을
+   * 눌러도 그 장비가 그대로 있었고, 돌아올 때마다 같은 상자가 다시 떴다. 상자가 거짓말을 한
+   * 것이다. **버리는 일은 버리는 자리에서 한다**(`select`·`cancel` 이 `setEdit(null)`).
    */
   const [edit, setEdit] = useState<{ id: string | null; draft: TDraft | null } | null>(null);
 
@@ -102,6 +106,8 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
     async (id: string | null) => {
       if (id === selectedId) return;
       if (dirtyRef.current && !(await confirmLeave())) return;
+      /* 떠나기로 했으면 **버린다.** 남겨 두면 돌아왔을 때 되살아나 상자가 거짓말이 된다. */
+      setEdit(null);
       setRequestedId(id);
     },
     [confirmLeave, selectedId],
@@ -112,20 +118,18 @@ export function useDraftSelection<TEntity extends { id: string }, TDraft>({
     async (blank: TDraft) => {
       if (dirtyRef.current && !(await confirmLeave())) return;
       setRequestedId(NEW_ID);
-      setDraft(blank);
+      /* 새 줄의 초안은 **새 줄에 붙인다.** `setDraft` 는 「지금 고른 것」을 ref 로 읽는데,
+         이 시점에는 아직 옮기기 전 항목이라 만들던 초안이 엉뚱한 줄에 달렸다. */
+      setEdit({ id: NEW_ID, draft: blank });
     },
     [confirmLeave],
   );
 
-  /** 물리기 — 만들던 중이면 그 줄이 사라지고, 아니면 원본으로 되돌아간다. */
+  /** 물리기 — 만들던 중이면 그 줄이 사라지고, 아니면 고치던 것을 버린다(원본으로 돌아간다). */
   const cancel = useCallback(() => {
-    if (isNew) {
-      setRequestedId(null);
-      setDraft(null);
-    } else {
-      setDraft(saved);
-    }
-  }, [isNew, saved]);
+    setEdit(null);
+    if (isNew) setRequestedId(null);
+  }, [isNew]);
 
   return { selectedId, isNew, original, saved, draft, setDraft, dirty, select, startNew, cancel, setRequestedId, markSaved };
 }
