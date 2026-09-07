@@ -41,12 +41,11 @@ describe('cableSegments', () => {
       const withFloors = cableSegments([cable('c2', 'p1', 'p3')] as never, [a1, a2, a3] as never, 'f1', [{ id: 'f2', name: '2층' }]);
       expect(withFloors[0]!.outgoing?.label).toBe('2층');
       /**
-       * 인출선은 **위로** 뽑는다 — 도면의 다른 것에 기대지 않는다.
+       * 인출선은 **위로** 뽑는다 — 그 길이 트여 있으면.
        *
-       * 한때 「놓인 것들의 한가운데에서 멀어지는 쪽」이었다. 안쪽을 안 가로지르게 하려던
-       * 것인데, 그 한가운데는 도면의 **모든** 자산이 정한다 — 아무 상관없는 설비를 하나 옮길
-       * 때마다 인출선이 통째로 방향을 바꿨다. 게다가 「안 가로지른다」는 보장이 아니라 어림이라
-       * 배치에 따라 얼마든지 가로질렀다. 어림으로 흔들리느니 늘 같은 자리가 낫다.
+       * 한때 「놓인 것들의 한가운데에서 멀어지는 쪽」이었다. 그 한가운데는 도면의 **모든**
+       * 자산이 정하므로, 아무 상관없는 설비를 하나 옮길 때마다 인출선이 통째로 방향을 바꿨다.
+       * 지금은 **그 인출선이 실제로 지나는 자리**만 본다(아래 두 시험).
        */
       const pts = segs[0]!.points;
       expect(pts[0]).toEqual({ x: 10, y: 10 });
@@ -54,8 +53,23 @@ describe('cableSegments', () => {
       expect(pts[pts.length - 1]!.y).toBeLessThan(10);
     });
 
+    /**
+     * **가리는 것이 있으면 비켜 간다** — 바뀔 까닭이 있을 때는 바뀌어야 한다.
+     *
+     * 위가 트였으면 위로 뽑고, 거기 놓인 것이 걸리면 다음 쪽(오른쪽)으로 옮긴다. 판정은 그
+     * 인출선이 지나는 자리만 보므로, 멀리 있는 자산은 아무 영향이 없다.
+     */
+    it('위가 막혀 있으면 트인 쪽으로 비켜 뽑는다', () => {
+      /* a1 중심(10,10) 바로 위를 막는 네모 — 인출선 길이(80) 안에 든다. */
+      const 위막이 = { ...a2, id: 'blk', name: 'blk', x: -20, y: -60, width: 60, height: 40, ports: [] };
+      const segs = cableSegments([cable('c2', 'p1', 'p3')] as never, [a1, 위막이, a3] as never, 'f1');
+      const end = segs[0]!.points[segs[0]!.points.length - 1]!;
+      expect(end.y).toBe(10);              // 더는 위로 안 간다
+      expect(end.x).toBeGreaterThan(10);   // 오른쪽으로 비켰다
+    });
+
     /** **아무 상관없는 설비를 옮겨도 인출선은 그대로다** — 남의 손짓에 흔들리면 그림을 믿지 않는다. */
-    it('다른 자산이 움직여도 인출선 방향은 안 바뀐다', () => {
+    it('멀리 있는 자산이 움직여도 인출선 방향은 안 바뀐다', () => {
       const 그대로 = cableSegments([cable('c2', 'p1', 'p3')] as never, [a1, a2, a3] as never, 'f1');
       const 옮긴뒤 = cableSegments(
         [cable('c2', 'p1', 'p3')] as never,

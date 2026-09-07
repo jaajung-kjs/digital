@@ -136,37 +136,83 @@ export function cableSegments(
   const centerOf = (a: V2Asset) => ({ x: a.x! + a.width! / 2, y: a.y! + a.height! / 2 });
 
   /**
-   * 나가는 회선이 향할 쪽 — **위쪽 한 방향**이다.
+   * 나가는 회선이 향할 쪽 — **위가 먼저고, 막히면 비켜 간다.**
    *
-   * 한때 「놓인 것들의 한가운데에서 멀어지는 쪽」으로 뽑았다. 어느 배치에서도 회선이 안쪽을
-   * 가로지르지 않게 하려던 것인데, 그 한가운데는 **도면의 모든 자산**이 정한다 — 아무 상관없는
-   * 설비를 하나 옮길 때마다 OFD 의 인출선이 통째로 방향을 바꿨다. 자기와 무관한 손짓에 그림이
-   * 흔들리면 사람은 그 그림을 믿지 않는다.
+   * 한때 「놓인 것들의 한가운데에서 멀어지는 쪽」으로 뽑았다. 그 한가운데는 **도면의 모든
+   * 자산**이 정하므로, OFD 와 아무 관계없는 설비를 하나 옮겨도 OFD 의 인출선이 통째로 방향을
+   * 바꿨다. 자기와 무관한 손짓에 그림이 흔들리면 사람은 그 그림을 믿지 않는다.
    *
-   * 게다가 그 「안쪽을 안 가로지른다」는 보장이 아니라 **어림**이었다 — 배치에 따라 얼마든지
-   * 가로지른다. 어림으로 흔들리느니 **늘 같은 자리**가 낫다. 다르게 뽑고 싶으면 경로점을
-   * 찍으면 된다(사람이 그은 것은 그 방향이 답이다 — 아래 `fanOf` 가 그것을 비켜 간다).
+   * 그렇다고 한 방향에 못 박을 수도 없다 — **정말 가리는 것이 있으면 비켜 가야** 한다.
+   * 그래서 판정을 **그 인출선이 실제로 지나는 자리**로 좁혔다: 위로 뽑아 보고 그 길에 놓인
+   * 것이 걸리면 다음 쪽으로 옮긴다. 멀리 있는 자산은 그 길에 안 걸리니 아무 영향이 없고,
+   * 위를 막고 선 자산이 생기거나 사라지면 그때는 바뀐다 — **바뀔 까닭이 있을 때만 바뀐다.**
+   *
+   * 차례는 못 박혀 있다(위 → 오른쪽 → 왼쪽 → 아래). 다 막혔으면 첫 쪽으로 뽑는다 —
+   * 가릴지언정 자리는 정해져 있어야 한다.
    */
-  const OUTWARD = { x: 0, y: -1 };
+  const OUTWARD_DIRS = [
+    { x: 0, y: -1 },
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+  ] as const;
+
+  /**
+   * 이 선분이 그 네모를 지나는가 — 축에 나란한 네모의 슬래브 자르기(Liang–Barsky).
+   *
+   * 점을 몇 개 찍어 보는 어림도 있지만, 그러면 얇은 것을 놓치고 「몇 개나 찍을까」라는 임의의
+   * 수가 하나 는다. 자르기는 정확하고 답이 하나다.
+   */
+  const hitsRect = (
+    p: { x: number; y: number }, q: { x: number; y: number },
+    r: { x: number; y: number; w: number; h: number },
+  ): boolean => {
+    let t0 = 0; let t1 = 1;
+    const dx = q.x - p.x; const dy = q.y - p.y;
+    for (const [p_, q_] of [[-dx, p.x - r.x], [dx, r.x + r.w - p.x], [-dy, p.y - r.y], [dy, r.y + r.h - p.y]] as const) {
+      if (p_ === 0) { if (q_ < 0) return false; continue; }
+      const t = q_ / p_;
+      if (p_ < 0) { if (t > t1) return false; if (t > t0) t0 = t; }
+      else { if (t < t0) return false; if (t < t1) t1 = t; }
+    }
+    return true;
+  };
+
+  /** 이 자리에서 뽑을 쪽 — 앞선 차례부터 보아 **길이 트인 첫 쪽**. */
+  const outwardFrom = (near: V2Asset, start: { x: number; y: number }) => {
+    const others = assets.filter((a) => isPlaced(a) && a.id !== near.id)
+      .map((a) => ({ x: a.x!, y: a.y!, w: a.width!, h: a.height! }));
+    for (const dir of OUTWARD_DIRS) {
+      const end = { x: start.x + dir.x * OUTGOING_STUB, y: start.y + dir.y * OUTGOING_STUB };
+      if (!others.some((r) => hitsRect(start, end, r))) return dir;
+    }
+    return OUTWARD_DIRS[0];
+  };
 
   /**
    * 인출선의 끝점 — 그린 경로가 있으면 그 방향으로, 없으면 도면 바깥으로.
    *
    * @param spread 부채꼴로 갈라지는 각(라디안) — 같은 설비에서 행선지가 여럿일 때만 0이 아니다.
    */
-  const exitPoint = (from: { x: number; y: number }, path: readonly { x: number; y: number }[], spread = 0) => {
+  const exitPoint = (
+    near: V2Asset,
+    from: { x: number; y: number },
+    path: readonly { x: number; y: number }[],
+    spread = 0,
+  ) => {
     const tail = path.length > 0 ? path[path.length - 1]! : from;
     const prev = path.length > 1 ? path[path.length - 2]! : (path.length === 1 ? from : null);
     let dx: number; let dy: number;
     if (prev === null) {
-      /* 사람이 안 그었으면 **위로** — 도면의 다른 것에 기대지 않는다(그러면 남의 손짓에 흔들린다). */
-      dx = OUTWARD.x; dy = OUTWARD.y;
+      /* 사람이 안 그었으면 **트인 쪽으로** — 길에 걸리는 것만 본다(도면 전체에 기대지 않는다). */
+      const out = outwardFrom(near, from);
+      dx = out.x; dy = out.y;
     } else {
       dx = tail.x - prev.x;
       dy = tail.y - prev.y;
     }
     const len = Math.hypot(dx, dy);
-    if (len < 1e-6) { dx = OUTWARD.x; dy = OUTWARD.y; } else { dx /= len; dy /= len; }
+    if (len < 1e-6) { dx = OUTWARD_DIRS[0].x; dy = OUTWARD_DIRS[0].y; } else { dx /= len; dy /= len; }
     const cos = Math.cos(spread);
     const sin = Math.sin(spread);
     const rx = dx * cos - dy * sin;
@@ -252,7 +298,7 @@ export function cableSegments(
     result.push({
       id: o.cable.id,
       categoryId: o.cable.categoryId,
-      points: [start, ...o.path, exitPoint(start, o.path, spread)],
+      points: [start, ...o.path, exitPoint(o.near, start, o.path, spread)],
       aAssetId: o.near.id,
       bAssetId: null,
       outgoing: { label: o.label },
