@@ -117,17 +117,24 @@ describe('케이블 파라미터 선언', () => {
    * 한때 위상을 전압 값에 넣어 두었다(「AC 220V 3φ」). 그러면 직류에 빈 칸이 안 남는 대신
    * 3상3선과 3상4선을 못 가르고, 현장에서 가장 흔한 3상4선 380/220V 를 적을 수가 없었다.
    */
-  it('상·선식은 교류에만 있는 칸이다', () => {
+  it('상·선은 교류에만 있는 칸이다', () => {
     const ac = portFieldsFor('power', 1, 'AC').find((f) => f.key === 'wiring');
-    expect(ac?.options).toEqual(['3상4선', '3상3선', '1상2선']);
+    expect(ac?.label).toBe('상');
+    expect(ac?.options).toEqual(['1φ2W', '3φ4W', '3φ3W', '1φ3W']);
     expect(portFieldsFor('power', 1, 'DC').find((f) => f.key === 'wiring')).toBeUndefined();
   });
 
-  /** 극수는 상·선식이 정한다 — 「NFB#1 2P 100A」의 그 2P 다. */
-  it('극수는 상·선식에서 따라온다 — 따로 적지 않는다', () => {
-    expect(polesOf('3상4선')).toBe('4P');
-    expect(polesOf('3상3선')).toBe('3P');
-    expect(polesOf('1상2선')).toBe('2P');
+  /**
+   * 극수는 상·선이 정한다 — 「NFB#1 **2P** 100A」의 그 2P 다.
+   *
+   * **3P 가 둘이라 극수만으로는 못 가른다**: 삼상3선(델타 220V)과 단상3선(110/220V)이 둘 다
+   * 3P 다. 그래서 값은 φ·W 를 함께 담고, 극수는 거기서 따라 나온다.
+   */
+  it('극수는 상·선에서 따라온다 — 따로 적지 않는다', () => {
+    expect(polesOf('3φ4W')).toBe('4P');
+    expect(polesOf('3φ3W')).toBe('3P');
+    expect(polesOf('1φ3W')).toBe('3P');
+    expect(polesOf('1φ2W')).toBe('2P');
     expect(polesOf(null)).toBeNull();
   });
 

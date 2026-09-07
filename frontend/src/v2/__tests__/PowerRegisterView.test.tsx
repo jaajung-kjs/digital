@@ -145,25 +145,25 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
    * 그래서 전압은 반의 머리줄이 한 번 말하고(스무 줄에 같은 값이 스무 번 서던 자리다),
    * 회로 줄에서 고치는 것은 상·선식이다.
    */
-  it('상·선식은 회로마다 고친다 — 한 반에서 3상과 단상이 섞인다', () => {
+  it('상·선은 회로마다 고친다 — 한 반에서 3상과 단상이 섞인다', () => {
     /* 모선은 3상4선, 회로 하나만 단상 — 나머지는 모선에서 물려받는다. */
     const main3P = { ...main, ports: main.ports.map((p) =>
-      p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3상4선' } }
-        : p.id === 'main-o2' ? { ...p, fieldValues: { wiring: '1상2선' } } : p) };
+      p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3φ4W' } }
+        : p.id === 'main-o2' ? { ...p, fieldValues: { wiring: '1φ2W' } } : p) };
     setStore([rack, main3P, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
     /* 안 적은 회로는 모선을 따라 3상4선(흐리게), 따로 적은 회로만 1상2선(진하게). */
-    expect(within(rows[2]!).getByRole('button', { name: '규격 고치기' }).textContent).toBe('3상4선');
-    expect(within(rows[3]!).getByRole('button', { name: '규격 고치기' }).textContent).toBe('1상2선');
+    expect(within(rows[2]!).getByRole('button', { name: '상 고치기' }).textContent).toBe('3φ4W');
+    expect(within(rows[3]!).getByRole('button', { name: '상 고치기' }).textContent).toBe('1φ2W');
 
     /* 그 자리에서 고친다 — 값은 **그 포트**에 담긴다(케이블이 아니라). */
-    fireEvent.click(within(rows[2]!).getByRole('button', { name: '규격 고치기' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '규격' }), { target: { value: '3상3선' } });
+    fireEvent.click(within(rows[2]!).getByRole('button', { name: '상 고치기' }));
+    fireEvent.change(screen.getByRole('combobox', { name: '상' }), { target: { value: '3φ3W' } });
     const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
     const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o1');
-    expect(port?.fieldValues.wiring).toBe('3상3선');
+    expect(port?.fieldValues.wiring).toBe('3φ3W');
   });
 
   /**
@@ -188,11 +188,11 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   });
 
   /** 전압은 **모선의 성질**이라 회로 줄이 아니라 머리줄이 말한다 — 극수까지 함께. */
-  it('모선의 전압·상선식·정격은 반의 머리줄이 한 번 말한다', () => {
-    const withRating = { ...main, ports: main.ports.map((p) => (p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3상4선', ampere: 400 } } : p)) };
+  it('모선의 전압·상·정격은 반의 머리줄이 한 번 말한다', () => {
+    const withRating = { ...main, ports: main.ports.map((p) => (p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3φ4W', ampere: 400 } } : p)) };
     setStore([rack, withRating, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
-    expect(screen.getByText('AC 380/220V · 3상4선(4P) · 400A')).toBeInTheDocument();
+    expect(screen.getByText('AC 380/220V · 3φ4W(4P) · 400A')).toBeInTheDocument();
   });
 
   /**
@@ -237,12 +237,12 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
    *
    * 길이를 적는 자리는 **포트 상세 카드의 연결 줄**이다 — 그 케이블이 서 있는 곳이다.
    */
-  it('케이블 길이는 회로 대장의 열이 아니다 — 굵기는 남는다', () => {
+  it('케이블 길이는 회로 대장의 열이 아니다 — 규격(단면적)은 남는다', () => {
     setStore([rack, main, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
     const heads = screen.getAllByRole('columnheader').map((h) => h.textContent);
     expect(heads).not.toContain('길이');
-    expect(heads).toContain('굵기');
+    expect(heads).toContain('규격');
     /* 차단기 종류도 같다 — 어휘로는 남기고(포트 카드에서 적는다) 열에서만 내린다. */
     expect(heads).not.toContain('차단기');
   });
