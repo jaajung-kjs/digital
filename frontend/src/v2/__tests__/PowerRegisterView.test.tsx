@@ -7,13 +7,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { emptyOverlays, v2WorkingCopyStore } from '../store/workingCopyStore';
-import { PowerRegisterView, powerColumnWidths } from '../components/registers/PowerRegisterView';
+import { PowerRegisterView, powerColumnWidths, powerValueColumns } from '../components/registers/PowerRegisterView';
 import { cableFieldsFor, portFieldsFor } from '@twin/core';
 import type { V2Asset, V2Cable } from '../types';
 
 /* 전압은 **포트를 만들 때 실린다**(장비 품목의 포트 선언) — 놓인 포트는 이미 그것을 들고 있다. */
 const port = (id: string, assetId: string, group: string, index: number, direction: 'IN' | 'OUT', name: string,
-              voltage = 'AC 220V 1φ') =>
+              voltage = 'AC 220V') =>
   ({ id, assetId, group, index, name, direction, medium: 'power', positions: 1, variant: 'AC',
      fieldValues: { voltage } });
 const asset = (id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset => ({
@@ -34,10 +34,12 @@ const main = asset('main', '소내전원반', {
           port('main-o1', 'main', 'OUT', 1, 'OUT', '출력 1'),
           port('main-o2', 'main', 'OUT', 2, 'OUT', '출력 2')],
 });
+/* **반은 나누는 것**이다 — 출력이 하나뿐이면 지나가는 자리라 제 표를 갖지 않는다(`isBoard`). */
 const ups = asset('ups', 'UPS', {
   parentAssetId: 'rack',
   ports: [port('ups-in', 'ups', 'IN', 1, 'IN', '전원 입력'),
-          port('ups-o1', 'ups', 'OUT', 1, 'OUT', '출력 1')],
+          port('ups-o1', 'ups', 'OUT', 1, 'OUT', '출력 1'),
+          port('ups-o2', 'ups', 'OUT', 2, 'OUT', '출력 2')],
 });
 const load = asset('load', '통합단말', { ports: [port('load-in', 'load', 'IN', 1, 'IN', '전원 입력')] });
 
@@ -122,7 +124,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
 
     const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
     const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o1');
-    expect(port?.fieldValues).toEqual({ voltage: 'AC 220V 1φ', ampere: 30 });
+    expect(port?.fieldValues).toEqual({ voltage: 'AC 220V', ampere: 30 });
     /* 다른 회로에는 적히지 않는다 — 판 하나에 값 하나가 아니다. */
     const other = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o2');
     expect(other?.fieldValues.ampere).toBeUndefined();
@@ -131,30 +133,46 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   });
 
   /**
-   * **전압은 회로마다 다르다 — 그래서 여기서 고친다.**
+   * **한 반에서 3상과 단상이 섞인다 — 그것은 전압이 아니라 상·선식이다.**
    *
-   * 한때 품목의 포트 선언에 못 박고 표는 읽기만 했다. 기기의 입력은 실제로 그렇지만
-   * (송광치의 DC 48V 입력) **분배 회로는 다르다**: 380/220V 3상4선 반은 한 반에서 380V
-   * 3상과 220V 단상을 함께 내보낸다. 그 흔한 반을 선언 하나로는 표현할 수 없다.
+   * 380/220V 3상4선 반은 한 모선에서 3상 부하(4P·선간 380V)와 단상 부하(2P·상전압 220V)를
+   * 함께 내보낸다. 전압은 그 모선 하나이고 회로마다 다른 것은 **몇 상 몇 선인가**다 —
+   * 현장 조서의 「규격」 칸이 그것이고, 도면의 「NFB#1 2P 100A」의 그 2P 다.
    *
-   * 그래서 품목은 갈래(AC·DC)까지만 정하고, 몇 V 인지는 **회로 대장인 이 표**가 적는다.
+   * 그래서 전압은 반의 머리줄이 한 번 말하고(스무 줄에 같은 값이 스무 번 서던 자리다),
+   * 회로 줄에서 고치는 것은 상·선식이다.
    */
-  it('전압은 회로마다 고친다 — 한 반에서 380V 3상과 220V 단상이 섞인다', () => {
-    const main3P = { ...main, ports: main.ports.map((p) => (p.id === 'main-o1' ? { ...p, fieldValues: { voltage: 'AC 380V 3φ' } } : p)) };
+  it('상·선식은 회로마다 고친다 — 한 반에서 3상과 단상이 섞인다', () => {
+    const main3P = { ...main, ports: main.ports.map((p) => (p.id === 'main-o1' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3상4선' } } : p)) };
     setStore([rack, main3P, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
-    /* 같은 반의 두 회로가 서로 다른 전압으로 선다. */
-    expect(within(rows[2]!).getByText('AC 380V 3φ')).toBeInTheDocument();
-    expect(within(rows[3]!).getByText('AC 220V 1φ')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('3상4선')).toBeInTheDocument();
+    expect(within(rows[3]!).getByText('1상2선')).toBeInTheDocument();
 
-    /* 그리고 그 자리에서 고친다 — 값은 **그 포트**에 담긴다(케이블이 아니라). */
-    fireEvent.click(within(rows[3]!).getByRole('button', { name: '전압 고치기' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '전압' }), { target: { value: 'AC 380V 3φ' } });
+    /* 그 자리에서 고친다 — 값은 **그 포트**에 담긴다(케이블이 아니라). */
+    fireEvent.click(within(rows[3]!).getByRole('button', { name: '규격 고치기' }));
+    fireEvent.change(screen.getByRole('combobox', { name: '규격' }), { target: { value: '3상4선' } });
     const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
     const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o2');
-    expect(port?.fieldValues.voltage).toBe('AC 380V 3φ');
+    expect(port?.fieldValues.wiring).toBe('3상4선');
+  });
+
+  /** 전압은 **모선의 성질**이라 회로 줄이 아니라 머리줄이 말한다 — 극수까지 함께. */
+  it('모선의 전압·상선식·정격은 반의 머리줄이 한 번 말한다', () => {
+    const withRating = { ...main, ports: main.ports.map((p) => (p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3상4선', ampere: 400 } } : p)) };
+    setStore([rack, withRating, ups, load], wired());
+    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    expect(screen.getByText('AC 380/220V · 3상4선(4P) · 400A')).toBeInTheDocument();
+  });
+
+  /** 아직 아무것도 안 문 회로는 **예비**다 — 조서가 그 자리를 그렇게 부른다. */
+  it('안 이은 회로는 예비로 읽힌다', () => {
+    setStore([rack, main, ups, load], wired());
+    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
+    expect(within(rows[3]!).getByText('예비')).toBeInTheDocument();
   });
 
   it('길이는 그 자리에서 고친다 — 케이블에 담긴다', () => {
@@ -177,10 +195,8 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
  * 개폐는 글자가 아니라 스위치라 「ON」이 칸 밖으로 잘렸다. 눈으로는 멀쩡해 보이는 크기다.
  */
 describe('계통 표 열 폭', () => {
-  const valueFields = [
-    ...portFieldsFor('power').filter((f) => f.type !== 'boolean'),
-    ...cableFieldsFor('power'),
-  ].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  /* 화면이 세우는 목록 그대로 — 시험이 제 손으로 다시 세우면 칸이 늘 때 둘이 갈린다. */
+  const valueFields = powerValueColumns().map((c) => c.field);
   const stateFields = portFieldsFor('power').filter((f) => f.type === 'boolean');
   const widths = powerColumnWidths(valueFields, stateFields);
 
@@ -206,12 +222,9 @@ describe('계통 표 열 폭', () => {
     });
   });
 
-  it('가장 긴 값을 담는 칸이 가장 넓다 — 전압에 위상까지 들어간다', () => {
-    const [, , ...rest] = widths;
-    const valueWidths = rest.slice(0, valueFields.length);
-    const widest = valueFields[valueWidths.indexOf(Math.max(...valueWidths))]!;
-    expect(widest.key).toBe('voltage');
-  });
+  /* 「가장 넓은 칸은 전압」이라는 시험이 여기 있었다. 전압에 위상이 들어 있어 가장 긴 값이던
+     시절의 것인데, 전압은 이제 모선의 것이라 이 표에 없다. 남은 보장(「어떤 선택지든 한 줄에
+     들어간다」)은 바로 위 시험이 이미 지킨다 — 칸들의 넓이 **차례**는 지킬 값이 아니다. */
 
   it('용도가 남는 폭을 받는다 — 자료가 채우는 열이라 가장 넓다', () => {
     expect(widths[1]!).toBeGreaterThan(Math.max(...widths.filter((_, i) => i !== 1)));

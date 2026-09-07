@@ -98,10 +98,53 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     expect(dcNode.containerName).toBe('분전반');
   });
 
+  /**
+   * **나누지 않는 것은 반이 아니다** — 정류기·인버터·강압기는 지나가는 자리다.
+   *
+   * 「출력이 하나라도 있으면 반」이던 동안 한 국에 반이 열둘씩 섰다(실제 조서는 넷·다섯이다).
+   * 그렇다고 그것들을 그냥 버리면 상용 반과 UPS 반이 **남남인 두 그루**로 선다 — 사이에 UPS
+   * 가 있을 뿐 한 계통인데. 그래서 지나가되 **거쳐 온 길을 적는다**.
+   */
+  it('하나를 하나로 보내는 것은 반이 아니다 — 지나서 반까지 잇고, 거쳐 온 길을 적는다', () => {
+    /* 소내배전반 → (정류기: 입력 1 · 출력 1) → DC 반 */
+    const rect = asset('rect', '정류기', {
+      ports: [port('rect-in', 'rect', 'IN', 1, 'IN', 'power', '전원 입력'),
+              port('rect-out', 'rect', 'OUT', 1, 'OUT', 'power', '전원 출력')],
+    });
+    const dcOnly = board('dc2', 'DC 48V', 3, 'rack');
+    const tree = powerTree(
+      [rack, main, rect, dcOnly] as never,
+      [cable('r1', 'main-out1', 'rect-in'), cable('r2', 'rect-out', 'dc2-in')] as never,
+    );
+    /* 정류기는 제 표를 갖지 않는다 — 두 반이 한 그루로 이어진다. */
+    expect(tree.map((n) => n.name)).toEqual(['소내배전반']);
+    expect(tree[0]!.children.map((n) => n.name)).toEqual(['DC 48V']);
+    /* 사라지지는 않는다 — 「무엇을 거쳐 왔는가」로 머리줄에 남는다. */
+    expect(tree[0]!.children[0]!.sources[0]!.via.map((v) => v.name)).toEqual(['정류기']);
+    expect(tree[0]!.children[0]!.sources[0]!.fromAssetId).toBe('main');
+  });
+
+  /** 갈 곳이 하나로 정해지지 않으면 **거기서 멈춘다** — 모르는 것을 지어내지 않는다. */
+  it('입력이 둘인 기기(절체 스위치)에서는 거슬러 오르기를 멈춘다', () => {
+    const sts = asset('sts', '절체 스위치', {
+      ports: [port('sts-in1', 'sts', 'IN', 1, 'IN', 'power', '인버터 입력'),
+              port('sts-in2', 'sts', 'IN', 2, 'IN', 'power', '바이패스 입력'),
+              port('sts-out', 'sts', 'OUT', 1, 'OUT', 'power', 'AC 출력')],
+    });
+    const feed = board('ups-f', 'UPS 피더', 3, 'rack');
+    const tree = powerTree(
+      [rack, main, sts, feed] as never,
+      [cable('s1', 'main-out1', 'sts-in1'), cable('s2', 'sts-out', 'ups-f-in')] as never,
+    );
+    const src = tree.flatMap((n) => [n, ...n.children]).find((n) => n.name === 'UPS 피더')!.sources[0]!;
+    expect(src.via.map((v) => v.name)).toEqual(['절체 스위치']);
+    expect(src.fromAssetId).toBeNull(); // 어디서 오는지 한 줄로 답할 수 없다
+  });
+
   /* 충전기 #1·#2 가 같은 DC 버스를 먹인다 — 실제 계통이 그렇다. */
   it('이중화는 한 번만 편다 — 나머지 갈래는 입력 목록이 말한다', () => {
     const dual = { ...dc, ports: [...dc.ports, port('dc-in2', 'dc', 'IN', 2, 'IN', 'power', '전원 입력 2')] };
-    const charger2 = board('charger2', '충전기 2', 1, 'rack');
+    const charger2 = board('charger2', '충전기 2', 2, 'rack');
     const tree = powerTree(
       [rack, main, charger, charger2, dual, device] as never,
       [...wires, cable('c4', 'main-out2', 'charger2-in'), cable('c5', 'charger2-out1', 'dc-in2')] as never,
@@ -124,8 +167,8 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
 
   it('어느 뿌리에서도 못 닿는 반도 버리지 않는다 — 조용히 사라지는 것이 가장 나쁘다', () => {
     /* 고리: A 가 B 를, B 가 A 를 먹인다(자료가 꼬였다). */
-    const a = board('a', '반 A', 1);
-    const b = board('b', '반 B', 1);
+    const a = board('a', '반 A', 2);
+    const b = board('b', '반 B', 2);
     const loop = [cable('l1', 'a-out1', 'b-in'), cable('l2', 'b-out1', 'a-in')];
     const tree = powerTree([...assets, a, b] as never, [...wires, ...loop] as never);
     expect(tree.map((n) => n.name)).toEqual(['소내배전반', '반 A']);

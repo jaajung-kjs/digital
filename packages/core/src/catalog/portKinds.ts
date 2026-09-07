@@ -115,6 +115,15 @@ export interface PortVariant {
   voltages?: readonly string[];
   /** 적힌 값이 없을 때의 전압 — 현장에서 가장 흔한 것. */
   defaultVoltage?: string;
+  /**
+   * 이 갈래에서 고를 수 있는 **상·선식**. **없으면 그 갈래에는 이 칸이 아예 없다.**
+   *
+   * 직류에는 상이 없다. 칸을 종류에만 두면 직류 회로마다 빈 칸이 남고 「DC 48V 3상4선」 같은
+   * 있을 수 없는 조합이 표현된다 — 갈래가 칸을 갖게 하면 그럴 자리가 생기지 않는다.
+   */
+  wirings?: readonly string[];
+  /** 적힌 값이 없을 때의 상·선식 — 분기 회로는 거의 단상이다. */
+  defaultWiring?: string;
 }
 
 export interface PortKind {
@@ -197,8 +206,45 @@ export interface PortKind {
  * (스무 줄에서 다섯 줄을 찾는다), 「목록에 있으니 맞는 값이겠지」라는 잘못된 안심을 준다.
  * 목록에 없는 값은 「직접 입력」으로 적는다 — 그 문은 언제나 열려 있다.
  */
-/** 교류 전압 — 위상까지 한 값으로(대장 표기가 그렇다). 자료: 220V(67) · 380V(46) · 110V(1). */
-export const AC_VOLTAGES = ['AC 380V 3φ', 'AC 220V 3φ', 'AC 220V 1φ', 'AC 110V 1φ'] as const;
+/**
+ * 교류 전압 — **전압만.** 상·선식은 아래 `AC_WIRINGS` 가 따로 든다.
+ *
+ * 한때 위상까지 한 값으로 적었다(「AC 220V 3φ」). 대장 표기가 그랬고, 따로 두면 직류 회로마다
+ * 빈 칸이 남고 「DC 48V 3φ」 같은 있을 수 없는 조합이 표현된다는 것이 까닭이었다. 그 걱정은
+ * **갈래가 칸을 갖게 하면** 사라진다(`PortVariant.wirings`) — 직류에는 그 칸이 아예 없다.
+ *
+ * 한 값으로 묶어 두는 동안 두 가지를 적을 수 없었다. **선식**(3φ 가 3상3선인지 3상4선인지)과,
+ * 현장에서 가장 흔한 **3상4선 380/220V**(선간 380 · 상전압 220 을 한 값으로 못 쓴다). 실제
+ * 분전반 조서는 이 둘을 따로 적는다 — 「용량 200A · 규격 3상4선」.
+ */
+export const AC_VOLTAGES = ['AC 380/220V', 'AC 380V', 'AC 220V', 'AC 110V'] as const;
+
+/**
+ * 상·선식 — 현장 조서의 「규격」 칸이다(`3상4선` · `1상2선`).
+ *
+ * **회로마다 다르다.** 한 반에서 메인 인입은 3상4선인데 분기는 전부 1상2선인 것이 예사다
+ * (SCADA 분전반 조서가 그렇다). 그래서 반의 성질이 아니라 회로(포트)의 값이다.
+ */
+export const AC_WIRINGS = ['3상4선', '3상3선', '1상2선'] as const;
+
+/**
+ * 극수 — **상·선식이 정한다.** 따로 적게 두지 않는다.
+ *
+ * 도면은 차단기를 「NFB#1 2P 100A」로 부른다. 그 `2P` 는 몇 가닥을 함께 끊느냐이고, 상·선식과
+ * 하나로 묶여 있다. 두 칸으로 두면 「1상2선인데 4P」 같은 어긋남이 생긴다 — 유도하면 그럴 수가
+ * 없다.
+ */
+export function polesOf(wiring: unknown): string | null {
+  return wiring === '3상4선' ? '4P' : wiring === '3상3선' ? '3P' : wiring === '1상2선' ? '2P' : null;
+}
+
+/**
+ * 차단기 종류 — 조서의 「Type」 칸.
+ *
+ * NFB(배선용차단기)와 MCCB 는 같은 것을 현장이 달리 부르는 말이라 둘 다 낸다(도면은 NFB,
+ * 조서는 MCCB 로 적혀 있었다). ELB 는 누전차단기, ABS 는 개폐기다.
+ */
+export const BREAKER_TYPES = ['NFB', 'MCCB', 'ELB', 'ABS'] as const;
 /**
  * 직류 전압 — 위상이 없다.
  *
@@ -242,20 +288,24 @@ export const PORT_KINDS = [
     flowLabels: { upstream: '전원 측', downstream: '부하 측' },
     /* 교류와 직류는 잇지 않는다 — 충전기가 교류를 받아 직류를 내보내는 것이 그 경계다. */
     variants: [
-      { key: 'AC', name: 'AC', voltages: AC_VOLTAGES, defaultVoltage: 'AC 220V 1φ' },
+      { key: 'AC', name: 'AC', voltages: AC_VOLTAGES, defaultVoltage: 'AC 220V', wirings: AC_WIRINGS, defaultWiring: '1상2선' },
+      /* 직류에는 상·선식이 없다 — `wirings` 를 안 주면 그 칸이 서지 않는다. */
       { key: 'DC', name: 'DC', voltages: DC_VOLTAGES, defaultVoltage: 'DC 48V' },
     ],
     /* 굵기는 **전원케이블 대장의 절반**이다 — 현장 대장은 「FR-5.5sq」처럼 종류와 굵기를
        붙여 적는다. 종류는 우리 케이블 품목이 이미 알고, 굵기는 적을 곳이 없었다. */
     cableFields: [
       /**
-       * 도체의 **공칭 단면적**(5.5sq = 5.5mm²) — 현장 대장의 열 이름이 「규격(SQ)」이라 그대로 쓴다.
+       * 도체의 **공칭 단면적**(5.5sq = 5.5mm²) — 대장은 「전원케이블 FR-5.5sq」로 적는다.
+       *
+       * 열 이름은 「굵기」다. 조서의 **「규격」 칸은 상·선식**(3상4선·1상2선)이라, 여기에도 그
+       * 이름을 쓰면 한 표에 같은 이름의 열이 둘 선다.
        *
        * 말로는 「전선 굵기」라고도 하지만 문서에 적힐 때는 규격이다. 광의 「심선」과는 다른
        * 말이고(그건 유리섬유 가닥 수), 케이블 안에 도체가 몇 가닥인지는 「심수」(3C·4C)로
        * 또 다른 값이다 — 대장은 심수를 적지 않는다(단상 2C·삼상 4C 가 관행이라 위상에서 따라온다).
        */
-      { key: 'sizeSq', label: '규격', type: 'number', unit: 'sq', options: WIRE_SIZES_SQ, order: 40 },
+      { key: 'sizeSq', label: '굵기', type: 'number', unit: 'sq', options: WIRE_SIZES_SQ, order: 40 },
     ],
     /* 차단기의 개폐 — 예전에는 피더 **자산**의 필드였는데, 개폐는 자산이 아니라
        그 회로의 상태다. 출력이 여럿인 기기(콘센트 13구 분배반)는 회로마다 따로 끊긴다.
@@ -273,9 +323,10 @@ export const PORT_KINDS = [
        * 다를 수 있다). 케이블에 적어 두었더니 한 가닥을 두 줄이 나눠 볼 때만 값이 맞아
        * 보였을 뿐, 「이 포트가 몇 V 인가」는 어디에도 없었다.
        *
-       * **위상도 이 값에 들어 있다**(「AC 220V 3φ」) — 따로 두면 DC 회로마다 빈 칸이 남고
-       * 「DC 48V 3φ」 같은 있을 수 없는 조합이 표현된다. 고를 수 있는 값과 기본값은 갈래가
-       * 정한다(`PortVariant.voltages`·`defaultVoltage`).
+       * **상·선식은 여기 없다** — 제 칸이 따로 있다(`wiring`). 한때 한 값으로 묶어 두었는데
+       * (「AC 220V 3φ」), 그러면 3상3선과 3상4선을 못 가르고 3상4선 380/220V 를 적을 수가
+       * 없었다. 직류에 빈 칸이 남는 걱정은 **갈래가 칸을 갖게** 해서 없앴다.
+       * 고를 수 있는 값과 기본값은 갈래가 정한다(`PortVariant.voltages`·`defaultVoltage`).
        *
        * **적는 자리는 계통 표**다 — 회로 대장의 그 열이다.
        *
@@ -287,8 +338,11 @@ export const PORT_KINDS = [
        * 몇 V 인지는 회로마다 적는다. 포트가 생길 때는 그 갈래의 예사값이 실린다
        * (`PortVariant.defaultVoltage`) — 대개 맞고, 다르면 계통 표에서 고친다.
        */
-      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 20 },
-      { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 30 },
+      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 10 },
+      { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 20 },
+      /* 차례는 **현장 조서 그대로**다 — 번호 · 용량 · 규격 · Type · 부하. */
+      { key: 'wiring', label: '규격', type: 'text', options: AC_WIRINGS, order: 25 },
+      { key: 'breaker', label: '차단기', type: 'text', options: BREAKER_TYPES, order: 27 },
       { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true, trueLabel: '투입', falseLabel: '개방' },
     ],
   },
@@ -337,7 +391,7 @@ export const PORT_KINDS = [
   // 접지 부스바에는 여러 기기의 접지선이 한 단자로 모인다 — 여기만 다중 결선이다.
   /* 접지선도 굵기로 부른다(「IV 22sq」) — 전원과 같은 사실이라 같은 칸을 쓴다. */
   { key: 'ground', name: '접지', connectsTo: ['ground'], pairing: 'any', maxCables: null,
-    cableFields: [{ key: 'sizeSq', label: '규격', type: 'number', unit: 'sq', options: WIRE_SIZES_SQ, order: 40 }], portFields: [] },
+    cableFields: [{ key: 'sizeSq', label: '굵기', type: 'number', unit: 'sq', options: WIRE_SIZES_SQ, order: 40 }], portFields: [] },
 ] as const satisfies readonly PortKind[];
 
 /** 이 어휘가 아는 매체 키 — 시드·검증이 이걸로 빠짐을 컴파일 때 잡는다. */
@@ -382,11 +436,14 @@ export function portFieldsFor(medium: string, positions?: number | null, variant
   /* 갈래를 알면 **그 갈래의 값**만 낸다 — 직류 포트에 「AC 220V 3φ」가 뜨면 목록을 믿지 않게 된다. */
   const variant = variantKey ? kind.variants?.find((v) => v.key === variantKey) : undefined;
   if (!variant) return fields;
-  return fields.map((f) =>
-    f.key === 'voltage'
-      ? { ...f, options: variant.voltages ?? f.options, defaultValue: variant.defaultVoltage ?? f.defaultValue }
-      : f,
-  );
+  return fields.flatMap((f) => {
+    if (f.key === 'voltage') return [{ ...f, options: variant.voltages ?? f.options, defaultValue: variant.defaultVoltage ?? f.defaultValue }];
+    /* 상·선식은 **그 갈래가 가진 것만** — 직류에는 이 칸이 서지 않는다(`PortVariant.wirings`). */
+    if (f.key === 'wiring') {
+      return variant.wirings ? [{ ...f, options: variant.wirings, defaultValue: variant.defaultWiring ?? f.defaultValue }] : [];
+    }
+    return [f];
+  });
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CORE_COUNT, PORT_KINDS, cableFieldsFor, coreCount, groupRefOf, groupRefOfTemplate, isMultiCorePort, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey } from './portKinds.js';
+import { DEFAULT_CORE_COUNT, PORT_KINDS, cableFieldsFor, coreCount, groupRefOf, groupRefOfTemplate, isMultiCorePort, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey, polesOf } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -89,7 +89,28 @@ describe('케이블 파라미터 선언', () => {
     expect(dc.defaultValue).toBe('DC 48V');
     const ac = portFieldsFor('power', 1, 'AC').find((f) => f.key === 'voltage')!;
     expect(ac.options?.every((v) => String(v).startsWith('AC'))).toBe(true);
-    expect(ac.defaultValue).toBe('AC 220V 1φ');
+    expect(ac.defaultValue).toBe('AC 220V');
+  });
+
+  /**
+   * **상·선식은 갈래가 칸을 갖는다** — 직류에는 그 칸이 아예 서지 않는다.
+   *
+   * 한때 위상을 전압 값에 넣어 두었다(「AC 220V 3φ」). 그러면 직류에 빈 칸이 안 남는 대신
+   * 3상3선과 3상4선을 못 가르고, 현장에서 가장 흔한 3상4선 380/220V 를 적을 수가 없었다.
+   */
+  it('상·선식은 교류에만 있는 칸이다', () => {
+    const ac = portFieldsFor('power', 1, 'AC').find((f) => f.key === 'wiring');
+    expect(ac?.options).toEqual(['3상4선', '3상3선', '1상2선']);
+    expect(ac?.defaultValue).toBe('1상2선');
+    expect(portFieldsFor('power', 1, 'DC').find((f) => f.key === 'wiring')).toBeUndefined();
+  });
+
+  /** 극수는 상·선식이 정한다 — 「NFB#1 2P 100A」의 그 2P 다. */
+  it('극수는 상·선식에서 따라온다 — 따로 적지 않는다', () => {
+    expect(polesOf('3상4선')).toBe('4P');
+    expect(polesOf('3상3선')).toBe('3P');
+    expect(polesOf('1상2선')).toBe('2P');
+    expect(polesOf(null)).toBeNull();
   });
 
   /* 현장 대장은 전원케이블을 「FR-5.5sq」로 적는다 — 종류는 케이블 품목이 알고, 굵기는
@@ -193,14 +214,13 @@ describe('고를 수 있는 값', () => {
     for (const f of [voltage, size, ampere]) expect(f?.options?.length).toBeGreaterThan(3);
   });
 
-  /* 위상은 **교류에만 있는 성질**이라 전압 값에 들어 있다 — 따로 두면 「DC 48V 3φ」 같은
-     있을 수 없는 조합이 표현되고 DC 회로마다 빈 칸이 남는다. */
-  it('위상은 전압 값에 들어 있다 — DC 에는 위상이 없다', () => {
+  /* 전압 값에는 **전압만** 있다 — 상은 제 칸에 있다(`wiring`). 자료의 「3상4선 380/220V」는
+     한 값으로 적을 수 없었던 것이라 목록에 넣었다. */
+  it('전압 값에 위상이 섞이지 않는다', () => {
     const voltage = portFieldsFor('power').find((f) => f.key === 'voltage')!;
     const opts = voltage.options!.map(String);
-    expect(opts).toContain('AC 220V 3φ');
-    expect(opts).toContain('AC 220V 1φ');
-    expect(opts.filter((o) => o.startsWith('DC')).every((o) => !o.includes('φ'))).toBe(true);
+    expect(opts.every((o) => !o.includes('φ'))).toBe(true);
+    expect(opts).toContain('AC 380/220V');
   });
 
   /* 현장 대장에 실제로 나온 값은 목록에 다 있어야 한다 — 목록이 사실보다 좁으면 쓰는 사람이

@@ -12,6 +12,14 @@ export interface RegisterLayoutProps {
   picker?: MediumContainerPick;
   /** 볼 설비가 하나도 없을 때 — 무엇을 만들면 나타나는지까지 적는다. */
   empty: { title: string; description: ReactNode };
+  /**
+   * 검색 앞에 서는 **거르개** — 같은 자료를 갈래로 나눠 보는 자리다.
+   *
+   * 현업 자료가 이미 그렇게 나뉘어 있다: 강원본부 통신실 전원계통도는 같은 배치도 위에
+   * 「전원계통도(전체)·AC계통도·DC계통도」 **세 장**을 따로 그려 두었다. 한 장에 다 그리면
+   * 선이 겹쳐 아무것도 안 읽힌다는 것을 손으로 그리던 사람들이 이미 알고 있었다.
+   */
+  filter?: ReactNode;
   search: {
     'aria-label': string;
     placeholder: string;
@@ -85,7 +93,7 @@ export interface RegisterLayoutProps {
  * 방법도 없다 — 이 컴포넌트는 자리와 건수만 맡는다(`TableSearch` 와 같은 규칙).
  */
 export function RegisterLayout({
-  picker, empty, search, widths, head, children, sections, note, onClearSelection, selectedKey = null,
+  picker, empty, filter, search, widths, head, children, sections, note, onClearSelection, selectedKey = null,
 }: RegisterLayoutProps) {
   const scrollRef = useScrollSelectedIntoView(selectedKey);
   /* 볼 것이 하나도 없으면 표 대신 까닭을 적는다 — 고르는 판이 있으면 그 목록이, 없으면
@@ -116,6 +124,7 @@ export function RegisterLayout({
           </Select>
         </div>
         )}
+        {filter}
         <TableSearch {...search} />
       </div>
 

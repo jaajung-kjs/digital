@@ -10,12 +10,12 @@
  * 위쪽 드롭다운으로 반을 하나씩 골라 봐야 해서 「이 반이 어디에 매달렸나」는 어디에도 없었다.
  */
 import { useMemo, useState } from 'react';
-import { Th, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW, Td} from '../../../components/ui';
+import { Th, Tabs, useTabs, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW, Td} from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { powerTree, POWER_MEDIUM } from '../../powerSelectors';
-import { cableFieldsFor, portFieldsFor, type ValueDef } from '@twin/core';
+import { cableFieldsFor, polesOf, portFieldsFor, type ValueDef } from '@twin/core';
 import type { PowerCircuit, PowerNode } from '../../powerSelectors';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from '../InlineEditCell';
@@ -75,6 +75,41 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
       options={field.options}
     />
   );
+}
+
+/**
+ * 계통 갈래 — **장을 나눈다.**
+ *
+ * 강원본부 통신실 전원계통도가 같은 배치도 위에 「전체 · AC · DC」 세 장을 따로 그려 둔
+ * 그것이다. 한 장에 다 그리면 선이 겹쳐 아무것도 안 읽힌다.
+ *
+ * 갈래 값(`AC`·`DC`)은 포트가 이미 들고 있다(`PortRef.variant`) — 여기서 알아맞히지 않는다.
+ */
+const FLOWS = [
+  { key: 'all', label: '전체' },
+  { key: 'AC', label: '교류' },
+  { key: 'DC', label: '직류' },
+] as const;
+type FlowKey = (typeof FLOWS)[number]['key'];
+
+
+/**
+ * 계통 표의 **값 칸들** — 화면과 시험이 같은 것을 본다.
+ *
+ * 한때 시험이 이 목록을 제 손으로 다시 세웠다. 그러다 칸이 늘자(상·선식·차단기) 시험만
+ * 옛 목록을 보고 폭을 재, 화면은 멀쩡한데 시험이 깨졌다 — 같은 규칙은 한 곳에만 적는다.
+ *
+ * **전압은 여기 없다.** 그것은 모선의 성질이라 반의 머리줄이 한 번 말한다(현장 조서가
+ * 그렇게 적는다: 머리에 「CB : AC 3φ 220V 400A」, 회로에는 용량만). 한 반에서 380V 3상과
+ * 220V 단상이 섞이는 것은 전압이 다른 것이 아니라 **상·선식**이 다른 것이다.
+ */
+export function powerValueColumns(): { field: ValueDef; from: 'port' | 'cable' }[] {
+  return [
+    ...portFieldsFor(POWER_MEDIUM)
+      .filter((f) => f.type !== 'boolean' && f.key !== 'voltage')
+      .map((field) => ({ field, from: 'port' as const })),
+    ...cableFieldsFor(POWER_MEDIUM).map((field) => ({ field, from: 'cable' as const })),
+  ].sort((a, b) => (a.field.order ?? 99) - (b.field.order ?? 99));
 }
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
@@ -171,7 +206,6 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   /* 열을 세울 때는 갈래를 모른다(줄마다 다르다) — 칸이 무엇무엇인지만 여기서 정하고,
      **고를 수 있는 값**은 줄이 제 갈래로 좁힌다(직류 회로에 교류 전압이 뜨지 않게). */
   const portFields = portFieldsFor(POWER_MEDIUM);
-  const cableFields = cableFieldsFor(POWER_MEDIUM);
   const portFieldFor = (variant: string | null | undefined, key: string) =>
     portFieldsFor(POWER_MEDIUM, 1, variant).find((f) => f.key === key);
   /**
@@ -189,10 +223,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
    * 전압(V) 옆에 용량(A)이 있어야 회로의 크기가 한눈에 잡힌다. 차례는 **선언이 정한다**
    * (`ValueDef.order`) — 여기서 키를 나열하면 어휘가 늘 때마다 이 파일을 고쳐야 한다.
    */
-  const valueColumns = [
-    ...portFields.filter((f) => f.type !== 'boolean').map((field) => ({ field, from: 'port' as const })),
-    ...cableFields.map((field) => ({ field, from: 'cable' as const })),
-  ].sort((a, b) => (a.field.order ?? 99) - (b.field.order ?? 99));
+  const valueColumns = powerValueColumns();
+
+  /* 이 국에 갈래가 하나뿐이면 나눌 것이 없다 — 탭 셋을 세워 놓고 둘이 늘 비면 군더더기다. */
+  const [flow, setFlow] = useState<FlowKey>('all');
+  const flowTabs = useTabs<FlowKey>(flow);
 
 
   const tree = useMemo(() => powerTree(effectiveAssets, effectiveCables), [effectiveAssets, effectiveCables]);
@@ -226,11 +261,41 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     [c.name, c.load?.assetName, c.load?.assemblyName, node.name, node.containerName]
       .some((v) => (v ?? '').toLowerCase().includes(q));
 
+  /** 이 줄이 지금 보는 장(章)의 것인가 — 갈래는 포트가 들고 있다(`variant`). */
+  const inFlow = (v: string | null | undefined) => flow === 'all' || (v ?? null) === flow;
+
   const shownNodes = nodes
-    .map(({ node, path }) => ({ node, path, circuits: node.circuits.filter((c) => match(node, c)) }))
-    .filter((n) => n.circuits.length > 0 || q === '');
-  const totalCircuits = nodes.reduce((n, { node }) => n + node.circuits.length, 0);
+    .map(({ node, path }) => ({
+      node, path,
+      sources: node.sources.filter((s) => inFlow(s.variant)),
+      circuits: node.circuits.filter((c) => inFlow(c.variant) && match(node, c)),
+    }))
+    /* 그 갈래에 회로가 없는 반은 **그 장에 서지 않는다** — 직류 장에 교류 피더가 뜨면
+       나눈 뜻이 없다. 전체 장에서는 아직 회로를 안 이은 반도 남긴다(할 일이 보여야 한다). */
+    .filter((n) => n.circuits.length > 0 || (q === '' && flow === 'all'));
+  const totalCircuits = nodes.reduce((n, { node }) => n + node.circuits.filter((c) => inFlow(c.variant)).length, 0);
   const shownCircuits = shownNodes.reduce((n, s) => n + s.circuits.length, 0);
+
+  /* 갈래가 하나뿐인 국에는 나눌 것이 없다 — 탭 셋을 세워 놓고 둘이 늘 비면 군더더기다. */
+  const variantsHere = new Set(nodes.flatMap(({ node }) => node.circuits.map((c) => c.variant ?? null)));
+  const flowTabItems = FLOWS.filter((f) => f.key === 'all' || variantsHere.has(f.key));
+
+  /**
+   * 이 반의 **모선** — 전압 · 상·선식(극수) · 정격.
+   *
+   * 현장 조서의 「CB : AC 3φ 220V 400A」 한 줄이다. 회로 줄마다 전압을 되풀이하는 대신
+   * 여기서 한 번 말한다(스무 줄짜리 피더에서 같은 값이 스무 번 서던 자리다).
+   * 값은 **입력(주차단기)의 것**이다 — 모선의 정격이 곧 그것이다.
+   */
+  const busOf = (node: PowerNode, srcs: PowerNode['sources']): string | null => {
+    const src = srcs[0] ?? node.sources[0];
+    if (!src) return null;
+    const poles = polesOf(src.portValues.wiring);
+    const wiring = src.portValues.wiring == null ? null
+      : `${String(src.portValues.wiring)}${poles ? `(${poles})` : ''}`;
+    const ampere = src.portValues.ampere == null ? null : `${String(src.portValues.ampere)}A`;
+    return [src.portValues.voltage, wiring, ampere].filter(Boolean).map(String).join(' · ') || null;
+  };
 
   /**
    * **아직 안 이은 것과 밖에서 오는 것은 다르다.**
@@ -252,6 +317,9 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
         title: '계통에 표시할 전원 설비가 없습니다',
         description: '분전반·UPS·충전기처럼 전원을 나눠 주는 장비를 놓으면 나타납니다.',
       }}
+      filter={flowTabItems.length > 1 ? (
+        <Tabs {...flowTabs.list} items={flowTabItems} value={flow} onChange={setFlow} />
+      ) : undefined}
       search={{
         'aria-label': '회로 검색',
         placeholder: '회로 · 부하 · 반 이름 검색',
@@ -272,7 +340,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           ))}
         </>
       }
-      sections={shownNodes.map(({ node, path, circuits }) => ({
+      sections={shownNodes.map(({ node, path, sources, circuits }) => ({
         key: node.assetId,
         title: (
           /* 거슬러 온 길을 앞에 흐리게 적는다 — 매달림이 자리를 옮기지 않고 읽힌다.
@@ -295,14 +363,20 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
         meta: (
           /* 「어디서 받는가」는 이제 **표 안 첫 줄**이 말한다 — 거기서는 길이·전압·개폐까지
              회로와 같은 칸에 선다. 머리줄에 또 적으면 같은 말이 두 번이고, 값은 못 고친다. */
-          <div className="text-xs text-content-muted">
-            회로 {node.circuits.length} · 사용 {node.circuits.filter((c) => c.cableId).length}
+          <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-content-muted">
+            {/* 모선의 정격 — 조서의 「CB : AC 3φ 220V 400A」 자리다. */}
+            {busOf(node, sources) && <span className="font-medium text-content">{busOf(node, sources)}</span>}
+            <span>회로 {circuits.length} · 사용 {circuits.filter((c) => c.cableId).length}</span>
+            {/* 나누지 않고 **거쳐 온 것들** — 정류기·인버터는 제 표를 갖지 않는다. */}
+            {sources.flatMap((src) => src.via).length > 0 && (
+              <span>{[...new Set(sources.flatMap((src) => src.via.map((v) => v.name)))].join(' › ')} 거쳐</span>
+            )}
           </div>
         ),
         rows: [
           /* **입력도 한 줄이다.** 어디서 오는지·개폐·길이·전압을 회로와 같은 칸에서 읽고
              고친다. 입력 차단기는 출력 개폐와 다른 물건이다(주차단기·입력 MCCB). */
-          ...node.sources.map((src) => (
+          ...sources.map((src) => (
             <tr
               key={src.portId}
               /* 줄의 신원은 **그 포트**다 — 자산으로 칠하면 그 반의 열 줄이 한꺼번에 물들어
@@ -344,8 +418,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           >
             <Td className="text-sm text-content-muted tabular-nums">{c.index}</Td>
             {/* 용도 = 이 회로가 먹이는 것. 도면 밖 부하는 케이블에 적힌 대국까지가 전부다. */}
+            {/* 아직 아무것도 안 문 회로는 **예비**다 — 조서가 그 자리를 그렇게 부른다.
+                빈칸으로 두면 「적다 만 것」과 「비워 둔 것」이 같아 보인다. */}
             <Td className="truncate">
-              <PeerCell peer={c.load} onSelect={onSelectAsset} />
+              {c.load ? <PeerCell peer={c.load} onSelect={onSelectAsset} />
+                : <span className="text-sm text-content-faint">{c.cableId ? '이 도면 밖' : '예비'}</span>}
             </Td>
             {valueColumns.map(({ field, from }) => (
               <Td key={field.key} align={alignOf(field)}>
