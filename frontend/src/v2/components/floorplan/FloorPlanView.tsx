@@ -550,6 +550,24 @@ export function FloorPlanView({
       // 4. grid (major 100)
       renderGrid(ctx, MAJOR_GRID, left, top, right, bottom);
 
+      /**
+       * 끄는 동안 자리가 바뀐 것 — **자산과 케이블이 같은 것을 본다.**
+       *
+       * 예전에는 이 미리보기를 자산 네모에만 먹였다. 그래서 상자는 손을 따라가는데 거기 물린
+       * 선은 옛 자리에 붙어 있다가 **손을 뗀 순간 한 번에 튀었다.** 끄는 내내 그림이 거짓말을
+       * 하는 셈이라, 어디에 놓아야 선이 어떻게 될지 보고 정할 수가 없었다.
+       */
+      const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
+      const resized = resizePreviewRef.current;
+      const assetsForRender: V2Asset[] = activePreview
+        ? latest.current.effectiveAssets.map((a) =>
+            a.id === activePreview.id
+              ? { ...a, x: activePreview.x, y: activePreview.y,
+                  ...(resized && resized.id === a.id ? { width: resized.width, height: resized.height } : {}) }
+              : a,
+          )
+        : latest.current.effectiveAssets;
+
       // 5. 케이블 (그리드 위, 자산 아래)
       const floorId = floor?.id ?? null;
       const traceRes = latest.current.traceResult;
@@ -562,7 +580,7 @@ export function FloorPlanView({
               c.id === preview.id ? { ...c, pathPoints: preview.points } : c,
             )
           : latest.current.effectiveCables;
-        const segs = cableSegments(cablesForRender, latest.current.effectiveAssets, floorId, latest.current.floors);
+        const segs = cableSegments(cablesForRender, assetsForRender, floorId, latest.current.floors);
         if (traceRes) {
           // 추적 결과 있음: 추적 케이블은 선택 스타일, 나머지는 alpha 0.3
           const tracedSegs = segs.filter((s) => traceRes.cableIds.has(s.id));
@@ -602,7 +620,6 @@ export function FloorPlanView({
       }
 
       // 6. 배치 자산 (선택 하이라이트, 이동/리사이즈 프리뷰 우선 적용)
-      const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
       if (traceRes) {
         // 추적 결과 있음: 추적 자산은 선택 스타일, 나머지는 alpha 0.3
         // expandToPlacedAncestors로 프리컴퓨트된 집합 사용 (per-frame 스캔 제거)

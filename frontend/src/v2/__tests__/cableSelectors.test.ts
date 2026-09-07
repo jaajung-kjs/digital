@@ -40,10 +40,29 @@ describe('cableSegments', () => {
       expect(segs[0]!.outgoing?.label).toBe('a3');
       const withFloors = cableSegments([cable('c2', 'p1', 'p3')] as never, [a1, a2, a3] as never, 'f1', [{ id: 'f2', name: '2층' }]);
       expect(withFloors[0]!.outgoing?.label).toBe('2층');
-      /* 인출선은 도면 **바깥**을 향한다: a1 은 한가운데(x=60)의 왼쪽이므로 왼쪽으로 뽑힌다. */
+      /**
+       * 인출선은 **위로** 뽑는다 — 도면의 다른 것에 기대지 않는다.
+       *
+       * 한때 「놓인 것들의 한가운데에서 멀어지는 쪽」이었다. 안쪽을 안 가로지르게 하려던
+       * 것인데, 그 한가운데는 도면의 **모든** 자산이 정한다 — 아무 상관없는 설비를 하나 옮길
+       * 때마다 인출선이 통째로 방향을 바꿨다. 게다가 「안 가로지른다」는 보장이 아니라 어림이라
+       * 배치에 따라 얼마든지 가로질렀다. 어림으로 흔들리느니 늘 같은 자리가 낫다.
+       */
       const pts = segs[0]!.points;
       expect(pts[0]).toEqual({ x: 10, y: 10 });
-      expect(pts[pts.length - 1]!.x).toBeLessThan(10);
+      expect(pts[pts.length - 1]!.x).toBe(10);
+      expect(pts[pts.length - 1]!.y).toBeLessThan(10);
+    });
+
+    /** **아무 상관없는 설비를 옮겨도 인출선은 그대로다** — 남의 손짓에 흔들리면 그림을 믿지 않는다. */
+    it('다른 자산이 움직여도 인출선 방향은 안 바뀐다', () => {
+      const 그대로 = cableSegments([cable('c2', 'p1', 'p3')] as never, [a1, a2, a3] as never, 'f1');
+      const 옮긴뒤 = cableSegments(
+        [cable('c2', 'p1', 'p3')] as never,
+        [a1, { ...a2, x: 900, y: 900 }, a3] as never,
+        'f1',
+      );
+      expect(옮긴뒤[0]!.points).toEqual(그대로[0]!.points);
     });
 
     it('그린 경로가 있으면 그 방향으로 뽑는다 — 사람이 그은 쪽이 나가는 쪽이다', () => {

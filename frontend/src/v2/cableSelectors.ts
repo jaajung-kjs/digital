@@ -135,12 +135,19 @@ export function cableSegments(
   const result: CableSegment[] = [];
   const centerOf = (a: V2Asset) => ({ x: a.x! + a.width! / 2, y: a.y! + a.height! / 2 });
 
-  /* 나가는 회선이 향할 쪽 — 도면 **바깥**이다. 놓인 것들의 한가운데에서 멀어지는 방향으로
-     뽑으면 어느 배치에서도 회선이 안쪽을 가로지르지 않는다. 하나뿐이면 오른쪽으로 뽑는다. */
-  const placed = assets.filter(isPlaced);
-  const hub = placed.length > 0
-    ? placed.reduce((acc, a) => { const c = centerOf(a); return { x: acc.x + c.x / placed.length, y: acc.y + c.y / placed.length }; }, { x: 0, y: 0 })
-    : { x: 0, y: 0 };
+  /**
+   * 나가는 회선이 향할 쪽 — **위쪽 한 방향**이다.
+   *
+   * 한때 「놓인 것들의 한가운데에서 멀어지는 쪽」으로 뽑았다. 어느 배치에서도 회선이 안쪽을
+   * 가로지르지 않게 하려던 것인데, 그 한가운데는 **도면의 모든 자산**이 정한다 — 아무 상관없는
+   * 설비를 하나 옮길 때마다 OFD 의 인출선이 통째로 방향을 바꿨다. 자기와 무관한 손짓에 그림이
+   * 흔들리면 사람은 그 그림을 믿지 않는다.
+   *
+   * 게다가 그 「안쪽을 안 가로지른다」는 보장이 아니라 **어림**이었다 — 배치에 따라 얼마든지
+   * 가로지른다. 어림으로 흔들리느니 **늘 같은 자리**가 낫다. 다르게 뽑고 싶으면 경로점을
+   * 찍으면 된다(사람이 그은 것은 그 방향이 답이다 — 아래 `fanOf` 가 그것을 비켜 간다).
+   */
+  const OUTWARD = { x: 0, y: -1 };
 
   /**
    * 인출선의 끝점 — 그린 경로가 있으면 그 방향으로, 없으면 도면 바깥으로.
@@ -149,11 +156,17 @@ export function cableSegments(
    */
   const exitPoint = (from: { x: number; y: number }, path: readonly { x: number; y: number }[], spread = 0) => {
     const tail = path.length > 0 ? path[path.length - 1]! : from;
-    const prev = path.length > 1 ? path[path.length - 2]! : (path.length === 1 ? from : hub);
-    let dx = tail.x - prev.x;
-    let dy = tail.y - prev.y;
+    const prev = path.length > 1 ? path[path.length - 2]! : (path.length === 1 ? from : null);
+    let dx: number; let dy: number;
+    if (prev === null) {
+      /* 사람이 안 그었으면 **위로** — 도면의 다른 것에 기대지 않는다(그러면 남의 손짓에 흔들린다). */
+      dx = OUTWARD.x; dy = OUTWARD.y;
+    } else {
+      dx = tail.x - prev.x;
+      dy = tail.y - prev.y;
+    }
     const len = Math.hypot(dx, dy);
-    if (len < 1e-6) { dx = 1; dy = 0; } else { dx /= len; dy /= len; }
+    if (len < 1e-6) { dx = OUTWARD.x; dy = OUTWARD.y; } else { dx /= len; dy /= len; }
     const cos = Math.cos(spread);
     const sin = Math.sin(spread);
     const rx = dx * cos - dy * sin;
