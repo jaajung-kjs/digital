@@ -150,7 +150,7 @@ function PortFieldInput({
     if (current === next) return; // 무변경 가드
 
     /* 포트 배열째로 스테이지한다 — 화면(effective)이 곧바로 새 값을 보여야 하고,
-       커밋 페이로드는 이 배열에서 `portFieldValues` 를 뽑아 낸다.
+       커밋 페이로드는 이 배열에서 `portPatches` 를 뽑아 낸다.
        다심 포트의 저장 형상(코어 번호 중첩)을 아는 곳은 `setPortValueAt` 하나뿐이다. */
     const ports = asset.ports.map((p) => {
       if (p.id !== resolvedPortId) return p;

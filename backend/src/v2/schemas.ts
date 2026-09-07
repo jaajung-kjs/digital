@@ -61,10 +61,20 @@ const assetPatchSchema = assetCreateSchema
      * 때와 같은 규칙).
      */
     typeId: z.string().uuid().nullish(),
-    /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 장비 품목 명세에서 만들어지므로
-       생성·삭제는 없고 값만 고친다 — 그래서 자산 패치에 얹는다(별도 OCC 축을 만들지 않음). */
-    portFieldValues: z
-      .array(z.object({ portId: z.string().uuid(), fieldValues: z.record(z.unknown()) }))
+    /**
+     * 포트 하나를 고치는 것들. 포트는 장비 품목 명세에서 만들어지므로 **생성·삭제는 없고**
+     * 고치기만 있다 — 그래서 자산 패치에 얹는다(별도 OCC 축을 만들지 않음).
+     *
+     * 값(광 심선의 손실·점검일, 회로의 용량·개폐)과 **이름**이 여기 온다. 이름을 고칠 수
+     * 있어야 하는 까닭은 현장 대장·도면이 회로를 **실물 라벨**로 부르기 때문이다
+     * (`NFB#11`·`SW-03`). 품목이 지어 준 이름(`분기 1`)만으로는 화면과 실물을 대조할 수 없다.
+     */
+    portPatches: z
+      .array(z.object({
+        portId: z.string().uuid(),
+        fieldValues: z.record(z.unknown()).optional(),
+        name: z.string().min(1).max(60).optional(),
+      }))
       .optional(),
   });
 

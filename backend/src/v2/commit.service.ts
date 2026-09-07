@@ -426,15 +426,18 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate, touched
     },
   });
 
-  /* 포트에 딸린 값(광 심선의 손실·점검일 등). 남의 자산 포트를 고치지 못하도록 소속을 확인한다. */
-  for (const pv of p.portFieldValues ?? []) {
+  /* 포트를 고친다(값·이름). 남의 자산 포트를 고치지 못하도록 소속을 확인한다. */
+  for (const pv of p.portPatches ?? []) {
     const port = await tx.port.findUnique({ where: { id: pv.portId }, select: { assetId: true } });
     if (!port || port.assetId !== u.id) {
       throw new HttpError(422, 'INVALID_PORT', '이 자산의 포트가 아닙니다');
     }
     await tx.port.update({
       where: { id: pv.portId },
-      data: { fieldValues: pv.fieldValues as Prisma.InputJsonValue },
+      data: {
+        ...(pv.fieldValues !== undefined ? { fieldValues: pv.fieldValues as Prisma.InputJsonValue } : {}),
+        ...(pv.name !== undefined ? { name: pv.name } : {}),
+      },
     });
   }
 }

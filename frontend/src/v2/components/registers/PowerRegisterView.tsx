@@ -112,6 +112,31 @@ export function powerValueColumns(): { field: ValueDef; from: 'port' | 'cable' }
   ].sort((a, b) => (a.field.order ?? 99) - (b.field.order ?? 99));
 }
 
+/**
+ * 회로 번호 칸 — **실물 라벨**이다.
+ *
+ * 품목이 지어 준 이름은 「분기 1」인데 현장 대장과 도면은 그 회로를 `NFB#11`·`SW-03` 이라
+ * 부른다. 그 이름이 화면에 없으면 우리 표와 실물 차단기를 대조할 수가 없다 — 실사에서 바로
+ * 막히는 자리다. 그래서 여기서 고친다(포트 이름은 그 포트에 담긴다).
+ */
+function CircuitLabel({ assetId, portId, name }: { assetId: string; portId: string; name: string }) {
+  return (
+    <InlineEditCell
+      value={name}
+      label="회로 이름"
+      onCommit={(raw) => {
+        const next = raw.trim();
+        if (next === '' || next === name) return;
+        const live = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === assetId);
+        if (!live) return;
+        useV2WorkingCopy.getState().stageAssetUpdate(assetId, {
+          ports: live.ports.map((p) => (p.id === portId ? { ...p, name: next } : p)),
+        });
+      }}
+    />
+  );
+}
+
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
 /**
  * 글자가 실제로 차지하는 폭 — **재서** 안다(브라우저의 글꼴로).
@@ -169,7 +194,9 @@ export function powerColumnWidths(
       f.options ? 0 : textPx('00000.0') + textPx(f.unit ?? ''),
     ) + PADDING_PX;
 
-  const CIRCUIT_PX = textPx('입력') + PADDING_PX;
+  /* 회로 칸은 **가장 긴 라벨**이 정한다 — 「분기 12」는 좁아도 되지만 실물 라벨(`NFB#11`)로
+     고치고 나면 좁은 칸에서 두 줄로 접힌다. */
+  const CIRCUIT_PX = Math.max(textPx('입력'), ...(written['__circuit'] ?? []).map(textPx)) + PADDING_PX;
   /** 스위치(24) + 간격(6) + 그 칸이 쓰는 말 중 긴 쪽. */
   const statePx = (f: ValueDef) =>
     24 + 6 + Math.max(textPx(f.label), textPx(f.trueLabel ?? 'ON'), textPx(f.falseLabel ?? 'OFF')) + PADDING_PX;
@@ -245,6 +272,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
         for (const f of valueColumns) add(f.field.key, f.from === 'port' ? src.portValues[f.field.key] : src.values[f.field.key], f.field.unit);
       }
       for (const c of node.circuits) {
+        add('__circuit', c.name);
         for (const f of valueColumns) add(f.field.key, f.from === 'port' ? c.portValues[f.field.key] : c.values[f.field.key], f.field.unit);
       }
     }
@@ -416,7 +444,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             /* 높이는 표가 정한다(`TABLE_ROW`) — 화면마다 적으면 같은 표가 다르게 보인다. */
             className={cn(TABLE_ROW, SELECTABLE, selectedPortId === c.portId && SELECTED)}
           >
-            <Td className="text-sm text-content-muted tabular-nums">{c.index}</Td>
+            <Td><CircuitLabel assetId={node.assetId} portId={c.portId} name={c.name} /></Td>
             {/* 용도 = 이 회로가 먹이는 것. 도면 밖 부하는 케이블에 적힌 대국까지가 전부다. */}
             {/* 아직 아무것도 안 문 회로는 **예비**다 — 조서가 그 자리를 그렇게 부른다.
                 빈칸으로 두면 「적다 만 것」과 「비워 둔 것」이 같아 보인다. */}

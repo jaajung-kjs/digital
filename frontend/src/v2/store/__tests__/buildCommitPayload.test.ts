@@ -32,6 +32,25 @@ describe('buildCommitPayload', () => {
     expect('substationId' in c).toBe(false);
   });
 
+  /**
+   * 포트 패치는 **값과 이름을 함께** 나른다.
+   *
+   * 화면은 포트를 고칠 때 배열째로 스테이지한다(그래야 effective 가 곧바로 새 값을 보여
+   * 준다). 서버는 포트를 만들거나 지우지 않으므로 여기서 고칠 것만 뽑아 담는다 — 한때 값만
+   * 뽑고 이름은 흘렸다. 현장 대장은 회로를 실물 라벨(`NFB#11`)로 부르는데, 화면에서 고쳐도
+   * 저장하면 「분기 2」로 돌아왔다.
+   */
+  it('포트 패치에 값과 이름이 함께 실린다', () => {
+    const ports = [{ id: 'p-1', assetId: 'a-1', group: 'OUT', index: 1, name: 'NFB#11',
+                     direction: 'OUT', medium: 'power', positions: 1, variant: 'AC',
+                     fieldValues: { ampere: 30 } }] as unknown as V2Asset['ports'];
+    const p = buildCommitPayload(overlays({ assets: { updates: { 'a-1': { ports } } } }), {});
+    const patch = p.assets!.updates![0]!.patch as Record<string, unknown>;
+    expect(patch.portPatches).toEqual([{ portId: 'p-1', fieldValues: { ampere: 30 }, name: 'NFB#11' }]);
+    /* 포트 배열 자체는 안 보낸다 — 서버가 만들거나 지우는 것이 아니다. */
+    expect('ports' in patch).toBe(false);
+  });
+
   it('baseVersions는 updates+deletes 대상만', () => {
     const p = buildCommitPayload(
       overlays({ assets: { updates: { 'a-1': { name: 'x' } }, deletes: ['a-2'] } }),

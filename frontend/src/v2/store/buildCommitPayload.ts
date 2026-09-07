@@ -34,7 +34,7 @@ function toCreateInput(a: V2Asset): V2AssetCreateInput {
  * 오버레이의 자산 패치 → 서버가 받는 패치.
  *
  * 화면은 심선 값을 고칠 때 **포트 배열째로** 스테이지한다(그래야 effective 가 곧바로 새 값을
- * 보여 준다). 서버는 포트를 만들거나 지우지 않고 값만 고치므로, 여기서 `portFieldValues`
+ * 보여 준다). 서버는 포트를 만들거나 지우지 않고 **고치기만** 하므로, 여기서 `portPatches`
  * 로 옮겨 담고 `ports` 배열 자체는 보내지 않는다.
  */
 function toAssetPatch(patch: Partial<V2Asset>): V2AssetPatch {
@@ -47,7 +47,7 @@ function toAssetPatch(patch: Partial<V2Asset>): V2AssetPatch {
     if (patch.typeId !== undefined) {
       out.portIds = Object.fromEntries(ports.map((p) => [`${p.group}:${p.index}`, p.id]));
     } else {
-      out.portFieldValues = ports.map((p) => ({ portId: p.id, fieldValues: p.fieldValues ?? {} }));
+      out.portPatches = ports.map((p) => ({ portId: p.id, fieldValues: p.fieldValues ?? {}, name: p.name }));
     }
   }
   return out;

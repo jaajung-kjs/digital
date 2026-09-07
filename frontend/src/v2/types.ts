@@ -265,7 +265,7 @@ export interface V2AssetCreateInput {
 }
 export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'portCounts' | 'portPositions'>> & {
   /** 이 자산 포트에 딸린 값 — 포트는 장비 품목 명세가 만드므로 **값만** 고친다. */
-  portFieldValues?: { portId: string; fieldValues: Record<string, unknown> }[];
+  portPatches?: { portId: string; fieldValues?: Record<string, unknown>; name?: string }[];
 };
 export interface V2CableCreateInput { id: string; aPortId: string; bPortId: string; categoryId?: string | null; name?: string | null; pathPoints?: { x: number; y: number }[]; specParams?: Record<string, unknown> }
 export type V2CablePatch = Partial<Omit<V2CableCreateInput, 'id'>>
