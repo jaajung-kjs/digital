@@ -59,20 +59,30 @@ export interface GutterCell {
  * 숨통은 글자 쪽 `pb` 가 낸다.
  */
 export function TraceGutterRow({
-  cells, width, root, children,
+  cells, width, root, textLane, children,
 }: {
   cells: readonly GutterCell[];
   /** 거터 폭 — 한 그림 안의 모든 줄이 같아야 켜가 맞는다. */
   width: number;
   /** 이 줄이 추적을 건 자리인가 — 마디를 겹동그라미로 찍는다. */
   root?: boolean;
+  /**
+   * 글씨가 시작하는 켜 — **그림이 정한다.**
+   *
+   * 안 주면 제 마디 켜 뒤에서 시작한다(계단). 켜가 곧 깊이인 들여쓰기 트리는 그것이 맞다 —
+   * 깊을수록 오른쪽이라 그림의 켜가 글줄에도 그대로 나타난다.
+   *
+   * **레인 그래프는 아니다.** 거기서 켜는 깊이가 아니라 갈래라, 계단으로 쓰면 줄기가 제일
+   * 깊어 보인다(공유하는 상용 피더가 제 자식들보다 오른쪽에 섰다). 게다가 합류·갈래가 있는
+   * 줄만 튀어나와 켜가 널뛴다. 커밋 그래프처럼 **거터를 비우고 글씨를 맞추는** 것이 답이다.
+   */
+  textLane?: number;
   children: React.ReactNode;
 }) {
   const nodeLane = cells.find((c) => c.node)?.lane ?? 0;
   const x = (lane: number) => lane * LANE + LANE / 2;
-  /* 글씨는 이 줄이 **실제로 선을 긋는 가장 오른쪽 켜** 뒤에서 시작한다. 마디 켜만 보면
-     합류하는 가로선이 글씨 밑으로 들어간다(합류는 오른쪽에서 온다). */
-  const textFrom = Math.max(nodeLane, ...cells.filter((c) => c.toNode).map((c) => c.lane));
+  /* 안 주면 제 마디 켜 뒤 — 다만 **선이 글씨 밑으로 들어가지 않게** 가로선 켜까지 본다. */
+  const textFrom = textLane ?? Math.max(nodeLane, ...cells.filter((c) => c.toNode).map((c) => c.lane));
   return (
     <div className="relative flex items-start">
       {/* 거터는 줄 **위에 겹쳐** 그린다 — 글씨를 밀어내지 않아야 켜마다 다른 자리에서
@@ -110,8 +120,7 @@ export function TraceGutterRow({
           );
         })}
       </div>
-      {/* 글씨는 **제 점 바로 뒤**에서 시작한다 — 켜가 깊을수록 오른쪽이라, 그림의 켜가
-          글줄에도 그대로 나타난다. */}
+      {/* 글씨가 서는 자리는 **그림이 정한다**(`textLane`) — 계단이냐 맞춤이냐. */}
       <div className="min-w-0 flex-1 pb-1.5 text-sm" style={{ paddingLeft: x(textFrom) + TEXT_GAP }}>
         {children}
       </div>

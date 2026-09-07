@@ -51,7 +51,8 @@ export function TraceLaneGraph({
           ...row.through.map((lane) => ({ lane, fromAbove: true, toBelow: true })),
         ];
         return (
-          <TraceGutterRow key={`${i}-${row.node.portId}`} cells={cells} width={width} root={isRoot}>
+          /* 글씨는 **거터 뒤에 한 줄로** 맞춘다 — 레인은 깊이가 아니라 갈래다(`textLane`). */
+          <TraceGutterRow key={`${i}-${row.node.portId}`} cells={cells} width={width} root={isRoot} textLane={width - 1}>
             <TraceNodeText
               label={label(row.node.portId)}
               muted={!isRoot}
