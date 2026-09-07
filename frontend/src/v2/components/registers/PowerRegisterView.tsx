@@ -17,6 +17,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { powerTree, POWER_MEDIUM } from '../../powerSelectors';
 import { cableFieldsFor, polesOf, portFieldsFor, type ValueDef } from '@twin/core';
 import type { PowerCircuit, PowerNode } from '../../powerSelectors';
+import type { V2Assembly } from '../../types';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from '../InlineEditCell';
 import { PortValueControl } from '../detail/PortValueControl';
@@ -27,6 +28,13 @@ interface Props {
   /** 지금 고른 포트 — 주소가 쥔다(`?port=`). 판에서 골라도 이 줄이 칠해진다. */
   selectedPortId: string | null;
   onSelectAsset: (id: string | null, portId?: string | null) => void;
+  /**
+   * 설비 품목들 — **어느 배선이 함체 속살인지**가 여기 못 박혀 있다(`AssemblyLink`).
+   *
+   * 이 판이 직접 읽지 않고 **받는다**: 자료를 읽는 훅을 화면 안에 두면 판 하나를 그려 보는
+   * 일에도 질의 공급자가 필요해진다(시험이 그것부터 막힌다).
+   */
+  assemblies?: readonly V2Assembly[];
 }
 
 // PeerCell은 공용 컴포넌트 사용 (M-2 — FiberRegisterView와 공유)
@@ -249,7 +257,7 @@ function flatten(nodes: PowerNode[], path: string[] = []): { node: PowerNode; pa
   return nodes.flatMap((node) => [{ node, path }, ...flatten(node.children, [...path, node.name])]);
 }
 
-export function PowerRegisterView({ substationId: _substationId, selectedAssetId, selectedPortId, onSelectAsset }: Props) {
+export function PowerRegisterView({ substationId: _substationId, selectedAssetId, selectedPortId, onSelectAsset, assemblies = [] }: Props) {
   const effectiveAssets = useEffectiveAssets();
   const effectiveCables = useEffectiveCables();
 
@@ -282,7 +290,12 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   const flowTabs = useTabs<FlowKey>(flow);
 
 
-  const tree = useMemo(() => powerTree(effectiveAssets, effectiveCables), [effectiveAssets, effectiveCables]);
+  /* 설비 품목의 **내부 배선 선언**이 「함체 속살」과 「현장 회로」를 가른다 — 충전기 안의
+     정류기 배선은 계통도에 그리지 않는다(계통도는 충전기를 한 상자로 그린다). */
+  const tree = useMemo(
+    () => powerTree(effectiveAssets, effectiveCables, assemblies),
+    [effectiveAssets, effectiveCables, assemblies],
+  );
   const nodes = useMemo(() => flatten(tree), [tree]);
 
   /* 지금 적혀 있는 값도 함께 잰다 — 선언에 없는 값(예전 자료·직접 입력)이 있어도 접히지 않게. */

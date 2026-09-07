@@ -1,6 +1,6 @@
 import { portFieldsFor, portValuesAt, type SeededMediumKey } from '@twin/core';
 import { buildPortIndex, cableAt, indexCablesByPort, resolvePeer, type PeerInfo } from './peerResolve';
-import type { V2Asset, V2Cable } from './types';
+import type { V2Assembly, V2Asset, V2Cable } from './types';
 
 export type { PeerInfo } from './peerResolve';
 
@@ -108,21 +108,6 @@ function declaredPortValues(
 }
 
 /**
- * 이 자산이 반인가 — **나누는가.**
- *
- * 한때 「전원 출력 포트가 하나라도 있으면 반」이었다. 그러면 정류기·인버터·강압기·절체
- * 스위치처럼 **하나를 받아 하나로 보내는 것**까지 전부 묶음이 되어, 한 국에 반이 열둘씩
- * 섰다(실제 자료의 조서는 넷·다섯이다). 分電이라는 말 그대로다 — 하나를 하나로 보내는 것은
- * 나누는 것이 아니라 **거쳐 가는 것**이다.
- *
- * 거쳐 가는 것들은 사라지지 않는다. 반의 머리줄에 **「무엇을 거쳐 왔는가」**로 남는다
- * (`sources[].via`) — 현장 조서가 「#1 충전기 : SCR 48V 100A용 충전기 / AC입력 : 통합분전반
- * 220V 3φ Load 1번」이라 적는 그 자리다.
- */
-const outCount = (a: V2Asset) => a.ports.filter((p) => p.medium === POWER_MEDIUM && p.direction === 'OUT').length;
-const isBoard = (a: V2Asset) => outCount(a) > 1;
-
-/**
  * 이 변전소의 **전원 계통**을 나무로.
  *
  * 뿌리는 **입력이 이 도면 밖에서 오는 반**이다(소내분전반: 입력 포트에 케이블이 없거나,
@@ -134,10 +119,40 @@ const isBoard = (a: V2Asset) => outCount(a) > 1;
  * 어디에도 닿지 못한 반(배선이 고리를 이룬 자료 등)도 **버리지 않고** 뿌리로 세운다 —
  * 화면에서 조용히 사라지는 것이 가장 나쁘다.
  */
-export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
-  const boards = assets.filter(isBoard);
-  const boardIds = new Set(boards.map((b) => b.id));
+export function powerTree(
+  assets: V2Asset[],
+  cables: V2Cable[],
+  /**
+   * 설비 품목들 — **어느 배선이 함체 속살인지**는 여기에 못 박혀 있다(`AssemblyLink`).
+   *
+   * 안 주면 「속살 없음」으로 본다 — 모든 배선이 회로다.
+   */
+  assemblies: readonly V2Assembly[] = [],
+): PowerNode[] {
   const byId = new Map(assets.map((a) => [a.id, a]));
+
+  /**
+   * 설비 품목이 **못 박아 둔 배선** — 항목 짝으로.
+   *
+   * 이것이 「함체 속살」과 「현장에서 이은 회로」를 가르는 선이다. 제조사가 정한 배선은 품목에
+   * 선언돼 있고(충전기 9개 · UPS 3개), 현장에서 잇는 것은 선언이 없다(분전반·소내전원반 0개).
+   * 그래서 **같은 함체 안이라는 것만으로는 부족하다** — 한 함체에 반이 여럿이고 서로 먹이는
+   * 판이 실재한다(SCADA 분전반의 입력 절체부 → 계통 MAIN → 분기).
+   */
+  const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+  const declaredLinks = new Set(assemblies.flatMap((asm) => asm.links.map((l) => pairKey(l.aItemId, l.bItemId))));
+  /**
+   * 선언 배선에 **걸려 있는 구성 항목들** — 그 함체의 속살이다.
+   *
+   * 충전기의 분배부·정류기·강압기·감시제어부가 그것이다. 품목이 그 배선을 못 박아 두었다는
+   * 것은 **제조사가 정한 한 덩어리**라는 뜻이고, 계통도는 그런 것을 한 상자로 그린다
+   * (강원본부 전원계통도의 「충전기#1」·「UPS#1」이 각각 상자 하나다).
+   *
+   * 회로를 세어 가려낼 수는 없다. 충전기의 분배부는 교류 출력을 셋 선언하는데 정류기가 둘뿐이라
+   * 하나가 늘 비어 있다 — 그 빈자리는 「아직 안 쓴 분전 회로」가 아니라 **세 번째 정류기 자리**다.
+   * 세는 눈으로는 소내 피더의 안 이은 분기와 구별되지 않는다. 선언이 그것을 안다.
+   */
+  const boxedItems = new Set(assemblies.flatMap((asm) => asm.links.flatMap((l) => [l.aItemId, l.bItemId])));
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
   const portIndex = buildPortIndex(assets);
   const cableOf = (portId: string) => cableAt(portId, cablesByAPortId, cablesByBPortId);
@@ -145,6 +160,54 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
     const otherId = cable.aPortId === portId ? cable.bPortId : cable.aPortId;
     return portIndex.get(otherId)?.asset.id ?? null;
   };
+
+  /**
+   * 이 포트의 케이블이 **제 함체 안에서 끝나는가** — 그러면 분전이 아니라 속살이다.
+   *
+   * 충전기의 분배부는 출력이 여섯인데 **다섯이 제 함체 안**으로 간다(정류기 둘·강압기·
+   * 감시제어부·축전지). 밖으로 나가는 것은 직류 출력 하나뿐이다. 그런데 「출력이 둘 이상이면
+   * 반」으로 세면 그 함체 속 배선이 계통 표에 회로로 늘어선다 — 계통도는 충전기를 **한 상자**로
+   * 그리지 그 안을 그리지 않는다(강원본부 전원계통도가 그렇다).
+   *
+   * 케이블이 아직 없으면 **밖으로 나갈 자리**로 본다 — 소내 피더의 안 이은 분기 열아홉이
+   * 그것이다. 안 이었다고 함체 속 배선인 것이 아니다.
+   *
+   * 가르는 것은 **설비 품목의 선언**이다(`declaredLinks`) — 같은 함체라는 것만으로는 부족하다.
+   */
+  const endsInside = (owner: V2Asset, portId: string): boolean => {
+    const cable = cableOf(portId);
+    if (!cable) return false;
+    const peerId = peerAssetIdOf(portId, cable);
+    const peer = peerId != null ? byId.get(peerId) : undefined;
+    if (peer == null || owner.parentAssetId == null || peer.parentAssetId !== owner.parentAssetId) return false;
+    return owner.assemblyItemId != null && peer.assemblyItemId != null
+      && declaredLinks.has(pairKey(owner.assemblyItemId, peer.assemblyItemId));
+  };
+
+  /** 그 자산에서 **함체 밖으로 나갈 수 있는** 회로들 — 속살 배선은 회로가 아니다. */
+  const circuitPortsOf = (a: V2Asset) =>
+    a.ports.filter((p) => p.medium === POWER_MEDIUM && p.direction === 'OUT' && !endsInside(a, p.id));
+
+  /**
+   * 이 자산이 반인가 — **나누는가.**
+   *
+   * 한때 「전원 출력 포트가 하나라도 있으면 반」이었다. 그러면 정류기·인버터·강압기·절체
+   * 스위치처럼 **하나를 받아 하나로 보내는 것**까지 전부 묶음이 되어, 한 국에 반이 열둘씩
+   * 섰다(실제 조서는 넷·다섯이다). 分電이라는 말 그대로다 — 하나를 하나로 보내는 것은
+   * 나누는 것이 아니라 **거쳐 가는 것**이다.
+   *
+   * 세는 것은 **함체 밖으로 나가는 회로**다. 그리고 **함체 속 구성품은 애초에 세지 않는다**
+   * (`boxedItems`) — 품목이 배선을 못 박아 둔 것은 제조사가 정한 한 덩어리이고, 계통도는
+   * 그런 것을 한 상자로 그린다.
+   *
+   * 거쳐 가는 것들은 사라지지 않는다. 반의 머리줄에 **「무엇을 거쳐 왔는가」**로 남는다
+   * (`sources[].via`) — 현장 조서가 「#1 충전기 : SCR 48V 100A용 충전기 / AC입력 : 통합분전반
+   * 220V 3φ Load 1번」이라 적는 그 자리다.
+   */
+  const boards = assets.filter(
+    (a) => !(a.assemblyItemId != null && boxedItems.has(a.assemblyItemId)) && circuitPortsOf(a).length > 1,
+  );
+  const boardIds = new Set(boards.map((b) => b.id));
 
   /**
    * 케이블을 따라 **반에 닿을 때까지 지나간다** — 나누지 않는 기기는 지나가는 자리다.
@@ -159,7 +222,7 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
    */
   const walkThrough = (
     startPortId: string,
-    /** 올라가는가(입력 쪽) 내려가는가(출력 쪽) — 지나가는 기기에서 탈 포트의 방향이 이걸 따른다. */
+    /** 올라가는가(입력 쪽) 내려가는가(출력 쪽) — 함체에서 찾을 출구의 방향이 이걸 따른다. */
     dir: 'up' | 'down',
   ): { assetId: string | null; via: { assetId: string; name: string }[] } => {
     const via: { assetId: string; name: string }[] = [];
@@ -170,15 +233,33 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
       if (!cable) return { assetId: null, via };
       const nextId = peerAssetIdOf(portId, cable);
       if (nextId == null || boardIds.has(nextId)) return { assetId: nextId, via };
-      if (seen.has(nextId)) return { assetId: null, via }; // 고리 — 더 가지 않는다
-      seen.add(nextId);
       const through = byId.get(nextId);
       if (!through) return { assetId: null, via };
-      /* 지나가는 기기에서 **반대편**으로 탄다 — 올라갈 땐 그 기기의 입력, 내려갈 땐 출력. */
-      const outs = through.ports.filter((p) => p.medium === POWER_MEDIUM && p.direction === (dir === 'up' ? 'IN' : 'OUT'));
-      via.push({ assetId: through.id, name: through.name });
-      if (outs.length !== 1) return { assetId: null, via }; // 갈 곳이 정해지지 않는다 — 여기서 멈춘다
-      portId = outs[0]!.id;
+      /**
+       * **지나가는 것은 장비가 아니라 함체다.**
+       *
+       * 충전기 안은 분배부 → 정류기 → 분배부 → 강압기…로 갈래가 얽혀 있어, 장비 단위로 지나가려
+       * 하면 첫 걸음에서 「갈 곳이 여럿」이라 멈춘다. 그러면 상용 반과 직류 반이 **남남인 두
+       * 그루**로 선다 — 사이에 충전기가 있을 뿐 한 계통인데. 계통도가 충전기·UPS 를 한 상자로
+       * 그리는 까닭이 이것이다.
+       */
+      const box = through.parentAssetId ?? through.id;
+      if (seen.has(box)) return { assetId: null, via }; // 고리 — 더 가지 않는다
+      seen.add(box);
+      const group = through.parentAssetId != null
+        ? assets.filter((a) => a.parentAssetId === through.parentAssetId)
+        : [through];
+      via.push({ assetId: box, name: (through.parentAssetId != null ? byId.get(box)?.name : through.name) ?? through.name });
+      /* 그 함체에서 **밖으로 나가는 길** — 속살 배선은 지나가는 길이 아니고, 안 이은 자리는
+         길이 아니다(케이블이 있어야 어디로 가는지 안다). */
+      const want = dir === 'up' ? 'IN' : 'OUT';
+      const exits = group.flatMap((a) =>
+        a.ports.filter((p) => p.medium === POWER_MEDIUM && p.direction === want && cableOf(p.id) != null && !endsInside(a, p.id)),
+      );
+      /* 갈 곳이 하나로 정해지지 않으면 **거기서 멈춘다** — UPS 는 상용에서 정류기로도 받고
+         바이패스로도 받아, 「어디서 오나」에 한 줄로 답할 수 없다. 지어내지 않는다. */
+      if (exits.length !== 1) return { assetId: null, via };
+      portId = exits[0]!.id;
     }
   };
 
@@ -211,8 +292,7 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
     const busOf = (variant: string | null | undefined) =>
       sources.find((sc) => (sc.variant ?? null) === (variant ?? null))?.portValues ?? {};
 
-    const circuits = powerPorts
-      .filter((p) => p.direction === 'OUT')
+    const circuits = circuitPortsOf(board)
       .sort((a, b) => a.index - b.index)
       .map((p) => {
         const cable = cableOf(p.id);

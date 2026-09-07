@@ -124,21 +124,79 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     expect(tree[0]!.children[0]!.sources[0]!.fromAssetId).toBe('main');
   });
 
-  /** 갈 곳이 하나로 정해지지 않으면 **거기서 멈춘다** — 모르는 것을 지어내지 않는다. */
-  it('입력이 둘인 기기(절체 스위치)에서는 거슬러 오르기를 멈춘다', () => {
+  /**
+   * 갈 곳이 **하나로 정해지지 않으면** 거기서 멈춘다 — 모르는 것을 지어내지 않는다.
+   *
+   * UPS 의 절체 스위치가 그 자리다: 상용에서 정류기로도 받고 바이패스로도 받는다. 둘 다
+   * 이어져 있으니 「어디서 오나」에 한 줄로 답할 수 없다.
+   *
+   * **안 이은 자리는 갈래가 아니다** — 선언만 둘이고 실제로 이어진 것이 하나면 답은 하나다.
+   */
+  it('실제로 이어진 입력이 둘이면 거슬러 오르기를 멈춘다', () => {
     const sts = asset('sts', '절체 스위치', {
       ports: [port('sts-in1', 'sts', 'IN', 1, 'IN', 'power', '인버터 입력'),
               port('sts-in2', 'sts', 'IN', 2, 'IN', 'power', '바이패스 입력'),
               port('sts-out', 'sts', 'OUT', 1, 'OUT', 'power', 'AC 출력')],
     });
     const feed = board('ups-f', 'UPS 피더', 3, 'rack');
-    const tree = powerTree(
-      [rack, main, sts, feed] as never,
-      [cable('s1', 'main-out1', 'sts-in1'), cable('s2', 'sts-out', 'ups-f-in')] as never,
-    );
-    const src = tree.flatMap((n) => [n, ...n.children]).find((n) => n.name === 'UPS 피더')!.sources[0]!;
-    expect(src.via.map((v) => v.name)).toEqual(['절체 스위치']);
-    expect(src.fromAssetId).toBeNull(); // 어디서 오는지 한 줄로 답할 수 없다
+    const upsFeed = (wires: object[]) => powerTree([rack, main, sts, feed] as never, wires as never)
+      .flatMap((n) => [n, ...n.children]).find((n) => n.name === 'UPS 피더')!.sources[0]!;
+
+    /* 둘 다 이어졌다 — 멈춘다. */
+    const both = upsFeed([cable('s1', 'main-out1', 'sts-in1'), cable('s3', 'main-out2', 'sts-in2'), cable('s2', 'sts-out', 'ups-f-in')]);
+    expect(both.via.map((v) => v.name)).toEqual(['절체 스위치']);
+    expect(both.fromAssetId).toBeNull();
+
+    /* 하나만 이어졌다 — 그리로 이어 간다(안 이은 자리는 길이 아니다). */
+    const one = upsFeed([cable('s1', 'main-out1', 'sts-in1'), cable('s2', 'sts-out', 'ups-f-in')]);
+    expect(one.fromAssetId).toBe('main');
+  });
+
+  /**
+   * **함체 속살은 회로가 아니다** — 설비 품목이 못 박은 배선이 그것이다.
+   *
+   * 충전기의 분배부는 출력이 여섯인데 다섯이 제 함체 안이다(정류기 둘·강압기·감시제어부·
+   * 축전지). 「출력이 둘 이상이면 반」으로 세면 그 속살이 계통 표에 회로로 늘어선다 —
+   * 계통도는 충전기를 **한 상자**로 그리지 그 안을 그리지 않는다.
+   *
+   * 가르는 것은 **선언**이다. 같은 함체라는 것만으로는 부족하다 — 한 함체에 반이 여럿이고
+   * 서로 먹이는 판이 실재한다(SCADA 분전반의 입력 절체부 → 계통 MAIN → 분기).
+   */
+  it('설비 품목이 못 박은 배선은 회로가 아니다 — 그 함체는 한 상자로 지나간다', () => {
+    const 함체 = asset('box', '충전기');
+    const 분배부 = asset('dist', '분배부', {
+      parentAssetId: 'box', assemblyItemId: 'it-dist',
+      ports: [port('dist-in', 'dist', 'IN', 1, 'IN', 'power', '교류 입력'),
+              port('dist-ac', 'dist', 'OUT', 1, 'OUT', 'power', '교류 출력'),
+              port('dist-dc', 'dist', 'OUT', 2, 'OUT', 'power', '직류 출력')],
+    });
+    const 정류기 = asset('rect', '정류기', {
+      parentAssetId: 'box', assemblyItemId: 'it-rect',
+      ports: [port('rect-in', 'rect', 'IN', 1, 'IN', 'power', '전원 입력'),
+              port('rect-out', 'rect', 'OUT', 1, 'OUT', 'power', '전원 출력')],
+    });
+    const feeder = board('dcf', '직류 피더', 3, 'rack');
+    const wires = [
+      cable('w0', 'main-out1', 'dist-in'),   // 소내 → 충전기(밖에서 안으로)
+      cable('w1', 'dist-ac', 'rect-in'),     // 속살(선언됨)
+      cable('w2', 'rect-out', 'dist-in2'),   // (아래에서 포트를 더한다)
+      cable('w3', 'dist-dc', 'dcf-in'),      // 충전기 → 직류 피더(밖으로)
+    ];
+    const 분배부2 = { ...분배부, ports: [...분배부.ports, port('dist-in2', 'dist', 'IN', 2, 'IN', 'power', '직류 입력')] };
+    /** 품목이 못 박은 배선 — 분배부 ↔ 정류기. */
+    const asm = [{ id: 'asm-1', links: [{ aItemId: 'it-dist', bItemId: 'it-rect' }] }];
+
+    const 선언없이 = powerTree([rack, main, 함체, 분배부2, 정류기, feeder] as never, wires as never);
+    expect(선언없이.flatMap((n) => [n, ...n.children]).map((n) => n.name)).toContain('분배부');
+
+    const 선언하고 = powerTree([rack, main, 함체, 분배부2, 정류기, feeder] as never, wires as never, asm as never);
+    const 이름들 = 선언하고.flatMap(function 펴기(n): { name: string }[] { return [n, ...n.children.flatMap(펴기)]; }).map((n) => n.name);
+    /* 분배부·정류기는 제 표를 갖지 않는다 — 충전기가 한 상자로 지나간다. */
+    expect(이름들).not.toContain('분배부');
+    expect(이름들).toContain('직류 피더');
+    const dcf = 선언하고.flatMap(function 펴기(n): typeof 선언하고 { return [n, ...n.children.flatMap(펴기)]; }).find((n) => n.name === '직류 피더')!;
+    expect(dcf.sources[0]!.via.map((v) => v.name)).toEqual(['충전기']);
+    expect(dcf.sources[0]!.fromAssetId).toBe('main');
   });
 
   /* 충전기 #1·#2 가 같은 DC 버스를 먹인다 — 실제 계통이 그렇다. */
