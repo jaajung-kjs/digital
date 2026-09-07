@@ -37,9 +37,11 @@ interface CableFieldInputProps {
   value: unknown;
   /** 어떤 값을 적는 칸인지 — 키·자료형이 여기서 나온다. 화면이 키를 알지 않는다. */
   field: ValueDef;
+  /** 모선이 이미 말한 값인가 — 그러면 흐리게(대장의 ditto). */
+  muted?: boolean;
 }
 
-function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
+function CableFieldInput({ cableId, value, field, muted }: CableFieldInputProps) {
   /* 케이블이 없으면 적을 곳도 없다 — 다만 대시는 **그 열의 줄맞춤을 따라야** 한다(td 가
      정한다). 인라인 span 이면 편집기가 선 줄과 대시만 선 줄에서 대시 위치가 어긋난다. */
   if (!cableId) return <span className="block px-1 text-sm text-content-faint">{EMPTY}</span>;
@@ -67,6 +69,7 @@ function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
   return (
     <InlineEditCell
       value={shown}
+      muted={muted}
       onCommit={handleCommit}
       type={isNumber ? 'number' : field.type === 'date' ? 'date' : undefined}
       label={field.label}
@@ -99,18 +102,40 @@ type FlowKey = (typeof FLOWS)[number]['key'];
  * 한때 시험이 이 목록을 제 손으로 다시 세웠다. 그러다 칸이 늘자(상·선식·차단기) 시험만
  * 옛 목록을 보고 폭을 재, 화면은 멀쩡한데 시험이 깨졌다 — 같은 규칙은 한 곳에만 적는다.
  *
- * **전압은 여기 없다.** 그것은 모선의 성질이라 반의 머리줄이 한 번 말한다(현장 조서가
- * 그렇게 적는다: 머리에 「CB : AC 3φ 220V 400A」, 회로에는 용량만). 한 반에서 380V 3상과
- * 220V 단상이 섞이는 것은 전압이 다른 것이 아니라 **상·선식**이 다른 것이다.
+ * **전압도 회로의 것이다.** 한때 「모선의 성질」이라며 이 목록에서 뺐는데, 그건 절반만 맞는
+ * 말이었다: 380/220V 3상4선 반은 한 모선에서 380V 3상(4P)과 220V 단상(2P)을 함께 내보내고,
+ * 강릉 대장에는 같은 반에 110V 회로가 하나 섞여 있다. 빼는 순간 그 회로를 고칠 길이 사라진다.
+ *
+ * 스무 줄에 같은 값이 스무 번 서던 문제는 **지우는 것이 아니라 흐리게** 푼다 — 모선(입력
+ * 줄)이 이미 말한 값은 회로 줄에서 흐리게 읽힌다(대장의 ditto). 다른 것만 눈에 걸린다.
  */
 export function powerValueColumns(): { field: ValueDef; from: 'port' | 'cable' }[] {
   return [
     ...portFieldsFor(POWER_MEDIUM)
-      .filter((f) => f.type !== 'boolean' && f.key !== 'voltage')
+      .filter((f) => f.type !== 'boolean' && !OFF_TABLE.has(f.key))
       .map((field) => ({ field, from: 'port' as const })),
-    ...cableFieldsFor(POWER_MEDIUM).map((field) => ({ field, from: 'cable' as const })),
+    ...cableFieldsFor(POWER_MEDIUM)
+      .filter((f) => !OFF_TABLE.has(f.key))
+      .map((field) => ({ field, from: 'cable' as const })),
   ].sort((a, b) => (a.field.order ?? 99) - (b.field.order ?? 99));
 }
+
+/**
+ * 이 표에 **열로는 세우지 않는** 값들 — 적을 곳은 포트 카드에 있다.
+ *
+ * 열 하나가 10%다(760px 판에서 76px). 아홉 열을 세웠더니 정작 자료가 채우는 **용도**가
+ * 10%까지 굶어, 「전원분전반 #1 - 상용 피더」가 다 잘렸다. 무엇을 세울지는 실물 조서가
+ * 정한다 — 이 표는 **회로 대장**이다.
+ *
+ * - `lengthM` — 조서에 **없다.** 강릉의 「전원케이블」 칸에 적힌 것은 `FR-5.5sq`, 곧 종류와
+ *   굵기이고 길이가 아니다. SCADA 분전반 조서에는 케이블 칸 자체가 없다(번호·용량·규격·
+ *   Type·부하). 길이는 회로의 성질이 아니라 **그 케이블의 물량**이라 산출이 쓴다.
+ * - `breaker` — 쓰기는 쓴다(SCADA 조서의 「Type」에 MCCB·ABS 가 적혀 있고, 도면은 차단기를
+ *   `NFB#1 2P 100A` 로 부른다). 다만 그 표에서 Type 은 **용량과 사실상 1:1**이고(200A·100A는
+ *   MCCB, 30A·20A는 ABS) 강릉 조서(2019)에는 그 칸이 아예 없다. 정보량에 견주어 열 하나는
+ *   비싸다 — 어휘는 남기고 열에서만 내린다. 실사에서 실제로 갈리는 값이 나오면 그때 올린다.
+ */
+const OFF_TABLE = new Set(['lengthM', 'breaker']);
 
 /**
  * 회로 번호 칸 — **실물 라벨**이다.
@@ -412,7 +437,10 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               {...selectableRow(selectedPortId, src.portId, () => onSelectAsset(node.assetId, src.portId))}
               className={cn(TABLE_ROW, 'bg-surface-sunken/60', SELECTABLE, selectedPortId === src.portId && SELECTED)}
             >
-              <Td className="text-sm font-medium text-content">입력</Td>
+              {/* 편집 칸과 **같은 안쪽 여백**을 안쪽 span 이 갖는다 — 칸(`Td`)의 여백을
+                  건드리면 그 칸만 12px 왼쪽으로 밀려 「입력」과 「분기 1」의 왼끝이 어긋난다
+                  (편집 칸은 `Td` 여백 **안에서** 다시 `px-1` 을 갖는다). */}
+              <Td><span className="block px-1 text-sm font-medium text-content">입력</span></Td>
               <Td className="truncate">
                 {src.from ? <PeerCell peer={src.from} onSelect={onSelectAsset} /> : <span className="text-sm text-content-faint">{unwiredText(src.cableId)}</span>}
               </Td>
@@ -452,20 +480,31 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               {c.load ? <PeerCell peer={c.load} onSelect={onSelectAsset} />
                 : <span className="text-sm text-content-faint">{c.cableId ? '이 도면 밖' : '예비'}</span>}
             </Td>
-            {valueColumns.map(({ field, from }) => (
-              <Td key={field.key} align={alignOf(field)}>
-                {from === 'port' ? (
-                  <PortValueControl
-                    assetId={node.assetId}
-                    portId={c.portId}
-                    field={portFieldFor(c.variant, field.key) ?? field}
-                    value={c.portValues[field.key]}
-                  />
-                ) : (
-                  <CableFieldInput cableId={c.cableId} value={c.values[field.key]} field={field} />
-                )}
-              </Td>
-            ))}
+            {valueColumns.map(({ field, from }) => {
+              const value = from === 'port' ? c.portValues[field.key] : c.values[field.key];
+              /* **모선이 이미 말한 값**이면 흐리게 — 대장의 ditto 다. 어느 칸인지 여기서
+                 알아맞히지 않는다(「전압이면」 같은 규칙을 적으면 어휘가 늘 때마다 갈린다).
+                 입력 줄과 같은 값이면 흐리다, 한 문장이면 족하다. */
+              const bus = sources[0]
+                ? (from === 'port' ? sources[0].portValues[field.key] : sources[0].values[field.key])
+                : undefined;
+              const ditto = value != null && bus != null && String(value) === String(bus);
+              return (
+                <Td key={field.key} align={alignOf(field)}>
+                  {from === 'port' ? (
+                    <PortValueControl
+                      assetId={node.assetId}
+                      portId={c.portId}
+                      field={portFieldFor(c.variant, field.key) ?? field}
+                      value={value}
+                      muted={ditto}
+                    />
+                  ) : (
+                    <CableFieldInput cableId={c.cableId} value={value} field={field} muted={ditto} />
+                  )}
+                </Td>
+              );
+            })}
             {stateFields.map((f) => (
               <Td key={f.key}>
                 <PortValueControl assetId={node.assetId} portId={c.portId} field={f} value={c.portValues[f.key]} />

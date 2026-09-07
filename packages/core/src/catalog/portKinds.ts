@@ -338,7 +338,7 @@ export const PORT_KINDS = [
        * 몇 V 인지는 회로마다 적는다. 포트가 생길 때는 그 갈래의 예사값이 실린다
        * (`PortVariant.defaultVoltage`) — 대개 맞고, 다르면 계통 표에서 고친다.
        */
-      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 10 },
+      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 15 },
       { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 20 },
       /* 차례는 **현장 조서 그대로**다 — 번호 · 용량 · 규격 · Type · 부하. */
       { key: 'wiring', label: '규격', type: 'text', options: AC_WIRINGS, order: 25 },

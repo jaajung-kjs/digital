@@ -38,12 +38,20 @@ interface InlineEditCellProps {
    * 보여 준다(적힌 사실을 화면에서 지우지 않는다).
    */
   options?: readonly (string | number)[];
+  /**
+   * **위에서 이미 말한 값**인가 — 그러면 흐리게 읽힌다(대장의 ditto).
+   *
+   * 스무 회로짜리 피더에서 전압·상선식은 대개 모선과 같아, 같은 값이 스무 번 선다. 지우면
+   * 고칠 수가 없고(값이 아니라 화면이 사라진다), 그대로 두면 다른 회로 하나가 그 스물 속에
+   * 묻힌다. 흐리게 두면 **다른 것만 눈에 걸린다** — 조서가 ditto 로 하던 일이다.
+   */
+  muted?: boolean;
 }
 
 /** 목록 끝의 「직접 입력」 — 이 값은 저장되지 않고 칸을 자유 입력으로 바꾼다. */
 const FREE_INPUT = '\u0000free';
 
-export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options }: InlineEditCellProps) {
+export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options, muted }: InlineEditCellProps) {
   const [editing, setEditing] = useState(false);
   /** 목록을 두고도 손으로 치는 중인가 — 「직접 입력」을 고른 뒤. */
   const [freeform, setFreeform] = useState(false);
@@ -58,6 +66,7 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit, op
            줄이 한 열에서 서로 다른 자리에 선다. 물려받기만 한다. */
         className={cn(
           'w-full rounded px-1 text-sm [text-align:inherit]',
+          muted && 'text-content-faint',
           value ? 'text-content' : 'text-content-faint',
           SELECTABLE,
         )}

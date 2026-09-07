@@ -1,5 +1,5 @@
 import { setPortValueAt, type ValueDef } from '@twin/core';
-import { EMPTY, Toggle } from '../../../components/ui';
+import { EMPTY, Toggle, cn } from '../../../components/ui';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { InlineEditCell } from '../InlineEditCell';
 
@@ -13,8 +13,8 @@ import { InlineEditCell } from '../InlineEditCell';
  * 알지 않는다. 자료형이 `boolean` 이면 스위치, 고를 값이 선언돼 있으면 목록이다.
  */
 export function PortValueControl({
-  assetId, portId, field, value,
-}: { assetId: string; portId: string; field: ValueDef; value: unknown }) {
+  assetId, portId, field, value, muted,
+}: { assetId: string; portId: string; field: ValueDef; value: unknown; muted?: boolean }) {
   function write(next: unknown) {
     const live = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === assetId);
     const target = live?.ports.find((p) => p.id === portId);
@@ -30,7 +30,7 @@ export function PortValueControl({
      적히고, 어느 쪽이 사실인지 알 길이 없다. */
   if (field.readOnly) {
     return (
-      <span className="block px-1 text-sm text-content">
+      <span className={cn('block px-1 text-sm', muted ? 'text-content-faint' : 'text-content')}>
         {value === null || value === undefined || value === '' ? EMPTY : String(value)}
       </span>
     );
@@ -57,6 +57,7 @@ export function PortValueControl({
         if ((value ?? null) === next) return;
         write(next);
       }}
+      muted={muted}
       type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : undefined}
       label={field.label}
       unit={field.unit}

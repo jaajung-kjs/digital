@@ -78,7 +78,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
    * **입력도 한 줄이다.** 어디서 오는지·개폐·길이·전압을 회로와 같은 칸에서 읽는다 —
    * 머리글에 글자로만 적어 두면 값을 고칠 수가 없다.
    */
-  it('입력이 표의 첫 줄로 선다 — 어디서 오는지·길이·전압까지', () => {
+  it('입력이 표의 첫 줄로 선다 — 어디서 오는지·전압·용량까지', () => {
     setStore([rack, main, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
@@ -86,7 +86,10 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
     const first = upsTable.getAllByRole('row')[1]!; // 0 은 머리글
     expect(within(first).getByText('입력')).toBeInTheDocument();
     expect(within(first).getByText(/소내전원반/)).toBeInTheDocument();
-    expect(within(first).getByRole('button', { name: '길이 고치기' }).textContent).toBe('8m');
+    /* 인입 차단기의 값도 회로와 **같은 칸**에서 읽고 고친다 — 머리글에 글자로만 적어 두면
+       주차단기 정격을 적을 곳이 없다. */
+    expect(within(first).getByRole('button', { name: '전압 고치기' })).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: '용량 고치기' })).toBeInTheDocument();
   });
 
   it('아직 안 이은 입력과 이 도면 밖에서 오는 입력은 다르게 말한다', () => {
@@ -167,6 +170,31 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
     expect(screen.getByText('AC 380/220V · 3상4선(4P) · 400A')).toBeInTheDocument();
   });
 
+  /**
+   * **전압은 회로마다 다를 수 있다** — 그래서 회로 줄에 서고, 그 자리에서 고친다.
+   *
+   * 한때 「모선의 성질」이라며 이 열을 뺐다. 절반만 맞는 말이었다: 380/220V 3상4선 반은 한
+   * 모선에서 380V 3상과 220V 단상을 함께 내보내고, 강릉 대장에는 같은 반에 110V 회로가 하나
+   * 섞여 있다. 빼는 순간 그 회로를 고칠 길이 사라진다.
+   *
+   * 스무 줄에 같은 값이 스무 번 서던 문제는 **지우지 않고 흐리게** 푼다 — 모선(입력 줄)이
+   * 이미 말한 값이면 흐리고, 다른 값만 진하게 눈에 걸린다(대장의 ditto).
+   */
+  it('모선이 이미 말한 값은 흐리고, 다른 값만 진하다', () => {
+    const mixed = { ...main, ports: main.ports.map((p) => (p.id === 'main-o2' ? { ...p, fieldValues: { voltage: 'AC 380/220V' } } : p)) };
+    setStore([rack, mixed, ups, load], wired());
+    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+
+    const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
+    /* 모선(입력)과 같은 회로는 흐리다. */
+    const same = within(rows[2]!).getByRole('button', { name: '전압 고치기' });
+    expect(same.className).toMatch(/faint/);
+    /* 다른 값은 진하다 — 스물 속에서 이것만 눈에 걸려야 한다. */
+    const different = within(rows[3]!).getByRole('button', { name: '전압 고치기' });
+    expect(different.textContent).toBe('AC 380/220V');
+    expect(different.className).not.toMatch(/faint/);
+  });
+
   /** 아직 아무것도 안 문 회로는 **예비**다 — 조서가 그 자리를 그렇게 부른다. */
   it('안 이은 회로는 예비로 읽힌다', () => {
     setStore([rack, main, ups, load], wired());
@@ -175,18 +203,23 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
     expect(within(rows[3]!).getByText('예비')).toBeInTheDocument();
   });
 
-  it('길이는 그 자리에서 고친다 — 케이블에 담긴다', () => {
+  /**
+   * **케이블의 물량은 회로 대장의 칸이 아니다.**
+   *
+   * 강릉 조서의 「전원케이블」 칸에 적힌 것은 `FR-5.5sq` — 종류와 **굵기**이고 길이가 아니다.
+   * SCADA 분전반 조서에는 케이블 칸 자체가 없다(번호·용량·규격·Type·부하). 아홉 열을
+   * 세웠더니 정작 자료가 채우는 **용도**가 10%까지 굶어 부하 이름이 다 잘렸다.
+   *
+   * 길이를 적는 자리는 **포트 상세 카드의 연결 줄**이다 — 그 케이블이 서 있는 곳이다.
+   */
+  it('케이블 길이는 회로 대장의 열이 아니다 — 굵기는 남는다', () => {
     setStore([rack, main, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
-
-    /* 입력 줄의 길이 — 그 반의 첫 줄이다(회로 줄에도 같은 이름의 단추가 있다). */
-    const input = tableOf('분전반 · UPS').getAllByRole('row')[1]!;
-    fireEvent.click(within(input).getByRole('button', { name: '길이 고치기' }));
-    fireEvent.change(screen.getByDisplayValue('8'), { target: { value: '12.5' } });
-    fireEvent.blur(screen.getByDisplayValue('12.5'));
-
-    const staged = v2WorkingCopyStore.getState().overlays.cables.updates['c1'];
-    expect((staged?.specParams as Record<string, unknown>).lengthM).toBe(12.5);
+    const heads = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    expect(heads).not.toContain('길이');
+    expect(heads).toContain('굵기');
+    /* 차단기 종류도 같다 — 어휘로는 남기고(포트 카드에서 적는다) 열에서만 내린다. */
+    expect(heads).not.toContain('차단기');
   });
 });
 
