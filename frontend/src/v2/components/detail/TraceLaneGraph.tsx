@@ -1,12 +1,13 @@
 /**
  * TraceLaneGraph — 거슬러 오르는 추적. **출처가 위, 내가 맨 아래.**
  *
- *   ● 충전기 분배부 · 교류 출력 1
- *   ● IR-48 50A #1 · 전원 출력
- *   │ ● 충전기 분배부 · 교류 출력 2
+ *   ● 상용 피더 · 분기 2
+ *   ●─╮ 충전기 분전반 · 교류 출력 1     ← 두 정류기가 **같은 자리**에서 먹는다
+ *   ● │ IR-48 50A #1 · 전원 출력
+ *   │ ● 충전기 분전반 · 교류 출력 2
  *   │ ● IR-48 50A #2 · 전원 출력
- *   ●─┴─╯ 충전기 분배부 · 직류 출력 2
- *   ◎ SID-125 · 전원 입력
+ *   ●─┴─╯ 충전기 분전반 · 직류 출력 1
+ *   ◎ 직류 피더 · MAIN
  *
  * 위에서 아래로 읽으면 **전기가 흐르는 차례**다 — 내려가는 트리와 같은 방향이라, 두 그림의
  * 읽는 규칙이 하나다.
@@ -32,7 +33,7 @@ export function TraceLaneGraph({
   onSelectAsset: (id: string, portId?: string | null) => void;
 }) {
   const rows = traceLanes(tree);
-  const width = Math.max(...rows.map((r) => Math.max(r.lane, ...r.merges, ...r.through))) + 1;
+  const width = Math.max(...rows.map((r) => Math.max(r.lane, ...r.merges, ...r.through, ...r.forks))) + 1;
 
   return (
     <div>
@@ -44,6 +45,9 @@ export function TraceLaneGraph({
           { lane: row.lane, node: true, fromAbove: row.fromAbove, toBelow: row.toBelow },
           /* 합류 — 위에서 내려와 이 마디의 켜로 꺾여 든다. */
           ...row.merges.map((lane) => ({ lane, fromAbove: true, toNode: true })),
+          /* 갈래 — 이 마디에서 꺾여 나가 아래로 내려간다(합류의 짝). **같은 자리에서 먹는
+             갈래가 둘일 때** 그 자리를 두 번 세우지 않고 여기서 하나 더 내려보낸다. */
+          ...row.forks.map((lane) => ({ lane, toNode: true, toBelow: true })),
           ...row.through.map((lane) => ({ lane, fromAbove: true, toBelow: true })),
         ];
         return (

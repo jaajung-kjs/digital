@@ -85,7 +85,7 @@ function TraceIndentTree({
         const isRoot = i === 0;
         const cells: GutterCell[] = [
           /* **이어진 줄**(외자식)은 위에서 곧게 내려온다 — 꺾이는 이음선이 없다. */
-          { lane: row.depth, node: true, fromAbove: !isRoot && !row.branch, toBelow: row.node.children.length > 0 },
+          { lane: row.depth, node: true, fromAbove: !isRoot && !row.branch, toBelow: row.toBelow },
           /* 갈래에서 갈라져 나온 줄만 부모 켜에서 꺾여 든다 — 형제가 더 남았으면 아래로
              이어지고(├), 마지막이면 여기서 끝난다(└). */
           ...(row.branch ? [{ lane: row.depth - 1, fromAbove: true, toNode: true, toBelow: !row.last }] : []),

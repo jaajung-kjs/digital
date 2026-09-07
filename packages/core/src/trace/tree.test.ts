@@ -103,6 +103,33 @@ describe('buildTraceTree', () => {
     expect(tree.children).toHaveLength(1);
     expect(tree.children[0]!.portId).toBe('b-in');
   });
+
+  /**
+   * **다시 만나는 간선은 접힌 자리가 아니라 그 대표 마디를 가리킨다.**
+   *
+   * 정류기 둘이 만나는 곳은 분전반의 교류 입력인데, 그 포트는 마디가 아니라 상용 피더로
+   * 접혀 있다. 접힌 자리를 그대로 가리키면 화면에 없는 자리를 가리키게 된다.
+   */
+  it('다시 만나는 갈래는 이미 선 마디를 가리킨다', () => {
+    const tree = buildTraceTree([
+      cable('나', 'AC1', 'c1'), inside('AC1', 'dist-in'), cable('dist-in', '상용', 'c0'),
+      cable('나', 'AC2', 'c2'), { ...inside('AC2', 'dist-in'), revisit: true },
+    ], '나');
+    expect(tree.children).toEqual([
+      { portId: 'AC1', cableId: 'c1', children: [{ portId: '상용', cableId: 'c0', children: [] }] },
+      { portId: 'AC2', cableId: 'c2', children: [{ portId: '상용', ref: true, children: [] }] },
+    ]);
+  });
+
+  /** 가리키는 마디는 길이 아니다 — 세거나 펼 때 빠진다. */
+  it('가리키는 마디는 세지 않는다', () => {
+    const tree = buildTraceTree([
+      cable('나', 'A', 'c1'), cable('A', 'S', 'c0'),
+      cable('나', 'B', 'c2'), { ...cable('B', 'S', 'c3'), revisit: true },
+    ], '나');
+    expect(traceTreeSize(tree)).toBe(3); // A · S · B
+    expect(traceChains(tree).map((p) => p.map((x) => x.portId))).toEqual([['나', 'A', 'S'], ['나', 'B']]);
+  });
 });
 
 /**
@@ -111,6 +138,7 @@ describe('buildTraceTree', () => {
  * 트리는 「내가 시작해서 어디로 뻗나」를 말한다. 그런데 전원이 어디서 오는지 물었을 때의
  * 답은 반대 방향으로 읽힌다: 소내전원반 → 충전기 → DC 48V → 나. 길을 뽑아 뒤집으면 된다.
  */
+
 describe('traceChains', () => {
   const leaf = (portId: string): TraceTreeNode => ({ portId, children: [] });
 
@@ -141,11 +169,16 @@ describe('traceLanes — 모이는 그림', () => {
     ({ portId, children } as TraceTreeNode);
   /** 한 줄을 글자로 — 레인 자리에 마디(●)·합류(╯)·지나감(│)을 찍는다. */
   const show = (rows: ReturnType<typeof traceLanes>) => rows.map((r) => {
-    const width = Math.max(r.lane, ...r.merges, ...r.through) + 1;
+    const width = Math.max(r.lane, ...r.merges, ...r.through, ...r.forks) + 1;
     const cells = Array.from({ length: width }, (_, i) =>
-      i === r.lane ? '●' : r.merges.includes(i) ? '╯' : r.through.includes(i) ? '│' : ' ');
+      i === r.lane ? '●'
+        : r.merges.includes(i) ? '╯'
+          : r.forks.includes(i) ? '╮'
+            : r.through.includes(i) ? '│' : ' ');
     return `${cells.join('')} ${r.node.portId}`;
   });
+  /** 이미 선 자리를 가리키는 마디 — 갈래가 다시 만나는 곳. */
+  const ref = (portId: string): TraceTreeNode => ({ portId, ref: true, children: [] });
 
   /** 강압기의 상류 — 정류기 둘이 각자 교류에서 오고, 모선에서 합쳐져 나에게 온다. */
   it('출처가 위, 내가 맨 아래 — 합류 자리에서 레인이 닫힌다', () => {
@@ -189,6 +222,37 @@ describe('traceLanes — 모이는 그림', () => {
       '│●╯ B',
       '●╯ 나',
     ]);
+  });
+
+  /**
+   * **같은 데서 먹는 갈래 둘** — 공유하는 윗동아리는 한 번만 서고, 거기서 레인이 갈린다.
+   *
+   * 예전에는 이 그림을 담을 수 없어 뒤에 온 갈래가 「AC2」에서 그냥 끊겼다. 상용 피더가
+   * 정류기 #1 것만인 것처럼 읽혔는데, 실제로는 둘 다 거기서 먹는다.
+   */
+  it('공유하는 출처는 한 번만 서고, 거기서 갈래가 내려간다', () => {
+    const tree = n('직류피더',
+      n('분전반DC',
+        n('축전지'),
+        n('IR1', n('AC1', n('상용', n('소내')))),
+        n('IR2', n('AC2', ref('상용')))));
+    expect(show(traceLanes(tree))).toEqual([
+      '● 축전지',
+      '│● 소내',
+      '│●╮ 상용',
+      '│●│ AC1',
+      '│●│ IR1',
+      '││● AC2',
+      '││● IR2',
+      '●╯╯ 분전반DC',
+      '● 직류피더',
+    ]);
+  });
+
+  /** 가리키는 자리가 아직 안 그려졌으면 **접는다** — 덜 그릴지언정 틀리게 안 그린다. */
+  it('아직 안 그린 자리를 가리키면 그 갈래는 접힌다', () => {
+    const tree = n('나', n('A', ref('없는자리')), n('B'));
+    expect(show(traceLanes(tree))).toEqual(['● A', '│● B', '●╯ 나']);
   });
 
   /** 뿌리(나)에서 레인이 끝나고, 잎(출처)에서 시작한다. */

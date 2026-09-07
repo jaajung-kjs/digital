@@ -37,7 +37,29 @@ const feeder: AssetTypeSpec = {
   ],
 };
 
-const types = { DEV: device, 'OFD-SLOT': slot, FEEDER: feeder };
+/** 분전반 — 입력 하나가 출력 둘로 갈린다(같은 데서 먹는 갈래 둘). */
+const dist: AssetTypeSpec = {
+  ...device,
+  key: 'DIST',
+  name: '분전반',
+  ports: [
+    { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
+    { group: 'OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: 'OUT {n}' },
+  ],
+};
+
+/** 모선 — 갈린 둘이 다시 모인다. */
+const bus2: AssetTypeSpec = {
+  ...device,
+  key: 'BUS2',
+  name: '모선',
+  ports: [
+    { group: 'IN', count: 2, direction: 'IN', medium: 'power', namePattern: 'IN {n}' },
+    { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
+  ],
+};
+
+const types = { DEV: device, 'OFD-SLOT': slot, FEEDER: feeder, DIST: dist, BUS2: bus2 };
 
 /** 헬퍼: 자산 + 포트 인스턴스 생성 (포트 id = `${assetId}:${group}${index}`) */
 function makeAsset(typeKey: keyof typeof types, id: string): { asset: AssetRef; ports: PortRef[] } {
@@ -349,6 +371,58 @@ describe('모선 — 방향 없는 자리를 지나는 추적', () => {
     const down = traceFrom(g, 'batt:T1', 'downstream').map((h) => h.toPortId);
     expect(down).toContain('load1:IN1');
     expect(down).toContain('load2:IN1');
+  });
+
+  /**
+   * **갈라졌다 다시 모이는 길은 트리가 아니라 DAG 다.**
+   *
+   * 정류기 둘이 같은 분전반에서 먹고 같은 모선으로 모인다. 걷기는 자리를 한 번만 밟으므로
+   * 공유하는 윗동아리(분전반 입력 → 소내)는 먼저 온 갈래가 가져간다 — 그것만 남기면 다른
+   * 갈래는 「아무 데서도 안 온다」가 되어, 배선은 맞는데 그림이 거짓말을 한다.
+   * 걷지는 않되 **간선은 남긴다**(`revisit`).
+   */
+  it('같은 데서 먹는 갈래 둘 — 뒤에 온 갈래도 그 자리로 간선이 남는다', () => {
+    const src = makeAsset('FEEDER', 'src');
+    const d = makeAsset('DIST', 'dist');
+    const r1 = makeAsset('FEEDER', 'r1');
+    const r2 = makeAsset('FEEDER', 'r2');
+    const bus = makeAsset('BUS2', 'bus');
+    const load = makeAsset('FEEDER', 'load');
+    const cables: CableRef[] = [
+      { id: 'c0', aPortId: 'src:OUT1', bPortId: 'dist:IN1' },
+      { id: 'c1', aPortId: 'dist:OUT1', bPortId: 'r1:IN1' },
+      { id: 'c2', aPortId: 'dist:OUT2', bPortId: 'r2:IN1' },
+      { id: 'c3', aPortId: 'r1:OUT1', bPortId: 'bus:IN1' },
+      { id: 'c4', aPortId: 'r2:OUT1', bPortId: 'bus:IN2' },
+      { id: 'c5', aPortId: 'bus:OUT1', bPortId: 'load:IN1' },
+    ];
+    const g = buildTraceGraph({
+      types,
+      assets: [src.asset, d.asset, r1.asset, r2.asset, bus.asset, load.asset],
+      ports: [...src.ports, ...d.ports, ...r1.ports, ...r2.ports, ...bus.ports, ...load.ports],
+      cables,
+    });
+    const hops = traceFrom(g, 'load:IN1', 'upstream');
+    /* 두 정류기 다 제 출력까지 올라간다. */
+    expect(hops.map((h) => h.toPortId)).toEqual(expect.arrayContaining(['r1:OUT1', 'r2:OUT1', 'dist:OUT1', 'dist:OUT2']));
+    /* 분전반 입력으로 드는 간선이 **둘** 다 있다 — 하나는 걸어서, 하나는 다시 만나서. */
+    const intoDistIn = hops.filter((h) => h.toPortId === 'dist:IN1');
+    expect(intoDistIn.map((h) => h.fromPortId).sort()).toEqual(['dist:OUT1', 'dist:OUT2']);
+    expect(intoDistIn.filter((h) => h.revisit === true)).toHaveLength(1);
+    /* 소내까지는 한 번만 올라간다 — 되풀이해 걷지 않는다. */
+    expect(hops.filter((h) => h.toPortId === 'src:OUT1')).toHaveLength(1);
+  });
+
+  /** 되짚는 길은 「다시 만났다」가 아니다 — 간선 하나는 한 번만 적는다. */
+  it('타고 온 길을 되짚어 다시 적지 않는다', () => {
+    const a = makeAsset('DEV', 'devA');
+    const b = makeAsset('DEV', 'devB');
+    const g = buildTraceGraph({
+      types, assets: [a.asset, b.asset], ports: [...a.ports, ...b.ports],
+      cables: [{ id: 'c1', aPortId: 'devA:P1', bPortId: 'devB:P1' }],
+    });
+    /* 광은 양쪽으로 다 열려 있어(`either`) 방향 규칙이 안 막는다 — 간선 표시가 막는다. */
+    expect(traceFrom(g, 'devA:P1').filter((h) => h.revisit === true)).toEqual([]);
   });
 
   /** 광은 상·하류가 없다 — 방향 없는 자리라도 질문은 하나다(어휘가 정한다). */

@@ -28,6 +28,15 @@ export interface TraceTreeNode {
   cableId?: string;
   /** 여기서 갈라져 나가는 길들. */
   children: TraceTreeNode[];
+  /**
+   * 이 마디는 **다른 데 이미 선 자리를 가리킨다** — 갈래가 다시 만나는 곳이다(자식이 없다).
+   *
+   * 결과는 트리가 아니라 DAG 다: 정류기 둘이 같은 상용 피더에서 먹고, 그 둘이 다시 같은
+   * 직류 모선으로 모인다. 걷기는 자리를 한 번만 밟으므로(`traceFrom` 의 `visited`) 공유하는
+   * 윗동아리는 **한 갈래에만** 붙는데, 그것을 그대로 그리면 다른 갈래는 아무 데서도 안
+   * 오는 것처럼 보인다. 가리키는 마디를 두면 레인 그래프가 그 자리에서 갈래를 내려보낸다.
+   */
+  ref?: true;
 }
 
 /**
@@ -42,6 +51,13 @@ export function buildTraceTree(hops: readonly TraceHop[], startPortId: string): 
     else childrenOf.set(hop.fromPortId, [hop]);
   }
 
+  /** 케이블로 닿아 **제가 곧 마디**인 자리. */
+  const nodeOf = new Map<string, TraceTreeNode>();
+  /** 접혀서 **무엇이 되었나** — 내부 통과·다심은 마디가 아니라 그 너머를 끌어올린다. */
+  const foldOf = new Map<string, TraceTreeNode[]>();
+  /** 다시 만나는 갈래 — 가리킬 마디가 다 선 뒤에 붙인다. */
+  const rejoins: { into: TraceTreeNode[]; toPortId: string }[] = [];
+
   /**
    * 이 포트에서 뻗는 갈래들 — **케이블만 마디가 된다.**
    *
@@ -53,21 +69,53 @@ export function buildTraceTree(hops: readonly TraceHop[], startPortId: string): 
     seen.add(portId);
     const out: TraceTreeNode[] = [];
     for (const hop of childrenOf.get(portId) ?? []) {
+      /* 다시 만나는 갈래는 **여기서 정할 수 없다** — 가리킬 마디가 아직 안 섰을 수 있다. */
+      if (hop.revisit === true) {
+        rejoins.push({ into: out, toPortId: hop.toPortId });
+        continue;
+      }
       /* 내부 통과와 **다심 포트로 드는 길**은 마디를 만들지 않는다 — 둘 다 지나가는 자리다.
          (`core` 는 다심으로 들어갈 때만 붙는다 — `traceFrom` 참조) */
       if (hop.kind === 'internal' || hop.core !== undefined) {
         out.push(...branchesOf(hop.toPortId, seen));
         continue;
       }
-      const node: TraceTreeNode = { portId: hop.toPortId, children: branchesOf(hop.toPortId, seen) };
+      const node: TraceTreeNode = { portId: hop.toPortId, children: [] };
       if (hop.cableId !== undefined) node.cableId = hop.cableId;
+      nodeOf.set(hop.toPortId, node);
+      node.children = branchesOf(hop.toPortId, seen);
       out.push(node);
     }
+    foldOf.set(portId, out);
     return out;
   };
 
-  return { portId: startPortId, children: branchesOf(startPortId, new Set()) };
+  const root: TraceTreeNode = { portId: startPortId, children: [] };
+  nodeOf.set(startPortId, root);
+  root.children = branchesOf(startPortId, new Set());
+
+  /**
+   * 그 자리를 **대표하는 마디** — 케이블로 닿은 자리는 제 마디이고, 접힌 자리는 그 너머다.
+   *
+   * 다시 만나는 간선은 대개 **접힌 자리**를 가리킨다(정류기 둘이 만나는 곳은 분전반의 교류
+   * 입력인데, 그 포트는 마디가 아니라 상용 피더로 접혀 있다). 접힌 자리를 그대로 가리키면
+   * 화면에 없는 자리를 가리키게 되므로, 접힌 결과를 대신 가리킨다.
+   */
+  const repOf = (portId: string): TraceTreeNode[] => {
+    const own = nodeOf.get(portId);
+    return own ? [own] : (foldOf.get(portId) ?? []);
+  };
+  for (const { into, toPortId } of rejoins) {
+    for (const rep of repOf(toPortId)) {
+      if (rep.ref === true) continue; // 가리키는 것을 또 가리키지 않는다
+      into.push({ portId: rep.portId, ref: true, children: [] });
+    }
+  }
+  return root;
 }
+
+/** 가리키는 마디는 길이 아니다 — 세거나 펼 때는 빼고 본다. */
+const realKids = (node: TraceTreeNode): TraceTreeNode[] => node.children.filter((c) => c.ref !== true);
 
 /**
  * 트리를 **끝까지 가는 길들**로 편다 — 뿌리에서 잎 하나까지가 한 길이다.
@@ -80,13 +128,14 @@ export function buildTraceTree(hops: readonly TraceHop[], startPortId: string): 
  * 뿌리를 포함해서 돌려준다 — 뒤집으면 그 뿌리가 **마지막**(내가 선 자리)이 된다.
  */
 export function traceChains(root: TraceTreeNode): TraceTreeNode[][] {
-  if (root.children.length === 0) return [[root]];
-  return root.children.flatMap((child) => traceChains(child).map((path) => [root, ...path]));
+  const kids = realKids(root);
+  if (kids.length === 0) return [[root]];
+  return kids.flatMap((child) => traceChains(child).map((path) => [root, ...path]));
 }
 
 /** 트리에 마디가 몇이나 되나 — 뿌리는 빼고 센다(「이 포트에서 닿는 곳」의 수). */
 export function traceTreeSize(node: TraceTreeNode): number {
-  return node.children.reduce((n, c) => n + 1 + traceTreeSize(c), 0);
+  return realKids(node).reduce((n, c) => n + 1 + traceTreeSize(c), 0);
 }
 
 /** 레인 그래프의 줄 하나 — 마디 하나와 그 옆을 지나는 레인들. */
@@ -98,6 +147,14 @@ export interface TraceLaneRow {
   merges: readonly number[];
   /** 마디도 합류도 아닌, 이 줄을 위아래로 **그냥 지나가는** 레인들. */
   through: readonly number[];
+  /**
+   * 이 줄에서 **갈라져 나가는** 레인들 — 합류의 짝이다.
+   *
+   * 같은 자리에서 먹는 갈래가 둘이면(정류기 둘이 한 상용 피더에서) 그 자리는 한 번만 서고
+   * 거기서 레인이 하나 더 내려간다. 예전에는 이것을 그릴 수 없어 뒤에 온 갈래가 **아무 데서도
+   * 안 오는 것처럼** 끊겼다.
+   */
+  forks: readonly number[];
   /** 이 마디의 레인이 위에서 이어져 오는가 — 잎(출처)이면 여기서 시작한다. */
   fromAbove: boolean;
   /** 이 마디의 레인이 아래로 이어지는가 — 뿌리(나)면 여기서 끝난다. */
@@ -132,9 +189,12 @@ export interface TraceLaneRow {
  * 그 자리에서 닫는다. 닫힌 레인은 **다시 쓴다** — 안 그러면 갈래가 끝나도 폭이 안 준다.
  */
 export function traceLanes(root: TraceTreeNode): TraceLaneRow[] {
-  const rows: TraceLaneRow[] = [];
+  interface Row { node: TraceTreeNode; lane: number; merges: number[]; through: number[]; forks: number[]; fromAbove: boolean; toBelow: boolean }
+  const rows: Row[] = [];
   /** 지금 살아 있는 레인들 — 닫히면 그 번호를 되쓴다. */
   const open = new Set<number>();
+  /** 이미 선 마디가 **몇 째 줄**인가 — 다시 만나는 갈래가 거기서 갈라져 나간다. */
+  const rowOf = new Map<string, number>();
   const take = (): number => {
     let i = 0;
     while (open.has(i)) i += 1;
@@ -144,22 +204,41 @@ export function traceLanes(root: TraceTreeNode): TraceLaneRow[] {
   /** 이 줄을 그냥 지나가는 레인들 — 살아 있는 것 중 제 레인이 아닌 것. */
   const passing = (lane: number): number[] => [...open].filter((l) => l !== lane).sort((a, b) => a - b);
 
-  const walk = (node: TraceTreeNode, root_: boolean): number => {
-    if (node.children.length === 0) {
+  const walk = (node: TraceTreeNode, root_: boolean): number | null => {
+    /**
+     * 가리키는 마디 — 줄을 새로 만들지 않고 **이미 선 그 줄에서 레인 하나를 내려보낸다.**
+     *
+     * 가리키는 자리가 아직 안 그려졌으면 접는다. 덜 그릴지언정 **틀리게 그리지 않는다** —
+     * 아직 없는 줄에 갈래를 걸 수는 없다.
+     */
+    if (node.ref === true) {
+      const at = rowOf.get(node.portId);
+      if (at === undefined) return null;
       const lane = take();
-      rows.push({ node, lane, merges: [], through: passing(lane), fromAbove: false, toBelow: !root_ });
+      rows[at]!.forks.push(lane);
+      /* 갈라진 자리와 이 갈래가 쓰이는 자리 사이의 줄들은 그 레인이 **지나간다.** */
+      for (let i = at + 1; i < rows.length; i += 1) rows[i]!.through.push(lane);
       return lane;
     }
     /* 자식(출처)을 먼저 낸다 — 이 차례가 곧 「출처에서 나에게로」다. */
-    const lanes = node.children.map((c) => walk(c, false));
+    const lanes = node.children.map((c) => walk(c, false)).filter((l): l is number => l !== null);
+    const push = (lane: number, merges: number[], fromAbove: boolean): void => {
+      rowOf.set(node.portId, rows.length);
+      rows.push({ node, lane, merges, through: passing(lane), forks: [], fromAbove, toBelow: !root_ });
+    };
+    if (lanes.length === 0) {
+      const lane = take();
+      push(lane, [], false);
+      return lane;
+    }
     const lane = lanes[0]!;
     const merges = lanes.slice(1);
     for (const l of merges) open.delete(l);
-    rows.push({ node, lane, merges, through: passing(lane), fromAbove: true, toBelow: !root_ });
+    push(lane, merges, true);
     return lane;
   };
   walk(root, true);
-  return rows;
+  return rows.map((r) => ({ ...r, through: [...r.through].sort((a, b) => a - b), forks: [...r.forks].sort((a, b) => a - b) }));
 }
 
 /** 들여쓰기 트리의 줄 하나 — 마디 하나와 그 왼쪽을 지나는 세로선들. */
@@ -171,6 +250,13 @@ export interface TraceIndentRow {
   rails: readonly number[];
   /** 제 형제 중 마지막인가 — 이음선이 꺾여 끝난다(└). 아니면 이어진다(├). */
   last: boolean;
+  /**
+   * 아래로 이어지는 줄이 있는가 — **가리키는 마디는 빼고** 센다.
+   *
+   * 들여쓰기 트리는 가리키는 마디를 세우지 않으므로(그 몫은 레인 그래프다), 그것까지 자식으로
+   * 세면 아무것도 없는 아래로 세로선이 한 칸 내려간다. 규칙은 여기 한 번만 적는다.
+   */
+  toBelow: boolean;
   /**
    * **갈래에서 갈라져 나온 줄인가.**
    *
@@ -193,11 +279,13 @@ export interface TraceIndentRow {
 export function traceIndentRows(root: TraceTreeNode): TraceIndentRow[] {
   const rows: TraceIndentRow[] = [];
   const walk = (node: TraceTreeNode, depth: number, rails: number[], last: boolean, branch: boolean): void => {
-    rows.push({ node, depth, rails: [...rails], last, branch });
+    rows.push({ node, depth, rails: [...rails], last, branch, toBelow: realKids(node).length > 0 });
     /* 내 자식들의 줄에서 **내 이음선 켜**(`depth - 1`)에 세로선이 계속 지나가는가 —
        내가 갈래에서 갈라져 나왔고 형제 중 마지막이 아니라면 그렇다. */
     const forChildren = branch && !last ? [...rails, depth - 1] : rails;
-    const kids = node.children;
+    /* 가리키는 마디는 **줄이 아니다** — 들여쓰기 트리는 모이는 그림을 담지 못한다(레인
+       그래프가 그 몫이다). 여기서 세우면 같은 이름이 자식 없이 한 번 더 설 뿐이다. */
+    const kids = realKids(node);
     /* **자식이 하나뿐이면 켜가 그대로다** — 레인 그래프가 곧은 사슬에서 레인을 안 늘리는
        것과 같은 규칙이다(켜가 늘어나는 것은 갈래가 갈릴 때뿐이다). 예전에는 외자식도
        한 칸씩 들여써서, 같은 곧은 길이 거슬러 오를 때는 한 줄이고 내려갈 때는 계단이었다. */

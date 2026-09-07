@@ -78,6 +78,19 @@ export interface TraceHop {
    * 대국인 양 남았다.
    */
   core?: number;
+  /**
+   * **이미 지난 자리로 다시 닿은 간선** — 갈래가 다시 만나는 곳이다. 여기서 더 걷지 않는다.
+   *
+   * 걷기는 포트를 한 번만 밟는다(`visited`). 그것만으로 결과를 세우면 **스패닝 트리**가 되어,
+   * 정말은 갈라졌다 다시 모이는 길(DAG)에서 **공유하는 윗동아리가 먼저 온 갈래에만 붙는다**:
+   * 정류기 둘이 같은 상용 피더에서 먹는데 화면에는 한쪽에만 상용 피더가 섰고, 다른 쪽은
+   * 「교류 출력 2」에서 그냥 끊겼다 — 배선은 맞는데 그림이 거짓말을 했다.
+   *
+   * 그래서 **걷지는 않되 간선은 남긴다.** 트리를 세울 때 이 홉은 마디를 새로 만들지 않고
+   * 이미 선 마디를 **가리키고**(`TraceTreeNode.ref`), 레인 그래프는 그 자리에서 갈래를
+   * 내려보낸다(합류의 짝이다).
+   */
+  revisit?: true;
 }
 
 /** 포트 노드 + 케이블 엣지 + 포트 선언에서 유도된 내부 엣지(`derivedLinks`)로 그래프를 만든다. */
@@ -227,6 +240,8 @@ export function traceFrom(graph: TraceGraph, startPortId: string, ask?: Flow): T
      같은 인입으로 네 번 되돌아온다(실제로 그렇게 나왔다). */
   const start = { portId: startPortId, position: null as number | null };
   const visited = new Set<string>([startPortId]);
+  /** 이미 적은 간선(무향) — 되짚는 길을 「다시 만났다」로 적지 않게 한다. */
+  const walked = new Set<string>();
   const queue = [start];
   while (queue.length > 0) {
     const cur = queue.shift();
@@ -243,10 +258,20 @@ export function traceFrom(graph: TraceGraph, startPortId: string, ask?: Flow): T
           position = e.position; // 다심으로 들어간다 — 이 번호를 들고 간다.
         }
       }
-      if (visited.has(e.toPortId)) continue;
-      visited.add(e.toPortId);
+      /* 간선 하나는 **한 번만** 적는다. 간선은 양쪽에 다 걸려 있어서, 그러지 않으면 방금
+         타고 온 길을 되짚어 「다시 만났다」고 적는다(방향 없는 종류에서 특히 그렇다). */
+      const edge = cur.portId < e.toPortId ? `${cur.portId}|${e.toPortId}` : `${e.toPortId}|${cur.portId}`;
+      if (walked.has(edge)) continue;
+      walked.add(edge);
       const hop: TraceHop = { kind: e.kind, fromPortId: cur.portId, toPortId: e.toPortId };
       if (e.cableId !== undefined) hop.cableId = e.cableId;
+      /* 이미 밟은 자리 — **간선만 남기고 걷지 않는다**(갈래가 다시 만나는 곳). */
+      if (visited.has(e.toPortId)) {
+        hop.revisit = true;
+        hops.push(hop);
+        continue;
+      }
+      visited.add(e.toPortId);
       /* 다심으로 들어가는 길이면 어느 코어를 타는지 남긴다 — 그 자리를 부를 이름이 없다.
          **모르는 포트도 마찬가지다.** 국을 넘는 구간 케이블의 건너편은 이 워킹 카피에 없어
          「다심인가」를 물을 수 없는데, 그 자리야말로 코어가 필요한 곳이다(대국 OPGW). 코어를
