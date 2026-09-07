@@ -83,13 +83,32 @@ describe('케이블 파라미터 선언', () => {
     expect(portFieldsFor('power').map((f) => f.key)).toContain('voltage');
   });
 
-  it('갈래가 값과 기본값을 좁힌다 — 직류 포트에 교류 전압이 뜨지 않는다', () => {
+  it('갈래가 고를 값을 좁힌다 — 직류 포트에 교류 전압이 뜨지 않는다', () => {
     const dc = portFieldsFor('power', 1, 'DC').find((f) => f.key === 'voltage')!;
     expect(dc.options?.every((v) => String(v).startsWith('DC'))).toBe(true);
-    expect(dc.defaultValue).toBe('DC 48V');
     const ac = portFieldsFor('power', 1, 'AC').find((f) => f.key === 'voltage')!;
     expect(ac.options?.every((v) => String(v).startsWith('AC'))).toBe(true);
-    expect(ac.defaultValue).toBe('AC 220V');
+  });
+
+  /**
+   * **어휘는 「고를 수 있는 값」만 말하고 「예사값」은 말하지 않는다.**
+   *
+   * 한때 갈래가 예사 전압을 들고 있었고(`defaultVoltage`), 포트가 생길 때 그것이 저장됐다.
+   * 아무도 확인한 적 없는 값이 자료로 굳는 자리였다 — 옛 대장에는 「220V 3상」까지만 적혀
+   * 있는데 우리가 「1상2선」을 채워 넣으면 화면이 없는 사실을 말한다.
+   *
+   * 빈자리를 메우는 일은 **읽는 쪽**이 한다: 회로에 없으면 그 반의 모선에서 물려받는다.
+   */
+  it('전압·상선식에는 예사값이 없다 — 모선에서 물려받을 값이라고만 말한다', () => {
+    for (const key of ['voltage', 'wiring']) {
+      const f = portFieldsFor('power', 1, 'AC').find((x) => x.key === key)!;
+      expect(f.defaultValue, key).toBeUndefined();
+      expect(f.inherited, key).toBe(true);
+    }
+    /* 용량·개폐는 물려받지 않는다 — 모선이 400A 라고 분기가 400A 인 것이 아니다. */
+    for (const key of ['ampere', 'closed']) {
+      expect(portFieldsFor('power', 1, 'AC').find((x) => x.key === key)?.inherited, key).toBeUndefined();
+    }
   });
 
   /**
@@ -101,7 +120,6 @@ describe('케이블 파라미터 선언', () => {
   it('상·선식은 교류에만 있는 칸이다', () => {
     const ac = portFieldsFor('power', 1, 'AC').find((f) => f.key === 'wiring');
     expect(ac?.options).toEqual(['3상4선', '3상3선', '1상2선']);
-    expect(ac?.defaultValue).toBe('1상2선');
     expect(portFieldsFor('power', 1, 'DC').find((f) => f.key === 'wiring')).toBeUndefined();
   });
 
@@ -256,8 +274,6 @@ describe('고를 수 있는 값', () => {
   it('직류 전압은 쓰임이 있는 것만 담는다', () => {
     const dc = portFieldsFor('power', 1, 'DC').find((f) => f.key === 'voltage')!;
     expect(dc.options).toEqual(['DC 125V', 'DC 110V', 'DC 48V', 'DC 24V']);
-    /* 우리 설비(통신)의 예사값은 그대로 48V 다 — 목록이 늘어도 기본은 안 흔들린다. */
-    expect(dc.defaultValue).toBe('DC 48V');
   });
 });
 

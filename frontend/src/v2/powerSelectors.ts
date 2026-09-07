@@ -82,14 +82,28 @@ export interface PowerNode {
   children: PowerNode[];
 }
 
-/** 그 포트에 적힌 값들 — 선언된 칸만, 기본값까지 얹어서. */
-function declaredPortValues(port: V2Asset['ports'][number]): Record<string, unknown> {
+/**
+ * 그 포트에 적힌 값들 — 선언된 칸만.
+ *
+ * 안 적힌 것은 **안 적힌 채로** 둔다(`null`). 적힌 값이 없을 때 뜻이 있는 것은 개폐뿐이고
+ * (안 적었으면 투입), 그건 선언이 말한다(`ValueDef.defaultValue`).
+ *
+ * @param bus 그 반의 모선(입력)에 적힌 값들 — **회로에 없는 것만** 여기서 물려받는다.
+ *   어느 칸이 물려받는지는 선언이 정한다(`ValueDef.inherited`) — 전압·상선식은 한 모선이
+ *   나르는 성질이라 대개 회로마다 같고, 용량은 회로마다 고유하다.
+ */
+function declaredPortValues(
+  port: V2Asset['ports'][number],
+  bus: Record<string, unknown> = {},
+): Record<string, unknown> {
   const values = portValuesAt(port, 1);
-  /* 선언이 주는 값(전압)은 **없으면 없는 것**이다 — 기본값으로 메우면 화면이 사실을 지어낸다.
-     적힌 값이 없을 때 뜻이 있는 것은 개폐뿐이고(안 적었으면 투입), 그건 선언이 말한다. */
   return Object.fromEntries(
-    portFieldsFor(port.medium, port.positions, port.variant)
-      .map((f) => [f.key, values[f.key] ?? (f.readOnly ? null : f.defaultValue ?? null)]),
+    portFieldsFor(port.medium, port.positions, port.variant).map((f) => {
+      const own = values[f.key] ?? null;
+      if (own !== null || f.readOnly) return [f.key, own];
+      if (f.inherited && bus[f.key] != null) return [f.key, bus[f.key]];
+      return [f.key, f.defaultValue ?? null];
+    }),
   );
 }
 
@@ -188,6 +202,15 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
           via: up.via,
         };
       });
+    /**
+     * 이 반의 **모선** — 갈래가 같은 입력이다.
+     *
+     * 갈래로 고르는 까닭: 충전기 분전반은 교류 입력과 직류 입력을 함께 갖는다. 첫 입력만
+     * 보면 직류 회로가 교류 모선의 전압을 물려받는다(「DC 회로가 AC 220V」).
+     */
+    const busOf = (variant: string | null | undefined) =>
+      sources.find((sc) => (sc.variant ?? null) === (variant ?? null))?.portValues ?? {};
+
     const circuits = powerPorts
       .filter((p) => p.direction === 'OUT')
       .sort((a, b) => a.index - b.index)
@@ -201,7 +224,7 @@ export function powerTree(assets: V2Asset[], cables: V2Cable[]): PowerNode[] {
           index: p.index,
           name: p.name,
           variant: p.variant,
-          portValues: declaredPortValues(p),
+          portValues: declaredPortValues(p, busOf(p.variant)),
           cableId: cable?.id ?? null,
           load: cable ? resolvePeer(p, cable, portIndex, board.substationId) : null,
           values: cable?.specParams ?? {},

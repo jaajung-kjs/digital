@@ -146,20 +146,45 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
    * 회로 줄에서 고치는 것은 상·선식이다.
    */
   it('상·선식은 회로마다 고친다 — 한 반에서 3상과 단상이 섞인다', () => {
-    const main3P = { ...main, ports: main.ports.map((p) => (p.id === 'main-o1' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3상4선' } } : p)) };
+    /* 모선은 3상4선, 회로 하나만 단상 — 나머지는 모선에서 물려받는다. */
+    const main3P = { ...main, ports: main.ports.map((p) =>
+      p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3상4선' } }
+        : p.id === 'main-o2' ? { ...p, fieldValues: { wiring: '1상2선' } } : p) };
     setStore([rack, main3P, ups, load], wired());
     render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
-    expect(within(rows[2]!).getByText('3상4선')).toBeInTheDocument();
-    expect(within(rows[3]!).getByText('1상2선')).toBeInTheDocument();
+    /* 안 적은 회로는 모선을 따라 3상4선(흐리게), 따로 적은 회로만 1상2선(진하게). */
+    expect(within(rows[2]!).getByRole('button', { name: '규격 고치기' }).textContent).toBe('3상4선');
+    expect(within(rows[3]!).getByRole('button', { name: '규격 고치기' }).textContent).toBe('1상2선');
 
     /* 그 자리에서 고친다 — 값은 **그 포트**에 담긴다(케이블이 아니라). */
-    fireEvent.click(within(rows[3]!).getByRole('button', { name: '규격 고치기' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '규격' }), { target: { value: '3상4선' } });
+    fireEvent.click(within(rows[2]!).getByRole('button', { name: '규격 고치기' }));
+    fireEvent.change(screen.getByRole('combobox', { name: '규격' }), { target: { value: '3상3선' } });
     const staged = v2WorkingCopyStore.getState().overlays.assets.updates['main'];
-    const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o2');
-    expect(port?.fieldValues.wiring).toBe('3상4선');
+    const port = (staged?.ports as { id: string; fieldValues: Record<string, unknown> }[]).find((p) => p.id === 'main-o1');
+    expect(port?.fieldValues.wiring).toBe('3상3선');
+  });
+
+  /**
+   * **안 적힌 값은 지어내지 않는다** — 모선에도 없으면 「—」다.
+   *
+   * 포트가 생길 때 갈래의 예사 전압을 저장하던 자리가 있었다. 편했지만 아무도 확인한 적 없는
+   * 값이 자료로 굳었다 — 옛 대장을 옮길 때 화면이 없는 사실을 말한다.
+   */
+  it('모선에도 없으면 비어 있다 — 모선에 적으면 회로가 따라온다', () => {
+    const bare = { ...main, ports: main.ports.map((p) => ({ ...p, fieldValues: {} })) };
+    setStore([rack, bare, ups, load], wired());
+    const { rerender } = render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    const 전압 = () => tableOf('분전반 · 소내전원반').getAllByRole('row')
+      .slice(1).map((r) => within(r).getByRole('button', { name: '전압 고치기' }).textContent);
+    expect(전압()).toEqual(['—', '—', '—']); // 입력 · 회로 둘 다 비었다
+
+    /* 모선에만 적는다 — 회로가 따라온다. */
+    const fed = { ...bare, ports: bare.ports.map((p) => (p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'DC 48V' } } : p)) };
+    setStore([rack, fed, ups, load], wired());
+    rerender(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    expect(전압()).toEqual(['DC 48V', 'DC 48V', 'DC 48V']);
   });
 
   /** 전압은 **모선의 성질**이라 회로 줄이 아니라 머리줄이 말한다 — 극수까지 함께. */

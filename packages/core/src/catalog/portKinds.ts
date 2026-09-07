@@ -60,6 +60,18 @@ export interface ValueDef {
    */
   readOnly?: boolean;
   /**
+   * **모선에서 물려받는 값인가** — 회로에 안 적혔으면 그 반의 입력에 적힌 것을 따른다.
+   *
+   * 전압과 상·선식이 그렇다. 한 모선이 나르는 성질이라 대개 회로마다 같다(SCADA 조서의
+   * 스무 분기가 전부 `1상2선` 이다). 그렇다고 **어휘의 예사값으로 메우면 안 된다** — 그건
+   * 아무 근거 없이 화면이 사실을 말하는 것이고, 옛 대장을 옮길 때 확인 안 된 값이 자료로
+   * 굳는다. 같은 반의 모선에 적힌 값은 근거가 있다.
+   *
+   * **용량은 아니다.** 모선이 400A 라고 분기가 400A 인 것이 아니다 — 분기 차단기 용량은
+   * 회로마다 고유하다. 개폐도 아니다(모선이 열렸다고 분기가 열린 것이 아니다).
+   */
+  inherited?: true;
+  /**
    * 적힌 값이 없을 때의 뜻.
    *
    * 개폐가 그렇다 — 살아 있는 계통에서 **투입이 예사이고 개방이 사건**이다. 없는 값을
@@ -113,8 +125,7 @@ export interface PortVariant {
   name: string;
   /** 이 갈래에서 고를 수 있는 전압. 없으면 그 종류의 전체 목록. */
   voltages?: readonly string[];
-  /** 적힌 값이 없을 때의 전압 — 현장에서 가장 흔한 것. */
-  defaultVoltage?: string;
+
   /**
    * 이 갈래에서 고를 수 있는 **상·선식**. **없으면 그 갈래에는 이 칸이 아예 없다.**
    *
@@ -122,8 +133,6 @@ export interface PortVariant {
    * 있을 수 없는 조합이 표현된다 — 갈래가 칸을 갖게 하면 그럴 자리가 생기지 않는다.
    */
   wirings?: readonly string[];
-  /** 적힌 값이 없을 때의 상·선식 — 분기 회로는 거의 단상이다. */
-  defaultWiring?: string;
 }
 
 export interface PortKind {
@@ -288,9 +297,9 @@ export const PORT_KINDS = [
     flowLabels: { upstream: '전원 측', downstream: '부하 측' },
     /* 교류와 직류는 잇지 않는다 — 충전기가 교류를 받아 직류를 내보내는 것이 그 경계다. */
     variants: [
-      { key: 'AC', name: 'AC', voltages: AC_VOLTAGES, defaultVoltage: 'AC 220V', wirings: AC_WIRINGS, defaultWiring: '1상2선' },
+      { key: 'AC', name: 'AC', voltages: AC_VOLTAGES, wirings: AC_WIRINGS },
       /* 직류에는 상·선식이 없다 — `wirings` 를 안 주면 그 칸이 서지 않는다. */
-      { key: 'DC', name: 'DC', voltages: DC_VOLTAGES, defaultVoltage: 'DC 48V' },
+      { key: 'DC', name: 'DC', voltages: DC_VOLTAGES },
     ],
     /* 굵기는 **전원케이블 대장의 절반**이다 — 현장 대장은 「FR-5.5sq」처럼 종류와 굵기를
        붙여 적는다. 종류는 우리 케이블 품목이 이미 알고, 굵기는 적을 곳이 없었다. */
@@ -338,10 +347,10 @@ export const PORT_KINDS = [
        * 몇 V 인지는 회로마다 적는다. 포트가 생길 때는 그 갈래의 예사값이 실린다
        * (`PortVariant.defaultVoltage`) — 대개 맞고, 다르면 계통 표에서 고친다.
        */
-      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 15 },
+      { key: 'voltage', label: '전압', type: 'text', options: POWER_VOLTAGES, order: 15, inherited: true },
       { key: 'ampere', label: '용량', type: 'number', unit: 'A', options: BREAKER_AMPERES, order: 20 },
       /* 차례는 **현장 조서 그대로**다 — 번호 · 용량 · 규격 · Type · 부하. */
-      { key: 'wiring', label: '규격', type: 'text', options: AC_WIRINGS, order: 25 },
+      { key: 'wiring', label: '규격', type: 'text', options: AC_WIRINGS, order: 25, inherited: true },
       { key: 'breaker', label: '차단기', type: 'text', options: BREAKER_TYPES, order: 27 },
       { key: 'closed', label: '개폐', type: 'boolean', defaultValue: true, trueLabel: '투입', falseLabel: '개방' },
     ],
@@ -437,11 +446,9 @@ export function portFieldsFor(medium: string, positions?: number | null, variant
   const variant = variantKey ? kind.variants?.find((v) => v.key === variantKey) : undefined;
   if (!variant) return fields;
   return fields.flatMap((f) => {
-    if (f.key === 'voltage') return [{ ...f, options: variant.voltages ?? f.options, defaultValue: variant.defaultVoltage ?? f.defaultValue }];
+    if (f.key === 'voltage') return [{ ...f, options: variant.voltages ?? f.options }];
     /* 상·선식은 **그 갈래가 가진 것만** — 직류에는 이 칸이 서지 않는다(`PortVariant.wirings`). */
-    if (f.key === 'wiring') {
-      return variant.wirings ? [{ ...f, options: variant.wirings, defaultValue: variant.defaultWiring ?? f.defaultValue }] : [];
-    }
+    if (f.key === 'wiring') return variant.wirings ? [{ ...f, options: variant.wirings }] : [];
     return [f];
   });
 }
