@@ -131,7 +131,7 @@ describe('정보통신용 전원분전반 — 계통은 서로 안 섞인다', (
   const spec = SEED_ASSEMBLIES.find((a) => a.key === 'PWR-DIST-SET')!;
   const typeOf = (key: string) => SEED_ASSET_TYPES.find((t) => t.key === key)!;
 
-  it('상용 피더의 분기를 거슬러 올라도 UPS 피더로 새지 않는다', () => {
+  it('상용전원의 분기를 거슬러 올라도 UPS 전원로 새지 않는다', () => {
     const assets = spec.items.map((i) => ({ id: i.name, typeKey: i.typeKey, name: i.name }));
     const ports = spec.items.flatMap((i) =>
       instantiatePorts(typeOf(i.typeKey).ports, i.name).map((p) => ({ ...p, id: `${i.name}:${p.group}${p.index}` })));
@@ -140,15 +140,15 @@ describe('정보통신용 전원분전반 — 계통은 서로 안 섞인다', (
     const srcPorts = src.flatMap((a) =>
       instantiatePorts(typeOf('AC-FEEDER').ports, a.id).map((p) => ({ ...p, id: `${a.id}:${p.group}${p.index}` })));
     const cables = [
-      { id: 'c1', aPortId: '소내전원반:POWER-OUT-AC1', bPortId: '상용 피더:POWER-IN-AC1' },
-      { id: 'c2', aPortId: 'UPS:POWER-OUT-AC1', bPortId: 'UPS 피더:POWER-IN-AC1' },
+      { id: 'c1', aPortId: '소내전원반:POWER-OUT-AC1', bPortId: '상용전원:POWER-IN-AC1' },
+      { id: 'c2', aPortId: 'UPS:POWER-OUT-AC1', bPortId: 'UPS 전원:POWER-IN-AC1' },
     ];
     const graph = buildTraceGraph({
       types: {}, assets: [...assets, ...src], ports: [...ports, ...srcPorts] as never, cables,
     });
-    const up = traceFrom(graph, '상용 피더:POWER-OUT-AC3', 'upstream').map((h) => h.toPortId);
+    const up = traceFrom(graph, '상용전원:POWER-OUT-AC3', 'upstream').map((h) => h.toPortId);
     expect(up).toContain('소내전원반:POWER-OUT-AC1');      // 제 계통의 전원
-    expect(up.some((id) => id.startsWith('UPS 피더'))).toBe(false);  // 남의 계통으로 안 샌다
-    expect(up.some((id) => id.startsWith('직류 피더'))).toBe(false);
+    expect(up.some((id) => id.startsWith('UPS 전원'))).toBe(false);  // 남의 계통으로 안 샌다
+    expect(up.some((id) => id.startsWith('직류전원'))).toBe(false);
   });
 });
