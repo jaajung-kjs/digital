@@ -667,7 +667,8 @@ async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
   /* 포트 선언까지 실어 온다 — 내부 배선의 양끝이 실재하는지, 그 둘이 이어질 수 있는지를
      보려면 그 종류가 무슨 포트를 갖는지 알아야 한다(`validateAssembly` 의 `portsOf`). */
   const types = await nextDb.assetType.findMany({
-    where: { id: { in: body.items.map((i) => i.typeId) } },
+    /* 빈 슬롯은 가리키는 품목이 없다 — 거기서 걸러야 `in` 에 null 이 섞이지 않는다. */
+    where: { id: { in: body.items.map((i) => i.typeId).filter((id): id is string => id != null) } },
     include: { portTemplates: { orderBy: { sortOrder: 'asc' } } },
   });
   const keyById = new Map(types.map((t) => [t.id, t.key]));
@@ -680,7 +681,8 @@ async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
       // 키는 검사에 쓰이지 않는다(격자 안·겹침만 본다) — 아직 안 붙었으면 빈 값으로 둔다.
       key: body.key ?? '',
       name: body.name,
-      items: body.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
+      /* 빈 슬롯의 `typeKey` 는 **`null`** 이다 — 빈 문자열로 두면 「없는 품목」으로 읽혀 튕긴다. */
+      items: body.items.map((i) => ({ ...i, typeKey: i.typeId == null ? null : (keyById.get(i.typeId) ?? '') })),
       links: body.links,
     },
     typeKeys: new Set(types.map((t) => t.key)),

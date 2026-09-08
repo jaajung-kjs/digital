@@ -5,7 +5,7 @@
  * AssetDetailPanel 에서 추출 — RecordsTab/ConnectionsTab 과 같은 형제 탭 패턴으로 정리했다.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, occupantsOf, validateGridPlacement, ASSEMBLY_GRID, type GridCell, type GridPlacement } from '@twin/core';
 import {
   Button,
@@ -214,6 +214,7 @@ export function InfoTab({
   /* 종류 이름을 짓는 데만 쓴다 — 격자는 「구성」 탭이 맡는다. */
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
 
+
   // ── 삭제 핸들러 — 묻는 말도 지우는 일도 도면과 **같은 문**이다. ───────────
   async function handleDelete() {
     await deleteAssetWithConfirm({ asset, assets: effectiveAssets, confirm });
@@ -355,10 +356,15 @@ export function LayoutTab({
    * 만들어 두고 고치는 편이 낫다: 판에 그 자산이 실제로 서므로 「지금 무엇을 하는 중인가」가
    * 화면에 있고, 고르는 상자와 고치는 상자가 하나로 합쳐진다.
    */
-  function createBlankPart(cell: GridCell & { colSpan?: number; rowSpan?: number }): string {
+  function createBlankPart(
+    cell: GridCell & { colSpan?: number; rowSpan?: number },
+    /** 선언된 자리에서 났으면 그 이름과 항목 id — 「S.5」처럼. 없으면 사람이 적는다. */
+    slot?: { name: string; itemId: string },
+  ): string {
     const asset = makeNewAsset({
       type: null,
-      name: '',
+      name: slot?.name ?? '',
+      ...(slot ? { assemblyItemId: slot.itemId } : {}),
       substationId,
       placement: {
         kind: 'grid',
@@ -386,6 +392,30 @@ export function LayoutTab({
   }
 
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
+  /**
+   * 설비 품목이 **선언해 둔 빈 자리들** — 자리와 이름은 정해졌고 아직 아무것도 안 꽂혔다.
+   *
+   * 실물 랙은 「구성은 같고 실장만 다르다」: 8410P 는 서비스 슬롯이 열인데 두 장만 꽂혀 있고,
+   * OFD 는 24심 판인데 12심만 성단돼 있다. 자리를 안 그리면 나중에 꽂는 사람이 **크기와 자리를
+   * 매번 새로 정해야** 하고, 그러면 국마다 같은 슬롯이 다른 크기로 굳는다.
+   *
+   * **자산이 아니다** — 없는 물건이 산출·현황·미점검에 세어지면 안 된다. 그래서 판에만 서고,
+   * 누르는 순간 그 자리 그대로 장비가 난다.
+   */
+  const emptySlots = useMemo(() => {
+    const taken = new Set(parts.map((p) => p.assemblyItemId).filter(Boolean));
+    return (assembly?.items ?? [])
+      .filter((item) => item.typeId == null && !taken.has(item.id))
+      .map((item) => ({ id: `slot:${item.id}`, name: item.name, col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan }));
+  }, [assembly, parts]);
+  const isSlot = (id: string) => id.startsWith('slot:');
+  /** 그 빈 자리에 **선언된 크기 그대로** 장비를 낸다 — 크기를 다시 정할 일이 없다. */
+  const fillSlot = (slot: { id: string; name: string; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }) =>
+    createBlankPart(
+      { col: slot.col ?? 0, row: slot.row ?? 0, colSpan: slot.colSpan ?? 1, rowSpan: slot.rowSpan ?? 1 },
+      { name: slot.name, itemId: slot.id.slice('slot:'.length) },
+    );
+
 
   function canPlaceInGrid(movingId: string, at: GridPlacement): boolean {
     return (
@@ -420,15 +450,21 @@ export function LayoutTab({
             grid={ASSEMBLY_GRID}
             /* 상자를 못 박지 않고 **남는 높이를 채운다**(`fill`) — 구성 탭은 스크롤이 생기면 안 된다. */
             fill
-            items={parts}
+            /* 놓인 장비 + **선언된 빈 자리** — 판은 실물 랙의 정면이라 빈 슬롯도 자리를 갖는다. */
+            items={[...parts, ...emptySlots]}
             /* 밖에서 고른 장비(현황 표·평면도)도 여기서 빛난다 — 대화상자를 열면 그 장비로 옮겨간다. */
             selectedId={openPartId ?? focusPartId ?? null}
             /* 장비를 누르면 **그 장비 상자**가 뜬다. 패널이 통째로 그 장비로 바뀌지 않는다:
                장비마다 다른 것은 이름·상태·설치일·담당자 네 줄뿐인데, 그것을 보려고 맥락(지금
                어느 설비를 보고 있나)이 사라지고 대부분 빈 탭 넷이 다시 떴다. */
-            onSelect={(child) => setOpenPartId(child.id)}
+            onSelect={(child) => {
+              /* 빈 자리를 누르면 **그 자리 그대로** 장비가 나고 그 상자가 열린다. */
+              const slot = emptySlots.find((sl) => sl.id === child.id);
+              setOpenPartId(slot ? fillSlot(slot) : child.id);
+            }}
             /* 놓인 자산이라 묻는다 — 포트·연결까지 함께 사라진다. */
-            onRemove={(part) => void handleDeletePart(part)}
+            /* 빈 자리는 뺄 것이 없다 — 자리는 설비 품목의 것이라 여기서 못 지운다. */
+            onRemove={(part) => { if (!isSlot(part.id)) void handleDeletePart(part as V2Asset); }}
             /* 칸에는 **이름만** 적는다. 포트 수(0/2)는 좁은 칸에서 이름과 자리를 다투고,
                그것을 보러 온 사람은 포트 탭으로 간다. */
             /* 빈 칸을 누르면 **그 자리에 빈 자산이 생기고** 그 자산의 상자가 열린다.
@@ -436,10 +472,11 @@ export function LayoutTab({
                상자가 둘이었다 — 하나는 만들 때, 하나는 고칠 때. 만들자마자 고치는 것으로 두면
                상자는 하나이고, 판에는 그 자산이 실제로 놓여 있어 무엇을 하는 중인지가 보인다. */
             onAddAtCell={(cell) => setOpenPartId(createBlankPart(cell))}
-            canPlace={canPlaceInGrid}
+            canPlace={(id, at) => !isSlot(id) && canPlaceInGrid(id, at)}
             onMove={(id, at) => useV2WorkingCopy.getState().stageAssetUpdate(id, at)}
             /* 칸마다 운전 상태 불 — 색은 어휘가 정한다(정상 초록·예비 노랑·고장 빨강). */
-            toneOf={(part) => assetStatusTone(part.status)}
+            toneOf={(part) => (isSlot(part.id) ? null : assetStatusTone((part as V2Asset).status))}
+            ghostOf={(part) => isSlot(part.id)}
           />
       )}
 

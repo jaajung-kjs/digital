@@ -40,6 +40,14 @@ export interface AssemblyGridProps<T extends GridItem> {
   onDeselect?: () => void;
   onRemove?: (item: T) => void;
   toneOf?: (item: T) => BadgeStatus | null;
+  /**
+   * 이 칸이 **아직 비어 있는 자리**인가 — 자리와 이름만 정해졌고 아무것도 안 꽂혔다.
+   *
+   * 실물 랙은 「구성은 같고 실장만 다르다」: 8410P 는 서비스 슬롯이 열인데 두 장만 꽂혀 있다.
+   * 그 자리를 점선으로 그려 두면 **크기와 이름이 이미 정해져 있다**는 것이 눈에 보이고,
+   * 눌러서 꽂을 때 무엇을 어디에 넣는지 다시 정할 일이 없다.
+   */
+  ghostOf?: (item: T) => boolean;
 }
 
 export const GRID_ROW_H = 30;
@@ -71,7 +79,7 @@ const place = (i: GridItem): GridPlacement => ({
 
 export function AssemblyGrid<T extends GridItem>({
   grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId,
-  boxHeight, fill, onDeselect, onRemove, toneOf,
+  boxHeight, fill, onDeselect, onRemove, toneOf, ghostOf,
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
@@ -338,6 +346,8 @@ export function AssemblyGrid<T extends GridItem>({
           {layout.map((l) => {
             const item = byId.get(l.i)!;
             const tone = toneOf?.(item) ?? null;
+            /* 아직 안 꽂힌 자리 — 점선으로, 이름은 흐리게. 「여기 자리가 있다」만 말한다. */
+            const ghost = ghostOf?.(item) ?? false;
             /* 좁고 세로로 긴 칸이면 **글씨를 세운다** — 랙 실물의 카드 라벨이 그렇게 읽힌다.
                가로로 적으면 「광단말…」처럼 잘려 아무 말도 못 한다. */
             const w = l.w * colW + (l.w - 1) * GAP;
@@ -347,7 +357,10 @@ export function AssemblyGrid<T extends GridItem>({
               <div
                 key={l.i}
                 className={cn(
-                  'pointer-events-auto group relative flex cursor-grab select-none items-center justify-center overflow-hidden rounded border border-line bg-surface px-1 text-center text-xs text-content active:cursor-grabbing',
+                  'pointer-events-auto group relative flex cursor-grab select-none items-center justify-center overflow-hidden rounded border px-1 text-center text-xs active:cursor-grabbing',
+                  ghost
+                    ? 'border-dashed border-line bg-surface-sunken/40 text-content-faint'
+                    : 'border-line bg-surface text-content',
                   selectedId === item.id && 'ring-2 ring-inset ring-primary',
                 )}
                 role="button"
@@ -355,7 +368,7 @@ export function AssemblyGrid<T extends GridItem>({
                 aria-label={`${item.name}, ${cellLabel(l.x, l.y)}`}
                 title={`${item.name} · ${cellLabel(l.x, l.y)}`}
                 onKeyDown={(e) => {
-                  if ((e.key === 'Delete' || e.key === 'Backspace') && onRemove) { e.preventDefault(); onRemove(item); return; }
+                  if ((e.key === 'Delete' || e.key === 'Backspace') && onRemove && !ghost) { e.preventDefault(); onRemove(item); return; }
                   if (e.key !== 'Enter' && e.key !== ' ') return;
                   e.preventDefault();
                   onSelect(item);
@@ -376,7 +389,8 @@ export function AssemblyGrid<T extends GridItem>({
                 {tone && (
                   <span aria-hidden className={cn('pointer-events-none absolute left-1 top-1 h-2 w-2 rounded-full ring-1 ring-content-faint/60', LAMP[tone])} />
                 )}
-                {onRemove && (
+                {/* 빈 자리에는 **뺄 것이 없다** — 자리는 설비 품목의 것이라 여기서 못 지운다. */}
+                {onRemove && !ghost && (
                   <span
                     role="button"
                     tabIndex={-1}

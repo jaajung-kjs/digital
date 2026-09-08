@@ -53,6 +53,28 @@ const link = (o: Partial<AssemblySpec['links'][number]> & { id: string }) => ({
 describe('validateAssembly — 내부 배선', () => {
   const types = new Set(['IR-48', 'BUS']);
 
+  /**
+   * **빈 슬롯** — 자리와 이름은 정해졌고 아직 아무것도 안 꽂혔다.
+   *
+   * 실물 랙은 「구성은 같고 실장만 다르다」: 8410P 는 서비스 슬롯이 열인데 두 장만 꽂혀 있고,
+   * OFD 는 24심 판인데 12심만 성단돼 있다. 자리를 못 적으면 표준 랙이 반쪽이 된다 — 나중에
+   * 꽂는 사람이 크기와 자리를 매번 새로 정해야 하고, 그러면 국마다 같은 슬롯이 다른 크기로 굳는다.
+   */
+  it('품목을 안 고른 자리도 설비 품목에 담긴다 — 빈 슬롯이다', () => {
+    expect(validateAssembly(
+      { key: 'k', name: '랙', items: [item({ id: 's5', typeKey: null, name: 'S.5' })] },
+      new Set(['OPT-TERM']),
+    )).toBeNull();
+  });
+
+  /** 이름은 여전히 있어야 한다 — 자리를 부를 말이 없으면 그 자리는 없는 것과 같다. */
+  it('빈 슬롯도 이름은 있어야 한다', () => {
+    expect(validateAssembly(
+      { key: 'k', name: '랙', items: [item({ id: 's5', typeKey: null, name: '  ' })] },
+      new Set(['OPT-TERM']),
+    )).toBe('empty-name');
+  });
+
   it('정류기 출력이 배전부 입력으로 — 이어진다', () => {
     const spec = charger([link({ id: 'l1' }), link({ id: 'l2', aItemId: 'r2', bIndex: 2 })]);
     expect(validateAssembly(spec, types, portsOf)).toBeNull();

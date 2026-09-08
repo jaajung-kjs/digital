@@ -62,7 +62,8 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
     onChange({
       ...draft,
       items: [...draft.items, assemblyItemRow({
-        id, typeId: '', name: '',
+        /* 새 자리는 **빈 슬롯**으로 난다 — 품목은 골라도 되고 안 골라도 된다(자리만 잡는다). */
+        id, typeId: null, name: '',
         col: at.col, row: at.row, colSpan: at.colSpan ?? 1, rowSpan: at.rowSpan ?? 1,
       })],
     });
@@ -158,7 +159,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             /* 품목 이름은 **이름과 다를 때만** 적는다 — 갓 넣은 장비는 이름이 곧 품목 이름이라
                같은 말이 칸 안에 두 번 섰다(「권역망전…」 아래 다시 「권역망전송장치」). */
             trailing={(part) => {
-              const typeName = typeById.get(part.typeId)?.name;
+              const typeName = part.typeId == null ? null : typeById.get(part.typeId)?.name;
               if (!typeName) return <span className="shrink-0 text-xs text-content-faint">{EMPTY}</span>;
               return typeName === part.name ? null : (
                 <span className="shrink-0 text-xs text-content-faint">{typeName}</span>
@@ -185,21 +186,30 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
                   </Button>
                 }
               />
-              {/* **품목을 여기서 고른다.** 예전에는 읽기만 하는 배지였고, 고르는 일은 별도
-                  상자가 맡았다 — 잘못 고른 장비를 바로잡는 길이 「빼고 다시 넣기」뿐이었다.
-                  이름을 아직 안 적었으면 품목 이름을 그대로 쓴다(대개 그게 맞는 이름이다). */}
-              <DetailRow label="품목" required>
+              {/**
+                * **품목을 여기서 고른다.** 예전에는 읽기만 하는 배지였고, 고르는 일은 별도
+                * 상자가 맡았다 — 잘못 고른 장비를 바로잡는 길이 「빼고 다시 넣기」뿐이었다.
+                * 이름을 아직 안 적었으면 품목 이름을 그대로 쓴다(대개 그게 맞는 이름이다).
+                *
+                * **「(빈 슬롯)」이 고를 수 있는 값이다.** 실물 랙은 「구성은 같고 실장만 다르다」 —
+                * 8410P 는 서비스 슬롯이 열인데 두 장만 꽂혀 있다. 그 자리를 못 적으면 나중에
+                * 카드를 꽂는 사람이 크기와 자리를 매번 새로 정해야 하고, 그러면 국마다 같은
+                * 슬롯이 다른 크기로 굳는다. 빈 슬롯은 놓아도 **자산이 안 생긴다**.
+                */}
+              <DetailRow label="품목">
                 <Select
                   aria-label="장비 품목"
-                  value={selected.typeId}
+                  value={selected.typeId ?? ''}
                   onChange={(e) => {
-                    const next = typeById.get(e.currentTarget.value);
+                    const raw = e.currentTarget.value;
+                    if (raw === '') { updateItem(selected.id, { typeId: null }); return; }
+                    const next = typeById.get(raw);
                     if (!next) return;
-                    const keepName = selected.name && selected.name !== typeById.get(selected.typeId)?.name;
+                    const keepName = selected.name && selected.name !== (selected.typeId == null ? null : typeById.get(selected.typeId)?.name);
                     updateItem(selected.id, { typeId: next.id, name: keepName ? selected.name : next.name });
                   }}
                 >
-                  <option value="">— 품목 선택 —</option>
+                  <option value="">(빈 슬롯)</option>
                   {catalog.types.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}

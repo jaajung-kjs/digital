@@ -180,9 +180,10 @@ model AssemblyItem {
   id           String         @id @default(uuid())
   assemblyId   String
   assembly     Assembly       @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
-  typeId       String
-  type         AssetType      @relation(fields: [typeId], references: [id])
-  /// 만들어질 자산의 이름.
+  /// 그 자리에 서는 장비 품목 — **비울 수 있다**(빈 슬롯). 빈 슬롯은 놓아도 자산이 안 생긴다.
+  typeId       String?
+  type         AssetType?     @relation(fields: [typeId], references: [id])
+  /// 만들어질 자산의 이름(빈 슬롯이면 그 자리의 이름 — `S.5`).
   name         String
   col          Int?
   row          Int?

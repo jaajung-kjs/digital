@@ -128,10 +128,16 @@ const portTemplateBodySchema = z.object({
       몇 V 인지는 여기서 정하지 않는다 — 회로마다 다르므로 계통 표가 적는다. */
   variant: z.string().min(1).nullish(),
 });
-/** 설비 품목 장비 하나 — 어느 타입을, 누구 안의 어느 자리에. */
+/**
+ * 설비 품목의 자리 하나 — 어느 타입을, 격자의 어느 자리에.
+ *
+ * **품목은 비울 수 있다**(빈 슬롯). 실물 랙은 「구성은 같고 실장만 다르다」 — 8410P 는 서비스
+ * 슬롯이 열인데 두 장만 꽂혀 있다. 자리를 못 적으면 나중에 카드를 꽂는 사람이 크기와 자리를
+ * 매번 새로 정해야 하고, 그러면 국마다 같은 슬롯이 다른 크기로 굳는다.
+ */
 const assemblyItemSchema = z.object({
   id: z.string().min(1),
-  typeId: z.string().uuid(),
+  typeId: z.string().uuid().nullable(),
   name: z.string().trim().min(1),
   col: z.number().int().min(0).nullable(),
   row: z.number().int().min(0).nullable(),

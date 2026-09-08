@@ -134,8 +134,10 @@ describe('선로가 짓는 슬롯 이름', () => {
    * 슬롯을 가로로, 다른 국은 세로로 놓아 두었다 — 놓는 사람이 옮길 수 있기 때문이다.
    */
   async function placeSlot(substationId: string, label: string, opts: { vertical?: boolean; nth?: number } = {}): Promise<string> {
-    const assembly = await nextDb.assembly.findFirstOrThrow({
-      where: { items: { some: { type: { key: 'OFD-SLOT' } } } },
+    /* **키로 집는다.** 「OFD-SLOT 을 품은 설비 품목 아무거나」로 찾던 동안, 그 슬롯을 쓰는
+       설비 품목이 하나 더 생기면(운영에서는 얼마든지 생긴다) 엉뚱한 것이 잡혔다. */
+    const assembly = await nextDb.assembly.findUniqueOrThrow({
+      where: { key: 'OFD' },
       /* **운영과 같은 차례로 읽는다**(`sortOrder`) — 화면이 구성 항목을 그 차례로 편다.
          한때 `col` 하나로 정렬했는데, OFD 의 슬롯 여덟은 전부 같은 칸(col 0)이라 동점이었다.
          동점의 차례는 Postgres 가 보장하지 않으므로(힙 차례), 다른 시험이 그 표를 건드리면

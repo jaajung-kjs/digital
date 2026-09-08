@@ -78,7 +78,18 @@ export function linkPortKey(end: AssemblyLinkEnd): string {
 export interface AssemblyItemSpec {
   /** 설비 품목 안에서 유일한 식별자. */
   id: string;
-  typeKey: string;
+  /**
+   * 그 자리에 서는 장비 품목 — **비어 있을 수 있다**(`null` = 빈 슬롯).
+   *
+   * 실물 랙은 「구성은 같고 실장만 다르다」: 8410P 는 서비스 슬롯이 열인데 두 장만 꽂혀
+   * 있고, OFD 는 24심 판인데 12심만 성단돼 있다. 자리를 못 적으면 그 표준이 반쪽이 된다 —
+   * 나중에 카드를 꽂는 사람이 **크기와 자리를 매번 새로 정해야** 하고, 그러면 국마다 같은
+   * 슬롯이 다른 크기로 굳는다.
+   *
+   * **빈 슬롯은 장비가 아니다.** 놓아도 자산이 안 생긴다 — 없는 물건이 산출·현황·미점검에
+   * 세어지면 안 된다. 자리와 이름만 설비 품목에 남고, 화면은 그 자리를 점선으로 그린다.
+   */
+  typeKey: string | null;
   name: string;
   col: number | null;
   row: number | null;
@@ -118,7 +129,8 @@ export function validateAssembly(
   /* 하나씩 얹으며 본다 — 앞서 놓인 것들이 곧 그 다음 것의 점유다. */
   const placed: GridOccupant[] = [];
   for (const item of spec.items) {
-    if (!typeKeys.has(item.typeKey)) return 'unknown-type';
+    /* 빈 슬롯은 품목을 안 가리킨다 — 자리와 이름만 있는 것이 그 자리의 사실이다. */
+    if (item.typeKey !== null && !typeKeys.has(item.typeKey)) return 'unknown-type';
     /* 이름과 포트 수도 **여기서** 본다 — 예전에는 서버의 요청 형식 검사(zod)에만 있었다.
        그래서 이름을 지운 채 저장하면 화면은 막지 않고 서버가 400 으로 거절했다: 사람은
        왜 튕겼는지 모른 채 저장 단추만 다시 눌렀다. 같은 규칙을 두 곳에 두면 반드시 갈린다. */

@@ -55,6 +55,13 @@ export function makeNewAsset(args: {
   name: string;
   substationId: string;
   placement: PlacementInput;
+  /**
+   * **설비 품목이 선언해 둔 자리에서 났는가** — 그 항목의 id.
+   *
+   * 선언된 빈 슬롯을 눌러 만든 장비가 그것이다. 이 고리가 없으면 판이 그 자리를 아직 비었다고
+   * 읽어, 방금 꽂은 카드 옆에 같은 이름의 점선 자리가 하나 더 선다.
+   */
+  assemblyItemId?: string | null;
 }): V2Asset {
   const p = args.placement;
   const isContainer = p.kind === 'grid';
@@ -73,6 +80,7 @@ export function makeNewAsset(args: {
     width: isFloor ? p.width : null,
     height: isFloor ? p.height : null,
     parentAssetId: isContainer ? p.parentAssetId : null,
+    ...(args.assemblyItemId != null ? { assemblyItemId: args.assemblyItemId } : {}),
     col: isContainer ? p.col : null,
     row: isContainer ? p.row : null,
     colSpan: isContainer ? p.colSpan : null,

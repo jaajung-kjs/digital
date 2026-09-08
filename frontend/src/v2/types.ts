@@ -29,7 +29,8 @@ export interface V2CableGroup { id: string; key: string; name: string; color: st
 /** 설비 품목을 이루는 장비 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 export interface V2AssemblyItem {
   id: string;
-  typeId: string;
+  /** 그 자리에 서는 장비 품목 — **비어 있으면 빈 슬롯**(놓아도 자산이 안 생긴다). */
+  typeId: string | null;
   name: string;
   col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
   portCounts?: Record<string, number>;

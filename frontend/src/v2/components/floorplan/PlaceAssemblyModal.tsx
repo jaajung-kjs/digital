@@ -17,10 +17,18 @@ export function PlaceAssemblyModal({
 }) {
   const [name, setName] = useState('');
 
-  /** 함께 생기는 것 — 타입이 아니라 설비 품목이 적어 둔 이름으로 센다. */
+  /**
+   * 함께 생기는 것 — 타입이 아니라 설비 품목이 적어 둔 이름으로 센다.
+   *
+   * **빈 슬롯은 빼고 센다** — 자리만 잡아 둔 것이라 놓아도 자산이 안 생긴다. 여기 적으면
+   * 「생긴다」는 말이 거짓이 되고, 놓고 나서 없어서 놀란다.
+   */
   const parts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const i of assembly.items) counts.set(i.name, (counts.get(i.name) ?? 0) + 1);
+    for (const i of assembly.items) {
+      if (i.typeId == null) continue;
+      counts.set(i.name, (counts.get(i.name) ?? 0) + 1);
+    }
     return [...counts.entries()];
   }, [assembly]);
 

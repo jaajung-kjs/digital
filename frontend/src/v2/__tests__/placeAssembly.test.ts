@@ -37,6 +37,53 @@ const place = () =>
   });
 
 /**
+ * **빈 슬롯은 자산이 아니다** — 자리와 이름만 설비 품목에 남는다.
+ *
+ * 실물 랙은 「구성은 같고 실장만 다르다」: 8410P 는 서비스 슬롯이 열인데 두 장만 꽂혀 있다.
+ * 그 자리를 설비 품목에 적어 두면 국마다 뼈대가 같아지고, 나중에 꽂을 때 크기를 다시 정할
+ * 일이 없다. 그렇다고 **자산으로 만들면 안 된다** — 없는 물건이 산출·현황·미점검에 세어진다.
+ */
+describe('빈 슬롯', () => {
+  const withSlot = {
+    ...assembly,
+    items: [
+      ...assembly.items,
+      { id: 'slot-1', typeId: null, name: 'S.5', col: 2, row: 0, colSpan: 1, rowSpan: 1, sortOrder: 2 },
+    ],
+  } as unknown as V2Assembly;
+
+  it('놓아도 자산이 안 생긴다 — 자리만 설비 품목에 남는다', () => {
+    const { assets } = assemblyToPlacement({
+      assembly: withSlot,
+      substationId: 's1',
+      name: '통신랙 A',
+      floorId: 'f1',
+      rect: { x: 0, y: 0, width: 4, height: 2 },
+      typesById: new Map([[type.id, type]]),
+    });
+    /* 설비 하나 + 장비 둘. 빈 슬롯은 없다. */
+    expect(assets).toHaveLength(3);
+    expect(assets.map((a) => a.name)).not.toContain('S.5');
+  });
+
+  /** 빈 슬롯이 끼어도 **배선은 제 짝을 찾는다** — 항목 차례가 밀려 엉뚱한 포트에 물리면 안 된다. */
+  it('빈 슬롯이 끼어도 내부 배선이 어긋나지 않는다', () => {
+    const { assets, cables } = assemblyToPlacement({
+      assembly: { ...withSlot, items: [withSlot.items[0]!, { ...withSlot.items[2]! }, withSlot.items[1]!] } as V2Assembly,
+      substationId: 's1',
+      name: '통신랙 A',
+      floorId: 'f1',
+      rect: { x: 0, y: 0, width: 4, height: 2 },
+      typesById: new Map([[type.id, type]]),
+    });
+    expect(cables).toHaveLength(1);
+    const [a, b] = [assets.find((x) => x.name === '슬롯 1')!, assets.find((x) => x.name === '슬롯 2')!];
+    expect(cables[0]!.aPortId).toBe(a.ports.find((p) => p.group === 'DC-OUT')!.id);
+    expect(cables[0]!.bPortId).toBe(b.ports.find((p) => p.group === 'DC-IN')!.id);
+  });
+});
+
+/**
  * 놓인 부품은 **구성의 어느 항목에서 나왔는지**를 들고 간다.
  *
  * 서버는 선로가 끊길 때 이 고리로 원래 이름을 되찾는다. 예전에는 같은 종류의 형제를

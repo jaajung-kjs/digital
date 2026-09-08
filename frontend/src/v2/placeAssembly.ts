@@ -56,13 +56,21 @@ export function assemblyToPlacement(args: {
     ports: [],
   };
 
-  const parts: V2Asset[] = args.assembly.items.map((item) => {
+  /**
+   * **빈 슬롯은 자산이 아니다** — 자리와 이름만 설비 품목에 남는다.
+   *
+   * 없는 물건이 산출·현황·미점검에 세어지면 안 된다. 그 자리는 나중에 그 설비의 구성 격자에서
+   * 누르면 **선언된 크기·이름 그대로** 장비가 선다.
+   */
+  const filled = args.assembly.items.filter((item) => item.typeId != null);
+
+  const parts: V2Asset[] = filled.map((item) => {
     const id = newId();
-    const type = args.typesById.get(item.typeId);
+    const type = args.typesById.get(item.typeId!);
     return {
     id,
     name: item.name,
-    typeId: item.typeId,
+    typeId: item.typeId!,
     substationId: args.substationId,
     status: DEFAULT_ASSET_STATUS,
     floorId: null,
@@ -87,7 +95,7 @@ export function assemblyToPlacement(args: {
   });
 
   /* 구성 항목 id → 그 항목에서 나온 자산. 배선이 항목을 가리키므로 이 다리가 필요하다. */
-  const partByItem = new Map(args.assembly.items.map((item, i) => [item.id, parts[i]!]));
+  const partByItem = new Map(filled.map((item, i) => [item.id, parts[i]!]));
   const portIdAt = (itemId: string, group: string, index: number): string | undefined =>
     partByItem.get(itemId)?.ports.find((p) => p.group === group && p.index === index)?.id;
 

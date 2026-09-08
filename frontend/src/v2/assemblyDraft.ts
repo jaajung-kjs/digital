@@ -65,7 +65,8 @@ export function assemblyLinkRow(l: {
  */
 export function assemblyItemRow(i: {
   id: string;
-  typeId: string;
+  /** 빈 슬롯이면 비어 있다 — 자리와 이름만 있는 것이 그 자리의 사실이다. */
+  typeId: string | null;
   name: string;
   col: number | null;
   row: number | null;
@@ -167,7 +168,8 @@ export function assemblyIssues(draft: AssemblyDraft, types: V2AssetType[]): Asse
     {
       key: draft.key,
       name: draft.name,
-      items: draft.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
+      /* 빈 슬롯의 `typeKey` 는 **`null`** 이다 — 빈 문자열이면 「없는 품목」으로 읽혀 튕긴다. */
+      items: draft.items.map((i) => ({ ...i, typeKey: i.typeId === '' || i.typeId == null ? null : (keyById.get(i.typeId) ?? '') })),
       links: draft.links,
     },
     new Set(types.map((t) => t.key)),
