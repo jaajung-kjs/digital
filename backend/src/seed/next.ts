@@ -130,10 +130,11 @@ async function main() {
          이 다리가 필요하다. 이름은 한 설비 품목 안에서 유일하다. */
       const itemId = new Map<string, string>();
       for (const [i, item] of a.items.entries()) {
-        const type = await tx.assetType.findUniqueOrThrow({ where: { key: item.typeKey } });
+        /* 빈 슬롯은 가리키는 품목이 없다 — 자리와 이름만 남는다(놓아도 자산이 안 생긴다). */
+        const type = item.typeKey == null ? null : await tx.assetType.findUniqueOrThrow({ where: { key: item.typeKey } });
         const row = await tx.assemblyItem.create({
           data: {
-            assemblyId: asm.id, typeId: type.id, name: item.name,
+            assemblyId: asm.id, typeId: type?.id ?? null, name: item.name,
             col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
             portCounts: (item.portCounts ?? {}) as object,
             portPositions: (item.portPositions ?? {}) as object,

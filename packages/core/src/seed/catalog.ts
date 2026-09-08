@@ -101,6 +101,97 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
    *
    * 품은 **설비가 1식으로** 든다 — 분전반은 함체째 사는 물건이다.
    */
+  /*
+   * ── KepCIT — **한전 초고속 전력통신망의 국사 장비** ────────────────────────────
+   *
+   * 랙 한 대에 두 층이 산다: **광 계층**(UTRANS-6300p, ROADM — 파장을 나눈다)과 **패킷 계층**
+   * (UTRANS-8410P, 카드 섀시 — 회선을 실어 나른다). 그 위에 −48V 분배반(PDP-C3)이 있다.
+   *
+   * **실물 그대로 만들지 않는다.** 사진의 물건은 열대여섯인데 그중 회선이나 전원을 무는 것은
+   * 넷뿐이다 — 전원 모듈 여섯 · 팬 둘 · 필터 · 알람반 · `BLK` 빈 카드는 **포트가 없어** 우리
+   * 네 화면(선번장·토폴로지·추적·계통) 어디에도 안 나타난다. 만들면 이름만 늘고 답하는 것이
+   * 없다.
+   *
+   * **표준 실장도를 베낄 자료가 없다.** 코위버 공개 카탈로그(PTN 7200/7300/7400/7400C)에도
+   * 자료실 열두 쪽에도 `8410` 은 한 건도 없다 — 한전 전용 모델이다. `EXCU`·`MPCU`·`FABU`·
+   * `MEZ28S` 카드명도 검색 결과가 없다. 근거는 사진 넉 장뿐이므로 **광 포트 수는 실사에서
+   * 확정한다**(놓을 때 개수를 늘릴 수 있어 품목을 다시 만들지 않아도 된다).
+   */
+  {
+    /*
+     * **PDP-C3** — 랙 꼭대기의 −48V 분배반. 명판의 차단기 라벨 그대로다.
+     *
+     * `MAIN` 이 A·B 둘이고 그 아래 분기가 `S1~S4 · F1 · F2 · MISC` 로 일곱이다.
+     * **A 계통과 B 계통을 각각 한 대로 놓는다** — 계통마다 부스바가 따로라는 규칙 그대로이고,
+     * 실물도 좌우로 갈려 있다(정전 때 죽는 회로와 사는 회로가 갈리는 자리다).
+     */
+    key: 'PDP-C3',
+    name: 'PDP-C3(DC 분배반)',
+    categoryKey: '전원',
+    sortOrder: 32,
+    labor: labor(0.5, 0.3, 0.5, 1_200_000),
+    ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: 'MAIN', variant: 'DC' },
+      /* 분기 일곱 — 이름은 놓은 뒤 실물 라벨(`S1`·`F1`·`MISC`)로 고친다. */
+      { group: 'POWER-OUT-DC', count: 7, direction: 'OUT', medium: 'power', namePattern: '분기 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /*
+     * **UTRANS-8410P 전원부** — 카드 케이지 위아래의 `PWR`·`FAIL` 모듈이다.
+     *
+     * 섀시가 전원을 받아 백플레인으로 나눈다 — 그래서 **카드에는 전원 포트가 없다**. 이 자리를
+     * 두지 않으면 「이 섀시 전원이 어디서 오나」가 자료에서 끊긴다.
+     */
+    key: 'UT8410-PSU',
+    name: 'UTRANS-8410P 전원부',
+    categoryKey: '통신',
+    sortOrder: 20,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  /* 제어·패브릭 카드 — **밖으로 나가는 선이 없다**(전원은 백플레인, 신호는 섀시 안). 자리와
+     물량으로만 존재한다: 카드는 실제 구매 단위라 산출에 잡혀야 한다. */
+  { key: 'UT8410-EXCU', name: 'EXCU(클럭·접속부)', categoryKey: '통신', sortOrder: 21, labor: labor(0, 0, 0, 0), ports: [] },
+  { key: 'UT8410-MPCU', name: 'MPCU(주제어부)', categoryKey: '통신', sortOrder: 22, labor: labor(0, 0, 0, 0), ports: [] },
+  { key: 'UT8410-FABU', name: 'FABU(스위치 패브릭)', categoryKey: '통신', sortOrder: 23, labor: labor(0, 0, 0, 0), ports: [] },
+  {
+    /*
+     * **MEZ28S** — 서비스 카드. 노란 점퍼가 이 카드로 들어간다(사진의 `S.3`·`S.4`).
+     *
+     * 이름의 `28` 은 E1 회선 수로 보이지만 우리 매체 어휘에 E1 이 없고, 무엇보다 **링을
+     * 이루는 것은 광**이다. 광만 둔다 — 실사에서 E1 이 실제로 쓰이면 그때 어휘를 늘린다.
+     */
+    key: 'UT8410-MEZ28S',
+    name: 'MEZ28S(서비스 카드)',
+    categoryKey: '통신',
+    sortOrder: 24,
+    labor: labor(0, 0, 0, 0),
+    ports: [{ group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' }],
+  },
+  {
+    /*
+     * **UTRANS-6300p** — 1U ROADM. 앞면에 광, 뒷면에 관리 LAN·DC 이중화.
+     *
+     * 사진의 파란 LC 는 네 쌍으로 보인다 — **광 4** 로 잡고 실사에서 고친다(LC 는 두 구멍이
+     * 한 포트인 경우가 많아, 사진으로는 구멍 수와 포트 수를 가릴 수 없다).
+     */
+    key: 'UT6300P',
+    name: 'UTRANS-6300p(ROADM)',
+    categoryKey: '통신',
+    sortOrder: 25,
+    labor: labor(1.0, 0.5, 1.0, 0),
+    ports: [
+      { group: 'FIBER', count: 4, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
+      { group: 'LAN', count: 4, direction: 'BI', medium: 'network', namePattern: 'LAN {n}' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
   {
     key: 'AC-FEEDER',
     name: 'AC 전원',
@@ -380,7 +471,8 @@ export const SEED_ASSEMBLIES: {
    * 모듈은 0 으로 둔다 — 다섯으로 쪼개 값을 나누면 없는 단가를 지어내는 셈이다.
    */
   labor?: ReturnType<typeof labor>;
-  items: { typeKey: string; name: string; col: number; row: number; colSpan: number; rowSpan: number;
+  /** `typeKey: null` = **빈 슬롯** — 자리와 이름만 있고 놓아도 자산이 안 생긴다. */
+  items: { typeKey: string | null; name: string; col: number; row: number; colSpan: number; rowSpan: number;
            portCounts?: Record<string, number>; portPositions?: Record<string, number> }[];
   /**
    * 설비 안에서 **이미 이어져 있는 것** — 놓으면 이 케이블들이 함께 선다.
@@ -438,6 +530,46 @@ export const SEED_ASSEMBLIES: {
       { typeKey: 'AC-FEEDER', name: '상용전원', col: 0, row: 0, colSpan: 3, rowSpan: ASSEMBLY_GRID.rows },
       { typeKey: 'AC-FEEDER', name: 'UPS 전원', col: 3, row: 0, colSpan: 3, rowSpan: ASSEMBLY_GRID.rows },
       { typeKey: 'DC-FEEDER', name: '직류전원', col: 6, row: 0, colSpan: 3, rowSpan: ASSEMBLY_GRID.rows },
+    ],
+  },
+  {
+    /*
+     * **KepCIT 1식** — 한전 초고속 전력통신망의 국사 랙 한 대.
+     *
+     * 실물 랙(사진 넉 장)을 **회선·전원을 무는 것만** 남겨 옮겼다. 전원 모듈 여섯 · 팬 둘 ·
+     * 필터 · 알람반 · `BLK` 빈 카드는 포트가 없어 우리 네 화면 어디에도 안 나타난다.
+     *
+     * 판은 실물 정면이다: 위에 −48V 분배반, 그 아래 8410P 의 전원부와 **세로로 꽂힌 카드들**,
+     * 맨 아래 6300p 두 대. 카드 자리가 열인데 **여덟만 꽂혀 있고 둘은 빈 슬롯**이다 —
+     * 「구성은 같고 실장만 다르다」를 자료로 적는 자리다. 국마다 실장이 달라도 뼈대가 같고,
+     * 나중에 카드를 꽂을 때 크기와 자리를 다시 정할 일이 없다.
+     *
+     * **내부 배선을 선언하지 않는다.** 랙 안의 전원 배선(분배반 → 섀시 → 6300p)은 제조사가
+     * 정한 것이 아니라 **현장이 잇는 것**이다. 충전기·UPS 는 함체 속 배선이 어느 국에 놓든
+     * 같아 선언하지만, 이 랙은 분배반의 어느 분기를 쓰는지가 국마다 다르다.
+     */
+    key: 'KEPCIT-SET', name: 'KepCIT', categoryKey: '통신', sortOrder: 20,
+    labor: labor(4.0, 2.0, 4.0, 0),
+    items: [
+      /* 꼭대기 −48V 분배반 — A·B 두 계통이 좌우로 갈린다. */
+      { typeKey: 'PDP-C3', name: 'PDP-C3 A', col: 0, row: 0, colSpan: 5, rowSpan: 2 },
+      { typeKey: 'PDP-C3', name: 'PDP-C3 B', col: 5, row: 0, colSpan: 5, rowSpan: 2 },
+      /* 8410P — 전원부가 −48V 를 받아 백플레인으로 나누고, 그 아래 카드가 세로로 꽂힌다. */
+      { typeKey: 'UT8410-PSU', name: 'UTRANS-8410P 전원부', col: 0, row: 2, colSpan: 10, rowSpan: 1 },
+      { typeKey: 'UT8410-EXCU', name: 'EXCU-A', col: 0, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: 'UT8410-EXCU', name: 'EXCU-B', col: 1, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: 'UT8410-MPCU', name: 'MPCU-A', col: 2, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: 'UT8410-MPCU', name: 'MPCU-B', col: 3, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: 'UT8410-MEZ28S', name: 'MEZ28S #1', col: 4, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: 'UT8410-MEZ28S', name: 'MEZ28S #2', col: 5, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: 'UT8410-FABU', name: 'FABU-A', col: 6, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: 'UT8410-FABU', name: 'FABU-B', col: 7, row: 3, colSpan: 1, rowSpan: 13 },
+      /* **빈 슬롯** — 자리와 이름만 있다. 놓아도 자산이 안 생기고, 나중에 눌러 꽂는다. */
+      { typeKey: null, name: 'S.5', col: 8, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: null, name: 'S.6', col: 9, row: 3, colSpan: 1, rowSpan: 13 },
+      /* 광 계층 — 1U 두 대. */
+      { typeKey: 'UT6300P', name: 'UTRANS-6300p #1', col: 0, row: 16, colSpan: 10, rowSpan: 2 },
+      { typeKey: 'UT6300P', name: 'UTRANS-6300p #2', col: 0, row: 18, colSpan: 10, rowSpan: 2 },
     ],
   },
   {
