@@ -107,6 +107,9 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
    * 랙 한 대에 두 층이 산다: **광 계층**(UTRANS-6300p, ROADM — 파장을 나눈다)과 **패킷 계층**
    * (UTRANS-8410P, 카드 섀시 — 회선을 실어 나른다). 그 위에 −48V 분배반(PDP-C3)이 있다.
    *
+   * **사진으로 확인되는 것만 품목으로 만든다.** 섀시에 인쇄된 슬롯 라벨과 실제로 꽂힌 카드는
+   * 사진으로 가릴 수 없다 — 확인 안 된 카드는 **빈 슬롯**으로 두고 실사에서 채운다.
+   *
    * **실물 그대로 만들지 않는다.** 사진의 물건은 열대여섯인데 그중 회선이나 전원을 무는 것은
    * 넷뿐이다 — 전원 모듈 여섯 · 팬 둘 · 필터 · 알람반 · `BLK` 빈 카드는 **포트가 없어** 우리
    * 네 화면(선번장·토폴로지·추적·계통) 어디에도 안 나타난다. 만들면 이름만 늘고 답하는 것이
@@ -156,23 +159,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   },
   /* 제어·패브릭 카드 — **밖으로 나가는 선이 없다**(전원은 백플레인, 신호는 섀시 안). 자리와
      물량으로만 존재한다: 카드는 실제 구매 단위라 산출에 잡혀야 한다. */
+  /* 제어 카드 — **밖으로 나가는 선이 없다**(전원은 백플레인, 신호는 섀시 안). 자리와 물량으로만
+     존재한다: 카드는 실제 구매 단위라 산출에 잡혀야 한다. */
   { key: 'UT8410-EXCU', name: 'EXCU(클럭·접속부)', categoryKey: '통신', sortOrder: 21, labor: labor(0, 0, 0, 0), ports: [] },
   { key: 'UT8410-MPCU', name: 'MPCU(주제어부)', categoryKey: '통신', sortOrder: 22, labor: labor(0, 0, 0, 0), ports: [] },
-  { key: 'UT8410-FABU', name: 'FABU(스위치 패브릭)', categoryKey: '통신', sortOrder: 23, labor: labor(0, 0, 0, 0), ports: [] },
-  {
-    /*
-     * **MEZ28S** — 서비스 카드. 노란 점퍼가 이 카드로 들어간다(사진의 `S.3`·`S.4`).
-     *
-     * 이름의 `28` 은 E1 회선 수로 보이지만 우리 매체 어휘에 E1 이 없고, 무엇보다 **링을
-     * 이루는 것은 광**이다. 광만 둔다 — 실사에서 E1 이 실제로 쓰이면 그때 어휘를 늘린다.
-     */
-    key: 'UT8410-MEZ28S',
-    name: 'MEZ28S(서비스 카드)',
-    categoryKey: '통신',
-    sortOrder: 24,
-    labor: labor(0, 0, 0, 0),
-    ports: [{ group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' }],
-  },
   {
     /*
      * **UTRANS-6300p** — 1U ROADM. 앞면에 광, 뒷면에 관리 LAN·DC 이중화.
@@ -540,9 +530,13 @@ export const SEED_ASSEMBLIES: {
      * 필터 · 알람반 · `BLK` 빈 카드는 포트가 없어 우리 네 화면 어디에도 안 나타난다.
      *
      * 판은 실물 정면이다: 위에 −48V 분배반, 그 아래 8410P 의 전원부와 **세로로 꽂힌 카드들**,
-     * 맨 아래 6300p 두 대. 카드 자리가 열인데 **여덟만 꽂혀 있고 둘은 빈 슬롯**이다 —
-     * 「구성은 같고 실장만 다르다」를 자료로 적는 자리다. 국마다 실장이 달라도 뼈대가 같고,
-     * 나중에 카드를 꽂을 때 크기와 자리를 다시 정할 일이 없다.
+     * 맨 아래 6300p 두 대.
+     *
+     * 카드 자리가 열인데 **넷만 꽂혀 있고 여섯은 빈 슬롯**이다. 사진에 카드 이름이 더 보이지만
+     * (`MEZ28S`·`FABU`·`BLK`) **섀시에 인쇄된 라벨과 실제로 꽂힌 카드를 사진으로는 가릴 수
+     * 없다** — 확인 안 된 것을 품목으로 박으면 없는 물건이 자료가 되고 산출에 잡힌다.
+     * 빈 자리로 두면 실사에서 눌러 채우면 되고, 그때 크기와 자리를 다시 정할 일이 없다.
+     * 「구성은 같고 실장만 다르다」를 자료로 적는 자리가 여기다.
      *
      * **내부 배선을 선언하지 않는다.** 랙 안의 전원 배선(분배반 → 섀시 → 6300p)은 제조사가
      * 정한 것이 아니라 **현장이 잇는 것**이다. 충전기·UPS 는 함체 속 배선이 어느 국에 놓든
@@ -560,11 +554,18 @@ export const SEED_ASSEMBLIES: {
       { typeKey: 'UT8410-EXCU', name: 'EXCU-B', col: 1, row: 3, colSpan: 1, rowSpan: 13 },
       { typeKey: 'UT8410-MPCU', name: 'MPCU-A', col: 2, row: 3, colSpan: 1, rowSpan: 13 },
       { typeKey: 'UT8410-MPCU', name: 'MPCU-B', col: 3, row: 3, colSpan: 1, rowSpan: 13 },
-      { typeKey: 'UT8410-MEZ28S', name: 'MEZ28S #1', col: 4, row: 3, colSpan: 1, rowSpan: 13 },
-      { typeKey: 'UT8410-MEZ28S', name: 'MEZ28S #2', col: 5, row: 3, colSpan: 1, rowSpan: 13 },
-      { typeKey: 'UT8410-FABU', name: 'FABU-A', col: 6, row: 3, colSpan: 1, rowSpan: 13 },
-      { typeKey: 'UT8410-FABU', name: 'FABU-B', col: 7, row: 3, colSpan: 1, rowSpan: 13 },
-      /* **빈 슬롯** — 자리와 이름만 있다. 놓아도 자산이 안 생기고, 나중에 눌러 꽂는다. */
+      /*
+       * **빈 슬롯 여섯** — 자리와 이름만 있다. 놓아도 자산이 안 생기고, 나중에 눌러 꽂는다.
+       *
+       * 사진에 카드 이름이 여럿 보이지만(`MEZ28S`·`FABU`·`BLK`) **섀시에 인쇄된 라벨과 실제로
+       * 꽂힌 카드를 사진으로는 가릴 수 없다.** 확인 안 된 것을 품목으로 박아 두면 없는 물건이
+       * 자료가 되고 산출에 잡힌다 — 빈 자리로 두면 실사에서 눌러 채우면 된다. 그러라고 만든
+       * 자리다.
+       */
+      { typeKey: null, name: 'S.1', col: 4, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: null, name: 'S.2', col: 5, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: null, name: 'S.3', col: 6, row: 3, colSpan: 1, rowSpan: 13 },
+      { typeKey: null, name: 'S.4', col: 7, row: 3, colSpan: 1, rowSpan: 13 },
       { typeKey: null, name: 'S.5', col: 8, row: 3, colSpan: 1, rowSpan: 13 },
       { typeKey: null, name: 'S.6', col: 9, row: 3, colSpan: 1, rowSpan: 13 },
       /* 광 계층 — 1U 두 대. */
