@@ -3,6 +3,7 @@
  * 기존 v2 통합테스트(org.test.ts 등)의 셋업 관례를 그대로 따른다.
  */
 import { randomUUID } from 'node:crypto';
+import { ASSEMBLY_GRID } from '@twin/core';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
@@ -541,7 +542,7 @@ describe('catalog CRUD', () => {
       .toMatchObject({ message: '구성 1번째 포트 수 AC: 1 이상이어야 합니다' });
     expect(await post(asm({ unitPrice: 1000.5 }))).toMatchObject({ message: '자재단가: 정수여야 합니다' });
     /* 조립 규칙이 걸릴 때도 마찬가지다 — 「명세가 유효하지 않습니다」로는 고칠 수가 없다. */
-    expect(await post(asm({ items: [part({ col: 9, colSpan: 3 })] })))
+    expect(await post(asm({ items: [part({ col: ASSEMBLY_GRID.cols - 1, colSpan: 3 })] })))
       .toMatchObject({ error: 'INVALID_ASSEMBLY', message: '격자 밖에 놓인 장비가 있습니다' });
 
     await request(app).delete(`/api/v2/catalog/types/${t.body.id}`).set(admin).expect(204);
