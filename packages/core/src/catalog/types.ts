@@ -124,6 +124,18 @@ export interface AssetTypeSpec {
   categoryKey: string;
   sortOrder: number;
   labor: LaborRules;
+  /**
+   * 이 종류가 **계통에 서는 반(盤)**인가 — 전원을 나눠 주는 판.
+   *
+   * 켜면 계통 탭이 그 자산을 한 장으로 세우고 출력 포트를 회로로 편다. 안 켜면 계통에
+   * 아예 안 나온다 — 그 자리를 지나는 전원은 반의 머리줄에 「거쳐 온 것」으로 남는다.
+   *
+   * **출력 수로 알아맞히지 않는다.** 한때 「함체 밖으로 나가는 출력이 둘 이상이면 반」으로
+   * 셌는데, 랙 안의 −48V 분배반(PDP-C3)이 분기 일곱이라 변전소 계통 표에 끼어들었다.
+   * 나누는 판인지 아닌지는 물건의 성질이지 포트 수의 성질이 아니다 — 선언이 정한다.
+   * (케이블 종류의 `managesFiberLine` 과 같은 결이다.)
+   */
+  managesPowerCircuits?: boolean;
   ports: PortTemplate[];
 }
 
@@ -196,6 +208,8 @@ export interface TypeUpsertBody {
   installManDays: number | null;
   removeManDays: number | null;
   relocateManDays: number | null;
+  /** 계통에 서는 반인가 — `AssetTypeSpec.managesPowerCircuits`. */
+  managesPowerCircuits?: boolean;
   ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number; variant?: string | null }>;
 }
 

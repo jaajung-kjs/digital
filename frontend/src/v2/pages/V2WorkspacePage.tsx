@@ -379,6 +379,7 @@ export default function V2WorkspacePage() {
                   ) : inSubstationScope && viewMode === '계통' ? (
                     <PowerRegisterView
                       assemblies={catalog.data?.assemblies}
+                      types={catalog.data?.types}
                       substationId={substationId}
                       selectedAssetId={highlightedAssetId}
                       selectedPortId={focusPortId}

@@ -323,6 +323,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
             installManDays: body.installManDays,
             removeManDays: body.removeManDays,
             relocateManDays: body.relocateManDays,
+            managesPowerCircuits: body.managesPowerCircuits,
               },
         });
 
@@ -394,6 +395,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
           installManDays: body.installManDays,
           removeManDays: body.removeManDays,
           relocateManDays: body.relocateManDays,
+          managesPowerCircuits: body.managesPowerCircuits,
             // key 불변
         },
       });

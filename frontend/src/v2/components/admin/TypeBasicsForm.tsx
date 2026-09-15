@@ -64,6 +64,23 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
             </Select>
         </DetailRow>
 
+        {/*
+          **계통에 서는 반인가** — 세지 않고 묻는다.
+          한때 「전원 출력이 둘 이상이면 반」으로 셌고, 그 눈이 랙 안의 −48V 분배반(분기 일곱)을
+          변전소 계통 표에 끌어들였다. 나누는 판인지는 물건의 성질이라 여기서 정한다.
+        */}
+        <DetailRow label="계통">
+          <label className="flex items-center gap-2 text-sm text-content">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={draft.managesPowerCircuits ?? false}
+              onChange={(e) => onChange({ managesPowerCircuits: e.currentTarget.checked })}
+            />
+            분전반 — 계통에 회로를 편다
+          </label>
+        </DetailRow>
+
       </DetailCard>
 
       {/* 공량·단가는 **세 화면이 같은 폼**을 쓴다 — 칸은 어휘가 정한다(`laborSpec`). */}

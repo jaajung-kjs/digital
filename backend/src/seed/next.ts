@@ -100,6 +100,7 @@ async function main() {
         installManDays: t.labor.installManDays,
         removeManDays: t.labor.removeManDays,
         relocateManDays: t.labor.relocateManDays,
+        managesPowerCircuits: t.managesPowerCircuits ?? false,
       };
       const type = await tx.assetType.create({ data: { key: t.key, ...base } });
       for (const [i, p] of t.ports.entries()) {

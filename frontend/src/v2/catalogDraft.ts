@@ -61,6 +61,9 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
     installManDays: t.installManDays,
     removeManDays: t.removeManDays,
     relocateManDays: t.relocateManDays,
+    /* **늘 적는다** — 「고친 것이 있는가」는 JSON 으로 견주므로(`isDirty`), 어떤 초안에만
+       칸이 빠져 있으면 고치지 않았는데도 고쳤다고 읽힌다. */
+    managesPowerCircuits: t.managesPowerCircuits,
     /* 줄을 짓는 자리는 하나다(`portRow`) — 편집기가 더하는 줄과 **같은 글자**여야
        「고친 것이 있는가」가 맞는 답을 낸다. */
     ports: t.portTemplates.map(portRow),
@@ -92,6 +95,7 @@ export function emptyDraft(categoryId: string): TypeDraft {
     installManDays: 0,
     removeManDays: 0,
     relocateManDays: 0,
+    managesPowerCircuits: false,
     ports: [],
   };
 }

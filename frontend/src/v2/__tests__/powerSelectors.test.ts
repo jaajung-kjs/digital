@@ -37,10 +37,22 @@ const load = asset('load', '부하장비', { ports: [port('loadIn', 'load', 'P',
  *
  * 그 관계가 지금 화면에는 없다. 여기서 그것을 자료에서 유도한다.
  */
+/**
+ * **무엇이 반인가는 종류가 말한다**(`managesPowerCircuits`) — 출력 수로 세지 않는다.
+ *
+ * 세는 눈은 랙 안의 −48V 분배반(분기 일곱)과 변전소 분전반을 구별하지 못했다. 그래서
+ * 시험에서도 반은 `board()` 로 짓고 그 종류만 켠다 — 나머지는 출력이 몇이든 반이 아니다.
+ */
+const TYPES = [
+  { id: 'board', managesPowerCircuits: true },
+  { id: 't', managesPowerCircuits: false },
+];
+
 describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
   /** 반(盤) 하나 — 출력이 여럿이면 회로도 여럿이다(13구 분배반). */
   const board = (id: string, name: string, outs: number, parentAssetId: string | null = null) =>
     asset(id, name, {
+      typeId: 'board',
       parentAssetId,
       ports: [
         port(`${id}-in`, id, 'IN', 1, 'IN', 'power', '전원 입력'),
@@ -62,14 +74,14 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
   ];
 
   it('뿌리는 **밖에서 받는 반**이고, 가지는 출력 케이블을 따라간다', () => {
-    const tree = powerTree(assets as never, wires as never);
+    const tree = powerTree(assets as never, wires as never, [], TYPES);
     expect(tree.map((n) => n.name)).toEqual(['소내배전반']);
     expect(tree[0]!.children.map((n) => n.name)).toEqual(['충전기']);
     expect(tree[0]!.children[0]!.children.map((n) => n.name)).toEqual(['DC 48V']);
   });
 
   it('회로는 **출력 포트마다** 하나다 — 13구 분배반은 열세 줄이다', () => {
-    const dcNode = powerTree(assets as never, wires as never)[0]!.children[0]!.children[0]!;
+    const dcNode = powerTree(assets as never, wires as never, [], TYPES)[0]!.children[0]!.children[0]!;
     expect(dcNode.circuits).toHaveLength(13);
     expect(dcNode.circuits[0]!.index).toBe(1);
     /* 개폐는 회로마다 따로다 — 자산 하나에 하나가 아니다. */
@@ -77,24 +89,24 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
   });
 
   it('회로가 먹이는 것이 부하면 용도로 읽히고, 반이면 거기서 가지가 갈린다', () => {
-    const dcNode = powerTree(assets as never, wires as never)[0]!.children[0]!.children[0]!;
+    const dcNode = powerTree(assets as never, wires as never, [], TYPES)[0]!.children[0]!.children[0]!;
     expect(dcNode.circuits[0]!.load?.assetName).toBe('통합단말');
     expect(dcNode.circuits[0]!.feedsAssetId).toBeNull();
 
-    const mainNode = powerTree(assets as never, wires as never)[0]!;
+    const mainNode = powerTree(assets as never, wires as never, [], TYPES)[0]!;
     expect(mainNode.circuits[0]!.feedsAssetId).toBe('charger');
   });
 
   it('입력이 어디서 오는지 반마다 안다 — 대장의 머리줄이 그것이다', () => {
-    const chargerNode = powerTree(assets as never, wires as never)[0]!.children[0]!;
+    const chargerNode = powerTree(assets as never, wires as never, [], TYPES)[0]!.children[0]!;
     expect(chargerNode.sources[0]!.from?.assetName).toBe('소내배전반');
     expect(chargerNode.sources[0]!.fromAssetId).toBe('main');
     /* 뿌리는 밖에서 온다 — 케이블이 없으면 적을 것이 없다. */
-    expect(powerTree(assets as never, wires as never)[0]!.sources[0]!.from).toBeNull();
+    expect(powerTree(assets as never, wires as never, [], TYPES)[0]!.sources[0]!.from).toBeNull();
   });
 
   it('반은 제 함체를 안다 — 화면은 「분전반 · DC 48V」로 부른다', () => {
-    const dcNode = powerTree(assets as never, wires as never)[0]!.children[0]!.children[0]!;
+    const dcNode = powerTree(assets as never, wires as never, [], TYPES)[0]!.children[0]!.children[0]!;
     expect(dcNode.containerName).toBe('분전반');
   });
 
@@ -115,6 +127,7 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     const tree = powerTree(
       [rack, main, rect, dcOnly] as never,
       [cable('r1', 'main-out1', 'rect-in'), cable('r2', 'rect-out', 'dc2-in')] as never,
+      [], TYPES,
     );
     /* 정류기는 제 표를 갖지 않는다 — 두 반이 한 그루로 이어진다. */
     expect(tree.map((n) => n.name)).toEqual(['소내배전반']);
@@ -139,7 +152,7 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
               port('sts-out', 'sts', 'OUT', 1, 'OUT', 'power', 'AC 출력')],
     });
     const feed = board('ups-f', 'UPS 피더', 3, 'rack');
-    const upsFeed = (wires: object[]) => powerTree([rack, main, sts, feed] as never, wires as never)
+    const upsFeed = (wires: object[]) => powerTree([rack, main, sts, feed] as never, wires as never, [], TYPES)
       .flatMap((n) => [n, ...n.children]).find((n) => n.name === 'UPS 피더')!.sources[0]!;
 
     /* 둘 다 이어졌다 — 멈춘다. */
@@ -186,10 +199,7 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     /** 품목이 못 박은 배선 — 분배부 ↔ 정류기. */
     const asm = [{ id: 'asm-1', links: [{ aItemId: 'it-dist', bItemId: 'it-rect' }] }];
 
-    const 선언없이 = powerTree([rack, main, 함체, 분배부2, 정류기, feeder] as never, wires as never);
-    expect(선언없이.flatMap((n) => [n, ...n.children]).map((n) => n.name)).toContain('분배부');
-
-    const 선언하고 = powerTree([rack, main, 함체, 분배부2, 정류기, feeder] as never, wires as never, asm as never);
+    const 선언하고 = powerTree([rack, main, 함체, 분배부2, 정류기, feeder] as never, wires as never, asm as never, TYPES);
     const 이름들 = 선언하고.flatMap(function 펴기(n): { name: string }[] { return [n, ...n.children.flatMap(펴기)]; }).map((n) => n.name);
     /* 분배부·정류기는 제 표를 갖지 않는다 — 충전기가 한 상자로 지나간다. */
     expect(이름들).not.toContain('분배부');
@@ -197,6 +207,13 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     const dcf = 선언하고.flatMap(function 펴기(n): typeof 선언하고 { return [n, ...n.children.flatMap(펴기)]; }).find((n) => n.name === '직류 피더')!;
     expect(dcf.sources[0]!.via.map((v) => v.name)).toEqual(['충전기']);
     expect(dcf.sources[0]!.fromAssetId).toBe('main');
+
+    /* **선언이 없으면 통과하지 못한다** — 밖으로 나갈 출구가 하나로 정해지지 않기 때문이다.
+       속살 배선까지 출구로 세면 분배부에서 갈 곳이 셋이고, 그때는 지어내지 않고 멈춘다. */
+    const 선언없이 = powerTree([rack, main, 함체, 분배부2, 정류기, feeder] as never, wires as never, [], TYPES);
+    const dcf2 = 선언없이.flatMap(function 펴기(n): typeof 선언없이 { return [n, ...n.children.flatMap(펴기)]; })
+      .find((n) => n.name === '직류 피더')!;
+    expect(dcf2.sources[0]!.fromAssetId).not.toBe('main');
   });
 
   /* 충전기 #1·#2 가 같은 DC 버스를 먹인다 — 실제 계통이 그렇다. */
@@ -206,6 +223,7 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     const tree = powerTree(
       [rack, main, charger, charger2, dual, device] as never,
       [...wires, cable('c4', 'main-out2', 'charger2-in'), cable('c5', 'charger2-out1', 'dc-in2')] as never,
+      [], TYPES,
     );
     const under = (name: string) => tree[0]!.children.find((n) => n.name === name)!;
     expect(under('충전기').children.map((n) => n.name)).toEqual(['DC 48V']);
@@ -219,7 +237,7 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
   /* 개발 중인 자료는 결선이 드문드문하다 — 이름순으로만 세우면 실제 계통이 저 아래로 밀린다. */
   it('계통을 이루는 뿌리가 먼저 선다 — 아직 안 이은 반은 그 뒤로', () => {
     const lonely = board('zz', '가나다 반', 2); // 이름순이면 맨 앞
-    const tree = powerTree([...assets, lonely] as never, wires as never);
+    const tree = powerTree([...assets, lonely] as never, wires as never, [], TYPES);
     expect(tree.map((n) => n.name)).toEqual(['소내배전반', '가나다 반']);
   });
 
@@ -228,7 +246,7 @@ describe('powerTree — 전원이 어디서 와서 어디로 가나', () => {
     const a = board('a', '반 A', 2);
     const b = board('b', '반 B', 2);
     const loop = [cable('l1', 'a-out1', 'b-in'), cable('l2', 'b-out1', 'a-in')];
-    const tree = powerTree([...assets, a, b] as never, [...wires, ...loop] as never);
+    const tree = powerTree([...assets, a, b] as never, [...wires, ...loop] as never, [], TYPES);
     expect(tree.map((n) => n.name)).toEqual(['소내배전반', '반 A']);
     expect(tree[1]!.children.map((n) => n.name)).toEqual(['반 B']);
   });

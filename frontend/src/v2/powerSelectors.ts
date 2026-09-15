@@ -128,6 +128,13 @@ export function powerTree(
    * 안 주면 「속살 없음」으로 본다 — 모든 배선이 회로다.
    */
   assemblies: readonly V2Assembly[] = [],
+  /**
+   * 장비 종류들 — **어느 것이 반인가**는 여기 선언돼 있다(`managesPowerCircuits`).
+   *
+   * 기본값을 두지 않는다. 안 주면 반이 하나도 없어 계통 탭이 **조용히 빈 채로** 서는데,
+   * 그 침묵은 「이 국에 반이 없다」와 구별되지 않는다. 빠뜨리면 컴파일이 막게 둔다.
+   */
+  types: readonly { id: string; managesPowerCircuits: boolean }[],
 ): PowerNode[] {
   const byId = new Map(assets.map((a) => [a.id, a]));
 
@@ -141,18 +148,6 @@ export function powerTree(
    */
   const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
   const declaredLinks = new Set(assemblies.flatMap((asm) => asm.links.map((l) => pairKey(l.aItemId, l.bItemId))));
-  /**
-   * 선언 배선에 **걸려 있는 구성 항목들** — 그 함체의 속살이다.
-   *
-   * 충전기의 분배부·정류기·강압기·감시제어부가 그것이다. 품목이 그 배선을 못 박아 두었다는
-   * 것은 **제조사가 정한 한 덩어리**라는 뜻이고, 계통도는 그런 것을 한 상자로 그린다
-   * (강원본부 전원계통도의 「충전기#1」·「UPS#1」이 각각 상자 하나다).
-   *
-   * 회로를 세어 가려낼 수는 없다. 충전기의 분배부는 교류 출력을 셋 선언하는데 정류기가 둘뿐이라
-   * 하나가 늘 비어 있다 — 그 빈자리는 「아직 안 쓴 분전 회로」가 아니라 **세 번째 정류기 자리**다.
-   * 세는 눈으로는 소내 피더의 안 이은 분기와 구별되지 않는다. 선언이 그것을 안다.
-   */
-  const boxedItems = new Set(assemblies.flatMap((asm) => asm.links.flatMap((l) => [l.aItemId, l.bItemId])));
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
   const portIndex = buildPortIndex(assets);
   const cableOf = (portId: string) => cableAt(portId, cablesByAPortId, cablesByBPortId);
@@ -189,24 +184,23 @@ export function powerTree(
     a.ports.filter((p) => p.medium === POWER_MEDIUM && p.direction === 'OUT' && !endsInside(a, p.id));
 
   /**
-   * 이 자산이 반인가 — **나누는가.**
+   * 이 자산이 반인가 — **종류가 그렇다고 선언했는가.**
    *
-   * 한때 「전원 출력 포트가 하나라도 있으면 반」이었다. 그러면 정류기·인버터·강압기·절체
-   * 스위치처럼 **하나를 받아 하나로 보내는 것**까지 전부 묶음이 되어, 한 국에 반이 열둘씩
-   * 섰다(실제 조서는 넷·다섯이다). 分電이라는 말 그대로다 — 하나를 하나로 보내는 것은
-   * 나누는 것이 아니라 **거쳐 가는 것**이다.
+   * 세지 않는다. 한때 「함체 밖으로 나가는 전원 출력이 둘 이상이면 반」이었는데, 그 눈이
+   * KepCIT 랙 안의 −48V 분배반(PDP-C3)을 변전소 계통 표에 끌어들였다 — 분기가 일곱이라
+   * 요건에 딱 맞는다. 세는 눈으로는 **랙 안의 분배반과 변전소 분전반을 영영 구별 못 한다.**
+   * 나누는 판인지 아닌지는 물건의 성질이지 포트 수의 성질이 아니다.
    *
-   * 세는 것은 **함체 밖으로 나가는 회로**다. 그리고 **함체 속 구성품은 애초에 세지 않는다**
-   * (`boxedItems`) — 품목이 배선을 못 박아 둔 것은 제조사가 정한 한 덩어리이고, 계통도는
-   * 그런 것을 한 상자로 그린다.
+   * 그래서 종류가 말하게 한다(`managesPowerCircuits`). 규칙이 하나뿐이라 예외도 없다 —
+   * 「출력이 둘 이상이되 함체 속살은 빼고, 단 선언 배선에 걸린 구성품은 애초에 세지 않고…」로
+   * 자라던 단서들이 전부 사라졌다.
    *
-   * 거쳐 가는 것들은 사라지지 않는다. 반의 머리줄에 **「무엇을 거쳐 왔는가」**로 남는다
+   * 반이 아닌 것들은 사라지지 않는다. 반의 머리줄에 **「무엇을 거쳐 왔는가」**로 남는다
    * (`sources[].via`) — 현장 조서가 「#1 충전기 : SCR 48V 100A용 충전기 / AC입력 : 통합분전반
    * 220V 3φ Load 1번」이라 적는 그 자리다.
    */
-  const boards = assets.filter(
-    (a) => !(a.assemblyItemId != null && boxedItems.has(a.assemblyItemId)) && circuitPortsOf(a).length > 1,
-  );
+  const boardTypeIds = new Set(types.filter((t) => t.managesPowerCircuits).map((t) => t.id));
+  const boards = assets.filter((a) => a.typeId != null && boardTypeIds.has(a.typeId));
   const boardIds = new Set(boards.map((b) => b.id));
 
   /**

@@ -7,6 +7,8 @@ export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number;
   assetCount: number;
   laborCode: string | null; unitPrice: number | null; installManDays: number; removeManDays: number; relocateManDays: number;
+  /** 계통에 서는 반인가 — 계통 탭이 이 선언만 보고 반을 고른다. */
+  managesPowerCircuits: boolean;
   portTemplates: V2PortTemplate[];
 }
 

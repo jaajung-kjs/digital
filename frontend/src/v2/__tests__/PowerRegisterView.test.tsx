@@ -22,6 +22,9 @@ const asset = (id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset 
   parentAssetId: null, col: null, row: null, colSpan: null, rowSpan: null,
   fieldValues: {}, updatedAt: 'v', ports: [], ...extra,
 });
+/** 반으로 서는 종류 하나 — `board` 만 계통에 회로를 편다. */
+const TYPES = [{ id: 'board', managesPowerCircuits: true }, { id: 't', managesPowerCircuits: false }];
+
 const cable = (id: string, a: string, b: string, extra: Partial<V2Cable> = {}): V2Cable => ({
   id, name: null, substationId: 'sub-1', aPortId: a, bPortId: b, categoryId: null,
   pathPoints: [], specParams: {}, updatedAt: 'v', ...extra,
@@ -29,14 +32,15 @@ const cable = (id: string, a: string, b: string, extra: Partial<V2Cable> = {}): 
 
 const rack = asset('rack', '분전반');
 const main = asset('main', '소내전원반', {
-  parentAssetId: 'rack',
+  typeId: 'board', parentAssetId: 'rack',
   ports: [port('main-in', 'main', 'IN', 1, 'IN', '전원 입력'),
           port('main-o1', 'main', 'OUT', 1, 'OUT', '출력 1'),
           port('main-o2', 'main', 'OUT', 2, 'OUT', '출력 2')],
 });
-/* **반은 나누는 것**이다 — 출력이 하나뿐이면 지나가는 자리라 제 표를 갖지 않는다(`isBoard`). */
+/* **반인지 아닌지는 종류가 말한다**(`managesPowerCircuits`) — 출력 수로 세지 않는다.
+   랙 안의 −48V 분배반이 분기 일곱이라 그 눈에는 변전소 분전반과 똑같이 보였다. */
 const ups = asset('ups', 'UPS', {
-  parentAssetId: 'rack',
+  typeId: 'board', parentAssetId: 'rack',
   ports: [port('ups-in', 'ups', 'IN', 1, 'IN', '전원 입력'),
           port('ups-o1', 'ups', 'OUT', 1, 'OUT', '출력 1'),
           port('ups-o2', 'ups', 'OUT', 2, 'OUT', '출력 2')],
@@ -66,7 +70,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
 
   it('반마다 제 표가 서고, 매달린 반은 그 아래에 선다', () => {
     setStore([rack, main, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     /* 자식은 부모 **바로 밑**에 오고, 거슬러 온 길이 제목 앞에 적힌다 — 묶음마다 표가 따로
        서는 판에서 들여쓰기로 매달림을 보이면 제목만 밀리고 표는 제자리라 어긋나 보인다. */
@@ -80,7 +84,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
    */
   it('입력이 표의 첫 줄로 선다 — 어디서 오는지·전압·용량까지', () => {
     setStore([rack, main, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const upsTable = tableOf('분전반 · UPS');
     const first = upsTable.getAllByRole('row')[1]!; // 0 은 머리글
@@ -94,13 +98,13 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
 
   it('아직 안 이은 입력과 이 도면 밖에서 오는 입력은 다르게 말한다', () => {
     setStore([rack, main, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
     expect(tableOf('분전반 · 소내전원반').getByText('미결선')).toBeInTheDocument();
   });
 
   it('회로는 출력 포트마다 한 줄 — 이 회로가 먹이는 것이 용도다', () => {
     setStore([rack, main, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
     // 머리글 + 입력 + 회로 2
@@ -118,7 +122,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
    */
   it('용량은 회로마다 따로 적힌다 — 고쳐도 화면이 살아 있다', () => {
     setStore([rack, main, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const circuit = tableOf('분전반 · 소내전원반').getAllByRole('row')[2]!; // 머리글 · 입력 다음
     fireEvent.click(within(circuit).getByRole('button', { name: '용량 고치기' }));
@@ -151,7 +155,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
       p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3φ4W' } }
         : p.id === 'main-o2' ? { ...p, fieldValues: { wiring: '1φ2W' } } : p) };
     setStore([rack, main3P, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
     /* 안 적은 회로는 모선을 따라 3상4선(흐리게), 따로 적은 회로만 1상2선(진하게). */
@@ -175,7 +179,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   it('모선에도 없으면 비어 있다 — 모선에 적으면 회로가 따라온다', () => {
     const bare = { ...main, ports: main.ports.map((p) => ({ ...p, fieldValues: {} })) };
     setStore([rack, bare, ups, load], wired());
-    const { rerender } = render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    const { rerender } = render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
     const 전압 = () => tableOf('분전반 · 소내전원반').getAllByRole('row')
       .slice(1).map((r) => within(r).getByRole('button', { name: '전압 고치기' }).textContent);
     expect(전압()).toEqual(['—', '—', '—']); // 입력 · 회로 둘 다 비었다
@@ -183,7 +187,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
     /* 모선에만 적는다 — 회로가 따라온다. */
     const fed = { ...bare, ports: bare.ports.map((p) => (p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'DC 48V' } } : p)) };
     setStore([rack, fed, ups, load], wired());
-    rerender(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    rerender(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
     expect(전압()).toEqual(['DC 48V', 'DC 48V', 'DC 48V']);
   });
 
@@ -191,7 +195,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   it('모선의 전압·상·정격은 반의 머리줄이 한 번 말한다', () => {
     const withRating = { ...main, ports: main.ports.map((p) => (p.id === 'main-in' ? { ...p, fieldValues: { voltage: 'AC 380/220V', wiring: '3φ4W', ampere: 400 } } : p)) };
     setStore([rack, withRating, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
     expect(screen.getByText('AC 380/220V · 3φ4W(4P) · 400A')).toBeInTheDocument();
   });
 
@@ -208,7 +212,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   it('모선이 이미 말한 값은 흐리고, 다른 값만 진하다', () => {
     const mixed = { ...main, ports: main.ports.map((p) => (p.id === 'main-o2' ? { ...p, fieldValues: { voltage: 'AC 380/220V' } } : p)) };
     setStore([rack, mixed, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
     const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
     /* 모선(입력)과 같은 회로는 흐리다. */
@@ -223,7 +227,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   /** 아직 아무것도 안 문 회로는 **예비**다 — 조서가 그 자리를 그렇게 부른다. */
   it('안 이은 회로는 예비로 읽힌다', () => {
     setStore([rack, main, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
     const rows = tableOf('분전반 · 소내전원반').getAllByRole('row');
     expect(within(rows[3]!).getByText('예비')).toBeInTheDocument();
   });
@@ -239,7 +243,7 @@ describe('계통 표 — 반이 묶음, 회로가 줄', () => {
    */
   it('케이블 길이는 회로 대장의 열이 아니다 — 규격(단면적)은 남는다', () => {
     setStore([rack, main, ups, load], wired());
-    render(<PowerRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    render(<PowerRegisterView types={TYPES} substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
     const heads = screen.getAllByRole('columnheader').map((h) => h.textContent);
     expect(heads).not.toContain('길이');
     expect(heads).toContain('규격');

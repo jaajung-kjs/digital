@@ -203,6 +203,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     categoryKey: '전원',
     sortOrder: 30,
     labor: labor(0, 0, 0, 0),
+    managesPowerCircuits: true,
     ports: [
       { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: 'MAIN', variant: 'AC' },
       { group: 'POWER-OUT-AC', count: 20, direction: 'OUT', medium: 'power', namePattern: '분기 {n}', variant: 'AC' },
@@ -215,6 +216,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     categoryKey: '전원',
     sortOrder: 31,
     labor: labor(0, 0, 0, 0),
+    managesPowerCircuits: true,
     ports: [
       { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: 'MAIN', variant: 'DC' },
       { group: 'POWER-OUT-DC', count: 20, direction: 'OUT', medium: 'power', namePattern: '분기 {n}', variant: 'DC' },
@@ -516,7 +518,7 @@ export const SEED_ASSEMBLIES: {
   },
   {
     /*
-     * **정보통신용 전원분전반 1식** — 명판 그대로다.
+     * **통신용 분전반 1식** — 명판 그대로다.
      *
      * 한 함체에 계통 셋이 세로로 산다. 밖에서 오는 것이 셋이고(소내전원반 · UPS 출력 ·
      * 충전기), 그래서 **내부 배선이 없다** — 「UPS입력」 차단기도 상용전원의 분기에서
@@ -525,7 +527,7 @@ export const SEED_ASSEMBLIES: {
      * UPS 계통이 없는 국도 있다(그 국은 UPS 가 부하에 직결이거나 UPS 가 없다) — 놓은 뒤
      * 그 자산 하나만 지우면 된다. 구성은 스냅샷이다.
      */
-    key: 'PWR-DIST-SET', name: '정보통신용 전원분전반', categoryKey: '전원', sortOrder: 30,
+    key: 'PWR-DIST-SET', name: '통신용 분전반', categoryKey: '전원', sortOrder: 30,
     labor: labor(2.0, 1.0, 2.0, 6_000_000),
     /*
      * 계통은 **가로로 나란히** 선다 — 실물이 그렇다(문을 열면 차단기 열이 좌우로 늘어선다).

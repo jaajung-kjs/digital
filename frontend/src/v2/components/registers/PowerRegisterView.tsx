@@ -35,6 +35,8 @@ interface Props {
    * 일에도 질의 공급자가 필요해진다(시험이 그것부터 막힌다).
    */
   assemblies?: readonly V2Assembly[];
+  /** 장비 종류들 — 어느 것이 반인지는 여기 선언돼 있다(`managesPowerCircuits`). */
+  types?: readonly { id: string; managesPowerCircuits: boolean }[];
 }
 
 // PeerCell은 공용 컴포넌트 사용 (M-2 — FiberRegisterView와 공유)
@@ -257,7 +259,7 @@ function flatten(nodes: PowerNode[], path: string[] = []): { node: PowerNode; pa
   return nodes.flatMap((node) => [{ node, path }, ...flatten(node.children, [...path, node.name])]);
 }
 
-export function PowerRegisterView({ substationId: _substationId, selectedAssetId, selectedPortId, onSelectAsset, assemblies = [] }: Props) {
+export function PowerRegisterView({ substationId: _substationId, selectedAssetId, selectedPortId, onSelectAsset, assemblies = [], types = [] }: Props) {
   const effectiveAssets = useEffectiveAssets();
   const effectiveCables = useEffectiveCables();
 
@@ -290,11 +292,12 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   const flowTabs = useTabs<FlowKey>(flow);
 
 
-  /* 설비 품목의 **내부 배선 선언**이 「함체 속살」과 「현장 회로」를 가른다 — 충전기 안의
-     정류기 배선은 계통도에 그리지 않는다(계통도는 충전기를 한 상자로 그린다). */
+  /* 무엇이 반인지는 **종류 선언**이 정하고(`types`), 설비 품목의 **내부 배선 선언**이
+     「함체 속살」과 「현장 회로」를 가른다 — 충전기 안의 정류기 배선은 계통도에 그리지
+     않는다(계통도는 충전기를 한 상자로 그린다). */
   const tree = useMemo(
-    () => powerTree(effectiveAssets, effectiveCables, assemblies),
-    [effectiveAssets, effectiveCables, assemblies],
+    () => powerTree(effectiveAssets, effectiveCables, assemblies, types),
+    [effectiveAssets, effectiveCables, assemblies, types],
   );
   const nodes = useMemo(() => flatten(tree), [tree]);
 

@@ -735,6 +735,30 @@ describe('catalog CRUD', () => {
    * 이름은 본부마다 다르고 바뀐다. 선언이라 그 종류의 케이블에만 선로 대장 값이 서고,
    * 이름을 무엇으로 고치든 그 사실은 따라다닌다.
    */
+  /**
+   * **계통에 서는 반**도 선언이다 — 포트 수로 알아맞히지 않는다.
+   *
+   * 한때 「전원 출력이 둘 이상이면 반」으로 셌고, 그 눈이 랙 안의 −48V 분배반(분기 일곱)을
+   * 변전소 계통 표에 끌어들였다. 나누는 판인지는 물건의 성질이라 화면에서 사람이 켠다 —
+   * 그러니 켠 것이 저장되고 다시 읽히는지가 여기서 지켜져야 한다.
+   */
+  it('종류에 「계통에 서는 반」 선언을 켜고 끈다', async () => {
+    const created = (await request(app).post('/api/v2/catalog/types').set(admin)
+      .send(makeTypeBody(catId, { key: `${KEY_PREFIX}_BOARD`, managesPowerCircuits: true })).expect(201)).body;
+
+    /* 목록에서 읽힌다 — **계통 탭이 읽는 곳이 여기다**(POST 는 id 만 돌려준다). */
+    const listed = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body
+      .types.find((t: { id: string }) => t.id === created.id);
+    expect(listed.managesPowerCircuits).toBe(true);
+
+    /* 끄는 것도 같은 길로 — 안 보내면 꺼진 것으로 본다(옛 화면과의 호환). */
+    const off = (await request(app).put(`/api/v2/catalog/types/${created.id}`).set(admin)
+      .send(makeTypeBody(catId, { key: `${KEY_PREFIX}_BOARD` })).expect(200)).body;
+    expect(off.managesPowerCircuits).toBe(false);
+
+    await request(app).delete(`/api/v2/catalog/types/${created.id}`).set(admin).expect(204);
+  });
+
   it('종류에 「광 선로」 선언을 켜고 끈다', async () => {
     const seeded = await nextDb.cableCategory.findMany({ where: { groupId: cableGroupId }, orderBy: { sortOrder: 'asc' } });
     const group = await nextDb.cableGroup.findUniqueOrThrow({ where: { id: cableGroupId } });

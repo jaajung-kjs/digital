@@ -6,6 +6,7 @@ export interface CatalogTypeRow {
   category: { key: string };
   laborCode: string | null; unitPrice?: number | null;
   installManDays: number | null; removeManDays: number | null; relocateManDays: number | null;
+  managesPowerCircuits?: boolean;
   portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; variant?: string | null; sortOrder: number }[];
 }
 
@@ -42,6 +43,7 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
     sortOrder: row.sortOrder,
     labor: { laborCode: row.laborCode,
     unitPrice: row.unitPrice ?? null, installManDays: row.installManDays, removeManDays: row.removeManDays, relocateManDays: row.relocateManDays },
+    managesPowerCircuits: row.managesPowerCircuits ?? false,
     ports: portTemplatesFrom(row.portTemplates),
   };
 }
@@ -63,6 +65,7 @@ export function specFromUpsert(body: TypeUpsertBody, categoryKey: string): Asset
       removeManDays: body.removeManDays,
       relocateManDays: body.relocateManDays,
     },
+    managesPowerCircuits: body.managesPowerCircuits ?? false,
     // 심선 수는 안 적으면 1 — 두 투영이 같은 spec 을 내야 한다(specFromCatalog 도 같게 채운다).
     ports: body.ports.map((p) => ({ ...p, positions: coreCount(p.positions) })),
   };

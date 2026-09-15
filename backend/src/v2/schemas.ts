@@ -199,6 +199,8 @@ export const typeUpsertSchema = z.object({
   installManDays: z.number().min(0),
   removeManDays: z.number().min(0),
   relocateManDays: z.number().min(0),
+  /** 계통에 서는 반인가 — 안 보내면 아니다(옛 화면과의 호환). */
+  managesPowerCircuits: z.boolean().default(false),
   ports: z.array(portTemplateBodySchema),
 });
 export const categoryCreateSchema = z.object({ key: z.string().min(1), name: z.string().trim().min(1), sortOrder: z.number().int() });
