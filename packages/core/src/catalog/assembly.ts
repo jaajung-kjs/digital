@@ -167,7 +167,8 @@ function validateLinks(
   /* 항목마다 포트를 한 번만 편다 — 링크가 많아도 같은 항목을 되풀이해 펴지 않는다. */
   const portsByItem = new Map<string, Map<string, PortRef>>();
   for (const item of spec.items) {
-    const templates = portsOf?.(item.typeKey);
+    /* 빈 슬롯에는 포트가 없다 — 가리키는 품목이 없으니 펼 명세도 없다. */
+    const templates = item.typeKey == null ? undefined : portsOf?.(item.typeKey);
     if (!templates) continue;
     const ports = instantiatePorts(templates, item.id, item.portCounts, item.portPositions);
     portsByItem.set(
@@ -219,7 +220,17 @@ function validateLinks(
  * 세로로 긴 장비(광단말·광스위치)은 세로쓰기로 이름이 온전히 보인다. 더 촘촘하게 하면
  * 세로 장비가 한 글자씩 접히고, 더 성기게 하면 지금 배치가 들어가지 않는다.
  */
-export const ASSEMBLY_GRID = { cols: 10, rows: 20 } as const;
+/**
+ * 설비의 도화지 — **모든 설비가 같은 판을 쓴다.**
+ *
+ * 폭이 **열넷**인 까닭은 실물이 그렇기 때문이다: UTRANS-8410P 의 카드 섀시가 한 줄에 열네
+ * 자리다(`EC.A EC.B S.1~S.4 F.A F.B S.5~S.10`). 한때 열이었는데 그 섀시를 담을 수가 없었다 —
+ * 도화지가 좁아서 실물을 못 적는 것은 도화지 탓이다.
+ *
+ * 설비마다 행·열을 따로 들면 화면이 그리는 판과 서버가 재는 판이 갈려, 눈으로 놓은 자리가
+ * 저장할 때만 튕긴다(실제로 그랬다). 그래서 상수 하나다.
+ */
+export const ASSEMBLY_GRID = { cols: 14, rows: 20 } as const;
 
 /**
  * 격자 칸을 사람 말로 — `5행 3열`.

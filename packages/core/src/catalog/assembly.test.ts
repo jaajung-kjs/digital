@@ -117,7 +117,9 @@ describe('validateAssembly', () => {
      화면(상수)과 서버(저장값)의 판이 갈려, 눈으로 놓은 자리가 저장할 때만 튕겼다. */
   it('격자는 상수 하나다 — 명세가 제 격자를 갖지 않는다', () => {
     expect('grid' in optSet).toBe(false);
-    expect(ASSEMBLY_GRID).toEqual({ cols: 10, rows: 20 });
+    /* 폭이 열넷인 까닭은 실물이 그렇기 때문이다 — UTRANS-8410P 의 카드 섀시가 한 줄에
+       열네 자리다(`EC.A EC.B S.1~S.4 F.A F.B S.5~S.10`). */
+    expect(ASSEMBLY_GRID).toEqual({ cols: 14, rows: 20 });
   });
 
   it('어휘에 없는 타입은 거부한다', () => {
@@ -128,7 +130,7 @@ describe('validateAssembly', () => {
      짠 사람이 무엇이 잘못됐는지 알 길이 없다. */
   it('격자 밖은 거부한다', () => {
     expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 20 })] }, types)).toBe('out-of-range');
-    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', col: 10 })] }, types)).toBe('out-of-range');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', col: ASSEMBLY_GRID.cols })] }, types)).toBe('out-of-range');
     expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 19, rowSpan: 2 })] }, types)).toBe('out-of-range');
   });
 
