@@ -185,6 +185,7 @@ export function AssemblyCatalogPanel({
         ) : (
           <>
             <CatalogEditorBar
+              screen="설비 관리"
               title={isNew ? '새 설비 품목' : (original?.name ?? '')}
               dirty={dirty}
               saving={isSaving}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { assetFieldDefs } from '@twin/core';
 import { useNavigate } from 'react-router-dom';
 import type { CablePickRequest } from '../cablePick';
-import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey } from '../../components/ui';
+import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey, PageHeader } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { StatusOverview } from '../components/StatusOverview';
@@ -15,7 +15,7 @@ import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import { FiberRegisterView } from '../components/registers/FiberRegisterView';
 import { PowerRegisterView } from '../components/registers/PowerRegisterView';
 import { useV2Catalog, useV2NodeAssets, useTypesById, useV2OrgTree } from '../hooks';
-import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
+import { ancestorPath, flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useWorkspaceRoute, VIEW_MODES, type ViewMode } from '../useWorkspaceRoute';
 import { buildStatusRows, type StatusRowsResult } from '../statusRows';
 
@@ -59,6 +59,11 @@ export default function V2WorkspacePage() {
     /* 아직 아무것도 못 읽었으면 보여 줄 이전 화면이 없다 — 그때는 「불러오는 중」이 정직하다. */
     return flattenTree(orgTree).find((n) => n.id === loadedSubstationId) ?? selected;
   }, [loadingWorkingCopy, selected, orgTree, loadedSubstationId]);
+  /** 뿌리에서 지금 보고 있는 것까지 — 머리줄이 「어디의 무엇인가」를 적는다. */
+  const orgPath = useMemo(
+    () => (orgTree ? ancestorPath(flattenTree(orgTree), shown?.id ?? null) : []),
+    [orgTree, shown],
+  );
   const selectedAssetId = route.assetId;
   /**
    * 표·도면에서 **켜져 보일 줄** — 누른 것 그 자체다.
@@ -318,28 +323,32 @@ export default function V2WorkspacePage() {
           )}
           {shown != null && (
             <div className="flex min-h-0 flex-1 flex-col">
-              {/* 헤더: 선택 노드 이름 + 뷰 토글 (변전소 스코프에서만) */}
-              {/* 왼쪽은 「지금 무엇을 보고 있나」, 오른쪽은 「그것을 어떻게 할 것인가」 —
-                  대장 편집 바와 같은 골격이다. */}
-              <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-4">
-                <span className="text-sm font-semibold text-content" data-testid="v2-selected">
-                  {shown.name}
-                </span>
-                {inSubstationScope && (
-                  <Tabs {...viewTabs.list} items={VIEW_TABS} onChange={route.setView} className="ml-4 -mb-px" />
-                )}
-                <span className="flex-1" />
-                {inSubstationScope && (
-                  /* 산출 내역는 지금 스테이징된 변경의 공량을 보는 화면이다. 예전엔 진입점이
-                     저장 바 뿐이라 **변경을 만들어야만 볼 수 있었다**(고친 것이 없으면
-                     사라진다). 상시 노출로 옮긴다. */
-                  <Button variant="secondary" size="sm" onClick={() => setReportOpen(true)}>
-                    산출 내역
-                  </Button>
-                )}
-                {/* 저장은 대장과 **같은 자리**에 선다 — 고친 것이 있을 때만 나타난다. */}
-                <SaveBar onCommit={commit} isCommitting={isCommitting} />
-              </div>
+              {/* 머리줄은 앱 전체가 한 컴포넌트를 쓴다(`PageHeader`) — 화면명 · 어디의
+                  무엇인가 · 여기서 할 수 있는 일. 탭은 그 아래 제 줄에 선다: 예전에는
+                  제목·탭·버튼이 한 줄에 섞여 있어서 「화면 이름」이 어디에도 없었다. */}
+              <PageHeader
+                title="설비 현황"
+                path={<span data-testid="v2-selected">{orgPath.map((n) => n.name).join(' › ')}</span>}
+                actions={
+                  <>
+                    {inSubstationScope && (
+                      /* 산출 내역는 지금 스테이징된 변경의 공량을 보는 화면이다. 예전엔 진입점이
+                         저장 바 뿐이라 **변경을 만들어야만 볼 수 있었다**(고친 것이 없으면
+                         사라진다). 상시 노출로 옮긴다. */
+                      <Button variant="secondary" size="sm" onClick={() => setReportOpen(true)}>
+                        산출 내역
+                      </Button>
+                    )}
+                    {/* 저장은 대장과 **같은 자리**에 선다 — 고친 것이 있을 때만 나타난다. */}
+                    <SaveBar onCommit={commit} isCommitting={isCommitting} />
+                  </>
+                }
+              />
+              {inSubstationScope && (
+                <div className="flex h-8 shrink-0 items-center border-b border-line bg-surface px-4">
+                  <Tabs {...viewTabs.list} items={VIEW_TABS} onChange={route.setView} className="-mb-px" />
+                </div>
+              )}
               {/* 알림 띠는 **머리줄 밖**, 캔버스 위에 뜬다 — 머리줄과 같은 상자에 넣으면
                   제목이 두 줄로 접힌 것처럼 읽힌다(대장 편집 바와 같은 규칙). */}
               {commitError && (

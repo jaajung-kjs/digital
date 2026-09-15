@@ -224,6 +224,7 @@ export default function V2AssetTypesPage() {
               ) : (
                 <IssueReveal.Provider value={gate.showIssues}>
                   <CatalogEditorBar
+                    screen="장비 관리"
                     title={isNew ? '새 장비 품목' : (original?.name ?? '')}
                     dirty={dirty}
                     saving={isSaving}

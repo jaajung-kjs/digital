@@ -301,6 +301,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         ) : (
           <>
             <CatalogEditorBar
+              screen="케이블 관리"
               title={draft.name.trim() || original.name}
               dirty={dirty}
               saving={saving}

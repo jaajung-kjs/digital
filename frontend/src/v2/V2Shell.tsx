@@ -9,14 +9,14 @@
  *   │  v2 페이지가 자체 OrgTreePanel 보유 → 이중 사이드바 없음           │
  *   └─────────────────────────────────────────────────────────────────────┘
  */
-import { Fragment, useEffect } from 'react';
-import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Boxes, LogOut } from 'lucide-react';
+import { useEffect } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
 import { useV2AuthStore, isAdminRole } from './store/authStore';
 import { useV2Notice } from './store/noticeStore';
 import { useUnsaved, unsavedGuard } from './store/unsavedStore';
 import { confirmDiscard, unsavedPrompt } from './leaveGuard';
-import { ErrorStrip, useConfirm } from '../components/ui';
+import { AppBar, ErrorStrip, MenuBar, useConfirm, type MenuBarItem } from '../components/ui';
 import { PRODUCT_NAME } from '../product';
 
 /**
@@ -31,13 +31,26 @@ import { PRODUCT_NAME } from '../product';
  * 세 대장(설비·자산·케이블)은 서로의 보는 면이 아니라 각자 별개의 대장이라 각자 목적지를
  * 갖는다. 그래도 한 묶음이라는 것은 보여야 해서, 앞뒤로 옅은 구분선을 둔다.
  */
-const MAIN_NAV = [
-  { to: '/', label: '설비 현황', divideAfter: true },
-  { to: '/assemblies', label: '설비 관리' },
-  { to: '/assets', label: '장비 관리' },
-  { to: '/cables', label: '케이블 관리', divideAfter: true },
-  { to: '/standards', label: '기준정보' },
-] as const;
+const MAIN_NAV: readonly MenuBarItem[] = [
+  { key: '/', label: '설비 현황', divideAfter: true },
+  { key: '/assemblies', label: '설비 관리' },
+  { key: '/assets', label: '장비 관리' },
+  { key: '/cables', label: '케이블 관리', divideAfter: true },
+  { key: '/standards', label: '기준정보' },
+];
+
+/**
+ * 지금 어느 메뉴에 있나 — **가장 긴 접두사**가 이긴다.
+ *
+ * `/` 는 모든 경로의 접두사라 그것만으로 고르면 늘 「설비 현황」이 켜진다. 길이로 정렬해
+ * 먼저 맞는 것을 쓰면 `/assemblies` 는 제 것을 켜고 `/n/:id` 는 `/` 로 떨어진다.
+ */
+function navKeyOf(pathname: string): string {
+  const hit = [...MAIN_NAV]
+    .sort((a, b) => b.key.length - a.key.length)
+    .find((m) => m.key !== '/' && pathname.startsWith(m.key));
+  return hit?.key ?? '/';
+}
 
 export function V2Shell() {
   const user = useV2AuthStore((s) => s.user);
@@ -77,6 +90,7 @@ export function V2Shell() {
    * 곳에 남은 경고는 읽히지 않고, 읽히지 않는 경고는 다음 경고까지 가린다.
    */
   const { pathname } = useLocation();
+  const activeNav = navKeyOf(pathname);
   useEffect(() => {
     useV2Notice.getState().clearError();
   }, [pathname]);
@@ -89,62 +103,35 @@ export function V2Shell() {
 
   return (
     <div className="flex h-screen flex-col">
-      {/* ── 상단 헤더 ── */}
-      <header className="shrink-0 flex h-12 items-center gap-4 border-b border-line bg-surface px-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-        {/* 타이틀 */}
-        <Link
-          to="/"
-          className="flex shrink-0 items-center gap-2 text-sm font-semibold text-content"
+      {/* ── 상단 띠 + 메뉴바 ──
+          공기업 업무 시스템의 관용구다: 기관 색 띠 한 줄, 그 아래 회색 메뉴 한 줄.
+          두 줄을 각각 공용 컴포넌트로 뽑아 두면 화면이 늘어도 머리는 한 곳에서만 바뀐다. */}
+      <AppBar
+        title={PRODUCT_NAME}
+        subtitle="전력ICT 설비관리시스템"
+        onTitleClick={() => { void mayLeave().then((ok) => { if (ok) navigate('/'); }); }}
+      >
+        {user && (
+          <span className="text-xs text-appbar-fg/85">
+            {user.username}
+            <span className="ml-1 text-appbar-fg/65">({roleLabel})</span>
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 border border-appbar-fg/35 px-2 py-0.5 text-xs text-appbar-fg transition-colors hover:bg-appbar-fg/10"
         >
-          <Boxes size={20} className="text-primary" />
-          {PRODUCT_NAME}
-        </Link>
+          <LogOut size={13} />
+          로그아웃
+        </button>
+      </AppBar>
 
-        {/* 내비게이션 링크 */}
-        <nav className="flex items-center gap-1" aria-label="주요 메뉴">
-          {MAIN_NAV.map((item) => (
-            <Fragment key={item.to}>
-            <NavLink
-              to={item.to}
-              end={item.to === '/'}
-              onClick={(e) => {
-                if (unsaved === 0) return;
-                e.preventDefault();
-                void mayLeave().then((ok) => { if (ok) navigate(item.to); });
-              }}
-              className={({ isActive }) =>
-                `rounded px-3 py-1.5 text-sm transition-colors ${
-                  isActive ? 'bg-surface-2 font-medium text-content' : 'text-content-muted hover:text-content'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-            {'divideAfter' in item && item.divideAfter && (
-              <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-line" />
-            )}
-            </Fragment>
-          ))}
-        </nav>
-
-        {/* 우측: 사용자 + 로그아웃 */}
-        <div className="ml-auto flex shrink-0 items-center gap-3">
-          {user && (
-            <span className="text-sm text-content-muted">
-              {user.username}
-              <span className="ml-1 text-xs text-content-faint">({roleLabel})</span>
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 text-sm text-content-muted transition-colors hover:text-content"
-          >
-            <LogOut size={16} />
-            로그아웃
-          </button>
-        </div>
-      </header>
+      <MenuBar
+        items={MAIN_NAV}
+        activeKey={activeNav}
+        onSelect={(to) => { void mayLeave().then((ok) => { if (ok) navigate(to); }); }}
+      />
 
       {/* 전역 알림 — 조직·카탈로그 변경 실패가 여기로 온다(무음 실패 방지) */}
       <ErrorStrip

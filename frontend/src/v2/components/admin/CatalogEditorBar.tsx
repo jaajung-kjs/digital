@@ -1,6 +1,8 @@
-import { Button, ErrorStrip, MessageStrip, OverflowMenu } from '../../../components/ui';
+import { Button, ErrorStrip, MessageStrip, OverflowMenu, PageHeader } from '../../../components/ui';
 
 export interface CatalogEditorBarProps {
+  /** 화면 이름 — 「설비 관리」·「장비 관리」·「케이블 관리」. 제목줄의 왼쪽 끝에 선다. */
+  screen: string;
   /** 지금 편집 중인 것의 이름 — 새로 만드는 중이면 「새 …」. */
   title: string;
   /** 고친 것이 있는가 — 있으면 이름 옆에 점이 뜬다. */
@@ -40,35 +42,41 @@ export interface CatalogEditorBarProps {
  * 삭제였다. 되돌릴 수 없는 것은 이름 옆 `⋯` 안으로 한 겹 들어간다(`OverflowMenu`).
  */
 export function CatalogEditorBar({
-  title, dirty, saving, issueCount = 0, showIssues = false, error, onDismissError,
+  screen, title, dirty, saving, issueCount = 0, showIssues = false, error, onDismissError,
   onDelete, deleteLabel, onCancel, onSave,
 }: CatalogEditorBarProps) {
   /* 띠가 하나도 없으면 상자째 그리지 않는다 — 빈 상자가 여백을 만들어 캔버스가 밀린다. */
   const hasNotice = !!error || (showIssues && issueCount > 0);
   return (
     <>
-      {/* 높이를 못 박는다 — `⋯` 가 있는 화면(46)과 없는 화면(42)이 4px 달라서, 화면을
-          옮기면 첫 줄이 미세하게 튀었다. 캔버스 머리줄은 어디서나 같은 높이다. */}
-      <div className="flex h-12 w-full shrink-0 items-center gap-2 border-b border-line bg-surface px-4">
-        <span className="min-w-0 truncate text-sm text-content">
-          {title}
-          {/* 고친 것이 있다는 표시 — 저장 버튼이 켜지는 것만으로는 눈에 안 띈다. */}
-          {dirty && <span className="ml-1 text-warning" aria-label="저장하지 않은 변경">●</span>}
-        </span>
-        {onDelete && (
-          <OverflowMenu items={[{ label: deleteLabel ?? '삭제', danger: true, onSelect: onDelete }]} />
-        )}
-        {/* 되돌릴 수 있는 것과 없는 것 사이를 화면 폭으로 벌린다. */}
-        <span className="flex-1" />
-        <Button variant="secondary" size="sm" disabled={!dirty || saving} onClick={onCancel}>
-          취소
-        </Button>
-        {/* **막혔다고 꺼 두지 않는다.** 회색 단추는 왜 안 눌리는지 말해 주지 못해서
-            막다른 길이 된다 — 누르면 막고 있는 칸을 전부 짚어 준다(GOV.UK·Nielsen). */}
-        <Button size="sm" disabled={!dirty || saving} onClick={onSave}>
-          {saving ? '저장 중…' : '저장'}
-        </Button>
-      </div>
+      {/* 머리줄은 **앱 전체가 한 컴포넌트**를 쓴다(`PageHeader`) — 화면명·대상·버튼군의
+          자리와 높이가 거기서 한 번만 정해진다. 예전에는 이 바가 제 높이(h-12)를 따로
+          들고 있어서 설비현황의 머리줄과 4px 씩 어긋났다. */}
+      <PageHeader
+        title={screen}
+        path={
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="min-w-0 truncate">{title}</span>
+            {/* 고친 것이 있다는 표시 — 저장 버튼이 켜지는 것만으로는 눈에 안 띈다. */}
+            {dirty && <span className="text-warning" aria-label="저장하지 않은 변경">●</span>}
+            {onDelete && (
+              <OverflowMenu items={[{ label: deleteLabel ?? '삭제', danger: true, onSelect: onDelete }]} />
+            )}
+          </span>
+        }
+        actions={
+          <>
+            <Button variant="secondary" size="sm" disabled={!dirty || saving} onClick={onCancel}>
+              취소
+            </Button>
+            {/* **막혔다고 꺼 두지 않는다.** 회색 단추는 왜 안 눌리는지 말해 주지 못해서
+                막다른 길이 된다 — 누르면 막고 있는 칸을 전부 짚어 준다(GOV.UK·Nielsen). */}
+            <Button size="sm" disabled={!dirty || saving} onClick={onSave}>
+              {saving ? '저장 중…' : '저장'}
+            </Button>
+          </>
+        }
+      />
 
       {/* 알림 띠는 **머리줄 밖**, 캔버스 위에 뜬다.
           예전에는 머리줄과 같은 흰 상자·같은 아래 테두리 안에 있어서 제목이 두 줄로 접힌
