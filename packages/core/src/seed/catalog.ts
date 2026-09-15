@@ -117,7 +117,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
    *
    * **표준 실장도를 베낄 자료가 없다.** 코위버 공개 카탈로그(PTN 7200/7300/7400/7400C)에도
    * 자료실 열두 쪽에도 `8410` 은 한 건도 없다 — 한전 전용 모델이다. `EXCU`·`MPCU`·`FABU`·
-   * `MEZ28S` 카드명도 검색 결과가 없다. 근거는 사진 넉 장뿐이므로 **광 포트 수는 실사에서
+   * `ME228S` 카드명도 검색 결과가 없다. 근거는 사진 넉 장뿐이므로 **광 포트 수는 실사에서
    * 확정한다**(놓을 때 개수를 늘릴 수 있어 품목을 다시 만들지 않아도 된다).
    */
   {
@@ -166,13 +166,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
   { key: 'UT8410-FABU', name: 'FABU(스위치 패브릭)', categoryKey: '통신', sortOrder: 23, labor: labor(0, 0, 0, 0), ports: [] },
   {
     /*
-     * **MEZ28S** — 서비스 카드. 노란 점퍼가 이 카드로 들어간다(사진의 `S.3`·`S.4`).
+     * **ME228S** — 서비스 카드. 노란 점퍼가 이 카드로 들어간다(사진의 `S.3`·`S.4`).
      *
-     * 이름의 `28` 은 E1 회선 수로 보이지만 우리 매체 어휘에 E1 이 없고, 무엇보다 **링을
-     * 이루는 것은 광**이다. 광만 둔다 — 실사에서 E1 이 실제로 쓰이면 그때 어휘를 늘린다.
+     * 이름의 숫자가 무엇을 뜻하는지는 모른다 — 자료가 없다. 확실한 것은 **링을 이루는 것이
+     * 광**이라는 것뿐이므로 광만 둔다. 개수는 사진의 점퍼 두 가닥을 그대로 옮긴 **추정**이다.
      */
-    key: 'UT8410-MEZ28S',
-    name: 'MEZ28S(서비스 카드)',
+    key: 'UT8410-ME228S',
+    name: 'ME228S(서비스 카드)',
     categoryKey: '통신',
     sortOrder: 24,
     labor: labor(0, 0, 0, 0),
@@ -551,7 +551,7 @@ export const SEED_ASSEMBLIES: {
      * 7·8열은 **위아래로 갈려** 반 높이 카드가 두 장씩 꽂히고(위 `EC`/`F.A·F.B`, 아래
      * `MP`/`F.C·F.D`), 나머지는 한 장이 통째로 선다.
      *
-     * 실장은 여섯(EXCU ×2 · MPCU ×2 · MEZ28S ×2)이고 **열은 빈 슬롯**이다 — 「구성은 같고
+     * 실장은 여섯(EXCU ×2 · MPCU ×2 · ME228S ×2)이고 **열은 빈 슬롯**이다 — 「구성은 같고
      * 실장만 다르다」를 자료로 적는 자리가 여기다. 국마다 실장이 달라도 뼈대가 같고, 나중에
      * 카드를 꽂을 때 크기와 자리를 다시 정할 일이 없다.
      *
@@ -572,7 +572,7 @@ export const SEED_ASSEMBLIES: {
        * **1·2열과 7·8열은 위아래로 갈린다.** 섀시 프레임의 라벨이 그렇게 두 줄이다:
        * 위가 `EC.A EC.B … F.A F.B …`, 아래가 `MP.A MP.B … F.C F.D …`. 그 네 자리는
        * 반 높이 카드가 위아래로 두 장 꽂히고, 나머지(`S.1~S.10`)는 한 장이 통째로 선다
-       * (MEZ28S 가 위에서 아래까지 길다).
+       * (ME228S 가 위에서 아래까지 길다).
        */
       { typeKey: 'UT8410-EXCU', name: 'EXCU-A', col: 0, row: 3, colSpan: 1, rowSpan: 6 },
       { typeKey: 'UT8410-EXCU', name: 'EXCU-B', col: 1, row: 3, colSpan: 1, rowSpan: 6 },
@@ -587,8 +587,8 @@ export const SEED_ASSEMBLIES: {
       /* 서비스 자리 열 — 통짜 높이다. 실장은 `S.3`·`S.4` 둘뿐이고 나머지 여덟은 비어 있다. */
       { typeKey: null, name: 'S.1', col: 2, row: 3, colSpan: 1, rowSpan: 12 },
       { typeKey: null, name: 'S.2', col: 3, row: 3, colSpan: 1, rowSpan: 12 },
-      { typeKey: 'UT8410-MEZ28S', name: 'MEZ28S #1', col: 4, row: 3, colSpan: 1, rowSpan: 12 },
-      { typeKey: 'UT8410-MEZ28S', name: 'MEZ28S #2', col: 5, row: 3, colSpan: 1, rowSpan: 12 },
+      { typeKey: 'UT8410-ME228S', name: 'ME228S #1', col: 4, row: 3, colSpan: 1, rowSpan: 12 },
+      { typeKey: 'UT8410-ME228S', name: 'ME228S #2', col: 5, row: 3, colSpan: 1, rowSpan: 12 },
       { typeKey: null, name: 'S.5', col: 8, row: 3, colSpan: 1, rowSpan: 12 },
       { typeKey: null, name: 'S.6', col: 9, row: 3, colSpan: 1, rowSpan: 12 },
       { typeKey: null, name: 'S.7', col: 10, row: 3, colSpan: 1, rowSpan: 12 },
