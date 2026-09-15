@@ -42,6 +42,10 @@ function merge(...parts: TopologyInput[]): TopologyInput {
 
 const cable = (id: string, a: string, b: string) => ({ id, aPortId: a, bPortId: b });
 
+/** 그 줄에서 **이 마디 쪽** 포트 이름. */
+const e2 = (edge: { source: string; sourcePortName: string; targetPortName: string }, nodeId: string) =>
+  (edge.source === nodeId ? edge.sourcePortName : edge.targetPortName);
+
 /** 두 국을 OPGW 로 잇고, 앞면 1 을 마저 이어 코어 1 이 단말까지 뚫리게 한다. */
 function linked(): TopologyInput {
   const input = merge(station('a'), station('b'));
@@ -235,9 +239,9 @@ describe('buildTopologyGraph', () => {
     expect(nodes.find((n) => n.id === 'b-dev')!.isSeed).toBe(false);
   });
 
-  it('국 이름·설비 이름·층 이름이 마디에 붙는다 — 층은 그 국에 층이 둘 이상일 때만', () => {
+  it('국 이름·층 이름이 마디에 붙는다 — 층은 그 국에 층이 둘 이상일 때만', () => {
     const input = linked();
-    /* 설비(OFD) 아래 장비 하나를 더 둬 assemblyName 이 채워지는 경우를 함께 지킨다.
+    /* 설비(OFD) 아래 장비 하나를 더 둬 **함체가 마디로 서는** 경우를 함께 지킨다.
        상대는 **다른 국**에 둔다 — 같은 국끼리의 줄은 그리지 않으므로(추적의 여집합)
        한 국에 두면 이 장비가 마디로 서지도 않는다. */
     input.assets.push(
@@ -253,9 +257,14 @@ describe('buildTopologyGraph', () => {
     const one = buildTopologyGraph(input, 'a-dev1');
     const aDev = one.nodes.find((n) => n.id === 'a-dev')!;
     expect(aDev.substationName).toBe('a국');
-    expect(aDev.assemblyName).toBeNull(); // a-dev 는 최상위 자산, 담은 설비가 없다
     expect(aDev.floorName).toBeNull(); // a 국은 층이 하나뿐
-    expect(one.nodes.find((n) => n.id === 'a-tx')!.assemblyName).toBe('OFD');
+    /* 설비에 든 장비는 **설비가 마디**다 — 이름도 자리도 설비의 것이고, 어느 장비였는지는
+       줄에 적힌다. (마디로 서는 것은 OFD 지만 슬롯 때문이 아니다 — 슬롯은 마디가 못 된다.) */
+    expect(one.nodes.some((n) => n.id === 'a-tx')).toBe(false);
+    const ofd = one.nodes.find((n) => n.id === 'a-ofd')!;
+    expect(ofd.name).toBe('OFD');
+    const txEdge = one.edges.find((e) => e.source === 'a-ofd' || e.target === 'a-ofd')!;
+    expect(e2(txEdge, 'a-ofd')).toBe('TX1 · 광 1');
 
     input.floors.push({ id: 'a-f2', name: '2층', substationId: 'a' });
     const two = buildTopologyGraph(input, 'a-dev1');
@@ -304,5 +313,102 @@ describe('buildTopologyGraph', () => {
     // 그래도 이 망의 장비·줄은 시드와 무관하게 그대로 선다 — 조용히 무너진 것이 아니다.
     expect(nodes).toHaveLength(2);
     expect(edges).toHaveLength(1);
+  });
+});
+
+/**
+ * **마디는 함체다** — 한 랙에 든 것은 한 장비로 친다.
+ *
+ * KepCIT 의 링 구성이 이 규칙을 부른다: A 모듈은 한 국과, B 모듈은 다른 국과 통신하는데
+ * 두 모듈은 같은 섀시의 패브릭으로 이어져 있다. 카드마다 마디를 세우면 그 사이에 줄이 없어
+ * **링이 우리 랙에서 열린 채로** 그려진다 — 고리가 아니라 한 줄로 보인다(사용자 지적).
+ *
+ * 함체를 마디로 삼으면 같은 랙의 6300p 도 한 마디에 들어온다. 그래도 맞다 — 같은 함체에
+ * 있으면 같은 장비다.
+ *
+ * **OFD 는 이 규칙에 안 걸린다.** 슬롯은 다심 포트를 가져 애초에 마디가 아니기 때문이다
+ * (`isEquipment`). 한 OFD 의 여러 슬롯으로 제각각의 링이 지나도 서로 섞이지 않는다.
+ */
+describe('함체를 마디로', () => {
+  /** (구)춘천: KepCIT 랙(카드 둘) + OFD(슬롯 둘). 두 카드가 각각 다른 국으로 나간다. */
+  function rackRing(): TopologyInput {
+    const input = merge(station('b'), station('c'));
+    input.substations.push({ id: 'a', name: 'a국' });
+    input.floors.push({ id: 'a-f1', name: '1층', substationId: 'a' });
+    const child = (id: string, name: string, parent: string) =>
+      ({ id, name, parentAssetId: parent, substationId: 'a', floorId: null });
+    input.assets.push(
+      { id: 'rack', name: 'KepCIT', parentAssetId: null, substationId: 'a', floorId: 'a-f1' },
+      child('cardA', 'ME228S #1', 'rack'),
+      child('cardB', 'ME228S #2', 'rack'),
+      { id: 'a-ofd', name: 'OFD', parentAssetId: null, substationId: 'a', floorId: 'a-f1' },
+      child('slot1', '슬롯 1', 'a-ofd'),
+      child('slot2', '슬롯 2', 'a-ofd'),
+    );
+    const fiber = (id: string, assetId: string, index: number, name: string, positions = 1) =>
+      ({ id, assetId, group: positions > 1 ? 'TRUNK' : 'FIBER', index, name, medium: 'fiber', direction: 'BI' as const, positions });
+    input.ports.push(
+      fiber('cardA-1', 'cardA', 1, '광 1'), fiber('cardB-1', 'cardB', 1, '광 1'),
+      fiber('slot1-f1', 'slot1', 1, '광 1'), fiber('slot1-t', 'slot1', 1, 'OPGW', 2),
+      fiber('slot2-f1', 'slot2', 1, '광 1'), fiber('slot2-t', 'slot2', 1, 'OPGW', 2),
+      /* 대국끼리 잇는 링의 나머지 한 변 — 각자 둘째 포트로. */
+      fiber('b-dev2', 'b-dev', 2, '광 2'), fiber('c-dev2', 'c-dev', 2, '광 2'),
+    );
+    input.cables.push(
+      cable('jA', 'cardA-1', 'slot1-f1'), cable('jB', 'cardB-1', 'slot2-f1'),
+      cable('opgw-ab', 'slot1-t', 'b-opgw'), cable('opgw-ac', 'slot2-t', 'c-opgw'),
+      cable('opgw-bc', 'b-dev2', 'c-dev2'),
+    );
+    return input;
+  }
+
+  it('한 랙의 카드 둘은 마디 하나 — 그래서 링이 닫힌다', () => {
+    const { nodes, edges } = buildTopologyGraph(rackRing(), 'cardA-1');
+    expect(nodes.map((n) => n.id).sort()).toEqual(['b-dev', 'c-dev', 'rack']);
+    expect(nodes.find((n) => n.id === 'rack')!.name).toBe('KepCIT');
+
+    /* 세 변이 다 있어야 고리다 — 예전에는 랙 쪽 두 변만 있고 카드끼리가 끊겨 한 줄이었다. */
+    const ends = edges.map((e) => [e.source, e.target].sort().join('—')).sort();
+    expect(ends).toEqual(['b-dev—c-dev', 'b-dev—rack', 'c-dev—rack']);
+    /* 고리의 증거: 마디마다 줄이 둘이다. */
+    for (const n of nodes) {
+      expect(edges.filter((e) => e.source === n.id || e.target === n.id)).toHaveLength(2);
+    }
+  });
+
+  /** 마디가 랙이면 「광 1」만으로는 어느 카드인지 알 수 없다 — 줄에 카드 이름을 붙인다. */
+  it('함체로 묶인 끝의 포트 이름에는 그 장비 이름이 붙는다', () => {
+    const { edges } = buildTopologyGraph(rackRing(), 'cardA-1');
+    const rackNames = edges
+      .filter((e) => e.source === 'rack' || e.target === 'rack')
+      .map((e) => (e.source === 'rack' ? e.sourcePortName : e.targetPortName))
+      .sort();
+    expect(rackNames).toEqual(['ME228S #1 · 광 1', 'ME228S #2 · 광 1']);
+    /* 함체에 안 든 장비는 그대로 — 이름을 두 번 적지 않는다. */
+    const devEdge = edges.find((e) => e.source === 'rack' && e.target === 'b-dev')
+      ?? edges.find((e) => e.target === 'rack' && e.source === 'b-dev')!;
+    expect([devEdge!.sourcePortName, devEdge!.targetPortName]).toContain('광 1');
+  });
+
+  it('같은 랙 안에서만 오가는 점퍼는 줄이 아니다 — 제자리로 도는 고리를 그리지 않는다', () => {
+    const input = rackRing();
+    input.ports.push(
+      { id: 'cardA-2', assetId: 'cardA', group: 'FIBER', index: 2, name: '광 2', medium: 'fiber', direction: 'BI', positions: 1 },
+      { id: 'cardB-2', assetId: 'cardB', group: 'FIBER', index: 2, name: '광 2', medium: 'fiber', direction: 'BI', positions: 1 },
+    );
+    input.cables.push(cable('in-rack', 'cardA-2', 'cardB-2'));
+
+    const { edges } = buildTopologyGraph(input, 'cardA-1');
+    expect(edges.some((e) => e.source === e.target)).toBe(false);
+    expect(edges).toHaveLength(3); // 랙 안 점퍼가 줄을 하나 더 만들지 않는다
+  });
+
+  /** OFD 는 함체지만 슬롯이 장비가 아니라 마디가 안 된다 — 두 링이 한 마디로 섞이지 않는다. */
+  it('한 OFD 의 여러 슬롯으로 다른 링이 지나도 섞이지 않는다', () => {
+    const { nodes, edges } = buildTopologyGraph(rackRing(), 'cardA-1');
+    expect(nodes.some((n) => n.id === 'a-ofd' || n.id.startsWith('slot'))).toBe(false);
+    /* 슬롯 1 로 나간 줄과 슬롯 2 로 나간 줄은 서로 다른 대국에 닿는다. */
+    const fromRack = edges.filter((e) => e.source === 'rack' || e.target === 'rack');
+    expect(new Set(fromRack.map((e) => (e.source === 'rack' ? e.target : e.source)))).toEqual(new Set(['b-dev', 'c-dev']));
   });
 });

@@ -22,7 +22,7 @@ const reach: V2Reach = {
     { id: 'a-ofd', name: 'OFD', typeId: null, parentAssetId: null, substationId: 'sa', floorId: 'fa' },
     { id: 'a-slot', name: '가슬롯', typeId: 'slot', parentAssetId: 'a-ofd', substationId: 'sa', floorId: null },
     { id: 'a-dev', name: '가단말', typeId: 'dev', parentAssetId: null, substationId: 'sa', floorId: 'fa' },
-    /* 설비(OFD) 아래 장비 — assemblyName 이 실제로 채워지는 경우를 지킨다.
+    /* 설비(OFD) 아래 장비 — **함체가 마디로 서는** 경우를 지킨다.
        상대는 **다른 국**에 둔다: 토폴로지는 국을 벗어나는 줄만 그리므로(추적의 여집합)
        한 국 안에서만 이어진 장비는 마디가 되지 않는다. */
     { id: 'a-tx', name: 'TX1', typeId: 'dev', parentAssetId: 'a-ofd', substationId: 'sa', floorId: 'fa' },
@@ -141,10 +141,14 @@ describe('TopologyModal', () => {
     expect(screen.getAllByText('나국').length).toBeGreaterThan(0);
   });
 
-  it('설비 아래 장비는 설비 이름과 함께 선다', () => {
+  it('설비 아래 장비는 설비가 마디로 선다 — 어느 장비였는지는 줄에 적힌다', () => {
     render(<TopologyModal open seedPortId="a-dev1" onClose={() => {}} />);
-    expect(screen.getByText('TX1')).toBeInTheDocument();
-    expect(screen.getByText('가국 · OFD')).toBeInTheDocument();
+    /* 마디는 OFD 다. TX1 은 박스로 서지 않는다 — 한 함체면 한 장비이기 때문이다. */
+    expect(screen.getByText('OFD')).toBeInTheDocument();
+    expect(screen.queryByText('TX1')).not.toBeInTheDocument();
+    /* 그래도 어느 카드의 어느 포트였는지는 사라지지 않는다 — 줄에 물으면 나온다. */
+    const titles = [...document.body.querySelectorAll('svg title')].map((t) => t.textContent);
+    expect(titles.some((t) => t?.includes('TX1 · 광 1'))).toBe(true);
   });
 
   /* 공용 `Modal` 은 `createPortal(document.body)` 로 그린다 — `render()` 가 돌려주는

@@ -5,11 +5,19 @@ import type { TopoEdge, TopoNode, TopologyInput } from './types.js';
 type Port = TopologyInput['ports'][number];
 
 /**
- * 장비 단위 그래프 — **마디는 장비, 줄은 장비 사이 광 경로 한 구간**.
+ * 장비 단위 그래프 — **마디는 함체, 줄은 함체 사이 광 경로 한 구간**.
  *
  * 「장비인가」는 그 자산의 포트 중 다심이 하나도 없는가로 묻는다. 다심 포트(OPGW·인입)를
  * 가진 자산은 경로슬롯이다 — 코어가 지나가는 자리일 뿐 마디가 아니다. 한 국 안에도 슬롯이
  * 여럿이고 슬롯마다 다른 링을 타므로, 국을 마디로 잡으면 무관한 링들이 한 마디에 섞인다.
+ *
+ * **함체에 든 장비는 함체가 마디다.** KepCIT 의 링 구성이 이 규칙을 부른다: A 모듈은 한
+ * 국과, B 모듈은 다른 국과 통신하는데 두 모듈은 같은 섀시의 패브릭으로 이어져 있다. 카드마다
+ * 마디를 세우면 그 사이에 줄이 없어 **링이 우리 랙에서 열린 채로** 그려졌다 — 고리가 아니라
+ * 한 줄이었다. 국이 너무 굵고 카드가 너무 잘다면, 맞는 낟알은 그 사이의 함체다.
+ *
+ * 그래서 같은 랙의 다른 계층(6300p)도 한 마디에 든다. 그것이 뜻하는 바가 맞다 — 한 함체에
+ * 있으면 한 장비다. 대신 어느 카드의 어느 포트였는지는 **줄에 적는다**(`sourcePortName`).
  *
  * 줄은 케이블 하나가 아니다 — **장비의 단심 광 포트에서 traceFrom 을 떠 닿은 다른 장비의
  * 포트**다. 광 장비는 안으로 통하는 길이 유도되지 않으므로(`derivedLinks`) 추적은 반드시
@@ -40,6 +48,27 @@ export function buildTopologyGraph(
   const isEquipment = (assetId: string): boolean => {
     const ports = portsByAsset.get(assetId);
     return ports != null && ports.length > 0 && ports.every((p) => !isMultiCorePort(p.positions));
+  };
+
+  /**
+   * 이 자산이 **어느 마디로 서는가** — 함체에 들었으면 그 함체다.
+   *
+   * 담긴 것이 또 무언가에 담길 수 있으므로 뿌리까지 오른다(설비 안의 설비). 이 워킹 카피에
+   * 없는 부모(응답이 자른 경계)를 만나면 거기서 멈춘다 — 아는 데까지만 올라간다.
+   */
+  const nodeIdOf = (assetId: string): string => {
+    let cur = assetId;
+    for (;;) {
+      const parent = assetById.get(cur)?.parentAssetId;
+      if (parent == null || !assetById.has(parent) || parent === cur) return cur;
+      cur = parent;
+    }
+  };
+
+  /** 마디가 함체면 포트 이름만으로는 어느 카드인지 알 수 없다 — 그 장비 이름을 앞에 붙인다. */
+  const portLabel = (port: Port): string => {
+    const name = assetById.get(port.assetId)?.name;
+    return nodeIdOf(port.assetId) === port.assetId || !name ? port.name : `${name} · ${port.name}`;
   };
 
   const traceGraph: TraceGraph = buildTraceGraph({
@@ -138,7 +167,11 @@ export function buildTopologyGraph(
          상쇄돼 완전히 겹쳐 그려진다(평행 구간이 한 줄로 보이는 버그, 2026-08-31). */
       const [keyA, keyB] = port.id < reachedPortId ? [port, reachedPort] : [reachedPort, port];
       const key = `${keyA.id}\0${keyB.id}`;
-      const [p1, p2] = port.assetId < reachedPort.assetId ? [port, reachedPort] : [reachedPort, port];
+      /* **같은 함체 안에서만 오가는 길은 줄이 아니다** — 마디가 제자리로 도는 고리가 된다.
+         랙 안 카드끼리의 점퍼가 그렇다: 그 길은 이 그림이 답하려는 「밖으로 어디까지」가 아니다. */
+      const [n1, n2] = [nodeIdOf(port.assetId), nodeIdOf(reachedPort.assetId)];
+      if (n1 === n2) continue;
+      const [p1, p2] = n1 < n2 ? [port, reachedPort] : [reachedPort, port];
       /* **국을 안 벗어나는 줄은 그리지 않는다** — 그것은 추적이 이미 답한 것이다.
          양끝이 다 내 국이면 여집합이 아니다(같은 국 안 장비끼리의 광 점퍼가 그렇다). */
       if (seedSubstationId != null
@@ -146,8 +179,8 @@ export function buildTopologyGraph(
         && substationOf(p2.assetId) === seedSubstationId) continue;
       if (!edgeByKey.has(key)) {
         edgeByKey.set(key, {
-          id: key, source: p1.assetId, target: p2.assetId,
-          sourcePortName: p1.name, targetPortName: p2.name, viaSubstationNames: via,
+          id: key, source: nodeIdOf(p1.assetId), target: nodeIdOf(p2.assetId),
+          sourcePortName: portLabel(p1), targetPortName: portLabel(p2), viaSubstationNames: via,
         });
       }
       if (port.id === normalizedSeedPortId) litKeys.add(key);
@@ -155,7 +188,9 @@ export function buildTopologyGraph(
   }
 
   // ── 마디 — **줄에 걸린 장비만.** 시드 장비가 맨 앞, 나머지는 이름 차례. ────────────────
-  const seedAssetId = normalizedSeedPortId ? portById.get(normalizedSeedPortId)?.assetId ?? null : null;
+  const seedNodeId = normalizedSeedPortId
+    ? nodeIdOf(portById.get(normalizedSeedPortId)?.assetId ?? '')
+    : null;
   /**
    * **선이 하나도 없는 마디는 마디가 아니다.**
    *
@@ -166,16 +201,15 @@ export function buildTopologyGraph(
    */
   const linked = new Set([...edgeByKey.values()].flatMap((e) => [e.source, e.target]));
   const nodes: TopoNode[] = input.assets
-    .filter((a) => isEquipment(a.id) && linked.has(a.id))
+    .filter((a) => linked.has(a.id))
     .map((a) => ({
       id: a.id,
       name: a.name,
-      assemblyName: a.parentAssetId ? assetById.get(a.parentAssetId)?.name ?? null : null,
       substationName: subById.get(a.substationId)?.name ?? '',
       floorName: (floorCount.get(a.substationId) ?? 0) > 1
         ? floorById.get(a.floorId ?? '')?.name ?? null
         : null,
-      isSeed: a.id === seedAssetId,
+      isSeed: a.id === seedNodeId,
     }))
     .sort((a, b) => (a.isSeed ? -1 : b.isSeed ? 1 : a.name.localeCompare(b.name)));
 

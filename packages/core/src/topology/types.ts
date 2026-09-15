@@ -9,13 +9,16 @@ import type { Direction } from '../catalog/types.js';
 
 export interface Point { x: number; y: number }
 
-/** 마디 = **장비** 하나. 경로슬롯은 마디가 아니다 — 코어가 지나가는 자리일 뿐이다. */
+/**
+ * 마디 = **함체** 하나. 함체에 안 든 장비는 제 자신이 마디다.
+ *
+ * 경로슬롯은 마디가 아니다 — 코어가 지나가는 자리일 뿐이다. 그래서 OFD 는 함체이면서도
+ * 마디가 되지 않고, 한 OFD 의 여러 슬롯으로 제각각의 링이 지나도 섞이지 않는다.
+ */
 export interface TopoNode {
-  /** 장비 자산 id */
+  /** 마디가 되는 자산 id — 함체이거나, 함체에 안 든 장비 */
   id: string;
   name: string;
-  /** 이 장비를 담은 설비 — 「광단말 A」는 송광치마다 하나씩 있다. */
-  assemblyName: string | null;
   /** 어느 국의 장비인가 */
   substationName: string;
   /** 그 국에 층이 둘 이상일 때만 채운다. */
@@ -24,14 +27,19 @@ export interface TopoNode {
   isSeed: boolean;
 }
 
-/** 줄 = 장비와 장비를 잇는 **광 경로 한 구간**. 그 사이 슬롯·OPGW·통과 점퍼가 몇이든 한 줄이다. */
+/** 줄 = 마디와 마디를 잇는 **광 경로 한 구간**. 그 사이 슬롯·OPGW·통과 점퍼가 몇이든 한 줄이다. */
 export interface TopoEdge {
   /** 양끝 포트 id 를 정렬해 붙인 것 — 같은 두 포트를 잇는 길은 하나다. */
   id: string;
-  /** 장비 자산 id 둘 */
+  /** 마디 id 둘 */
   source: string;
   target: string;
-  /** 양끝 포트 이름 — 줄에 물으면 나온다(`광 1 ↔ 광 3`). */
+  /**
+   * 양끝 포트 이름 — 줄에 물으면 나온다(`광 1 ↔ 광 3`).
+   *
+   * 마디가 함체인 끝에는 **그 안 장비의 이름이 앞에 붙는다**(`ME228S #1 · 광 1`). 랙이
+   * 한 마디라 포트 이름만으로는 어느 카드인지 가릴 수 없기 때문이다.
+   */
   sourcePortName: string;
   targetPortName: string;
   /**

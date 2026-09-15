@@ -239,7 +239,6 @@ export function TopologyCanvas({ nodes, edges, litEdgeIds, positions }: Topology
                 <div className="break-words text-xs text-content-muted">
                   {node.floorName ? `[${node.floorName}] ` : ''}
                   {node.substationName}
-                  {node.assemblyName ? ` · ${node.assemblyName}` : ''}
                 </div>
               </div>
             );
