@@ -37,6 +37,15 @@ export default {
       colors: {
         // 디자인 토큰 (시맨틱) — 채널 -rgb var + <alpha-value> 로 opacity 모디파이어 전역 지원
         surface: 'rgb(var(--surface-rgb) / <alpha-value>)',
+        // 상단 띠 — 한전 CI 로열블루. **여기 말고 다른 곳에 쓰지 않는다.**
+        appbar: {
+          DEFAULT: 'rgb(var(--appbar-rgb) / <alpha-value>)',
+          fg: 'rgb(var(--appbar-fg-rgb) / <alpha-value>)',
+        },
+        // 필수 표시(별표) 전용 — 한전 CI 레드. 경고색(danger)과 쓰임이 다르다.
+        required: 'rgb(var(--required-rgb) / <alpha-value>)',
+        // 고른 줄의 바탕 — 트리·표·목록이 같은 색으로 「고름」을 말한다.
+        selected: 'rgb(var(--selected-rgb) / <alpha-value>)',
         'surface-2': 'rgb(var(--surface-2-rgb) / <alpha-value>)',
         'surface-3': 'rgb(var(--surface-3-rgb) / <alpha-value>)',
         bg: 'rgb(var(--bg-rgb) / <alpha-value>)',

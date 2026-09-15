@@ -14,13 +14,35 @@
 
      --x   : 합성 색 별칭 — canvas/inline/box-shadow 의 직접 var(--x) 소비자용.
              채널에서 파생하므로 단일 소스 유지(호출부 수정 불필요). */
-  --bg-rgb:238 240 243; --surface-rgb:255 255 255; --surface-2-rgb:244 246 248; --surface-3-rgb:231 234 238; --sidebar-rgb:248 249 251;
-  --border-rgb:226 230 235; --border-2-rgb:205 211 218;
-  --text-rgb:28 25 23; --text-2-rgb:87 83 78; --text-muted-rgb:120 113 108;
-  --primary-rgb:21 64 107; --primary-hover-rgb:26 78 133;
-  --success-rgb:21 128 61; --warning-rgb:180 83 9; --danger-rgb:185 28 28; --info-rgb:30 64 175;
-  --success-bg-rgb:220 252 231; --warning-bg-rgb:254 243 199; --danger-bg-rgb:254 226 226; --info-bg-rgb:219 234 254;
-  --eq-1-rgb:68 64 60; --eq-2-rgb:120 113 108; --eq-3-rgb:168 162 158; --eq-4-rgb:214 211 209;
+  /* ── 준거: KRDS(대한민국 정부 디자인시스템) 회색 11단계 + 한전 CI ────────────────
+     공공 업무 시스템은 색을 스스로 고르지 않는다 — 정부 표준과 사내 CI 가 이미 정해 두었다.
+     예전 값은 따뜻한 회색(stone 계열)이라 대민 포털·사내 업무화면 어느 쪽과도 안 맞았다.
+     **이름은 하나도 안 바꾼다** — 값만 갈아 끼우므로 화면 코드는 손대지 않는다. */
+  --bg-rgb:237 239 241;            /* 페이지 바탕 */
+  --surface-rgb:255 255 255;       /* KRDS gray-0  — 카드·패널 */
+  --surface-2-rgb:244 245 246;     /* KRDS gray-5  — 표 머리·라벨칸·보조면 */
+  --surface-3-rgb:230 232 234;     /* KRDS gray-10 */
+  --sidebar-rgb:255 255 255;       /* 업무화면의 좌측 패널은 흰 면 + 1px 경계다 */
+  --border-rgb:230 232 234;        /* KRDS gray-10 — 표 안쪽 격자선 */
+  --border-2-rgb:205 209 213;      /* KRDS gray-20 — 패널 경계·입력칸 */
+  --text-rgb:30 33 36;             /* KRDS gray-90 */
+  --text-2-rgb:70 76 83;           /* KRDS gray-70 */
+  --text-muted-rgb:109 120 130;    /* KRDS gray-50 — 흰 바탕 4.6:1 */
+  --primary-rgb:37 110 244;        /* KRDS primary-50 #256EF4 */
+  --primary-hover-rgb:11 80 208;   /* KRDS primary-60 #0B50D0 */
+  --success-rgb:34 135 56; --warning-rgb:158 106 0; --danger-rgb:222 52 18; --info-rgb:11 120 203;
+  --success-bg-rgb:230 244 234; --warning-bg-rgb:255 246 229; --danger-bg-rgb:253 236 232; --info-bg-rgb:231 241 251;
+  --eq-1-rgb:70 76 83; --eq-2-rgb:109 120 130; --eq-3-rgb:177 184 190; --eq-4-rgb:205 209 213;
+
+  /* ── 한전 CI ─────────────────────────────────────────────────────────────────
+     공표값은 CMYK 뿐이라(ROYAL BLUE C100 M80 Y0 K0 · RED C0 M100 Y100 K0) 화면값은
+     근사치다. 사내 CI 매뉴얼의 RGB 가 확인되면 이 두 줄만 고친다.
+     **쓰이는 자리를 좁게 묶어 둔다** — 로열블루는 상단 띠와 화면 제목 불릿에만, RED 는
+     필수 표시에만. 그래야 화면이 CI 색으로 물들지 않는다. */
+  --appbar-rgb:11 59 140;          /* KEPCO ROYAL BLUE 근사 */
+  --appbar-fg-rgb:255 255 255;
+  --required-rgb:230 0 18;         /* KEPCO RED 근사 — 필수 별표 */
+  --selected-rgb:236 242 254;      /* KRDS primary-5 — 고른 줄의 바탕 */
 
   /* 장비 전면판 — 포트가 "웹 아이콘" 이 아니라 **판에 뚫린 구멍**으로 보이게 하는 색.
      판은 밝은 회색(앱과 이어진다), 구멍은 어둡다 — 물리감은 이 **대비**에서 나오지
@@ -70,7 +92,10 @@
 
   /* 오버레이 스크림 — 모달 백드롭 통일 */
   --overlay: rgb(0 0 0 / 0.45);
-  --radius:8px;
+  /* 모서리 — **업무화면은 직각이다.** 8px 는 대민 포털·모바일 앱의 값이고, 표와 칸이
+     맞닿는 화면에서는 모서리가 서야 줄이 어긋나 보이지 않는다. 점·배지의 `rounded-full`
+     만 예외다(그것은 모양이지 모서리가 아니다). */
+  --radius:2px;
 }
 
 /* Custom base styles */
