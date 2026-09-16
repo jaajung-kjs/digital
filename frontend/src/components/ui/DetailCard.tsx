@@ -22,11 +22,32 @@ import { IconButton } from './IconButton';
  * 타이포 스케일(고정): 본문=text-sm, 라벨/메타/배지=text-xs. text-xs 미만 금지.
  * → src/components/ui/CONVENTIONS.md 참고.
  */
+/**
+ * 업무화면의 상세는 **카드가 아니라 표**다 — 둥근 모서리와 그림자 대신 1px 테두리와 칸
+ * 구분선. 여백은 카드가 아니라 **줄**이 갖는다(라벨칸·값칸이 각자 쓴다).
+ *
+ * **그런데 줄이 아닌 것이 들어오면?** 사진 격자·안내 문구·빈 상태처럼 표의 줄이 아닌
+ * 내용이 흔하다. 한때 카드가 `p-3` 를 갖고 있다가 줄이 제 여백을 갖게 되면서 그것을
+ * 걷었는데, 그러자 **줄 아닌 내용은 아무도 여백을 책임지지 않았다** — 사진 탭의 「등록된
+ * 사진이 없습니다」와 기준정보의 안내 문구가 테두리에 딱 붙었다.
+ *
+ * 호출부마다 감싸는 상자를 하나씩 두는 것은 답이 아니다. 새 카드를 만들 때마다 기억해야
+ * 하고, 한 번 잊으면 그 화면만 붙는다. **카드가 스스로 가려낸다**: 제 여백을 갖는 것
+ * (`data-detail-row`·`data-detail-head`)은 그대로 두고, 나머지에는 여백을 준다.
+ */
 export function DetailCard({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    /* 업무화면의 상세는 **카드가 아니라 표**다 — 둥근 모서리와 그림자 대신 1px 테두리와
-       칸 구분선. 마지막 줄의 아래 선은 상자 테두리와 겹치므로 지운다. */
-    <div className={cn('border border-line-strong bg-surface text-sm [&>*:last-child]:border-b-0', className)}>
+    <div
+      className={cn(
+        'border border-line-strong bg-surface text-sm',
+        /* 마지막 줄의 아래 선은 상자 테두리와 겹치므로 지운다. */
+        '[&>*:last-child]:border-b-0',
+        /* 줄도 머리도 아닌 것 — 여백은 카드가 준다. */
+        '[&>*:not([data-detail-row]):not([data-detail-head])]:px-2.5',
+        '[&>*:not([data-detail-row]):not([data-detail-head])]:py-2',
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -60,7 +81,7 @@ export function DetailCardHeader({
   return (
     /* 상세의 머리는 **회색 띠**다 — 표 머리와 같은 면(`surface-2`)을 써서 「여기부터 이
        묶음」이 한눈에 잡힌다. 예전에는 흰 바탕에 굵은 글자뿐이라 줄들과 섞였다. */
-    <div className="flex min-h-[28px] items-center gap-2 border-b border-line-strong bg-surface-2 px-2.5">
+    <div data-detail-head className="flex min-h-[28px] items-center gap-2 border-b border-line-strong bg-surface-2 px-2.5">
       <span className="text-xs font-bold text-content-muted">{title}</span>
       {badge != null && <Badge status={badgeStatus}>{badge}</Badge>}
       {(actions || onEdit || onDelete) && (
@@ -160,6 +181,7 @@ export function DetailRow({
        칸에 값. 라벨이 어디서 시작하고 값이 어디서 시작하는지가 화면마다 같아진다.
        예전에는 라벨이 그냥 회색 글자라, 값이 길면 어디까지가 라벨인지 흐렸다. */
     <div
+      data-detail-row
       className={cn('flex border-b border-line', align === 'start' ? 'items-stretch' : 'items-stretch')}
       /* 칸을 떠나면 그때부터 말한다 — 안쪽 어느 컨트롤이든 한 번 떠나면 켜진다. */
       onBlur={() => setTouched(true)}

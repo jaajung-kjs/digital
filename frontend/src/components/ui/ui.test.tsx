@@ -82,6 +82,29 @@ describe('DetailCard', () => {
     expect(container.querySelector('.text-required')).not.toBeNull();
   });
 
+  /**
+   * **줄이 아닌 내용도 여백을 갖는다.**
+   *
+   * 여백을 카드에서 걷고 줄에 준 뒤, 사진 격자·안내 문구·빈 상태처럼 줄이 아닌 내용이
+   * 테두리에 딱 붙었다(사진 탭·기준정보에서 실제로 그랬다). 호출부마다 감싸는 상자를 두면
+   * 새 카드를 만들 때마다 기억해야 하고 한 번 잊으면 그 화면만 붙는다 — 카드가 가려낸다.
+   */
+  it('줄·머리가 아닌 자식에는 카드가 여백을 준다', () => {
+    const { container } = render(
+      <DetailCard>
+        <DetailCardHeader title="사진" />
+        <DetailRow label="이름">값</DetailRow>
+        <p>등록된 사진이 없습니다</p>
+      </DetailCard>,
+    );
+    const card = container.firstChild as HTMLElement;
+    /* 규칙은 **카드의 클래스**로 산다 — 자식을 고르는 선택자라 jsdom 에서 계산값이 안 나온다. */
+    expect(card.className).toContain('[&>*:not([data-detail-row]):not([data-detail-head])]:px-2.5');
+    /* 제 여백을 갖는 둘은 표를 달고 있어 그 규칙에서 빠진다. */
+    expect(container.querySelector('[data-detail-head]')).not.toBeNull();
+    expect(container.querySelector('[data-detail-row]')).not.toBeNull();
+  });
+
   it('헤더는 제목 + 상태 배지(Badge)를 렌더', () => {
     render(<DetailCardHeader title="포트 3" badge="연결" badgeStatus="success" />);
     expect(screen.getByText('포트 3')).toBeInTheDocument();

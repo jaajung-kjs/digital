@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
-import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState, formatDate, isCommitKey } from '../../../components/ui';
+import { Check, X } from 'lucide-react';
+import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, formatDate, isCommitKey } from '../../../components/ui';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { useEffectiveInspections, useEffectiveMaintenance } from '../../store/useWorkingCopy';
 import type { V2MaintenanceLog, V2InspectionLog } from '../../types';
@@ -173,14 +173,15 @@ export function RecordsTab({
   return (
     <div className="space-y-2">
       {/* 섹션 머리줄 — 예전에는 제목 없이 '+추가' 버튼만 떠 있어서
-          무엇을 추가하는지 패널만 봐서는 알 수 없었다. */}
+          무엇을 추가하는지 패널만 봐서는 알 수 없었다.
+          **사진 탭과 같은 어법**이다: 머리줄은 카드의 회색 띠, 단추는 글자만. 이 절만
+          머리줄이 카드 밖에 홀로 서고 단추에 아이콘이 붙어 있어 다른 화면처럼 보였다. */}
       <DetailCardHeader
         title={sectionTitle}
         actions={
           <Button
             variant="secondary"
             size="sm"
-            leftIcon={showAdd ? undefined : <Plus size={13} />}
             onClick={() => { setShowAdd((v) => !v); setAddState(makeEmpty()); }}
           >
             {showAdd ? '취소' : '추가'}
@@ -234,7 +235,11 @@ export function RecordsTab({
       )}
 
       {/* 목록 */}
-      {sorted.length === 0 && !showAdd && <EmptyState title={emptyMessage} className="py-6" />}
+      {/* 빈 상태는 **한 줄**이다 — 절이 여럿 쌓이는 탭에서 절마다 큰 빈 상자를 세우면
+          아무것도 없는 화면이 제일 길어진다(점검·고장이력 둘이 화면을 반씩 먹었다). */}
+      {sorted.length === 0 && !showAdd && (
+        <DetailCard><p className="text-xs text-content-faint">{emptyMessage}</p></DetailCard>
+      )}
 
       {sorted.map((record) => {
         const isEditing = editState?.id === record.id;
