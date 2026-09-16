@@ -47,6 +47,7 @@ export * from './selection';
 export * from './Table';
 export * from './Toggle';
 export * from './Tabs';
+export * from './ViewCard';
 export * from './PromptModal';
 export * from './ConfirmModal';
 export * from './useConfirm';
