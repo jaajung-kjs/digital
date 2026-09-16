@@ -39,7 +39,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar, StatusBar, StatusItem, DetailCard } from '../../../components/ui';
+import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar, StatusBar, StatusItem } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorAnchorOf, floorIdOf } from '../../assetTree';
@@ -1636,8 +1636,7 @@ export function FloorPlanView({
   }
 
   return (
-    /* 판을 담는 카드 — 관리 화면의 구성 격자와 같은 자리다(`board`: 안쪽 여백 없음). */
-    <DetailCard board className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {floorPrompt}
       {/* 층 탭바 */}
       <div className="flex shrink-0 items-center border-b border-line z-sticky">
@@ -1986,6 +1985,6 @@ export function FloorPlanView({
         />
       )}
       {confirmDialog}
-    </DetailCard>
+    </div>
   );
 }

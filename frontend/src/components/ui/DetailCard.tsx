@@ -35,30 +35,16 @@ import { IconButton } from './IconButton';
  * 하고, 한 번 잊으면 그 화면만 붙는다. **카드가 스스로 가려낸다**: 제 여백을 갖는 것
  * (`data-detail-row`·`data-detail-head`)은 그대로 두고, 나머지에는 여백을 준다.
  */
-export function DetailCard({
-  children, board = false, className,
-}: {
-  children: ReactNode;
-  /**
-   * **판을 담는 카드** — 캔버스·표·격자처럼 가장자리까지 써야 하는 것.
-   *
-   * 보통 카드는 줄 아닌 자식에 여백을 주는데(아래), 판에는 그 여백이 낭비이자 방해다:
-   * 평면도 캔버스는 10px 만큼 좁아지고, 고정 머리글이 있는 표는 그 여백만큼 내려가 붙어
-   * 틈으로 행이 비친다(§1.7-b). 판은 제 테두리 안을 스스로 쓴다.
-   */
-  board?: boolean;
-  className?: string;
-}) {
+export function DetailCard({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cn(
         'border border-line-strong bg-surface text-sm',
         /* 마지막 줄의 아래 선은 상자 테두리와 겹치므로 지운다. */
         '[&>*:last-child]:border-b-0',
-        /* 줄도 머리도 아닌 것 — 여백은 카드가 준다(판은 빼고). */
-        !board && '[&>*:not([data-detail-row]):not([data-detail-head])]:px-2.5',
-        !board && '[&>*:not([data-detail-row]):not([data-detail-head])]:py-2',
-        board && 'overflow-clip',
+        /* 줄도 머리도 아닌 것 — 여백은 카드가 준다. */
+        '[&>*:not([data-detail-row]):not([data-detail-head])]:px-2.5',
+        '[&>*:not([data-detail-row]):not([data-detail-head])]:py-2',
         className,
       )}
     >

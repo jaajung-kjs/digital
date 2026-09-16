@@ -33,7 +33,7 @@ import {
   Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, MenuPopup, MessageStrip,
   PromptModal, cn, isCommitKey, type MenuAnchor,
 } from '../../../components/ui';
-import { ChevronDown, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { useMediumColor, useMediumLabel } from '../../hooks';
 import { portRow, type PortRow, type TypeDraft } from '../../catalogDraft';
 import { PortFaceplate } from '../detail/PortFaceplate';
@@ -447,19 +447,19 @@ export function PortsEditor({ draft, onChange, issues }: PortsEditorProps) {
     <DetailCard className="flex min-h-0 flex-1 flex-col">
       <DetailCardHeader
         title="포트"
-        /* 배지는 **숫자만·회색**이다 — 「3개」의 「개」는 제목이 이미 말했고, 초록은
-           「좋다」는 뜻이 되어 색을 이상에만 쓰는 규칙과 어긋난다. */
-        badge={String(total)}
+        badge={`${total}개`}
+        badgeStatus={total > 0 ? 'success' : 'neutral'}
         /* 만드는 길은 **단추 하나**다 — 누른 그 자리에서 종류를 고른다. */
         actions={
           <Button
-            variant="secondary"
+            size="sm"
+            variant="ghost"
             onClick={(e) => {
               const box = e.currentTarget.getBoundingClientRect();
               setMenuAt({ x: box.left, y: box.bottom + 4, flipY: box.top - 4 });
             }}
           >
-            포트 추가
+            <Plus size={14} /> 포트 추가
           </Button>
         }
       />

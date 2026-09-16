@@ -377,10 +377,7 @@ export default function V2WorkspacePage() {
                 <PageState />
               ) : (
                 /* 이 자리가 뷰 탭의 내용이다 — 탭과 이름표를 나눠 갖는다. */
-                /* **관리 화면과 같은 골격**이다: 바깥 여백 16 · 열 사이 12 · 오른쪽은 떠 있는 열.
-                   예전에는 설비현황만 여백 0 에 경계선으로 붙어 있어, 네 화면을 오갈 때
-                   가장자리 처리가 통째로 달라졌다. */
-                <div {...viewTabs.panel} className="flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
+                <div {...viewTabs.panel} className="flex min-h-0 flex-1 overflow-hidden">
                   {/* 평면도 뷰 */}
                   {inSubstationScope && viewMode === '평면도' ? (
                     <FloorPlanView
@@ -437,7 +434,7 @@ export default function V2WorkspacePage() {
                       자리를 못 박아 두면 표는 한 번 잡힌 폭 그대로다(Figma·VS Code 의 검사기 레일).
                       자리는 **화면이** 정하고 내용은 패널이 채운다 — 그래야 비었을 때도 같은 폭이다. */}
                   {inSubstationScope && (
-                  <aside className="flex h-full w-96 shrink-0 flex-col overflow-y-auto">
+                  <aside className="flex h-full w-96 shrink-0 flex-col border-l border-line bg-surface">
                   {showDetailPanel ? (
                     <AssetDetailPanel
                       key={selectedAssetId}

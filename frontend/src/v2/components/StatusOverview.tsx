@@ -19,7 +19,7 @@ import {
   SelectionScope,
   useScrollSelectedIntoView,
   SELECTABLE,
-  SELECTED, Td, DetailCard } from '../../components/ui';
+  SELECTED, Td,} from '../../components/ui';
 
 import type { StatusRow, StatusRowsResult } from '../statusRows';
 import { summarize } from '../statusSummary';
@@ -148,8 +148,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
   const scrollRef = useScrollSelectedIntoView<HTMLDivElement>(selectedId);
 
   return (
-    /* 판을 담는 카드 — 다른 세 탭과 같은 자리·같은 테두리. */
-    <DetailCard board className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
       <div className="flex max-w-6xl shrink-0 items-center gap-2">
         <TableSearch
           aria-label="현황 검색"
@@ -379,6 +378,6 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
           </tbody>
         </TableCard>
       </SelectionScope>
-    </DetailCard>
+    </div>
   );
 }

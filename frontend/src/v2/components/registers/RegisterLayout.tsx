@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { EmptyState, Select, SelectionScope, TableCard, TableSearch, useScrollSelectedIntoView, DetailCardHeader, DetailCard } from '../../../components/ui';
+import { EmptyState, Select, SelectionScope, TableCard, TableSearch, useScrollSelectedIntoView, DetailCardHeader } from '../../../components/ui';
 import type { MediumContainerPick } from '../../useMediumContainer';
 
 export interface RegisterLayoutProps {
@@ -104,9 +104,7 @@ export function RegisterLayout({
   }
 
   return (
-    /* 판을 담는 카드 — 네 탭이 같은 자리에 같은 모양으로 선다(`board`: 안쪽 여백 없음,
-       고정 머리글이 여백만큼 내려가 붙지 않게). */
-    <DetailCard board className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 items-center gap-3 border-b border-line px-3 py-2">
         {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
             멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
@@ -175,6 +173,6 @@ export function RegisterLayout({
         {note}
         </div>
       </SelectionScope>
-    </DetailCard>
+    </div>
   );
 }
