@@ -36,6 +36,14 @@ interface TabsProps<T extends string> {
    * 제 폭이다.
    */
   fill?: boolean;
+  /**
+   * 어느 **가장자리**에 서는가 — 기본은 위(`top`)다.
+   *
+   * 화면 아래에 서는 시트 탭(층 탭)은 고른 탭이 **위쪽 내용**과 이어져야 한다. Excel 시트·
+   * AutoCAD 배치·Figma 페이지가 같은 어법이다. 위에 서는 탭과 방향만 뒤집으면 되므로
+   * 컴포넌트를 따로 만들지 않는다.
+   */
+  edge?: 'top' | 'bottom';
   className?: string;
 }
 
@@ -80,7 +88,7 @@ export function useTabs<T extends string>(value: T) {
  * 바로 열린다(automatic activation): 탭 내용이 이미 다 손에 있어 여는 값이 싸므로, 화살표로
  * 훑는 사람에게 Enter 를 한 번 더 누르게 할 이유가 없다.
  */
-export function Tabs<T extends string>({ items, value, onChange, idBase, fill, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ items, value, onChange, idBase, fill, edge = 'top', className }: TabsProps<T>) {
   const list = useRef<HTMLDivElement>(null);
   /* 이름을 고치는 규칙(빈 이름·그대로면 아무 일 없음, Enter/포커스 잃음=확정, Esc=물림)은
      앱 공통이다 — 여기서 다시 적지 않는다. */
@@ -107,7 +115,14 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, fill, c
 
   return (
     /* `⋯` 는 **tablist 밖**에 선다 — 탭 목록에는 탭만 담긴다(APG). 겉 줄이 테두리를 갖는다. */
-    <div className={cn('flex items-stretch border-b border-line-strong', fill && 'w-full', className)}>
+    <div
+      className={cn(
+        'flex items-stretch',
+        edge === 'bottom' ? 'border-t border-line-strong' : 'border-b border-line-strong',
+        fill && 'w-full',
+        className,
+      )}
+    >
       <div ref={list} className={cn('flex items-stretch', fill && 'flex-1')} role="tablist">
         {items.map((t, i) => {
           const active = t.key === value;
@@ -147,7 +162,8 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, fill, c
                 /* **사각 탭.** 고른 것만 흰 바탕으로 솟고 위에 파란 선이 그어진다 —
                    공공 업무화면의 관용구다. 밑줄만으로는 회색 띠 위에서 잘 안 읽힌다.
                    테두리·높이는 활성 여부와 무관하게 같아서 골라도 줄이 밀리지 않는다. */
-                'relative -mb-px border border-b-0 px-3 py-1.5 text-sm transition-colors focus-ring',
+                'relative border px-3 py-1.5 text-sm transition-colors focus-ring',
+                edge === 'bottom' ? '-mt-px border-t-0' : '-mb-px border-b-0',
                 // 줄을 가득 채울 때는 탭이 폭을 똑같이 나눠 갖는다.
                 fill && 'flex-1 justify-center whitespace-nowrap',
                 active
@@ -155,8 +171,14 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, fill, c
                   : 'border-transparent bg-surface-2/60 text-content-muted hover:text-content',
               )}
             >
-              {/* 솟은 탭의 머리선 — 활성 표시는 색 하나가 아니라 **바탕 + 머리선**이다. */}
-              {active && <span aria-hidden className="absolute inset-x-0 top-0 h-[2px] bg-primary" />}
+              {/* 솟은 탭의 머리선 — 활성 표시는 색 하나가 아니라 **바탕 + 머리선**이다.
+                  아래에 선 탭은 그 선도 아래에 긋는다(위쪽 내용과 이어져 보이게). */}
+              {active && (
+                <span
+                  aria-hidden
+                  className={cn('absolute inset-x-0 h-[2px] bg-primary', edge === 'bottom' ? 'bottom-0' : 'top-0')}
+                />
+              )}
               {t.label}
               {t.count != null && (
                 <span

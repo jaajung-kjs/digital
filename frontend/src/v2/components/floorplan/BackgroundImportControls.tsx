@@ -1,22 +1,22 @@
 /**
- * 층 배경 도면(DWG/DXF/DGN) 임포트·제거 버튼.
+ * 층 배경 도면(DWG/DXF/DGN) 임포트·제거 — 도구바 오른쪽 `⋯` 안.
  *
- * FloorPlanView 의 층 탭 바에 얹히지만 캔버스 연산에는 전혀 참여하지 않는다 —
+ * FloorPlanView 의 도구바에 얹히지만 캔버스 연산에는 전혀 참여하지 않는다 —
  * 필요한 것은 대상 층 id 와 배경 유무뿐이라 자기 상태를 스스로 소유한다.
  * (FloorPlanView 는 이미 8개 관심사를 안고 있는 1,200줄 파일이고, 그 관심사들은
  *  캔버스 상태를 공유해 떼어낼 수 없다. 이건 공유하지 않으므로 떼어낸다.)
  */
 import { useRef, useState } from 'react';
-import { Button } from '../../../components/ui';
+import { OverflowMenu } from '../../../components/ui';
 import type { BackgroundDrawing } from '@twin/core';
 import { parseBackground } from '../../api';
 import { apiErrorMessage } from '../../apiError';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 
 interface BackgroundImportControlsProps {
-  /** 대상 층. null 이면 버튼이 비활성된다. */
+  /** 대상 층. null 이면 항목이 비활성된다. */
   floorId: string | null;
-  /** 배경이 이미 있으면 제거 버튼을 함께 노출한다. */
+  /** 배경이 이미 있으면 제거 항목을 함께 노출한다. */
   hasBackground: boolean;
 }
 
@@ -51,17 +51,27 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
   }
 
   return (
-    <div className="ml-auto flex items-center gap-2 px-2">
-      {error && <span className="text-xs text-danger">{error}</span>}
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={busy || floorId == null}
-        data-testid="background-import-button"
-        onClick={() => inputRef.current?.click()}
-      >
-        {busy ? '임포트 중…' : '배경 임포트'}
-      </Button>
+    <>
+      {error && <span className="shrink-0 text-xs text-danger">{error}</span>}
+      {/* 층마다 한 번 하는 일이다 — 자주 쓰는 도구 옆에 늘 서 있을 것이 아니라 `⋯` 안이다
+          (§1.7-h). 예전에는 층 탭 줄 오른쪽 끝에 버튼 둘이 상주했고, 그 줄이 통째로
+          하단으로 내려가면서 갈 곳이 없어졌다. */}
+      <OverflowMenu
+        label="배경 도면"
+        items={[
+          {
+            label: busy ? '임포트 중…' : '배경 임포트',
+            /* 파일 대화상자는 **숨은 input** 이 연다 — 메뉴가 닫힌 뒤에도 그 노드로
+               `change` 가 돌아오므로 늘 마운트해 둔다. */
+            onSelect: () => inputRef.current?.click(),
+            disabled: busy || floorId == null,
+            disabledReason: floorId == null ? '층을 먼저 고르세요' : '읽는 중입니다',
+          },
+          ...(hasBackground
+            ? [{ label: '배경 제거', danger: true, onSelect: () => stage(null), disabled: busy }]
+            : []),
+        ]}
+      />
       <input
         ref={inputRef}
         type="file"
@@ -70,17 +80,6 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
         data-testid="background-import-input"
         onChange={handleFile}
       />
-      {hasBackground && (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          data-testid="background-remove-button"
-          onClick={() => stage(null)}
-        >
-          배경 제거
-        </Button>
-      )}
-    </div>
+    </>
   );
 }

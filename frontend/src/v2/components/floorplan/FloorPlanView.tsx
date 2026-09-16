@@ -39,7 +39,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar, StatusBar, StatusItem } from '../../../components/ui';
+import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar, StatusBar, StatusItem, ViewCard } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorAnchorOf, floorIdOf } from '../../assetTree';
@@ -1635,33 +1635,58 @@ export function FloorPlanView({
     );
   }
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {floorPrompt}
-      {/* 층 탭바 */}
-      <div className="flex shrink-0 items-center border-b border-line z-sticky">
-        <Tabs
-          {...floorTabs.list}
-          items={floorTabItems}
-          onChange={setActiveFloorId}
-          className="-mb-px"
-        />
-        {/* 층을 더 붙이는 길 — 탭 줄 끝(트리의 「본부 추가」와 같은 어법). */}
-        <IconButton aria-label="층 추가" onClick={startAddFloor}>
+  /**
+   * 판의 **바닥 띠** — 층 탭 + 좌표·스냅·격자·설비·배율.
+   *
+   * CAD·GIS 도구가 화면 아래 띠에 좌표·축척·스냅을 상주시키는 자리다(§3.6). **층 탭도
+   * 여기 왼쪽 끝**에 선다: Excel 시트·AutoCAD 배치·Figma 페이지와 같은 어법이고, 위에
+   * 두면 뷰 탭 줄과 탭 줄이 둘 겹쳐 서서 — 실제로 그 둘이 16px 어긋나 있었다.
+   */
+  const PLAN_STATUS_BAR = (
+    <StatusBar className="pl-0">
+      <Tabs
+        {...floorTabs.list}
+        edge="bottom"
+        items={floorTabItems}
+        onChange={setActiveFloorId}
+        className="h-full border-t-0"
+      />
+      {/* 층을 더 붙이는 길 — 탭 줄 끝(트리의 「본부 추가」와 같은 어법). */}
+      <IconButton aria-label="층 추가" size="sm" onClick={startAddFloor}>
+        <Plus size={14} />
+      </IconButton>
+      <span className="mx-2 h-4 w-px bg-line" aria-hidden />
+      {/* 좌표는 **리렌더 없이** 이 마디에 직접 쓴다 — 마우스가 움직일 때마다 React 를
+          돌리지 않으려는 것이 이 화면이 ref 를 쓰는 애초의 까닭이다. */}
+      <StatusItem label="좌표"><span ref={coordRef}>—</span></StatusItem>
+      <StatusItem label="스냅">{SNAP_GRID * 10} mm</StatusItem>
+      {/* 격자는 **액세스플로어 타일**이다 — 현장에서 부르는 단위와 화면을 맞춘다. */}
+      <StatusItem label="격자">60 cm (타일)</StatusItem>
+      <StatusItem label="설비">{placedAssets.length}</StatusItem>
+      <span className="ml-auto flex items-center gap-0.5">
+        <IconButton aria-label="축소" size="sm" onClick={() => zoomByButton(1 / ZOOM_STEP)}>
+          <Minus size={14} />
+        </IconButton>
+        <button
+          type="button"
+          title="놓인 설비에 맞추기"
+          className="min-w-12 px-1 text-xs tabular-nums text-content hover:bg-surface-3"
+          onClick={refit}
+        >
+          {Math.round(viewport.zoom)}%
+        </button>
+        <IconButton aria-label="확대" size="sm" onClick={() => zoomByButton(ZOOM_STEP)}>
           <Plus size={14} />
         </IconButton>
+      </span>
+    </StatusBar>
+  );
 
-        {isAdmin && (
-          <BackgroundImportControls
-            floorId={activeFloorId}
-            hasBackground={activeFloor?.backgroundDrawing != null}
-          />
-        )}
-      </div>
-
-      {/* 도구바: 배치 팔레트 + 케이블 도구 */}
-      {activeFloorId != null && (assemblies.length > 0 || cableGroups.length > 0) && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-2 py-1 flex-wrap">
+  /* 도구바 — **판의 머리 띠**다(`ViewCard`, §3.1). 예전에는 층 탭 줄(x=0) 아래에
+     제 줄(x=8)로 서서, 위의 뷰 탭 줄(x=16)까지 셋이 저마다 다른 자리에서 시작했다. */
+  const planTools =
+    activeFloorId != null && (assemblies.length > 0 || cableGroups.length > 0) ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {/* 배치 도구 — 케이블 도구와 같은 형태(도구 버튼 + 대상 Select) */}
           {assemblies.length > 0 && (
             <>
@@ -1765,8 +1790,25 @@ export function FloorPlanView({
             </>
           )}
         </div>
-      )}
+    ) : undefined;
 
+  return (
+    <ViewCard
+      body="fill"
+      tools={planTools}
+      /* 배경 도면은 관리자만 — 그래서 `actions` 자체가 없을 수 있다. 검색은 아직 없다:
+         자리는 비워 두되 다른 탭과 같은 오른쪽 끝이다(§3.1). */
+      actions={
+        isAdmin ? (
+          <BackgroundImportControls
+            floorId={activeFloorId}
+            hasBackground={activeFloor?.backgroundDrawing != null}
+          />
+        ) : undefined
+      }
+      status={PLAN_STATUS_BAR}
+    >
+      {floorPrompt}
       {/* 캔버스 + (포트 선택 시) 우측 패널 — 나란히 놓아 판이 넓게 펼쳐지게 한다 */}
       {/* 이 자리가 층 탭의 내용이다 — 탭과 이름표를 나눠 갖는다. */}
       <div {...floorTabs.panel} className="flex min-h-0 min-w-0 flex-1">
@@ -1930,36 +1972,6 @@ export function FloorPlanView({
         }}
       />
 
-      {/* ── 상태표시줄 ──
-          CAD 도구가 화면 아래 띠에 좌표·축척·스냅을 상주시키는 자리다. 예전에는 배율
-          하나가 캔버스 **위에 떠** 있었고, 커서가 지금 몇 mm 자리인지는 어디에도 없었다.
-          떠 있던 줌 단추도 여기로 내려온다 — 판을 가리지 않는다. */}
-      <StatusBar>
-        {/* 좌표는 **리렌더 없이** 이 마디에 직접 쓴다 — 마우스가 움직일 때마다 React 를
-            돌리지 않으려는 것이 이 화면이 ref 를 쓰는 애초의 까닭이다. */}
-        <StatusItem label="좌표"><span ref={coordRef}>—</span></StatusItem>
-        <StatusItem label="스냅">{SNAP_GRID * 10} mm</StatusItem>
-        {/* 격자는 **액세스플로어 타일**이다 — 현장에서 부르는 단위와 화면을 맞춘다. */}
-        <StatusItem label="격자">60 cm (타일)</StatusItem>
-        <StatusItem label="설비">{placedAssets.length}</StatusItem>
-        <span className="ml-auto flex items-center gap-0.5">
-          <IconButton aria-label="축소" size="sm" onClick={() => zoomByButton(1 / ZOOM_STEP)}>
-            <Minus size={14} />
-          </IconButton>
-          <button
-            type="button"
-            title="놓인 설비에 맞추기"
-            className="min-w-12 px-1 text-xs tabular-nums text-content hover:bg-surface-3"
-            onClick={refit}
-          >
-            {Math.round(viewport.zoom)}%
-          </button>
-          <IconButton aria-label="확대" size="sm" onClick={() => zoomByButton(ZOOM_STEP)}>
-            <Plus size={14} />
-          </IconButton>
-        </span>
-      </StatusBar>
-
       {/* 평면도 배치 모달 */}
       {/* 설비 품목을 놓는 중 — 물어볼 것은 현장 이름 하나뿐이다(무엇이 들어가는지는 설비 품목이 안다). */}
       {drawModal && drawnAssembly && (
@@ -1985,6 +1997,6 @@ export function FloorPlanView({
         />
       )}
       {confirmDialog}
-    </div>
+    </ViewCard>
   );
 }

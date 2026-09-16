@@ -10,7 +10,7 @@
  * 관리자 판정은 프로덕션과 동일하게 인증 스토어(`useV2AuthStore`)의 user.role 로 결정된다.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import type { BackgroundDrawing } from '@twin/core';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { useV2AuthStore } from '../store/authStore';
@@ -87,11 +87,17 @@ describe('FloorPlanView — 배경 도면 임포트', () => {
     setFloors([floor()]);
   });
 
-  it('관리자에게 배경 임포트 버튼이 보인다', () => {
+  /** `⋯` 를 열고 그 안을 돌려준다 — 배경 도면은 층마다 한 번 하는 일이라 메뉴 안이다(§1.7-h). */
+  function backgroundMenu() {
+    fireEvent.click(screen.getByRole('button', { name: '배경 도면' }));
+    return within(screen.getByRole('menu'));
+  }
+
+  it('관리자에게 배경 임포트 길이 있다', () => {
     setRole('admin');
     renderFloorPlan();
 
-    expect(screen.getByTestId('background-import-button')).toBeTruthy();
+    expect(backgroundMenu().getByText('배경 임포트')).toBeTruthy();
   });
 
   it('파일 input 이 광고한 3개 포맷(dwg/dxf/dgn)을 전부 받는다 — .dgn 회귀 방지', () => {
@@ -106,8 +112,8 @@ describe('FloorPlanView — 배경 도면 임포트', () => {
     setRole('viewer');
     renderFloorPlan();
 
-    expect(screen.getByText('1층')).toBeTruthy(); // 층 탭바 자체는 렌더됨
-    expect(screen.queryByTestId('background-import-button')).toBeNull();
+    expect(screen.getByText('1층')).toBeTruthy(); // 층 탭 자체는 렌더됨(하단 상태줄)
+    expect(screen.queryByRole('button', { name: '배경 도면' })).toBeNull();
   });
 
   it('파일을 고르면 읽어서 그 층에 얹는다 — 서버로 가는 것은 저장할 때다', async () => {
@@ -118,8 +124,8 @@ describe('FloorPlanView — 배경 도면 임포트', () => {
     const input = screen.getByTestId('background-import-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [selectFile('plan.dwg')] } });
 
-    // 읽기 성공 → 그 층에 얹혀 제거 버튼이 나타난다
-    expect(await screen.findByTestId('background-remove-button')).toBeTruthy();
+    // 읽기 성공 → 그 층에 얹혀 제거 항목이 나타난다
+    await waitFor(() => expect(backgroundMenu().getByText('배경 제거')).toBeTruthy());
 
     expect(mockedParse).toHaveBeenCalledTimes(1);
     const st = v2WorkingCopyStore.getState();
@@ -144,25 +150,25 @@ describe('FloorPlanView — 배경 도면 임포트', () => {
     expect(v2WorkingCopyStore.getState().dirtyCount()).toBe(0);
   });
 
-  it('배경이 없는 층에는 제거 버튼이 없고, 있는 층에만 나온다', async () => {
+  it('배경이 없는 층에는 제거 항목이 없고, 있는 층에만 나온다', async () => {
     setRole('admin');
     renderFloorPlan();
 
-    expect(screen.queryByTestId('background-remove-button')).toBeNull();
+    expect(backgroundMenu().queryByText('배경 제거')).toBeNull();
 
     act(() => setFloors([floor({ backgroundDrawing: drawing('plan.dwg') })]));
 
-    expect(await screen.findByTestId('background-remove-button')).toBeTruthy();
+    await waitFor(() => expect(backgroundMenu().getByText('배경 제거')).toBeTruthy());
   });
 
-  it('제거 버튼 → 배경이 화면에서 사라지고, 없앤다는 것이 저장할 것으로 쌓인다', async () => {
+  it('제거 → 배경이 화면에서 사라지고, 없앤다는 것이 저장할 것으로 쌓인다', async () => {
     setRole('admin');
     setFloors([floor({ backgroundDrawing: drawing('plan.dwg') })]);
     renderFloorPlan();
 
-    fireEvent.click(screen.getByTestId('background-remove-button'));
+    fireEvent.click(backgroundMenu().getByText('배경 제거'));
 
-    await waitFor(() => expect(screen.queryByTestId('background-remove-button')).toBeNull());
+    await waitFor(() => expect(backgroundMenu().queryByText('배경 제거')).toBeNull());
 
     const st = v2WorkingCopyStore.getState();
     expect(st.effectiveFloors()[0]!.backgroundDrawing).toBeNull();

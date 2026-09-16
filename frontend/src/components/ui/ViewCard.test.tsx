@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ViewCard } from './ViewCard';
 import { TableSearch } from './TableSearch';
 import { SegmentedControl } from './SegmentedControl';
+import { Tabs, useTabs } from './Tabs';
 
 describe('ViewCard — 머리 띠', () => {
   /* 도구가 몇 개든 검색은 **오른쪽 끝**이다 — 네 탭에서 검색의 x 가 같아야 눈이 매번
@@ -173,5 +174,41 @@ describe('SegmentedControl — 갈래는 탭이 아니다', () => {
       <SegmentedControl aria-label="갈래" items={[{ key: 'all', label: '전체' }]} value="all" onChange={() => {}} />,
     );
     expect(screen.getByRole('radio', { name: '전체' })).toHaveClass('h-6');
+  });
+});
+
+function BottomTabs() {
+  const t = useTabs('f1');
+  return (
+    <Tabs
+      {...t.list}
+      edge="bottom"
+      items={[{ key: 'f1', label: '3층' }, { key: 'f2', label: '4층' }]}
+      onChange={() => {}}
+    />
+  );
+}
+
+describe('Tabs — 화면 아래에 서는 시트 탭', () => {
+  /**
+   * 층 탭은 Excel 시트·AutoCAD 배치·Figma 페이지와 같은 자리(화면 아래)에 선다.
+   * 그러면 고른 탭은 **위쪽 내용**과 이어져야 한다 — 위 테두리를 비우고 파란 선을 아래에 긋는다.
+   * 기본값(`top`)은 반대다: 뷰 탭·패널 탭이 그것이고, 한 곳도 바뀌지 않는다.
+   */
+  it('edge="bottom" — 줄의 테두리와 고른 탭의 방향이 뒤집힌다', () => {
+    const { container } = render(<BottomTabs />);
+    const strip = container.firstChild as HTMLElement;
+    expect(strip).toHaveClass('border-t');
+    expect(strip.className).not.toMatch(/\bborder-b\b/);
+    const active = container.querySelector('[aria-selected="true"]') as HTMLElement;
+    expect(active.className).toContain('border-t-0');
+    expect(active.querySelector('[aria-hidden="true"]')?.className).toContain('bottom-0');
+  });
+
+  it('기본은 top — 지금 쓰고 있는 탭은 한 곳도 안 바뀐다', () => {
+    const { container } = render(
+      <Tabs idBase="x" value="a" items={[{ key: 'a', label: 'A' }]} onChange={() => {}} />,
+    );
+    expect(container.firstChild as HTMLElement).toHaveClass('border-b');
   });
 });
