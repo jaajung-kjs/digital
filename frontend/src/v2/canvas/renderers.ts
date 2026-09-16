@@ -9,10 +9,21 @@ import { BUNDLE_GAP_PX, cableLineWidth } from './cableStyle';
 // Asset 렌더링 (V2 필드: x/y/width/height, rotation 없음)
 // ============================================
 
-const fontSizeCache = new Map<string, number>();
-
-/** 이보다 작으면 읽을 수 없다 — 더 줄이는 대신 말줄임한다. */
-const MIN_LABEL_FONT = 9;
+/**
+ * 도면 주기의 크기 — **배율과 무관하게 화면에서 늘 같은 크기**다.
+ *
+ * 예전에는 글자를 상자에 맞춰 키웠다(9~40px 이분 탐색). 그래서 `UPS #1` 은 40px, 그 옆
+ * 설비는 12px 이었다 — 크기가 중요도를 뜻하는 것처럼 읽히지만 아무 뜻도 없었다(상자가 커서
+ * 커졌을 뿐이다). 무엇보다 **글자가 상자를 가득 채우면 상자가 「물건의 자리」가 아니라
+ * 「글자를 담는 그릇」으로 읽힌다** — 실제 크기라는 인식이 안 드는 진짜 까닭이 이것이다.
+ *
+ * 도면은 반대로 한다: 물건은 실제 치수로 그리고, 주기는 읽을 수 있는 한 크기로 고정한다.
+ */
+const LABEL_PX = 12;
+const SUB_PX = 10;
+/** 주기가 들어갈 최소 크기(화면 px) — 이보다 작으면 적지 않는다. 잘린 글자보다 없는 편이 낫다. */
+const LABEL_MIN_BOX_PX = 44;
+const SUB_MIN_BOX_PX = 76;
 
 /** 주어진 폭에 들어갈 만큼만 남기고 … 를 붙인다(현재 ctx.font 기준). */
 export function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
@@ -27,52 +38,48 @@ export function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth:
   return lo > 0 ? `${text.slice(0, lo)}…` : '…';
 }
 
+/** 캔버스 1 unit = 1 cm 약속 — 도면의 단위인 mm 로 적는다. */
+const mm = (cm: number) => Math.round(cm * 10).toLocaleString();
+
 function renderAssetItem(
   ctx: CanvasRenderingContext2D,
   item: PlacedAsset,
   isSelected: boolean,
+  /** world → 화면 배율(px/cm). 선 굵기와 글자 크기를 화면 기준으로 고정하는 데 쓴다. */
+  scale: number,
 ): void {
   const { x, y, width: w, height: h } = item;
   ctx.save();
 
+  /* 선 굵기는 **화면 기준**으로 고정한다 — 배경 도면 임포터와 같은 규칙이다(그쪽은 cm 로
+     저장된 선 굵기에 화면 px 바닥을 둔다). 설비 윤곽은 벽과 같은 굵기(0.5mm ≈ 1.6px)로
+     서고, 골랐을 때만 굵어진다. */
+  const px = (n: number) => n / Math.max(scale, 0.0001);
   ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : ELEMENT_COLORS.rack.fill;
   ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : ELEMENT_COLORS.rack.stroke;
-  ctx.lineWidth = isSelected ? 2 : 1;
+  ctx.lineWidth = px(isSelected ? 2.4 : 1.6);
   ctx.fillRect(x, y, w, h);
   ctx.strokeRect(x, y, w, h);
 
-  ctx.fillStyle = ELEMENT_COLORS.rack.text;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  const padding = 4;
-  const maxWidth = w - padding * 2;
-  const maxHeight = h - padding * 2;
-
-  if (maxWidth > 5 && maxHeight > 5) {
-    const cacheKey = `${item.name}|${w}|${h}`;
-    let fontSize = fontSizeCache.get(cacheKey);
-    if (fontSize === undefined) {
-      let lo = MIN_LABEL_FONT;
-      let hi = Math.min(maxHeight, 40);
-      while (lo < hi) {
-        const mid = Math.ceil((lo + hi) / 2);
-        ctx.font = `bold ${mid}px sans-serif`;
-        if (ctx.measureText(item.name).width <= maxWidth && mid <= maxHeight) {
-          lo = mid;
-        } else {
-          hi = mid - 1;
-        }
-      }
-      fontSize = lo;
-      fontSizeCache.set(cacheKey, fontSize);
+  /* 주기는 **상자 왼쪽 위**에 붙는다 — 가운데에 두면 글자가 상자의 내용물처럼 보인다.
+     도면의 주기가 물건 옆에 붙는 것과 같은 자리다. */
+  const boxW = w * scale;
+  const boxH = h * scale;
+  if (boxW >= LABEL_MIN_BOX_PX && boxH >= LABEL_MIN_BOX_PX) {
+    const pad = px(6);
+    const maxWidth = w - pad * 2;
+    ctx.fillStyle = ELEMENT_COLORS.rack.text;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font = `600 ${px(LABEL_PX)}px sans-serif`;
+    ctx.fillText(ellipsize(ctx, item.name, maxWidth), x + pad, y + pad);
+    /* 실제 치수 — 「이 그림은 실측이다」를 말하는 한 줄. 좁으면 접는다. */
+    if (boxW >= SUB_MIN_BOX_PX && boxH >= SUB_MIN_BOX_PX) {
+      ctx.font = `${px(SUB_PX)}px ui-monospace, Menlo, monospace`;
+      ctx.globalAlpha = 0.62;
+      ctx.fillText(ellipsize(ctx, `${mm(w)} × ${mm(h)}`, maxWidth), x + pad, y + pad + px(LABEL_PX + 3));
+      ctx.globalAlpha = 1;
     }
-    ctx.font = `bold ${fontSize}px sans-serif`;
-    /* 최소 크기에서도 안 들어가면 **줄여서 말줄임**한다.
-       예전에는 fillText 의 maxWidth 로 가로만 눌러 담았는데, 긴 이름은 6px 까지 줄어든 위에
-       17% 까지 찌그러져 글자를 알아볼 수 없었다(측정값). 화면의 다른 목록이 전부
-       `truncate` 로 말줄임하는 것과도 어긋났다. */
-    ctx.fillText(ellipsize(ctx, item.name, maxWidth), x + w / 2, y + h / 2);
   }
 
   ctx.restore();
@@ -88,6 +95,8 @@ export function renderPlacedAssets(
   assets: PlacedAsset[],
   selectedId: string | null,
   preview?: { id: string; x: number; y: number; width?: number; height?: number } | null,
+  /** world → 화면 배율(px/cm) — 선 굵기·글자 크기를 화면 기준으로 고정한다. */
+  scale = 1,
 ): void {
   for (const asset of assets) {
     let item = asset;
@@ -100,7 +109,7 @@ export function renderPlacedAssets(
         height: preview.height ?? asset.height,
       };
     }
-    renderAssetItem(ctx, item, item.id === selectedId);
+    renderAssetItem(ctx, item, item.id === selectedId, scale);
   }
 }
 

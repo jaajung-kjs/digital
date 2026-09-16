@@ -630,10 +630,10 @@ export function FloorPlanView({
         const dimmedAssets = latest.current.placedAssets.filter((a) => !expandedIds.has(a.id));
         ctx.save();
         ctx.globalAlpha = 0.3;
-        renderPlacedAssets(ctx, dimmedAssets, null, activePreview);
+        renderPlacedAssets(ctx, dimmedAssets, null, activePreview, scale);
         ctx.restore();
         // 추적 자산: selectedAssetId 경유 하이라이트 유지하면서 추적 강조
-        renderPlacedAssets(ctx, tracedAssets, latest.current.highlightedPlacedId, activePreview);
+        renderPlacedAssets(ctx, tracedAssets, latest.current.highlightedPlacedId, activePreview, scale);
       } else if (connectableIdsRef.current) {
         /* 케이블 도구가 켜져 있다 — **이을 수 있는 것만 또렷하게**. 추적의 어법과 같다
            (관계 없는 것은 alpha 0.3). 눌러 보고 나서 빈 판을 만나는 헛걸음이 없어진다. */
@@ -642,9 +642,9 @@ export function FloorPlanView({
         const on = latest.current.placedAssets.filter((a) => ids.has(a.id));
         ctx.save();
         ctx.globalAlpha = 0.3;
-        renderPlacedAssets(ctx, off, null, activePreview);
+        renderPlacedAssets(ctx, off, null, activePreview, scale);
         ctx.restore();
-        renderPlacedAssets(ctx, on, latest.current.highlightedPlacedId, activePreview);
+        renderPlacedAssets(ctx, on, latest.current.highlightedPlacedId, activePreview, scale);
 
         // 가리키고 있는 것 — 누를 수 있다는 사실을 손이 가기 전에 알린다.
         const hoverId = hoveredAssetIdRef.current;
@@ -657,7 +657,7 @@ export function FloorPlanView({
           ctx.restore();
         }
       } else {
-        renderPlacedAssets(ctx, latest.current.placedAssets, latest.current.highlightedPlacedId, activePreview);
+        renderPlacedAssets(ctx, latest.current.placedAssets, latest.current.highlightedPlacedId, activePreview, scale);
       }
 
       // 6.5 케이블 첫 끝점 자산 강조 (점선 스트로크 — 일반 선택과 구분)
@@ -1674,7 +1674,7 @@ export function FloorPlanView({
       <div {...floorTabs.panel} className="flex min-h-0 min-w-0 flex-1">
       <div
         ref={containerRef}
-        className="relative min-h-0 min-w-0 flex-1 bg-surface-2 overflow-hidden"
+        className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-surface"
         data-testid="floorplan-canvas-container"
       >
         <canvas

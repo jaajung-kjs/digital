@@ -12,7 +12,9 @@ const GRID_CONFIG = {
     lineWidth: 1,
   },
   minorGrid: {
-    size: 10,
+    /* **50 cm.** 10 cm 였던 동안 격자가 도면이 아니라 모눈종이로 보였다 — 배율 100%
+       에서 한 칸이 1px 이라 회색 면처럼 깔렸다. 주 격자(1 m)의 절반이 실무 도면의 눈금이다. */
+    size: 50,
     get color() { return canvasColor('canvas-grid-minor'); },
     lineWidth: 0.5,
   },

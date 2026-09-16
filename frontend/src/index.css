@@ -75,8 +75,10 @@
      캔버스는 클래스가 아니라 문자열로 색을 칠하므로(`ctx.strokeStyle`) Tailwind 토큰이 닿지
      않는다. 그래서 색이 TS 파일에 hex 로 흩어져 있었고, 화면의 나머지와 따로 놀았다.
      `canvas/theme.ts` 가 이 값을 읽어 캔버스에 넘긴다 — 고칠 자리는 여기 하나다. */
-  --canvas-grid-major:#c0c0c0;
-  --canvas-grid-minor:#e8e8e8;
+  /* 격자는 **물러나 있어야** 한다 — 도면의 주인공은 벽과 설비다. 예전 값(#c0c0c0/#e8e8e8)은
+     10cm 간격과 겹쳐 회색 면처럼 깔렸다. */
+  --canvas-grid-major:#dfe2e5;   /* 1 m */
+  --canvas-grid-minor:#eff1f2;   /* 50 cm */
   --canvas-origin:rgb(var(--lamp-danger-rgb));
   --canvas-select:rgb(var(--primary-rgb));
   --canvas-select-fill:#d8e3ef;
@@ -85,10 +87,12 @@
   --plan-door-stroke:#d97706;    /* amber-600 */
   --plan-window-fill:#e0f2fe;    /* sky-100 */
   --plan-window-stroke:#0284c7;  /* sky-600 */
-  /* ISA-101: 설비는 무채색. 색은 상태에만 쓴다. */
-  --plan-rack-fill:#e7e5e4;
-  --plan-rack-stroke:rgb(var(--eq-2-rgb));
-  --plan-rack-text:rgb(var(--eq-1-rgb));
+  /* 도면의 설비는 **면을 채우지 않는다** — 그 아래 건축 도면(벽·기둥·트렌치)이 비쳐야 한다.
+     흰 면을 옅게 깔아 또렷하되 배경을 덮지 않게 하고, 윤곽선이 굵기로 말한다.
+     ISA-101 과도 맞는다: 설비는 무채색, 색은 상태에만. */
+  --plan-rack-fill:rgb(255 255 255 / 0.9);
+  --plan-rack-stroke:rgb(var(--text-rgb));
+  --plan-rack-text:rgb(var(--text-rgb));
 
   /* 오버레이 스크림 — 모달 백드롭 통일 */
   --overlay: rgb(0 0 0 / 0.45);
