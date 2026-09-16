@@ -49,8 +49,11 @@ export function ViewCard({
   title, tools, actions, status, body = 'fill', onClearSelection, bodyRef, children, className,
 }: ViewCardProps) {
   const hasHead = title != null || tools != null || actions != null;
+  /* `scroll` 본문은 **회색**이다 — 그 위에 묶음 표가 제 테두리를 갖고 쌓이는데, 흰
+     바탕에서는 바깥 카드 테두리와 묶음 표 사이 16px 이 「빈 흰 여백」으로 보였다.
+     이 카드는 **판**이지 문서가 아니다 — 판 위에 자료가 놓인다(§3.1). */
   const boxClass = body === 'scroll'
-    ? 'min-h-0 flex-1 overflow-auto'
+    ? 'min-h-0 flex-1 overflow-auto bg-bg'
     : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden';
   /* `scroll` 에서 ref 는 **안쪽 래퍼**가 받는다 — 여백을 가진 쪽이 곧 내용의 상자다. */
   const inner = body === 'scroll'
