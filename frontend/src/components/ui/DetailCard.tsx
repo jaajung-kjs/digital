@@ -24,7 +24,9 @@ import { IconButton } from './IconButton';
  */
 export function DetailCard({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('rounded-lg border border-line bg-surface p-3 text-sm space-y-2', className)}>
+    /* 업무화면의 상세는 **카드가 아니라 표**다 — 둥근 모서리와 그림자 대신 1px 테두리와
+       칸 구분선. 마지막 줄의 아래 선은 상자 테두리와 겹치므로 지운다. */
+    <div className={cn('border border-line-strong bg-surface text-sm [&>*:last-child]:border-b-0', className)}>
       {children}
     </div>
   );
@@ -56,8 +58,10 @@ export function DetailCardHeader({
   onDelete?: () => void;
 }) {
   return (
-    <div className="flex min-h-7 items-center gap-2">
-      <span className="text-sm font-semibold text-content">{title}</span>
+    /* 상세의 머리는 **회색 띠**다 — 표 머리와 같은 면(`surface-2`)을 써서 「여기부터 이
+       묶음」이 한눈에 잡힌다. 예전에는 흰 바탕에 굵은 글자뿐이라 줄들과 섞였다. */
+    <div className="flex min-h-[28px] items-center gap-2 border-b border-line-strong bg-surface-2 px-2.5">
+      <span className="text-xs font-bold text-content-muted">{title}</span>
       {badge != null && <Badge status={badgeStatus}>{badge}</Badge>}
       {(actions || onEdit || onDelete) && (
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
@@ -152,19 +156,27 @@ export function DetailRow({
     : children;
 
   return (
+    /* **라벨칸 + 값칸.** 공공·공기업 업무화면의 폼은 표다: 왼쪽 회색 칸에 라벨, 오른쪽 흰
+       칸에 값. 라벨이 어디서 시작하고 값이 어디서 시작하는지가 화면마다 같아진다.
+       예전에는 라벨이 그냥 회색 글자라, 값이 길면 어디까지가 라벨인지 흐렸다. */
     <div
-      className={cn('flex gap-2', align === 'start' ? 'items-start' : 'items-center')}
+      className={cn('flex border-b border-line', align === 'start' ? 'items-stretch' : 'items-stretch')}
       /* 칸을 떠나면 그때부터 말한다 — 안쪽 어느 컨트롤이든 한 번 떠나면 켜진다. */
       onBlur={() => setTouched(true)}
     >
       <label
         htmlFor={controlId}
-        className={cn('w-16 shrink-0 text-xs text-content-muted', align === 'start' && 'pt-2')}
+        className={cn(
+          'flex w-[88px] shrink-0 items-center border-r border-line bg-surface-2 px-2.5 py-1.5 text-xs font-bold text-content-muted',
+          align === 'start' && 'items-start',
+        )}
       >
         {label}
         {/* 필수 표시는 라벨 쪽에 — 값 칸에 두면 값이 길 때 밀려 안 보인다. */}
+        {/* 필수 별표는 **한전 CI 레드**다 — 경고(`danger`)와 쓰임이 다르다. 경고는 「지금
+            잘못됐다」이고, 별표는 「비우면 저장이 안 된다」는 안내다. */}
         {required && (
-          <span className="ml-0.5 text-danger" aria-hidden>
+          <span className="ml-0.5 text-required" aria-hidden>
             *
           </span>
         )}
@@ -173,7 +185,7 @@ export function DetailRow({
           넓은 화면의 관리 화면에서만 걸린다. 이름 한 칸이 1000px 로 벌어지면 라벨과 값이
           멀어져 어느 라벨의 값인지 눈으로 좇아야 하고, 폼이 화면 폭에 따라 달라 보인다.
           두 화면이 같은 치수로 서야 같은 폼으로 읽힌다. */}
-      <div className={cn('flex min-w-0 flex-col gap-0.5 text-content', wide ? 'flex-1' : 'w-full max-w-[22rem]')}>
+      <div className={cn('flex min-w-0 flex-col justify-center gap-0.5 px-2.5 py-1.5 text-content', wide ? 'flex-1' : 'w-full max-w-[24rem]')}>
         {body}
         {showIssue && <span className="text-xs text-danger">{issue}</span>}
         {hint && <span className="text-xs text-content-faint">{hint}</span>}

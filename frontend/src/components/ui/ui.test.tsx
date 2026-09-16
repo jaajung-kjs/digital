@@ -60,12 +60,26 @@ describe('Badge', () => {
 });
 
 describe('DetailCard', () => {
-  it('표준 카드 외형(rounded-lg/border-line/bg-surface/p-3/text-sm)으로 통일', () => {
+  /* 업무화면의 상세는 **표**다 — 둥근 모서리·그림자·안쪽 여백 대신 1px 테두리와 칸 구분선.
+     여백은 카드가 아니라 **줄**이 갖는다(라벨칸·값칸이 각자 padding 을 쓴다). */
+  it('표준 상세 외형(1px 테두리 · 흰 면 · text-sm)으로 통일', () => {
     const { container } = render(<DetailCard>본문</DetailCard>);
     const card = container.firstChild as HTMLElement;
-    for (const cls of ['rounded-lg', 'border-line', 'bg-surface', 'p-3', 'text-sm']) {
+    for (const cls of ['border', 'border-line-strong', 'bg-surface', 'text-sm']) {
       expect(card).toHaveClass(cls);
     }
+    /* 둥근 모서리는 쓰지 않는다 — 표와 칸이 맞닿는 화면에서 모서리가 어긋나 보인다. */
+    expect(card.className).not.toMatch(/rounded-(lg|md|xl)/);
+  });
+
+  /* 라벨은 **회색 칸**이고 값은 흰 칸이다 — 라벨이 어디서 끝나는지가 화면마다 같아진다. */
+  it('상세 한 줄은 라벨칸 + 값칸', () => {
+    const { container } = render(<DetailRow label="이름" required>값</DetailRow>);
+    const label = container.querySelector('label') as HTMLElement;
+    expect(label).toHaveClass('bg-surface-2');
+    expect(label).toHaveClass('border-r');
+    /* 필수 별표는 한전 CI 레드 — 경고색과 쓰임이 다르다. */
+    expect(container.querySelector('.text-required')).not.toBeNull();
   });
 
   it('헤더는 제목 + 상태 배지(Badge)를 렌더', () => {
