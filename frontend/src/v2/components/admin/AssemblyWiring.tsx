@@ -102,8 +102,9 @@ export function AssemblyWiring({
     <DetailCard className="flex min-h-0 flex-1 flex-col">
       <DetailCardHeader
         title="포트"
+        /* 제목(포트)과 **다른 것을 세므로** 명사를 남긴다. 색은 중립 — 초록은 「좋다」는
+           뜻이 되고, 색은 이상에만 쓴다. */
         badge={`배선 ${draft.links.length}`}
-        badgeStatus={draft.links.length > 0 ? 'success' : 'neutral'}
       />
 
       {/* 고르는 중이라는 사실은 **판 위에** 남는다 — 장비를 옮겨 다녀도 보인다. */}

@@ -30,7 +30,7 @@ export function PortsPreview({
 
   return (
     <DetailCard className={fill ? 'flex min-h-0 flex-1 flex-col' : undefined}>
-      <DetailCardHeader title={title} badge={`${total}개`} badgeStatus="neutral" />
+      <DetailCardHeader title={title} badge={String(total)} />
       {sections.length === 0 ? (
         <div className={fill ? 'flex min-h-0 flex-1 items-center justify-center' : undefined}>
           <EmptyState title="포트가 없습니다" description={empty} className="py-6" />
