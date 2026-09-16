@@ -167,7 +167,7 @@ export function DetailRow({
       <label
         htmlFor={controlId}
         className={cn(
-          'flex w-[88px] shrink-0 items-center border-r border-line bg-surface-2 px-2.5 py-1.5 text-xs font-bold text-content-muted',
+          'flex w-[88px] shrink-0 items-center border-r border-line bg-surface-2 px-2.5 py-1 text-xs font-bold text-content-muted',
           align === 'start' && 'items-start',
         )}
       >
@@ -185,7 +185,9 @@ export function DetailRow({
           넓은 화면의 관리 화면에서만 걸린다. 이름 한 칸이 1000px 로 벌어지면 라벨과 값이
           멀어져 어느 라벨의 값인지 눈으로 좇아야 하고, 폼이 화면 폭에 따라 달라 보인다.
           두 화면이 같은 치수로 서야 같은 폼으로 읽힌다. */}
-      <div className={cn('flex min-w-0 flex-col justify-center gap-0.5 px-2.5 py-1.5 text-content', wide ? 'flex-1' : 'w-full max-w-[24rem]')}>
+      {/* 값칸의 세로 여백은 **읽는 줄 기준**(22px)이다 — 고치는 줄은 안에 든 컨트롤이
+          제 높이(24/28px)로 밀어 올린다. 둘을 같은 값으로 묶으면 읽는 표가 공연히 성기다. */}
+      <div className={cn('flex min-w-0 flex-col justify-center gap-0.5 px-2.5 py-0.5 text-content', wide ? 'flex-1' : 'w-full max-w-[24rem]')}>
         {body}
         {showIssue && <span className="text-xs text-danger">{issue}</span>}
         {hint && <span className="text-xs text-content-faint">{hint}</span>}

@@ -29,7 +29,7 @@ import { cn } from './cn';
  * 36px 은 값 한 줄(20px)에 위아래 숨(8px씩)을 둔 크기다 — 스위치도 인라인 편집 상자도 이 안에
  * 들어간다.
  */
-export const TABLE_ROW = 'h-9 border-b border-line focus-visible:outline-none focus-ring-input';
+export const TABLE_ROW = 'h-7 border-b border-line focus-visible:outline-none focus-ring-input';
 
 export function TableCard({
   widths,
@@ -91,7 +91,7 @@ export function Td({
 }) {
   return (
     <td
-      className={cn('px-3 py-1.5', align === 'right' ? 'text-right tabular-nums' : 'text-left', className)}
+      className={cn('px-2.5 py-1', align === 'right' ? 'text-right tabular-nums' : 'text-left', className)}
       {...rest}
     >
       {children}
@@ -145,7 +145,7 @@ export function Th({ children, className, align = 'left', unit, onSort, sort = n
       /* 스크린리더가 「정렬됨」을 읽을 방법 — 없으면 정렬은 눈에만 있는 기능이다. */
       aria-sort={onSort ? (sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : 'none') : undefined}
       className={cn(
-        'border-b border-line bg-surface-2 px-3 py-2 text-xs font-semibold text-content-muted',
+        'h-6 border-b border-line-strong bg-surface-2 px-2.5 text-xs font-bold text-content-muted',
         'whitespace-nowrap break-keep',
         align === 'right' ? 'text-right' : 'text-left',
         className,

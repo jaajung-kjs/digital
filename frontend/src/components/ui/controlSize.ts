@@ -15,9 +15,15 @@
  */
 export type ControlSize = 'sm' | 'md' | 'cell';
 
-/** 세로 여백만 다르다 — 가로는 좁아져도 글자가 테두리에 붙지 않을 만큼 남긴다. */
+/**
+ * **높이를 못 박는다** — 여백으로 두면 글꼴·테두리에 따라 화면마다 1~2px 씩 달라진다.
+ *
+ * 업무화면의 밀도는 한 화면에 몇 줄이 들어가느냐로 정해진다(§밀도 규격): 입력은 24/28px,
+ * 표 행은 28px. 예전 값(py-1/py-2)은 각각 27·30px 이 나와 표 행보다 컨트롤이 높았고,
+ * 그래서 표 안에서 고치기 시작하면 줄 높이가 튀었다.
+ */
 export const controlSizeClasses: Record<ControlSize, string> = {
-  sm: 'px-2 py-1 text-sm',
-  md: 'px-3 py-2 text-sm',
+  sm: 'h-6 px-2 text-sm',
+  md: 'h-7 px-2.5 text-sm',
   cell: 'px-1 py-0.5 text-sm',
 };
