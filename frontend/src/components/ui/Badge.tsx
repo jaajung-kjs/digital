@@ -23,7 +23,9 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
     <span
       ref={ref}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+        /* 배지는 낱말 하나다 — 좁은 칸에서 「신설」이 신/설 두 줄로 쪼개지면 배지가 아니라
+           동그라미 두 개로 보인다. */
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
         statusClasses[status],
         className,
       )}

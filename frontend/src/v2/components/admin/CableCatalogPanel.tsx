@@ -25,6 +25,7 @@ import {
   EmptyState,
   Input,
   TableCard,
+  TABLE_ROW,
   ViewCard,
   Th,
   cn,
@@ -368,7 +369,8 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                         <tr
                           key={row.key}
                           className={cn(
-                            'border-b border-line last:border-0',
+                            /* 줄 높이는 표가 정한다(`TABLE_ROW`) — 화면마다 적으면 같은 표가 다르게 보인다. */
+                            TABLE_ROW,
                             SELECTABLE,
                             row.key === selectedKey && SELECTED,
                           )}

@@ -25,7 +25,7 @@ import {
   cn,
   formatDate,
   SELECTABLE,
-  EMPTY, Td,} from '../../../components/ui';
+  EMPTY, Td, TABLE_ROW,} from '../../../components/ui';
 import {
   activateStandard,
   previewOverheadStandard,
@@ -317,7 +317,7 @@ function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="border-b border-line last:border-0">
+              <tr key={row.id} className={TABLE_ROW}>
                 <Td className="truncate text-content">
                   <span className="mr-1.5 text-xs text-content-faint">{KIND_LABEL[row.kind] ?? row.kind}</span>
                   {row.sourceName}
@@ -411,7 +411,7 @@ function WageRatesCard() {
           </thead>
           <tbody>
             {shown.map((r) => (
-              <tr key={r.code} className="border-b border-line last:border-0">
+              <tr key={r.code} className={TABLE_ROW}>
                 <Td className="tabular-nums text-content-muted">{r.code}</Td>
                 <Td className="truncate text-content" title={r.markerNote ?? undefined}>
                   {r.name}
@@ -471,7 +471,7 @@ function OverheadRatesCard() {
         </thead>
         <tbody>
           {sizes.map((size) => (
-            <tr key={size} className="border-b border-line last:border-0">
+            <tr key={size} className={TABLE_ROW}>
               <Td className="text-content">{size}</Td>
               {durations.map((d) => (
                 <Td align="right" key={`i-${d}`} className="text-content">
@@ -499,7 +499,7 @@ function OverheadRatesCard() {
         </thead>
         <tbody>
           {sizes.map((size) => (
-            <tr key={size} className="border-b border-line last:border-0">
+            <tr key={size} className={TABLE_ROW}>
               <Td className="text-content">{size}</Td>
               <Td align="right" className="text-content">{pct(t.bySize.일반관리비[size]!)}</Td>
               <Td align="right" className="text-content">{pct(t.bySize.이윤[size]!)}</Td>
@@ -518,7 +518,7 @@ function OverheadRatesCard() {
         </thead>
         <tbody>
           {SANAN_BANDS.map((band) => ({ band, v: t.sanan[band]! })).map(({ band, v }) => (
-            <tr key={band} className="border-b border-line last:border-0">
+            <tr key={band} className={TABLE_ROW}>
               <Td className="text-content">{band}</Td>
               <Td align="right" className="text-content">{pct(v.rate)}</Td>
               <Td align="right" className="text-content-muted">

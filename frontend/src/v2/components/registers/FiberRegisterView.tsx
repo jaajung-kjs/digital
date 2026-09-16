@@ -361,7 +361,7 @@ export function FiberRegisterView({
                 )}
               >
                 {/* 코어 번호 */}
-                <Td className="py-1.5 pl-3 pr-1 text-sm text-content-muted">{row.coreIndex}</Td>
+                <Td className="pl-3 pr-1 text-content-muted">{row.coreIndex}</Td>
                 {/* 그룹별 피어 셀 */}
                 {row.cells.map((cell) => (
                   <Td key={cell.group}>

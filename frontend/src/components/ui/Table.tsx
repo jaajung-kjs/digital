@@ -91,7 +91,14 @@ export function Td({
 }) {
   return (
     <td
-      className={cn('px-2.5 py-1', align === 'right' ? 'text-right tabular-nums' : 'text-left', className)}
+      /* **수는 줄바꿈하지 않는다.** 「350,000원」이 칸에 안 들어가면 「350,000」/「원」 두 줄로
+         쪼개지는데, 그러면 같은 열의 줄 높이가 제각각이 되고 수가 한눈에 안 읽힌다. 좁으면
+         넘치게 두는 편이 낫다 — 열 폭은 `TableCard` 가 정하는 것이지 값이 정할 일이 아니다. */
+      className={cn(
+        'px-2.5 py-1',
+        align === 'right' ? 'whitespace-nowrap text-right tabular-nums' : 'text-left',
+        className,
+      )}
       {...rest}
     >
       {children}

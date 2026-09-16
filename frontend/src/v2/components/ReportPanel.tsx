@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { computeEstimate, computeReport, materialCostOf } from '@twin/core';
 import type { ReportItem, ReportKind } from '@twin/core';
-import { Badge, Button, Input, Select, Modal, EMPTY, cn, Td} from '../../components/ui';
+import { Badge, Button, Input, Select, Modal, EMPTY, cn, Td, Th, TableCard, TABLE_ROW } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import { buildReportItems, estimateInput } from '../reportSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -48,39 +48,44 @@ interface ReportPanelProps {
  *
  * 사는 것이 없는 줄(철거·이설)은 단가가 적혀 있어도 비워 둔다 — 판정은 `materialCostOf` 하나다.
  */
+/**
+ * 산출 내역 여덟 열의 폭(%) — 합 100.
+ *
+ * 값이 한 줄에 들어갈 만큼씩 준다: 구분은 가장 긴 배지(「철거(케이블)」 77px), 단가는 가장
+ * 큰 금액(「18,000,000원」), 공량은 「0.250」. 이름·타입·노무는 넘치면 말줄임이다 —
+ * 잘려도 되는 것은 글이고, 잘리면 안 되는 것은 수다.
+ */
+const REPORT_COL_W = [13, 19, 15, 7, 16, 13, 8, 9] as const;
+
 function ReportRow({ item, laborName }: { item: ReportItem; laborName: (code: string | null) => string | null }) {
   const material = materialCostOf(item);
   const buys = item.kind === 'asset-install' || item.kind === 'cable-install';
   return (
-    <tr className="border-b border-line last:border-0">
-      <Td className="py-1.5 pr-3 align-middle">
+    /* 줄 높이는 **표가 정한다**(`TABLE_ROW`, 28px) — 예전에는 이 표만 `<tr>` 을 손으로
+       짜고 칸마다 `py-1.5` 를 얹어 같은 앱의 다른 표보다 줄이 두꺼웠다(§1.5). */
+    <tr className={TABLE_ROW}>
+      <Td>
         <Badge status={KIND_STATUS[item.kind]}>{KIND_LABEL[item.kind]}</Badge>
       </Td>
-      <Td className="py-1.5 pr-3 align-middle">
-        <span className="text-sm text-content">{item.name}</span>
-        {item.note && (
-          <span className="ml-1.5 text-xs text-warning">{item.note}</span>
-        )}
+      {/* 이름은 **잘린다**(줄바꿈하지 않는다) — 「UPS #1」이 UPS/#1 두 줄로 쪼개지면
+          줄 높이가 그 줄만 두 배가 된다(§1.7-g). */}
+      <Td className="truncate text-content">
+        {item.name}
+        {item.note && <span className="ml-1.5 text-xs text-warning">{item.note}</span>}
       </Td>
-      <Td className="py-1.5 pr-3 align-middle text-sm text-content-muted">{item.typeName}</Td>
-      <Td align="right" className="py-1.5 pr-3 align-middle text-sm text-content ">
+      <Td className="truncate text-content-muted">{item.typeName}</Td>
+      <Td align="right" className="text-content">
         {item.qty}{item.unit}
       </Td>
       {/* 단가는 **적혀 있으면 늘 보인다** — 철거 줄에서도, 그것이 그 물건의 값이다. */}
-      <Td align="right" className="py-1.5 pr-3 align-middle text-sm text-content-muted ">
+      <Td align="right" className="text-content-muted">
         {item.unitPrice == null ? EMPTY : won(item.unitPrice)}
       </Td>
-      <Td align="right" className="py-1.5 pr-3 align-middle text-sm text-content ">
-        {buys ? won(material) : EMPTY}
-      </Td>
+      <Td align="right" className="text-content">{buys ? won(material) : EMPTY}</Td>
       {/* 산출 내역에 서는 것은 **직종 이름**이다 — 저장된 것은 코드이고, 이름은 적용 중인
           노임단가 판에서 읽는다(판을 갈면 이름도 따라 바뀐다). */}
-      <Td className="py-1.5 pr-3 align-middle text-sm text-content-muted">
-        {laborName(item.laborCode) ?? EMPTY}
-      </Td>
-      <Td align="right" className="py-1.5 align-middle text-sm text-content ">
-        {item.manDays.toFixed(3)}
-      </Td>
+      <Td className="truncate text-content-muted">{laborName(item.laborCode) ?? EMPTY}</Td>
+      <Td align="right" className="text-content">{item.manDays.toFixed(3)}</Td>
     </tr>
   );
 }
@@ -124,7 +129,7 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
       onClose={onClose}
       title="산출 내역 — 공량 미리보기"
       footer={footer}
-      size={empty ? 'md' : 'xl'}
+      size={empty ? 'md' : '2xl'}
     >
       {empty ? (
         <p className="text-sm text-content-muted">산출할 변경이 없습니다.</p>
@@ -132,17 +137,20 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
           {/* 항목 — 길면 여기만 구른다. 머리줄은 붙어 있어 무슨 열인지 잃지 않는다. */}
           <div className={cn(COLUMN_H, 'overflow-auto')}>
-            <table className="w-full text-left">
-              <thead className="sticky top-0 z-10 bg-surface">
-                <tr className="border-b border-line">
-                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">구분</th>
-                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">이름</th>
-                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">타입/그룹</th>
-                  <th className="bg-surface pb-1.5 pr-3 text-right text-xs text-content-muted font-medium">수량</th>
-                  <th className="bg-surface pb-1.5 pr-3 text-right text-xs text-content-muted font-medium">단가</th>
-                  <th className="bg-surface pb-1.5 pr-3 text-right text-xs text-content-muted font-medium">자재비</th>
-                  <th className="bg-surface pb-1.5 pr-3 text-xs text-content-muted font-medium">노무</th>
-                  <th className="bg-surface pb-1.5 text-xs text-content-muted font-medium text-right">공량(인)</th>
+            {/* 머리글도 **앱의 것**을 쓴다(`Th`) — 예전에는 여덟 칸을 손으로 짜서 다른 표와
+                글자 굵기·여백이 달랐다. 열 폭은 `TableCard` 가 정한다(합 100). */}
+            <TableCard widths={REPORT_COL_W}>
+              <thead>
+                <tr className="sticky top-0 z-sticky border-b border-line">
+                  <Th>구분</Th>
+                  <Th>이름</Th>
+                  <Th>타입/그룹</Th>
+                  <Th align="right">수량</Th>
+                  <Th align="right">단가</Th>
+                  <Th align="right">자재비</Th>
+                  <Th>노무</Th>
+                  {/* 단위는 머리글 **아래**에 — 「공량(인)」 한 덩어리는 값보다 넓어 칸을 넘겼다. */}
+                  <Th align="right" unit="인">공량</Th>
                 </tr>
               </thead>
               <tbody>
@@ -150,7 +158,7 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
                   <ReportRow key={`${item.kind}-${item.name}-${i}`} item={item} laborName={laborName} />
                 ))}
               </tbody>
-            </table>
+            </TableCard>
           </div>
 
           {/* 요약 — 공량 합계와 금액. 좁은 화면에서는 표 아래로 내려온다. */}
