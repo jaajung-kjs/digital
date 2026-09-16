@@ -10,7 +10,7 @@
  * 위쪽 드롭다운으로 반을 하나씩 골라 봐야 해서 「이 반이 어디에 매달렸나」는 어디에도 없었다.
  */
 import { useMemo, useState } from 'react';
-import { Th, Tabs, useTabs, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW, Td} from '../../../components/ui';
+import { Th, SegmentedControl, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW, Td} from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -289,7 +289,6 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   /* 이 국에 갈래가 하나뿐이면 나눌 것이 없다 — 탭 셋을 세워 놓고 둘이 늘 비면 군더더기다. */
   const [flow, setFlow] = useState<FlowKey>('all');
-  const flowTabs = useTabs<FlowKey>(flow);
 
 
   /* 무엇이 반인지는 **종류 선언**이 정하고(`types`), 설비 품목의 **내부 배선 선언**이
@@ -347,7 +346,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   /* 갈래가 하나뿐인 국에는 나눌 것이 없다 — 탭 셋을 세워 놓고 둘이 늘 비면 군더더기다. */
   const variantsHere = new Set(nodes.flatMap(({ node }) => node.circuits.map((c) => c.variant ?? null)));
-  const flowTabItems = FLOWS.filter((f) => f.key === 'all' || variantsHere.has(f.key));
+  const flowItems = FLOWS.filter((f) => f.key === 'all' || variantsHere.has(f.key));
 
   /**
    * 이 반의 **모선** — 전압 · 상·선식(극수) · 정격.
@@ -386,8 +385,8 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
         title: '계통에 표시할 전원 설비가 없습니다',
         description: '분전반·UPS·충전기처럼 전원을 나눠 주는 장비를 놓으면 나타납니다.',
       }}
-      filter={flowTabItems.length > 1 ? (
-        <Tabs {...flowTabs.list} items={flowTabItems} value={flow} onChange={setFlow} />
+      filter={flowItems.length > 1 ? (
+        <SegmentedControl aria-label="계통 갈래" items={flowItems} value={flow} onChange={setFlow} />
       ) : undefined}
       search={{
         'aria-label': '회로 검색',

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ViewCard } from './ViewCard';
+import { TableSearch } from './TableSearch';
+import { SegmentedControl } from './SegmentedControl';
 
 describe('ViewCard — 머리 띠', () => {
   /* 도구가 몇 개든 검색은 **오른쪽 끝**이다 — 네 탭에서 검색의 x 가 같아야 눈이 매번
@@ -101,5 +103,75 @@ describe('ViewCard — 선택과 바닥', () => {
     expect(screen.queryByTestId('상태줄')).toBeNull();
     rerender(<ViewCard status={<div data-testid="상태줄" />}>본문</ViewCard>);
     expect(screen.getByTestId('상태줄')).not.toBeNull();
+  });
+});
+
+describe('TableSearch — 입력칸은 흔들리지 않는다', () => {
+  /**
+   * 건수는 입력칸 **왼쪽**에 선다.
+   *
+   * 머리 띠의 오른쪽 끝은 `ml-auto` 로 밀려 있다. 건수가 입력칸 **오른쪽**에 있으면,
+   * 글자를 치는 순간 「39 / 78건」이 나타나면서 입력칸이 그 폭만큼 왼쪽으로 튄다 —
+   * 치는 도중에 칸이 움직이는 화면이 된다.
+   */
+  it('건수는 입력칸 앞에 선다', () => {
+    const { container } = render(
+      <TableSearch aria-label="현황 검색" placeholder="검색" value="가" onChange={() => {}} shown={3} total={9} />,
+    );
+    const row = container.firstChild as HTMLElement;
+    const kids = Array.from(row.children) as HTMLElement[];
+    expect(kids[0]?.textContent).toBe('3 / 9건');
+    expect(kids[1]?.querySelector('input')).not.toBeNull();
+  });
+
+  /* 안 거를 때의 수는 화면이 이미 말하고 있는 것을 되풀이할 뿐이다. */
+  it('거르지 않을 때는 건수를 적지 않는다', () => {
+    const { container } = render(
+      <TableSearch aria-label="현황 검색" placeholder="검색" value="" onChange={() => {}} shown={9} total={9} />,
+    );
+    expect(container.textContent).not.toContain('건');
+  });
+});
+
+describe('SegmentedControl — 갈래는 탭이 아니다', () => {
+  /**
+   * 탭은 **다른 내용**으로 건너가는 것이고 갈래는 **같은 내용을 거르는** 것이다.
+   * 생김새를 탭과 같이 두면 위계가 안 읽힌다 — 계통의 `전체·교류·직류` 가 뷰 탭과
+   * 똑같은 사각 탭이었고, 도구바 안에 있느라 상위 탭보다 14px 더 높기까지 했다.
+   */
+  it('radiogroup 이다 — 고른 하나만 checked', () => {
+    render(
+      <SegmentedControl
+        aria-label="갈래"
+        items={[{ key: 'all', label: '전체' }, { key: 'AC', label: '교류' }]}
+        value="AC"
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole('radiogroup', { name: '갈래' })).not.toBeNull();
+    expect(screen.getByRole('radio', { name: '교류' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '전체' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('누르면 그 갈래를 알린다', () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        aria-label="갈래"
+        items={[{ key: 'all', label: '전체' }, { key: 'AC', label: '교류' }]}
+        value="all"
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('radio', { name: '교류' }));
+    expect(onChange).toHaveBeenCalledWith('AC');
+  });
+
+  /* 머리 띠의 다른 컨트롤과 같은 높이 — 24px(`controlSize.ts` 의 `sm`). */
+  it('컨트롤 높이 규격을 따른다', () => {
+    render(
+      <SegmentedControl aria-label="갈래" items={[{ key: 'all', label: '전체' }]} value="all" onChange={() => {}} />,
+    );
+    expect(screen.getByRole('radio', { name: '전체' })).toHaveClass('h-6');
   });
 });

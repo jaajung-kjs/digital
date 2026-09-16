@@ -449,6 +449,18 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 ```
 비활성 탭도 테두리 자리를 차지하므로 탭을 골라도 줄이 밀리지 않는다 — 직접 만들면 이 실수를 반복한다.
 
+### 화면의 판(네 탭·상세 패널·관리 표) → `ViewCard`
+```tsx
+<ViewCard tools={<Select …/>} actions={<TableSearch …/>} body="scroll">…</ViewCard>
+```
+회색 머리 띠(=도구바) + 본문 + 선택적 바닥 띠. 좌측 기준선·도구바 높이·스크롤 소유권이 여기 한 곳에서 정해진다 — 자세한 것은 **§3.1**.
+
+### 상호배타 갈래(전체·교류·직류 등) → `SegmentedControl`
+```tsx
+<SegmentedControl aria-label="계통 갈래" items={FLOWS} value={flow} onChange={setFlow} />
+```
+**탭으로 만들지 않는다.** 탭은 다른 내용으로 건너가는 것이고 갈래는 같은 내용을 거르는 것이다 — 둘이 같은 모양이면 위계가 안 읽힌다.
+
 ### 카드 안 섹션 제목 → `DetailCardHeader`
 `<p className="text-xs font-semibold text-content-muted">속성</p>` 처럼 직접 쓰지 않는다 — 같은 패널 안에서 제목 크기가 갈린다.
 우측 버튼(업로드·추가·지우기)은 `actions`, 수정/삭제는 `onEdit`/`onDelete`.
@@ -813,6 +825,7 @@ CAD·GIS 업무 도구는 좌표·축척·스냅·선택 수를 화면 아래 �
 
 ## 3.7 탭은 **사각 탭**이고, 묶음 머리줄은 앱에 한 벌이다
 
+- **갈래는 탭이 아니다**(`SegmentedControl`). 탭은 다른 내용으로 건너가는 것이고 갈래는 같은 내용을 거르는 것이다 — 계통의 `전체·교류·직류` 가 뷰 탭과 똑같은 사각 탭이라 위계가 안 읽혔고, 도구바 안에 서느라 상위 탭보다 14px 더 높았다.
 - **탭**(`Tabs`): 고른 것만 흰 바탕으로 솟고 **위에 파란 선**이 그어진다. 밑줄만으로는 회색 띠 위에서 잘 안 읽힌다. 테두리·높이는 활성 여부와 무관하게 같아 골라도 줄이 밀리지 않는다. 바닥선은 `Tabs` 가 긋는다 — 감싸는 쪽에서 또 그으면 2px 로 보인다.
 - **묶음 머리줄**(`RegisterLayout` 의 `sections`): 회색 띠 + 남색 세로 바(`bg-appbar`) + 제목 + **오른쪽 끝** 메타. 선번장과 계통이 이 한 벌을 쓴다 — 표와 붙어 한 덩어리로 읽힌다.
 

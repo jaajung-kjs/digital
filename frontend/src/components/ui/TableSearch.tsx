@@ -30,6 +30,14 @@ export function TableSearch({ value, onChange, placeholder, shown, total, ...res
   const filtering = value.trim().length > 0;
   return (
     <div className="flex shrink-0 items-center gap-2">
+      {/* 건수는 입력칸 **앞**에 선다 — 머리 띠의 오른쪽 끝은 `ml-auto` 로 밀려 있어서,
+          건수를 뒤에 두면 글자를 치는 순간 그것이 나타나며 입력칸이 왼쪽으로 튄다.
+          줄바꿈되지 않게: 좁은 칸에서 "48" / "건" 으로 갈라져 두 줄이 됐다. */}
+      {filtering && (
+        <span className="whitespace-nowrap text-xs text-content-muted">
+          {shown} / {total}건
+        </span>
+      )}
       <div className="w-64">
         <Input
           size="sm"
@@ -39,12 +47,6 @@ export function TableSearch({ value, onChange, placeholder, shown, total, ...res
           onChange={(e) => onChange(e.currentTarget.value)}
         />
       </div>
-      {/* 건수는 줄바꿈되지 않게 — 좁은 칸에서 "48" / "건" 으로 갈라져 두 줄이 됐다. */}
-      {filtering && (
-        <span className="whitespace-nowrap text-xs text-content-muted">
-          {shown} / {total}건
-        </span>
-      )}
     </div>
   );
 }

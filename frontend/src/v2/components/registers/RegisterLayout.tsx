@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { EmptyState, Select, SelectionScope, TableCard, TableSearch, useScrollSelectedIntoView, DetailCardHeader } from '../../../components/ui';
+import { EmptyState, Select, TableCard, TableSearch, useScrollSelectedIntoView, DetailCardHeader, ViewCard } from '../../../components/ui';
 import type { MediumContainerPick } from '../../useMediumContainer';
 
 export interface RegisterLayoutProps {
@@ -13,7 +13,8 @@ export interface RegisterLayoutProps {
   /** 볼 설비가 하나도 없을 때 — 무엇을 만들면 나타나는지까지 적는다. */
   empty: { title: string; description: ReactNode };
   /**
-   * 검색 앞에 서는 **거르개** — 같은 자료를 갈래로 나눠 보는 자리다.
+   * 머리 띠 왼쪽, 설비 고르개 다음에 서는 **거르개** — 같은 자료를 갈래로 나눠 보는 자리다.
+   * (검색은 머리 띠 오른쪽 끝에 못 박혀 있다 — §3.1.)
    *
    * 현업 자료가 이미 그렇게 나뉘어 있다: 강원본부 통신실 전원계통도는 같은 배치도 위에
    * 「전원계통도(전체)·AC계통도·DC계통도」 **세 장**을 따로 그려 두었다. 한 장에 다 그리면
@@ -104,75 +105,75 @@ export function RegisterLayout({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center gap-3 border-b border-line px-3 py-2">
-        {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
-            멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
-        {picker && (
-        <div className="w-64 shrink-0">
-          <Select
-            aria-label="설비 선택"
-            value={picker.activeKey}
-            size="sm"
-            onChange={(e) => picker.setActiveKey(e.currentTarget.value)}
-          >
-            {picker.options.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
+    /* 껍데기는 **판이 쥔다**(`ViewCard`, §3.1) — 도구바 높이·좌측 기준선·스크롤 소유권이
+       거기 한 곳에서 정해진다. 예전에는 이 파일이 제 도구바를 그렸고(`px-3 py-2`), 그래서
+       현황(16px)·평면도(8px)와 좌측 기준선이 4~8px 씩 어긋났다. */
+    <ViewCard
+      body="scroll"
+      onClearSelection={onClearSelection}
+      bodyRef={scrollRef}
+      tools={
+        <>
+          {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
+              멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
+          {picker && (
+            <div className="w-64 shrink-0">
+              <Select
+                aria-label="설비 선택"
+                value={picker.activeKey}
+                size="sm"
+                onChange={(e) => picker.setActiveKey(e.currentTarget.value)}
+              >
+                {picker.options.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+          {filter}
+        </>
+      }
+      actions={<TableSearch {...search} />}
+    >
+      {sections ? (
+        <div className="flex flex-col gap-4">
+          {sections.map((section) => (
+            <section key={section.key} className="flex flex-col">
+              {/* 묶음 머리줄 — **선번장과 계통이 한 벌을 쓴다**: 회색 띠 + 남색 세로 바 +
+                  제목(거슬러 온 길은 흐리게) + 오른쪽 끝 메타. 예전에는 흰 바탕에 굵은
+                  글자뿐이라 어디서 묶음이 시작되는지가 표와 섞여 읽혔다. */}
+              <DetailCardHeader
+                className="border border-b-0 border-line-strong"
+                title={
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span aria-hidden className="h-[14px] w-[3px] shrink-0 bg-appbar" />
+                    <span className="min-w-0 truncate text-sm font-semibold text-content">{section.title}</span>
+                  </span>
+                }
+                actions={section.meta}
+              />
+              <TableCard widths={widths}>
+                <thead>
+                  {/* 묶음마다 제 머리글이 제 표 위에 붙어 따라온다 — 96행을 내려가도
+                      지금 보는 칸이 무슨 열인지 잃지 않는다. */}
+                  <tr className="sticky top-0 z-sticky border-b border-line">{head}</tr>
+                </thead>
+                <tbody>{section.rows}</tbody>
+              </TableCard>
+            </section>
+          ))}
         </div>
-        )}
-        {filter}
-        <TableSearch {...search} />
-      </div>
-
-      {/* 여백은 **스크롤되는 안쪽**에 준다 — 스크롤 상자에 직접 주면 고정 머리글이 그
-          여백만큼 내려가 붙고, 그 틈으로 지나가는 행이 비친다(§1.7-b). */}
-      {/* 표가 **선택의 주인**이다 — 여백을 누르면 풀린다. 예전에는 이 상자에 직접
-          `e.target === e.currentTarget` 을 걸어, 안쪽 여백(패딩·표 아래)은 안 걸렸다. */}
-      <SelectionScope onClear={() => onClearSelection?.()} className="min-h-0 flex-1 overflow-auto">
-        <div className="p-4" ref={scrollRef}>
-        {sections ? (
-          <div className="flex flex-col gap-4">
-            {sections.map((section) => (
-              <section key={section.key} className="flex flex-col">
-                {/* 묶음 머리줄 — **선번장과 계통이 한 벌을 쓴다**: 회색 띠 + 남색 세로 바 +
-                    제목(거슬러 온 길은 흐리게) + 오른쪽 끝 메타. 예전에는 흰 바탕에 굵은
-                    글자뿐이라 어디서 묶음이 시작되는지가 표와 섞여 읽혔다. */}
-                <DetailCardHeader
-                  className="border border-b-0 border-line-strong"
-                  title={
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span aria-hidden className="h-[14px] w-[3px] shrink-0 bg-appbar" />
-                      <span className="min-w-0 truncate text-sm font-semibold text-content">{section.title}</span>
-                    </span>
-                  }
-                  actions={section.meta}
-                />
-                <TableCard widths={widths}>
-                  <thead>
-                    {/* 묶음마다 제 머리글이 제 표 위에 붙어 따라온다 — 96행을 내려가도
-                        지금 보는 칸이 무슨 열인지 잃지 않는다. */}
-                    <tr className="sticky top-0 z-sticky border-b border-line">{head}</tr>
-                  </thead>
-                  <tbody>{section.rows}</tbody>
-                </TableCard>
-              </section>
-            ))}
-          </div>
-        ) : (
-          <TableCard widths={widths}>
-            <thead>
-              <tr className="sticky top-0 z-sticky border-b border-line">{head}</tr>
-            </thead>
-            <tbody>{children}</tbody>
-          </TableCard>
-        )}
-        {note}
-        </div>
-      </SelectionScope>
-    </div>
+      ) : (
+        <TableCard widths={widths}>
+          <thead>
+            <tr className="sticky top-0 z-sticky border-b border-line">{head}</tr>
+          </thead>
+          <tbody>{children}</tbody>
+        </TableCard>
+      )}
+      {note}
+    </ViewCard>
   );
 }
