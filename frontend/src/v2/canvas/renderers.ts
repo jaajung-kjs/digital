@@ -21,23 +21,6 @@ import { BUNDLE_GAP_PX, cableLineWidth } from './cableStyle';
  */
 const LABEL_PX = 12;
 const SUB_PX = 10;
-/** 주기가 들어갈 최소 크기(화면 px) — 이보다 작으면 적지 않는다. 잘린 글자보다 없는 편이 낫다. */
-const LABEL_MIN_BOX_PX = 44;
-const SUB_MIN_BOX_PX = 76;
-
-/** 주어진 폭에 들어갈 만큼만 남기고 … 를 붙인다(현재 ctx.font 기준). */
-export function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
-  if (ctx.measureText(text).width <= maxWidth) return text;
-  let lo = 0;
-  let hi = text.length;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (ctx.measureText(`${text.slice(0, mid)}…`).width <= maxWidth) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo > 0 ? `${text.slice(0, lo)}…` : '…';
-}
-
 /**
  * 정면이 보는 쪽 → 굵게 그을 변. 키는 선언된 값 그대로다(`COMMON_ASSET_FIELDS.facing`).
  *
@@ -86,31 +69,76 @@ function renderAssetItem(
     ctx.stroke();
   }
 
-  /* 주기는 **상자 왼쪽 위**에 붙는다 — 가운데에 두면 글자가 상자의 내용물처럼 보인다.
-     도면의 주기가 물건 옆에 붙는 것과 같은 자리다. */
-  const boxW = w * scale;
-  const boxH = h * scale;
-  if (boxW >= LABEL_MIN_BOX_PX && boxH >= LABEL_MIN_BOX_PX) {
-    const pad = px(6);
-    const maxWidth = w - pad * 2;
-    ctx.fillStyle = ELEMENT_COLORS.rack.text;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.font = `600 ${px(LABEL_PX)}px sans-serif`;
-    ctx.fillText(ellipsize(ctx, item.name, maxWidth), x + pad, y + pad);
-    /* 실제 치수 — 「이 그림은 실측이다」를 말하는 한 줄. 좁으면 접는다. */
-    if (boxW >= SUB_MIN_BOX_PX && boxH >= SUB_MIN_BOX_PX) {
-      ctx.font = `${px(SUB_PX)}px ui-monospace, Menlo, monospace`;
-      ctx.globalAlpha = 0.62;
-      ctx.fillText(ellipsize(ctx, `${mm(w)} × ${mm(h)}`, maxWidth), x + pad, y + pad + px(LABEL_PX + 3));
-      ctx.globalAlpha = 1;
-    }
-  }
-
   /* **고른 것에는 치수선이 붙는다.** 「이 그림은 실측이다」를 말하는 도면의 장치다 —
      보조선·화살표·숫자 한 벌. 늘 그리면 도면이 숫자로 뒤덮이므로 고른 것에만 붙인다. */
   if (isSelected) renderDimensions(ctx, item, px);
 
+  ctx.restore();
+}
+
+/**
+ * 도면 주기 — **이름은 상자 밖으로, 지시선으로 잇는다.**
+ *
+ * 한때 이름을 상자 안에 적었다. 그러면 두 가지가 생긴다: 상자가 좁아지는 순간 글자가
+ * `통신용 충전…` 으로 잘리다 아예 사라지고, 배경에 건축 도면이 깔리면 글자가 벽·치수선과
+ * 겹쳐 읽히지 않는다. 무엇보다 **글자가 상자를 채우면 상자가 「물건의 자리」가 아니라
+ * 「글자를 담는 그릇」으로 읽힌다.**
+ *
+ * 도면은 반대로 한다: 물건은 실제 치수로만 그리고, 이름은 **밖에 적고 선으로 가리킨다**.
+ * 그러면 배율과 무관하게 늘 읽히고, 남은 사각형은 오직 물건이 차지한 자리가 된다.
+ *
+ * 방향은 **늘 오른쪽 위**로 고정이다. 「비어 있는 쪽으로 피한다」 같은 규칙을 두면 아무
+ * 상관없는 설비를 하나 옮길 때마다 온 도면의 주기가 춤춘다 — 인출선에서 이미 겪은 일이다.
+ */
+function renderLeaderLabel(
+  ctx: CanvasRenderingContext2D,
+  item: PlacedAsset,
+  px: (n: number) => number,
+): void {
+  const { x, y, width: w } = item;
+  const sx = x + w;
+  const sy = y;
+  const mx = sx + px(16);
+  const my = sy - px(16);
+  const ex = mx + px(10);
+
+  ctx.save();
+  ctx.strokeStyle = ELEMENT_COLORS.rack.stroke;
+  ctx.fillStyle = ELEMENT_COLORS.rack.text;
+  ctx.lineWidth = px(1);
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(mx, my);
+  ctx.lineTo(ex, my);
+  ctx.stroke();
+  /* 지시선이 가리키는 끝에 점을 찍는다 — 어느 상자의 주기인지 한눈에 붙는다. */
+  ctx.beginPath();
+  ctx.arc(sx, sy, px(1.8), 0, Math.PI * 2);
+  ctx.fill();
+
+  /**
+   * 이름은 지시선 **위**, 치수는 **아래**(도면 관례 — 주기는 선을 걸치고 앉는다).
+   *
+   * **글자에 흰 테를 두른다.** 주기는 상자 밖에 앉으므로 이웃의 선·주기와 겹칠 수밖에 없다.
+   * 자리를 피해 다니게 만들면 아무 상관없는 설비 하나를 옮길 때마다 온 도면의 주기가 춤춘다
+   * — 인출선에서 이미 겪은 일이다. CAD·GIS 는 대신 **글자 둘레를 바탕색으로 훑어** 겹쳐도
+   * 읽히게 한다(text halo). 자리는 고정, 읽힘은 테가 맡는다.
+   */
+  const halo = (text: string, tx: number, ty: number) => {
+    ctx.strokeStyle = ELEMENT_COLORS.plan.paper;
+    ctx.lineWidth = px(3);
+    ctx.lineJoin = 'round';
+    ctx.strokeText(text, tx, ty);
+    ctx.fillText(text, tx, ty);
+  };
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.font = `600 ${px(LABEL_PX)}px sans-serif`;
+  halo(item.name, ex + px(4), my - px(3));
+  ctx.textBaseline = 'top';
+  ctx.font = `${px(SUB_PX)}px ui-monospace, Menlo, monospace`;
+  ctx.globalAlpha = 0.72;
+  halo(`${mm(item.width)} × ${mm(item.height)}`, ex + px(4), my + px(2));
   ctx.restore();
 }
 
@@ -198,18 +226,22 @@ export function renderPlacedAssets(
   /** world → 화면 배율(px/cm) — 선 굵기·글자 크기를 화면 기준으로 고정한다. */
   scale = 1,
 ): void {
+  const withPreview = (asset: PlacedAsset): PlacedAsset =>
+    preview && asset.id === preview.id
+      ? { ...asset, x: preview.x, y: preview.y,
+          width: preview.width ?? asset.width, height: preview.height ?? asset.height }
+      : asset;
+
+  /* **두 번 돈다: 상자를 다 그린 뒤에 주기를 그린다.**
+     한 번에 돌면 뒤에 그려지는 상자가 앞 상자의 주기를 덮는다 — 주기는 상자 밖에 앉으므로
+     이웃과 겹칠 수밖에 없고, 도면에서 주기는 늘 물건 위에 얹힌다. */
   for (const asset of assets) {
-    let item = asset;
-    if (preview && asset.id === preview.id) {
-      item = {
-        ...asset,
-        x: preview.x,
-        y: preview.y,
-        width: preview.width ?? asset.width,
-        height: preview.height ?? asset.height,
-      };
-    }
+    const item = withPreview(asset);
     renderAssetItem(ctx, item, item.id === selectedId, scale);
+  }
+  const px = (n: number) => n / Math.max(scale, 0.0001);
+  for (const asset of assets) {
+    renderLeaderLabel(ctx, withPreview(asset), px);
   }
 }
 

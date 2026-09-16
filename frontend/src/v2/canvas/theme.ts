@@ -10,6 +10,7 @@
  * 지금은 그 길이 없어서 두지 않는다(부르는 데 없는 문은 시간이 지나면 거짓말이 된다).
  */
 export type CanvasToken =
+  | 'canvas-paper'
   | 'canvas-grid-major' | 'canvas-grid-minor' | 'canvas-origin'
   | 'canvas-select' | 'canvas-select-fill' | 'canvas-select-point'
   | 'plan-door-fill' | 'plan-door-stroke'

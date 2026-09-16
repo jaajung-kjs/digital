@@ -77,8 +77,11 @@
      `canvas/theme.ts` 가 이 값을 읽어 캔버스에 넘긴다 — 고칠 자리는 여기 하나다. */
   /* 격자는 **물러나 있어야** 한다 — 도면의 주인공은 벽과 설비다. 예전 값(#c0c0c0/#e8e8e8)은
      10cm 간격과 겹쳐 회색 면처럼 깔렸다. */
-  --canvas-grid-major:#dfe2e5;   /* 1 m */
-  --canvas-grid-minor:#eff1f2;   /* 50 cm */
+  /* 도면의 바탕 — 주기의 흰 테(halo)가 이 색으로 글자 둘레를 훑는다. 캔버스 바탕과 같아야
+     테가 눈에 띄지 않는다. */
+  --canvas-paper:#ffffff;
+  --canvas-grid-major:#dfe2e5;   /* 타일 5장 = 3 m */
+  --canvas-grid-minor:#eff1f2;   /* 타일 1장 = 60 cm */
   --canvas-origin:rgb(var(--lamp-danger-rgb));
   --canvas-select:rgb(var(--primary-rgb));
   --canvas-select-fill:#d8e3ef;

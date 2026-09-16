@@ -28,6 +28,10 @@ export const ELEMENT_COLORS = {
     get fill() { return canvasColor('plan-window-fill'); },
     get stroke() { return canvasColor('plan-window-stroke'); },
   },
+  /** 도면의 바탕(종이) — 주기의 흰 테가 이 색으로 훑는다. */
+  plan: {
+    get paper() { return canvasColor('canvas-paper'); },
+  },
   rack: {
     get fill() { return canvasColor('plan-rack-fill'); },
     get stroke() { return canvasColor('plan-rack-stroke'); },
