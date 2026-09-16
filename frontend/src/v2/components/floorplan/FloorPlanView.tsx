@@ -19,8 +19,7 @@ import { backingSize } from '../../canvas/backingStore';
 import { cableLineWidth } from '../../canvas/cableStyle';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { renderGrid } from '../../canvas/gridRenderer';
-import { PlanSheetMarks } from './PlanSheetMarks';
-import { BackgroundLayerMenu } from './BackgroundLayerMenu';
+import { PlanRail } from './PlanRail';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
 import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
 import { insertionAt, insertPathPoint, movePathPoint, removePathPoint } from '../../canvas/cablePath';
@@ -53,7 +52,13 @@ import type { AssetSearchResult } from '../../api';
 import { expandToPlacedAncestors } from '../../traceSelectors';
 import type { TraceResult } from '../../traceSelectors';
 
-const MAJOR_GRID = 100;
+/**
+ * 주 격자 — **타일 다섯 장(3 m)**.
+ *
+ * 보조 격자가 액세스플로어 타일 한 장(60cm)이므로 주 격자도 그 배수여야 한다. 1 m 로 두면
+ * 60 의 배수가 아니라 두 격자가 서로 어긋나 지나가고, 그 어긋남이 도면을 흐리게 만든다.
+ */
+const MAJOR_GRID = 300;
 /** 케이블 히트 테스트 임계값 (screen px / scale) */
 const CABLE_HIT_THRESHOLD = 8;
 
@@ -119,6 +124,15 @@ interface LatestRenderInputs {
   viewport: Viewport;
   placedAssets: PlacedAsset[];
   hiddenLayers: ReadonlySet<string>;
+  /**
+   * 케이블 종류 → 색.
+   *
+   * **클로저에서 읽으면 안 된다.** `scheduleRender` 는 `rafPending` 으로 중복 예약을 막는데,
+   * 같은 프레임에 렌더가 두 번 일어나면 두 번째 것이 버려지고 **첫 번째 렌더의 낡은 클로저**가
+   * 그려진다. 카탈로그가 그 틈에 도착하면 색 지도가 빈 채로 굳어, 모든 케이블이 갈래 없이
+   * 회색(`#888888`)으로 남았다 — 배율을 한 번 건드려야 제 색이 돌아왔다(실측).
+   */
+  categoryColorMap: ReadonlyMap<string, string>;
   /** **고른 것** — 지우기·크기 조절이 대상으로 삼는 그것(장비일 수 있다). */
   selectedAssetId: string | null;
   /** **켜는 것** — 고른 것을 품은 설비(도면에 서는 것은 설비뿐이다). 그리기 전용. */
@@ -313,12 +327,14 @@ export function FloorPlanView({
   // rafPending 게이팅으로 인해 여러 렌더에 걸쳐 재사용될 수 있으므로) stale 값을
   // 그릴 위험이 있기 때문.
   const latest = useRef<LatestRenderInputs>({
-    viewport, placedAssets, hiddenLayers, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
+    viewport, placedAssets, hiddenLayers, categoryColorMap: new Map<string, string>(), selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
     firstAnchorId, selectedCableId: cableState.selectedCableId,
     placingRect: null,
   });
   latest.current = {
+    /* 색 지도는 **아래에서** 얹는다(선언이 여기보다 뒤다) — 이전 값을 잃지 않게 펼쳐 둔다. */
+    ...latest.current,
     viewport, placedAssets, hiddenLayers, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
     firstAnchorId, selectedCableId: cableState.selectedCableId,
@@ -495,6 +511,9 @@ export function FloorPlanView({
     }
     return map;
   }, [cableGroups]);
+  /* 미러는 위에서 통째로 갱신되지만 이 값은 **여기서야 만들어진다** — 선언 순서를 바꾸는
+     대신 만들어진 자리에서 얹는다(같은 객체이므로 rAF 가 늘 최신을 읽는다). */
+  latest.current.categoryColorMap = categoryColorMap;
 
   // selectedCategoryId → group key (medium 필터용)
   const selectedGroupKey = useMemo(() => {
@@ -615,6 +634,8 @@ export function FloorPlanView({
             )
           : latest.current.effectiveCables;
         const segs = cableSegments(cablesForRender, assetsForRender, floorId, latest.current.floors);
+        /* 색은 **미러에서** 읽는다 — 클로저를 읽으면 낡은 프레임의 빈 지도를 그린다(위 주석). */
+        const colorOf = (id: string | null) => latest.current.categoryColorMap.get(id ?? '') ?? '#888888';
         if (traceRes) {
           // 추적 결과 있음: 추적 케이블은 선택 스타일, 나머지는 alpha 0.3
           const tracedSegs = segs.filter((s) => traceRes.cableIds.has(s.id));
@@ -626,7 +647,7 @@ export function FloorPlanView({
             id: seg.id,
             categoryId: seg.categoryId ?? null,
             points: seg.points,
-            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            color: colorOf(seg.categoryId),
             selected: false,
             outgoingLabel: seg.outgoing?.label,
           })), scale);
@@ -636,7 +657,7 @@ export function FloorPlanView({
             id: seg.id,
             categoryId: seg.categoryId ?? null,
             points: seg.points,
-            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            color: colorOf(seg.categoryId),
             selected: true,
             outgoingLabel: seg.outgoing?.label,
           })), scale);
@@ -645,7 +666,7 @@ export function FloorPlanView({
             id: seg.id,
             categoryId: seg.categoryId ?? null,
             points: seg.points,
-            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            color: colorOf(seg.categoryId),
             selected: seg.id === latest.current.selectedCableId,
             outgoingLabel: seg.outgoing?.label,
           }));
@@ -1585,25 +1606,6 @@ export function FloorPlanView({
           <Plus size={14} />
         </IconButton>
 
-        {activeFloor?.backgroundDrawing && (
-          /* 레이어는 **관리자만의 것이 아니다** — 보는 사람도 주기 레이어를 꺼야 설비가 보인다. */
-          <BackgroundLayerMenu
-            drawing={activeFloor.backgroundDrawing}
-            hidden={hiddenLayers}
-            onToggle={(name) => setHiddenLayers((prev) => {
-              const next = new Set(prev);
-              if (next.has(name)) next.delete(name); else next.add(name);
-              return next;
-            })}
-            onShowAll={() => setHiddenLayers(new Set())}
-            opacity={activeFloor.backgroundOpacity ?? 0.4}
-            onOpacity={(v) => {
-              if (activeFloorId == null) return;
-              useV2WorkingCopy.getState().stageFloorUpdate(activeFloorId, { backgroundOpacity: v });
-            }}
-          />
-        )}
-
         {isAdmin && (
           <BackgroundImportControls
             floorId={activeFloorId}
@@ -1857,9 +1859,26 @@ export function FloorPlanView({
       </div>
 
 
-        {/* 도면의 주기 — 축척 바와 범례. 판 위에 얹히되 손짓은 통과시킨다. */}
-        <PlanSheetMarks scale={viewport.zoom / 100} legend={legendEntries} />
       </div>
+
+      {/* 도면 정보는 **트리 아래**에 선다 — 판 위에 떠 있으면 판을 가리고, 있는 줄도 모른다. */}
+      <PlanRail
+        scale={viewport.zoom / 100}
+        legend={legendEntries}
+        drawing={activeFloor?.backgroundDrawing ?? null}
+        hidden={hiddenLayers}
+        onToggle={(name) => setHiddenLayers((prev) => {
+          const next = new Set(prev);
+          if (next.has(name)) next.delete(name); else next.add(name);
+          return next;
+        })}
+        onShowAll={() => setHiddenLayers(new Set())}
+        opacity={activeFloor?.backgroundOpacity ?? 0.4}
+        onOpacity={(v) => {
+          if (activeFloorId == null) return;
+          useV2WorkingCopy.getState().stageFloorUpdate(activeFloorId, { backgroundOpacity: v });
+        }}
+      />
 
       {/* ── 상태표시줄 ──
           CAD 도구가 화면 아래 띠에 좌표·축척·스냅을 상주시키는 자리다. 예전에는 배율
@@ -1870,7 +1889,8 @@ export function FloorPlanView({
             돌리지 않으려는 것이 이 화면이 ref 를 쓰는 애초의 까닭이다. */}
         <StatusItem label="좌표"><span ref={coordRef}>—</span></StatusItem>
         <StatusItem label="스냅">{SNAP_GRID * 10} mm</StatusItem>
-        <StatusItem label="격자">1 m</StatusItem>
+        {/* 격자는 **액세스플로어 타일**이다 — 현장에서 부르는 단위와 화면을 맞춘다. */}
+        <StatusItem label="격자">60 cm (타일)</StatusItem>
         <StatusItem label="설비">{placedAssets.length}</StatusItem>
         <span className="ml-auto flex items-center gap-0.5">
           <IconButton aria-label="축소" size="sm" onClick={() => zoomByButton(1 / ZOOM_STEP)}>

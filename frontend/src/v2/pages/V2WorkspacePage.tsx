@@ -311,8 +311,20 @@ export default function V2WorkspacePage() {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
-        <aside className="w-64 shrink-0 border-r border-line bg-sidebar" data-testid="v2-org-tree">
-          <OrgTreePanel selectedId={selected?.id ?? null} onSelect={handleSelect} />
+        <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar" data-testid="v2-org-tree">
+          <div className="min-h-0 flex-1">
+            <OrgTreePanel selectedId={selected?.id ?? null} onSelect={handleSelect} />
+          </div>
+          {/**
+           * 도면 정보가 앉을 자리 — **평면도일 때만 채워진다**(`FloorPlanView` 가 포털로 넣는다).
+           *
+           * 예전에는 범례·축척이 캔버스 위에 떠 있었는데, 위치 기준 조상이 없어 화면 왼쪽
+           * 아래(곧 이 트리 위)로 떨어졌다. 그리고 떠 있는 것은 **있는 줄도 모른다** —
+           * 레이어를 끄고 켤 수 있다는 사실이 화면 어디에도 안 보였다.
+           *
+           * 도면에 딸린 것은 도면 옆에 선다. 트리는 위, 도면 정보는 아래다.
+           */}
+          <div id="v2-plan-rail" className="shrink-0 empty:hidden" />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
           {shown == null && (
