@@ -38,7 +38,7 @@ import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar } from '../../../components/ui';
+import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar, StatusBar, StatusItem } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorAnchorOf, floorIdOf } from '../../assetTree';
@@ -254,6 +254,8 @@ export function FloorPlanView({
 
   // ── canvas ref ────────────────────────────────────────────────────────────
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  /** 상태표시줄의 좌표 칸 — 손이 움직일 때마다 여기에 **직접** 쓴다(리렌더 없이). */
+  const coordRef = useRef<HTMLSpanElement | null>(null);
   /** 지금 화면의 픽셀 배율 — 뒤판을 이 배로 잡고, 그릴 때 그만큼 되돌린다. */
   const backingScale = useRef(1);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1133,6 +1135,16 @@ export function FloorPlanView({
    * 바뀌었을 때만 다시 그린다(같은 것을 가리키는 동안에는 아무 일도 하지 않는다).
    */
   const onCanvasHover = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    /* **좌표는 늘 살아 있다** — 케이블 도구가 꺼져 있어도, 무엇을 가리키든. 아래의 이른
+       `return` 들보다 먼저 적는다(도구가 꺼져 있을 때 곧장 돌아서던 것이 좌표가 멈춘 까닭).
+       캔버스 1 unit = 1 cm 약속이므로 화면에는 도면의 단위인 **mm** 로 적는다.
+       React 를 돌리지 않고 마디에 직접 쓴다 — 손이 움직일 때마다 리렌더하지 않는다. */
+    if (coordRef.current && canvasRef.current) {
+      const r = canvasRef.current.getBoundingClientRect();
+      const { zoom: z, panX: px, panY: py } = latest.current.viewport;
+      const w = screenToWorld(e.clientX, e.clientY, r, px, py, z);
+      coordRef.current.textContent = `X ${Math.round(w.x * 10).toLocaleString()} · Y ${Math.round(w.y * 10).toLocaleString()}`;
+    }
     if (!connectableIdsRef.current) {
       if (hoveredAssetIdRef.current !== null || cursorWorldRef.current !== null) {
         hoveredAssetIdRef.current = null;
@@ -1791,16 +1803,30 @@ export function FloorPlanView({
           </div>
         )}
 
-        {/* 줌 컨트롤 — 예전에는 배율 표시만 있고 조작은 휠뿐이라,
-            휠이 불편한 환경에서는 확대/축소할 방법이 없었다. */}
-        <FloatingBar className="absolute bottom-2 right-2 z-legend gap-0.5 p-0.5">
+      </div>
+
+
+      </div>
+
+      {/* ── 상태표시줄 ──
+          CAD 도구가 화면 아래 띠에 좌표·축척·스냅을 상주시키는 자리다. 예전에는 배율
+          하나가 캔버스 **위에 떠** 있었고, 커서가 지금 몇 mm 자리인지는 어디에도 없었다.
+          떠 있던 줌 단추도 여기로 내려온다 — 판을 가리지 않는다. */}
+      <StatusBar>
+        {/* 좌표는 **리렌더 없이** 이 마디에 직접 쓴다 — 마우스가 움직일 때마다 React 를
+            돌리지 않으려는 것이 이 화면이 ref 를 쓰는 애초의 까닭이다. */}
+        <StatusItem label="좌표"><span ref={coordRef}>—</span></StatusItem>
+        <StatusItem label="스냅">{SNAP_GRID * 10} mm</StatusItem>
+        <StatusItem label="격자">1 m</StatusItem>
+        <StatusItem label="설비">{placedAssets.length}</StatusItem>
+        <span className="ml-auto flex items-center gap-0.5">
           <IconButton aria-label="축소" size="sm" onClick={() => zoomByButton(1 / ZOOM_STEP)}>
             <Minus size={14} />
           </IconButton>
           <button
             type="button"
             title="놓인 설비에 맞추기"
-            className="min-w-12 rounded px-1 text-xs tabular-nums text-content-muted hover:bg-surface-2"
+            className="min-w-12 px-1 text-xs tabular-nums text-content hover:bg-surface-3"
             onClick={refit}
           >
             {Math.round(viewport.zoom)}%
@@ -1808,10 +1834,8 @@ export function FloorPlanView({
           <IconButton aria-label="확대" size="sm" onClick={() => zoomByButton(ZOOM_STEP)}>
             <Plus size={14} />
           </IconButton>
-        </FloatingBar>
-      </div>
-
-      </div>
+        </span>
+      </StatusBar>
 
       {/* 평면도 배치 모달 */}
       {/* 설비 품목을 놓는 중 — 물어볼 것은 현장 이름 하나뿐이다(무엇이 들어가는지는 설비 품목이 안다). */}

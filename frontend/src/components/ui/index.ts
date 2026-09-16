@@ -42,6 +42,7 @@ export * from './PanelHeader';
 export * from './AppBar';
 export * from './MenuBar';
 export * from './PageHeader';
+export * from './StatusBar';
 export * from './selection';
 export * from './Table';
 export * from './Toggle';
