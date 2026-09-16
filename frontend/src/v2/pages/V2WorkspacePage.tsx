@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { assetFieldDefs } from '@twin/core';
 import { useNavigate } from 'react-router-dom';
 import type { CablePickRequest } from '../cablePick';
-import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey, PageHeader } from '../../components/ui';
+import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey, PageHeader, ViewCard } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
 import { StatusOverview } from '../components/StatusOverview';
@@ -377,7 +377,9 @@ export default function V2WorkspacePage() {
                 <PageState />
               ) : (
                 /* 이 자리가 뷰 탭의 내용이다 — 탭과 이름표를 나눠 갖는다. */
-                <div {...viewTabs.panel} className="flex min-h-0 flex-1 overflow-hidden">
+                /* 회색 바탕 위에 판 카드와 상세 카드가 나란히 뜬다 — 관리 화면과 **같은
+                   한 줄**이다(`CableCatalogPanel`). 여백은 여기 한 곳에서만 준다. */
+                <div {...viewTabs.panel} className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-4">
                   {/* 평면도 뷰 */}
                   {inSubstationScope && viewMode === '평면도' ? (
                     <FloorPlanView
@@ -429,9 +431,17 @@ export default function V2WorkspacePage() {
                       384px 씩 좁아졌다 폈다 했다. 여기서 하는 일은 대부분 「골라서 본다」라 열렸다
                       닫혔다가 잦은데, 그때마다 열 너비가 다시 잡히고 눈이 따라간 자리가 어긋난다.
                       자리를 못 박아 두면 표는 한 번 잡힌 폭 그대로다(Figma·VS Code 의 검사기 레일).
-                      자리는 **화면이** 정하고 내용은 패널이 채운다 — 그래야 비었을 때도 같은 폭이다. */}
+                      자리는 **화면이** 정하고 내용은 패널이 채운다 — 그래야 비었을 때도 같은 폭이다.
+
+                      **벽이 아니라 카드다.** 예전에는 `border-l` + 흰 바탕으로 가장자리에
+                      붙어 있어서 왼쪽 판과 같은 층위로 읽히지 않고 「덧대어진 것」으로 보였다.
+                      관리 화면의 상세(`기본정보`·`공량`)는 같은 폭인데도 카드로 떠서 왼쪽 판과
+                      한 쌍으로 읽힌다 — 차이는 폭이 아니라 벽이었다.
+
+                      384 → 412px: 카드가 되며 바깥 여백 16 + 사이 12 = 28px 을 잃는다.
+                      포트 판은 이미 좁으므로(§3.5) 내용 폭을 그대로 지킨다. */}
                   {inSubstationScope && (
-                  <aside className="flex h-full w-96 shrink-0 flex-col border-l border-line bg-surface">
+                  <aside className="flex h-full w-[412px] shrink-0 flex-col">
                   {showDetailPanel ? (
                     <AssetDetailPanel
                       key={selectedAssetId}
@@ -453,10 +463,14 @@ export default function V2WorkspacePage() {
                       }}
                     />
                   ) : (
-                    <EmptyState
-                      title="고른 설비가 없습니다"
-                      description="표나 도면에서 하나를 누르세요."
-                    />
+                    /* 자리가 비었다는 것을 **카드가** 말한다 — 빈 회색으로 두면 「없는 것」과
+                       「아직 안 고른 것」이 구별되지 않는다(케이블 관리가 그랬다). */
+                    <ViewCard>
+                      <EmptyState
+                        title="고른 설비가 없습니다"
+                        description="표나 도면에서 하나를 누르세요."
+                      />
+                    </ViewCard>
                   )}
                   </aside>
                   )}

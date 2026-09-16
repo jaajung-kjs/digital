@@ -12,7 +12,7 @@ import { ConnectionsTab } from './ConnectionsTab';
 import type { CablePickRequest } from '../../cablePick';
 import type { TraceResult } from '../../traceSelectors';
 import { X } from 'lucide-react';
-import { Button, IconButton, PanelHeader, Tabs, cn, SELECTABLE, useTabs, type TabItem } from '../../../components/ui';
+import { Button, IconButton, ViewCard, Tabs, cn, SELECTABLE, useTabs, type TabItem } from '../../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'layout' | 'info' | 'photos' | 'records' | 'connections';
@@ -170,14 +170,17 @@ export function AssetDetailPanel({
   ];
 
   return (
-    /* 폭·테두리는 **화면이** 정한다(설비 관리의 상세 레일) — 이 패널이 스스로 자리를
-       만들면 비었을 때 그 자리가 사라져 옆 표가 넓어졌다 좁아졌다 한다. */
-    <div className="flex h-full min-h-0 flex-1 flex-col">
-      {/* 어느 자산을 보고 있는지는 탭 위에 고정한다.
-          예전에는 자산 이름이 '정보' 탭 안의 카드에만 있어서, 점검·고장이력·연결 탭으로
-          옮기면 패널만 봐서는 무엇의 기록인지 알 수 없었다. */}
-      <PanelHeader
-        title={
+    /* 폭은 **화면이** 정한다(설비 관리의 상세 레일) — 이 패널이 스스로 자리를 만들면
+       비었을 때 그 자리가 사라져 옆 표가 넓어졌다 좁아졌다 한다(§1.7-e).
+
+       상세도 **판과 같은 카드**다(`ViewCard`, §3.1). 예전에는 이 패널만 `border-l` + 흰
+       바탕으로 화면 가장자리에 붙는 **벽**이었고, 그래서 왼쪽 판과 같은 층위로 읽히지 않고
+       「덧대어진 것」으로 보였다.
+
+       어느 자산을 보고 있는지는 탭 **위**에 고정한다 — 예전에는 자산 이름이 '정보' 탭 안의
+       카드에만 있어서, 사진·이력·포트 탭으로 옮기면 무엇의 기록인지 알 수 없었다. */
+    <ViewCard
+      title={
           <span className="flex min-w-0 items-center gap-1">
             {/* 담고 있는 상위 자산들을 앞에 붙인다 — 어느 랙·함체 안인지가 늘 보이고,
                 눌러서 그리로 올라간다. 예전에는 '정보' 탭의 위치 행 안에만 있어서
@@ -200,8 +203,7 @@ export function AssetDetailPanel({
             <span className="min-w-0 truncate">{asset.name}</span>
           </span>
         }
-        className="shrink-0"
-        actions={
+      actions={
           <>
             {/* 도면 어디에 있는지 보러 가는 길이 없었다. 자산 자신이 놓여 있지 않아도
                 (랙 안의 장비 등) 놓인 상위가 있으면 그 자리로 데려간다. */}
@@ -216,8 +218,8 @@ export function AssetDetailPanel({
               <X size={14} />
             </IconButton>
           </>
-        }
-      />
+      }
+    >
       {/* 패널 폭을 가득 쓴다 — 제 폭만 차지하면 오른쪽이 빈 채로 남는다. */}
       <Tabs {...tabStrip.list} items={tabs} onChange={setTab} fill className="shrink-0 border-b border-line z-sticky" />
 
@@ -311,7 +313,6 @@ export function AssetDetailPanel({
           />
         )}
       </div>
-
-    </div>
+    </ViewCard>
   );
 }
