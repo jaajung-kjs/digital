@@ -77,3 +77,28 @@ export function zoomAtPoint(v: Viewport, factor: number, anchorX: number, anchor
   const worldY = (anchorY - v.panY) / oldScale;
   return { zoom, panX: anchorX - worldX * newScale, panY: anchorY - worldY * newScale };
 }
+
+/**
+ * 격자에 맞추되 **직전 점의 축을 먼저 존중한다**.
+ *
+ * 케이블은 설비 **중앙**에서 시작하는데, 그 중앙이 격자 위라는 보장이 없다(설비 폭이 홀수
+ * 칸이면 중앙은 반 칸 어긋난다). 그래서 손끝을 격자에만 맞추면 **첫 구간이 늘 비스듬히**
+ * 나갔다 — 곧게 뽑고 싶어도 뽑을 수가 없었다. 실제 배선은 트레이·벽을 타고 직각으로 돈다.
+ *
+ * 규칙은 하나다: 손끝이 직전 점의 가로축(또는 세로축)에 **한 칸 안으로** 들어오면 격자
+ * 대신 **그 축에 붙는다.** 그러면 중앙에서 곧게 나가는 길이 늘 잡히고, 축에서 벗어나면
+ * 평소처럼 격자에 맞는다.
+ */
+export function snapOrtho(
+  prev: { x: number; y: number } | null,
+  x: number,
+  y: number,
+  gridSize: number,
+): { x: number; y: number } {
+  const g = snapToGrid(x, y, gridSize);
+  if (!prev) return g;
+  return {
+    x: Math.abs(x - prev.x) <= gridSize ? prev.x : g.x,
+    y: Math.abs(y - prev.y) <= gridSize ? prev.y : g.y,
+  };
+}

@@ -21,7 +21,7 @@ import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { renderGrid } from '../../canvas/gridRenderer';
 import { PlanRail } from './PlanRail';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
-import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
+import { screenToWorld, snapOrtho, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
 import { insertionAt, insertPathPoint, movePathPoint, removePathPoint } from '../../canvas/cablePath';
 import { CableWaypointHandles } from './CableWaypointHandles';
 import { findAssetAt, type PlacedAsset } from '../../canvas/hitTest';
@@ -133,6 +133,9 @@ interface LatestRenderInputs {
    * 회색(`#888888`)으로 남았다 — 배율을 한 번 건드려야 제 색이 돌아왔다(실측).
    */
   categoryColorMap: ReadonlyMap<string, string>;
+  /** 종류 id → 그룹 키. 꺼 둔 그룹의 케이블을 걸러 내는 데 쓴다. */
+  categoryGroupMap: ReadonlyMap<string, string>;
+  hiddenGroups: ReadonlySet<string>;
   /** **고른 것** — 지우기·크기 조절이 대상으로 삼는 그것(장비일 수 있다). */
   selectedAssetId: string | null;
   /** **켜는 것** — 고른 것을 품은 설비(도면에 서는 것은 설비뿐이다). 그리기 전용. */
@@ -280,6 +283,8 @@ export function FloorPlanView({
    * 우연히 같은 이름의 레이어가 꺼진 채로 열린다.
    */
   const [hiddenLayers, setHiddenLayers] = useState<ReadonlySet<string>>(() => new Set());
+  /** 꺼 둔 케이블 그룹 — 배경 레이어와 같은 부류다(보는 방식이라 저장하지 않는다). */
+  const [hiddenGroups, setHiddenGroups] = useState<ReadonlySet<string>>(() => new Set());
   const hiddenFor = useRef<string | null>(null);
   if (hiddenFor.current !== activeFloorId) {
     hiddenFor.current = activeFloorId;
@@ -327,7 +332,7 @@ export function FloorPlanView({
   // rafPending 게이팅으로 인해 여러 렌더에 걸쳐 재사용될 수 있으므로) stale 값을
   // 그릴 위험이 있기 때문.
   const latest = useRef<LatestRenderInputs>({
-    viewport, placedAssets, hiddenLayers, categoryColorMap: new Map<string, string>(), selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
+    viewport, placedAssets, hiddenLayers, hiddenGroups, categoryColorMap: new Map<string, string>(), categoryGroupMap: new Map<string, string>(), selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
     firstAnchorId, selectedCableId: cableState.selectedCableId,
     placingRect: null,
@@ -335,7 +340,7 @@ export function FloorPlanView({
   latest.current = {
     /* 색 지도는 **아래에서** 얹는다(선언이 여기보다 뒤다) — 이전 값을 잃지 않게 펼쳐 둔다. */
     ...latest.current,
-    viewport, placedAssets, hiddenLayers, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
+    viewport, placedAssets, hiddenLayers, hiddenGroups, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
     firstAnchorId, selectedCableId: cableState.selectedCableId,
     /* 지금 보는 층의 것만 그린다 — 층을 옮겨 놓고도 남의 층 네모가 떠 있으면 안 된다. */
@@ -349,6 +354,18 @@ export function FloorPlanView({
   const hoveredAssetIdRef = useRef<string | null>(null);
   /* 지금 그리고 있는 경로와 손끝 자리 — 마우스가 움직일 때마다 React 렌더를 돌리지 않는다. */
   const draftPathRef = useRef<{ x: number; y: number }[]>([]);
+  /**
+   * 지금 그리는 경로의 **직전 점** — 마지막 꺾임점, 아직 없으면 출발 설비의 중앙.
+   *
+   * 케이블은 설비 중앙에서 시작하는데 그 중앙이 격자 위라는 보장이 없다. 직전 점을 알아야
+   * 「그 점에서 곧게」가 성립한다(`snapOrtho`).
+   */
+  const draftPrev = (): { x: number; y: number } | null => {
+    const path = draftPathRef.current;
+    if (path.length > 0) return path[path.length - 1]!;
+    const anchor = latest.current.placedAssets.find((a) => a.id === latest.current.firstAnchorId);
+    return anchor ? { x: anchor.x + anchor.width / 2, y: anchor.y + anchor.height / 2 } : null;
+  };
   const cursorWorldRef = useRef<{ x: number; y: number } | null>(null);
   draftPathRef.current = cableState.draftPath;
   /** 마지막 꺾은점을 물린다 — 물릴 것이 있었으면 `true`(창 키 리스너가 삼킬지 정한다). */
@@ -367,6 +384,15 @@ export function FloorPlanView({
   // ── 이동/리사이즈 프리뷰 refs (드래그 중 stage 금지, 렌더만) ─────────────
   /** 이동 프리뷰: id + 현재 위치 */
   const movePreviewRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  /**
+   * 끄는 중인 자리 — **DOM 손잡이도 따라오게** state 로 한 벌 더 든다.
+   *
+   * 캔버스는 `movePreviewRef` 만 보고 rAF 로 다시 그리지만, 크기 조절 손잡이 아홉은 DOM 이라
+   * 리렌더가 있어야 움직인다. ref 만 있던 동안 상자는 손을 따라가는데 **손잡이는 처음 고른
+   * 자리에 그대로 남아 있었다** — 놓는 순간 한 번에 튀었다(크기 조절 쪽은 이미 state 를
+   * 들고 있었고, 이동 쪽만 빠져 있었다).
+   */
+  const [movePreviewState, setMovePreviewState] = useState<{ id: string; x: number; y: number } | null>(null);
   /** 리사이즈 프리뷰: id + 현재 rect */
   const resizePreviewRef = useRef<{ id: string; x: number; y: number; width: number; height: number } | null>(null);
 
@@ -493,13 +519,20 @@ export function FloorPlanView({
    */
   const legendEntries = useMemo(() => {
     if (activeFloorId == null) return [];
-    const used = new Map<string, { label: string; color: string }>();
+    const used = new Map<string, { key: string; label: string; color: string }>();
     for (const seg of cableSegments(effectiveCables, effectiveAssets, activeFloorId, floors)) {
       const group = cableGroups.find((g) => g.categories.some((c) => c.id === seg.categoryId));
-      if (group && !used.has(group.key)) used.set(group.key, { label: group.name, color: group.color });
+      if (group && !used.has(group.key)) used.set(group.key, { key: group.key, label: group.name, color: group.color });
     }
     return [...used.values()];
   }, [effectiveCables, effectiveAssets, activeFloorId, floors, cableGroups]);
+
+  /** 종류 id → 그룹 키 — 「이 케이블이 어느 매체인가」. 끄고 켜기가 이걸 읽는다. */
+  const categoryGroupMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const group of cableGroups) for (const cat of group.categories) map.set(cat.id, group.key);
+    return map;
+  }, [cableGroups]);
 
   // ── categoryId → color 맵 (렌더용) ───────────────────────────────────────
   const categoryColorMap = useMemo(() => {
@@ -514,6 +547,7 @@ export function FloorPlanView({
   /* 미러는 위에서 통째로 갱신되지만 이 값은 **여기서야 만들어진다** — 선언 순서를 바꾸는
      대신 만들어진 자리에서 얹는다(같은 객체이므로 rAF 가 늘 최신을 읽는다). */
   latest.current.categoryColorMap = categoryColorMap;
+  latest.current.categoryGroupMap = categoryGroupMap;
 
   // selectedCategoryId → group key (medium 필터용)
   const selectedGroupKey = useMemo(() => {
@@ -601,7 +635,7 @@ export function FloorPlanView({
       }
 
       // 4. grid (major 100)
-      renderGrid(ctx, MAJOR_GRID, left, top, right, bottom);
+      renderGrid(ctx, MAJOR_GRID, left, top, right, bottom, scale);
 
       /**
        * 끄는 동안 자리가 바뀐 것 — **자산과 케이블이 같은 것을 본다.**
@@ -633,7 +667,11 @@ export function FloorPlanView({
               c.id === preview.id ? { ...c, pathPoints: preview.points } : c,
             )
           : latest.current.effectiveCables;
-        const segs = cableSegments(cablesForRender, assetsForRender, floorId, latest.current.floors);
+        const all = cableSegments(cablesForRender, assetsForRender, floorId, latest.current.floors);
+        /* 꺼 둔 매체는 **그리지 않는다** — 배경 도면 레이어와 같은 일이다. */
+        const segs = latest.current.hiddenGroups.size === 0
+          ? all
+          : all.filter((s) => !latest.current.hiddenGroups.has(latest.current.categoryGroupMap.get(s.categoryId ?? '') ?? ''));
         /* 색은 **미러에서** 읽는다 — 클로저를 읽으면 낡은 프레임의 빈 지도를 그린다(위 주석). */
         const colorOf = (id: string | null) => latest.current.categoryColorMap.get(id ?? '') ?? '#888888';
         if (traceRes) {
@@ -1086,6 +1124,7 @@ export function FloorPlanView({
 
         const snapped = dragDelta(session, wPos, (p) => snapToGrid(p.x, p.y, SNAP_GRID));
         movePreviewRef.current = { id: session.assetId, x: snapped.x, y: snapped.y };
+        setMovePreviewState({ id: session.assetId, x: snapped.x, y: snapped.y });
         scheduleRender();
       };
 
@@ -1096,6 +1135,7 @@ export function FloorPlanView({
         const session = moveDragRef.current;
         moveDragRef.current = null;
         movePreviewRef.current = null;
+        setMovePreviewState(null);
 
         /* 창 밖에서 뗀 손은 놓은 것이 아니다 — 미리보기만 걷고 자리는 그대로 둔다. */
         if (!session || !session.moved || !inWindow(me)) {
@@ -1215,7 +1255,7 @@ export function FloorPlanView({
     const next = hit && connectableIdsRef.current.has(hit.id) ? hit.id : null;
     /* 경로를 그리는 중이면 손끝까지 선이 따라온다 — 그래서 자리가 같아도 다시 그린다. */
     const drawingPath = latest.current.firstAnchorId != null;
-    if (drawingPath) cursorWorldRef.current = snapToGrid(world.x, world.y, SNAP_GRID);
+    if (drawingPath) cursorWorldRef.current = snapOrtho(draftPrev(), world.x, world.y, SNAP_GRID);
     if (next === hoveredAssetIdRef.current) {
       if (drawingPath) scheduleRender();
       return;
@@ -1257,7 +1297,7 @@ export function FloorPlanView({
       /* 첫 끝점을 정한 뒤 **빈 도면을 누르면 거기서 꺾는다** — 케이블은 벽을 타고 트레이를
          따라 돌지 두 점을 곧게 지르지 않는다. 자산 위를 누르는 것은 여전히 「반대쪽」이다. */
       if (!hit && cableState.firstPortId) {
-        cableDispatch({ type: 'ADD_WAYPOINT', point: snapToGrid(world.x, world.y, SNAP_GRID) });
+        cableDispatch({ type: 'ADD_WAYPOINT', point: snapOrtho(draftPrev(), world.x, world.y, SNAP_GRID) });
         scheduleRender();
         return;
       }
@@ -1415,10 +1455,15 @@ export function FloorPlanView({
     : null;
 
   // 핸들 오버레이에 표시할 rect (리사이즈 프리뷰 > 원본)
-  const handleRect = resizePreviewState ?? (selectedPlacedAsset
-    ? { id: selectedPlacedAsset.id, x: selectedPlacedAsset.x, y: selectedPlacedAsset.y,
-        width: selectedPlacedAsset.width, height: selectedPlacedAsset.height }
-    : null);
+  /* 손잡이가 앉을 자리 — **끄는 중이면 끌려간 자리**다. 크기 조절이든 이동이든. */
+  const handleRect = resizePreviewState
+    ?? (movePreviewState && selectedPlacedAsset && movePreviewState.id === selectedPlacedAsset.id
+      ? { id: selectedPlacedAsset.id, x: movePreviewState.x, y: movePreviewState.y,
+          width: selectedPlacedAsset.width, height: selectedPlacedAsset.height }
+      : selectedPlacedAsset
+        ? { id: selectedPlacedAsset.id, x: selectedPlacedAsset.x, y: selectedPlacedAsset.y,
+            width: selectedPlacedAsset.width, height: selectedPlacedAsset.height }
+        : null);
 
   /* 경로점 드래그 중에는 스테이지하지 않고 프리뷰만 그린다 —
      드래그 한 번에 오버레이가 수십 개 쌓이면 되돌리기가 사실상 못 쓰게 된다. */
@@ -1863,8 +1908,13 @@ export function FloorPlanView({
 
       {/* 도면 정보는 **트리 아래**에 선다 — 판 위에 떠 있으면 판을 가리고, 있는 줄도 모른다. */}
       <PlanRail
-        scale={viewport.zoom / 100}
         legend={legendEntries}
+        hiddenGroups={hiddenGroups}
+        onToggleGroup={(key) => setHiddenGroups((prev) => {
+          const next = new Set(prev);
+          if (next.has(key)) next.delete(key); else next.add(key);
+          return next;
+        })}
         drawing={activeFloor?.backgroundDrawing ?? null}
         hidden={hiddenLayers}
         onToggle={(name) => setHiddenLayers((prev) => {

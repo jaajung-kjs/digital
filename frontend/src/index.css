@@ -82,6 +82,7 @@
   --canvas-paper:#ffffff;
   --canvas-grid-major:#dfe2e5;   /* 타일 5장 = 3 m */
   --canvas-grid-minor:#eff1f2;   /* 타일 1장 = 60 cm */
+  --canvas-grid-fine:#f7f8f8;    /* 10 cm — 크게 확대했을 때만 */
   --canvas-origin:rgb(var(--lamp-danger-rgb));
   --canvas-select:rgb(var(--primary-rgb));
   --canvas-select-fill:#d8e3ef;

@@ -20,7 +20,6 @@ import { BUNDLE_GAP_PX, cableLineWidth } from './cableStyle';
  * 도면은 반대로 한다: 물건은 실제 치수로 그리고, 주기는 읽을 수 있는 한 크기로 고정한다.
  */
 const LABEL_PX = 12;
-const SUB_PX = 10;
 /**
  * 정면이 보는 쪽 → 굵게 그을 변. 키는 선언된 값 그대로다(`COMMON_ASSET_FIELDS.facing`).
  *
@@ -68,10 +67,6 @@ function renderAssetItem(
     ctx.lineWidth = px(4);
     ctx.stroke();
   }
-
-  /* **고른 것에는 치수선이 붙는다.** 「이 그림은 실측이다」를 말하는 도면의 장치다 —
-     보조선·화살표·숫자 한 벌. 늘 그리면 도면이 숫자로 뒤덮이므로 고른 것에만 붙인다. */
-  if (isSelected) renderDimensions(ctx, item, px);
 
   ctx.restore();
 }
@@ -131,14 +126,12 @@ function renderLeaderLabel(
     ctx.strokeText(text, tx, ty);
     ctx.fillText(text, tx, ty);
   };
+  /* **이름 한 줄뿐이다.** 치수를 흐린 글씨로 달아 봤는데, 늘 같은 자리에 늘 있는 값은
+     읽히지 않으면서 자리만 차지한다 — 치수가 궁금할 때는 그 설비를 고르면 치수선이 붙는다. */
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
   ctx.font = `600 ${px(LABEL_PX)}px sans-serif`;
   halo(item.name, ex + px(4), my - px(3));
-  ctx.textBaseline = 'top';
-  ctx.font = `${px(SUB_PX)}px ui-monospace, Menlo, monospace`;
-  ctx.globalAlpha = 0.72;
-  halo(`${mm(item.width)} × ${mm(item.height)}`, ex + px(4), my + px(2));
   ctx.restore();
 }
 
@@ -241,7 +234,11 @@ export function renderPlacedAssets(
   }
   const px = (n: number) => n / Math.max(scale, 0.0001);
   for (const asset of assets) {
-    renderLeaderLabel(ctx, withPreview(asset), px);
+    const item = withPreview(asset);
+    renderLeaderLabel(ctx, item, px);
+    /* **치수선도 주기다** — 늘 맨 위에 선다. 상자 패스에서 그렸더니 뒤에 그려지는 이웃
+       상자가 치수선과 숫자를 덮었다(겹쳐 놓인 설비에서 그대로 가려졌다). */
+    if (item.id === selectedId) renderDimensions(ctx, item, px);
   }
 }
 

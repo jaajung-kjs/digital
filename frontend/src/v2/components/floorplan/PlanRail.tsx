@@ -21,21 +21,21 @@ function Rail({ children }: { children: ReactNode }) {
   return createPortal(children, slot);
 }
 
-/** 축척 바가 고를 수 있는 길이(cm) — 타일(60cm)의 배수로만 센다. */
-const BAR_LENGTHS_CM = [60, 120, 300, 600, 1200, 3000, 6000];
-const BAR_TARGET_PX = 96;
-
 export interface LegendEntry {
+  /** 케이블 그룹 키 — 끄고 켜는 것이 이 키를 가리킨다. */
+  key: string;
   label: string;
   color: string;
 }
 
 export function PlanRail({
-  scale, legend, drawing, hidden, onToggle, onShowAll, opacity, onOpacity,
+  legend, hiddenGroups, onToggleGroup, drawing, hidden, onToggle, onShowAll, opacity, onOpacity,
 }: {
-  scale: number;
   /** 이 층에 **실제로 있는** 매체만 — 자료에서 유도한다. */
   legend: readonly LegendEntry[];
+  /** 꺼 둔 케이블 그룹 키. */
+  hiddenGroups: ReadonlySet<string>;
+  onToggleGroup: (key: string) => void;
   /** 배경 도면 — 없으면 레이어 절이 통째로 빠진다. */
   drawing: BackgroundDrawing | null;
   hidden: ReadonlySet<string>;
@@ -44,14 +44,6 @@ export function PlanRail({
   opacity: number;
   onOpacity: (v: number) => void;
 }) {
-  /** 화면에서 96px 언저리가 되는 타일 배수 길이. 배율을 바꾸면 눈금이 따라 는다. */
-  const bar = useMemo(() => {
-    const cm = BAR_LENGTHS_CM.reduce((best, len) =>
-      Math.abs(len * scale - BAR_TARGET_PX) < Math.abs(best * scale - BAR_TARGET_PX) ? len : best,
-    BAR_LENGTHS_CM[0]!);
-    return { px: cm * scale, label: cm >= 100 ? `${cm / 100} m` : `${cm} cm`, tiles: Math.round(cm / 60) };
-  }, [scale]);
-
   /* 도면이 실제로 그리는 레이어만 — 선언만 있고 아무것도 안 그리는 것이 흔하다(`DEFPOINTS`). */
   const layers = useMemo(() => {
     if (!drawing) return [];
@@ -66,33 +58,36 @@ export function PlanRail({
   return (
     <Rail>
       <div className="flex max-h-[42vh] flex-col border-t border-line-strong text-xs">
-        {/* ── 범례 ── */}
-        <div className="shrink-0 border-b border-line bg-surface-2 px-3 py-1 font-bold text-content-muted">도면</div>
-        <div className="shrink-0 space-y-1.5 px-3 py-2">
-          {legend.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-content-muted">
-              {legend.map((e) => (
-                <span key={e.label} className="flex items-center gap-1.5">
-                  <span aria-hidden className="h-[2px] w-5" style={{ background: e.color }} />
-                  {e.label}
-                </span>
-              ))}
-              <span className="flex items-center gap-1.5">
-                <span aria-hidden className="h-[3px] w-5 bg-content" />
-                정면
-              </span>
-            </div>
-          )}
-          {/* 축척 바 — 눈금은 **타일 배수**다(60cm 한 장). 격자와 같은 말을 한다. */}
-          <div className="flex items-center gap-2 text-content-muted">
-            <span aria-hidden className="flex h-[7px] border border-content-muted" style={{ width: bar.px }}>
-              <span className="flex-1 bg-content-muted" />
-              <span className="flex-1" />
-            </span>
-            <span className="tabular-nums text-content">{bar.label}</span>
-            <span className="tabular-nums">타일 {bar.tiles}장</span>
-          </div>
-        </div>
+        {/* ── 케이블 ──
+            범례는 **읽는 것이자 끄는 것**이다. 색만 적어 두면 「빨간 게 전원이구나」에서
+            끝나지만, 누를 수 있으면 「전원만 빼고 보자」가 된다 — 아래 도면 레이어와 같은
+            일을 케이블에 대해 한다. 이 층에 실제로 있는 매체만 선다(자료에서 유도). */}
+        <div className="shrink-0 border-b border-line bg-surface-2 px-3 py-1 font-bold text-content-muted">케이블</div>
+        {legend.length === 0 ? (
+          <div className="shrink-0 px-3 py-1.5 text-content-faint">이 층에 그려진 케이블이 없습니다</div>
+        ) : (
+          <ul className="shrink-0">
+            {legend.map((e) => (
+              <li key={e.key}>
+                <label className="flex cursor-pointer items-center gap-2 px-3 py-1 hover:bg-surface-2">
+                  <input
+                    type="checkbox"
+                    className="size-3.5"
+                    checked={!hiddenGroups.has(e.key)}
+                    onChange={() => onToggleGroup(e.key)}
+                  />
+                  <span aria-hidden className="h-[2px] w-5 shrink-0" style={{ background: e.color }} />
+                  <span className="min-w-0 flex-1 truncate text-content">{e.label}</span>
+                </label>
+              </li>
+            ))}
+            {/* 정면은 끌 것이 아니라 읽는 것이다 — 색이 아니라 굵기로 말하므로 여기 함께 적는다. */}
+            <li className="flex items-center gap-2 px-3 py-1 pl-[34px] text-content-muted">
+              <span aria-hidden className="h-[3px] w-5 shrink-0 bg-content" />
+              정면
+            </li>
+          </ul>
+        )}
 
         {/* ── 배경 도면 ── */}
         {drawing && (
