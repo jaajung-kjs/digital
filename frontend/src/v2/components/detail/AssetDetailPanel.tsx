@@ -145,14 +145,16 @@ export function AssetDetailPanel({
    * (DCIM 표준인 NetBox 도 Interfaces / Power Ports 처럼 대상 이름을 그대로 쓴다).
    */
   /* 격자가 없는 자산에는 「구성」 탭이 없다 — 그때는 정보로 물러선다. */
-  const effectiveTab: Tab = tab === 'layout' && !asset.assemblyId ? 'info' : tab;
+  /* 「구성」 탭은 정보 탭으로 합쳐졌다 — 예전 주소로 들어와도 정보로 보낸다. */
+  const effectiveTab: Tab = tab === 'layout' ? 'info' : tab;
   /* 탭 줄과 그 아래 내용이 같은 이름표를 나눠 갖는다 — 스크린리더가 둘을 잇는다. */
   const tabStrip = useTabs(effectiveTab);
 
   const tabs: TabItem<Tab>[] = [
-    /* 설비를 고른 사람이 가장 먼저 보고 싶은 것은 **그 안**이다 — 랙을 들여다보듯.
-       장비가 없는 자산(설비 아닌 것)에는 격자가 없으므로 이 탭도 없다. */
-    ...(asset.assemblyId ? [{ key: 'layout' as const, label: '구성' }] : []),
+    /* **구성은 제 탭을 갖지 않는다.** 설비를 고른 사람이 가장 먼저 보고 싶은 것은 그
+       안인데, 그것이 옆 탭에 있으면 「이름·상태」와 「무엇이 들어 있나」를 번갈아 눌러야
+       한다. 둘 다 한 화면에 든다 — 정보는 여섯 줄이고 실장도는 남는 높이를 채우므로
+       스크롤이 생기지 않는다. 탭도 하나 줄어 좁은 탭 줄(383px)이 숨을 쉰다. */
     { key: 'info', label: '정보' },
     /* 사진은 제 탭을 갖는다 — 예전에는 '정보' 탭 맨 아래 카드였다. 그러면 속성을 보러 온
        사람에게는 스크롤 끝의 군더더기이고, 사진을 보러 온 사람은 그것이 거기 있는 줄 모른다.
@@ -226,47 +228,45 @@ export function AssetDetailPanel({
         {...tabStrip.panel}
         className={cn(
           'flex min-h-0 flex-1 flex-col gap-3 p-3',
-          effectiveTab === 'layout' ? 'overflow-hidden' : 'overflow-y-auto',
+          /* 정보 탭은 이제 실장도를 품는다 — 스크롤 상자로 두면 판이 제 높이를 못 받는다. */
+          effectiveTab === 'info' ? 'overflow-hidden' : 'overflow-y-auto',
         )}
       >
-        {effectiveTab === 'layout' && (
-          <LayoutTab
-            assetId={assetId}
-            asset={asset}
-            assembliesById={assembliesById}
-            parts={parts}
-            focusPartId={focusPartId}
-            /* 장비 상자 안에 앉을 포트 판 — **포트 탭이 쓰는 것과 같은 것**이다.
-               판이 하는 일 가운데 **화면 뒤를 바꾸는 둘**(대국 자산으로 옮겨가기, 평면도의
-               케이블 도구 무장)은 상자를 먼저 닫는다 — 그 앞을 가린 채로 뒤가 바뀌면
-               무엇이 일어났는지 보이지 않는다.
-               `cablePick` 은 넘기지 않는다: 포트를 「고르는」 판은 하나여야 하고(포트 탭),
-               그 요청은 평면도가 보낸다. */
-            renderPortBoard={(partId, close) => (
-              <ConnectionsTab
-                assetId={partId}
-                /* 이 판은 이미 그 장비의 상자 안이다 — 머리줄이 이름을 두 번 말하지 않게. */
-                ownerHeadings={false}
-                onSelectAsset={(id) => { close(); onSelectAsset(id); }}
-                onTrace={onTrace ?? (() => {})}
-                onClearTrace={onClearTrace ?? (() => {})}
-                traceResult={traceResult}
-                onConnectPort={onConnectPort && ((portId) => { close(); onConnectPort(portId); })}
+        {effectiveTab === 'info' && (
+          /* 위는 정보, 아래는 **실장도**. 정보는 제 높이만 쓰고(`shrink-0`) 실장도가 남는
+             높이를 통째로 채운다 — 그래서 어떤 설비를 골라도 판이 한눈에 들어온다. */
+          <div className="flex min-h-0 flex-1 flex-col gap-2">
+            <div className="shrink-0">
+              <InfoTab
+                assetId={assetId}
+                asset={asset}
+                type={type}
+                assembliesById={assembliesById}
+                effectiveAssets={effectiveAssets}
+              />
+            </div>
+            {asset.assemblyId && (
+              <LayoutTab
+                assetId={assetId}
+                asset={asset}
+                assembliesById={assembliesById}
+                parts={parts}
+                focusPartId={focusPartId}
+                renderPortBoard={(partId, close) => (
+                  <ConnectionsTab
+                    assetId={partId}
+                    ownerHeadings={false}
+                    onSelectAsset={(id) => { close(); onSelectAsset(id); }}
+                    onTrace={onTrace ?? (() => {})}
+                    onClearTrace={onClearTrace ?? (() => {})}
+                    onConnectPort={onConnectPort ? (portId) => { close(); onConnectPort(portId); } : undefined}
+                  />
+                )}
+                substationId={substationId}
+                types={catalog.data?.types ?? []}
               />
             )}
-            substationId={substationId}
-            types={catalog.data?.types ?? []}
-          />
-        )}
-
-        {effectiveTab === 'info' && (
-          <InfoTab
-            assetId={assetId}
-            asset={asset}
-            type={type}
-            assembliesById={assembliesById}
-            effectiveAssets={effectiveAssets}
-          />
+          </div>
         )}
 
         {effectiveTab === 'photos' && <PhotoCard assetId={assetId} />}
