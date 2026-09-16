@@ -77,7 +77,7 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
               checked={draft.managesPowerCircuits ?? false}
               onChange={(e) => onChange({ managesPowerCircuits: e.currentTarget.checked })}
             />
-            분전반 — 계통에 회로를 편다
+            분전반
           </label>
         </DetailRow>
 

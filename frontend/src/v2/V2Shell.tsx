@@ -108,7 +108,7 @@ export function V2Shell() {
           두 줄을 각각 공용 컴포넌트로 뽑아 두면 화면이 늘어도 머리는 한 곳에서만 바뀐다. */}
       <AppBar
         title={PRODUCT_NAME}
-        subtitle="전력ICT 설비관리시스템"
+        subtitle="ICT 설비관리시스템"
         onTitleClick={() => { void mayLeave().then((ok) => { if (ok) navigate('/'); }); }}
       >
         {user && (
