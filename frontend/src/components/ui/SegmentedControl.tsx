@@ -1,4 +1,4 @@
-import { cn } from './cn';
+import { chipClass } from './FilterChip';
 
 export interface SegmentedItem<T extends string> {
   key: T;
@@ -27,11 +27,10 @@ export function SegmentedControl<T extends string>({
   items, value, onChange, ...rest
 }: SegmentedControlProps<T>) {
   return (
-    <div
-      role="radiogroup"
-      aria-label={rest['aria-label']}
-      className="flex shrink-0 items-center rounded border border-line"
-    >
+    /* 이어 붙이지 않고 **칩처럼 나란히** 둔다 — 같은 자리에 서는 거르개가 하나는 알약,
+       하나는 이어 붙인 네모면 딴 물건으로 읽힌다(`chipClass`). 「하나만 고른다」는 것은
+       모양이 아니라 `role="radiogroup"` 이 말한다. */
+    <div role="radiogroup" aria-label={rest['aria-label']} className="flex shrink-0 items-center gap-1.5">
       {items.map((it) => {
         const on = it.key === value;
         return (
@@ -41,12 +40,7 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(it.key)}
-            className={cn(
-              /* 머리 띠의 다른 컨트롤과 같은 24px(`controlSize.ts` 의 `sm`) — 줄 높이를
-                 넘기면 띠가 그만큼 두꺼워진다. */
-              'h-6 border-r border-line px-2.5 text-xs transition-colors last:border-r-0 focus-ring',
-              on ? 'bg-info-bg font-medium text-primary' : 'text-content-muted hover:bg-surface-3',
-            )}
+            className={chipClass(on)}
           >
             {it.label}
           </button>
