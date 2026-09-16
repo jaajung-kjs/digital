@@ -121,13 +121,16 @@ describe('AssemblyGrid', () => {
     expect(onDeselect).not.toHaveBeenCalled();
   });
 
-  /* 「몇 열 몇 단인가」는 눈금이 말한다 — 칸마다 번호를 박으면 판이 번호로 뒤덮인다.
-     실물 섀시에도 슬롯마다 번호가 인쇄돼 있어, 현장에서 부르는 말과 화면이 같아진다. */
-  it('눈금이 행·열 수만큼 선다', () => {
+  /**
+   * **눈금은 없다.**
+   *
+   * 열 번호(위)와 단 번호(왼쪽)를 달았던 적이 있는데, 그 숫자들이 칸 이름과 글자 굵기가
+   * 같아 판이 「번호 판」으로 먼저 읽혔다. 좁은 상세 패널에서는 값도 컸다 — 세로 14px,
+   * 가로 24px 를 늘 먹었고 그만큼 칸 이름이 잘렸다. 자리 번호는 행 우선으로 유도되는
+   * 값이라 판에 박아 둘 것이 아니다(툴팁과 계통 표가 말한다).
+   */
+  it('눈금을 그리지 않는다 — 판에 남는 것은 칸뿐이다', () => {
     setup();
-    /* 판 옆의 단 눈금이 먼저, 판 위의 열 눈금이 그 다음(마크업 차례). */
-    const [rowRuler, colRuler] = screen.getAllByRole('list', { hidden: true });
-    expect(rowRuler!.children).toHaveLength(4);
-    expect(colRuler!.children).toHaveLength(2);
+    expect(screen.queryAllByRole('list', { hidden: true })).toHaveLength(0);
   });
 });

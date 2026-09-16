@@ -51,8 +51,6 @@ export interface AssemblyGridProps<T extends GridItem> {
 }
 
 export const GRID_ROW_H = 30;
-/** 열 눈금 줄의 높이 — 판의 칸 높이와 무관한 고정값(숫자 한 줄). */
-const RULER_H = 12;
 const GAP = 2;
 /** 이 폭보다 좁으면 가로로 적을 자리가 없다 — 그때는 글씨를 세운다. */
 const LABEL_MIN_W = 56;
@@ -120,6 +118,14 @@ export function AssemblyGrid<T extends GridItem>({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [selectedId]);
 
+  /**
+   * **판은 늘 상자에 맞는다** — 한 단이 얼마가 되든 20단이 다 보인다.
+   *
+   * 한때 단 높이에 하한을 두고 넘치면 상자를 흐르게 했는데, 20행 14열짜리 축전지반이
+   * 646px 로 서서 상자(345px)를 두 배 가까이 넘었다. 판은 「무엇이 어디에 꽂혔나」를
+   * **한눈에** 보는 그림이라, 굴려야 보이면 그 일을 못 한다. 칸이 작아 이름이 가로로
+   * 잘리는 것은 감수한다 — 이름은 툴팁과 고른 칸이 말한다.
+   */
   const rowH = box.h > 0 ? Math.max((box.h - (rows - 1) * GAP) / rows, 1) : GRID_ROW_H;
   const width = box.w;
   const colW = width > 0 ? (width - (cols - 1) * GAP) / cols : 0;
@@ -229,35 +235,18 @@ export function AssemblyGrid<T extends GridItem>({
   return (
     <InsetBox
       /* 넘치는 것을 잘라 낸다 — 판이 상자에 맞으므로 넘칠 것이 없다(잘리면 셈이 틀린 것이다). */
-      className={cn('mt-1 flex gap-1 overflow-hidden p-1.5 shadow-inner', fill && 'min-h-0 flex-1')}
+      className={cn('mt-1 flex overflow-hidden p-1.5 shadow-inner', fill && 'min-h-0 flex-1')}
       style={boxHeight != null ? { height: boxHeight } : undefined}
       onPointerDown={(e) => { if (e.target === e.currentTarget && selectedId != null) onDeselect?.(); }}
     >
-      {/* 눈금 — 「몇 열 몇 단인가」를 판 가장자리에서 읽는다. 실물 섀시에도 슬롯마다 번호가
-          인쇄돼 있어서, 현장에서 「4번 슬롯」이라고 부르는 것과 화면이 같은 말을 한다. */}
-      <ol
-        aria-hidden
-        className="grid shrink-0 gap-0.5 text-right text-xs tabular-nums text-content-faint"
-        style={{ gridTemplateRows: `repeat(${rows}, ${rowH}px)`, rowGap: GAP, marginTop: RULER_H + GAP }}
-      >
-        {Array.from({ length: rows }, (_, i) => (
-          <li key={i} className="flex items-center justify-end pr-0.5 leading-none">{i + 1}</li>
-        ))}
-      </ol>
-
       {/* 판은 **행 수만큼** 자리를 갖는다 — 내용 높이에 맡기면 마지막 장비 아래로는 끌 수가
           없다(놓인 것이 하나뿐이면 판도 그만큼만 높다). */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* 열 눈금 — 판과 **같은 격자**로 그려야 칸과 번호가 어긋나지 않는다. */}
-      <ol
-        aria-hidden
-        className="grid shrink-0 text-center text-xs tabular-nums leading-none text-content-faint"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, columnGap: GAP, height: RULER_H }}
-      >
-        {Array.from({ length: cols }, (_, i) => (
-          <li key={i} className="truncate">{i + 1}</li>
-        ))}
-      </ol>
+      {/* **눈금은 없다.** 한때 위에 열 번호(1‥14), 왼쪽에 단 번호(1‥20)를 달았는데, 그
+          숫자들이 칸 이름과 글자 굵기가 같아 판이 「번호 판」으로 먼저 읽혔다. 좁은 상세
+          패널에서는 값도 컸다 — 세로 14px, 가로 24px 를 늘 먹었고 그만큼 칸 이름이 잘렸다.
+          자리 번호는 행 우선으로 유도되는 값이라 판에 박아 둘 것이 아니다: 어느 칸인지는
+          툴팁과 표(계통 회로 번호)가 말한다. */}
       <div
         className="relative min-h-0 min-w-0 flex-1"
         ref={boxRef}
@@ -406,7 +395,10 @@ export function AssemblyGrid<T extends GridItem>({
                     {item.name}
                   </span>
                 ) : (
-                  <span className="flex min-h-0 min-w-0 max-h-full max-w-full flex-col items-center leading-tight">
+                  /* `leading-none` — 줄 높이를 글자에 붙인다. 기본 줄 높이(15px)가 칸보다
+                     높으면 글자가 **아랫동째** 잘려 고장처럼 보인다(20단 판에서 칸이
+                     13.8px 이었다). 좁아서 못 담는 것은 가로 말줄임으로 끝나야 한다. */
+                  <span className="flex min-h-0 min-w-0 max-h-full max-w-full flex-col items-center leading-none">
                     <span className="min-h-0 min-w-0 max-h-full max-w-full truncate">{item.name}</span>
                     {l.h > 1 && trailing?.(item)}
                   </span>

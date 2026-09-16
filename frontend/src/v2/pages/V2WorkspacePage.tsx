@@ -438,10 +438,12 @@ export default function V2WorkspacePage() {
                       관리 화면의 상세(`기본정보`·`공량`)는 같은 폭인데도 카드로 떠서 왼쪽 판과
                       한 쌍으로 읽힌다 — 차이는 폭이 아니라 벽이었다.
 
-                      384 → 412px: 카드가 되며 바깥 여백 16 + 사이 12 = 28px 을 잃는다.
-                      포트 판은 이미 좁으므로(§3.5) 내용 폭을 그대로 지킨다. */}
+                      **폭은 포트 판이 정한다** — 364px. 포트 한 칸은 46px 에서 멈추므로
+                      한 줄 여섯 칸이 296px 이고, 그 위에 얹히는 여백(페이스플레이트 8·탭
+                      패널 12·카드 테두리 1·바깥 12+16)을 더하면 364 다. 412 였을 때는
+                      오른쪽에 48px 이 늘 비어 있었다 — 판은 여백이 아니라 그림이다. */}
                   {inSubstationScope && (
-                  <aside className="flex h-full w-[412px] shrink-0 flex-col">
+                  <aside className="flex h-full w-[364px] shrink-0 flex-col">
                   {showDetailPanel ? (
                     <AssetDetailPanel
                       key={selectedAssetId}

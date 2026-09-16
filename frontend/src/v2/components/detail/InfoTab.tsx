@@ -141,7 +141,8 @@ function PartDialog({
           ))}
         </Select>
       </DetailRow>
-      {assetFieldDefs().map((fd) => {
+      {/* 폼의 줄은 **선언이 정한다** — 그리는 자리에서 정하는 값(정면)은 여기 서지 않는다. */}
+      {assetFieldDefs().filter((fd) => fd.inForm !== false).map((fd) => {
         const raw = part.fieldValues[fd.key];
         const str = raw != null ? String(raw) : '';
         return (
@@ -280,7 +281,8 @@ export function InfoTab({
             스크롤만 늘고 어느 카드에 무엇이 있는지 기억해야 한다.
             타입마다 필드를 따로 선언하던 길은 걷었다: 실제로 쓰인 것은 피더의 개폐 상태뿐이었고,
             그건 자산이 아니라 회로의 상태라 전원 출력 포트로 옮겼다. */}
-        {assetFieldDefs().map((fd) => {
+        {/* 폼의 줄은 **선언이 정한다**(`inForm`) — 정면은 평면도 도구바의 회전이 쥔다. */}
+        {assetFieldDefs().filter((fd) => fd.inForm !== false).map((fd) => {
           const rawVal = asset.fieldValues[fd.key];
           const strVal = rawVal != null ? String(rawVal) : '';
           return (

@@ -13,7 +13,7 @@
  * 캡쳐된 state/props를 읽으면 stale-closure 버그가 생긴다.
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Minus, Plus, Trash2 } from 'lucide-react';
+import { Minus, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
 import { backingSize } from '../../canvas/backingStore';
 import { cableLineWidth } from '../../canvas/cableStyle';
@@ -47,6 +47,7 @@ import { assemblyToPlacement } from '../../placeAssembly';
 import { AssetResizeHandles } from './AssetResizeHandles';
 import { RemoteEndpointModal } from './RemoteEndpointModal';
 import { SNAP_GRID, SELECTION_STYLES } from '../../canvas/constants';
+import type { Facing } from '@twin/core';
 import type { V2Asset, V2Cable, V2Floor, V2Port } from '../../types';
 import type { AssetSearchResult } from '../../api';
 import { expandToPlacedAncestors } from '../../traceSelectors';
@@ -1474,6 +1475,35 @@ export function FloorPlanView({
     [effectiveCables, cableState.selectedCableId],
   );
 
+  // ── 선택 자산의 정면 ──────────────────────────────────────────────────────
+  /**
+   * **한 바퀴에 「없음」이 들어 있다.**
+   *
+   * 정면이 뜻 없는 물건이 있다(축전지 선반·경로슬롯). 네 방향만 돌게 하면 한 번 누른 뒤로는
+   * 영영 「모름」으로 못 돌아가고, 도면이 없는 사실을 말하게 된다(§3.4 「모르는 것은 그리지
+   * 않는다」). 그래서 다섯 칸을 돈다: 없음 → 아래 → 왼쪽 → 위 → 오른쪽 → 없음.
+   *
+   * **아래에서 시작하는 까닭**: 설비는 도면 아래쪽(사람이 서는 쪽)을 보고 놓이는 것이 보통이다.
+   */
+  const FACING_CYCLE: readonly (Facing | null)[] = [null, '아래', '왼쪽', '위', '오른쪽'];
+  const facingOfSelected = useMemo(() => {
+    if (selectedAssetId == null) return null;
+    const v = effectiveAssets.find((a) => a.id === selectedAssetId)?.fieldValues?.facing;
+    return typeof v === 'string' ? v : null;
+  }, [effectiveAssets, selectedAssetId]);
+
+  const rotateSelectedFacing = useCallback(() => {
+    const id = latest.current.selectedAssetId;
+    if (!id) return;
+    const st = useV2WorkingCopy.getState();
+    /* 값은 **커밋 시점의 스토어**에서 읽는다 — 렌더 클로저의 것을 쓰면 연달아 누를 때 한 칸에서 맴돈다. */
+    const current = st.effectiveAssets().find((a) => a.id === id)?.fieldValues ?? {};
+    const now = typeof current.facing === 'string' ? current.facing : null;
+    const next = FACING_CYCLE[(FACING_CYCLE.indexOf(now as Facing | null) + 1) % FACING_CYCLE.length] ?? null;
+    /* 「없음」은 키를 지우는 것이 아니라 `null` 이다 — 렌더러가 `?? ''` 로 읽어 굵은 변을 안 긋는다. */
+    st.stageAssetUpdate(id, { fieldValues: { ...current, facing: next } });
+  }, [latest]);
+
   // ── 선택 자산 삭제 ────────────────────────────────────────────────────────
   async function handleDeleteSelectedAsset() {
     const selectedAssetId = latest.current.selectedAssetId;
@@ -1755,11 +1785,22 @@ export function FloorPlanView({
             </>
           )}
 
-          {/* 선택된 자산 삭제 — 예전에는 케이블만 캔버스에서 지울 수 있었고, 자산은
-              상세 패널을 열어야만 지울 수 있었다(평면도에서 잘못 놓은 것을 바로 못 지움). */}
+          {/* 고른 설비에 할 일 — **정면 돌리기**와 지우기. */}
           {selectedAssetId !== null && placedAssets.some((a) => a.id === selectedAssetId) && (
             <>
               <span className="h-4 w-px bg-line mx-1" />
+              {/* **정면은 도면에서 정한다.** 예전에는 상세 패널의 폼에서 「위·아래·왼쪽·
+                  오른쪽」을 골랐는데, 그것은 도면을 안 보고 방향을 정하는 일이라 고를 때마다
+                  눈으로 대조해야 했다. 여기서는 누르는 즉시 굵은 변이 그 자리에서 돈다 —
+                  고른 것과 보는 것이 같다. */}
+              <IconButton
+                size="sm"
+                aria-label={`정면 돌리기 (지금 ${facingOfSelected ?? '없음'})`}
+                title={`정면 돌리기 — 지금 ${facingOfSelected ?? '없음'}`}
+                onClick={rotateSelectedFacing}
+              >
+                <RotateCw size={15} />
+              </IconButton>
               <IconButton
                 size="sm"
                 tone="danger"
