@@ -19,6 +19,7 @@ import { backingSize } from '../../canvas/backingStore';
 import { cableLineWidth } from '../../canvas/cableStyle';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { renderGrid } from '../../canvas/gridRenderer';
+import { PlanSheetMarks } from './PlanSheetMarks';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
 import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
 import { insertionAt, insertPathPoint, movePathPoint, removePathPoint } from '../../canvas/cablePath';
@@ -453,6 +454,22 @@ export function FloorPlanView({
     }
     return { step: '1/3', text: '이을 설비를 클릭하세요', dimCanvas: false };
   }, [cableState.armed, cableState.picker, cableState.firstPortId, cableState.draftPath]);
+
+  /**
+   * 범례 — **이 층에 실제로 있는 매체만**.
+   *
+   * 손으로 관리하지 않는다: 그린 케이블이 어느 그룹에 속하는지를 세어 나온 것이다. 그래서
+   * 전원뿐인 층에는 「전원」 하나만 서고, 광을 하나 이으면 그때 「광」이 생긴다.
+   */
+  const legendEntries = useMemo(() => {
+    if (activeFloorId == null) return [];
+    const used = new Map<string, { label: string; color: string }>();
+    for (const seg of cableSegments(effectiveCables, effectiveAssets, activeFloorId, floors)) {
+      const group = cableGroups.find((g) => g.categories.some((c) => c.id === seg.categoryId));
+      if (group && !used.has(group.key)) used.set(group.key, { label: group.name, color: group.color });
+    }
+    return [...used.values()];
+  }, [effectiveCables, effectiveAssets, activeFloorId, floors, cableGroups]);
 
   // ── categoryId → color 맵 (렌더용) ───────────────────────────────────────
   const categoryColorMap = useMemo(() => {
@@ -1806,6 +1823,8 @@ export function FloorPlanView({
       </div>
 
 
+        {/* 도면의 주기 — 축척 바와 범례. 판 위에 얹히되 손짓은 통과시킨다. */}
+        <PlanSheetMarks scale={viewport.zoom / 100} legend={legendEntries} />
       </div>
 
       {/* ── 상태표시줄 ──

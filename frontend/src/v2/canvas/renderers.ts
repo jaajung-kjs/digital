@@ -107,7 +107,82 @@ function renderAssetItem(
     }
   }
 
+  /* **고른 것에는 치수선이 붙는다.** 「이 그림은 실측이다」를 말하는 도면의 장치다 —
+     보조선·화살표·숫자 한 벌. 늘 그리면 도면이 숫자로 뒤덮이므로 고른 것에만 붙인다. */
+  if (isSelected) renderDimensions(ctx, item, px);
+
   ctx.restore();
+}
+
+/**
+ * 치수선 — 보조선 · 화살표 · mm 숫자.
+ *
+ * 가로는 상자 **위**, 세로는 상자 **오른쪽**에 붙는다(도면 관례). 크기는 전부 화면 기준이라
+ * 배율을 바꿔도 굵기·글자·화살표가 그대로다 — 도면에서 치수선은 물건이 아니라 **주기**다.
+ */
+function renderDimensions(
+  ctx: CanvasRenderingContext2D,
+  item: PlacedAsset,
+  px: (n: number) => number,
+): void {
+  const { x, y, width: w, height: h } = item;
+  const gap = px(10);   // 상자에서 치수선까지
+  const tick = px(5);   // 보조선이 치수선 너머로 나가는 길이
+  const head = px(4);   // 화살촉
+
+  ctx.save();
+  ctx.strokeStyle = SELECTION_STYLES.stroke;
+  ctx.fillStyle = SELECTION_STYLES.stroke;
+  ctx.lineWidth = px(1);
+
+  /* 가로 — 상자 위 */
+  const ty = y - gap;
+  ctx.beginPath();
+  ctx.moveTo(x, y - tick); ctx.lineTo(x, ty - tick);
+  ctx.moveTo(x + w, y - tick); ctx.lineTo(x + w, ty - tick);
+  ctx.moveTo(x, ty); ctx.lineTo(x + w, ty);
+  ctx.stroke();
+  arrow(ctx, x, ty, 1, 0, head);
+  arrow(ctx, x + w, ty, -1, 0, head);
+
+  /* 세로 — 상자 오른쪽 */
+  const rx = x + w + gap;
+  ctx.beginPath();
+  ctx.moveTo(x + w + tick, y); ctx.lineTo(rx + tick, y);
+  ctx.moveTo(x + w + tick, y + h); ctx.lineTo(rx + tick, y + h);
+  ctx.moveTo(rx, y); ctx.lineTo(rx, y + h);
+  ctx.stroke();
+  arrow(ctx, rx, y, 0, 1, head);
+  arrow(ctx, rx, y + h, 0, -1, head);
+
+  ctx.font = `${px(10)}px ui-monospace, Menlo, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(mm(w), x + w / 2, ty - px(3));
+  /* 세로 숫자는 눕힌다 — 치수선을 따라 읽는 것이 도면의 어법이다. */
+  ctx.save();
+  ctx.translate(rx + px(3), y + h / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textBaseline = 'top';
+  ctx.fillText(mm(h), 0, 0);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+/** 화살촉 하나 — `(dx,dy)` 는 **가리키는 반대 방향**(선이 뻗어 나가는 쪽)이다. */
+function arrow(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, dx: number, dy: number, size: number,
+): void {
+  const px2 = -dy;
+  const py2 = dx;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + dx * size * 2 + px2 * size, y + dy * size * 2 + py2 * size);
+  ctx.lineTo(x + dx * size * 2 - px2 * size, y + dy * size * 2 - py2 * size);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /**
