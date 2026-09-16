@@ -51,6 +51,8 @@ export interface AssemblyGridProps<T extends GridItem> {
 }
 
 export const GRID_ROW_H = 30;
+/** 열 눈금 줄의 높이 — 판의 칸 높이와 무관한 고정값(숫자 한 줄). */
+const RULER_H = 12;
 const GAP = 2;
 /** 이 폭보다 좁으면 가로로 적을 자리가 없다 — 그때는 글씨를 세운다. */
 const LABEL_MIN_W = 56;
@@ -231,11 +233,12 @@ export function AssemblyGrid<T extends GridItem>({
       style={boxHeight != null ? { height: boxHeight } : undefined}
       onPointerDown={(e) => { if (e.target === e.currentTarget && selectedId != null) onDeselect?.(); }}
     >
-      {/* 단 눈금 — 「몇 단인가」를 판 옆에서 읽는다. */}
+      {/* 눈금 — 「몇 열 몇 단인가」를 판 가장자리에서 읽는다. 실물 섀시에도 슬롯마다 번호가
+          인쇄돼 있어서, 현장에서 「4번 슬롯」이라고 부르는 것과 화면이 같은 말을 한다. */}
       <ol
         aria-hidden
         className="grid shrink-0 gap-0.5 text-right text-xs tabular-nums text-content-faint"
-        style={{ gridTemplateRows: `repeat(${rows}, ${rowH}px)`, rowGap: GAP }}
+        style={{ gridTemplateRows: `repeat(${rows}, ${rowH}px)`, rowGap: GAP, marginTop: RULER_H + GAP }}
       >
         {Array.from({ length: rows }, (_, i) => (
           <li key={i} className="flex items-center justify-end pr-0.5 leading-none">{i + 1}</li>
@@ -244,6 +247,17 @@ export function AssemblyGrid<T extends GridItem>({
 
       {/* 판은 **행 수만큼** 자리를 갖는다 — 내용 높이에 맡기면 마지막 장비 아래로는 끌 수가
           없다(놓인 것이 하나뿐이면 판도 그만큼만 높다). */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* 열 눈금 — 판과 **같은 격자**로 그려야 칸과 번호가 어긋나지 않는다. */}
+      <ol
+        aria-hidden
+        className="grid shrink-0 text-center text-xs tabular-nums leading-none text-content-faint"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, columnGap: GAP, height: RULER_H }}
+      >
+        {Array.from({ length: cols }, (_, i) => (
+          <li key={i} className="truncate">{i + 1}</li>
+        ))}
+      </ol>
       <div
         className="relative min-h-0 min-w-0 flex-1"
         ref={boxRef}
@@ -374,18 +388,26 @@ export function AssemblyGrid<T extends GridItem>({
                   onSelect(item);
                 }}
               >
-                <span
-                  className={cn(
-                    'flex min-h-0 min-w-0 max-h-full max-w-full items-center leading-tight',
-                    vertical ? 'flex-row' : 'flex-col',
-                  )}
-                  /* `text-orientation: upright` — 기본값은 영문·숫자를 눕혀서 「광단말 A」의
-                     A 만 옆으로 누웠다. 실물 카드의 짧은 영숫자 꼬리표는 세워서 인쇄된다. */
-                  style={vertical ? { writingMode: 'vertical-rl', textOrientation: 'upright' } : undefined}
-                >
-                  <span className="min-h-0 min-w-0 max-h-full max-w-full truncate">{item.name}</span>
-                  {!vertical && l.h > 1 && trailing?.(item)}
-                </span>
+                {vertical ? (
+                  /* **눕혀서 한 줄로.** 예전에는 글자를 세워 쌓았다(`vertical-rl` +
+                     `upright`) — 그러면 `EXCU-A` 가 `E X C U - A` 여섯 줄이 되어 카드가
+                     아니라 글자 목록으로 읽혔다. 실물 랙 카드의 라벨은 세로로 쌓지 않고
+                     **90° 눕혀 인쇄**돼 있다. 돌린 글자의 길이는 칸의 **높이**가 정하므로
+                     `maxWidth` 에 높이를 준다(회전 전 기준이라 폭이 곧 세로 길이다). */
+                  <span
+                    className="absolute left-1/2 top-1/2 truncate whitespace-nowrap leading-none"
+                    /* **회전 전 상자의 폭이 곧 세로 길이**다 — 흐름 안에 두면 칸의 좁은
+                       폭(50px)에 먼저 걸려 `EXCU…` 로 잘린다. 띄워 놓고 폭을 칸 높이로 준다. */
+                    style={{ width: Math.max(h - 8, 0), transform: 'translate(-50%, -50%) rotate(-90deg)', textAlign: 'center' }}
+                  >
+                    {item.name}
+                  </span>
+                ) : (
+                  <span className="flex min-h-0 min-w-0 max-h-full max-w-full flex-col items-center leading-tight">
+                    <span className="min-h-0 min-w-0 max-h-full max-w-full truncate">{item.name}</span>
+                    {l.h > 1 && trailing?.(item)}
+                  </span>
+                )}
                 {tone && (
                   <span aria-hidden className={cn('pointer-events-none absolute left-1 top-1 h-2 w-2 rounded-full ring-1 ring-content-faint/60', LAMP[tone])} />
                 )}
@@ -411,6 +433,7 @@ export function AssemblyGrid<T extends GridItem>({
             );
           })}
         </GridLayout>
+      </div>
       </div>
     </InsetBox>
   );

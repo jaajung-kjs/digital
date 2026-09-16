@@ -121,9 +121,13 @@ describe('AssemblyGrid', () => {
     expect(onDeselect).not.toHaveBeenCalled();
   });
 
-  /* 「몇 단인가」는 눈금이 말한다 — 칸마다 번호를 박으면 판이 번호로 뒤덮인다. */
-  it('단 눈금이 행 수만큼 선다', () => {
+  /* 「몇 열 몇 단인가」는 눈금이 말한다 — 칸마다 번호를 박으면 판이 번호로 뒤덮인다.
+     실물 섀시에도 슬롯마다 번호가 인쇄돼 있어, 현장에서 부르는 말과 화면이 같아진다. */
+  it('눈금이 행·열 수만큼 선다', () => {
     setup();
-    expect(screen.getByRole('list', { hidden: true }).children).toHaveLength(4);
+    /* 판 옆의 단 눈금이 먼저, 판 위의 열 눈금이 그 다음(마크업 차례). */
+    const [rowRuler, colRuler] = screen.getAllByRole('list', { hidden: true });
+    expect(rowRuler!.children).toHaveLength(4);
+    expect(colRuler!.children).toHaveLength(2);
   });
 });
