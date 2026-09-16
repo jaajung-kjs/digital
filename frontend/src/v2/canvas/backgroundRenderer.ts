@@ -28,7 +28,7 @@ export function renderBackgroundDrawing(
   bg: BackgroundDrawing,
   opacity: number,
   zoom: number,
-  hiddenLayers?: Set<string>,
+  hiddenLayers?: ReadonlySet<string>,
 ): void {
   if (opacity <= 0) return;
   // Pre-DWG-A imports stored a flat outline/labels shape; ignore them so the

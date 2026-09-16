@@ -20,6 +20,7 @@ import { cableLineWidth } from '../../canvas/cableStyle';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { renderGrid } from '../../canvas/gridRenderer';
 import { PlanSheetMarks } from './PlanSheetMarks';
+import { BackgroundLayerMenu } from './BackgroundLayerMenu';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
 import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
 import { insertionAt, insertPathPoint, movePathPoint, removePathPoint } from '../../canvas/cablePath';
@@ -117,6 +118,7 @@ function placementReducer(state: PlacementState, action: PlacementAction): Place
 interface LatestRenderInputs {
   viewport: Viewport;
   placedAssets: PlacedAsset[];
+  hiddenLayers: ReadonlySet<string>;
   /** **고른 것** — 지우기·크기 조절이 대상으로 삼는 그것(장비일 수 있다). */
   selectedAssetId: string | null;
   /** **켜는 것** — 고른 것을 품은 설비(도면에 서는 것은 설비뿐이다). 그리기 전용. */
@@ -257,6 +259,18 @@ export function FloorPlanView({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   /** 상태표시줄의 좌표 칸 — 손이 움직일 때마다 여기에 **직접** 쓴다(리렌더 없이). */
   const coordRef = useRef<HTMLSpanElement | null>(null);
+  /**
+   * 꺼 둔 배경 레이어 — **보는 방식이지 자료가 아니다**. 저장하지 않는다.
+   *
+   * 층마다 레이어 이름이 다르므로 층이 바뀌면 비운다(`hiddenFor`). 남겨 두면 다른 층에서
+   * 우연히 같은 이름의 레이어가 꺼진 채로 열린다.
+   */
+  const [hiddenLayers, setHiddenLayers] = useState<ReadonlySet<string>>(() => new Set());
+  const hiddenFor = useRef<string | null>(null);
+  if (hiddenFor.current !== activeFloorId) {
+    hiddenFor.current = activeFloorId;
+    if (hiddenLayers.size > 0) setHiddenLayers(new Set());
+  }
   /** 지금 화면의 픽셀 배율 — 뒤판을 이 배로 잡고, 그릴 때 그만큼 되돌린다. */
   const backingScale = useRef(1);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -299,13 +313,13 @@ export function FloorPlanView({
   // rafPending 게이팅으로 인해 여러 렌더에 걸쳐 재사용될 수 있으므로) stale 값을
   // 그릴 위험이 있기 때문.
   const latest = useRef<LatestRenderInputs>({
-    viewport, placedAssets, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
+    viewport, placedAssets, hiddenLayers, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
     firstAnchorId, selectedCableId: cableState.selectedCableId,
     placingRect: null,
   });
   latest.current = {
-    viewport, placedAssets, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
+    viewport, placedAssets, hiddenLayers, selectedAssetId, highlightedPlacedId, activeFloor, traceResult: traceResult ?? null,
     effectiveCables, effectiveAssets, floors,
     firstAnchorId, selectedCableId: cableState.selectedCableId,
     /* 지금 보는 층의 것만 그린다 — 층을 옮겨 놓고도 남의 층 네모가 떠 있으면 안 된다. */
@@ -563,6 +577,7 @@ export function FloorPlanView({
           floor.backgroundDrawing,
           floor.backgroundOpacity ?? 0.4,
           scale,
+          latest.current.hiddenLayers,
         );
       }
 
@@ -1569,6 +1584,25 @@ export function FloorPlanView({
         <IconButton aria-label="층 추가" onClick={startAddFloor}>
           <Plus size={14} />
         </IconButton>
+
+        {activeFloor?.backgroundDrawing && (
+          /* 레이어는 **관리자만의 것이 아니다** — 보는 사람도 주기 레이어를 꺼야 설비가 보인다. */
+          <BackgroundLayerMenu
+            drawing={activeFloor.backgroundDrawing}
+            hidden={hiddenLayers}
+            onToggle={(name) => setHiddenLayers((prev) => {
+              const next = new Set(prev);
+              if (next.has(name)) next.delete(name); else next.add(name);
+              return next;
+            })}
+            onShowAll={() => setHiddenLayers(new Set())}
+            opacity={activeFloor.backgroundOpacity ?? 0.4}
+            onOpacity={(v) => {
+              if (activeFloorId == null) return;
+              useV2WorkingCopy.getState().stageFloorUpdate(activeFloorId, { backgroundOpacity: v });
+            }}
+          />
+        )}
 
         {isAdmin && (
           <BackgroundImportControls
