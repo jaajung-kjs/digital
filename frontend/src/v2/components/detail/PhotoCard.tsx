@@ -70,27 +70,28 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
 
   return (
     <DetailCard>
-      <div>
-        <DetailCardHeader
-          title="사진"
-          actions={
-            /* 같은 패널의 점검·고장이력과 **같은 동작**이다(목록에 한 줄을 더한다) —
-               한 동작에 한 단어. 「업로드」는 그 일을 하는 **방법**이지 하려는 일이 아니다. */
-            <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
-              추가
-            </Button>
-          }
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          data-testid="photo-upload-input"
-          onChange={handleFileChange}
-        />
-      </div>
-
+      {/* 머리줄은 **카드의 바로 자식**이어야 한다 — `<div>` 로 한 번 감싸면 카드가 그것을
+          「줄도 머리도 아닌 것」으로 보고 여백을 둘러, 띠가 안으로 밀려 들어가 다른 절보다
+          두꺼워 보인다(사진 탭만 그랬다). 숨은 파일 입력은 자리를 차지하지 않으므로 머리와
+          묶을 까닭이 없다. */}
+      <DetailCardHeader
+        title="사진"
+        actions={
+          /* 같은 패널의 점검·고장이력과 **같은 동작**이다(목록에 한 줄을 더한다) —
+             한 동작에 한 단어. 「업로드」는 그 일을 하는 **방법**이지 하려는 일이 아니다. */
+          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            추가
+          </Button>
+        }
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        data-testid="photo-upload-input"
+        onChange={handleFileChange}
+      />
 
       {photos.length === 0 ? (
         <p className="text-xs text-content-faint">등록된 사진이 없습니다</p>

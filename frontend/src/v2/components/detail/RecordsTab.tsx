@@ -240,7 +240,7 @@ export function RecordsTab({
       {/* 빈 상태는 **한 줄**이다 — 절이 여럿 쌓이는 탭에서 절마다 큰 빈 상자를 세우면
           아무것도 없는 화면이 제일 길어진다(점검·고장이력 둘이 화면을 반씩 먹었다). */}
       {sorted.length === 0 && !showAdd && (
-        <p className="px-2.5 py-2 text-xs text-content-faint">{emptyMessage}</p>
+        <p className="text-xs text-content-faint">{emptyMessage}</p>
       )}
 
       {sorted.map((record) => {
