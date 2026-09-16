@@ -25,6 +25,7 @@ import {
   EmptyState,
   Input,
   TableCard,
+  ViewCard,
   Th,
   cn,
   useConfirm,
@@ -323,18 +324,25 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                 OPGW 가공(외선)과 실내 점퍼 결선은 품이 다르므로, 그룹 하나로 뭉쳐 두면 그
                 차이가 산출 내역에서 사라진다. */}
             <div className="flex min-h-0 flex-1 gap-3 p-4">
-              <div ref={tableRef} className="flex min-w-0 flex-1 flex-col gap-2">
-                {/* 「추가」는 표 **위**에 둔다 — 맨 아래 줄에 두면 종류가 늘수록 멀어지고,
-                    빈 표에서는 흰 여백 아래에 홀로 떠 있었다. */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-content-muted">
-                    종류 <span className="tabular-nums">{draft.categories.length}</span>
-                  </span>
-                  <Button className="ml-auto" variant="secondary" size="sm" onClick={addRow}>
-                    <Plus size={14} />
-                    종류 추가
-                  </Button>
-                </div>
+              {/* `tableRef` 는 **카드 통째**를 잡는다 — 「바깥을 누르면 선택이 풀린다」의
+                  안쪽 범위다. 본문만 잡으면 머리 띠의 「종류 추가」를 누르는 것이 바깥이 된다. */}
+              <div ref={tableRef} className="flex min-w-0 flex-1 flex-col">
+                <ViewCard
+                  tools={
+                    <span className="text-xs text-content-muted">
+                      종류 <span className="tabular-nums">{draft.categories.length}</span>
+                    </span>
+                  }
+                  actions={
+                    /* 「추가」는 표 **위**에 둔다 — 맨 아래 줄에 두면 종류가 늘수록 멀어지고,
+                       빈 표에서는 흰 여백 아래에 홀로 떠 있었다. 예전에는 이 줄이 카드 **밖**
+                       회색 위에 맨줄로 떠 있었다(기준정보는 같은 것을 카드 머리 띠에 둔다). */
+                    <Button variant="secondary" size="sm" onClick={addRow}>
+                      <Plus size={14} />
+                      종류 추가
+                    </Button>
+                  }
+                >
                 <TableCard widths={COL_WIDTHS} fill>
                   <thead>
                     {/* 머리글은 스크롤해도 남는다 — 현황표와 같은 규칙. */}
@@ -396,6 +404,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
                     })}
                   </tbody>
                 </TableCard>
+                </ViewCard>
               </div>
 
               {/* 상세 — **한 자리에서 문맥만 바뀐다.** 아무것도 안 골랐으면 그룹 자신,
