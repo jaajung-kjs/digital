@@ -345,8 +345,10 @@ export default function V2WorkspacePage() {
                 }
               />
               {inSubstationScope && (
-                <div className="flex h-8 shrink-0 items-center border-b border-line bg-surface px-4">
-                  <Tabs {...viewTabs.list} items={VIEW_TABS} onChange={route.setView} className="-mb-px" />
+                /* 탭 줄 — 회색 띠 위에 사각 탭이 솟는다. 바닥선은 `Tabs` 가 그으므로
+                   여기서 또 긋지 않는다(두 줄이 겹쳐 2px 로 보인다). */
+                <div className="flex h-8 shrink-0 items-end bg-surface-2 px-4">
+                  <Tabs {...viewTabs.list} items={VIEW_TABS} onChange={route.setView} className="w-full" />
                 </div>
               )}
               {/* 알림 띠는 **머리줄 밖**, 캔버스 위에 뜬다 — 머리줄과 같은 상자에 넣으면

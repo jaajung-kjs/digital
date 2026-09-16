@@ -107,14 +107,14 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, fill, c
 
   return (
     /* `⋯` 는 **tablist 밖**에 선다 — 탭 목록에는 탭만 담긴다(APG). 겉 줄이 테두리를 갖는다. */
-    <div className={cn('flex items-stretch', fill && 'w-full', className)}>
+    <div className={cn('flex items-stretch border-b border-line-strong', fill && 'w-full', className)}>
       <div ref={list} className={cn('flex items-stretch', fill && 'flex-1')} role="tablist">
         {items.map((t, i) => {
           const active = t.key === value;
           if (rename.isEditing(t.key)) {
             /* 고치는 동안에는 그 자리에 칸이 선다 — 탭이 그대로 상자가 되는 것처럼 보인다. */
             return (
-              <span key={t.key} className="flex items-center border-b-2 border-primary px-1 py-1">
+              <span key={t.key} className="flex items-center border-x border-line-strong bg-surface px-1 py-1">
                 {rename.field(t.key, t.label, `${t.label} 이름`)}
               </span>
             );
@@ -144,15 +144,19 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, fill, c
                 move(i, d);
               }}
               className={cn(
-                // 테두리는 항상 존재한다 — 활성 시에만 색을 준다(선택해도 레이아웃이 안 밀린다).
-                'border-b-2 px-3 py-2 text-sm transition-colors focus-ring',
+                /* **사각 탭.** 고른 것만 흰 바탕으로 솟고 위에 파란 선이 그어진다 —
+                   공공 업무화면의 관용구다. 밑줄만으로는 회색 띠 위에서 잘 안 읽힌다.
+                   테두리·높이는 활성 여부와 무관하게 같아서 골라도 줄이 밀리지 않는다. */
+                'relative -mb-px border border-b-0 px-3 py-1.5 text-sm transition-colors focus-ring',
                 // 줄을 가득 채울 때는 탭이 폭을 똑같이 나눠 갖는다.
                 fill && 'flex-1 justify-center whitespace-nowrap',
                 active
-                  ? 'border-primary font-medium text-primary'
-                  : 'border-transparent text-content-muted hover:text-content',
+                  ? 'border-line-strong bg-surface font-bold text-appbar'
+                  : 'border-transparent bg-surface-2/60 text-content-muted hover:text-content',
               )}
             >
+              {/* 솟은 탭의 머리선 — 활성 표시는 색 하나가 아니라 **바탕 + 머리선**이다. */}
+              {active && <span aria-hidden className="absolute inset-x-0 top-0 h-[2px] bg-primary" />}
               {t.label}
               {t.count != null && (
                 <span
