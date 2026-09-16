@@ -389,16 +389,19 @@ export function AssemblyGrid<T extends GridItem>({
                 }}
               >
                 {vertical ? (
-                  /* **눕혀서 한 줄로.** 예전에는 글자를 세워 쌓았다(`vertical-rl` +
-                     `upright`) — 그러면 `EXCU-A` 가 `E X C U - A` 여섯 줄이 되어 카드가
-                     아니라 글자 목록으로 읽혔다. 실물 랙 카드의 라벨은 세로로 쌓지 않고
-                     **90° 눕혀 인쇄**돼 있다. 돌린 글자의 길이는 칸의 **높이**가 정하므로
-                     `maxWidth` 에 높이를 준다(회전 전 기준이라 폭이 곧 세로 길이다). */
+                  /* **글자를 세워 쌓는다** — 눕히지 않는다.
+                   *
+                   * 한때 90° 돌려 한 줄로 적었다(실물 랙 카드의 인쇄가 그렇다는 근거로).
+                   * 그런데 화면에서는 고개를 돌려야 읽히고, 판을 훑을 때 세로 카드만
+                   * 읽는 방향이 달라 눈이 걸린다. 쌓아 두면 좁은 칸에서도 **똑바로 선 채**
+                   * 위에서 아래로 읽힌다 — 판이 격자이므로 그 방향이 자연스럽다.
+                   *
+                   * `text-orientation: upright` 가 핵심이다. 기본값(`mixed`)은 영문·숫자만
+                   * 눕혀서 `EXCU-A` 의 영문이 옆으로 누운 채 한글만 서는 뒤죽박죽이 된다.
+                   */
                   <span
-                    className="absolute left-1/2 top-1/2 truncate whitespace-nowrap leading-none"
-                    /* **회전 전 상자의 폭이 곧 세로 길이**다 — 흐름 안에 두면 칸의 좁은
-                       폭(50px)에 먼저 걸려 `EXCU…` 로 잘린다. 띄워 놓고 폭을 칸 높이로 준다. */
-                    style={{ width: Math.max(h - 8, 0), transform: 'translate(-50%, -50%) rotate(-90deg)', textAlign: 'center' }}
+                    className="min-h-0 min-w-0 max-h-full max-w-full truncate leading-none"
+                    style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
                   >
                     {item.name}
                   </span>
