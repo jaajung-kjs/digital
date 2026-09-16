@@ -74,7 +74,7 @@ export function MenuPopup({
         top: box?.top ?? -9999,
         visibility: box ? 'visible' : 'hidden',
       }}
-      className="z-modal min-w-40 rounded-md border border-line bg-surface py-1 shadow-lg"
+      className="z-modal min-w-40 rounded border border-line bg-surface py-1 shadow-lg"
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           /* 이 Esc 는 메뉴의 것이다 — 뒤 화면까지 닿으면 고른 것까지 함께 풀린다. */

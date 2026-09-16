@@ -171,7 +171,9 @@ export function RecordsTab({
   }
 
   return (
-    <div className="space-y-2">
+    /* **한 절 = 한 카드.** 머리줄이 카드 밖에 홀로 서면 「머리 따로, 상자 따로」로 보인다
+       — 사진 탭은 카드 안이고 이 절만 밖이라 같은 패널에서 두 어법이 섞였다. */
+    <DetailCard>
       {/* 섹션 머리줄 — 예전에는 제목 없이 '+추가' 버튼만 떠 있어서
           무엇을 추가하는지 패널만 봐서는 알 수 없었다.
           **사진 탭과 같은 어법**이다: 머리줄은 카드의 회색 띠, 단추는 글자만. 이 절만
@@ -238,7 +240,7 @@ export function RecordsTab({
       {/* 빈 상태는 **한 줄**이다 — 절이 여럿 쌓이는 탭에서 절마다 큰 빈 상자를 세우면
           아무것도 없는 화면이 제일 길어진다(점검·고장이력 둘이 화면을 반씩 먹었다). */}
       {sorted.length === 0 && !showAdd && (
-        <DetailCard><p className="text-xs text-content-faint">{emptyMessage}</p></DetailCard>
+        <p className="px-2.5 py-2 text-xs text-content-faint">{emptyMessage}</p>
       )}
 
       {sorted.map((record) => {
@@ -299,6 +301,6 @@ export function RecordsTab({
         );
       })}
       {confirmDialog}
-    </div>
+    </DetailCard>
   );
 }

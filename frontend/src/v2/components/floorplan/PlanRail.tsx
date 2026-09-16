@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { BackgroundDrawing } from '@twin/core';
+import { DetailCardHeader } from '../../../components/ui';
 
 /**
  * 도면 정보 패널 — **트리 아래, 도면 옆**.
@@ -62,7 +63,7 @@ export function PlanRail({
             범례는 **읽는 것이자 끄는 것**이다. 색만 적어 두면 「빨간 게 전원이구나」에서
             끝나지만, 누를 수 있으면 「전원만 빼고 보자」가 된다 — 아래 도면 레이어와 같은
             일을 케이블에 대해 한다. 이 층에 실제로 있는 매체만 선다(자료에서 유도). */}
-        <div className="shrink-0 border-b border-line bg-surface-2 px-3 py-1 font-bold text-content-muted">케이블</div>
+        <DetailCardHeader title="케이블" className="shrink-0" />
         {legend.length === 0 ? (
           <div className="shrink-0 px-3 py-1.5 text-content-faint">이 층에 그려진 케이블이 없습니다</div>
         ) : (
@@ -92,10 +93,11 @@ export function PlanRail({
         {/* ── 배경 도면 ── */}
         {drawing && (
           <>
-            <div className="flex shrink-0 items-center gap-2 border-y border-line bg-surface-2 px-3 py-1">
-              <span className="font-bold text-content-muted">배경 도면</span>
-              <span className="min-w-0 flex-1 truncate text-content-faint">{drawing.source.fileName}</span>
-            </div>
+            <DetailCardHeader
+              title="배경 도면"
+              className="shrink-0 border-t"
+              actions={<span className="min-w-0 truncate text-xs text-content-faint">{drawing.source.fileName}</span>}
+            />
             <div className="flex shrink-0 items-center gap-2 px-3 py-1.5">
               <span className="shrink-0 text-content-muted">농도</span>
               <input
@@ -110,17 +112,20 @@ export function PlanRail({
               />
               <span className="w-8 shrink-0 text-right tabular-nums text-content">{Math.round(opacity * 100)}%</span>
             </div>
-            <div className="flex shrink-0 items-center justify-between border-y border-line bg-surface-2 px-3 py-1">
-              <span className="font-bold text-content-muted">레이어 {layers.length - offCount}/{layers.length}</span>
-              <button
-                type="button"
-                className="text-primary hover:underline disabled:text-content-faint"
-                disabled={offCount === 0}
-                onClick={onShowAll}
-              >
-                모두 켜기
-              </button>
-            </div>
+            <DetailCardHeader
+              title={`레이어 ${layers.length - offCount}/${layers.length}`}
+              className="shrink-0 border-t"
+              actions={
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline disabled:text-content-faint"
+                  disabled={offCount === 0}
+                  onClick={onShowAll}
+                >
+                  모두 켜기
+                </button>
+              }
+            />
             {/* 레이어가 스물 장을 넘겨도 트리를 밀어내지 않는다 — 목록만 제 안에서 흐른다. */}
             <ul className="min-h-0 flex-1 overflow-y-auto">
               {layers.map((l) => (

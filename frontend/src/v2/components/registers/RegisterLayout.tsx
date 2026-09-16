@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { EmptyState, Select, SelectionScope, TableCard, TableSearch, useScrollSelectedIntoView } from '../../../components/ui';
+import { EmptyState, Select, SelectionScope, TableCard, TableSearch, useScrollSelectedIntoView, DetailCardHeader } from '../../../components/ui';
 import type { MediumContainerPick } from '../../useMediumContainer';
 
 export interface RegisterLayoutProps {
@@ -141,11 +141,16 @@ export function RegisterLayout({
                 {/* 묶음 머리줄 — **선번장과 계통이 한 벌을 쓴다**: 회색 띠 + 남색 세로 바 +
                     제목(거슬러 온 길은 흐리게) + 오른쪽 끝 메타. 예전에는 흰 바탕에 굵은
                     글자뿐이라 어디서 묶음이 시작되는지가 표와 섞여 읽혔다. */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border border-b-0 border-line-strong bg-surface-2 py-1 pl-0 pr-2.5">
-                  <span aria-hidden className="mr-2 h-[18px] w-[3px] shrink-0 bg-appbar" />
-                  <h3 className="text-sm font-semibold text-content">{section.title}</h3>
-                  <div className="ml-auto">{section.meta}</div>
-                </div>
+                <DetailCardHeader
+                  className="border border-b-0 border-line-strong"
+                  title={
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span aria-hidden className="h-[14px] w-[3px] shrink-0 bg-appbar" />
+                      <span className="min-w-0 truncate text-sm font-semibold text-content">{section.title}</span>
+                    </span>
+                  }
+                  actions={section.meta}
+                />
                 <TableCard widths={widths}>
                   <thead>
                     {/* 묶음마다 제 머리글이 제 표 위에 붙어 따라온다 — 96행을 내려가도

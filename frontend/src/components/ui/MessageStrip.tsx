@@ -32,7 +32,7 @@ export function MessageStrip({
 }) {
   const { box, icon, Icon } = TONE[tone];
   return (
-    <div className={cn('flex items-start gap-2 rounded-md border px-3 py-2 text-sm', box, className)}>
+    <div className={cn('flex items-start gap-2 rounded border px-3 py-2 text-sm', box, className)}>
       <Icon size={14} className={cn('mt-0.5 shrink-0', icon)} aria-hidden />
       <div className="min-w-0 flex-1">{children}</div>
     </div>

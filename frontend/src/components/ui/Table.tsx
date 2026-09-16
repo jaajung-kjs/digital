@@ -54,7 +54,7 @@ export function TableCard({
   return (
     <div
       className={cn(
-        'min-w-0 rounded-lg border border-line bg-surface',
+        'min-w-0 rounded border border-line bg-surface',
         // `clip` 은 스크롤 상자를 만들지 않는다 — 위 주석 참고. `fill` 일 때만 스크롤 상자다.
         fill ? 'flex h-full min-h-0 flex-col overflow-auto' : 'overflow-clip',
         className,

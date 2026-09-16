@@ -17,7 +17,7 @@ interface ItemCardProps {
  * 머리줄(제목 + 휴지통)을 각자 다시 써 두고 있었다. 삭제 버튼이 어떤 곳은 `title` 속성이 있고
  * 어떤 곳은 없는 식으로 조금씩 어긋난 것도 그래서다. 한 곳에서만 정한다.
  *
- * `DetailCard`(흰 배경 rounded-lg)와 다른 계층이다 — 이건 그 카드 *안*에 들어가는 항목이다.
+ * `DetailCard`(흰 배경, 1px 테두리)와 다른 계층이다 — 이건 그 카드 *안*에 들어가는 항목이다.
  */
 export function ItemCard({ title, onDelete, children }: ItemCardProps) {
   return (

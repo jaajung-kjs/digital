@@ -6,6 +6,13 @@ export type ButtonSize = 'sm' | 'md';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  /**
+   * 기본은 **`sm`(24px)**.
+   *
+   * 업무화면의 버튼은 작다 — 표 행이 28px 인 화면에서 32px 버튼은 줄 사이를 벌린다. 예전
+   * 기본값이 `md` 라 크기를 안 적은 여섯 곳만 다른 크기로 서 있었다(적은 곳은 전부 `sm`).
+   * 기본값이 실제로 쓰는 값이어야 적지 않은 것이 틀리지 않는다.
+   */
   size?: ButtonSize;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
@@ -24,7 +31,7 @@ const sizeClasses: Record<ButtonSize, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', leftIcon, rightIcon, className, children, type, disabled, ...rest },
+  { variant = 'primary', size = 'sm', leftIcon, rightIcon, className, children, type, disabled, ...rest },
   ref,
 ) {
   return (

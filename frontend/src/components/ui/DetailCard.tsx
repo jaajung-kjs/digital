@@ -15,9 +15,9 @@ import { Badge, type BadgeStatus } from './Badge';
 import { IconButton } from './IconButton';
 
 /**
- * 사이드패널 "선택 상세 카드" 표준 — 점검·고장이력(SectionItem)과 동일한 외형
- * (rounded-lg / border-line / bg-surface / p-3)으로 통일한다. 광슬롯 포트·피더 CB
- * 등 "무언가를 클릭하면 아래에 뜨는 상세 카드"는 모두 이 컴포넌트를 쓴다.
+ * 사이드패널 "선택 상세 카드" 표준 — 업무화면의 상세는 **표**다(1px 테두리 · 회색 머리 띠 ·
+ * 라벨칸+값칸). 광슬롯 포트·피더 CB 등 "무언가를 클릭하면 아래에 뜨는 상세 카드"는 모두
+ * 이 컴포넌트를 쓴다.
  *
  * 타이포 스케일(고정): 본문=text-sm, 라벨/메타/배지=text-xs. text-xs 미만 금지.
  * → src/components/ui/CONVENTIONS.md 참고.
@@ -69,6 +69,7 @@ export function DetailCardHeader({
   actions,
   onEdit,
   onDelete,
+  className,
 }: {
   title: ReactNode;
   badge?: ReactNode;
@@ -77,11 +78,18 @@ export function DetailCardHeader({
   actions?: ReactNode;
   onEdit?: () => void;
   onDelete?: () => void;
+  className?: string;
 }) {
   return (
     /* 상세의 머리는 **회색 띠**다 — 표 머리와 같은 면(`surface-2`)을 써서 「여기부터 이
        묶음」이 한눈에 잡힌다. 예전에는 흰 바탕에 굵은 글자뿐이라 줄들과 섞였다. */
-    <div data-detail-head className="flex min-h-[28px] items-center gap-2 border-b border-line-strong bg-surface-2 px-2.5">
+    <div
+      data-detail-head
+      className={cn(
+        'flex min-h-[28px] items-center gap-2 border-b border-line-strong bg-surface-2 px-2.5',
+        className,
+      )}
+    >
       <span className="text-xs font-bold text-content-muted">{title}</span>
       {badge != null && <Badge status={badgeStatus}>{badge}</Badge>}
       {(actions || onEdit || onDelete) && (
