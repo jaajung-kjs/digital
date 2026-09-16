@@ -33,7 +33,23 @@ export function portDirectionLabel(value: string): string {
 export const COMMON_ASSET_FIELDS: readonly FieldDef[] = [
   { key: 'installDate', label: '설치일', type: 'date' },
   { key: 'manager', label: '담당자', type: 'text' },
+  /**
+   * **정면이 어디를 보는가** — 도면에서 굵은 변으로 그린다.
+   *
+   * 반과 랙에는 앞이 있다. 앞이 벽을 보고 있으면 문을 열 수 없어서, 배치 검토에서 가장
+   * 먼저 보는 것이 이것이다. 설비 도면은 이것을 문 열림 호나 굵은 변으로 반드시 적는다.
+   *
+   * 방위(북·동·남·서)가 아니라 **도면 기준**(위·아래·왼쪽·오른쪽)이다 — 층마다 방위
+   * 기준이 아직 없고, 있더라도 사람이 보는 것은 화면 위의 방향이다.
+   *
+   * 비워 둘 수 있다. 정면이 뜻 없는 물건(축전지 선반·경로슬롯)이 있고, 모르는 것을
+   * 기본값으로 박으면 도면이 없는 사실을 말하게 된다.
+   */
+  { key: 'facing', label: '정면', type: 'select', options: ['위', '아래', '왼쪽', '오른쪽'], inTable: false },
 ] as const;
+
+/** 정면 값 — 도면 기준 방향. 렌더러와 화면이 같은 어휘를 쓴다. */
+export type Facing = '위' | '아래' | '왼쪽' | '오른쪽';
 
 /** 자산이 갖는 속성 — 종류를 가리지 않고 같다. 화면은 이것만 읽는다. */
 export function assetFieldDefs(): FieldDef[] {
@@ -46,6 +62,13 @@ export interface FieldDef {
   type: 'text' | 'number' | 'date' | 'select';
   unit?: string;
   options?: string[];
+  /**
+   * **표의 열로도 서는가** — 안 적으면 선다.
+   *
+   * 도면에서만 뜻을 갖는 속성(정면)이 현황 표의 열로 올라오면 스무 줄 가운데 두세 줄만
+   * 채워진 칸이 하나 더 생긴다. 상세 폼에는 있어야 하고 표에는 없어야 하는 것이 있다.
+   */
+  inTable?: boolean;
 }
 
 /**

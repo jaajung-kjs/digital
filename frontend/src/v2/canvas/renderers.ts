@@ -38,6 +38,18 @@ export function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth:
   return lo > 0 ? `${text.slice(0, lo)}…` : '…';
 }
 
+/**
+ * 정면이 보는 쪽 → 굵게 그을 변. 키는 선언된 값 그대로다(`COMMON_ASSET_FIELDS.facing`).
+ *
+ * 화면 좌표는 아래로 갈수록 y 가 커진다 — 「위」가 y, 「아래」가 y+h 인 까닭이다.
+ */
+const FRONT_EDGE: Record<string, ((x: number, y: number, w: number, h: number) => [number, number, number, number]) | undefined> = {
+  '위': (x, y, w) => [x, y, x + w, y],
+  '아래': (x, y, w, h) => [x, y + h, x + w, y + h],
+  '왼쪽': (x, y, _w, h) => [x, y, x, y + h],
+  '오른쪽': (x, y, w, h) => [x + w, y, x + w, y + h],
+};
+
 /** 캔버스 1 unit = 1 cm 약속 — 도면의 단위인 mm 로 적는다. */
 const mm = (cm: number) => Math.round(cm * 10).toLocaleString();
 
@@ -60,6 +72,19 @@ function renderAssetItem(
   ctx.lineWidth = px(isSelected ? 2.4 : 1.6);
   ctx.fillRect(x, y, w, h);
   ctx.strokeRect(x, y, w, h);
+
+  /* **정면은 굵은 변으로 그린다.** 반과 랙에는 앞이 있고, 앞이 벽을 보고 있으면 문을 열 수
+     없다 — 배치 검토에서 가장 먼저 보는 것이다. 설비 도면의 관용구를 그대로 쓴다.
+     적히지 않은 것에는 아무것도 긋지 않는다(모르는 것을 그리면 도면이 거짓말을 한다). */
+  const edge = FRONT_EDGE[item.facing ?? ''];
+  if (edge) {
+    ctx.beginPath();
+    const [x1, y1, x2, y2] = edge(x, y, w, h);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineWidth = px(4);
+    ctx.stroke();
+  }
 
   /* 주기는 **상자 왼쪽 위**에 붙는다 — 가운데에 두면 글자가 상자의 내용물처럼 보인다.
      도면의 주기가 물건 옆에 붙는 것과 같은 자리다. */

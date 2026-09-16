@@ -106,6 +106,7 @@ export function buildStatusRows(args: {
     };
   });
 
-  return { rows, fieldColumns: assetFieldDefs() };
+  /* 표의 열은 **선언이 정한다** — 도면에서만 뜻을 갖는 속성(정면)은 여기 서지 않는다. */
+  return { rows, fieldColumns: assetFieldDefs().filter((f) => f.inTable !== false) };
 }
 

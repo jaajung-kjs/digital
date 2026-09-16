@@ -8,6 +8,8 @@ export type PlacedAsset = Pick<V2Asset, 'id' | 'name' | 'x' | 'y' | 'width' | 'h
   y: number;
   width: number;
   height: number;
+  /** 정면이 보는 쪽 — 도면에서 그 변을 굵게 긋는다(`COMMON_ASSET_FIELDS.facing`). */
+  facing?: string | null;
 };
 
 /**
