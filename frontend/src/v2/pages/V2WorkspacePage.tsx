@@ -409,22 +409,19 @@ export default function V2WorkspacePage() {
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : (
-                    /* 현황 뷰 (기본) — **스크롤은 표가 쥔다**. 여기서 감싸 스크롤하면
-                       도구바(검색)까지 함께 쓸려 올라간다. */
-                    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-                      <StatusOverview
-                        rows={rows}
-                        fieldColumns={fieldColumns}
-                        selectedId={highlightedAssetId}
-                        onSelectAsset={handleSelectAssetId}
-                        nodeScope={nodeScope}
-                        /* 본부·지사에서는 **누른다고 옮기지 않는다** — 옮기는 것은 또렷한 한 번이다.
-                           (상세 패널은 워킹 카피를 읽고, 그것은 한 변전소의 것이다.) */
-                        onOpenElsewhere={nodeScope ? openInSubstation : undefined}
-                      />
-                      </div>
-                    </div>
+                    /* 현황 뷰 (기본) — 여백도 스크롤도 **판이 쥔다**(`ViewCard`, §3.1).
+                       예전에는 이 페이지가 `p-4` 를 줘서 네 탭 중 현황만 껍데기의 주인이
+                       달랐다(게다가 자식이 하나인데 `gap-3` 이라 죽은 값이었다). */
+                    <StatusOverview
+                      rows={rows}
+                      fieldColumns={fieldColumns}
+                      selectedId={highlightedAssetId}
+                      onSelectAsset={handleSelectAssetId}
+                      nodeScope={nodeScope}
+                      /* 본부·지사에서는 **누른다고 옮기지 않는다** — 옮기는 것은 또렷한 한 번이다.
+                         (상세 패널은 워킹 카피를 읽고, 그것은 한 변전소의 것이다.) */
+                      onOpenElsewhere={nodeScope ? openInSubstation : undefined}
+                    />
                   )}
 
                   {/* 상세가 앉을 자리 — **늘 있다.**

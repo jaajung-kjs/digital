@@ -455,6 +455,12 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 ```
 회색 머리 띠(=도구바) + 본문 + 선택적 바닥 띠. 좌측 기준선·도구바 높이·스크롤 소유권이 여기 한 곳에서 정해진다 — 자세한 것은 **§3.1**.
 
+### 토글형 거르개(설비 7 · 미점검 39) → `FilterChip`
+```tsx
+<FilterChip label="미점검" count={39} tone="warning" on={f.neverInspected} onClick={…} />
+```
+숫자는 **거르기 전 전체**다 — 걸러 놓고 다시 세면 칩이 늘 0 이 된다. 머리 띠 왼쪽 첫 칸에 선다(§3.1).
+
 ### 상호배타 갈래(전체·교류·직류 등) → `SegmentedControl`
 ```tsx
 <SegmentedControl aria-label="계통 갈래" items={FLOWS} value={flow} onChange={setFlow} />

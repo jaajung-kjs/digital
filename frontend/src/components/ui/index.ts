@@ -49,6 +49,7 @@ export * from './Toggle';
 export * from './Tabs';
 export * from './ViewCard';
 export * from './SegmentedControl';
+export * from './FilterChip';
 export * from './PromptModal';
 export * from './ConfirmModal';
 export * from './useConfirm';

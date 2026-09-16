@@ -250,3 +250,25 @@ describe('설비 현황 — 칩으로 좁혀 본다', () => {
     expect(span(assetRow)).toBe(cols);
   });
 });
+
+describe('설비 현황 — 도구바는 한 줄이다', () => {
+  /**
+   * 검색과 칩이 **같은 줄**에 선다 — 그 줄이 곧 판의 머리 띠다(§3.1).
+   *
+   * 예전에는 검색 한 줄 + 칩 한 줄로 세로 32px 를 더 썼고, 그 두 줄만 `max-w-6xl` 로
+   * 묶여 있어 넓은 화면에서 표와 오른쪽 끝이 달랐다.
+   */
+  it('검색과 칩이 한 줄에 — 그 줄이 카드의 머리 띠다', () => {
+    const { container } = show();
+    const head = container.querySelector('.bg-surface-2') as HTMLElement;
+    expect(head).not.toBeNull();
+    expect(within(head).getByLabelText('현황 검색')).toBeTruthy();
+    expect(within(head).getByRole('button', { name: /미점검/ })).toBeTruthy();
+  });
+
+  /* 이 화면에만 있던 폭 제한 — 표는 안 묶여 있어서 도구바와 표의 오른쪽 끝이 달랐다. */
+  it('폭을 제 마음대로 줄이지 않는다', () => {
+    const { container } = show();
+    expect(container.innerHTML).not.toContain('max-w-6xl');
+  });
+});
