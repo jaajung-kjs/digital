@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStatusRows } from '../statusRows';
+import { statusFieldColumns, buildStatusRows } from '../statusRows';
 import { emptyOverlay, mergeEffective, stageCreate } from '../store/overlay';
 import type { V2Asset } from '../types';
 
@@ -118,5 +118,23 @@ describe('설비 묶음', () => {
 
   it('상위가 순환해도 멈춘다 — 데이터가 망가져도 표가 얼지 않게', () => {
     expect(() => build([a('x', { parentAssetId: 'y' }), a('y', { parentAssetId: 'x' })])).not.toThrow();
+  });
+});
+
+/**
+ * **도면에서만 뜻을 갖는 속성은 표에 서지 않는다.**
+ *
+ * 정면(「아래」)은 도면을 보지 않고는 맞는지 알 수 없어, 표에 적어 봐야 읽을 수 없는 값이다
+ * (`inTable: false`). 거르는 일을 두 곳에서 각자 적었더니 본부·지사 범위만 필터를 빠뜨려
+ * **같은 표인데 열이 달랐다** — 이제 한 곳에서 나온다.
+ */
+describe('현황 표의 열은 한 곳에서 나온다', () => {
+  it('정면은 열로 서지 않는다', () => {
+    expect(statusFieldColumns().map((f) => f.key)).not.toContain('facing');
+  });
+
+  /* 다 걸러 버리면 열이 사라진다 — 보통 속성은 남아 있어야 한다. */
+  it('보통 속성은 그대로 선다', () => {
+    expect(statusFieldColumns().length).toBeGreaterThan(0);
   });
 });

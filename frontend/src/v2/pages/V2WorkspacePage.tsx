@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { assetFieldDefs } from '@twin/core';
 import { useNavigate } from 'react-router-dom';
 import type { CablePickRequest } from '../cablePick';
 import {
@@ -28,7 +27,7 @@ import { PowerRegisterView } from '../components/registers/PowerRegisterView';
 import { useV2Catalog, useV2NodeAssets, useTypesById, useV2OrgTree } from '../hooks';
 import { ancestorPath, flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useWorkspaceRoute, VIEW_MODES, type ViewMode } from '../useWorkspaceRoute';
-import { buildStatusRows, type StatusRowsResult } from '../statusRows';
+import { buildStatusRows, statusFieldColumns, type StatusRowsResult } from '../statusRows';
 
 /** 스코프 밖일 때의 빈 결과 — 매번 새 객체를 만들면 useMemo 아래가 헛되이 다시 계산된다. */
 const EMPTY_ROWS: StatusRowsResult = { rows: [], fieldColumns: [] };
@@ -316,7 +315,8 @@ export default function V2WorkspacePage() {
       assemblyRootId: null,
       depth: 0,
     }));
-    return { rows, fieldColumns: assetFieldDefs() };
+    /* 열은 변전소 범위와 **같은 곳**에서 온다 — 같은 표이므로(`statusFieldColumns`). */
+    return { rows, fieldColumns: statusFieldColumns() };
   }, [isNodeScope, nodeAssetsQuery.data]);
 
   const { rows, fieldColumns } = shown?.kind === 'substation' ? substationRows : nodeRows;

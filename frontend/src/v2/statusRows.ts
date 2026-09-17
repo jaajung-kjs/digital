@@ -106,7 +106,21 @@ export function buildStatusRows(args: {
     };
   });
 
-  /* 표의 열은 **선언이 정한다** — 도면에서만 뜻을 갖는 속성(정면)은 여기 서지 않는다. */
-  return { rows, fieldColumns: assetFieldDefs().filter((f) => f.inTable !== false) };
+  return { rows, fieldColumns: statusFieldColumns() };
+}
+
+/**
+ * 현황 표의 열 — **한 곳에서 정한다.**
+ *
+ * 열은 선언이 정하고(`assetFieldDefs`), 도면에서만 뜻을 갖는 속성(정면)은 서지 않는다
+ * (`inTable: false`). 도면을 보지 않고는 「아래」가 맞는지 알 수 없으므로 표에 적어 봐야
+ * 읽을 수 없는 값이다.
+ *
+ * **함수로 내보내는 까닭**: 같은 표를 범위만 바꿔 두 곳에서 세운다(변전소 범위는 워킹카피로,
+ * 본부·지사 범위는 서버 요약으로). 거르는 일을 각자 적었더니 본부·지사 쪽만 필터를
+ * 빠뜨려 정면 열이 거기서만 섰다 — 같은 표인데 열이 달랐다.
+ */
+export function statusFieldColumns(): FieldDef[] {
+  return assetFieldDefs().filter((f) => f.inTable !== false);
 }
 
