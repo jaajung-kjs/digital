@@ -132,6 +132,19 @@ export default function V2WorkspacePage() {
     if (n.kind === 'substation') {
       /* 같은 변전소를 다시 눌러도 다시 읽지 않는다 — 고쳐 둔 것이 날아간다. */
       if (n.id === st.substationId && route.nodeId === n.id) return;
+      /**
+       * **케이블을 잇는 중이면 버리지 않고 담아 둔다.**
+       *
+       * 이을 곳을 고르러 잠깐 다녀오는 일이 「지금까지 한 것을 버린다」와 같은 일이어서는
+       * 안 된다. 담아 둔 것은 돌아올 때 되살아나고, 그 사이 `dirtyCount()` 가 함께 세므로
+       * 아예 떠나려 하면 이탈 가드가 묻는다. 그래서 여기서는 묻지 않는다.
+       */
+      if (session) {
+        route.selectNode(n.id);
+        setTraceResult(null);
+        await st.suspendAndLoad(n.id);
+        return;
+      }
       /* 묻고 **버리는** 일은 `confirmDiscard` 가 함께 쥔다 — 버리는 일이 「다른 변전소를 새로
          읽는」 부수 효과에 얹혀 있으면, 같은 변전소로 돌아오는 길에서는 안 버려진다. */
       const mayLeave = await confirmDiscard(st, (dirty) => confirm(unsavedPrompt(dirty)));
@@ -411,8 +424,10 @@ export default function V2WorkspacePage() {
                         산출 내역
                       </Button>
                     )}
-                    {/* 저장은 대장과 **같은 자리**에 선다 — 고친 것이 있을 때만 나타난다. */}
-                    <SaveBar onCommit={commit} isCommitting={isCommitting} />
+                    {/* 저장은 대장과 **같은 자리**에 선다 — 고친 것이 있을 때만 나타난다.
+                        다녀온 국에서는 두지 않는다: 고르러 간 것이지 고치러 간 것이 아니고,
+                        여기서 저장하면 담아 둔 국의 변경이 갈 곳을 잃는다. */}
+                    {!wcReadOnly && <SaveBar onCommit={commit} isCommitting={isCommitting} />}
                   </>
                 }
               />

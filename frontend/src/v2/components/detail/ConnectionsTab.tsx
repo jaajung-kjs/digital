@@ -355,12 +355,9 @@ export function ConnectionsTab({
             description={pickQuery.trim() ? undefined : '이 설비에 같은 매체의 포트가 없습니다.'}
             className="py-6"
           />
+          {/* 「다른 층·변전소에서 찾기」는 **없다.** 다른 층은 하단 층 탭으로, 다른 국은
+              조직 트리로 평소처럼 옮겨 가서 도면에서 고른다 — 고르는 방법이 하나다. */}
           <div className="flex justify-center gap-2">
-            {picking.onSearchRemote && (
-              <Button variant="secondary" size="sm" onClick={picking.onSearchRemote}>
-                다른 층·변전소에서 찾기
-              </Button>
-            )}
             <Button variant="secondary" size="sm" onClick={picking.onCancel}>
               취소
             </Button>
@@ -412,11 +409,6 @@ export function ConnectionsTab({
             value={pickQuery}
             onChange={(e) => setPickQuery(e.currentTarget.value)}
           />
-          {picking.onSearchRemote && (
-            <Button variant="secondary" size="sm" onClick={picking.onSearchRemote}>
-              다른 층·변전소에서 찾기
-            </Button>
-          )}
         </DetailCard>
       )}
       {/* 장비 한 대에 카드 한 장 — 판·고른 포트·연결 내역이 **한 곳에** 모인다.
