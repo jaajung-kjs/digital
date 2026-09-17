@@ -32,6 +32,21 @@ export interface CableEnd {
   cableCount: number;
 }
 
+/**
+ * 이을 수 있는가 — **판정만** 한다(쌓지 않는다).
+ *
+ * 잇기 직전에 화면을 옮겨야 하는 길이 있어서 판정을 따로 물을 자리가 필요하다: 다른 국에
+ * 다녀와 이으면 **먼저 시작한 국으로 돌아가** 되살린 뒤에 쌓아야 하는데, 못 이을 값을 들고
+ * 돌아가 버리면 상자만 열린 채 화면이 딴 데로 가 있다. 먼저 묻고, 통과하면 옮긴 뒤 쌓는다.
+ *
+ * 두 끝점은 값이라 묻고 나서 쌓기까지 **변하지 않는다** — 그래서 두 번 묻는 것이 아니라
+ * 한 번 묻고 그 답대로 행동하는 것이다.
+ */
+export function canConnectEnds(from: CableEnd, to: CableEnd, mediumKey?: string): string | null {
+  const counts = new Map([[from.port.id, from.cableCount], [to.port.id, to.cableCount]]);
+  return validateConnection(from.port, to.port, counts, mediumKey);
+}
+
 export function connectCable(args: {
   from: CableEnd;
   to: CableEnd;
@@ -42,11 +57,7 @@ export function connectCable(args: {
   /** 나중에 도면에서 붙이는 꺾은점 — 이을 때는 비어 있다. */
   pathPoints: readonly { x: number; y: number }[];
 }): string | null {
-  const counts = new Map([
-    [args.from.port.id, args.from.cableCount],
-    [args.to.port.id, args.to.cableCount],
-  ]);
-  const err = validateConnection(args.from.port, args.to.port, counts, args.mediumKey);
+  const err = canConnectEnds(args.from, args.to, args.mediumKey);
   if (err) return err;
 
   useV2WorkingCopy.getState().stageCableCreate({

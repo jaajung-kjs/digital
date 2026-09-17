@@ -8,7 +8,7 @@ import {
 } from '../connectSession';
 import { ConnectOverlay } from '../components/ConnectOverlay';
 import { ConnectCategoryDialog } from '../components/ConnectCategoryDialog';
-import { connectCable } from '../cableActions';
+import { canConnectEnds, connectCable } from '../cableActions';
 import { cableCountByPortId } from '../cableSelectors';
 import { endpointLabel } from '../peerResolve';
 import { useV2Notice } from '../store/noticeStore';
@@ -335,32 +335,50 @@ export default function V2WorkspacePage() {
     setSession(from ? withFrom(base, from) : base);
   }, [substationId, viewMode]);
 
+  /**
+   * 시작한 화면으로 **주소를 옮긴다** — 되살리기보다 먼저 해야 한다.
+   *
+   * 스토어만 되살리면 주소는 다녀온 국을 가리킨 채로 남는다. 그러면 트리 선택을 보고 도는
+   * 로드 효과가 「스토어는 A 인데 주소는 B 네」라며 **B 를 다시 불러** 되살린 오버레이를
+   * 덮어쓴다(화면은 「불러오는 중…」에 멈춘다). 되살리기는 조회를 기다리므로 그 사이에
+   * 렌더가 끼어들 자리도 충분하다.
+   *
+   * 견주는 것도 **주소**다. 예전에는 스토어의 국과 견줬는데, 되살리기가 스토어를 이미
+   * 옮겨 놓은 뒤라 늘 「같다」가 나와 주소를 끝내 옮기지 않았다.
+   */
+  const goToOrigin = useCallback((backTo: ConnectOrigin) => {
+    if (backTo.substationId && backTo.substationId !== route.nodeId) {
+      navigate(`/n/${backTo.substationId}?view=${encodeURIComponent(backTo.view)}`);
+    } else {
+      route.setView(backTo.view);
+    }
+  }, [navigate, route]);
+
   /** 세션을 접고 담아 둔 것을 되살린다 — 끝낼 때도 접을 때도 지나는 한 자리. */
   const closeSession = useCallback(async (backTo: ConnectOrigin | null) => {
+    if (backTo) goToOrigin(backTo);
     const wc = useV2WorkingCopy.getState();
     if (wc.suspended) await wc.resumeSuspended();
-    if (backTo) {
-      const back = backTo.substationId;
-      if (back && back !== useV2WorkingCopy.getState().substationId) {
-        navigate(`/n/${back}?view=${encodeURIComponent(backTo.view)}`);
-      } else {
-        route.setView(backTo.view);
-      }
-    }
     setPending(null);
     setPendingError(null);
     setSession(null);
-  }, [navigate, route]);
+  }, [goToOrigin]);
 
   /** 접는다 — 담아 둔 것은 되살린다(잃지 않는다). 시작한 화면으로도 돌려보낸다. */
   const cancelConnect = useCallback(async () => {
     await closeSession(session?.origin ?? null);
   }, [closeSession, session]);
 
-  /** 다녀온 국에서 처음 자리로 — 담아 둔 것을 되살린다(세션은 살려 둔다). */
+  /**
+   * 다녀온 국에서 처음 자리로 — 담아 둔 것을 되살린다(세션은 살려 둔다).
+   *
+   * 여기서도 **주소를 먼저** 옮긴다(`goToOrigin` 주석) — 되살리기만 하면 주소가 다녀온 국에
+   * 남아, 로드 효과가 그 국을 다시 불러 되살린 오버레이를 덮어쓴다.
+   */
   const backToOrigin = useCallback(async () => {
+    if (session) goToOrigin(session.origin);
     await useV2WorkingCopy.getState().resumeSuspended();
-  }, []);
+  }, [session, goToOrigin]);
 
   /**
    * **포트를 골랐다 — 잇는 길은 이 함수 하나다.**
@@ -430,17 +448,28 @@ export default function V2WorkspacePage() {
     if (!p || !s) return;
 
     /**
-     * **담아 둔 것을 먼저 되살린다 — 그 다음에 쌓는다.**
+     * **먼저 묻고, 통과하면 돌아가서 쌓는다.**
      *
-     * 케이블은 시작한 국의 것이다. 다녀온 국이 로드된 채로 쌓으면 그 국의 오버레이에 들어가고,
-     * 곧바로 되살리면서 오버레이가 통째로 담아 둔 것으로 바뀌어 **방금 이은 것이 사라진다**
-     * (`resumeSuspended` 는 오버레이를 갈아 끼운다). 두 끝점을 값으로 들고 온 덕에 로드된
-     * 국이 무엇이든 이을 수 있으므로, 순서를 이렇게 둘 수 있다.
+     * 못 이을 값을 들고 돌아가 버리면 상자만 열린 채 화면이 딴 데로 가 있다. 그리고 쌓는
+     * 일은 **되살린 뒤**여야 한다: 케이블은 시작한 국의 것인데, 다녀온 국이 로드된 채로
+     * 쌓으면 그 국의 오버레이에 들어가고 곧바로 되살리면서 오버레이가 통째로 갈리며
+     * **방금 이은 것이 사라진다**(`resumeSuspended` 는 오버레이를 갈아 끼운다).
+     *
+     * 두 끝점이 값이라 묻고 나서 쌓기까지 변하지 않는다 — 여기서 통과한 것은 아래에서도
+     * 통과한다.
      */
+    const bad = canConnectEnds(p.from.end, p.to, p.from.end.port.medium);
+    if (bad) {
+      /* 상자는 **열린 채로** 둔다 — 닫으면 고른 포트 둘이 함께 사라져 처음부터 다시다. */
+      setPendingError(connectErrorLabel(bad));
+      return;
+    }
+
+    goToOrigin(s.origin);
     const wc = useV2WorkingCopy.getState();
     if (wc.suspended) await wc.resumeSuspended();
 
-    const err = connectCable({
+    connectCable({
       from: p.from.end,
       to: p.to,
       /* 케이블은 **시작한 국의 것**이다 — 예전에는 그때 로드된 국에 쌓여 반대였다. */
@@ -450,15 +479,13 @@ export default function V2WorkspacePage() {
       /* 경로는 이은 뒤 도면에서 붙인다(`CablePathEditor`) — 그리면서 잇기를 걷었다. */
       pathPoints: [],
     });
-    if (err) {
-      /* 상자는 **열린 채로** 둔다 — 닫으면 고른 포트 둘이 함께 사라져 처음부터 다시다. */
-      setPendingError(connectErrorLabel(err));
-      return;
-    }
     /* 다음에 그 매체를 이을 때 물려 올 값 — 상자가 고른 채로 띄우므로 숨은 값이 아니다. */
     lastCategoryByMedium.current[p.from.end.port.medium] = categoryId;
-    await closeSession(s.origin);
-  }, [pending, session, closeSession]);
+    /* 자리는 위에서 이미 옮겼다 — 여기서는 세션만 걷는다. */
+    setPending(null);
+    setPendingError(null);
+    setSession(null);
+  }, [pending, session, goToOrigin]);
 
   /**
    * 포트를 고르라는 요청을 받으면 **상세 패널을 그 자산으로 옮긴다**.
