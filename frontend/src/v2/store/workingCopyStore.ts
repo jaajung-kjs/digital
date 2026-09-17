@@ -7,7 +7,7 @@ import { useV2Notice } from './noticeStore';
 import type { V2Asset, V2AssetPhoto, V2Cable, V2Floor, V2InspectionLog, V2MaintenanceLog, V2Workingcopy } from '../types';
 import { emptyOverlay, mergeEffective, overlayDirtyCount, stageCreate, stageDelete, stageUpdate, type Overlay } from './overlay';
 
-interface Overlays {
+export interface Overlays {
   /** 층도 워킹카피의 것이다 — 저장해야 서버로 간다(자산·케이블과 같은 규칙 하나). */
   floors: Overlay<V2Floor>;
   assets: Overlay<V2Asset>;
@@ -15,6 +15,22 @@ interface Overlays {
   inspections: Overlay<V2InspectionLog>;
   cables: Overlay<V2Cable>;
   photos: Overlay<V2AssetPhoto>;
+}
+
+/**
+ * 담아 둔 워킹카피 — **다른 국에 잠깐 다녀올 때** 지금 것을 여기 둔다.
+ *
+ * `Overlay<T>` 는 `{creates, updates, deletes}` 라는 순수한 값이고 `load()` 는
+ * `saved`·`baseVersions`·`overlays` 를 갈아 끼울 뿐이다. 그러니 따로 담아 뒀다 도로 얹으면
+ * 그대로 살아난다.
+ *
+ * `baseVersions` 는 **담아 둘 때의 것을 그대로** 쓴다 — 편집은 그때 본 것을 바탕으로 했으므로
+ * 그 버전이 맞다. 그 사이 남이 고쳤으면 저장할 때 충돌이 정직하게 잡힌다(`ConflictDialog`).
+ */
+export interface SuspendedCopy {
+  substationId: string;
+  overlays: Overlays;
+  baseVersions: Record<string, string>;
 }
 
 const EMPTY_SAVED = { substation: null as V2Workingcopy['substation'] | null, floors: [] as V2Workingcopy['floors'], assets: [] as V2Asset[], maintenanceLogs: [] as V2MaintenanceLog[], inspectionLogs: [] as V2InspectionLog[], cables: [] as V2Cable[], photos: [] as V2AssetPhoto[] };
@@ -35,6 +51,16 @@ export interface V2WorkingCopyState {
   pendingSubstationId: string | null;
   load: (substationId: string) => Promise<void>;
   revert: () => void;
+  /** 다른 국에 다녀오는 중이면 담아 둔 워킹카피. 없으면 `null`. */
+  suspended: SuspendedCopy | null;
+  /** **읽기 전용 = 보류 중.** 고르러 간 것이지 고치러 간 것이 아니다. */
+  readOnly: () => boolean;
+  /** 지금 것을 담아 두고 다른 국을 읽는다. 보류는 **한 겹만** 둔다. */
+  suspendAndLoad: (substationId: string) => Promise<void>;
+  /** 담아 둔 국으로 돌아가 오버레이를 되살린다. 보류가 없으면 아무 일도 하지 않는다. */
+  resumeSuspended: () => Promise<void>;
+  /** 담아 둔 것을 버린다 — 떠날 때. */
+  dropSuspended: () => void;
   stageFloorCreate: (floor: V2Floor) => void;
   stageFloorUpdate: (id: string, patch: Partial<V2Floor>) => void;
   stageFloorDelete: (id: string) => void;
@@ -66,6 +92,7 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
   temporal(
     (set, get) => ({
       substationId: null,
+      suspended: null,
       loading: false,
       pendingSubstationId: null,
       saved: EMPTY_SAVED,
@@ -121,10 +148,39 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       revert: () => {
         const t = v2WorkingCopyStore.temporal.getState();
         t.pause();
-        set({ overlays: emptyOverlays() });
+        /* 담아 둔 것도 「저장하지 않은 변경」이다(`dirtyCount`) — 버릴 때 함께 버린다.
+           안 그러면 「변경 N건이 사라집니다」가 거짓말이 된다. */
+        set({ overlays: emptyOverlays(), suspended: null });
         t.clear();
         t.resume();
       },
+
+      readOnly: () => get().suspended !== null,
+
+      suspendAndLoad: async (substationId) => {
+        const { substationId: cur, overlays, baseVersions, suspended } = get();
+        /* 보류는 **한 겹만** — B 에서 또 C 로 가면 그냥 C 로 간다(A 보류는 유지).
+           어디에 있든 오버레이가 「돌아가기」로 처음 자리를 가리킨다. */
+        if (suspended === null && cur !== null) {
+          set({ suspended: { substationId: cur, overlays, baseVersions } });
+        }
+        await get().load(substationId);
+      },
+
+      resumeSuspended: async () => {
+        const held = get().suspended;
+        if (!held) return;
+        /* 먼저 읽고 **그 위에** 얹는다 — `load` 가 오버레이를 비우므로 순서가 뒤바뀌면 날아간다. */
+        await get().load(held.substationId);
+        const t = v2WorkingCopyStore.temporal.getState();
+        t.pause();
+        /* 되돌리기 이력은 지운다 — 국을 넘나든 이력을 섞으면 무엇이 되돌려질지 모른다. */
+        set({ overlays: held.overlays, baseVersions: held.baseVersions, suspended: null });
+        t.clear();
+        t.resume();
+      },
+
+      dropSuspended: () => set({ suspended: null }),
 
       /**
        * 층 — **다른 것과 똑같이** 쌓았다가 저장할 때 나간다.
@@ -199,9 +255,19 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       effectiveCables: () => mergeEffective(get().saved.cables, get().overlays.cables),
       effectiveMaintenanceFor: (assetId) => mergeEffective(get().saved.maintenanceLogs, get().overlays.maintenance).filter((r) => r.assetId === assetId),
       effectiveInspectionsFor: (assetId) => mergeEffective(get().saved.inspectionLogs, get().overlays.inspections).filter((r) => r.assetId === assetId),
+      /**
+       * 저장하지 않은 변경 건수 — **담아 둔 것까지 센다**.
+       *
+       * 보류 중에는 로드된 국이 깨끗해서 이 값이 0 이 된다. 그러면 셸의 이탈 가드
+       * (`useUnsavedMark` → `confirmDiscard`)가 「변경 N건이 사라집니다」를 안 띄운 채
+       * 담아 둔 것을 **조용히 버린다**. 여기서 함께 세면 이미 있는 가드 하나가 그대로 일한다.
+       */
       dirtyCount: () => {
-        const o = get().overlays;
-        return overlayDirtyCount(o.floors) + overlayDirtyCount(o.assets) + overlayDirtyCount(o.maintenance) + overlayDirtyCount(o.inspections) + overlayDirtyCount(o.cables) + overlayDirtyCount(o.photos);
+        const count = (o: Overlays) =>
+          overlayDirtyCount(o.floors) + overlayDirtyCount(o.assets) + overlayDirtyCount(o.maintenance)
+          + overlayDirtyCount(o.inspections) + overlayDirtyCount(o.cables) + overlayDirtyCount(o.photos);
+        const held = get().suspended;
+        return count(get().overlays) + (held ? count(held.overlays) : 0);
       },
       isTempId: (id) => id in get().overlays.assets.creates,
     }),
