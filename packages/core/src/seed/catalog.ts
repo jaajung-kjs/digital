@@ -650,6 +650,173 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
+
+  /*
+   * ── 위탁 설비리스트의 **일반 종류** ──────────────────────────────────────────────
+   *
+   * 「26년 2월 위탁청구(관리처)」의 설비리스트를 보고 지었다(2026-09). 그 표는 제조사·모델이
+   * 아니라 **소분류**로 센다 — `단말스위치(24Port이상)` 한 줄에 다산·한드림넷·CoreEdge·Cisco 가
+   * 섞여 있다. 그래서 여기도 모델이 아니라 종류로 둔다. 모델은 자산의 사실이다.
+   *
+   * **금액 등급으로 나누지 않는다.** `서버_E/F` · `UPS_B/C` · `네트워크 스위치_C/D/E` 는 같은
+   * 물건을 취득금액으로 가른 것이라, 종류를 등급마다 두면 같은 스위치가 값에 따라 다른
+   * 품목이 된다.
+   *
+   * **포트는 전부 추정이다** — 놓을 때 개수를 고친다. 무인보안(감시정보·출입·침투감지)과
+   * OA(PC·프린터)는 넣지 않았다.
+   */
+  {
+    /* 표의 `단말스위치(24Port이상)` — 실물은 다산 V2624G · 한드림넷 SG2228G 같은 L2 다. */
+    key: 'SW-L2-24',
+    name: 'L2 스위치(24P)',
+    categoryKey: '통신',
+    sortOrder: 60,
+    labor: labor(0.5, 0.25, 0.5, 1_500_000),
+    ports: [
+      { group: 'LAN', count: 24, direction: 'BI', medium: 'network', namePattern: 'LAN {n}' },
+      { group: 'SFP', count: 4, direction: 'BI', medium: 'fiber', namePattern: 'SFP {n}' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'AC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /* 표의 `네트워크 스위치_C/D/E` — 실물은 Allied x600-24Ts · CoreEdge C3300-24TS 같은 L3 다.
+       전원 모듈이 둘인 모델이 많아 입력을 둘로 둔다. */
+    key: 'SW-L3-24',
+    name: 'L3 스위치(24P)',
+    categoryKey: '통신',
+    sortOrder: 61,
+    labor: labor(0.75, 0.4, 0.75, 4_000_000),
+    ports: [
+      { group: 'LAN', count: 24, direction: 'BI', medium: 'network', namePattern: 'LAN {n}' },
+      { group: 'SFP', count: 4, direction: 'BI', medium: 'fiber', namePattern: 'SFP {n}' },
+      { group: 'POWER-IN-AC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 {n}', variant: 'AC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /* **UTM** — 표의 `정보보호설비 / 통합UTM`. 방화벽·침입방지를 한 대에 담은 보안장비로,
+       광단말 랙의 「보안장비」 자리에 선다. 모양은 L3 스위치와 같게 두고 포트만 적다. */
+    key: 'UTM-12',
+    name: 'UTM(12P)',
+    categoryKey: '통신',
+    sortOrder: 66,
+    labor: labor(0.75, 0.4, 0.75, 5_000_000),
+    ports: [
+      { group: 'LAN', count: 12, direction: 'BI', medium: 'network', namePattern: 'LAN {n}' },
+      { group: 'SFP', count: 2, direction: 'BI', medium: 'fiber', namePattern: 'SFP {n}' },
+      { group: 'POWER-IN-AC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 {n}', variant: 'AC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /* 표의 `POE단말스위치(8Port)` — 국마다 한 대씩 있다(CoreEdge C3100-8P). */
+    key: 'SW-POE-8',
+    name: 'PoE 스위치(8P)',
+    categoryKey: '통신',
+    sortOrder: 62,
+    labor: labor(0.3, 0.15, 0.3, 500_000),
+    ports: [
+      { group: 'LAN', count: 8, direction: 'BI', medium: 'network', namePattern: 'PoE {n}' },
+      { group: 'UPLINK', count: 2, direction: 'BI', medium: 'network', namePattern: '업링크 {n}' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'AC' },
+    ],
+  },
+  {
+    /*
+     * **CSU/DSU** — 통신사 디지털 전용회선의 끝. 회선 쪽 하나와 장비 쪽 하나를 잇는다.
+     * 장비 쪽이 V.35 인 모델도 있지만 LAN 으로 두고 놓을 때 고친다.
+     */
+    key: 'CSU-DSU',
+    name: 'CSU/DSU',
+    categoryKey: '통신',
+    sortOrder: 63,
+    labor: labor(0.3, 0.15, 0.3, 800_000),
+    ports: [
+      { group: 'LINE', count: 1, direction: 'BI', medium: 'network', namePattern: '전용회선' },
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'AC' },
+    ],
+  },
+  {
+    /*
+     * **PIA** — 표의 `망감시장치 / 단말기장치(PIA)`, 국마다 한 대(필트론 PIA-1608). 국사의
+     * 경보 접점을 모아 망으로 올린다. 모델명의 `1608` 을 입력 16 · 출력 8 로 읽었다 — 추정이다.
+     * 접점은 계전 신호라 네트워크가 아니라 **제어**로 둔다.
+     */
+    key: 'PIA',
+    name: 'PIA',
+    categoryKey: '통신',
+    sortOrder: 64,
+    labor: labor(0.5, 0.25, 0.5, 1_500_000),
+    ports: [
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+      { group: 'DI', count: 16, direction: 'IN', medium: 'control', namePattern: '경보입력 {n}' },
+      { group: 'DO', count: 8, direction: 'OUT', medium: 'control', namePattern: '제어출력 {n}' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'DC' },
+    ],
+  },
+  {
+    /*
+     * **서버(랙형)** — 표의 `서버_E/F`. 국에서는 DAS · PMS-5000 · 광단말 운영콘솔 · 콜서버처럼
+     * 시스템마다 한 대씩 선다 — 무슨 서버인지는 **자산 이름**이 말한다.
+     */
+    key: 'SERVER-RACK',
+    name: '서버(랙형)',
+    categoryKey: '통신',
+    sortOrder: 65,
+    labor: labor(0.75, 0.4, 0.75, 8_000_000),
+    ports: [
+      { group: 'LAN', count: 2, direction: 'BI', medium: 'network', namePattern: 'LAN {n}' },
+      { group: 'MGMT', count: 1, direction: 'BI', medium: 'network', namePattern: '관리' },
+      { group: 'POWER-IN-AC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 {n}', variant: 'AC' },
+    ],
+  },
+  {
+    /*
+     * **소형 UPS(일체형)** — 표의 `UPS_C`(예스파워 YESP-5100T 같은 5kVA 급). 모듈형 UPS 1식
+     * (`UPS-SET`)과 달리 **통짜 한 대**라 쪼개지 않는다.
+     *
+     * 외부 축전지 단자를 둔다 — 표에서 `축전지_B` 의 용도가 대개 「UPS」다. 한 장비라
+     * 추적은 교류 입력→출력만 지나고 축전지로는 가지 않는다(갈래가 달라서). 그 구분이
+     * 필요한 국이면 모듈형으로 놓는다.
+     */
+    key: 'UPS-MINI',
+    name: '소형 UPS(일체형)',
+    categoryKey: '전원',
+    sortOrder: 56,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: 'AC INPUT', variant: 'AC' },
+      { group: 'POWER-OUT-AC', count: 4, direction: 'OUT', medium: 'power', namePattern: '출력 {n}', variant: 'AC' },
+      { group: 'POWER-DC', count: 1, direction: 'BI', medium: 'power', namePattern: '외부 축전지', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /* 표의 `냉난방기` · `에어컨` — 스탠드·벽걸이를 가리지 않는다(무엇인지는 이름에 적는다). */
+    key: 'HVAC-AC',
+    name: '냉난방기',
+    categoryKey: '공조',
+    sortOrder: 70,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'AC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /* 표의 `항온항습기` — 3상이 보통이다. 상은 놓은 뒤 전원 포트에 적는다. */
+    key: 'HVAC-CRAC',
+    name: '항온항습기',
+    categoryKey: '공조',
+    sortOrder: 71,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'AC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
 ];
 
 /**
@@ -990,6 +1157,39 @@ export const SEED_ASSEMBLIES: {
     labor: labor(4.0, 2.0, 4.0, 9_000_000),
     items: [
       { typeKey: 'UPS-BATTERY', name: 'UPS 축전지', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
+    ],
+  },
+  {
+    /*
+     * **통신랙(19인치)** — 스위치 · CSU/DSU · PIA · 서버를 꽂는 빈 랙.
+     *
+     * 국마다 무엇이 몇 대 꽂혔는지가 다 달라서 **자리만 세워 두고 전부 빈 슬롯**이다 —
+     * 빈 슬롯을 눌러 품목을 고르면 그 자리에 장비가 선다. 랙은 껍데기라 품이 없다.
+     */
+    key: 'RACK-19', name: '통신랙(19인치)', categoryKey: '통신', sortOrder: 23,
+    items: Array.from({ length: ASSEMBLY_GRID.rows }, (_, i) => ({
+      typeKey: null, name: `슬롯 ${i + 1}`, col: 0, row: i, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1,
+    })),
+  },
+  {
+    key: 'UPS-MINI-SET', name: '소형 UPS(일체형)', categoryKey: '전원', sortOrder: 43,
+    labor: labor(1.0, 0.5, 1.0, 6_000_000),
+    items: [
+      { typeKey: 'UPS-MINI', name: '소형 UPS', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
+    ],
+  },
+  {
+    key: 'HVAC-AC-SET', name: '냉난방기', categoryKey: '공조', sortOrder: 50,
+    labor: labor(1.0, 0.5, 1.0, 2_500_000),
+    items: [
+      { typeKey: 'HVAC-AC', name: '냉난방기', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
+    ],
+  },
+  {
+    key: 'HVAC-CRAC-SET', name: '항온항습기', categoryKey: '공조', sortOrder: 51,
+    labor: labor(3.0, 1.5, 3.0, 30_000_000),
+    items: [
+      { typeKey: 'HVAC-CRAC', name: '항온항습기', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
     ],
   },
 ];
