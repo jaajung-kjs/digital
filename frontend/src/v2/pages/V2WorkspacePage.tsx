@@ -499,6 +499,9 @@ export default function V2WorkspacePage() {
                       containerId={route.containerId}
                       onPickContainer={route.setContainer}
                       onSelectAsset={handleSelectAssetId}
+                      /* 잇기를 시작하는 길은 하나다 — 도면 포트·포트 탭·이 표가 같은 함수를
+                         부른다. 도착은 도면에서 고르고, `origin` 이 이 표로 돌려보낸다. */
+                      onConnect={connectFromPort}
                     />
                   ) : inSubstationScope && viewMode === '계통' ? (
                     <PowerRegisterView
@@ -508,6 +511,7 @@ export default function V2WorkspacePage() {
                       selectedAssetId={highlightedAssetId}
                       selectedPortId={focusPortId}
                       onSelectAsset={handleSelectAssetId}
+                      onConnect={connectFromPort}
                     />
                   ) : (
                     /* 현황 뷰 (기본) — 여백도 스크롤도 **판이 쥔다**(`ViewCard`, §3.1).

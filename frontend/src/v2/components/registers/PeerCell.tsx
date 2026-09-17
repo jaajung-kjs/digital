@@ -23,10 +23,56 @@ interface PeerCellProps {
    * 있는데. 어디서 장비 이름을 누르든 **같은 일**이 일어나게 둔다.
    */
   onSelect?: (assetId: string, portId: string) => void;
+  /**
+   * **비어 있는 칸에서 잇는다** — 그 심선·회로의 포트를 출발로 삼는다.
+   *
+   * 예전에는 빈 칸이 눌리지 않는 글자로 끝났다. 심선 24개를 잇는 자리에 잇는 길이 없어
+   * 도면으로 나가 같은 포트를 이름으로 다시 찾아야 했다 — 포트는 여기 이미 있는데.
+   */
+  onConnect?: (portId: string) => void;
+  /**
+   * 이 칸이 가리키는 **내 쪽 포트** — 비어 있을 때 출발이 된다.
+   *
+   * **이미 케이블이 물린 칸에는 오지 않는다.** 대국이 이 도면 밖이라 이름을 못 풀었을 뿐인
+   * 칸(`peer` 는 없는데 케이블은 있다)까지 잇는 자리로 열면 자리가 두 번 팔린다 — 무엇이
+   * 비었는지는 자리를 쥔 판이 안다.
+   */
+  selfPortId?: string | null;
+  /**
+   * 비었을 때 적는 말 — 판이 제 어휘로 부른다(「미결선」·「예비」·「이 도면 밖」).
+   *
+   * 예전에는 판마다 제 손으로 `<span className="text-sm text-content-faint">` 를 세워
+   * 빈 칸을 그렸다. 빈 칸도 대국 칸이므로 그리는 곳은 한 군데다.
+   *
+   * **잇는 자리가 되어도 이 말은 그대로다.** 「예비」는 조서가 그 자리를 부르는 이름이라
+   * 「잇기」로 덮으면 「비워 둔 것」이라는 사실이 화면에서 사라진다 — 그 말이 버튼이 된다.
+   */
+  emptyLabel?: string;
 }
 
-export function PeerCell({ peer, onSelect }: PeerCellProps) {
-  if (!peer) return <span className="text-content-faint">{EMPTY}</span>;
+export function PeerCell({ peer, onSelect, onConnect, selfPortId, emptyLabel }: PeerCellProps) {
+  if (!peer) {
+    /* 아직 아무것도 안 물린 칸은 **잇는 자리**다. 부를 이름이 없으면(선번장의 심선) 「잇기」
+       라고 적는다 — 대시 하나는 눌러 볼 것처럼 보이지 않는다. */
+    if (onConnect && selfPortId) {
+      const portId = selfPortId;
+      return (
+        <button
+          type="button"
+          /* 색은 아래 대국 칸과 같이 **그대로 둔다** — 한 슬롯의 빈 심선 스물넷이 통째로
+             파랗게 서면 표가 시끄러워지고, 정작 물린 줄이 안 도드라진다. 눌린다는 것은
+             밑줄과 커서가 말한다. */
+          className="flex min-w-0 cursor-pointer text-left text-sm text-content-faint hover:underline focus-ring"
+          title="여기서 케이블을 잇습니다"
+          /* 줄 자신도 누르면 골라진다 — 멈추지 않으면 잇기와 고르기가 함께 일어난다. */
+          onClick={(e) => { e.stopPropagation(); onConnect(portId); }}
+        >
+          <span className="truncate">{emptyLabel ?? '잇기'}</span>
+        </button>
+      );
+    }
+    return <span className="text-sm text-content-faint">{emptyLabel ?? EMPTY}</span>;
+  }
   /**
    * 국 이름은 **붙이지 않는다** — 슬롯 이름이 이미 그것을 말한다.
    *

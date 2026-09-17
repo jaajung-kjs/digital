@@ -79,6 +79,63 @@ function setStore(assets: V2Asset[], cables: V2Cable[]) {
   });
 }
 
+/**
+ * **빈 심선 칸이 잇는 자리다.**
+ *
+ * 예전에는 대시 하나로 끝났다. 한 슬롯에 심선 스물넷을 잇는 자리에서 잇는 길이 없어, 도면으로
+ * 나가 같은 포트를 이름으로 다시 찾아야 했다 — 포트는 이 칸이 이미 쥐고 있는데.
+ */
+describe('선번장 빈 칸에서 잇기', () => {
+  beforeEach(() => setStore([], []));
+
+  const draw = (onConnect?: (portId: string) => void) =>
+    render(<FiberRegisterView
+      substationId="sub-1"
+      selectedAssetId={null}
+      selectedPortId={null}
+      containerId={null}
+      onPickContainer={vi.fn()}
+      onSelectAsset={vi.fn()}
+      {...(onConnect ? { onConnect } : {})}
+    />);
+
+  it('안 이은 심선 칸을 누르면 **그 심선의 포트**로 잇기가 시작된다', () => {
+    setStore([ofd, slot], [trunkCable]);
+    const onConnect = vi.fn();
+    draw(onConnect);
+
+    /* 심선 1·2 가 다 비어 있으니 자리가 둘이다 — 누른 칸의 포트가 출발이어야 한다
+       (한때 줄의 첫 포트를 집어, 어느 칸을 눌러도 같은 심선에서 시작했다). */
+    const cells = screen.getAllByRole('button', { name: '잇기' });
+    expect(cells).toHaveLength(2);
+    fireEvent.click(cells[1]!);
+    expect(onConnect).toHaveBeenCalledWith('a2');
+  });
+
+  /* 잇는 길을 안 내려 주면 예전 그대로 — 글자다. 표가 스스로 세션을 열지 않는다. */
+  it('잇는 길을 안 받으면 빈 칸은 글자로 남는다', () => {
+    setStore([ofd, slot], [trunkCable]);
+    draw();
+    expect(screen.queryByRole('button', { name: '잇기' })).toBeNull();
+  });
+
+  /**
+   * **이미 물린 칸은 잇는 자리가 아니다.**
+   *
+   * 대국이 이 도면 밖이라 이름을 못 푼 칸도 케이블은 있다 — 거기까지 열면 한 자리가 두 번
+   * 팔린다(`port-occupied` 로 튕기는 것을 눌러 본 뒤에야 알게 된다).
+   */
+  it('케이블이 이미 물린 칸은 잇기가 서지 않는다', () => {
+    setStore([ofd, slot], [trunkCable, cable('c-a1', 'a1', 'somewhere-far')]);
+    const onConnect = vi.fn();
+    draw(onConnect);
+    /* 심선 1 은 물렸고 2 만 비었다. */
+    expect(screen.getAllByRole('button', { name: '잇기' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: '잇기' }));
+    expect(onConnect).toHaveBeenCalledWith('a2');
+  });
+});
+
 describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입력까지 관통', () => {
   beforeEach(() => {
     setStore([], []);
