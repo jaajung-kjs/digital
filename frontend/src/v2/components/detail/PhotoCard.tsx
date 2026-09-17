@@ -1,7 +1,7 @@
 /**
  * PhotoCard — InfoTab 사진 카드 (레코드의 세 번째 종류)
  *
- * 업로드(파일 선택 → POST /v2/photos → stagePhotoCreate)·썸네일 그리드·캡션
+ * 업로드(파일 선택 → 워킹카피에 담기)·판 너비를 다 쓰는 목록·캡션
  * 인라인 편집(InlineEditCell)·삭제·클릭 확대(Modal). 표시 대상 계산은
  * RecordsTab.tsx 와 같은 형태(워킹카피가 보여 주는 것을 그대로 읽는다) —
  * 스토어에 함수참조 셀렉터를 새로 추가하지 않는다(maintenance/inspections 의
@@ -96,14 +96,27 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
       {photos.length === 0 ? (
         <p className="text-xs text-content-faint">등록된 사진이 없습니다</p>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        /* **판 너비를 다 쓴다.** 예전에는 80px 짜리 썸네일이 세 줄로 섰는데, 그 크기로는
+           무엇을 찍은 사진인지도 분간이 안 돼 **누를 때마다 상자를 열어야** 했다. 사진을
+           올리는 까닭이 그것을 보려는 것이므로 판에서 바로 읽히게 둔다 — 상자는 더 크게
+           볼 때만 쓴다.
+
+           자르지 않는다(`object-contain`): 설비 사진은 명판·단자대처럼 **가장자리에 있는
+           것**이 요긴한데 `object-cover` 는 그것부터 잘라 낸다. 다만 세로로 긴 사진 한 장이
+           판을 통째로 차지하지 않게 높이에 상한을 둔다. */
+        <div className="space-y-3">
           {photos.map((p) => (
             <div key={p.id} className="space-y-1">
-              <button type="button" className="block" onClick={() => setEnlargedId(p.id)}>
+              <button
+                type="button"
+                className="block w-full focus-ring"
+                title="크게 보기"
+                onClick={() => setEnlargedId(p.id)}
+              >
                 <img
                   src={srcOf(p)}
                   alt={p.caption ?? '설비 사진'}
-                  className="h-20 w-20 rounded border border-line object-cover"
+                  className="block max-h-96 w-full rounded border border-line bg-surface-2 object-contain"
                 />
               </button>
               <div className="flex items-center gap-1">
@@ -120,7 +133,9 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
       )}
 
       {enlarged && (
-        <Modal open={true} onClose={() => setEnlargedId(null)} title={enlarged.caption ?? '사진'}>
+        /* 판에서 이미 크게 보이므로 상자는 **더 크게** 볼 때만 쓸모가 있다 — 기본 폭(448px)
+           이면 판보다 조금 넓을 뿐이라 여는 값이 없다. */
+        <Modal open={true} onClose={() => setEnlargedId(null)} title={enlarged.caption ?? '사진'} size="xl">
           <img
             src={srcOf(enlarged)}
             alt={enlarged.caption ?? '설비 사진'}
