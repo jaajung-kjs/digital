@@ -617,7 +617,9 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 `src/v2/components/CableValueField.tsx` — `InlineEditCell` 위에 **케이블 `specParams` 에 쌓는 규칙**을 얹은 것. 숫자면 `Number()`, 빈 값은 `null`, `NaN` 이면 무시, 무변경이면 무시, 그리고 `stageCableUpdate`. 선번장·계통·포트 상세가 이 글을 **세 벌** 갖고 있었다 — 같은 케이블의 같은 칸인데 검증이 세 벌이라 한 곳만 고쳐지기 딱 좋았다. 스토어를 부르는 일까지 이 안에 둔다(떼면 같은 다섯 줄이 다시 세 벌이 되고, 무엇보다 무변경 판정이 **케이블 제 값**을 읽어야 옳다 — 화면에 뜬 값은 모선에서 물려온 것일 수 있다).
 
 ### 표의 빈 대국 칸 → `PeerCell`
-`src/v2/components/registers/PeerCell.tsx` — 대국 칸은 **빈 것까지** 이것이 그린다(`emptyLabel`). 판마다 제 손으로 `<span className="text-sm text-content-faint">` 를 세우면 같은 빈 칸이 화면마다 다른 굵기·여백으로 선다. 아직 아무것도 안 물린 칸은 `onConnect`·`selfPortId` 를 주면 **잇는 자리**가 되고, 이때도 `emptyLabel` 의 말은 그대로다 — 「예비」는 조서가 그 자리를 부르는 이름이라 「잇기」로 덮으면 「비워 둔 것」이라는 사실이 사라진다.
+`src/v2/components/registers/PeerCell.tsx` — 대국 칸은 **빈 것까지** 이것이 그린다(`emptyLabel`). 판마다 제 손으로 `<span className="text-sm text-content-faint">` 를 세우면 같은 빈 칸이 화면마다 다른 굵기·여백으로 선다. 빈 칸에 적는 말은 판의 어휘다 — 「미결선」·「예비」(비워 둔 것)와 「이 도면 밖」(케이블은 있고 대국만 못 푼 것)은 다른 사실이므로 대시 하나로 뭉개지 않는다.
+
+**빈 칸은 글자로 끝난다 — 여기서 케이블을 잇지 않는다.** 한때 빈 칸을 누르면 그 포트가 출발이 되게 했는데, 표는 조서를 읽고 적는 자리이고 잇는 일은 도면에서 한다. 한 칸에 둘을 얹으면 값을 고치려고 누른 것과 잇겠다고 누른 것이 구별되지 않는다. 잇기 진입점은 **도면과 포트 판**뿐이다.
 
 ### 대화상자 → `Modal`
 Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버레이(`fixed inset-0` 직접 구현)를 새로 만들지 말고 이걸 재사용한다.

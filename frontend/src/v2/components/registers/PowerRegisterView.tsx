@@ -30,14 +30,6 @@ interface Props {
   selectedPortId: string | null;
   onSelectAsset: (id: string | null, portId?: string | null) => void;
   /**
-   * 빈 칸에서 **케이블을 잇기 시작한다** — 그 포트가 출발이 된다.
-   *
-   * 페이지가 내려 주는 길은 하나다(`connectFromPort`). 포트 탭·선번장·계통이 같은 함수를
-   * 부르므로 어느 진입점에서 시작해도 같은 세션이 서고, 이으면 세션의 `origin` 이 이 표로
-   * 돌려보낸다.
-   */
-  onConnect?: (portId: string) => void;
-  /**
    * 설비 품목들 — **어느 배선이 함체 속살인지**가 여기 못 박혀 있다(`AssemblyLink`).
    *
    * 이 판이 직접 읽지 않고 **받는다**: 자료를 읽는 훅을 화면 안에 두면 판 하나를 그려 보는
@@ -219,7 +211,7 @@ function flatten(nodes: PowerNode[], path: string[] = []): { node: PowerNode; pa
   return nodes.flatMap((node) => [{ node, path }, ...flatten(node.children, [...path, node.name])]);
 }
 
-export function PowerRegisterView({ substationId: _substationId, selectedAssetId, selectedPortId, onSelectAsset, onConnect, assemblies = [], types = [] }: Props) {
+export function PowerRegisterView({ substationId: _substationId, selectedAssetId, selectedPortId, onSelectAsset, assemblies = [], types = [] }: Props) {
   const effectiveAssets = useEffectiveAssets();
   const effectiveCables = useEffectiveCables();
 
@@ -419,12 +411,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               <Td className="truncate">
                 {/* 빈 칸도 대국 칸이 그린다 — 「미결선」이면 잇는 자리, 케이블이 이미 있고
                     대국만 도면 밖이면 글자 그대로다(자리가 두 번 팔리지 않게). */}
-                <PeerCell
-                  peer={src.from}
-                  onSelect={onSelectAsset}
-                  emptyLabel={unwiredText(src.cableId)}
-                  {...(onConnect && !src.cableId ? { onConnect, selfPortId: src.portId } : {})}
-                />
+                <PeerCell peer={src.from} onSelect={onSelectAsset} emptyLabel={unwiredText(src.cableId)} />
               </Td>
               {valueColumns.map(({ field, from }) => (
                 <Td key={field.key} align={alignOf(field)}>
@@ -459,12 +446,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             {/* 아직 아무것도 안 문 회로는 **예비**다 — 조서가 그 자리를 그렇게 부른다.
                 빈칸으로 두면 「적다 만 것」과 「비워 둔 것」이 같아 보인다. */}
             <Td className="truncate">
-              <PeerCell
-                peer={c.load}
-                onSelect={onSelectAsset}
-                emptyLabel={c.cableId ? '이 도면 밖' : '예비'}
-                {...(onConnect && !c.cableId ? { onConnect, selfPortId: c.portId } : {})}
-              />
+              <PeerCell peer={c.load} onSelect={onSelectAsset} emptyLabel={c.cableId ? '이 도면 밖' : '예비'} />
             </Td>
             {valueColumns.map(({ field, from }) => {
               const value = from === 'port' ? c.portValues[field.key] : c.values[field.key];

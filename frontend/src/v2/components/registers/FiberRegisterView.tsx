@@ -30,14 +30,6 @@ interface Props {
   onPickContainer: (id: string) => void;
   /** 포트까지 주면 상세 패널이 포트 탭을 열고 그 포트를 고른 상태로 뜬다. */
   onSelectAsset: (id: string | null, portId?: string | null) => void;
-  /**
-   * 빈 칸에서 **케이블을 잇기 시작한다** — 그 포트가 출발이 된다.
-   *
-   * 페이지가 내려 주는 길은 하나다(`connectFromPort`). 포트 탭·선번장·계통이 같은 함수를
-   * 부르므로 어느 진입점에서 시작해도 같은 세션이 서고, 이으면 세션의 `origin` 이 이 표로
-   * 돌려보낸다.
-   */
-  onConnect?: (portId: string) => void;
 }
 
 /** 오늘 — 찍히는 날짜의 형식은 적히는 날짜와 같다(YYYY-MM-DD). */
@@ -150,7 +142,6 @@ export function FiberRegisterView({
   containerId,
   onPickContainer,
   onSelectAsset,
-  onConnect,
 }: Props) {
   const effectiveAssets = useEffectiveAssets();
   const effectiveCables = useEffectiveCables();
@@ -323,15 +314,7 @@ export function FiberRegisterView({
                 {/* 그룹별 피어 셀 */}
                 {row.cells.map((cell) => (
                   <Td key={cell.group}>
-                    {/* 케이블이 없는 칸만 잇는 자리다 — 대국이 이 도면 밖일 뿐인 칸까지
-                        열면 이미 팔린 자리를 또 판다. */}
-                    <PeerCell
-                      peer={cell.peer}
-                      onSelect={onSelectAsset}
-                      {...(onConnect && !cell.cableId && cell.portId
-                        ? { onConnect, selfPortId: cell.portId }
-                        : {})}
-                    />
+                    <PeerCell peer={cell.peer} onSelect={onSelectAsset} />
                   </Td>
                 ))}
                 {/* 인입 건너편에서 이 심선이 닿는 곳 — 예전에는 대국 슬롯에서 끊겼다. */}

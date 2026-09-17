@@ -61,61 +61,6 @@ const wired = () => [
   cable('c2', 'ups-o1', 'load-in', {}),
 ];
 
-/**
- * **계통의 빈 칸도 잇는 자리다** — 다만 조서가 그 자리를 부르는 이름은 남는다.
- *
- * 「예비」·「미결선」은 「적다 만 것」이 아니라 「비워 둔 것」이라는 사실이다. 「잇기」로
- * 덮으면 그 사실이 화면에서 사라지므로, **그 말이 버튼이 된다**.
- */
-describe('계통 빈 칸에서 잇기', () => {
-  beforeEach(() => setStore([], []));
-
-  const draw = (onConnect?: (portId: string) => void) =>
-    render(<PowerRegisterView
-      types={TYPES}
-      substationId="sub-1"
-      selectedAssetId={null}
-      onSelectAsset={vi.fn()}
-      {...(onConnect ? { onConnect } : {})}
-    />);
-
-  /** 반이 여럿이라 「예비」도 여럿이다 — 그 반의 표 안에서 찾는다. */
-  const tableOf = (title: string) =>
-    within(screen.getByRole('button', { name: new RegExp(`${title}$`) }).closest('section')!);
-
-  it('예비 회로를 누르면 그 회로의 포트로 잇기가 시작된다 — 말은 「예비」 그대로', () => {
-    setStore([rack, main, ups, load], wired());
-    const onConnect = vi.fn();
-    draw(onConnect);
-
-    /* 소내전원반의 출력 2 가 비어 있다(출력 1 은 UPS 로 간다) — 누른 칸의 포트가 출발이어야
-       한다(한때 줄의 첫 포트를 집어, 어느 반을 눌러도 같은 자리에서 시작했다). */
-    fireEvent.click(tableOf('분전반 · 소내전원반').getByRole('button', { name: '예비' }));
-    expect(onConnect).toHaveBeenCalledWith('main-o2');
-
-    /* UPS 의 예비를 누르면 그 반의 포트다 — 「예비」라는 말만 같다. */
-    fireEvent.click(tableOf('분전반 · UPS').getByRole('button', { name: '예비' }));
-    expect(onConnect).toHaveBeenLastCalledWith('ups-o2');
-  });
-
-  it('안 이은 입력도 잇는 자리다 — 말은 「미결선」 그대로', () => {
-    setStore([rack, main, ups, load], wired());
-    const onConnect = vi.fn();
-    draw(onConnect);
-
-    fireEvent.click(screen.getByRole('button', { name: '미결선' }));
-    expect(onConnect).toHaveBeenCalledWith('main-in');
-  });
-
-  /* 케이블은 있고 대국만 도면 밖인 칸 — 자리가 이미 팔렸으므로 글자로 남는다. */
-  it('이 도면 밖에서 오는 입력은 잇기가 서지 않는다', () => {
-    setStore([rack, main, ups, load], [...wired(), cable('c-far', 'main-in', 'far-port')]);
-    draw(vi.fn());
-    expect(screen.getByText('이 도면 밖')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '이 도면 밖' })).toBeNull();
-  });
-});
-
 describe('계통 표 — 반이 묶음, 회로가 줄', () => {
   beforeEach(() => setStore([], []));
 
