@@ -21,7 +21,7 @@ import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { renderGrid } from '../../canvas/gridRenderer';
 import { PlanRail } from './PlanRail';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
-import { screenToWorld, snapOrtho, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
+import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
 import { insertionAt, insertPathPoint, movePathPoint, removePathPoint } from '../../canvas/cablePath';
 import { CableWaypointHandles } from './CableWaypointHandles';
 import { findAssetAt, type PlacedAsset } from '../../canvas/hitTest';
@@ -29,27 +29,28 @@ import { createDragSession, dragDelta, inWindow, isThresholdMet } from '../../ca
 import type { DragSession } from '../../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../../floorPlacement';
 import { placedAssetsOf } from '../../floorPlanSelectors';
-import { cableCountByPortId, cableSegments, distanceToPolyline } from '../../cableSelectors';
+import { cableSegments, distanceToPolyline } from '../../cableSelectors';
 import { cableToolReducer, connectErrorLabel, connectableAssetIds, initialCableToolState } from './cableTool';
 import { connectCable, stageAssemblyCables } from '../../cableActions';
+import { canConnect } from '../../connectSession';
+import type { ConnectSession, ConnectFrom } from '../../connectSession';
 import { deleteAssetWithConfirm, deleteCableWithConfirm } from '../../deleteActions';
 import { useFloorAdmin } from './useFloorAdmin';
 import { useEffectiveAssets, useEffectiveCables, useEffectiveFloors } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
+import { useV2Notice } from '../../store/noticeStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
-import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, FloatingBar, StatusBar, StatusItem, ViewCard } from '../../../components/ui';
+import { Button, EmptyState, IconButton, Select, Tabs, useConfirm, useTabs, isCancelKey, isTypingTarget, StatusBar, StatusItem, ViewCard } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assetsById, floorAnchorOf, floorIdOf } from '../../assetTree';
 import { assemblyToPlacement } from '../../placeAssembly';
 import { AssetResizeHandles } from './AssetResizeHandles';
-import { RemoteEndpointModal } from './RemoteEndpointModal';
 import { SNAP_GRID, SELECTION_STYLES } from '../../canvas/constants';
 import { nextFacing } from '@twin/core';
-import type { V2Asset, V2Cable, V2Floor, V2Port } from '../../types';
-import type { AssetSearchResult } from '../../api';
+import type { V2Asset, V2Cable, V2Floor } from '../../types';
 import { expandToPlacedAncestors } from '../../traceSelectors';
 import type { TraceResult } from '../../traceSelectors';
 
@@ -68,10 +69,23 @@ interface Props {
   selectedAssetId: string | null;
   onSelectAsset: (id: string | null) => void;
   traceResult?: TraceResult | null;
-  /** 상세 패널이 「이 포트에서 시작해 달라」고 보낸 한 번짜리 명령. */
-  cableStartPortId?: string | null;
-  /** 그 명령을 받아 소비했다 — 보낸 쪽이 지운다(안 지우면 들어올 때마다 도구가 켜진다). */
-  onCableStartConsumed?: () => void;
+  /**
+   * 지금 잇는 중인 세션 — `null` 이면 케이블을 잇지 않는 평소 상태다.
+   *
+   * 예전에는 이 사실이 도면(`armed`·`firstPortId`)과 페이지(`cableStartPortId`) 두 곳에
+   * 있었고, 그래서 진입점에 따라 첫 끝점 강조가 나왔다 안 나왔다 했다.
+   */
+  session?: ConnectSession | null;
+  /** 케이블 도구를 켠다 — 출발을 미리 아는 진입점은 그 값을 함께 준다. */
+  onOpenConnect?: (from: ConnectFrom | null) => void;
+  /** 도면에서 **출발** 포트를 골랐다. */
+  onFromPicked?: (from: ConnectFrom) => void;
+  /** 이었다 — 페이지가 시작한 화면으로 돌려보낸다. */
+  onConnected?: () => void;
+  /** 잇기를 접는다 — 담아 둔 워킹카피를 되살리는 일이 있어 페이지가 맡는다. */
+  onCancelConnect?: () => void;
+  /** 다녀온 국 — 고르기만 한다(배치·삭제·배경을 두지 않는다). */
+  readOnly?: boolean;
   /**
    * 「이 자산에서 포트를 골라 달라」 — 상세 패널의 포트 탭이 받아 고르는 모드로 돌린다.
    * `null` 이면 고를 것이 없다는 뜻이다. 판을 여기서 한 벌 더 그리지 않는 이유는
@@ -167,7 +181,8 @@ interface LatestRenderInputs {
 }
 
 export function FloorPlanView({
-  substationId, selectedAssetId, onSelectAsset, traceResult, cableStartPortId, onCableStartConsumed, onPickPort,
+  substationId, selectedAssetId, onSelectAsset, traceResult,
+  session = null, onOpenConnect, onFromPicked, onConnected, onCancelConnect, readOnly = false, onPickPort,
 }: Props) {
   const { confirm, confirmDialog } = useConfirm();
   /* 화면이 보는 것 — 저장한 것과 저장 안 한 것을 합치는 일은 한 곳에서만 한다. */
@@ -319,11 +334,12 @@ export function FloorPlanView({
    * 도면은 놓인 설비로만 그림을 그린다. 포트는 대개 그 안의 장비 것이라(슬롯·광단말) 이
    * 걸음이 없으면 첫 끝점 강조도 경로 미리보기도 나올 자리가 없다.
    */
+  const fromPortId = session?.from?.portId ?? null;
   const firstAnchorId = useMemo(() => {
-    if (!cableState.firstPortId) return null;
-    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === cableState.firstPortId));
+    if (!fromPortId) return null;
+    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === fromPortId));
     return owner ? (floorAnchorOf(owner.id, assetsById(effectiveAssets))?.id ?? null) : null;
-  }, [cableState.firstPortId, effectiveAssets]);
+  }, [fromPortId, effectiveAssets]);
 
   // ── render 함수(rAF)·네이티브 리스너가 읽는 "최신 렌더 입력값" 단일 미러 ────
   // 7개 개별 ref(viewportRef/placedAssetsRef/selectedAssetIdRef/activeFloorRef/
@@ -353,24 +369,8 @@ export function FloorPlanView({
      계산되기 때문이다(케이블 품목 → 매체 해석이 먼저 있어야 한다). */
   const connectableIdsRef = useRef<Set<string> | null>(null);
   const hoveredAssetIdRef = useRef<string | null>(null);
-  /* 지금 그리고 있는 경로와 손끝 자리 — 마우스가 움직일 때마다 React 렌더를 돌리지 않는다. */
-  const draftPathRef = useRef<{ x: number; y: number }[]>([]);
-  /**
-   * 지금 그리는 경로의 **직전 점** — 마지막 꺾임점, 아직 없으면 출발 설비의 중앙.
-   *
-   * 케이블은 설비 중앙에서 시작하는데 그 중앙이 격자 위라는 보장이 없다. 직전 점을 알아야
-   * 「그 점에서 곧게」가 성립한다(`snapOrtho`).
-   */
-  const draftPrev = (): { x: number; y: number } | null => {
-    const path = draftPathRef.current;
-    if (path.length > 0) return path[path.length - 1]!;
-    const anchor = latest.current.placedAssets.find((a) => a.id === latest.current.firstAnchorId);
-    return anchor ? { x: anchor.x + anchor.width / 2, y: anchor.y + anchor.height / 2 } : null;
-  };
+  /* 손끝 자리 — 이을 설비를 겨눌 때 그 칸을 또렷하게 그리는 데 쓴다. */
   const cursorWorldRef = useRef<{ x: number; y: number } | null>(null);
-  draftPathRef.current = cableState.draftPath;
-  /** 마지막 꺾은점을 물린다 — 물릴 것이 있었으면 `true`(창 키 리스너가 삼킬지 정한다). */
-  const cableUndoRef = useRef<() => boolean>(() => false);
 
   // ── 추적 자산 확장 집합 (per-frame 계산 제거 — traceResult 변경 시 1회 프리컴퓨트) ──
   const traceExpandedIdsRef = useRef<Set<string>>(new Set());
@@ -443,74 +443,55 @@ export function FloorPlanView({
   const placeTypeId = assemblies.some((a) => a.id === pickedPlaceId) ? pickedPlaceId : (assemblies[0]?.id ?? '');
   const setPlaceTypeId = setPickedPlaceId;
 
-  // cableGroups 초기화 시 첫 category 선택
-  useEffect(() => {
-    if (cableGroups.length > 0 && cableState.categoryId === '') {
-      const firstCat = cableGroups[0]?.categories[0];
-      if (firstCat) cableDispatch({ type: 'SET_CATEGORY', categoryId: firstCat.id });
-    }
-  }, [cableGroups, cableState.categoryId]);
+  /* 케이블 품목을 **미리 골라 두지 않는다.** 예전에는 첫 품목을 말없이 집어 두었고, 그래서
+     포트에서 시작한 사람은 무엇으로 잇는지 모른 채 이었다. 고르는 자리는 오버레이다. */
 
 
   /**
-   * 상세 패널이 보낸 「이 포트에서 시작」 명령을 소비한다.
+   * 도면에서 포트를 골랐다 — **출발인지 도착인지는 세션이 안다.**
    *
-   * 도구를 켜고 그 포트를 첫 끝점으로 세운다 — 사용자는 상대 자산만 고르면 된다. 종류도
-   * **그 포트의 매체 것**으로 바꾼다: 광 포트에서 시작했는데 도구가 전원케이블을 들고 있으면
-   * 두 번째 끝점을 고르는 순간 튕기고, 그때는 왜 튕겼는지가 화면에 남지 않는다.
+   * 예전에는 시작하는 자리가 둘이었다(도면의 `startConnectionRef`, 페이지의
+   * `cableStartPortId`). 그래서 같은 연결인데 뒤쪽 길로 시작하면 첫 끝점 강조도 안 보였다.
+   * 이제 도면이 하는 일은 「포트를 골랐다」를 알리는 것 하나다.
    */
-  useEffect(() => {
-    if (!cableStartPortId) return;
-    startConnectionRef.current(cableStartPortId);
-    onCableStartConsumed?.();
-  }, [cableStartPortId, onCableStartConsumed]);
-  /**
-   * **케이블 잇기를 시작하는 자리는 하나다** — 어디서 눌렀든 같은 일이 일어난다.
-   *
-   * 문이 둘이라 각자 상태를 세우고 있었다: 도면에서 설비를 눌러 고른 포트와, 포트 탭의
-   * 「케이블 연결」 단추. 그래서 같은 연결인데 뒤쪽 길로 시작하면 첫 끝점 강조도 경로
-   * 미리보기도 안 보였다(넣는 자산이 서로 달랐다). 시작하는 일은 여기 한 번만 적는다.
-   */
-  const startConnectionRef = useRef<(portId: string) => void>(() => {});
-  startConnectionRef.current = (portId: string) => {
+  const onPortPicked = (portId: string) => {
     const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === portId));
     const port = owner?.ports.find((p) => p.id === portId);
     if (!owner || !port) return;
-    /* 종류는 **그 포트의 매체 것**이어야 한다 — 광 포트에서 시작했는데 도구가 전원케이블을
-       들고 있으면 두 번째 끝점에서 튕기고, 왜 튕겼는지가 화면에 남지 않는다. 이미 같은
-       매체를 골라 두었으면 그대로 둔다(사람이 고른 품목을 덮지 않는다). */
-    if (selectedGroupKey !== port.medium) {
-      const first = cableGroups.find((g) => g.key === port.medium)?.categories[0];
-      if (first) cableDispatch({ type: 'SET_CATEGORY', categoryId: first.id });
+    if (!session?.from) {
+      onFromPicked?.({ portId, label: `${owner.name} · ${port.name}`, substationId, medium: port.medium });
+      return;
     }
-    cableDispatch({ type: 'ARM' });
-    cableDispatch({ type: 'CONFIRM_FIRST_ENDPOINT', portId });
-  };
+    /* **종류를 고르지 않았으면 잇지 않는다.** 예전에는 매체 그룹의 첫 품목을 말없이 집어
+       두어 이 자리에 걸릴 것이 없었다 — 그래서 무엇으로 이었는지 모른 채 저장됐다. */
+    if (!canConnect(session)) {
+      useV2Notice.getState().showError('케이블 종류를 고르세요');
+      return;
+    }
 
-  /**
-   * 케이블 도구가 지금 어느 단계인가 — 안내 문구와 딤을 여기 한 곳에서 정한다.
-   *
-   * FSM 은 상태를 알지만 「사용자가 지금 무엇을 해야 하나」는 상태 조합에서 나온다. 그
-   * 조합을 화면 여기저기서 다시 따지면(도구바 한 번, 딤 한 번) 한쪽만 고쳐져 어긋난다.
-   */
-  const cableStep = useMemo((): { step: string; text: string; dimCanvas: boolean } | null => {
-    if (!cableState.armed && cableState.picker === null) return null;
-    if (cableState.picker) {
-      return { step: '2/3', text: '오른쪽 판에서 포트를 고르세요', dimCanvas: true };
+    /* 두 번째 끝점 — 잇는 일은 `connectCable` 한 곳이고, 여기서는 **까닭을 어디에 적을지**만 정한다. */
+    const err = connectCable({
+      firstPortId: session.from.portId,
+      toPort: port,
+      assets: latest.current.effectiveAssets,
+      cables: latest.current.effectiveCables,
+      /* 케이블은 **시작한 국의 것**이다 — 예전에는 그때 로드된 국에 쌓여 반대였다. */
+      substationId: session.from.substationId,
+      categoryId: session.categoryId,
+      mediumKey: session.from.medium,
+      /* 경로는 이은 뒤 도면에서 붙인다(`CablePathEditor`) — 그리면서 잇기를 걷었다. */
+      pathPoints: [],
+    });
+    if (err) {
+      /* 못 이은 까닭을 **삼키지 않는다** — 예전에는 피커 안 안내줄·대국 상자로 자리가 갈렸고,
+         자리가 없는 길(포트 탭에서 시작한 경우)에서는 조용히 아무 일도 안 일어났다. */
+      useV2Notice.getState().showError(
+        err === 'no-first' ? '출발 포트를 확인할 수 없습니다 — 다시 고르세요' : connectErrorLabel(err),
+      );
+      return;
     }
-    if (cableState.firstPortId) {
-      /* 경로를 그릴 수 있다는 것은 **그릴 수 있을 때** 말한다 — 꺾은점이 생기면 무르는 길도 함께. */
-      const drawn = cableState.draftPath.length;
-      return {
-        step: '3/3',
-        text: drawn > 0
-          ? `꺾은점 ${drawn}개 · 이어서 도면을 누르면 더 꺾고, 반대쪽 설비를 누르면 잇습니다 (⌫ 되돌리기)`
-          : '도면을 눌러 경로를 그리고, 반대쪽 설비를 클릭하세요',
-        dimCanvas: false,
-      };
-    }
-    return { step: '1/3', text: '이을 설비를 클릭하세요', dimCanvas: false };
-  }, [cableState.armed, cableState.picker, cableState.firstPortId, cableState.draftPath]);
+    onConnected?.();
+  };
 
   /**
    * 범례 — **이 층에 실제로 있는 매체만**.
@@ -550,27 +531,22 @@ export function FloorPlanView({
   latest.current.categoryColorMap = categoryColorMap;
   latest.current.categoryGroupMap = categoryGroupMap;
 
-  // selectedCategoryId → group key (medium 필터용)
-  const selectedGroupKey = useMemo(() => {
-    for (const group of cableGroups) {
-      for (const cat of group.categories) {
-        if (cat.id === cableState.categoryId) return group.key;
-      }
-    }
-    return undefined;
-  }, [cableGroups, cableState.categoryId]);
-
-  /** 케이블 도구가 켜져 있을 때 **이을 수 있는 설비** — 판정은 도구가 안다. */
+  /**
+   * 잇는 중일 때 **이을 수 있는 설비** — 기준은 **출발 포트의 매체**다.
+   *
+   * 예전에는 고른 케이블 품목의 매체로 걸렀다. 종류를 나중에 고르게 되면서 그 값이 없어졌고,
+   * 애초에 기준이 틀렸다 — 짝을 정하는 것은 어휘다(`portKind.connectsTo`).
+   */
   const connectableIds = useMemo(() => {
-    if (!cableState.armed) return null;
+    if (!session) return null;
     return connectableAssetIds({
       assets: effectiveAssets,
       placed: placedAssets,
       cables: effectiveCables,
-      mediumKey: selectedGroupKey,
-      firstPortId: cableState.firstPortId ?? undefined,
+      fromPortMedium: session.from?.medium,
+      firstPortId: session.from?.portId,
     });
-  }, [cableState.armed, cableState.firstPortId, effectiveCables, effectiveAssets, placedAssets, selectedGroupKey]);
+  }, [session, effectiveCables, effectiveAssets, placedAssets]);
 
   connectableIdsRef.current = connectableIds;
 
@@ -583,12 +559,6 @@ export function FloorPlanView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** 케이블 도구 해제 */
-  const disarmCable = useCallback(() => {
-    cableDispatch({ type: 'DISARM' });
-    scheduleRender();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const scheduleRender = () => {
     if (rafPending.current) return;
@@ -766,18 +736,20 @@ export function FloorPlanView({
         }
       }
 
-      /* 6.6 그리고 있는 케이블 — 첫 끝점에서 꺾은점들을 지나 손끝까지.
-         저장된 케이블과 같은 꺾은선이되 점선이다: **아직 놓이지 않았다**는 것이 보여야 한다. */
+      /* 6.6 잇는 중인 케이블 — 출발 설비에서 손끝까지 점선 한 줄.
+         **꺾은점은 없다**: 그리면서 잇기를 걷었으므로(도면 클릭의 뜻이 하나여야 한다) 경로는
+         이은 뒤 선을 끌어 붙인다(`CablePathEditor`). 점선인 까닭은 아직 안 놓였다는 것이
+         보여야 해서다. */
       if (firstAnchorId) {
         const from = latest.current.placedAssets.find((a) => a.id === firstAnchorId);
         const cursor = cursorWorldRef.current;
         if (from) {
           const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
-          const pts = [start, ...draftPathRef.current, ...(cursor ? [cursor] : [])];
+          const pts = [start, ...(cursor ? [cursor] : [])];
           if (pts.length > 1) {
             ctx.save();
             ctx.strokeStyle = SELECTION_STYLES.stroke;
-            /* 놓인 케이블과 **같은 굵기**로 그린다 — 지금 긋고 있는 것이 그 케이블이니까. */
+            /* 놓인 케이블과 **같은 굵기**로 — 지금 긋고 있는 것이 그 케이블이니까. */
             ctx.lineWidth = cableLineWidth(scale) / scale;
             ctx.setLineDash([6 / scale, 4 / scale]);
             ctx.lineJoin = 'round';
@@ -785,15 +757,6 @@ export function FloorPlanView({
             ctx.moveTo(pts[0]!.x, pts[0]!.y);
             for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y);
             ctx.stroke();
-            ctx.restore();
-          }
-          /* 찍어 둔 꺾은점 — 「여기서 꺾었다」를 눈으로 확인하고 지울 수 있어야 한다. */
-          for (const p of draftPathRef.current) {
-            ctx.save();
-            ctx.fillStyle = SELECTION_STYLES.stroke;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 4 / scale, 0, Math.PI * 2);
-            ctx.fill();
             ctx.restore();
           }
         }
@@ -973,10 +936,8 @@ export function FloorPlanView({
         spaceDown.current = true;
       }
       if (isCancelKey(e)) {
-        // ESC: 케이블 도구 해제(이미 idle 이면 리듀서가 no-op) — 케이블/배치 도구는
-        // 상호 배타적으로만 armed 되므로(handleArmType/handleArmCable) 둘 다
-        // 무조건 dispatch 해도(원본의 "cableArmed 면 즉시 return" 분기와) 동치.
-        disarmCable();
+        /* 케이블 세션을 닫는 일은 **페이지가** 한다 — 담아 둔 워킹카피를 되살려야 하고(비동기)
+           돌아갈 화면도 세션이 안다. 도면은 제 도구만 끈다. */
         // ESC: 진행 중인 drag-to-draw 취소 (armed 상태 유지 여부와 무관하게 먼저 정리)
         if (isDrawing.current) {
           isDrawing.current = false;
@@ -1011,13 +972,6 @@ export function FloorPlanView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  cableUndoRef.current = () => {
-    if (cableState.draftPath.length === 0) return false;
-    cableDispatch({ type: 'UNDO_WAYPOINT' });
-    scheduleRender();
-    return true;
-  };
-
   // ── 캔버스 mousedown: armed → draw, 중클릭/Space → 팬, 일반 → 선택 ──────
   const onCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     // Clear stale pan/move flags at the top of mousedown (any new gesture starts fresh)
@@ -1036,9 +990,9 @@ export function FloorPlanView({
       return;
     }
 
-    // 케이블 armed: 자산 클릭 → 포트 피커 (mousedown 아닌 onClick에서 처리)
-    if (e.button === 0 && cableState.armed) {
-      return; // 케이블 도구는 onClick에서 처리
+    // 케이블을 잇는 중: 자산 클릭은 onClick 에서 처리한다(여기서 손짓을 시작하지 않는다)
+    if (e.button === 0 && session) {
+      return;
     }
 
     // armed 배치 모드: 좌클릭 drag-to-draw
@@ -1254,11 +1208,11 @@ export function FloorPlanView({
     const world = screenToWorld(e.clientX, e.clientY, rect, panX, panY, zoom);
     const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
     const next = hit && connectableIdsRef.current.has(hit.id) ? hit.id : null;
-    /* 경로를 그리는 중이면 손끝까지 선이 따라온다 — 그래서 자리가 같아도 다시 그린다. */
-    const drawingPath = latest.current.firstAnchorId != null;
-    if (drawingPath) cursorWorldRef.current = snapOrtho(draftPrev(), world.x, world.y, SNAP_GRID);
+    /* 출발이 정해졌으면 손끝까지 점선이 따라온다 — 그래서 자리가 같아도 다시 그린다. */
+    const aiming = latest.current.firstAnchorId != null;
+    if (aiming) cursorWorldRef.current = world;
     if (next === hoveredAssetIdRef.current) {
-      if (drawingPath) scheduleRender();
+      if (aiming) scheduleRender();
       return;
     }
     hoveredAssetIdRef.current = next;
@@ -1292,32 +1246,25 @@ export function FloorPlanView({
     const world = screenToWorld(e.clientX, e.clientY, rect, panX, panY, zoom);
     const scale = zoom / 100;
 
-    // ── 케이블 도구 armed ──────────────────────────────────────────────────
-    if (cableState.armed) {
+    // ── 케이블을 잇는 중 ──────────────────────────────────────────────────
+    if (session) {
       const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
-      /* 첫 끝점을 정한 뒤 **빈 도면을 누르면 거기서 꺾는다** — 케이블은 벽을 타고 트레이를
-         따라 돌지 두 점을 곧게 지르지 않는다. 자산 위를 누르는 것은 여전히 「반대쪽」이다. */
-      if (!hit && cableState.firstPortId) {
-        cableDispatch({ type: 'ADD_WAYPOINT', point: snapOrtho(draftPrev(), world.x, world.y, SNAP_GRID) });
-        scheduleRender();
-        return;
-      }
+      /* **도면 클릭의 뜻은 하나다: 이을 설비를 고른다.** 예전에는 빈 도면을 누르면 꺾은점이
+         찍혀 뜻이 둘이었고, 그 애매함이 「도면에서 고르기」와 「목록에서 고르기」를 갈라
+         놓았다. 경로는 이은 뒤 선을 끌어 붙인다(`CablePathEditor`). */
+      if (!hit) return;
       // 흐리게 그린 것은 눌러도 열리지 않는다 — 보이는 것과 되는 것이 같아야 한다.
-      if (hit && connectableIdsRef.current?.has(hit.id) !== false) {
-        // 자산 객체 찾기 (V2Asset 형태)
-        const fullAsset = latest.current.effectiveAssets.find((a) => a.id === hit.id);
-        if (!fullAsset) return;
-
-        // viewport client 좌표 (fixed 팝오버 — overflow-hidden 클리핑 없음)
-        cableDispatch({
-          type: 'OPEN_PICKER',
-          picker: {
-            asset: fullAsset,
-            screenPos: { x: e.clientX, y: e.clientY },
-            firstPortId: cableState.firstPortId,
-          },
-        });
-      }
+      if (connectableIdsRef.current?.has(hit.id) === false) return;
+      /* 포트를 고르는 판은 **우측 패널의 포트 탭**이다 — 도면이 판을 한 벌 더 그리지
+         않는다(`cablePick.ts`). 출발이든 도착이든 같은 판에서 고른다. */
+      onPickPort?.({
+        assetId: hit.id,
+        medium: session.from?.medium ?? null,
+        firstEndpoint: session.from ? { portId: session.from.portId, label: session.from.label } : null,
+        error: null,
+        onSelect: (port) => { onPortPicked(port.id); onPickPort?.(null); },
+        onCancel: () => onPickPort?.(null),
+      });
       return;
     }
 
@@ -1359,71 +1306,14 @@ export function FloorPlanView({
     onSelectAsset(null);
   };
 
-  // ── 포트 선택 핸들러 ──────────────────────────────────────────────────────
-  const handlePortSelect = (port: V2Port) => {
-    const state = cableState.picker;
-    if (!state) return;
-
-    if (!state.firstPortId) {
-      // 첫 끝점 확정 — 시작하는 일은 한 곳에서만 한다.
-      startConnectionRef.current(port.id);
-      scheduleRender();
-      return;
-    }
-
-    /* 두 번째 끝점 — 잇는 일은 `connectCable` 한 곳이고, 여기서는 **까닭을 어디에 적을지**만 정한다. */
-    const err = connectCable({
-      firstPortId: state.firstPortId,
-      toPort: port,
-      assets: latest.current.effectiveAssets,
-      cables: latest.current.effectiveCables,
-      substationId,
-      categoryId: cableState.categoryId || null,
-      mediumKey: selectedGroupKey,
-      pathPoints: cableState.draftPath,
-    });
-    if (err === 'no-first') {
-      // 첫 끝점을 잃었다 — picker 까지 걷어 원격 단추가 헛돌지 않게 한다.
-      cableDispatch({ type: 'ABORT_TO_ARMED' });
-      return;
-    }
-    if (err) {
-      cableDispatch({ type: 'SET_PICKER_ERROR', error: connectErrorLabel(err) });
-      return;
-    }
-    // 도구 유지 (연속 연결), 첫 끝점 초기화
-    cableDispatch({ type: 'CABLE_STAGED' });
-    scheduleRender();
-  };
-
-  // ── 대국 모달에서 포트 선택 → 두 번째 끝점으로 처리 ──────────────────────
-  const handleRemotePortSelect = (port: V2Port, _asset: AssetSearchResult) => {
-    const err = connectCable({
-      firstPortId: cableState.firstPortId,
-      toPort: port,
-      assets: latest.current.effectiveAssets,
-      cables: latest.current.effectiveCables,
-      substationId,
-      categoryId: cableState.categoryId || null,
-      mediumKey: selectedGroupKey,
-      pathPoints: cableState.draftPath,
-    });
-    if (err === 'no-first') {
-      // 침묵하지 않는다 — 모달은 열어 두고 왜 안 됐는지 적는다.
-      cableDispatch({ type: 'SET_REMOTE_ERROR', error: '첫 끝점을 확인할 수 없습니다 — 다시 선택하세요' });
-      return;
-    }
-    if (err) {
-      cableDispatch({ type: 'SET_REMOTE_ERROR', error: connectErrorLabel(err) });
-      return;
-    }
-    cableDispatch({ type: 'REMOTE_CABLE_STAGED' });
-    scheduleRender();
-  };
+  /* 포트를 고르는 핸들러는 **하나**다(`onPortPicked`) — 출발인지 도착인지는 세션이 안다.
+     예전에는 이 자리에 셋이 있었다: 도면 피커용·대국 모달용·상세 패널 명령용. 셋이 각자
+     같은 글을 갖고 있어 한쪽만 고쳐지기 딱 좋았고, 실제로 넣는 자산이 서로 달랐다. */
 
   // ── arm 토글 ─────────────────────────────────────────────────────────────
   const handleArmType = (typeId: string) => {
-    if (cableState.armed) disarmCable();
+    /* 배치와 케이블은 함께 켜지지 않는다 — 켜면 잇던 것을 접는다(페이지가 세션을 닫는다). */
+    if (session) onCancelConnect?.();
     if (placementState.mode !== 'idle' && placementState.typeId === typeId) {
       // 같은 버튼 재클릭 → disarm
       disarm();
@@ -1432,14 +1322,13 @@ export function FloorPlanView({
     }
   };
 
-  /** 케이블 도구 토글 */
+  /** 케이블 도구 토글 — 세션을 여닫는 일은 **페이지가** 한다(담아 둔 것을 되살려야 한다). */
   const handleArmCable = () => {
-    if (cableState.armed) {
-      disarmCable();
+    if (session) {
+      onCancelConnect?.();
     } else {
-      // 기존 배치 모드 해제
       if (placementState.mode !== 'idle') disarm();
-      cableDispatch({ type: 'ARM' });
+      onOpenConnect?.(null);
       scheduleRender();
     }
   };
@@ -1548,11 +1437,6 @@ export function FloorPlanView({
       if (e.code !== 'Delete' && e.code !== 'Backspace') return;
       const t = e.target as HTMLElement | null;
       if (isTypingTarget(t)) return;
-      /* 그리는 중이면 그 손짓의 것이다 — 마지막 꺾은점을 무른다(ESC 는 손짓 전체를 무른다). */
-      if (cableUndoRef.current()) {
-        e.preventDefault();
-        return;
-      }
       // 케이블을 고른 것이 자산 선택보다 좁은 의도다 — 둘 다면 케이블을 지운다.
       if (latest.current.selectedCableId !== null) {
         e.preventDefault();
@@ -1587,47 +1471,12 @@ export function FloorPlanView({
   }, [activeFloorId]);
 
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
-  const canvasCursor = (armedTypeId !== null || cableState.armed) ? 'crosshair' : undefined;
+  const canvasCursor = (armedTypeId !== null || session != null) ? 'crosshair' : undefined;
 
-  // ── 포트별 케이블 수 (원격 모달용) ──────────────────────────────────────
-  const cableCounts = useMemo(() => cableCountByPortId(effectiveCables), [effectiveCables]);
-
-  // ── 피커에 넘길 portGroups (루트 + 전이적 자식, 저장된 자산만) ─────────────
-  /**
-   * 「포트를 골라 달라」를 상세 패널에 보낸다 — 판은 거기 이미 있다.
-   *
-   * `onSelect`/`onCancel` 이 매 렌더 새로 만들어지므로 이펙트가 매번 도는데, 받는 쪽은
-   * 이 객체를 그리기에만 쓰므로 해가 없다(상태로 쌓이지 않는다).
-   */
-  const pickAsset = cableState.picker?.asset ?? null;
-  const firstEndpointLabel = useMemo(() => {
-    const portId = cableState.picker?.firstPortId ?? cableState.firstPortId;
-    if (!portId) return null;
-    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === portId));
-    const port = owner?.ports.find((p) => p.id === portId);
-    return owner && port ? `${owner.name}#${port.index}` : null;
-  }, [cableState.picker, cableState.firstPortId, effectiveAssets]);
-
-  useEffect(() => {
-    if (!pickAsset) {
-      onPickPort?.(null);
-      return;
-    }
-    const firstPortId = cableState.picker?.firstPortId ?? null;
-    onPickPort?.({
-      assetId: pickAsset.id,
-      medium: selectedGroupKey ?? null,
-      firstEndpoint: firstPortId ? { portId: firstPortId, label: firstEndpointLabel ?? '' } : null,
-      error: cableState.picker?.validationError ?? null,
-      onSelect: (port) => handlePortSelectRef.current(port),
-      onCancel: () => cableDispatch({ type: 'CLOSE_PICKER' }),
-      onSearchRemote: firstPortId ? () => cableDispatch({ type: 'OPEN_REMOTE_MODAL' }) : undefined,
-    });
-  }, [pickAsset, cableState.picker, selectedGroupKey, firstEndpointLabel, onPickPort]);
-
-
-  const handlePortSelectRef = useRef(handlePortSelect);
-  handlePortSelectRef.current = handlePortSelect;
+  /* 「포트를 골라 달라」는 **도면 클릭이 직접** 보낸다(`onCanvasClick`) — 판은 상세 패널에
+     이미 있다(`cablePick.ts`). 예전에는 그 요청을 리듀서의 `picker` 상태로 한 번 받아 두고
+     effect 가 다시 내보냈다: 같은 사실이 두 곳에 있었고, 그래서 세 번째 자리(대국 모달)가
+     생겼을 때 그 둘과 또 달라졌다. */
 
   const floorTabs = useTabs(activeFloorId ?? '');
   /* 층을 만들고·고치고·지우는 일은 탭 줄의 것이다 — 캔버스와 나눠 갖는 것이 없다. */
@@ -1713,8 +1562,10 @@ export function FloorPlanView({
   const planTools =
     activeFloorId != null && (assemblies.length > 0 || cableGroups.length > 0) ? (
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {/* 배치 도구 — 케이블 도구와 같은 형태(도구 버튼 + 대상 Select) */}
-          {assemblies.length > 0 && (
+          {/* 배치 도구 — 케이블 도구와 같은 형태(도구 버튼 + 대상 Select).
+              **다녀온 국에서는 없다**: 고르러 간 것이지 고치러 간 것이 아니다.
+              「케이블」은 남는다 — 고르는 일은 읽기 전용이 아니다. */}
+          {!readOnly && assemblies.length > 0 && (
             <>
               <Button
                 size="sm"
@@ -1749,40 +1600,21 @@ export function FloorPlanView({
             </>
           )}
 
-          {/* 케이블 도구 */}
+          {/* 케이블 도구 — **종류 Select 가 여기 없다.** 오버레이로 옮겼다: 진입점마다 다른
+              자리에 있던 것(여기서는 도구바, 포트 탭에서는 아예 없음)을 한 자리로 모으고,
+              도면을 보는 동안에도 언제든 바꾼다. */}
           {cableGroups.length > 0 && (
-            <>
-              <Button
-                size="sm"
-                variant={cableState.armed ? 'primary' : 'secondary'}
-                onClick={handleArmCable}
-              >
-                케이블
-              </Button>
-              {/* 종류 Select (그룹별 optgroup) */}
-              <div className="w-40">
-                <Select
-                  value={cableState.categoryId}
-                  aria-label="케이블 품목"
-                  onChange={(e) => cableDispatch({ type: 'SET_CATEGORY', categoryId: e.target.value })}
-                  size="sm"
-                >
-                  {cableGroups.map((group) => (
-                    <optgroup key={group.id} label={group.name}>
-                      {group.categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </Select>
-              </div>
-            </>
+            <Button
+              size="sm"
+              variant={session ? 'primary' : 'secondary'}
+              onClick={handleArmCable}
+            >
+              케이블
+            </Button>
           )}
 
-          {/* 고른 설비에 할 일 — **정면 돌리기**와 지우기. */}
-          {selectedAssetId !== null && placedAssets.some((a) => a.id === selectedAssetId) && (
+          {/* 고른 설비에 할 일 — **정면 돌리기**와 지우기. 다녀온 국에서는 없다. */}
+          {!readOnly && selectedAssetId !== null && placedAssets.some((a) => a.id === selectedAssetId) && (
             <>
               <span className="h-4 w-px bg-line mx-1" />
               {/* **정면은 도면에서 정한다.** 예전에는 상세 패널의 폼에서 「위·아래·왼쪽·
@@ -1809,8 +1641,8 @@ export function FloorPlanView({
             </>
           )}
 
-          {/* 선택된 케이블 삭제 */}
-          {cableState.selectedCableId !== null && (
+          {/* 선택된 케이블 삭제 — 다녀온 국에서는 없다. */}
+          {!readOnly && cableState.selectedCableId !== null && (
             <>
               <span className="h-4 w-px bg-line mx-1" />
               {/* 경로 편집 방법을 알려주지 않으면 선을 눌러도 아무 일이 없다고 여긴다. */}
@@ -1836,7 +1668,7 @@ export function FloorPlanView({
       /* 배경 도면은 관리자만 — 그래서 `actions` 자체가 없을 수 있다. 검색은 아직 없다:
          자리는 비워 두되 다른 탭과 같은 오른쪽 끝이다(§3.1). */
       actions={
-        isAdmin ? (
+        isAdmin && !readOnly ? (
           <BackgroundImportControls
             floorId={activeFloorId}
             hasBackground={activeFloor?.backgroundDrawing != null}
@@ -1926,19 +1758,12 @@ export function FloorPlanView({
           />
         )}
 
-        {/* 대국 검색 모달 */}
-        <RemoteEndpointModal
-          open={cableState.remoteModalOpen}
-          onClose={() => cableDispatch({ type: 'CLOSE_REMOTE_MODAL' })}
-          mediumFilter={selectedGroupKey}
-          excludePortId={cableState.firstPortId ?? undefined}
-          cableCountByPortId={cableCounts}
-          onSelectPort={handleRemotePortSelect}
-          errorText={cableState.remoteError}
-        />
+        {/* 대국 검색 모달은 **없다.** 다른 국도 조직 트리로 옮겨 가 도면에서 고른다 —
+            그 모달이 있던 까닭은 층을 옮기면 끝점이 따라가 버리는 버그의 우회였고, 그
+            결과 고르는 방법이 둘이 되었다. */}
 
         {/* 층이 선택됐지만 배치 자산 없음 안내 */}
-        {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && !cableState.armed && (
+        {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && session == null && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <span className="text-center text-xs text-content-faint">
               배치된 자산이 없습니다
@@ -1948,37 +1773,13 @@ export function FloorPlanView({
           </div>
         )}
 
-        {/* 지금 어디서 고르는 중인가 — **판을 어둡게 해서 말한다**.
-            포트를 고르는 단계에서는 선택이 오른쪽 패널에 있는데, 도면이 그대로 밝게 있으면
-            거기를 눌러 보다가 아무 일도 안 일어난다. 어둡게 덮으면 「저기서 고르는구나」가
-            설명 없이 전해진다 — 모달이 배경을 덮는 것과 같은 이유다. */}
-        {cableStep?.dimCanvas && (
-          <div className="absolute inset-0 z-legend bg-[var(--overlay)]" data-testid="cable-canvas-dim" />
-        )}
+        {/* 안내는 **머리줄 아래 오버레이**가 맡는다(`ConnectOverlay`) — 예전에는 여기 하단에
+            `1/3`~`3/3` 이 떴다. 실제 걸음은 다섯인데 셋으로 세어 `2/3` 가 두 번 나왔고, 이은
+            뒤에는 말없이 `1/3` 로 돌아가 방금 완성한 일이 실패한 것처럼 보였다. 그리고 그
+            줄은 도면에만 있어서 선번장·계통으로 옮기면 사라졌다.
 
-        {/* 케이블 도구 안내 — 화면 아래 한 줄.
-            예전에는 도구바 구석에 작게 붙어 있었다. 시선은 도면과 패널에 있는데 안내는 맨
-            위에 있으니, 다음에 무엇을 해야 하는지가 눈에 들어오지 않았다. */}
-        {cableStep && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-legend flex justify-center p-3">
-            <FloatingBar className="pointer-events-auto gap-2 px-3 py-1.5">
-              <span className="text-xs font-medium text-primary">{cableStep.step}</span>
-              <span className="text-sm text-content">{cableStep.text}</span>
-              {cableState.firstPortId && (
-                /* **다른 변전소로 가는 문은 여기다.** 예전에는 안내만 「대국 검색」이라 적고
-                   화면에는 그 이름의 단추가 없었다 — 이 국의 아무 설비나 눌러 포트 판을 연
-                   뒤에야 그 안에 숨은 문에 닿았다. 상대가 다른 국인데 이 국의 설비를 먼저
-                   누르라는 것은 앞뒤가 맞지 않는다. */
-                <Button variant="secondary" size="sm" onClick={() => cableDispatch({ type: 'OPEN_REMOTE_MODAL' })}>
-                  다른 변전소에서 찾기
-                </Button>
-              )}
-              <Button variant="secondary" size="sm" onClick={() => cableDispatch({ type: 'DISARM' })}>
-                취소
-              </Button>
-            </FloatingBar>
-          </div>
-        )}
+            판을 어둡게 덮던 것도 걷었다: 포트를 고르는 단계가 따로 있지 않고, 도면에서 설비를
+            누르면 그 자리에서 판이 뜬다. */}
 
       </div>
 

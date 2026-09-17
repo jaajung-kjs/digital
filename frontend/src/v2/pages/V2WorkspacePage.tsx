@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { assetFieldDefs } from '@twin/core';
 import { useNavigate } from 'react-router-dom';
 import type { CablePickRequest } from '../cablePick';
+import {
+  openSession, withFrom, setCategory, setKeepGoing, finish,
+  type ConnectSession, type ConnectFrom, type ConnectOrigin,
+} from '../connectSession';
+import { ConnectOverlay } from '../components/ConnectOverlay';
 import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey, PageHeader, ViewCard } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
@@ -85,12 +90,17 @@ export default function V2WorkspacePage() {
   /* 뷰 탭과 그 아래 내용이 같은 이름표를 나눠 갖는다 — 스크린리더가 둘을 잇는다. */
   const viewTabs = useTabs(viewMode);
   /**
-   * 「이 포트에서 케이블을 시작해 달라」는 한 번짜리 요청 — 상세 패널 → 평면도.
+   * **지금 케이블을 잇는 중인가.**
    *
-   * 상태가 아니라 **명령**이라 평면도가 받아 소비하면 지운다. 남겨 두면 평면도로 다시
-   * 들어올 때마다 케이블 도구가 저 혼자 켜진다.
+   * 예전에는 이 사실이 두 값에 흩어져 있었다: `cableStartPortId`(포트 탭이 보낸 시작 요청)와
+   * 도면 안의 `armed`·`firstPortId`. 둘이 같은 일을 가리켰고, 그래서 진입점에 따라 첫 끝점
+   * 강조가 나왔다 안 나왔다 했다. 담아 둔 워킹카피는 스토어가 쥔다(`suspended`).
    */
-  const [cableStartPortId, setCableStartPortId] = useState<string | null>(null);
+  const [session, setSession] = useState<ConnectSession | null>(null);
+  /** 매체별로 **직전에 쓴 종류** — 오버레이가 고른 채로 보여 주므로 숨은 값이 아니다. */
+  const lastCategoryByMedium = useRef<Record<string, string>>({});
+  /** 다녀온 국인가 — 읽기 전용이다(고르러 간 것이지 고치러 간 것이 아니다). */
+  const wcReadOnly = useV2WorkingCopy((st) => st.suspended !== null);
   /**
    * 평면도가 보낸 「포트를 골라 달라」 — 상세 패널의 포트 탭이 고르는 모드로 돌아간다.
    *
@@ -288,6 +298,56 @@ export default function V2WorkspacePage() {
   const inSubstationScope = shown?.kind === 'substation' && substationId === shown.id;
 
   /**
+   * 진입점이 부른다 — 출발을 미리 아는 길(포트 탭·표)은 그 값을 함께 주고, 도면의 「케이블」
+   * 버튼은 비운 채 연다. **어디서 열든 그 뒤는 똑같다.**
+   */
+  const openConnect = useCallback((from: ConnectFrom | null) => {
+    const origin: ConnectOrigin = { substationId: substationId ?? '', view: viewMode, floorId: null };
+    const base = openSession(origin);
+    setSession(from ? withFrom(base, from, lastCategoryByMedium.current) : base);
+  }, [substationId, viewMode]);
+
+  /** 이었다 — 담아 둔 것을 되살리고 **시작한 화면**으로 돌아간다. */
+  const finishConnect = useCallback(async () => {
+    const s = session;
+    if (!s) return;
+    /* 다음에 그 매체를 이을 때 물려 올 값 — 숨기지 않는다(오버레이가 고른 채로 보여 준다). */
+    if (s.from && s.categoryId) lastCategoryByMedium.current[s.from.medium] = s.categoryId;
+    const wc = useV2WorkingCopy.getState();
+    if (wc.suspended) await wc.resumeSuspended();
+    const back = s.origin.substationId;
+    if (back && back !== useV2WorkingCopy.getState().substationId) {
+      navigate(`/n/${back}?view=${encodeURIComponent(s.origin.view)}`);
+    } else {
+      route.setView(s.origin.view);
+    }
+    setSession(finish(s));
+  }, [session, navigate, route]);
+
+  /** 접는다 — 담아 둔 것은 되살린다(잃지 않는다). */
+  const cancelConnect = useCallback(async () => {
+    const wc = useV2WorkingCopy.getState();
+    if (wc.suspended) await wc.resumeSuspended();
+    setSession(null);
+  }, []);
+
+  /** 다녀온 국에서 처음 자리로 — 담아 둔 것을 되살린다. */
+  const backToOrigin = useCallback(async () => {
+    await useV2WorkingCopy.getState().resumeSuspended();
+  }, []);
+
+  /** 포트를 출발로 삼아 세션을 연다 — 포트 탭·선번장·계통이 같은 길을 쓴다. */
+  const connectFromPort = useCallback((portId: string) => {
+    const assets = useV2WorkingCopy.getState().effectiveAssets();
+    const owner = assets.find((a) => a.ports.some((p) => p.id === portId));
+    const port = owner?.ports.find((p) => p.id === portId);
+    if (!owner || !port || !substationId) return;
+    openConnect({ portId, label: `${owner.name} · ${port.name}`, substationId, medium: port.medium });
+    /* 도착은 도면에서 고른다 — 돌아올 자리는 세션의 `origin` 이 기억한다. */
+    route.setView('평면도');
+  }, [openConnect, route, substationId]);
+
+  /**
    * 포트를 고르라는 요청을 받으면 **상세 패널을 그 자산으로 옮긴다**.
    *
    * 다 고른 뒤(`null`) 원래 자산으로 되돌리지는 **않는다**. 고를 자산은 도면에서 눌러
@@ -356,6 +416,20 @@ export default function V2WorkspacePage() {
                   </>
                 }
               />
+              {/* **잇는 중이면 계속 떠 있다** — 탭을 옮겨도 층을 옮겨도 국을 옮겨도 남는다.
+                  그래야 「다른 층·다른 국은 평소처럼 옮겨 가서 고른다」가 성립한다. */}
+              {session && (
+                <ConnectOverlay
+                  session={session}
+                  groups={catalog.data?.cableGroups ?? []}
+                  readOnly={wcReadOnly}
+                  substationName={shown?.name ?? null}
+                  onCategory={(id) => setSession((s) => (s ? setCategory(s, id || null) : s))}
+                  onKeepGoing={(on) => setSession((s) => (s ? setKeepGoing(s, on) : s))}
+                  onBack={wcReadOnly ? () => void backToOrigin() : undefined}
+                  onCancel={() => void cancelConnect()}
+                />
+              )}
               {inSubstationScope && (
                 /* 탭 줄 — 회색 띠 위에 사각 탭이 솟는다. 바닥선은 `Tabs` 가 그으므로
                    여기서 또 긋지 않는다(두 줄이 겹쳐 2px 로 보인다). */
@@ -387,8 +461,18 @@ export default function V2WorkspacePage() {
                       selectedAssetId={highlightedAssetId}
                       onSelectAsset={handleSelectAssetId}
                       traceResult={traceResult}
-                      cableStartPortId={cableStartPortId}
-                      onCableStartConsumed={() => setCableStartPortId(null)}
+                      session={session}
+                      onOpenConnect={openConnect}
+                      onFromPicked={(from) =>
+                        setSession((s) => withFrom(
+                          s ?? openSession({ substationId: substationId ?? '', view: viewMode, floorId: null }),
+                          from,
+                          lastCategoryByMedium.current,
+                        ))
+                      }
+                      onConnected={() => void finishConnect()}
+                      onCancelConnect={() => void cancelConnect()}
+                      readOnly={wcReadOnly}
                       onPickPort={handlePickPort}
                     />
                   ) : inSubstationScope && viewMode === '선번장' ? (
@@ -458,11 +542,10 @@ export default function V2WorkspacePage() {
                       /* 이미 평면도를 보고 있으면 「평면도에서 보기」를 두지 않는다 —
                          지금 있는 곳으로 가는 버튼은 눌러도 아무 일이 없다. */
                       onShowOnFloorPlan={viewMode === '평면도' ? undefined : () => route.setView('평면도')}
-                      onConnectPort={(portId) => {
-                        // 이을 자리는 평면도에 있다 — 화면부터 옮기고 그 포트로 도구를 무장한다.
-                        route.setView('평면도');
-                        setCableStartPortId(portId);
-                      }}
+                      /* 잇기를 시작하는 길은 **하나**다(`connectFromPort`) — 포트 탭·선번장·계통이
+                         같은 것을 부른다. 예전에는 여기서 뷰를 옮기고 한 번짜리 명령을 보냈고,
+                         도면이 그것을 받아 제 상태를 또 세웠다(같은 사실이 두 곳). */
+                      onConnectPort={connectFromPort}
                     />
                   ) : (
                     /* 자리가 비었다는 것을 **카드가** 말한다 — 빈 회색으로 두면 「없는 것」과
