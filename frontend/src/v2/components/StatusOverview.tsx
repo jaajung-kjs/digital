@@ -255,7 +255,7 @@ export function StatusOverview({ rows, fieldColumns, selectedId, onSelectAsset, 
                     >
                       {collapsed.has(group.categoryName) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                     </button>
-                    <span className="truncate font-semibold">{group.categoryName}</span>
+                    <span className="min-w-0 truncate font-semibold">{group.categoryName}</span>
                   </span>
                 </Td>
                 <Td align="right" className="font-semibold text-content">{group.count}</Td>

@@ -79,6 +79,36 @@ function setStore(assets: V2Asset[], cables: V2Cable[]) {
   });
 }
 
+/**
+ * **긴 이름이 옆 열을 덮지 않는다.**
+ *
+ * 표는 `table-fixed` 라 칸이 늘지 않으므로, 넘치는 글자는 말줄임으로 잘려야 한다. 그런데
+ * `truncate` 만 걸어 둔 span 이 **가로 flex 의 항목**이면 기본 `min-width: auto` 가 「내용보다
+ * 작아지지 않겠다」고 버텨, 줄지 않고 그대로 흘러넘쳐 **대국 열 위에 겹쳐 그려졌다**.
+ * 짝은 언제나 `min-w-0 truncate` 다.
+ */
+describe('대국 칸은 칸 안에서 잘린다', () => {
+  beforeEach(() => setStore([], []));
+
+  it('줄이는 글자에는 min-w-0 이 함께 있다', () => {
+    /* 이름이 길어야 실제로 넘친다 — 짧으면 잘못 짜도 화면상 티가 안 난다. */
+    const dev = asset('dev', '송변전광단말장치 - CTRU(B)#2 아주 긴 이름', {
+      parentAssetId: 'ofd', ports: [port('d1', 'dev', 'CORE', 1)],
+    });
+    setStore([ofd, slot, dev], [trunkCable, cable('c-a1', 'a1', 'd1')]);
+    render(<FiberRegisterView
+      substationId="sub-1" selectedAssetId={null} selectedPortId={null}
+      containerId={null} onPickContainer={vi.fn()} onSelectAsset={vi.fn()}
+    />);
+
+    const cells = document.querySelectorAll('td .truncate');
+    expect(cells.length).toBeGreaterThan(0);
+    for (const el of cells) {
+      expect(el.className).toContain('min-w-0');
+    }
+  });
+});
+
 describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입력까지 관통', () => {
   beforeEach(() => {
     setStore([], []);

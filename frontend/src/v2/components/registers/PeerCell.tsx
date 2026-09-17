@@ -50,19 +50,22 @@ export function PeerCell({ peer, onSelect, emptyLabel }: PeerCellProps) {
   /* 앞자리와 번호를 가른다 — 앞은 그 줄들이 공유하는 자리, 뒤는 그 줄만의 번호다.
      경계는 이름을 지은 곳이 알려 준다(`#` 를 찾던 때는 코어 이름에서 갈리지 않았다). */
   const { prefix, tail } = endpointLabelParts(peer);
+  /* 줄이는 쪽(`truncate`)에는 **`min-w-0` 이 함께 있어야** 한다. flex 항목의 기본
+     `min-width: auto` 는 내용보다 작아지기를 거부하므로, 자리를 넘겨도 줄지 않고 그대로
+     흘러넘쳐 **옆 열 위에 겹쳐 그려진다**(표는 `table-fixed` 라 칸이 늘지 않는다). */
   const body = prefix ? (
     <>
-      <span className="truncate text-content-muted">{prefix}</span>
+      <span className="min-w-0 truncate text-content-muted">{prefix}</span>
       <span className="shrink-0 font-medium text-content">{tail}</span>
     </>
   ) : (
-    <span className="truncate text-content">{label}</span>
+    <span className="min-w-0 truncate text-content">{label}</span>
   );
 
   /* 갈 자리가 없으면(상대 국·삭제된 끝점) 글자 그대로 둔다 — 눌리는 것처럼 보이는데 아무
      일도 안 일어나는 칸이 열마다 서면 그게 더 나쁘다. */
   if (!peer.assetId || !peer.portId || !onSelect) {
-    return <span className="flex min-w-0 text-sm" title={full}>{body}</span>;
+    return <span className="flex w-full min-w-0 text-sm" title={full}>{body}</span>;
   }
   const { assetId, portId } = peer;
   return (
@@ -70,7 +73,7 @@ export function PeerCell({ peer, onSelect, emptyLabel }: PeerCellProps) {
       type="button"
       /* 색은 그대로 둔다 — 대국 열이 통째로 파랗게 서면 표가 시끄러워지고, 정작 줄마다
          다른 것(뒤의 번호)이 안 도드라진다. 눌린다는 것은 밑줄과 커서가 말한다. */
-      className="flex min-w-0 cursor-pointer text-left text-sm hover:underline"
+      className="flex w-full min-w-0 cursor-pointer text-left text-sm hover:underline"
       title={`${full} 으로 이동`}
       /* 줄 자신도 누르면 골라진다 — 여기서 멈추지 않으면 갈 곳과 고를 곳이 함께 일어난다. */
       onClick={(e) => { e.stopPropagation(); onSelect(assetId, portId); }}

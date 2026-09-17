@@ -449,7 +449,7 @@ export function TreePanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-3">
-        <span className="flex-1 truncate text-xs font-medium text-content-muted">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-xs font-medium text-content-muted">{title}</span>
       </div>
 
       {/* 검색은 **모든 트리에 있다.** 예전에는 「항목이 스무 개를 넘는 트리에만」이라는

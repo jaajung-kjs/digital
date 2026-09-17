@@ -45,7 +45,7 @@ function ConflictItem({ conflict }: { conflict: V2Conflict }) {
 
   return (
     <li className="flex items-center gap-2 text-xs text-content">
-      <span className="font-mono text-content-faint truncate">{label}</span>
+      <span className="min-w-0 truncate font-mono text-content-faint">{label}</span>
       <span className="shrink-0 text-danger">{reasonLabel(conflict.reason)}</span>
     </li>
   );
