@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { computeEstimate, computeReport, materialCostOf } from '@twin/core';
 import type { ReportItem, ReportKind } from '@twin/core';
-import { Badge, Button, Input, Select, Modal, EMPTY, cn, Td, Th, TableCard, TABLE_ROW } from '../../components/ui';
+import { Badge, Button, Input, Select, MessageStrip, Modal, EMPTY, cn, Td, Th, TableCard, TABLE_ROW } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import { buildReportItems, estimateInput } from '../reportSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -207,6 +207,24 @@ function EstimateSection({ items }: { items: ReportItem[] }) {
 
   const input = useMemo(() => estimateInput(items, wageOf), [items, wageOf]);
 
+  /**
+   * **공량은 있는데 노임이 없는 품목** — 그러면 직접노무비가 0 으로 세어진다.
+   *
+   * 그 아래는 전부 노무비의 몇 %라서 총공사비까지 통째로 0 원이 된다. 화면이 0 원만
+   * 보여 주면 「산출이 안 된다」로 읽히므로 **무엇이 비었는지** 적는다 — 제비율이 없을 때
+   * 그렇게 말하는 것과 같은 어법이다(바로 아래).
+   *
+   * 「노임코드가 없다」와 「코드는 있는데 표에 그 직종이 없다」를 가르지 않는다: 고치러 갈
+   * 자리가 같고(품목의 직종 칸), 표의 「노무」 칸이 이미 둘을 구별해 적는다.
+   */
+  const missingWage = useMemo(() => {
+    const names = new Set<string>();
+    for (const it of items) {
+      if (it.manDays > 0 && wageOf(it.laborCode) == null) names.add(it.typeName);
+    }
+    return [...names];
+  }, [items, wageOf]);
+
   if (!overhead) {
     return (
       <div className="border-t border-line pt-3 text-xs text-content-faint">
@@ -264,6 +282,13 @@ function EstimateSection({ items }: { items: ReportItem[] }) {
           </div>
         </div>
       </div>
+
+      {missingWage.length > 0 && (
+        <MessageStrip tone="warning" className="mb-2">
+          <span className="font-medium">직종이 없어 노무비를 0 으로 셉니다</span> — {missingWage.join(' · ')}.
+          그 품목의 「품셈」에서 직종을 고르면 금액이 섭니다.
+        </MessageStrip>
+      )}
 
       <Row label="재료비" value={est.materialCost} />
       <Row label="직접노무비" value={est.directLaborCost} />
