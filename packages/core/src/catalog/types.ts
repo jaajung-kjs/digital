@@ -55,6 +55,31 @@ export const COMMON_ASSET_FIELDS: readonly FieldDef[] = [
 /** 정면 값 — 도면 기준 방향. 렌더러와 화면이 같은 어휘를 쓴다. */
 export type Facing = '위' | '아래' | '왼쪽' | '오른쪽';
 
+/**
+ * **도면에 놓는 설비의 기본 정면** — 아래(사람이 서는 쪽).
+ *
+ * 반과 랙은 문이 통로를 보게 놓는다. 도면에서 통로는 대개 아래쪽이므로, 놓는 순간
+ * 아무것도 안 정해져 있는 것보다 「아래」로 서 있는 편이 실물에 가깝다. 틀리면 도구바의
+ * 회전 한 번으로 돌린다.
+ *
+ * **도면에 놓이는 것에만 준다.** 설비 격자 안의 장비(카드·슬롯)와 경로슬롯에는 정면이
+ * 뜻이 없어서, 거기까지 기본값을 박으면 도면이 없는 사실을 말하게 된다.
+ */
+export const DEFAULT_FACING: Facing = '아래';
+
+/**
+ * 정면을 90°씩 돌린 다음 값 — 도구바의 회전이 쓴다.
+ *
+ * 네 방향을 돈다. 「없음」으로는 돌아가지 않는다: 도면에 놓인 설비는 놓는 순간부터 정면을
+ * 가지므로(`DEFAULT_FACING`), 한 바퀴에 「없음」을 끼우면 **돌리다가 굵은 변이 사라지는**
+ * 칸이 하나 생긴다. 아직 정면이 없는 옛 자산은 첫 번째 누름이 기본값을 준다.
+ */
+export function nextFacing(current: string | null | undefined): Facing {
+  const order: readonly Facing[] = ['아래', '왼쪽', '위', '오른쪽'];
+  const at = order.indexOf(current as Facing);
+  return at < 0 ? DEFAULT_FACING : order[(at + 1) % order.length]!;
+}
+
 /** 자산이 갖는 속성 — 종류를 가리지 않고 같다. 화면은 이것만 읽는다. */
 export function assetFieldDefs(): FieldDef[] {
   return [...COMMON_ASSET_FIELDS];

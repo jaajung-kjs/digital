@@ -47,7 +47,7 @@ import { assemblyToPlacement } from '../../placeAssembly';
 import { AssetResizeHandles } from './AssetResizeHandles';
 import { RemoteEndpointModal } from './RemoteEndpointModal';
 import { SNAP_GRID, SELECTION_STYLES } from '../../canvas/constants';
-import type { Facing } from '@twin/core';
+import { nextFacing } from '@twin/core';
 import type { V2Asset, V2Cable, V2Floor, V2Port } from '../../types';
 import type { AssetSearchResult } from '../../api';
 import { expandToPlacedAncestors } from '../../traceSelectors';
@@ -1477,15 +1477,12 @@ export function FloorPlanView({
 
   // ── 선택 자산의 정면 ──────────────────────────────────────────────────────
   /**
-   * **한 바퀴에 「없음」이 들어 있다.**
+   * 정면을 90°씩 돌린다 — **네 방향만** 돈다(`nextFacing`).
    *
-   * 정면이 뜻 없는 물건이 있다(축전지 선반·경로슬롯). 네 방향만 돌게 하면 한 번 누른 뒤로는
-   * 영영 「모름」으로 못 돌아가고, 도면이 없는 사실을 말하게 된다(§3.4 「모르는 것은 그리지
-   * 않는다」). 그래서 다섯 칸을 돈다: 없음 → 아래 → 왼쪽 → 위 → 오른쪽 → 없음.
-   *
-   * **아래에서 시작하는 까닭**: 설비는 도면 아래쪽(사람이 서는 쪽)을 보고 놓이는 것이 보통이다.
+   * 한때 한 바퀴에 「없음」을 끼웠다. 정면이 뜻 없는 물건(축전지 선반·경로슬롯)에 거짓을
+   * 그리지 않으려던 것인데, 도면에 놓인 설비는 **놓는 순간부터** 정면을 가지므로
+   * (`DEFAULT_FACING`) 그 칸은 「돌리다가 굵은 변이 사라지는」 한 칸일 뿐이었다.
    */
-  const FACING_CYCLE: readonly (Facing | null)[] = [null, '아래', '왼쪽', '위', '오른쪽'];
   const facingOfSelected = useMemo(() => {
     if (selectedAssetId == null) return null;
     const v = effectiveAssets.find((a) => a.id === selectedAssetId)?.fieldValues?.facing;
@@ -1499,9 +1496,8 @@ export function FloorPlanView({
     /* 값은 **커밋 시점의 스토어**에서 읽는다 — 렌더 클로저의 것을 쓰면 연달아 누를 때 한 칸에서 맴돈다. */
     const current = st.effectiveAssets().find((a) => a.id === id)?.fieldValues ?? {};
     const now = typeof current.facing === 'string' ? current.facing : null;
-    const next = FACING_CYCLE[(FACING_CYCLE.indexOf(now as Facing | null) + 1) % FACING_CYCLE.length] ?? null;
-    /* 「없음」은 키를 지우는 것이 아니라 `null` 이다 — 렌더러가 `?? ''` 로 읽어 굵은 변을 안 긋는다. */
-    st.stageAssetUpdate(id, { fieldValues: { ...current, facing: next } });
+    /* 아직 정면이 없는 옛 자산은 첫 번째 누름이 기본값(아래)을 준다. */
+    st.stageAssetUpdate(id, { fieldValues: { ...current, facing: nextFacing(now) } });
   }, [latest]);
 
   // ── 선택 자산 삭제 ────────────────────────────────────────────────────────

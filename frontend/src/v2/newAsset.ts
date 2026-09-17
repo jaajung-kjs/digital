@@ -1,4 +1,4 @@
-import { DEFAULT_ASSET_STATUS, coreCount, instantiatePorts, portTemplatesFrom } from '@twin/core';
+import { DEFAULT_ASSET_STATUS, DEFAULT_FACING, coreCount, instantiatePorts, portTemplatesFrom } from '@twin/core';
 import type { V2Asset, V2AssetType, V2Port } from './types';
 import { newId } from './newId';
 
@@ -85,7 +85,8 @@ export function makeNewAsset(args: {
     row: isContainer ? p.row : null,
     colSpan: isContainer ? p.colSpan : null,
     rowSpan: isContainer ? p.rowSpan : null,
-    fieldValues: {},
+    /* 도면에 놓이는 것만 기본 정면을 갖는다 — 격자 안의 장비·경로슬롯에는 뜻이 없다. */
+    fieldValues: isFloor ? { facing: DEFAULT_FACING } : {},
     updatedAt: '',
     ports: args.type ? portsForNewAsset(args.type, id) : [],
   };

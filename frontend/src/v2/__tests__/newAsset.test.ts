@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_FACING } from '@twin/core';
 import type { V2AssetType } from '../types';
 import { makeNewAsset } from '../newAsset';
 
@@ -25,6 +26,24 @@ describe('makeNewAsset', () => {
     const a = makeNewAsset({ type: mkType('t1', 'GROUNDING', 'c-struct'), name: '접지', substationId: 'ss',
       placement: { kind: 'floor', floorId: 'f1', x: 10, y: 20, width: 60, height: 80 } });
     expect(a).toMatchObject({ floorId: 'f1', x: 10, y: 20, width: 60, height: 80, parentAssetId: null });
+  });
+
+  /**
+   * **도면에 놓이는 것은 놓는 순간 정면이 선다.**
+   *
+   * 비워 두면 도면에 굵은 변이 없어 「앞이 어디인지 아직 아무도 모른다」가 되는데, 반·랙은
+   * 놓는 사람이 이미 방향을 보고 놓는다. 틀리면 도구바의 회전 한 번이다.
+   */
+  it('도면에 놓으면 기본 정면(아래)이 함께 선다', () => {
+    const a = makeNewAsset({ type: mkType('t1', 'GROUNDING', 'c-struct'), name: '접지', substationId: 'ss',
+      placement: { kind: 'floor', floorId: 'f1', x: 10, y: 20, width: 60, height: 80 } });
+    expect(a.fieldValues.facing).toBe(DEFAULT_FACING);
+  });
+
+  /* 격자 안의 장비(카드·슬롯)에는 정면이 뜻이 없다 — 기본값을 박으면 도면이 없는 사실을 말한다. */
+  it('격자 안의 장비에는 정면을 주지 않는다', () => {
+    const a = makeNewAsset({ type: mkType('t1', 'PITR', 'c-comm'), name: '카드', substationId: 'ss', placement: GRID });
+    expect(a.fieldValues.facing).toBeUndefined();
   });
 });
 

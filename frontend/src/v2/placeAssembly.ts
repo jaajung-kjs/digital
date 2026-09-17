@@ -1,4 +1,4 @@
-import { DEFAULT_ASSET_STATUS } from '@twin/core';
+import { DEFAULT_ASSET_STATUS, DEFAULT_FACING } from '@twin/core';
 import { portsForNewAsset } from './newAsset';
 import type { V2Assembly, V2Asset, V2AssetType, V2Cable } from './types';
 import { newId } from './newId';
@@ -51,7 +51,10 @@ export function assemblyToPlacement(args: {
     row: null,
     colSpan: null,
     rowSpan: null,
-    fieldValues: {},
+    /* **놓는 순간 정면이 선다**(아래). 비워 두면 도면에 굵은 변이 없어 「앞이 어디인지
+       아직 아무도 모른다」가 되는데, 반·랙은 놓는 사람이 이미 방향을 보고 놓는다.
+       틀리면 도구바의 회전 한 번이다. 안쪽 장비에는 주지 않는다 — 정면이 뜻 없다. */
+    fieldValues: { facing: DEFAULT_FACING },
     updatedAt: '',
     ports: [],
   };

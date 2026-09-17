@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_FACING } from '@twin/core';
 import { assemblyToPlacement } from '../placeAssembly';
 import { buildCommitPayload } from '../store/buildCommitPayload';
 import type { V2Assembly, V2AssetType } from '../types';
@@ -97,6 +98,18 @@ describe('설비 품목 배치', () => {
     /* 설비 자신은 항목에서 나온 것이 아니다 — 항목을 가진 쪽이다. */
     expect(equipment!.assemblyItemId).toBeUndefined();
     expect(parts.map((p) => p.assemblyItemId)).toEqual(['item-1', 'item-2']);
+  });
+
+  /**
+   * **도면에 서는 것은 설비 하나다** — 정면도 거기에만 붙는다.
+   *
+   * 안쪽 장비(카드·슬롯)는 설비 격자 안에 있어 정면이 뜻이 없다. 거기까지 기본값을 박으면
+   * 도면이 없는 사실을 말하게 된다(§3.4 「모르는 것은 그리지 않는다」).
+   */
+  it('설비에만 기본 정면(아래)이 선다 — 안쪽 장비에는 없다', () => {
+    const [equipment, ...parts] = place().assets;
+    expect(equipment!.fieldValues.facing).toBe(DEFAULT_FACING);
+    expect(parts.every((p) => p.fieldValues.facing === undefined)).toBe(true);
   });
 
   /**
