@@ -9,6 +9,7 @@ import {
 import { ConnectOverlay } from '../components/ConnectOverlay';
 import { ConnectCategoryDialog } from '../components/ConnectCategoryDialog';
 import { connectCable } from '../cableActions';
+import { endpointLabel } from '../peerResolve';
 import { useV2Notice } from '../store/noticeStore';
 import { connectErrorLabel } from '../components/floorplan/cableTool';
 import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey, PageHeader, ViewCard } from '../../components/ui';
@@ -368,11 +369,27 @@ export default function V2WorkspacePage() {
    * 무엇이 버려지나)이 한 자리로 모였다.
    */
   const pickPort = useCallback((portId: string) => {
-    const assets = useV2WorkingCopy.getState().effectiveAssets();
+    const wc = useV2WorkingCopy.getState();
+    const assets = wc.effectiveAssets();
     const owner = assets.find((a) => a.ports.some((p) => p.id === portId));
     const port = owner?.ports.find((p) => p.id === portId);
     if (!owner || !port || !substationId) return;
-    const label = `${owner.name} · ${port.name}`;
+    /**
+     * 이름에 **국까지** 담는다 — `(구)춘천S/S · 판암 OFD - 슬롯 1#1`.
+     *
+     * 다른 국으로 다녀와 고를 수 있으므로 「어느 국의 어느 설비의 어느 장비인가」가 한 줄에
+     * 다 있어야 한다. 예전에는 `설비 · 포트` 뿐이라, 두 국의 판이 둘 다 「슬롯 1」이면
+     * 오버레이만 보고는 어디서 출발했는지 알 수 없었다.
+     *
+     * 짓는 일은 `endpointLabel` 이 한다 — 끝점을 부르는 이름은 한 가지다(표·추적과 같은 말).
+     * 담는 설비 이름은 **바로 위 부모**다(`buildPortIndex` 와 같은 규칙).
+     */
+    const assemblyName = owner.parentAssetId
+      ? assets.find((a) => a.id === owner.parentAssetId)?.name ?? null
+      : null;
+    const here = wc.saved.substation?.name;
+    const endpoint = endpointLabel({ assemblyName, assetName: owner.name, portName: port.name, portIndex: port.index });
+    const label = here ? `${here} · ${endpoint}` : endpoint;
 
     const from = session?.from;
     if (!from) {
@@ -444,6 +461,29 @@ export default function V2WorkspacePage() {
     },
     [route],
   );
+
+  /**
+   * 포트 판을 **고르는 모드**로 돌리는 요청.
+   *
+   * 도면이 보낸 것이 있으면 그것을 쓰고, 없어도 **세션에 출발이 있으면 지금 열린 자산으로
+   * 짓는다.** 예전에는 도면만 이 요청을 세웠다 — 그래서 포트 탭이나 표에서 출발을 정하면
+   * 포트 판이 평소 모드로 남아, **같은 설비의 다른 포트를 눌러도** 그냥 선택만 되고 이어지지
+   * 않았다(랙 하나 안에서 앞면을 인입에 무는 점퍼가 그렇다). 잇는 중이면 어느 자산을 열든
+   * 그 판에서 바로 고른다.
+   */
+  const portPickRequest = useMemo<CablePickRequest | null>(() => {
+    if (cablePick) return cablePick;
+    const from = session?.from;
+    if (!from || !selectedAssetId) return null;
+    return {
+      assetId: selectedAssetId,
+      medium: from.medium,
+      firstEndpoint: { portId: from.portId, label: from.label },
+      error: null,
+      onSelect: (port) => pickPort(port.id),
+      onCancel: () => void cancelConnect(),
+    };
+  }, [cablePick, session, selectedAssetId, pickPort, cancelConnect]);
 
   // 상세 패널: 변전소 스코프 + selectedAssetId 가 effective assets 에 있을 때만
   const showDetailPanel =
@@ -629,7 +669,7 @@ export default function V2WorkspacePage() {
                       onTrace={setTraceResult}
                       onClearTrace={() => setTraceResult(null)}
                       traceResult={traceResult}
-                      cablePick={cablePick}
+                      cablePick={portPickRequest}
                       /* 이미 평면도를 보고 있으면 「평면도에서 보기」를 두지 않는다 —
                          지금 있는 곳으로 가는 버튼은 눌러도 아무 일이 없다. */
                       onShowOnFloorPlan={viewMode === '평면도' ? undefined : () => route.setView('평면도')}

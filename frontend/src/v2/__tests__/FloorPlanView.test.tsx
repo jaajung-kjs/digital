@@ -356,6 +356,33 @@ describe('FloorPlanView — 케이블 잇기', () => {
     expect(staged()[0]).toMatchObject({ aPortId: 'p-a', bPortId: 'p-b' });
   });
 
+  /**
+   * **같은 설비의 다른 포트끼리도 잇는다.**
+   *
+   * 랙 하나 안에서 광단말 앞면을 인입 슬롯에 무는 점퍼가 그렇다 — 같은 설비 안의 일인데
+   * 도면에서 그 설비를 다시 누를 수 없으면 이을 길이 없다. 규칙에도 그런 금지는 없다
+   * (`validateConnection` 은 **같은 포트**만 막는다).
+   */
+  it('같은 설비의 다른 포트로도 이어진다', () => {
+    setStore([asset('a', 0, 0, {
+      ports: [port('p-a1', 'a'), { ...port('p-a2', 'a'), index: 2 }],
+    })]);
+    const { pick } = renderFloorPlan();
+
+    fireEvent.click(screen.getByRole('button', { name: '케이블' }));
+    fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
+    choosePort(pick, 'p-a1');
+
+    /* **같은 설비를 다시 누른다** — 흐려져 있으면 여기서 요청이 오지 않는다. */
+    fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
+    expect(pick.current?.assetId).toBe('a');
+    choosePort(pick, 'p-a2');
+    chooseCategory('cat1');
+
+    expect(staged()).toHaveLength(1);
+    expect(staged()[0]).toMatchObject({ aPortId: 'p-a1', bPortId: 'p-a2' });
+  });
+
   /* 접으면 **부분 상태가 남지 않는다** — 고르라는 요청도 함께 걷힌다. */
   it('접으면 아무것도 스테이지하지 않고 요청도 걷힌다', () => {
     const { pick } = renderFloorPlan();

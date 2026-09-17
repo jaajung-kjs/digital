@@ -88,6 +88,7 @@ export function PortFaceplate({
   onSelect,
   labelPrefix,
   disabledPortIds,
+  fromPortId,
   isOpen,
   fill,
 }: {
@@ -104,6 +105,15 @@ export function PortFaceplate({
   labelPrefix?: string;
   /** 고를 수 없는 포트(피커에서 가득 찬 자리) — 자리는 지키되 누를 수 없다. */
   disabledPortIds?: ReadonlySet<string>;
+  /**
+   * 지금 잇는 중인 **출발 포트** — 「출발」이라고 적고 누를 수 없게 둔다.
+   *
+   * 예전에는 고르는 동안 이 포트를 **판에서 감췄다**. 그러면 「내가 어디서 출발했더라」를
+   * 판에서 확인할 수 없고, 포트가 하나 빠져 번호가 건너뛰어 다른 포트를 출발로 착각한다.
+   * 자리는 지키고 표시를 남긴다 — 흐리게만 두면 「가득 찬 자리」와 구별되지 않으므로 색과
+   * 글자를 함께 쓴다.
+   */
+  fromPortId?: string | null;
   /**
    * 이 포트의 회로가 끊겨 있는가 — 차단기가 열린 자리.
    *
@@ -151,24 +161,32 @@ export function PortFaceplate({
               const state = stateOf(p);
               const selected = p.id === selectedPortId;
               const count = cableCountOf?.(p) ?? 0;
-              const disabled = disabledPortIds?.has(p.id) ?? false;
+              const isFrom = p.id === fromPortId;
+              const disabled = isFrom || (disabledPortIds?.has(p.id) ?? false);
               const open = isOpen?.(p) ?? false;
               /* 개방은 연결 여부와 다른 사실이라 함께 읽어야 한다 — "물려 있으나 끊겨 있다" */
               const stateText = `${count > 1 ? `${count}가닥` : PORT_STATE_LABEL[state]}${open ? ' · 개방' : ''}`;
+              /* 읽어 주는 말과 툴팁은 **형식이 다르다** — 툴팁은 가운뎃점으로 끊고, 읽어
+                 주는 말은 장비 이름을 앞세워 이어 읽는다. 하나로 합치면 판을 찾는 시험이
+                 통째로 어긋난다(실제로 그랬다). */
+              const tail = isFrom ? '출발 포트' : stateText;
               return (
                 <button
                   key={p.id}
                   type="button"
                   disabled={disabled}
-                  title={`${p.name} · ${stateText}`}
-                  aria-label={`${labelPrefix ? `${labelPrefix} ` : ''}${p.name} ${stateText}`}
+                  title={`${p.name} · ${tail}`}
+                  aria-label={`${labelPrefix ? `${labelPrefix} ` : ''}${p.name} ${tail}`}
                   aria-pressed={selected}
                   onClick={() => onSelect(p.id)}
                   style={{ width: PORT_W }}
                   className={cn(
                     'relative flex flex-col items-center gap-0.5 rounded-sm p-0.5 transition-colors',
-                    disabled ? 'cursor-not-allowed opacity-45' : 'cursor-pointer hover:brightness-95',
-                    selected && 'ring-2 ring-inset ring-primary',
+                    disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-95',
+                    /* 출발은 **흐리지 않다** — 가득 찬 자리와 같은 꼴이면 표시가 아니다. */
+                    disabled && !isFrom && 'opacity-45',
+                    isFrom && 'ring-2 ring-inset ring-warning',
+                    selected && !isFrom && 'ring-2 ring-inset ring-primary',
                   )}
                 >
                   {/* 채움이 곧 연결 표시다 — 점 하나보다 면이 먼저 읽힌다. */}
@@ -188,12 +206,19 @@ export function PortFaceplate({
                   >
                     {p.index}
                   </span>
-                  {count > 1 && (
+                  {count > 1 && !isFrom && (
                     <span
                       className="absolute -right-1 -top-1 rounded-full px-1 text-xs font-medium leading-tight text-white"
                       style={{ backgroundColor: 'var(--faceplate-led)' }}
                     >
                       {count}
+                    </span>
+                  )}
+                  {/* 「출발」 — 가닥 수 배지와 **같은 자리**를 쓴다(둘이 함께 뜰 일은 없다:
+                      출발 포트는 고르는 대상이 아니라 이미 정해진 자리다). */}
+                  {isFrom && (
+                    <span className="absolute -right-1 -top-1 rounded bg-warning px-1 text-xs font-medium leading-tight text-white">
+                      출발
                     </span>
                   )}
                 </button>

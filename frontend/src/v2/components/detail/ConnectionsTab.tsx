@@ -210,7 +210,10 @@ export function ConnectionsTab({
     const visible = (p: V2Port, ownerName: string) => {
       if (!picking) return true;
       if (picking.medium != null && p.medium !== picking.medium) return false;
-      if (p.id === picking.firstEndpoint?.portId) return false;
+      /* 출발 포트는 **감추지 않는다** — 판에서 자리가 빠지면 번호가 건너뛰어 다른 포트를
+         출발로 착각하고, 「내가 어디서 출발했더라」를 확인할 길도 없어진다. 자리는 지키고
+         판이 「출발」이라고 적는다(`PortFaceplate fromPortId`). 누를 수 없게 하는 일은
+         `pickDisabledPortIds` 가 이미 한다(`canPickPort excludePortId`). */
       const q = pickQuery.trim().toLowerCase();
       return q === '' || p.name.toLowerCase().includes(q) || ownerName.toLowerCase().includes(q);
     };
@@ -449,6 +452,7 @@ export function ConnectionsTab({
                      판이 이미 상태를 색으로 말하고 있으니 누를 수 없다는 것도 판이 말한다.
                      규칙은 `portHasRoom` 한 곳 — 접지 부스바는 여러 가닥이 물린다. */
                   disabledPortIds={pickDisabledPortIds}
+                  fromPortId={picking?.firstEndpoint?.portId ?? null}
                   cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
                   isOpen={isPortOpen}
                   selectedPortId={selectedPortId}
