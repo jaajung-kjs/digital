@@ -141,6 +141,30 @@ export function endpointRef(
 }
 
 /**
+ * 이 케이블의 **주인 국** — 지금 보고 있는 국의 것이면 `null`.
+ *
+ * 서버는 한쪽 끝만 커밋하는 국이면 케이블을 받는다. 그래서 대국으로 이은 가닥이 **반대쪽
+ * 국의 판에도** 보이는데, 그 가닥은 이 워킹카피에 없어 고칠 수가 없다 — 고치거나 지우면
+ * 커밋이 `{ id, substationId }` 로 좁혀 튕겨(422) 저장 전체가 깨진다. 화면은 그 사실을
+ * 적고 잠가야 한다.
+ *
+ * 이름은 서버가 실어 준 끝점 정보에서 온다 — 그 국의 자산은 이 판에 없어 여기서 풀 수가
+ * 없다. 끝점 접근은 `endpointRef` 를 지나므로 `aRef`/`bRef` 한 곳 규칙(§6-4)을 지킨다.
+ */
+export function cableOwner(
+  cable: Pick<V2Cable, 'substationId' | 'aPortId' | 'bPortId' | 'aRef' | 'bRef'>,
+  localSubstationId: string,
+): { substationId: string; substationName: string } | null {
+  if (cable.substationId === localSubstationId) return null;
+  const refs = [endpointRef(cable, cable.aPortId), endpointRef(cable, cable.bPortId)];
+  const named =
+    refs.find((r) => r?.substationId === cable.substationId)
+    ?? refs.find((r) => r != null && r.substationId !== localSubstationId);
+  /* 이름을 못 찾아도 **잠그는 일은 한다** — 사실은 `substationId` 가 이미 말했다. */
+  return { substationId: cable.substationId, substationName: named?.substationName ?? '다른 변전소' };
+}
+
+/**
  * 케이블 끝점 이름 해소 — 한 곳 규칙.
  *
  * portId에 해당하는 끝점의 이름을 반환한다:

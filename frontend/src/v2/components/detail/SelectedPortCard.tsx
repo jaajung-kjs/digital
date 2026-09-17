@@ -11,13 +11,14 @@
  * **거동은 그대로다** — 옮기기만 했다.
  */
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Pencil } from 'lucide-react';
 import { cableFieldsFor, internalLinkMap, isMultiCorePort, portFieldsFor, portValuesAt } from '@twin/core';
 import {
   Button, DetailRow, EMPTY, InsetBox, ItemCard, SELECTABLE, Select, cn,
 } from '../../../components/ui';
 import { CableValueField } from '../CableValueField';
-import { endpointLabel, indexCablesByPort, resolvePeer, type PortIndex } from '../../peerResolve';
+import { cableOwner, endpointLabel, indexCablesByPort, resolvePeer, type PortIndex } from '../../peerResolve';
 import { resolveFiberFarEnd } from '../../fiberSelectors';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { useV2Catalog } from '../../hooks';
@@ -58,6 +59,7 @@ export function SelectedPortCard({
   onSelectAsset, onConnectPort, onTrace, onDeleteCable,
   traceResult, onTopology, onClearTrace, traceRef,
 }: SelectedPortCardProps) {
+  const navigate = useNavigate();
   const catalog = useV2Catalog();
   const effectiveCables = useEffectiveCables();
   /* 케이블 품목을 고치는 중인 가닥 — 읽는 줄이 기본이고, 고칠 때만 상자가 선다. */
@@ -100,6 +102,9 @@ export function SelectedPortCard({
       const lengthM = (conn.cable.specParams as Record<string, unknown> | null)?.lengthM;
       return [{
         cableId: conn.cableId,
+        /* 남의 국 가닥이면 여기서는 **읽기만** 된다 — 누구의 것인지는 `peerResolve` 가 안다
+           (끝점 접근은 그 파일 한 곳 규칙이다). */
+        owner: cableOwner(conn.cable, localSubstationId),
         label: `${endpointLabel(peer)}${sub}`,
         categoryId: conn.cable.categoryId,
         categoryName: allCategories.find((c) => c.id === conn.cable.categoryId)?.name ?? null,
@@ -214,7 +219,14 @@ export function SelectedPortCard({
            예전에는 라벨 없이 장비 이름과 드롭다운이 맨몸으로 놓여, 무엇을 말하는 자리인지도
            모른 채 편집기부터 눈에 들어왔다. */
         peers.map((peer) => (
-          <ItemCard key={peer.cableId} title="연결" onDelete={() => onDeleteCable(peer)}>
+          /* 남의 국 가닥은 **지우는 길도 없다** — 커밋이 `{ id, substationId }` 로 좁혀 지우므로
+             (`commit.service.ts:651`) 여기서 지우면 422 로 **저장 전체가 깨진다**. 값만 잠그고
+             삭제를 남겨 두면 잠근 뜻이 무색하다. */
+          <ItemCard
+            key={peer.cableId}
+            title="연결"
+            {...(peer.owner ? {} : { onDelete: () => onDeleteCable(peer) })}
+          >
             <DetailRow label="연결 장비">
               {/* 추적 마디와 **같은 조각**을 쓴다 — 국을 넘는 경로슬롯은 이름이 길어 한 줄로는
                   말줄임에 잘린다(무엇에 닿았는지가 사라진다). */}
@@ -230,7 +242,16 @@ export function SelectedPortCard({
             {/* 케이블은 **읽는 줄이 기본**이다. 드롭다운을 늘 펼쳐 두면 조회하러 온 사람에게
                 편집기부터 들이미는 꼴이고, 실수로 바꾸기도 쉽다. 고칠 때만 상자가 선다. */}
             <DetailRow label="케이블">
-              {editingCableId === peer.cableId ? (
+              {/* 남의 국 가닥은 **읽는 줄로 끝난다** — 누를 수 있는데 아무 일도 안 일어나는
+                  칸을 만들지 않는다. 고쳐 봐도 이 국의 워킹카피에는 그 가닥이 없다. */}
+              {peer.owner ? (
+                <span className="flex items-center gap-1.5 px-1">
+                  <span className="min-w-0 truncate text-sm text-content">{peer.categoryName ?? EMPTY}</span>
+                  {peer.lengthM && (
+                    <span className="shrink-0 text-xs tabular-nums text-content-muted">{peer.lengthM}</span>
+                  )}
+                </span>
+              ) : editingCableId === peer.cableId ? (
                 <Select
                   aria-label="케이블 품목"
                   size="sm"
@@ -268,9 +289,31 @@ export function SelectedPortCard({
                 무엇을 적는지는 **종류 선언이 준다**(`cableFieldsFor`) — 화면이 키를 모른다. */}
             {cableFieldsFor(port.medium).map((field) => (
               <DetailRow key={field.key} label={field.label}>
-                <CableValueField cableId={peer.cableId} field={field} value={peer.values[field.key]} />
+                {peer.owner ? (
+                  <span className="block px-1 text-sm text-content">
+                    {peer.values[field.key] === null || peer.values[field.key] === undefined
+                      ? EMPTY
+                      : `${String(peer.values[field.key])}${field.unit ?? ''}`}
+                  </span>
+                ) : (
+                  <CableValueField cableId={peer.cableId} field={field} value={peer.values[field.key]} />
+                )}
               </DetailRow>
             ))}
+            {/* 누구의 것인지 적고 그 국으로 가는 길을 둔다 — 절 안의 안내는 한 줄이다(§3.2). */}
+            {peer.owner && (
+              <p className="px-2.5 py-2 text-xs text-content-muted">
+                <strong className="font-medium text-content">{peer.owner.substationName}</strong> 의 케이블 —
+                값은 거기서 고칩니다.{' '}
+                <button
+                  type="button"
+                  className="rounded text-primary hover:underline focus-ring"
+                  onClick={() => navigate(`/n/${peer.owner!.substationId}?view=${encodeURIComponent('평면도')}`)}
+                >
+                  그 변전소로 가기
+                </button>
+              </p>
+            )}
           </ItemCard>
         ))
       )}
