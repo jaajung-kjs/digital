@@ -197,6 +197,202 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
   },
+  /*
+   * ── 송변전광단말장치 — **보호계전기 신호를 OPGW 로 실어 보내는 랙** ─────────────────
+   *
+   * 앞·뒷면 사진(2026-09)에서 카드 라벨을 읽어 지었다: 위에 전원분배반 둘(DC · AC), 그 아래
+   * 카드 섀시. 섀시 왼쪽은 `CTRU(A) CTRU(B) BLANK BLANK MCU` 가 통짜 높이로, 오른쪽은
+   * `PIU PIU BLANK LIU BLANK` 가 위아래 두 줄로 꽂혀 있다.
+   *
+   * **포트는 전부 추정이다.** 제조사·모델명을 아직 못 봤고 카드 약어의 뜻도 자료로 확인하지
+   * 않았다 — 사진에서 보이는 커넥터를 그대로 옮겼다. 실사에서 개수를 고친다(놓을 때 늘릴
+   * 수 있어 품목을 다시 만들지 않아도 된다).
+   *
+   * KepCIT 와 같은 원칙이다: APSU 정류 모듈 · 팬 · 알람 램프 · `BLANK` 가림판 · 섀시 하단
+   * 단자대는 **밖으로 무는 선이 없어** 품목으로 만들지 않는다.
+   */
+  {
+    /* 명판 「POWER ALARM DISTRIBUTION PANEL(DC)」 — 입력·출력이 모두 −48V 다. 퓨즈 여섯. */
+    key: 'OTE-PADP-DC',
+    name: '광단말 전원분배반(DC)',
+    categoryKey: '전원',
+    sortOrder: 33,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: 'MAIN', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 6, direction: 'OUT', medium: 'power', namePattern: '퓨즈 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /*
+     * 명판 「POWER ALARM DISTRIBUTION PANEL(AC)」 — 입력 220V, 출력 −48V. 안에 `APSU` 두 대가
+     * 교류를 직류로 바꾼다. **들어오는 것은 교류, 나가는 것은 직류**라 정류기처럼 선언한다.
+     */
+    key: 'OTE-PADP-AC',
+    name: '광단말 전원분배반(AC)',
+    categoryKey: '전원',
+    sortOrder: 34,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: 'MAIN', variant: 'AC' },
+      { group: 'POWER-OUT-DC', count: 6, direction: 'OUT', medium: 'power', namePattern: '퓨즈 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /*
+     * 섀시 위의 손잡이 모듈 셋 — 전원 유닛으로 본다(뒷면 상단에 퓨즈 스위치와 링단자 넷, 곧
+     * −48V A·B 가 있다). UT8410-PSU 와 같은
+     * 까닭으로 둔다: 섀시가 받아 백플레인으로 나누므로 카드에는 전원 포트가 없다. 입력 둘은
+     * 분배반 DC·AC 에서 한 가닥씩 오는 이중화로 본다.
+     */
+    key: 'OTE-PSU',
+    name: '광단말 섀시 전원부',
+    categoryKey: '통신',
+    sortOrder: 26,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /*
+     * **CTRU** — 광 점퍼가 꽂힌 카드는 이 둘뿐이다(A·B 이중화). 파란 SC 하나를 송·수 두 심으로
+     * 보고, 그 아래 RJ45 하나를 LAN 으로 둔다.
+     *
+     * 뒷면에는 이 열 뒤로 `CT_IO` 모듈이 네 줄 서 있고 RJ45 가 꽂혀 있다 — 회선이 뒤로 나간다.
+     * 뒷판은 앞 카드에 딸린 것이라(격자에 자리가 없다) 그 포트를 **CTRU 에 붙인다**. 네 줄에
+     * 하나씩으로 잡았고, E1 인지 이더넷인지는 모른다 — 이더넷으로 두고 실사에서 고친다.
+     */
+    key: 'OTE-CTRU',
+    name: 'CTRU(광 선로부)',
+    categoryKey: '통신',
+    sortOrder: 27,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+      { group: 'CT-IO', count: 4, direction: 'BI', medium: 'network', namePattern: 'CT_IO {n}' },
+    ],
+  },
+  {
+    /* **MCU** — 관리 카드. RJ45 가 앞에 하나, 뒤에 하나(파란 케이블이 물려 있다). */
+    key: 'OTE-MCU',
+    name: 'MCU(관리부)',
+    categoryKey: '통신',
+    sortOrder: 28,
+    labor: labor(0, 0, 0, 0),
+    ports: [{ group: 'LAN', count: 2, direction: 'BI', medium: 'network', namePattern: 'LAN {n}' }],
+  },
+  {
+    /*
+     * **PIU** — 보호계전기와 잇는 카드. 커넥터는 RJ45 모양이지만 계전기 통신(G.703 · RS 계열)일
+     * 공산이 커서 네트워크가 아니라 **제어**로 둔다 — 네트워크로 두면 스위치와 이어질 수 있다고
+     * 말하게 된다.
+     *
+     * 뒷면에는 D-sub 계열 커넥터 아래로 `OPT` 광커넥터가 있고 여러 색 브레이크아웃이 물려
+     * 있다 — 계전기와 **광으로도** 잇는다(IEEE C37.94 로 보인다). 송·수 두 심으로 둔다.
+     */
+    key: 'OTE-PIU',
+    name: 'PIU(계전기 인터페이스)',
+    categoryKey: '통신',
+    sortOrder: 29,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'RELAY', count: 1, direction: 'BI', medium: 'control', namePattern: '계전기' },
+      { group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '계전기 광 {n}' },
+    ],
+  },
+  {
+    /* **LIU** — 앞에 RJ45 하나, 뒤에 D-sub 하나. 약어의 뜻은 모른다 — 앞은 LAN, 뒤는 데이터
+       회선(제어)으로 둔다. */
+    key: 'OTE-LIU',
+    name: 'LIU',
+    categoryKey: '통신',
+    sortOrder: 30,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+      { group: 'DATA', count: 1, direction: 'BI', medium: 'control', namePattern: '데이터(D-sub)' },
+    ],
+  },
+  /*
+   * ── PITR-5000 — **대용량 보호계전 광단말 랙** ─────────────────────────────────────
+   *
+   * 앞면 사진 한 장(2026-09)에서 지었다. 위에서부터 PITR-5000 두 대(명판
+   * `PITR-5000`, MDU 화면 「MUX COT SYSTEM / YANGGU-IJAE #1T/L」) · `GDS 200` · `TEL/ALM PANEL` ·
+   * 빈 패널 · `P.D.P` 둘.
+   *
+   * **PITR-5000 은 카드로 쪼개지 않는다.** 카드 라벨이 사진에서 안 읽힌다 — 읽히지 않는 카드를
+   * 이름 지어 박으면 없는 사실이 품목이 된다. 한 대를 장비 하나로 두고, 밖으로 무는
+   * 것(선로 광 · 계전기 · 관리 LAN · 전원)만 포트로 잡는다. 포트 수는 전부 추정이다.
+   */
+  {
+    /*
+     * **PITR-5000** — 한 대가 선로 하나를 맡는다(MDU 화면에 선로명이 뜬다: `#1T/L`).
+     * 전원 카드 둘(`050` 표시, 토글 스위치)이 −48V 를 이중으로 받는다. 계전기 채널 수는
+     * 모른다 — 넷으로 두고 놓을 때 고친다.
+     */
+    key: 'PITR5000-MUX',
+    name: 'PITR-5000',
+    categoryKey: '통신',
+    sortOrder: 31,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'FIBER', count: 2, direction: 'BI', medium: 'fiber', namePattern: '선로 광 {n}' },
+      { group: 'RELAY', count: 4, direction: 'BI', medium: 'control', namePattern: '계전기 {n}' },
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /* **GDS 200** — 시각동기장치로 **추정**한다(이름과 1U 생김새뿐이다). GPS 를 받아 PITR-5000 들에
+       시각을 나눠 준다고 보고 입력 하나 · 출력 넷을 둔다. */
+    key: 'GDS-200',
+    name: 'GDS 200(시각동기)',
+    categoryKey: '통신',
+    sortOrder: 32,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'GPS-IN', count: 1, direction: 'IN', medium: 'control', namePattern: 'GPS 안테나' },
+      { group: 'SYNC-OUT', count: 4, direction: 'OUT', medium: 'control', namePattern: '시각 출력 {n}' },
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'DC' },
+    ],
+  },
+  {
+    /*
+     * **TEL/ALM PANEL** — 화면이 `SYS 1 2 3 4` 의 `MAJ`·`MIN` 을 보여 준다: 시스템 넷의 경보를
+     * 모아 밖으로 낸다. 오른쪽의 잭은 운용 전화로 본다.
+     */
+    key: 'PITR-TELALM',
+    name: 'TEL/ALM 패널',
+    categoryKey: '통신',
+    sortOrder: 33,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'ALARM-IN', count: 4, direction: 'IN', medium: 'control', namePattern: 'SYS {n} 경보' },
+      { group: 'ALARM', count: 1, direction: 'OUT', medium: 'control', namePattern: '경보 접점' },
+      { group: 'TEL', count: 1, direction: 'BI', medium: 'control', namePattern: '운용 전화' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'DC' },
+    ],
+  },
+  {
+    /* 명판 「P.D.P POWER DISTRIBUTION PANEL」 — 전압·전류계와 퓨즈 여덟. 두 대가 A·B 계통이다. */
+    key: 'PITR-PDP',
+    name: 'PITR P.D.P(DC 분배반)',
+    categoryKey: '전원',
+    sortOrder: 35,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: 'MAIN', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 8, direction: 'OUT', medium: 'power', namePattern: '퓨즈 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
   {
     key: 'AC-FEEDER',
     name: 'AC 전원',
@@ -601,6 +797,86 @@ export const SEED_ASSEMBLIES: {
       /* 광 계층 — 1U 두 대. */
       { typeKey: 'UT6300P', name: 'UTRANS-6300p #1', col: 0, row: 15, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
       { typeKey: 'UT6300P', name: 'UTRANS-6300p #2', col: 0, row: 17, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+    ],
+  },
+  {
+    /*
+     * **송변전광단말장치 1식** — 앞·뒷면 사진을 옮겼다(카드 라벨까지 읽힌다). 포트는 추정이다
+     * (장비 품목 주석 참고).
+     *
+     * 판은 실물 정면이다: 위에 전원분배반 DC · AC, 그 아래 섀시 전원부, 카드 섀시, 맨 아래
+     * 망장비 자리.
+     *
+     * 섀시는 **왼쪽 다섯 자리가 통짜 높이**(`CTRU(A) CTRU(B) BLANK BLANK MCU`)이고 **오른쪽
+     * 다섯 자리는 위아래 두 줄**이다(`PIU PIU BLANK LIU BLANK` 가 두 번). PIU 는 실물이 다른
+     * 카드보다 넓어 두 칸을 준다. `BLANK` 는 빈 슬롯이다 — 나중에 PIU·LIU 를 더 꽂을 자리다.
+     *
+     * **하단 망장비는 빈 슬롯으로만 둔다.** 사진에는 보안장비(퓨쳐시스템)와 스위치류가 있지만
+     * 광단말의 일부인지 다른 망의 것인지 모르고, 국마다 기종이 다를 공산이 크다. 놓은 뒤
+     * 현장에서 채운다.
+     *
+     * **내부 배선을 선언하지 않는다.** 분배반 → 섀시 전원부가 어느 퓨즈를 쓰는지는 사진으로
+     * 안 보인다 — KepCIT 처럼 현장이 잇는다.
+     */
+    key: 'OTE-SET', name: '송변전광단말장치', categoryKey: '통신', sortOrder: 21,
+    labor: labor(3.0, 1.5, 3.0, 0),
+    items: [
+      { typeKey: 'OTE-PADP-DC', name: '전원분배반(DC)', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'OTE-PADP-AC', name: '전원분배반(AC)', col: 0, row: 2, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      { typeKey: 'OTE-PSU', name: '섀시 전원부', col: 0, row: 4, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+
+      /* 섀시 왼쪽 — 통짜 높이 다섯 자리. */
+      { typeKey: 'OTE-CTRU', name: 'CTRU(A)', col: 0, row: 5, colSpan: 1, rowSpan: 8 },
+      { typeKey: 'OTE-CTRU', name: 'CTRU(B)', col: 1, row: 5, colSpan: 1, rowSpan: 8 },
+      { typeKey: null, name: 'L.3', col: 2, row: 5, colSpan: 1, rowSpan: 8 },
+      { typeKey: null, name: 'L.4', col: 3, row: 5, colSpan: 1, rowSpan: 8 },
+      { typeKey: 'OTE-MCU', name: 'MCU', col: 4, row: 5, colSpan: 1, rowSpan: 8 },
+
+      /* 섀시 오른쪽 위 줄. */
+      { typeKey: 'OTE-PIU', name: 'PIU #1', col: 5, row: 5, colSpan: 2, rowSpan: 4 },
+      { typeKey: 'OTE-PIU', name: 'PIU #2', col: 7, row: 5, colSpan: 2, rowSpan: 4 },
+      { typeKey: null, name: 'U.3', col: 9, row: 5, colSpan: 2, rowSpan: 4 },
+      { typeKey: 'OTE-LIU', name: 'LIU #1', col: 11, row: 5, colSpan: 2, rowSpan: 4 },
+      { typeKey: null, name: 'U.5', col: 13, row: 5, colSpan: 1, rowSpan: 4 },
+
+      /* 섀시 오른쪽 아래 줄. */
+      { typeKey: 'OTE-PIU', name: 'PIU #3', col: 5, row: 9, colSpan: 2, rowSpan: 4 },
+      { typeKey: 'OTE-PIU', name: 'PIU #4', col: 7, row: 9, colSpan: 2, rowSpan: 4 },
+      { typeKey: null, name: 'D.3', col: 9, row: 9, colSpan: 2, rowSpan: 4 },
+      { typeKey: 'OTE-LIU', name: 'LIU #2', col: 11, row: 9, colSpan: 2, rowSpan: 4 },
+      { typeKey: null, name: 'D.5', col: 13, row: 9, colSpan: 1, rowSpan: 4 },
+
+      /* 하단 망장비 자리 — 1U 넷. */
+      { typeKey: null, name: '보안장비', col: 0, row: 14, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: null, name: '망장비 1', col: 0, row: 15, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: null, name: '망장비 2', col: 0, row: 16, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: null, name: '망장비 3', col: 0, row: 17, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+    ],
+  },
+  {
+    /*
+     * **PITR-5000 1식** — 앞면 사진 한 장을 옮겼다(장비 품목 주석 참고).
+     *
+     * 맨 위의 광 판(투명 덮개)은 넣지 않는다 — 0행은 그 자리라 비워 둔다.
+     *
+     * **아래 빈 패널은 빈 자리 셋으로 둔다.** 「대용량(5회선)」(설비_DB.md)이 PITR-5000
+     * 다섯 대 자리를 뜻한다면 셋이 비어 있는 것과 맞는다 — 확인 전이라 이름은 「예비」로만 둔다.
+     * 도화지가 스무 줄이라 한 대를 세 줄씩으로 줄였다.
+     *
+     * **내부 배선을 선언하지 않는다** — P.D.P 의 어느 퓨즈가 어느 PITR-5000 으로 가는지 안 보인다.
+     */
+    key: 'PITR5000-SET', name: 'PITR-5000', categoryKey: '통신', sortOrder: 22,
+    labor: labor(3.0, 1.5, 3.0, 0),
+    items: [
+      { typeKey: 'PITR5000-MUX', name: 'PITR-5000 #1', col: 0, row: 1, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: 'PITR5000-MUX', name: 'PITR-5000 #2', col: 0, row: 4, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: 'GDS-200', name: 'GDS 200', col: 0, row: 7, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: 'PITR-TELALM', name: 'TEL/ALM 패널', col: 0, row: 8, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: null, name: '예비 1', col: 0, row: 9, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: null, name: '예비 2', col: 0, row: 12, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: null, name: '예비 3', col: 0, row: 15, colSpan: ASSEMBLY_GRID.cols, rowSpan: 3 },
+      { typeKey: 'PITR-PDP', name: 'P.D.P A', col: 0, row: 18, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: 'PITR-PDP', name: 'P.D.P B', col: 0, row: 19, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
     ],
   },
   {
