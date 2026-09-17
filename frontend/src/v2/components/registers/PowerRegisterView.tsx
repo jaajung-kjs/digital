@@ -10,7 +10,7 @@
  * 위쪽 드롭다운으로 반을 하나씩 골라 봐야 해서 「이 반이 어디에 매달렸나」는 어디에도 없었다.
  */
 import { useMemo, useState } from 'react';
-import { Th, SegmentedControl, cn, SELECTABLE, SELECTED, EMPTY, selectableRow, TABLE_ROW, Td} from '../../../components/ui';
+import { Th, SegmentedControl, cn, SELECTABLE, SELECTED, selectableRow, TABLE_ROW, Td} from '../../../components/ui';
 import { RegisterLayout } from './RegisterLayout';
 import { useEffectiveAssets, useEffectiveCables } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -19,6 +19,7 @@ import { cableFieldsFor, polesOf, portFieldsFor, type ValueDef } from '@twin/cor
 import type { PowerCircuit, PowerNode } from '../../powerSelectors';
 import type { V2Assembly } from '../../types';
 import { PeerCell } from './PeerCell';
+import { CableValueField } from '../CableValueField';
 import { InlineEditCell } from '../InlineEditCell';
 import { PortValueControl } from '../detail/PortValueControl';
 
@@ -48,55 +49,6 @@ interface Props {
 }
 
 // PeerCell은 공용 컴포넌트 사용 (M-2 — FiberRegisterView와 공유)
-
-// ── 케이블 값 인라인 편집 (케이블 없으면 EMPTY 비편집) ────────────────────────
-interface CableFieldInputProps {
-  cableId: string | null;
-  value: unknown;
-  /** 어떤 값을 적는 칸인지 — 키·자료형이 여기서 나온다. 화면이 키를 알지 않는다. */
-  field: ValueDef;
-  /** 모선이 이미 말한 값인가 — 그러면 흐리게(대장의 ditto). */
-  muted?: boolean;
-}
-
-function CableFieldInput({ cableId, value, field, muted }: CableFieldInputProps) {
-  /* 케이블이 없으면 적을 곳도 없다 — 다만 대시는 **그 열의 줄맞춤을 따라야** 한다(td 가
-     정한다). 인라인 span 이면 편집기가 선 줄과 대시만 선 줄에서 대시 위치가 어긋난다. */
-  if (!cableId) return <span className="block px-1 text-sm text-content-faint">{EMPTY}</span>;
-
-  const resolvedCableId: string = cableId;
-  const isNumber = field.type === 'number';
-
-  function handleCommit(raw: string) {
-    const effectiveCables = useV2WorkingCopy.getState().effectiveCables();
-    const cable = effectiveCables.find((c) => c.id === resolvedCableId);
-    if (!cable) return;
-
-    const existingParams = cable.specParams ?? {};
-    const next = isNumber ? (raw.trim() === '' ? null : Number(raw)) : (raw.trim() || null);
-    if (isNumber && typeof next === 'number' && Number.isNaN(next)) return;
-    const current = existingParams[field.key] ?? null;
-    if (current === next) return;
-
-    useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
-      specParams: { ...existingParams, [field.key]: next },
-    });
-  }
-
-  const shown = value === null || value === undefined ? '' : String(value);
-  return (
-    <InlineEditCell
-      value={shown}
-      muted={muted}
-      onCommit={handleCommit}
-      type={isNumber ? 'number' : field.type === 'date' ? 'date' : undefined}
-      label={field.label}
-      unit={field.unit}
-      /* 고를 수 있는 값이 선언돼 있으면 목록으로 — 화면이 그 목록을 알지 않는다. */
-      options={field.options}
-    />
-  );
-}
 
 /**
  * 계통 갈래 — **장을 나눈다.**
@@ -484,7 +436,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                       value={src.portValues[field.key]}
                     />
                   ) : (
-                    <CableFieldInput cableId={src.cableId} value={src.values[field.key]} field={field} />
+                    <CableValueField cableId={src.cableId} value={src.values[field.key]} field={field} />
                   )}
                 </Td>
               ))}
@@ -534,7 +486,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                       muted={ditto}
                     />
                   ) : (
-                    <CableFieldInput cableId={c.cableId} value={value} field={field} muted={ditto} />
+                    <CableValueField cableId={c.cableId} value={value} field={field} muted={ditto} />
                   )}
                 </Td>
               );

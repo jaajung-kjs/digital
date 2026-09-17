@@ -17,6 +17,7 @@ import { useMediumContainer } from '../../useMediumContainer';
 import { fiberContainers, buildFiberRows, FIBER_MEDIUM } from '../../fiberSelectors';
 import type { FiberRow } from '../../fiberSelectors';
 import { PeerCell } from './PeerCell';
+import { CableValueField } from '../CableValueField';
 import { InlineEditCell } from '../InlineEditCell';
 
 interface Props {
@@ -41,58 +42,6 @@ interface Props {
 
 /** 오늘 — 찍히는 날짜의 형식은 적히는 날짜와 같다(YYYY-MM-DD). */
 const today = () => new Date().toISOString().slice(0, 10);
-
-// ── 메타 셀 인라인 편집 ───────────────────────────────────────────────────────
-interface MetaInputProps {
-  value: unknown;
-  /** 어떤 값을 적는 칸인지 — 키·자료형이 여기서 나온다. 화면이 키를 알지 않는다. */
-  field: ValueDef;
-  cableId: string | null;
-}
-
-function MetaInput({ value, field, cableId }: MetaInputProps) {
-  const { key: fieldKey, type } = field;
-  // cableId 없으면 비편집 대시
-  if (!cableId) return <span className="text-content-faint">{EMPTY}</span>;
-
-  // After the null-guard, capture as string for TypeScript narrowing in closures
-  const resolvedCableId: string = cableId;
-  const displayValue = value !== null && value !== undefined ? String(value) : '';
-  const isNumber = type === 'number';
-
-  function handleCommit(raw: string) {
-    // 무변경 가드: 렌더 시점의 effective 케이블 읽기 (stale 클로저 방지)
-    const effectiveCables = useV2WorkingCopy.getState().effectiveCables();
-    const cable = effectiveCables.find((c) => c.id === resolvedCableId);
-    if (!cable) return;
-
-    const existingParams = cable.specParams ?? {};
-
-    // 숫자 칸만 수로 바꿔 담는다 — 나머지(글자·날짜)는 적힌 그대로다.
-    const next = isNumber
-      ? (raw.trim() === '' ? null : Number(raw))
-      : (raw.trim() || null);
-    if (isNumber && typeof next === 'number' && Number.isNaN(next)) return; // 숫자가 아니면 무시
-    const current = existingParams[fieldKey] ?? null;
-    if (current === next) return; // 무변경 가드
-    useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
-      specParams: { ...existingParams, [fieldKey]: next },
-    });
-  }
-
-  /* 칸의 자료형 그대로 — 예전에는 수가 아니면 전부 날짜였다(선로명 칸에 `YYYY-MM-DD` 가 떴다). */
-  return (
-    <InlineEditCell
-      value={displayValue}
-      onCommit={handleCommit}
-      type={field.type === 'boolean' ? 'text' : field.type}
-      label={field.label}
-      unit={field.unit}
-      /* 고를 수 있는 값이 선언돼 있으면 목록으로 — 화면이 그 목록을 알지 않는다. */
-      options={field.options}
-    />
-  );
-}
 
 /**
  * 슬롯 머리에 적히는 인입 케이블의 값 — 길이와, **그 종류가 선언했다면** 선로 대장 값.
@@ -119,7 +68,7 @@ function SlotMeta({ cableId, values }: { cableId: string | null; values: Record<
         <span key={f.key} className="flex items-center gap-1">
           {f.label}
           <span className="min-w-16 text-content">
-            <MetaInput value={values[f.key]} field={f} cableId={cableId} />
+            <CableValueField value={values[f.key]} field={f} cableId={cableId} />
           </span>
         </span>
       ))}

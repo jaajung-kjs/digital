@@ -12,11 +12,11 @@
  */
 import { useMemo, useState } from 'react';
 import { Pencil } from 'lucide-react';
-import { cableFieldsFor, internalLinkMap, isMultiCorePort, portFieldsFor, portValuesAt, type ValueDef } from '@twin/core';
+import { cableFieldsFor, internalLinkMap, isMultiCorePort, portFieldsFor, portValuesAt } from '@twin/core';
 import {
   Button, DetailRow, EMPTY, InsetBox, ItemCard, SELECTABLE, Select, cn,
 } from '../../../components/ui';
-import { InlineEditCell } from '../InlineEditCell';
+import { CableValueField } from '../CableValueField';
 import { endpointLabel, indexCablesByPort, resolvePeer, type PortIndex } from '../../peerResolve';
 import { resolveFiberFarEnd } from '../../fiberSelectors';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
@@ -51,35 +51,6 @@ export interface SelectedPortCardProps {
   onTopology: () => void;
   onClearTrace: () => void;
   traceRef?: React.Ref<HTMLDivElement>;
-}
-
-/**
- * 케이블 하나에 적는 값 한 칸 — 길이 · 굵기.
- *
- * 계통 표의 같은 칸과 **같은 문**을 쓴다(`stageCableUpdate`). 적는 자리가 둘로 갈리면 같은
- * 케이블의 길이가 화면마다 다르게 적힌다.
- */
-function CableValueControl({ cableId, field, value }: { cableId: string; field: ValueDef; value: unknown }) {
-  const isNumber = field.type === 'number';
-  return (
-    <InlineEditCell
-      value={value === null || value === undefined ? '' : String(value)}
-      label={field.label}
-      unit={field.unit}
-      options={field.options}
-      type={isNumber ? 'number' : field.type === 'date' ? 'date' : undefined}
-      onCommit={(raw) => {
-        const next = isNumber ? (raw.trim() === '' ? null : Number(raw)) : (raw.trim() || null);
-        if (isNumber && typeof next === 'number' && Number.isNaN(next)) return;
-        if ((value ?? null) === next) return;
-        const cable = useV2WorkingCopy.getState().effectiveCables().find((c) => c.id === cableId);
-        if (!cable) return;
-        useV2WorkingCopy.getState().stageCableUpdate(cableId, {
-          specParams: { ...(cable.specParams ?? {}), [field.key]: next },
-        });
-      }}
-    />
-  );
 }
 
 export function SelectedPortCard({
@@ -297,7 +268,7 @@ export function SelectedPortCard({
                 무엇을 적는지는 **종류 선언이 준다**(`cableFieldsFor`) — 화면이 키를 모른다. */}
             {cableFieldsFor(port.medium).map((field) => (
               <DetailRow key={field.key} label={field.label}>
-                <CableValueControl cableId={peer.cableId} field={field} value={peer.values[field.key]} />
+                <CableValueField cableId={peer.cableId} field={field} value={peer.values[field.key]} />
               </DetailRow>
             ))}
           </ItemCard>

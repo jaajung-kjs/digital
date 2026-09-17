@@ -613,6 +613,12 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 ### 표 셀 인라인 편집(blur/Enter 커밋) → `InlineEditCell`
 `src/v2/components/InlineEditCell.tsx` — 선번장·계통 뷰처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.
 
+### 케이블에 적는 값 한 칸(길이·굵기·선로명) → `CableValueField`
+`src/v2/components/CableValueField.tsx` — `InlineEditCell` 위에 **케이블 `specParams` 에 쌓는 규칙**을 얹은 것. 숫자면 `Number()`, 빈 값은 `null`, `NaN` 이면 무시, 무변경이면 무시, 그리고 `stageCableUpdate`. 선번장·계통·포트 상세가 이 글을 **세 벌** 갖고 있었다 — 같은 케이블의 같은 칸인데 검증이 세 벌이라 한 곳만 고쳐지기 딱 좋았다. 스토어를 부르는 일까지 이 안에 둔다(떼면 같은 다섯 줄이 다시 세 벌이 되고, 무엇보다 무변경 판정이 **케이블 제 값**을 읽어야 옳다 — 화면에 뜬 값은 모선에서 물려온 것일 수 있다).
+
+### 표의 빈 대국 칸 → `PeerCell`
+`src/v2/components/registers/PeerCell.tsx` — 대국 칸은 **빈 것까지** 이것이 그린다(`emptyLabel`). 판마다 제 손으로 `<span className="text-sm text-content-faint">` 를 세우면 같은 빈 칸이 화면마다 다른 굵기·여백으로 선다. 아직 아무것도 안 물린 칸은 `onConnect`·`selfPortId` 를 주면 **잇는 자리**가 되고, 이때도 `emptyLabel` 의 말은 그대로다 — 「예비」는 조서가 그 자리를 부르는 이름이라 「잇기」로 덮으면 「비워 둔 것」이라는 사실이 사라진다.
+
 ### 대화상자 → `Modal`
 Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버레이(`fixed inset-0` 직접 구현)를 새로 만들지 말고 이걸 재사용한다.
 
