@@ -19,9 +19,11 @@ import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import type { V2Asset, V2AssetType, V2Cable, V2Floor } from '../types';
 import type { CablePickRequest } from '../cablePick';
 import {
-  openSession, withFrom, setCategory, finish,
-  type ConnectSession, type ConnectFrom,
+  openSession, withFrom,
+  type ConnectSession, type ConnectFrom, type PendingConnect,
 } from '../connectSession';
+import { ConnectCategoryDialog } from '../components/ConnectCategoryDialog';
+import { connectCable } from '../cableActions';
 
 /* useV2Catalog 만 목킹 — 도면에 놓이는 것은 **설비 품목**뿐이다(장비 품목에는 배치 개념이
    없다). 케이블 그룹 1개(카테고리 1개)도 공급한다. */
@@ -40,19 +42,22 @@ const mockAssemblies = [
   },
 ];
 
+/* 종류 상자와 도면이 **같은 어휘**를 본다 — 하네스가 상자에 직접 넘기므로 여기 이름을 둔다. */
+const mockCableGroups = [
+  {
+    id: 'g1', key: 'power', name: '전력', color: '#333333', laborCode: null,
+    installManDays: 0, removeManDays: 0, sortOrder: 1,
+    categories: [{ id: 'cat1', name: '저압', sortOrder: 1 }, { id: 'cat2', name: '고압', sortOrder: 2 }],
+  },
+];
+
 vi.mock('../hooks', () => ({
   useV2Catalog: () => ({
     data: {
       categories: [{ id: 'c1', key: 'panel', name: '배전반류', sortOrder: 1 }],
       types: mockTypes,
       assemblies: mockAssemblies,
-      cableGroups: [
-        {
-          id: 'g1', key: 'power', name: '전력', color: '#333333', laborCode: null,
-          installManDays: 0, removeManDays: 0, sortOrder: 1,
-          categories: [{ id: 'cat1', name: '저압', sortOrder: 1 }],
-        },
-      ],
+      cableGroups: mockCableGroups,
     },
   }),
   // 포트 피커가 매체 키를 사람이 읽는 이름으로 바꿔 보여준다 — 모의에서는 키를 그대로 돌려준다.
@@ -102,51 +107,86 @@ function setStore(assets: V2Asset[], cables: V2Cable[] = []) {
  * (`V2WorkspacePage`) — 오버레이가 탭·층·국을 옮겨도 남아야 하므로 도면이 쥘 수 없다.
  * 그래서 시험도 그 배선을 흉내낸다: 작은 하네스가 세션을 들고 도면에 내려 준다.
  */
+/**
+ * 페이지가 하는 일을 그대로 — **세션과 종류 상자를 이 하네스가 쥔다.**
+ *
+ * 도면은 「포트를 골랐다」만 알린다(`onPortPicked`). 출발인지 도착인지, 무엇으로 이을지는
+ * 세션을 쥔 쪽이 정하므로, 도면만 그려서는 잇기가 끝나지 않는다 — 실제 배선과 같은 모양으로
+ * 여기 세운다(`V2WorkspacePage` 의 `pickPort`·`confirmConnect`).
+ */
 function Harness({
   onSelectAsset = vi.fn(),
   initialFrom = null,
-  categoryId = 'cat1',
   pick,
 }: {
   onSelectAsset?: (id: string | null) => void;
   /** 포트 탭·표에서 시작한 경우 — 출발이 이미 정해진 채로 세션이 선다. */
   initialFrom?: ConnectFrom | null;
-  /** 오버레이에서 고르는 값. 비우면(`null`) 이어지지 않아야 한다. */
-  categoryId?: string | null;
   pick: { current: CablePickRequest | null };
 }) {
   const origin = { substationId: 'sub-1', view: '평면도' as const, floorId: 'f1' };
   const [session, setSession] = useState<ConnectSession | null>(
-    initialFrom
-      ? setCategory(withFrom(openSession(origin), initialFrom, {}), categoryId)
-      : null,
+    initialFrom ? withFrom(openSession(origin), initialFrom) : null,
   );
+  const [pending, setPending] = useState<PendingConnect | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const pickPort = (portId: string) => {
+    const assets = v2WorkingCopyStore.getState().effectiveAssets();
+    const owner = assets.find((a) => a.ports.some((p) => p.id === portId));
+    const port = owner?.ports.find((p) => p.id === portId);
+    if (!owner || !port) return;
+    const label = `${owner.name} · ${port.name}`;
+    const from = session?.from;
+    if (!from) {
+      setSession((s) => withFrom(s ?? openSession(origin), { portId, label, substationId: 'sub-1', medium: port.medium }));
+      return;
+    }
+    setError(null);
+    setPending({ from, toPortId: portId, toLabel: label });
+  };
+
   return (
-    <FloorPlanView
-      substationId="sub-1"
-      selectedAssetId={null}
-      onSelectAsset={onSelectAsset}
-      session={session}
-      onOpenConnect={(from) =>
-        setSession(
-          from
-            ? setCategory(withFrom(openSession(origin), from, {}), categoryId)
-            : openSession(origin),
-        )
-      }
-      onFromPicked={(from) =>
-        setSession((s) => setCategory(withFrom(s ?? openSession(origin), from, {}), categoryId))
-      }
-      onConnected={() => setSession((s) => (s ? finish(s) : null))}
-      onCancelConnect={() => setSession(null)}
-      onPickPort={(req) => { pick.current = req; }}
-    />
+    <>
+      <FloorPlanView
+        substationId="sub-1"
+        selectedAssetId={null}
+        onSelectAsset={onSelectAsset}
+        session={session}
+        onOpenConnect={(from) => setSession(from ? withFrom(openSession(origin), from) : openSession(origin))}
+        onPortPicked={pickPort}
+        onCancelConnect={() => { setSession(null); setPending(null); }}
+        onPickPort={(req) => { pick.current = req; }}
+      />
+      {pending && (
+        <ConnectCategoryDialog
+          pending={pending}
+          groups={mockCableGroups}
+          error={error}
+          onConfirm={(categoryId) => {
+            const wc = v2WorkingCopyStore.getState();
+            const assets = wc.effectiveAssets();
+            const toPort = assets.flatMap((a) => a.ports).find((x) => x.id === pending.toPortId);
+            if (!toPort) { setError('이을 포트를 찾을 수 없습니다'); return; }
+            const err = connectCable({
+              firstPortId: pending.from.portId, toPort, assets, cables: wc.effectiveCables(),
+              substationId: pending.from.substationId, categoryId, mediumKey: pending.from.medium,
+              pathPoints: [],
+            });
+            if (err) { setError(err); return; }
+            setPending(null);
+            setSession(null);
+          }}
+          onCancel={() => { setPending(null); setError(null); }}
+        />
+      )}
+    </>
   );
 }
 
 function renderFloorPlan(
   onSelectAsset: (id: string | null) => void = vi.fn(),
-  extra: { initialFrom?: ConnectFrom | null; categoryId?: string | null } = {},
+  extra: { initialFrom?: ConnectFrom | null } = {},
 ) {
   const pick: { current: CablePickRequest | null } = { current: null };
   const utils = render(<Harness onSelectAsset={onSelectAsset} pick={pick} {...extra} />);
@@ -176,7 +216,16 @@ describe('FloorPlanView — 케이블 잇기', () => {
     setStore([asset('a', 0, 0), asset('b', 200, 0)]);
   });
 
-  it('도구 켜기 → 설비 클릭 → 포트 → 반대쪽 설비 → 포트 → 스테이지', () => {
+  /** 지금 뜬 종류 상자에서 종류를 고르고 「연결」을 누른다. */
+  function chooseCategory(id: string) {
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('케이블 종류'), { target: { value: id } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '연결' }));
+  }
+
+  const staged = () => Object.values(v2WorkingCopyStore.getState().overlays.cables.creates);
+
+  it('도구 켜기 → 설비·포트 → 반대쪽 설비·포트 → 종류를 묻고 → 스테이지', () => {
     const { pick } = renderFloorPlan();
 
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
@@ -186,6 +235,8 @@ describe('FloorPlanView — 케이블 잇기', () => {
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
     expect(pick.current?.assetId).toBe('a');
     choosePort(pick, 'p-a');
+    /* 아직 상자는 없다 — 출발만 정해졌다. */
+    expect(screen.queryByRole('dialog')).toBeNull();
 
     // 두 번째 자산(B) 클릭 → 그 자산에서 고르라는 요청
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
@@ -194,21 +245,26 @@ describe('FloorPlanView — 케이블 잇기', () => {
     expect(pick.current?.firstEndpoint?.portId).toBe('p-a');
     choosePort(pick, 'p-b');
 
-    // 스테이지 확인 — 워킹카피 스토어에 케이블 생성 오버레이가 쌓였는가
-    const creates = Object.values(v2WorkingCopyStore.getState().overlays.cables.creates);
-    expect(creates).toHaveLength(1);
-    expect(creates[0]).toMatchObject({ aPortId: 'p-a', bPortId: 'p-b', categoryId: 'cat1' });
+    /* **포트를 고른 순간 종류를 묻는다** — 무엇과 무엇을 잇는지도 글자로 함께 뜬다. */
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('자산-a · 포트 p-a');
+    expect(dialog.textContent).toContain('자산-b · 포트 p-b');
+
+    chooseCategory('cat2');
+    expect(staged()).toHaveLength(1);
+    expect(staged()[0]).toMatchObject({ aPortId: 'p-a', bPortId: 'p-b', categoryId: 'cat2' });
   });
 
   /**
-   * **종류를 고르지 않으면 이어지지 않는다.**
+   * **종류를 고르지 않으면 이어지지 않는다 — 그러나 고른 포트도 버려지지 않는다.**
    *
-   * 예전에는 매체 그룹의 **첫 품목을 말없이** 집었다(`FloorPlanView` 의 옛 `startConnection`).
-   * 광 포트에서 시작하면 「OPGW」가 되는데 정작 이으려던 것이 「광점퍼코드」여도 그랬다.
-   * 고르는 자리는 오버레이이고, 비어 있으면 못 잇는다.
+   * 예전에는 매체 그룹의 **첫 품목을 말없이** 집었다. 광 포트에서 시작하면 「OPGW」가 되는데
+   * 정작 이으려던 것이 「광점퍼코드」여도 그랬다. 그 뒤에는 오버레이에서 **미리** 고르게 했는데,
+   * 안 고른 채 포트를 누르면 「종류를 고르세요」로 튕기면서 **고른 포트 둘이 함께 사라졌다**.
+   * 이제 상자가 열린 채로 기다린다 — 「연결」이 눌리지 않을 뿐이다.
    */
-  it('종류가 비어 있으면 이어지지 않는다', () => {
-    const { pick } = renderFloorPlan(vi.fn(), { categoryId: null });
+  it('종류를 고르기 전에는 연결할 수 없고, 고른 포트는 상자에 남는다', () => {
+    const { pick } = renderFloorPlan();
 
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
@@ -216,8 +272,35 @@ describe('FloorPlanView — 케이블 잇기', () => {
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
     choosePort(pick, 'p-b');
 
-    /* 케이블은 서지 않고, 까닭이 알림으로 남는다(삼키지 않는다). */
-    expect(Object.keys(v2WorkingCopyStore.getState().overlays.cables.creates)).toHaveLength(0);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: '연결' })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', { name: '연결' }));
+    expect(staged()).toHaveLength(0);
+
+    /* 고른 것은 그대로 있다 — 이어서 종류만 고르면 이어진다. */
+    chooseCategory('cat1');
+    expect(staged()).toHaveLength(1);
+  });
+
+  /* 상자를 접으면 **고른 포트만** 버려지고 연결 모드는 남는다 — 처음부터 다시가 아니다. */
+  it('종류 상자를 접으면 연결 모드는 남는다', () => {
+    const { pick } = renderFloorPlan();
+
+    fireEvent.click(screen.getByRole('button', { name: '케이블' }));
+    fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
+    choosePort(pick, 'p-a');
+    fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
+    choosePort(pick, 'p-b');
+
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '취소' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(staged()).toHaveLength(0);
+    /* 도구는 여전히 켜져 있다 — 다시 이을 곳을 고르면 된다. */
+    expect(cableArmed()).toBe(true);
+    fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
+    choosePort(pick, 'p-b');
+    chooseCategory('cat1');
+    expect(staged()).toHaveLength(1);
   });
 
   /**
@@ -242,10 +325,10 @@ describe('FloorPlanView — 케이블 잇기', () => {
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
     expect(pick.current?.assetId).toBe('a');
     choosePort(pick, 'p-a');
+    chooseCategory('cat1');
 
-    const creates = Object.values(v2WorkingCopyStore.getState().overlays.cables.creates);
-    expect(creates).toHaveLength(1);
-    expect(creates[0]).toMatchObject({ aPortId: 'p-n', bPortId: 'p-a' });
+    expect(staged()).toHaveLength(1);
+    expect(staged()[0]).toMatchObject({ aPortId: 'p-n', bPortId: 'p-a' });
   });
 
   /**
@@ -262,15 +345,15 @@ describe('FloorPlanView — 케이블 잇기', () => {
     /* 도구가 켜진 자리 — 도면에서 두 번 눌러 온 것과 같은 상태다. */
     expect(cableArmed()).toBe(true);
 
-    /* 이어서 반대쪽을 고르면 그대로 스테이지된다 — 첫 끝점이 제대로 서 있다는 뜻이다. */
+    /* 이어서 반대쪽을 고르면 같은 상자가 뜬다 — 첫 끝점이 제대로 서 있다는 뜻이다. */
     fireEvent.click(fromPanel.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
     expect(fromPanel.pick.current?.assetId).toBe('b');
     expect(fromPanel.pick.current?.firstEndpoint?.portId).toBe('p-a');
     choosePort(fromPanel.pick, 'p-b');
+    chooseCategory('cat1');
 
-    const creates = Object.values(v2WorkingCopyStore.getState().overlays.cables.creates);
-    expect(creates).toHaveLength(1);
-    expect(creates[0]).toMatchObject({ aPortId: 'p-a', bPortId: 'p-b' });
+    expect(staged()).toHaveLength(1);
+    expect(staged()[0]).toMatchObject({ aPortId: 'p-a', bPortId: 'p-b' });
   });
 
   /* 접으면 **부분 상태가 남지 않는다** — 고르라는 요청도 함께 걷힌다. */
@@ -287,7 +370,7 @@ describe('FloorPlanView — 케이블 잇기', () => {
     expect(cableArmed()).toBe(false);
 
     // 아무것도 스테이지되지 않았다
-    expect(Object.keys(v2WorkingCopyStore.getState().overlays.cables.creates)).toHaveLength(0);
+    expect(staged()).toHaveLength(0);
   });
 });
 

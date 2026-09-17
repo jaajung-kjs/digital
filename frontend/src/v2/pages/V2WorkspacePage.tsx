@@ -3,10 +3,14 @@ import { assetFieldDefs } from '@twin/core';
 import { useNavigate } from 'react-router-dom';
 import type { CablePickRequest } from '../cablePick';
 import {
-  openSession, withFrom, setCategory, setKeepGoing, finish,
-  type ConnectSession, type ConnectFrom, type ConnectOrigin,
+  openSession, withFrom,
+  type ConnectSession, type ConnectFrom, type ConnectOrigin, type PendingConnect,
 } from '../connectSession';
 import { ConnectOverlay } from '../components/ConnectOverlay';
+import { ConnectCategoryDialog } from '../components/ConnectCategoryDialog';
+import { connectCable } from '../cableActions';
+import { useV2Notice } from '../store/noticeStore';
+import { connectErrorLabel } from '../components/floorplan/cableTool';
 import { Button, EmptyState, ErrorStrip, PageState, useConfirm, Tabs, useTabs, type TabItem, EMPTY, isCancelKey, PageHeader, ViewCard } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/detail/AssetDetailPanel';
@@ -97,7 +101,16 @@ export default function V2WorkspacePage() {
    * 강조가 나왔다 안 나왔다 했다. 담아 둔 워킹카피는 스토어가 쥔다(`suspended`).
    */
   const [session, setSession] = useState<ConnectSession | null>(null);
-  /** 매체별로 **직전에 쓴 종류** — 오버레이가 고른 채로 보여 주므로 숨은 값이 아니다. */
+  /**
+   * 두 끝점을 골랐다 — **종류를 묻는 중**.
+   *
+   * 세션과 따로 둔다(`connectSession.ts` 참고): 상자를 접으면 이 값만 사라져 고른 포트만
+   * 버려지고 연결 모드는 그대로 남는다.
+   */
+  const [pending, setPending] = useState<PendingConnect | null>(null);
+  /** 못 이은 까닭 — 상자 안에 적는다(상자를 닫아 버리면 고른 포트가 함께 사라진다). */
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  /** 매체별로 **직전에 쓴 종류** — 상자가 고른 채로 띄우므로 숨은 값이 아니다. */
   const lastCategoryByMedium = useRef<Record<string, string>>({});
   /** 다녀온 국인가 — 읽기 전용이다(고르러 간 것이지 고치러 간 것이 아니다). */
   const wcReadOnly = useV2WorkingCopy((st) => st.suspended !== null);
@@ -317,48 +330,105 @@ export default function V2WorkspacePage() {
   const openConnect = useCallback((from: ConnectFrom | null) => {
     const origin: ConnectOrigin = { substationId: substationId ?? '', view: viewMode, floorId: null };
     const base = openSession(origin);
-    setSession(from ? withFrom(base, from, lastCategoryByMedium.current) : base);
+    setSession(from ? withFrom(base, from) : base);
   }, [substationId, viewMode]);
 
-  /** 이었다 — 담아 둔 것을 되살리고 **시작한 화면**으로 돌아간다. */
-  const finishConnect = useCallback(async () => {
-    const s = session;
-    if (!s) return;
-    /* 다음에 그 매체를 이을 때 물려 올 값 — 숨기지 않는다(오버레이가 고른 채로 보여 준다). */
-    if (s.from && s.categoryId) lastCategoryByMedium.current[s.from.medium] = s.categoryId;
+  /** 세션을 접고 담아 둔 것을 되살린다 — 끝낼 때도 접을 때도 지나는 한 자리. */
+  const closeSession = useCallback(async (backTo: ConnectOrigin | null) => {
     const wc = useV2WorkingCopy.getState();
     if (wc.suspended) await wc.resumeSuspended();
-    const back = s.origin.substationId;
-    if (back && back !== useV2WorkingCopy.getState().substationId) {
-      navigate(`/n/${back}?view=${encodeURIComponent(s.origin.view)}`);
-    } else {
-      route.setView(s.origin.view);
+    if (backTo) {
+      const back = backTo.substationId;
+      if (back && back !== useV2WorkingCopy.getState().substationId) {
+        navigate(`/n/${back}?view=${encodeURIComponent(backTo.view)}`);
+      } else {
+        route.setView(backTo.view);
+      }
     }
-    setSession(finish(s));
-  }, [session, navigate, route]);
-
-  /** 접는다 — 담아 둔 것은 되살린다(잃지 않는다). */
-  const cancelConnect = useCallback(async () => {
-    const wc = useV2WorkingCopy.getState();
-    if (wc.suspended) await wc.resumeSuspended();
+    setPending(null);
+    setPendingError(null);
     setSession(null);
-  }, []);
+  }, [navigate, route]);
 
-  /** 다녀온 국에서 처음 자리로 — 담아 둔 것을 되살린다. */
+  /** 접는다 — 담아 둔 것은 되살린다(잃지 않는다). 시작한 화면으로도 돌려보낸다. */
+  const cancelConnect = useCallback(async () => {
+    await closeSession(session?.origin ?? null);
+  }, [closeSession, session]);
+
+  /** 다녀온 국에서 처음 자리로 — 담아 둔 것을 되살린다(세션은 살려 둔다). */
   const backToOrigin = useCallback(async () => {
     await useV2WorkingCopy.getState().resumeSuspended();
   }, []);
 
-  /** 포트를 출발로 삼아 세션을 연다 — 포트 탭·선번장·계통이 같은 길을 쓴다. */
-  const connectFromPort = useCallback((portId: string) => {
+  /**
+   * **포트를 골랐다 — 잇는 길은 이 함수 하나다.**
+   *
+   * 도면·포트 탭·선번장·계통이 모두 여기로 들어온다. 출발이 없으면 출발이 되고, 있으면
+   * 도착이 되어 종류를 묻는 상자가 뜬다. 진입점마다 다르던 것(종류를 어디서 고르나, 튕길 때
+   * 무엇이 버려지나)이 한 자리로 모였다.
+   */
+  const pickPort = useCallback((portId: string) => {
     const assets = useV2WorkingCopy.getState().effectiveAssets();
     const owner = assets.find((a) => a.ports.some((p) => p.id === portId));
     const port = owner?.ports.find((p) => p.id === portId);
     if (!owner || !port || !substationId) return;
-    openConnect({ portId, label: `${owner.name} · ${port.name}`, substationId, medium: port.medium });
-    /* 도착은 도면에서 고른다 — 돌아올 자리는 세션의 `origin` 이 기억한다. */
-    route.setView('평면도');
-  }, [openConnect, route, substationId]);
+    const label = `${owner.name} · ${port.name}`;
+
+    const from = session?.from;
+    if (!from) {
+      /* 출발 — 세션이 아직 없으면(포트 탭·표에서 바로 시작) 여기서 선다. */
+      setSession((s) => withFrom(
+        s ?? openSession({ substationId, view: viewMode, floorId: null }),
+        { portId, label, substationId, medium: port.medium },
+      ));
+      /* 도착은 도면에서 고른다 — 돌아올 자리는 세션의 `origin` 이 기억한다. */
+      if (viewMode !== '평면도') route.setView('평면도');
+      return;
+    }
+
+    /* 자기 자신에게는 잇지 않는다 — 상자를 띄워 놓고 튕기는 것보다 여기서 말하는 것이 낫다. */
+    if (portId === from.portId) {
+      useV2Notice.getState().showError('출발과 같은 포트입니다 — 다른 포트를 고르세요');
+      return;
+    }
+    /* 도착 — **무엇으로 이을지는 이제 묻는다**(`ConnectCategoryDialog`). */
+    setPendingError(null);
+    setPending({ from, toPortId: portId, toLabel: label });
+  }, [session, substationId, viewMode, route]);
+
+  /** 종류까지 골랐다 — 잇고, 담아 둔 것을 되살려 **시작한 화면**으로 돌아간다. */
+  const confirmConnect = useCallback(async (categoryId: string) => {
+    const p = pending;
+    const s = session;
+    if (!p || !s) return;
+    const wc = useV2WorkingCopy.getState();
+    const assets = wc.effectiveAssets();
+    const toPort = assets.flatMap((a) => a.ports).find((x) => x.id === p.toPortId);
+    if (!toPort) { setPendingError('이을 포트를 찾을 수 없습니다 — 다시 고르세요'); return; }
+
+    const err = connectCable({
+      firstPortId: p.from.portId,
+      toPort,
+      assets,
+      cables: wc.effectiveCables(),
+      /* 케이블은 **시작한 국의 것**이다 — 예전에는 그때 로드된 국에 쌓여 반대였다. */
+      substationId: p.from.substationId,
+      categoryId,
+      mediumKey: p.from.medium,
+      /* 경로는 이은 뒤 도면에서 붙인다(`CablePathEditor`) — 그리면서 잇기를 걷었다. */
+      pathPoints: [],
+    });
+    if (err) {
+      /* 상자는 **열린 채로** 둔다 — 닫으면 고른 포트 둘이 함께 사라져 처음부터 다시다. */
+      setPendingError(err === 'no-first'
+        ? '출발 포트를 확인할 수 없습니다 — 연결을 취소하고 다시 고르세요'
+        : connectErrorLabel(err));
+      return;
+    }
+    /* 다음에 그 매체를 이을 때 물려 올 값 — 상자가 고른 채로 띄우므로 숨은 값이 아니다. */
+    lastCategoryByMedium.current[p.from.medium] = categoryId;
+    await closeSession(s.origin);
+  }, [pending, session, closeSession]);
 
   /**
    * 포트를 고르라는 요청을 받으면 **상세 패널을 그 자산으로 옮긴다**.
@@ -436,13 +506,22 @@ export default function V2WorkspacePage() {
               {session && (
                 <ConnectOverlay
                   session={session}
-                  groups={catalog.data?.cableGroups ?? []}
                   readOnly={wcReadOnly}
                   substationName={shown?.name ?? null}
-                  onCategory={(id) => setSession((s) => (s ? setCategory(s, id || null) : s))}
-                  onKeepGoing={(on) => setSession((s) => (s ? setKeepGoing(s, on) : s))}
                   onBack={wcReadOnly ? () => void backToOrigin() : undefined}
                   onCancel={() => void cancelConnect()}
+                />
+              )}
+              {/* 두 끝점을 골랐다 — **무엇으로 이을지 확인받는다.** 접으면 고른 포트만
+                  버려지고 연결 모드는 그대로 남는다(세션과 따로 사는 값이다). */}
+              {pending && session && (
+                <ConnectCategoryDialog
+                  pending={pending}
+                  groups={catalog.data?.cableGroups ?? []}
+                  lastCategoryId={lastCategoryByMedium.current[pending.from.medium] ?? null}
+                  error={pendingError}
+                  onConfirm={(id) => void confirmConnect(id)}
+                  onCancel={() => { setPending(null); setPendingError(null); }}
                 />
               )}
               {inSubstationScope && (
@@ -478,14 +557,7 @@ export default function V2WorkspacePage() {
                       traceResult={traceResult}
                       session={session}
                       onOpenConnect={openConnect}
-                      onFromPicked={(from) =>
-                        setSession((s) => withFrom(
-                          s ?? openSession({ substationId: substationId ?? '', view: viewMode, floorId: null }),
-                          from,
-                          lastCategoryByMedium.current,
-                        ))
-                      }
-                      onConnected={() => void finishConnect()}
+                      onPortPicked={pickPort}
                       onCancelConnect={() => void cancelConnect()}
                       readOnly={wcReadOnly}
                       onPickPort={handlePickPort}
@@ -501,7 +573,7 @@ export default function V2WorkspacePage() {
                       onSelectAsset={handleSelectAssetId}
                       /* 잇기를 시작하는 길은 하나다 — 도면 포트·포트 탭·이 표가 같은 함수를
                          부른다. 도착은 도면에서 고르고, `origin` 이 이 표로 돌려보낸다. */
-                      onConnect={connectFromPort}
+                      onConnect={pickPort}
                     />
                   ) : inSubstationScope && viewMode === '계통' ? (
                     <PowerRegisterView
@@ -511,7 +583,7 @@ export default function V2WorkspacePage() {
                       selectedAssetId={highlightedAssetId}
                       selectedPortId={focusPortId}
                       onSelectAsset={handleSelectAssetId}
-                      onConnect={connectFromPort}
+                      onConnect={pickPort}
                     />
                   ) : (
                     /* 현황 뷰 (기본) — 여백도 스크롤도 **판이 쥔다**(`ViewCard`, §3.1).
@@ -561,10 +633,10 @@ export default function V2WorkspacePage() {
                       /* 이미 평면도를 보고 있으면 「평면도에서 보기」를 두지 않는다 —
                          지금 있는 곳으로 가는 버튼은 눌러도 아무 일이 없다. */
                       onShowOnFloorPlan={viewMode === '평면도' ? undefined : () => route.setView('평면도')}
-                      /* 잇기를 시작하는 길은 **하나**다(`connectFromPort`) — 포트 탭·선번장·계통이
+                      /* 잇는 길은 **하나**다(`pickPort`) — 도면·포트 탭·선번장·계통이
                          같은 것을 부른다. 예전에는 여기서 뷰를 옮기고 한 번짜리 명령을 보냈고,
                          도면이 그것을 받아 제 상태를 또 세웠다(같은 사실이 두 곳). */
-                      onConnectPort={connectFromPort}
+                      onConnectPort={pickPort}
                     />
                   ) : (
                     /* 자리가 비었다는 것을 **카드가** 말한다 — 빈 회색으로 두면 「없는 것」과

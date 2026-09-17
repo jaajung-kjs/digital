@@ -30,15 +30,13 @@ import type { DragSession } from '../../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../../floorPlacement';
 import { placedAssetsOf } from '../../floorPlanSelectors';
 import { cableSegments, distanceToPolyline } from '../../cableSelectors';
-import { cableToolReducer, connectErrorLabel, connectableAssetIds, initialCableToolState } from './cableTool';
-import { connectCable, stageAssemblyCables } from '../../cableActions';
-import { canConnect } from '../../connectSession';
+import { cableToolReducer, connectableAssetIds, initialCableToolState } from './cableTool';
+import { stageAssemblyCables } from '../../cableActions';
 import type { ConnectSession, ConnectFrom } from '../../connectSession';
 import { deleteAssetWithConfirm, deleteCableWithConfirm } from '../../deleteActions';
 import { useFloorAdmin } from './useFloorAdmin';
 import { useEffectiveAssets, useEffectiveCables, useEffectiveFloors } from '../../store/useWorkingCopy';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { useV2Notice } from '../../store/noticeStore';
 import type { CablePickRequest } from '../../cablePick';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
 import { useTypesById, useV2Catalog } from '../../hooks';
@@ -78,10 +76,14 @@ interface Props {
   session?: ConnectSession | null;
   /** 케이블 도구를 켠다 — 출발을 미리 아는 진입점은 그 값을 함께 준다. */
   onOpenConnect?: (from: ConnectFrom | null) => void;
-  /** 도면에서 **출발** 포트를 골랐다. */
-  onFromPicked?: (from: ConnectFrom) => void;
-  /** 이었다 — 페이지가 시작한 화면으로 돌려보낸다. */
-  onConnected?: () => void;
+  /**
+   * 도면에서 포트를 골랐다 — **출발인지 도착인지는 페이지가 안다**(세션을 쥔 쪽이다).
+   *
+   * 도면은 잇지 않는다. 한때 여기서 `connectCable` 을 불렀는데, 그러면 「종류가 없으면
+   * 튕긴다」 같은 판정이 도면 안에 살아 같은 일을 하는 문이 둘이 됐다(표의 빈 칸은 페이지를
+   * 지났다). 도면이 아는 것은 「이 포트를 골랐다」 하나다.
+   */
+  onPortPicked?: (portId: string) => void;
   /** 잇기를 접는다 — 담아 둔 워킹카피를 되살리는 일이 있어 페이지가 맡는다. */
   onCancelConnect?: () => void;
   /** 다녀온 국 — 고르기만 한다(배치·삭제·배경을 두지 않는다). */
@@ -182,7 +184,7 @@ interface LatestRenderInputs {
 
 export function FloorPlanView({
   substationId, selectedAssetId, onSelectAsset, traceResult,
-  session = null, onOpenConnect, onFromPicked, onConnected, onCancelConnect, readOnly = false, onPickPort,
+  session = null, onOpenConnect, onPortPicked, onCancelConnect, readOnly = false, onPickPort,
 }: Props) {
   const { confirm, confirmDialog } = useConfirm();
   /* 화면이 보는 것 — 저장한 것과 저장 안 한 것을 합치는 일은 한 곳에서만 한다. */
@@ -446,52 +448,6 @@ export function FloorPlanView({
   /* 케이블 품목을 **미리 골라 두지 않는다.** 예전에는 첫 품목을 말없이 집어 두었고, 그래서
      포트에서 시작한 사람은 무엇으로 잇는지 모른 채 이었다. 고르는 자리는 오버레이다. */
 
-
-  /**
-   * 도면에서 포트를 골랐다 — **출발인지 도착인지는 세션이 안다.**
-   *
-   * 예전에는 시작하는 자리가 둘이었다(도면의 `startConnectionRef`, 페이지의
-   * `cableStartPortId`). 그래서 같은 연결인데 뒤쪽 길로 시작하면 첫 끝점 강조도 안 보였다.
-   * 이제 도면이 하는 일은 「포트를 골랐다」를 알리는 것 하나다.
-   */
-  const onPortPicked = (portId: string) => {
-    const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === portId));
-    const port = owner?.ports.find((p) => p.id === portId);
-    if (!owner || !port) return;
-    if (!session?.from) {
-      onFromPicked?.({ portId, label: `${owner.name} · ${port.name}`, substationId, medium: port.medium });
-      return;
-    }
-    /* **종류를 고르지 않았으면 잇지 않는다.** 예전에는 매체 그룹의 첫 품목을 말없이 집어
-       두어 이 자리에 걸릴 것이 없었다 — 그래서 무엇으로 이었는지 모른 채 저장됐다. */
-    if (!canConnect(session)) {
-      useV2Notice.getState().showError('케이블 종류를 고르세요');
-      return;
-    }
-
-    /* 두 번째 끝점 — 잇는 일은 `connectCable` 한 곳이고, 여기서는 **까닭을 어디에 적을지**만 정한다. */
-    const err = connectCable({
-      firstPortId: session.from.portId,
-      toPort: port,
-      assets: latest.current.effectiveAssets,
-      cables: latest.current.effectiveCables,
-      /* 케이블은 **시작한 국의 것**이다 — 예전에는 그때 로드된 국에 쌓여 반대였다. */
-      substationId: session.from.substationId,
-      categoryId: session.categoryId,
-      mediumKey: session.from.medium,
-      /* 경로는 이은 뒤 도면에서 붙인다(`CablePathEditor`) — 그리면서 잇기를 걷었다. */
-      pathPoints: [],
-    });
-    if (err) {
-      /* 못 이은 까닭을 **삼키지 않는다** — 예전에는 피커 안 안내줄·대국 상자로 자리가 갈렸고,
-         자리가 없는 길(포트 탭에서 시작한 경우)에서는 조용히 아무 일도 안 일어났다. */
-      useV2Notice.getState().showError(
-        err === 'no-first' ? '출발 포트를 확인할 수 없습니다 — 다시 고르세요' : connectErrorLabel(err),
-      );
-      return;
-    }
-    onConnected?.();
-  };
 
   /**
    * 범례 — **이 층에 실제로 있는 매체만**.
@@ -1262,7 +1218,7 @@ export function FloorPlanView({
         medium: session.from?.medium ?? null,
         firstEndpoint: session.from ? { portId: session.from.portId, label: session.from.label } : null,
         error: null,
-        onSelect: (port) => { onPortPicked(port.id); onPickPort?.(null); },
+        onSelect: (port) => { onPortPicked?.(port.id); onPickPort?.(null); },
         onCancel: () => onPickPort?.(null),
       });
       return;
@@ -1306,9 +1262,10 @@ export function FloorPlanView({
     onSelectAsset(null);
   };
 
-  /* 포트를 고르는 핸들러는 **하나**다(`onPortPicked`) — 출발인지 도착인지는 세션이 안다.
-     예전에는 이 자리에 셋이 있었다: 도면 피커용·대국 모달용·상세 패널 명령용. 셋이 각자
-     같은 글을 갖고 있어 한쪽만 고쳐지기 딱 좋았고, 실제로 넣는 자산이 서로 달랐다. */
+  /* **도면은 잇지 않는다.** 포트를 골랐다고 알리면 끝이고, 출발인지 도착인지·무엇으로
+     이을지는 세션을 쥔 페이지가 정한다(`onPortPicked`). 예전에는 이 자리에 핸들러가 셋
+     있었고(도면 피커용·대국 모달용·상세 패널 명령용) 잇는 일까지 여기서 해서, 표의 빈 칸에서
+     고른 길과 판정이 갈렸다. */
 
   // ── arm 토글 ─────────────────────────────────────────────────────────────
   const handleArmType = (typeId: string) => {

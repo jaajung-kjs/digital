@@ -13,7 +13,7 @@ export interface ConnectFrom {
    */
   substationId: string;
   /**
-   * 종류 목록과 도착 후보를 거르는 기준.
+   * 도착 후보를 거르는 기준.
    *
    * 「같은 매체」가 아니라 `portKind(medium).connectsTo` 의 기준점이다 — 짝을 정하는 것은
    * 어휘이지 케이블이 아니다(`validation/connection.ts:38-41`).
@@ -37,56 +37,44 @@ export interface ConnectOrigin {
 /**
  * **지금 케이블을 잇는 중이라는 사실 하나.** 이 값이 있으면 오버레이가 뜬다.
  *
- * 예전에는 이 사실이 세 곳에 흩어져 있었다: 도면의 `armed`·`firstPortId`, 페이지의
- * `cableStartPortId`, 그리고 `cablePick`. 셋이 같은 일을 가리켰고, 그래서 진입점에 따라
- * 첫 끝점 강조가 나왔다 안 나왔다 했다.
+ * 세션이 아는 것은 둘뿐이다: **어디서 출발했나**, **끝나면 어디로 돌아가나**. 세션은
+ * 「포트를 고를 때까지」만 살고, 고르는 순간 종류를 묻는 상자로 넘긴다.
+ *
+ * **종류는 여기 없다.** 한때 오버레이에서 미리 고르게 했는데, 고르지 않은 채 포트를 누르면
+ * 「종류를 고르세요」로 튕겨 **고른 포트가 버려졌다** — 무엇을 잘못했는지도 도면 위에서는
+ * 알기 어려웠다. 이제 포트를 고르면 그때 묻는다(`ConnectCategoryDialog`) 즉, 물을 시점이
+ * 정해져 있어 세션이 그 값을 들고 있을 이유가 없다.
+ *
+ * **「이어서 또 잇기」도 없다.** 한 번에 한 가닥이고, 이으면 시작한 화면으로 돌아간다.
  *
  * 담아 둔 워킹카피는 여기 두지 않는다 — 그것은 **워킹카피 상태**이므로 스토어가 주인이고,
- * 그래야 `dirtyCount()` 가 보류분을 함께 센다(스펙 ⑦). 덤으로 「읽기 전용 = 보류 중」이라는
- * 파생 사실 하나로 끝나 어긋날 깃발이 생기지 않는다.
+ * 그래야 `dirtyCount()` 가 보류분을 함께 센다. 덤으로 「읽기 전용 = 보류 중」이라는 파생
+ * 사실 하나로 끝나 어긋날 깃발이 생기지 않는다.
  */
 export interface ConnectSession {
   /** `null` 이면 **출발**을 고르는 중, 있으면 **도착**을 고르는 중. */
   from: ConnectFrom | null;
-  categoryId: string | null;
   origin: ConnectOrigin;
-  /** 한 번 이은 뒤에도 세션을 살려 둔다 — 출발만 비운다. */
-  keepGoing: boolean;
 }
 
 export function openSession(origin: ConnectOrigin): ConnectSession {
-  return { from: null, categoryId: null, origin, keepGoing: false };
+  return { from: null, origin };
+}
+
+/** 출발이 정해졌다 — 이제 도착 포트를 고를 때까지 세션이 산다. */
+export function withFrom(s: ConnectSession, from: ConnectFrom): ConnectSession {
+  return { ...s, from };
 }
 
 /**
- * 출발이 정해졌다 — 종류는 **그 매체에 직전에 쓴 것**이 물려 온다.
+ * 고른 두 끝점 — **종류를 묻는 중**.
  *
- * 예전에는 그 매체 그룹의 첫 품목을 말없이 집었다(`FloorPlanView.tsx:483`). 물려 오는 값은
- * 오버레이에 고른 채로 보이므로 숨은 값이 아니고, 그 매체를 처음 쓰면 **비어 있다** —
- * 짐작해 채우지 않는다.
+ * 세션과 따로 둔다: 세션은 「고르는 중」이고 이것은 「골랐고 확인받는 중」이다. 상자를
+ * 접으면 이 값만 사라져 **세션은 그대로 살아 있다**(고른 포트만 버리고 다시 고른다).
  */
-export function withFrom(
-  s: ConnectSession,
-  from: ConnectFrom,
-  lastByMedium: Readonly<Record<string, string>>,
-): ConnectSession {
-  return { ...s, from, categoryId: lastByMedium[from.medium] ?? null };
-}
-
-export function setCategory(s: ConnectSession, categoryId: string | null): ConnectSession {
-  return s.categoryId === categoryId ? s : { ...s, categoryId };
-}
-
-export function setKeepGoing(s: ConnectSession, on: boolean): ConnectSession {
-  return s.keepGoing === on ? s : { ...s, keepGoing: on };
-}
-
-/** 둘이 다 차야 이어진다 — 종류가 비면 못 잇는다. */
-export function canConnect(s: ConnectSession): boolean {
-  return s.from != null && s.categoryId != null;
-}
-
-/** 이은 뒤 — 이어서 또 이을 생각이면 **출발만** 비우고, 아니면 세션이 끝난다(`null`). */
-export function finish(s: ConnectSession): ConnectSession | null {
-  return s.keepGoing ? { ...s, from: null } : null;
+export interface PendingConnect {
+  from: ConnectFrom;
+  toPortId: string;
+  /** 상자에 적는 도착 이름 — 무엇에 이으려는지 글자로 확인한다. */
+  toLabel: string;
 }
