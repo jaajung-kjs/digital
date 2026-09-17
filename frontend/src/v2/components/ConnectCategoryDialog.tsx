@@ -36,7 +36,7 @@ export function ConnectCategoryDialog({
   onConfirm: (categoryId: string) => void;
   onCancel: () => void;
 }) {
-  const cats = groups.find((g) => g.key === pending.from.medium)?.categories ?? [];
+  const cats = groups.find((g) => g.key === pending.from.end.port.medium)?.categories ?? [];
   /*
    * 하나뿐이면 그것을 고른 채로 뜬다 — 그래도 누르는 걸음은 남는다(확인받는 자리다).
    *
@@ -71,7 +71,7 @@ export function ConnectCategoryDialog({
         {cats.length === 0 ? (
           /* 어휘에 그 매체의 케이블 종류가 없다 — 잇는 대신 어디로 가야 하는지 적는다. */
           <MessageStrip tone="warning">
-            이 매체({pending.from.medium})로 쓸 케이블 종류가 없습니다 — 기준정보에서 먼저 만드세요.
+            이 매체({pending.from.end.port.medium})로 쓸 케이블 종류가 없습니다 — 기준정보에서 먼저 만드세요.
           </MessageStrip>
         ) : (
           <DetailRow label="종류" required>

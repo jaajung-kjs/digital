@@ -1,9 +1,20 @@
+import type { CableEnd } from './cableActions';
 import type { ViewMode } from './useWorkspaceRoute';
 
-/** 출발 끝점 — 이 값이 있으면 「도착을 고르는 중」이다. */
+/**
+ * 출발 끝점 — 이 값이 있으면 「도착을 고르는 중」이다.
+ *
+ * **포트를 id 가 아니라 값으로 들고 다닌다.** 다른 국에 다녀와 고를 수 있는데, 그때 이
+ * 포트는 지금 로드된 워킹카피에 **없다**(담아 둔 국의 것이다). id 만 들고 있으면 마지막
+ * 걸음에서 되짚지 못해 「출발 포트를 확인할 수 없습니다」로 끝난다 — 고를 때는 분명히 있던
+ * 포트인데. 고른 순간의 사실을 그대로 들고 온다(`CableEnd`).
+ *
+ * 매체도 따로 두지 않는다 — `end.port.medium` 이 곧 그것이고, 짝을 정하는 것은 어휘다
+ * (`portKind(medium).connectsTo`, `validation/connection.ts`).
+ */
 export interface ConnectFrom {
-  portId: string;
-  /** 오버레이에 적는 이름(`OFD · 슬롯 1 · 광 1`). 짓는 일은 부르는 쪽이 한다. */
+  end: CableEnd;
+  /** 오버레이에 적는 이름(`(구)춘천S/S · OFD - 슬롯 1#1`). 짓는 일은 부르는 쪽이 한다. */
   label: string;
   /**
    * 어느 국의 포트인가.
@@ -12,13 +23,6 @@ export interface ConnectFrom {
    * A 에서 시작해 B 에서 고르면 케이블이 B 의 것이 되었다 — 시작한 쪽이 주인이어야 맞다.
    */
   substationId: string;
-  /**
-   * 도착 후보를 거르는 기준.
-   *
-   * 「같은 매체」가 아니라 `portKind(medium).connectsTo` 의 기준점이다 — 짝을 정하는 것은
-   * 어휘이지 케이블이 아니다(`validation/connection.ts:38-41`).
-   */
-  medium: string;
 }
 
 /**
@@ -74,7 +78,8 @@ export function withFrom(s: ConnectSession, from: ConnectFrom): ConnectSession {
  */
 export interface PendingConnect {
   from: ConnectFrom;
-  toPortId: string;
+  /** 도착도 **값으로** 들고 온다 — 이을 때는 이미 출발한 국으로 돌아가 있다(아래). */
+  to: CableEnd;
   /** 상자에 적는 도착 이름 — 무엇에 이으려는지 글자로 확인한다. */
   toLabel: string;
 }

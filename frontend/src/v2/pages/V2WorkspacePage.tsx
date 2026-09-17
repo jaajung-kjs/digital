@@ -9,6 +9,7 @@ import {
 import { ConnectOverlay } from '../components/ConnectOverlay';
 import { ConnectCategoryDialog } from '../components/ConnectCategoryDialog';
 import { connectCable } from '../cableActions';
+import { cableCountByPortId } from '../cableSelectors';
 import { endpointLabel } from '../peerResolve';
 import { useV2Notice } from '../store/noticeStore';
 import { connectErrorLabel } from '../components/floorplan/cableTool';
@@ -391,12 +392,21 @@ export default function V2WorkspacePage() {
     const endpoint = endpointLabel({ assemblyName, assetName: owner.name, portName: port.name, portIndex: port.index });
     const label = here ? `${here} · ${endpoint}` : endpoint;
 
+    /**
+     * 고른 순간의 사실을 **값으로** 담는다 — 포트 그 자체와, 거기 이미 물린 가닥 수.
+     *
+     * 다른 국에 다녀와 이으면 마지막 걸음에서는 **둘 중 한쪽이 로드돼 있지 않다**. id 만
+     * 들고 있으면 그때 되짚지 못해 「출발 포트를 확인할 수 없습니다」로 끝나고, 가닥 수를
+     * 안 세면 이미 찬 포트가 「비었다」로 읽혀 한 가닥이 더 물린다.
+     */
+    const end = { port, cableCount: cableCountByPortId(wc.effectiveCables()).get(portId) ?? 0 };
+
     const from = session?.from;
     if (!from) {
       /* 출발 — 세션이 아직 없으면(포트 탭·표에서 바로 시작) 여기서 선다. */
       setSession((s) => withFrom(
         s ?? openSession({ substationId, view: viewMode, floorId: null }),
-        { portId, label, substationId, medium: port.medium },
+        { end, label, substationId },
       ));
       /* 도착은 도면에서 고른다 — 돌아올 자리는 세션의 `origin` 이 기억한다. */
       if (viewMode !== '평면도') route.setView('평면도');
@@ -404,13 +414,13 @@ export default function V2WorkspacePage() {
     }
 
     /* 자기 자신에게는 잇지 않는다 — 상자를 띄워 놓고 튕기는 것보다 여기서 말하는 것이 낫다. */
-    if (portId === from.portId) {
+    if (portId === from.end.port.id) {
       useV2Notice.getState().showError('출발과 같은 포트입니다 — 다른 포트를 고르세요');
       return;
     }
     /* 도착 — **무엇으로 이을지는 이제 묻는다**(`ConnectCategoryDialog`). */
     setPendingError(null);
-    setPending({ from, toPortId: portId, toLabel: label });
+    setPending({ from, to: end, toLabel: label });
   }, [session, substationId, viewMode, route]);
 
   /** 종류까지 골랐다 — 잇고, 담아 둔 것을 되살려 **시작한 화면**으로 돌아간다. */
@@ -418,32 +428,35 @@ export default function V2WorkspacePage() {
     const p = pending;
     const s = session;
     if (!p || !s) return;
+
+    /**
+     * **담아 둔 것을 먼저 되살린다 — 그 다음에 쌓는다.**
+     *
+     * 케이블은 시작한 국의 것이다. 다녀온 국이 로드된 채로 쌓으면 그 국의 오버레이에 들어가고,
+     * 곧바로 되살리면서 오버레이가 통째로 담아 둔 것으로 바뀌어 **방금 이은 것이 사라진다**
+     * (`resumeSuspended` 는 오버레이를 갈아 끼운다). 두 끝점을 값으로 들고 온 덕에 로드된
+     * 국이 무엇이든 이을 수 있으므로, 순서를 이렇게 둘 수 있다.
+     */
     const wc = useV2WorkingCopy.getState();
-    const assets = wc.effectiveAssets();
-    const toPort = assets.flatMap((a) => a.ports).find((x) => x.id === p.toPortId);
-    if (!toPort) { setPendingError('이을 포트를 찾을 수 없습니다 — 다시 고르세요'); return; }
+    if (wc.suspended) await wc.resumeSuspended();
 
     const err = connectCable({
-      firstPortId: p.from.portId,
-      toPort,
-      assets,
-      cables: wc.effectiveCables(),
+      from: p.from.end,
+      to: p.to,
       /* 케이블은 **시작한 국의 것**이다 — 예전에는 그때 로드된 국에 쌓여 반대였다. */
       substationId: p.from.substationId,
       categoryId,
-      mediumKey: p.from.medium,
+      mediumKey: p.from.end.port.medium,
       /* 경로는 이은 뒤 도면에서 붙인다(`CablePathEditor`) — 그리면서 잇기를 걷었다. */
       pathPoints: [],
     });
     if (err) {
       /* 상자는 **열린 채로** 둔다 — 닫으면 고른 포트 둘이 함께 사라져 처음부터 다시다. */
-      setPendingError(err === 'no-first'
-        ? '출발 포트를 확인할 수 없습니다 — 연결을 취소하고 다시 고르세요'
-        : connectErrorLabel(err));
+      setPendingError(connectErrorLabel(err));
       return;
     }
     /* 다음에 그 매체를 이을 때 물려 올 값 — 상자가 고른 채로 띄우므로 숨은 값이 아니다. */
-    lastCategoryByMedium.current[p.from.medium] = categoryId;
+    lastCategoryByMedium.current[p.from.end.port.medium] = categoryId;
     await closeSession(s.origin);
   }, [pending, session, closeSession]);
 
@@ -477,8 +490,8 @@ export default function V2WorkspacePage() {
     if (!from || !selectedAssetId) return null;
     return {
       assetId: selectedAssetId,
-      medium: from.medium,
-      firstEndpoint: { portId: from.portId, label: from.label },
+      medium: from.end.port.medium,
+      firstEndpoint: { portId: from.end.port.id, label: from.label },
       error: null,
       onSelect: (port) => pickPort(port.id),
       onCancel: () => void cancelConnect(),
@@ -558,7 +571,7 @@ export default function V2WorkspacePage() {
                 <ConnectCategoryDialog
                   pending={pending}
                   groups={catalog.data?.cableGroups ?? []}
-                  lastCategoryId={lastCategoryByMedium.current[pending.from.medium] ?? null}
+                  lastCategoryId={lastCategoryByMedium.current[pending.from.end.port.medium] ?? null}
                   error={pendingError}
                   onConfirm={(id) => void confirmConnect(id)}
                   onCancel={() => { setPending(null); setPendingError(null); }}

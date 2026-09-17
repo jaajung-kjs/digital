@@ -34,10 +34,12 @@ describe('connectCable — 잇는 일은 한 곳', () => {
   const a = asset('a', [port('pa', 'a', 'power', 'OUT')]);
   const b = asset('b', [port('pb', 'b', 'power', 'IN')]);
 
+  const end = (p: V2Port, cableCount = 0) => ({ port: p, cableCount });
+
   it('이으면 그리던 경로 그대로 스테이지된다', () => {
     reset([a, b]);
     const err = connectCable({
-      firstPortId: 'pa', toPort: b.ports[0]!, assets: [a, b], cables: [],
+      from: end(a.ports[0]!), to: end(b.ports[0]!),
       substationId: 's-1', categoryId: 'cat-1', mediumKey: 'power',
       pathPoints: [{ x: 10, y: 20 }],
     });
@@ -47,10 +49,33 @@ describe('connectCable — 잇는 일은 한 곳', () => {
     expect(creates[0]).toMatchObject({ aPortId: 'pa', bPortId: 'pb', categoryId: 'cat-1', pathPoints: [{ x: 10, y: 20 }] });
   });
 
-  it('첫 끝점을 잃었으면 잇지 않는다 — 무검증 스테이지 금지', () => {
+  /**
+   * **끝점은 값으로 온다 — 되짚지 않는다.**
+   *
+   * 예전에는 첫 끝점을 `firstPortId` 로 받아 로드된 워킹카피에서 찾았다. 그래서 다른 국에
+   * 다녀와 잇는 길은 마지막 걸음에서 「출발 포트를 확인할 수 없습니다」(`no-first`)로
+   * 끝났다 — 그 포트는 **담아 둔 국**의 것이라 거기 없었기 때문이다. 이제 되짚을 일이
+   * 없으니 그 실패 갈래도 없다: 어느 국이 로드돼 있든 같은 결과다.
+   */
+  it('로드된 국과 상관없이 이어진다 — 되짚지 않으므로', () => {
+    reset([]); // 어느 자산도 로드돼 있지 않다(다른 국을 보고 있는 상태)
+    const err = connectCable({
+      from: end(a.ports[0]!), to: end(b.ports[0]!),
+      substationId: 's-1', categoryId: 'cat-1', mediumKey: 'power', pathPoints: [],
+    });
+    expect(err).toBeNull();
+    expect(Object.values(v2WorkingCopyStore.getState().overlays.cables.creates)[0])
+      .toMatchObject({ aPortId: 'pa', bPortId: 'pb' });
+  });
+
+  /* 가닥 수도 값으로 온다 — 상대 국의 케이블은 이 카피에 없어 여기서 셀 수 없다. */
+  it('이미 찬 포트에는 더 물리지 않는다 — 가닥 수를 들고 온다', () => {
     reset([a, b]);
-    expect(connectCable({ firstPortId: null, toPort: b.ports[0]!, assets: [a, b], cables: [], substationId: 's-1', categoryId: null, mediumKey: 'power', pathPoints: [] })).toBe('no-first');
-    expect(connectCable({ firstPortId: '없는포트', toPort: b.ports[0]!, assets: [a, b], cables: [], substationId: 's-1', categoryId: null, mediumKey: 'power', pathPoints: [] })).toBe('no-first');
+    const err = connectCable({
+      from: end(a.ports[0]!, 1), to: end(b.ports[0]!),
+      substationId: 's-1', categoryId: null, mediumKey: 'power', pathPoints: [],
+    });
+    expect(err).toBe('port-occupied');
     expect(Object.keys(v2WorkingCopyStore.getState().overlays.cables.creates)).toHaveLength(0);
   });
 
@@ -58,7 +83,7 @@ describe('connectCable — 잇는 일은 한 곳', () => {
     reset([a, b]);
     const sameDirection = asset('c', [port('pc', 'c', 'power', 'OUT')]);
     const err = connectCable({
-      firstPortId: 'pa', toPort: sameDirection.ports[0]!, assets: [a, sameDirection], cables: [],
+      from: end(a.ports[0]!), to: end(sameDirection.ports[0]!),
       substationId: 's-1', categoryId: null, mediumKey: 'power', pathPoints: [],
     });
     expect(err).toBe('direction-mismatch');

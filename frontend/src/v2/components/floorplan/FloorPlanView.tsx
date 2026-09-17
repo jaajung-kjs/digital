@@ -336,7 +336,7 @@ export function FloorPlanView({
    * 도면은 놓인 설비로만 그림을 그린다. 포트는 대개 그 안의 장비 것이라(슬롯·광단말) 이
    * 걸음이 없으면 첫 끝점 강조도 경로 미리보기도 나올 자리가 없다.
    */
-  const fromPortId = session?.from?.portId ?? null;
+  const fromPortId = session?.from?.end.port.id ?? null;
   const firstAnchorId = useMemo(() => {
     if (!fromPortId) return null;
     const owner = effectiveAssets.find((a) => a.ports.some((p) => p.id === fromPortId));
@@ -499,8 +499,8 @@ export function FloorPlanView({
       assets: effectiveAssets,
       placed: placedAssets,
       cables: effectiveCables,
-      fromPortMedium: session.from?.medium,
-      firstPortId: session.from?.portId,
+      fromPortMedium: session.from?.end.port.medium,
+      firstPortId: session.from?.end.port.id,
     });
   }, [session, effectiveCables, effectiveAssets, placedAssets]);
 
@@ -1215,8 +1215,8 @@ export function FloorPlanView({
          않는다(`cablePick.ts`). 출발이든 도착이든 같은 판에서 고른다. */
       onPickPort?.({
         assetId: hit.id,
-        medium: session.from?.medium ?? null,
-        firstEndpoint: session.from ? { portId: session.from.portId, label: session.from.label } : null,
+        medium: session.from?.end.port.medium ?? null,
+        firstEndpoint: session.from ? { portId: session.from.end.port.id, label: session.from.label } : null,
         error: null,
         onSelect: (port) => { onPortPicked?.(port.id); onPickPort?.(null); },
         onCancel: () => onPickPort?.(null),

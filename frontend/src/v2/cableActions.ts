@@ -1,52 +1,60 @@
 import { validateConnection } from '@twin/core';
-import { cableCountByPortId } from './cableSelectors';
 import { useV2WorkingCopy } from './store/workingCopyStore';
-import type { V2Asset, V2Cable, V2Port } from './types';
+import type { V2Cable, V2Port } from './types';
 import { newId } from './newId';
 
 /**
  * **케이블을 잇는 일은 한 번만 적는다** — 어디서 골랐든 같은 결과여야 한다.
  *
- * 끝점을 고르는 문은 셋이다: 도면에서 설비를 눌러 고르기, 포트 탭의 「케이블 연결」, 대국
- * 검색. 예전에는 그중 둘이 각자 검증하고 각자 케이블 객체를 지어 스테이지했다 — 같은 글이
- * 두 벌이라 한쪽만 고쳐지기 딱 좋았고, 실제로 그렇게 됐다: 경로점을 나중에 붙일 때 한 곳에만
- * 붙일 뻔했고, 첫 끝점에 넣는 자산이 문마다 달라 **미리보기가 한쪽 문에서만** 나왔다.
+ * 끝점을 고르는 문은 넷이다: 도면·포트 탭·선번장·계통. 예전에는 그중 둘이 각자 검증하고 각자
+ * 케이블 객체를 지어 스테이지했다 — 같은 글이 두 벌이라 한쪽만 고쳐지기 딱 좋았고, 실제로
+ * 그렇게 됐다: 경로점을 나중에 붙일 때 한 곳에만 붙일 뻔했고, 첫 끝점에 넣는 자산이 문마다
+ * 달라 **미리보기가 한쪽 문에서만** 나왔다.
  *
- * 여기서는 「이을 수 있는가」와 「이었다」만 한다. **못 이었을 때 그 까닭을 어디에 적을지는
- * 부르는 쪽이 안다**(피커 안 안내줄 · 대국 상자) — 그것만이 문마다 다른 일이다.
+ * 여기서는 「이을 수 있는가」와 「이었다」만 한다. 못 이은 까닭을 어디에 적을지는 부르는 쪽이
+ * 안다(지금은 종류 상자 안이다).
  */
 
-/** 못 이은 까닭 — core 의 판정 코드이거나, 첫 끝점을 잃은 경우(`no-first`). */
-export type ConnectFailure = 'no-first' | string;
+/**
+ * 케이블을 물릴 **한 끝점** — 포트 그 자체와, 그 포트에 이미 물린 가닥 수.
+ *
+ * **id 가 아니라 값을 들고 다닌다.** 예전에는 첫 끝점을 `firstPortId` 로만 받아 지금 로드된
+ * 워킹카피에서 되짚었는데, 다른 국으로 다녀와 잇는 길에서는 그 포트가 **거기 없다**(담아 둔
+ * 국의 것이다). 그래서 국을 넘는 연결은 마지막 걸음에서 「출발 포트를 확인할 수 없습니다」로
+ * 끝났다 — 고를 때는 분명히 있던 포트인데. 고른 순간의 사실을 그대로 들고 오면 되짚을 일이
+ * 없고, `no-first` 라는 실패 갈래 자체가 사라진다.
+ *
+ * 가닥 수도 함께 온다: 상대 국의 케이블은 이 카피에 없어 여기서 셀 수 없으므로, 안 세면
+ * 「자리가 비었다」로 읽혀 이미 찬 포트에 한 가닥이 더 물린다.
+ */
+export interface CableEnd {
+  port: V2Port;
+  cableCount: number;
+}
 
 export function connectCable(args: {
-  firstPortId: string | null;
-  /** 두 번째 끝점 — 이 도면의 포트일 수도, 대국에서 고른 포트일 수도 있다. */
-  toPort: V2Port;
-  assets: readonly V2Asset[];
-  cables: readonly V2Cable[];
+  from: CableEnd;
+  to: CableEnd;
   substationId: string;
   categoryId: string | null;
   /** 고른 케이블 품목의 매체 — 매체가 다른 포트끼리는 잇지 않는다. */
   mediumKey: string | undefined;
-  /** 그리며 찍은 꺾은점 — **보이던 그 모양**이 저장된다. */
+  /** 나중에 도면에서 붙이는 꺾은점 — 이을 때는 비어 있다. */
   pathPoints: readonly { x: number; y: number }[];
-}): ConnectFailure | null {
-  const { firstPortId } = args;
-  if (!firstPortId) return 'no-first';
-  const aPort = args.assets.flatMap((a) => a.ports).find((p) => p.id === firstPortId);
-  /* 첫 끝점을 화면에서 찾을 수 없다 — 무검증 스테이지는 하지 않는다. */
-  if (!aPort) return 'no-first';
-
-  const err = validateConnection(aPort, args.toPort, cableCountByPortId(args.cables as V2Cable[]), args.mediumKey);
+}): string | null {
+  const counts = new Map([
+    [args.from.port.id, args.from.cableCount],
+    [args.to.port.id, args.to.cableCount],
+  ]);
+  const err = validateConnection(args.from.port, args.to.port, counts, args.mediumKey);
   if (err) return err;
 
   useV2WorkingCopy.getState().stageCableCreate({
     id: newId(),
     name: null,
     substationId: args.substationId,
-    aPortId: firstPortId,
-    bPortId: args.toPort.id,
+    aPortId: args.from.port.id,
+    bPortId: args.to.port.id,
     categoryId: args.categoryId,
     pathPoints: [...args.pathPoints],
     specParams: {},

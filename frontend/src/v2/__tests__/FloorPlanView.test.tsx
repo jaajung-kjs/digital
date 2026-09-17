@@ -24,6 +24,7 @@ import {
 } from '../connectSession';
 import { ConnectCategoryDialog } from '../components/ConnectCategoryDialog';
 import { connectCable } from '../cableActions';
+import { cableCountByPortId } from '../cableSelectors';
 
 /* useV2Catalog 만 목킹 — 도면에 놓이는 것은 **설비 품목**뿐이다(장비 품목에는 배치 개념이
    없다). 케이블 그룹 1개(카테고리 1개)도 공급한다. */
@@ -132,18 +133,21 @@ function Harness({
   const [error, setError] = useState<string | null>(null);
 
   const pickPort = (portId: string) => {
-    const assets = v2WorkingCopyStore.getState().effectiveAssets();
+    const wc = v2WorkingCopyStore.getState();
+    const assets = wc.effectiveAssets();
     const owner = assets.find((a) => a.ports.some((p) => p.id === portId));
     const port = owner?.ports.find((p) => p.id === portId);
     if (!owner || !port) return;
     const label = `${owner.name} · ${port.name}`;
+    /* 고른 순간의 사실을 값으로 — 페이지가 하는 것과 같다(`pickPort`). */
+    const end = { port, cableCount: cableCountByPortId(wc.effectiveCables()).get(portId) ?? 0 };
     const from = session?.from;
     if (!from) {
-      setSession((s) => withFrom(s ?? openSession(origin), { portId, label, substationId: 'sub-1', medium: port.medium }));
+      setSession((s) => withFrom(s ?? openSession(origin), { end, label, substationId: 'sub-1' }));
       return;
     }
     setError(null);
-    setPending({ from, toPortId: portId, toLabel: label });
+    setPending({ from, to: end, toLabel: label });
   };
 
   return (
@@ -164,14 +168,10 @@ function Harness({
           groups={mockCableGroups}
           error={error}
           onConfirm={(categoryId) => {
-            const wc = v2WorkingCopyStore.getState();
-            const assets = wc.effectiveAssets();
-            const toPort = assets.flatMap((a) => a.ports).find((x) => x.id === pending.toPortId);
-            if (!toPort) { setError('이을 포트를 찾을 수 없습니다'); return; }
             const err = connectCable({
-              firstPortId: pending.from.portId, toPort, assets, cables: wc.effectiveCables(),
-              substationId: pending.from.substationId, categoryId, mediumKey: pending.from.medium,
-              pathPoints: [],
+              from: pending.from.end, to: pending.to,
+              substationId: pending.from.substationId, categoryId,
+              mediumKey: pending.from.end.port.medium, pathPoints: [],
             });
             if (err) { setError(err); return; }
             setPending(null);
@@ -340,7 +340,7 @@ describe('FloorPlanView — 케이블 잇기', () => {
    */
   it('포트 탭에서 시작해도 도면에서 시작한 것과 같은 상태가 된다', () => {
     const fromPanel = renderFloorPlan(vi.fn(), {
-      initialFrom: { portId: 'p-a', label: 'a · p-a', substationId: 'sub-1', medium: 'power' },
+      initialFrom: { end: { port: port('p-a', 'a'), cableCount: 0 }, label: 'a · p-a', substationId: 'sub-1' },
     });
     /* 도구가 켜진 자리 — 도면에서 두 번 눌러 온 것과 같은 상태다. */
     expect(cableArmed()).toBe(true);

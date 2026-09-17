@@ -120,6 +120,28 @@ describe('보류하고 다녀오기', () => {
     expect(st().dirtyCount()).toBe(2);
   });
 
+  /**
+   * **되살리기 전에 쌓으면 잃는다** — 그래서 잇는 순서가 「되살리고 → 쌓는다」다.
+   *
+   * `resumeSuspended` 는 오버레이를 **갈아 끼운다**. 다녀온 국이 로드된 채로 케이블을 쌓고
+   * 곧바로 되살리면 그 가닥은 갈아 끼우는 순간 사라진다 — 화면에는 「이었다」고 나오고
+   * 저장할 것은 원래대로인, 가장 알아채기 어려운 꼴이 된다. 이 시험이 그 순서를 못 박는다.
+   */
+  it('되살리기 전에 쌓은 것은 사라진다 — 순서를 못 박는 핀', async () => {
+    st().stageAssetUpdate('ss-a-asset', { name: '고친 이름' });
+    await st().suspendAndLoad('ss-b');
+    st().stageCableCreate({
+      id: 'c-lost', name: null, substationId: 'ss-a', aPortId: 'p-1', bPortId: 'p-2',
+      categoryId: 'cat', pathPoints: [], specParams: {}, updatedAt: '',
+    });
+    expect(st().overlays.cables.creates['c-lost']).toBeDefined();
+
+    await st().resumeSuspended();
+    /* 담아 둔 것은 살아 돌아오고, **그 사이에 쌓은 것은 없다**. */
+    expect(st().overlays.assets.updates['ss-a-asset']).toEqual({ name: '고친 이름' });
+    expect(st().overlays.cables.creates['c-lost']).toBeUndefined();
+  });
+
   /* 보류는 **한 겹만** — B 에서 또 C 로 가도 A 가 담아 둔 채로 남는다. */
   it('보류는 한 겹만 — 두 번 옮겨도 처음 것을 지킨다', async () => {
     st().stageAssetUpdate('ss-a-asset', { name: '고친 이름' });
