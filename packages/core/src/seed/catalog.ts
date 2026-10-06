@@ -772,6 +772,213 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'POWER-IN-AC', count: 2, direction: 'IN', medium: 'power', namePattern: '전원 {n}', variant: 'AC' },
     ],
   },
+  /*
+   * ── 국 시드에 필요한 나머지 — 전원계통도·선번장을 옮기다 모자란 자리 ─────────────────
+   */
+  {
+    /*
+     * **외부 설비** — 우리 품목이 아닌데 **우리 분전반에서 전원을 받는 것**.
+     *
+     * 계통도의 부하 절반이 이것이다: 감시정보 · 통신사 장비(KT · 파워콤 · LGU+) · RTU/MPD ·
+     * IP급전 · 전력구감시. 받을 자리가 없으면 분기가 허공에서 끝나 「이 차단기를 내리면 무엇이
+     * 죽는가」에 답하지 못한다. 무엇인지는 **자산 이름**이 말한다. 교류·직류 입력을 하나씩 두고
+     * 쓰는 것만 잇는다.
+     */
+    key: 'EXT-EQUIP',
+    name: '외부 설비',
+    categoryKey: '통신',
+    sortOrder: 90,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '교류 입력', variant: 'AC' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '직류 입력', variant: 'DC' },
+    ],
+  },
+  {
+    /*
+     * **PCM 단국장치** — E1 한 회선을 음성·데이터 채널 여럿으로 나눈다(P32-T · SLC-T/E).
+     * 소형광 선번장에 「4W E&M」 채널이 이것에 물린다. 채널 수는 추정이다.
+     */
+    key: 'PCM',
+    name: 'PCM 단국장치',
+    categoryKey: '통신',
+    sortOrder: 80,
+    labor: labor(0.5, 0.25, 0.5, 2_000_000),
+    ports: [
+      { group: 'E1', count: 1, direction: 'BI', medium: 'control', namePattern: 'E1' },
+      { group: 'CH', count: 12, direction: 'BI', medium: 'control', namePattern: '채널 {n}' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /*
+     * **접지함체** — 통신실 설비의 접지선이 모이는 모선. 접지 단자는 여러 가닥을 받으므로
+     * (`PORT_KINDS.ground`) 모선 하나와 대지 인출 하나면 된다.
+     */
+    key: 'GROUND-BOX',
+    name: '접지함체',
+    categoryKey: '전원',
+    sortOrder: 60,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지 모선' },
+      { group: 'EARTH', count: 1, direction: 'BI', medium: 'ground', namePattern: '대지 인출' },
+    ],
+  },
+  /*
+   * ── 광 회선 장비 — **OFD 선번장의 「회선수용내역」이 가리키는 것들** ─────────────────
+   *
+   * `직할_OFD선번장_260203` 의 유형·수용내역과 양구S/S 랙 사진(2026-09)을 보고 지었다.
+   * 광 포트는 **한 심에 하나**다 — 선번장이 `Tx`·`Rx` 를 코어 하나씩 적으므로 포트도 그렇게
+   * 둔다(OFD 판의 앞면 어댑터 하나와 점퍼 한 가닥으로 이어진다). 포트 수는 전부 추정이다.
+   */
+  {
+    /*
+     * **광스위치** — 광 링 포트를 가진 산업용 L2. 선번장의 「RTU 예비회선용 광스위치」가 이것이고,
+     * 용도는 **자산 이름**이 말한다(「RTU 광스위치」). 사진의 실물(NHM-2208-SF)은 RJ45 여덟 ·
+     * FX 광 · 전원 둘(PW1 · PW2)이다. 링이라 FX 를 동·서 둘로 둔다.
+     */
+    key: 'OPT-SW',
+    name: '광스위치',
+    categoryKey: '통신',
+    sortOrder: 67,
+    labor: labor(0.5, 0.25, 0.5, 2_000_000),
+    ports: [
+      { group: 'LAN', count: 8, direction: 'BI', medium: 'network', namePattern: 'LAN {n}' },
+      { group: 'FX-TX', count: 2, direction: 'BI', medium: 'fiber', namePattern: 'FX{n} Tx' },
+      { group: 'FX-RX', count: 2, direction: 'BI', medium: 'fiber', namePattern: 'FX{n} Rx' },
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: 'PW{n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /*
+     * **PTPU** — 두 국을 1:1 로 잇는 광 단말 유닛(「P-to-P 유니트」). 선번장의 「송광치 PTPU」·
+     * 「통합PTP」가 이것이다. 사진의 명판은 「통합단말장치 PtoP 유니트 CT-1000 PTPU(A)」 —
+     * 앞면에 전원 스위치 둘(`PSU-AC`) · `CIT`(D-sub 콘솔) · `MNG`(RJ45) · `East`/`West` 광이 있다.
+     * E1 회선은 뒤로 나간다고 보고 넷으로 둔다(계전 회선이라 **제어**).
+     */
+    key: 'PTPU',
+    name: 'PTPU',
+    categoryKey: '통신',
+    sortOrder: 68,
+    labor: labor(0.5, 0.25, 0.5, 3_000_000),
+    ports: [
+      { group: 'EAST-TX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'EAST Tx' },
+      { group: 'EAST-RX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'EAST Rx' },
+      { group: 'WEST-TX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'WEST Tx' },
+      { group: 'WEST-RX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'WEST Rx' },
+      { group: 'E1', count: 4, direction: 'BI', medium: 'control', namePattern: 'E1 {n}' },
+      { group: 'MNG', count: 1, direction: 'BI', medium: 'network', namePattern: 'MNG' },
+      { group: 'CIT', count: 1, direction: 'BI', medium: 'control', namePattern: 'CIT' },
+      { group: 'POWER-IN-AC', count: 2, direction: 'IN', medium: 'power', namePattern: 'PSU {n}', variant: 'AC' },
+    ],
+  },
+  {
+    /* **OMS** — 소형 광전송장치(OMS 5116 · OMS-Plus). 선번장이 「Tx(주) Rx(주) Tx(예) Rx(예)」
+       네 코어를 한 대에 적는다. */
+    key: 'OMS',
+    name: 'OMS',
+    categoryKey: '통신',
+    sortOrder: 69,
+    labor: labor(0.5, 0.25, 0.5, 3_000_000),
+    ports: [
+      { group: 'MAIN-TX', count: 1, direction: 'BI', medium: 'fiber', namePattern: '주 Tx' },
+      { group: 'MAIN-RX', count: 1, direction: 'BI', medium: 'fiber', namePattern: '주 Rx' },
+      { group: 'STBY-TX', count: 1, direction: 'BI', medium: 'fiber', namePattern: '예비 Tx' },
+      { group: 'STBY-RX', count: 1, direction: 'BI', medium: 'fiber', namePattern: '예비 Rx' },
+      { group: 'E1', count: 4, direction: 'BI', medium: 'control', namePattern: 'E1 {n}' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    /* **I-MUX** — 선번장에 (A)·(B) 두 대가 각각 Tx·Rx 한 쌍으로 적힌다. 한 대가 한 쌍이다. */
+    key: 'I-MUX',
+    name: 'I-MUX',
+    categoryKey: '통신',
+    sortOrder: 74,
+    labor: labor(0.5, 0.25, 0.5, 2_000_000),
+    ports: [
+      { group: 'TX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'Tx' },
+      { group: 'RX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'Rx' },
+      { group: 'E1', count: 4, direction: 'BI', medium: 'control', namePattern: 'E1 {n}' },
+      { group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'DC' },
+    ],
+  },
+  {
+    /* **광컨버터**(미디어컨버터) — LAN 하나를 광 한 쌍으로 바꾼다. 「차세대SCADA 광컨버터(본사-주)」
+       처럼 회선마다 한 대씩 선다. 전원은 어댑터가 보통이다. */
+    key: 'MEDIA-CONV',
+    name: '광컨버터',
+    categoryKey: '통신',
+    sortOrder: 75,
+    labor: labor(0.25, 0.1, 0.25, 300_000),
+    ports: [
+      { group: 'LAN', count: 1, direction: 'BI', medium: 'network', namePattern: 'LAN' },
+      { group: 'TX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'Tx' },
+      { group: 'RX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'Rx' },
+      { group: 'POWER-IN-AC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'AC' },
+    ],
+  },
+  /*
+   * ── 통합단말장치(CT-1000) 1식을 이루는 것 ─────────────────────────────────────────
+   *
+   * 양구S/S 랙 사진(2026-09): 맨 위 전원·경보반(차단기 두 줄 · 경보 램프), 그 아래 섀시
+   * (명판 「통합단말장치 CT-1000 RT」) — 왼쪽 광 카드 둘에 노란 점퍼가 물려 있고, 가운데
+   * 채널 카드들, 오른쪽 끝 둘은 전원 카드다. 섀시 밑에 RJ45 가 늘어선 인터페이스 패널.
+   *
+   * 채널 카드는 앞에 회선이 안 물린다 — 회선은 인터페이스 패널로 나가므로 **포트를 패널에
+   * 둔다**(송변전광단말의 뒷판을 CTRU 에 붙인 것과 같은 까닭). 카드 약어는 사진에서 안
+   * 읽혀 우리말로 부른다.
+   */
+  {
+    key: 'CT1000-PDP',
+    name: '통합단말 전원·경보반',
+    categoryKey: '전원',
+    sortOrder: 35,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'POWER-IN-DC', count: 2, direction: 'IN', medium: 'power', namePattern: 'MAIN {n}', variant: 'DC' },
+      { group: 'POWER-OUT-DC', count: 8, direction: 'OUT', medium: 'power', namePattern: '분기 {n}', variant: 'DC' },
+      { group: 'GROUND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
+  },
+  {
+    key: 'CT1000-PSU',
+    name: '통합단말 전원 카드',
+    categoryKey: '통신',
+    sortOrder: 76,
+    labor: labor(0, 0, 0, 0),
+    ports: [{ group: 'POWER-IN-DC', count: 1, direction: 'IN', medium: 'power', namePattern: '전원', variant: 'DC' }],
+  },
+  {
+    /* 광 선로 카드 — 대국으로 가는 한 쌍. A·B 두 장이 링의 두 방향이다. */
+    key: 'CT1000-LINE',
+    name: '통합단말 광 선로 카드',
+    categoryKey: '통신',
+    sortOrder: 77,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'TX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'Tx' },
+      { group: 'RX', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'Rx' },
+    ],
+  },
+  { key: 'CT1000-CH', name: '통합단말 채널 카드', categoryKey: '통신', sortOrder: 78, labor: labor(0, 0, 0, 0), ports: [] },
+  {
+    /* 인터페이스 패널 — 채널 카드의 회선이 여기로 나온다. 사진의 RJ45 열을 회선 열둘 ·
+       관리 하나로 읽었다(추정). */
+    key: 'CT1000-IFP',
+    name: '통합단말 인터페이스 패널',
+    categoryKey: '통신',
+    sortOrder: 79,
+    labor: labor(0, 0, 0, 0),
+    ports: [
+      { group: 'LINE', count: 12, direction: 'BI', medium: 'control', namePattern: '회선 {n}' },
+      { group: 'MNG', count: 1, direction: 'BI', medium: 'network', namePattern: '관리' },
+    ],
+  },
   {
     /*
      * **소형 UPS(일체형)** — 표의 `UPS_C`(예스파워 YESP-5100T 같은 5kVA 급). 모듈형 UPS 1식
@@ -1172,6 +1379,86 @@ export const SEED_ASSEMBLIES: {
     })),
   },
   {
+    /*
+     * **통합단말장치 1식** — 랙 한 대(양구S/S 사진).
+     *
+     * 위 절반이 CT-1000 이고, 그 아래로 같은 랙에 보안장비 둘(FW500) · PTPU(A) · RTU 용 L2 ·
+     * 모뎀 둘(ESU7000)이 선다. **PTPU 만 품목으로 채우고** 나머지는 빈 슬롯이다 — 국마다
+     * 실장이 달라서다(송변전광단말의 「보안장비」·「망장비」 자리와 같다). 단자반(110 블록)은
+     * 밖으로 무는 자산이 아니라 자리를 두지 않는다.
+     */
+    key: 'CT1000-SET', name: '통합단말장치', categoryKey: '통신', sortOrder: 24,
+    items: [
+      { typeKey: 'CT1000-PDP', name: '전원·경보반', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+      // 섀시 — 카드 열넷(광 둘 · 채널 열 · 전원 둘). 채널은 넷만 꽂고 나머지는 빈 슬롯.
+      { typeKey: 'CT1000-LINE', name: '광 선로(A)', col: 0, row: 2, colSpan: 1, rowSpan: 7 },
+      { typeKey: 'CT1000-LINE', name: '광 선로(B)', col: 1, row: 2, colSpan: 1, rowSpan: 7 },
+      ...[2, 3, 4, 5].map((col) => ({
+        typeKey: 'CT1000-CH', name: `채널 #${col - 1}`, col, row: 2, colSpan: 1, rowSpan: 7,
+      })),
+      ...[6, 7, 8, 9, 10, 11].map((col) => ({
+        typeKey: null, name: `S.${col + 1}`, col, row: 2, colSpan: 1, rowSpan: 7,
+      })),
+      { typeKey: 'CT1000-PSU', name: '전원(A)', col: 12, row: 2, colSpan: 1, rowSpan: 7 },
+      { typeKey: 'CT1000-PSU', name: '전원(B)', col: 13, row: 2, colSpan: 1, rowSpan: 7 },
+      { typeKey: 'CT1000-IFP', name: '인터페이스 패널', col: 0, row: 9, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      // 같은 랙의 다른 장비들.
+      { typeKey: null, name: '보안장비 1', col: 0, row: 10, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: null, name: '보안장비 2', col: 0, row: 11, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: 'PTPU', name: 'PTPU(A)', col: 0, row: 12, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: null, name: '망장비', col: 0, row: 13, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+      { typeKey: null, name: '모뎀 1', col: 0, row: 14, colSpan: 7, rowSpan: 2 },
+      { typeKey: null, name: '모뎀 2', col: 7, row: 14, colSpan: 7, rowSpan: 2 },
+      { typeKey: null, name: 'AC/DC 컨버터', col: 0, row: 19, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1 },
+    ],
+    /* 전원·경보반의 분기 둘이 섀시 전원 카드 A·B 로 — 이중화. */
+    links: [
+      { aItem: '전원·경보반', aGroup: 'POWER-OUT-DC', aIndex: 1, bItem: '전원(A)', bGroup: 'POWER-IN-DC', bIndex: 1 },
+      { aItem: '전원·경보반', aGroup: 'POWER-OUT-DC', aIndex: 2, bItem: '전원(B)', bGroup: 'POWER-IN-DC', bIndex: 1 },
+    ],
+  },
+  {
+    /* 외부 설비 한 대 — 도면에 놓으려면 설비여야 한다(단품 1칸). */
+    key: 'EXT-SET', name: '외부 설비', categoryKey: '통신', sortOrder: 90,
+    items: [
+      { typeKey: 'EXT-EQUIP', name: '외부 설비', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
+    ],
+  },
+  {
+    key: 'GROUND-BOX-SET', name: '접지함체', categoryKey: '전원', sortOrder: 32,
+    labor: labor(0.5, 0.25, 0.5, 500_000),
+    items: [
+      { typeKey: 'GROUND-BOX', name: '접지함체', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows },
+    ],
+  },
+  {
+    /*
+     * **소형 AC 분전반** — 통신용 분전반과 따로, 교류 한 계통만 여덟 회로로 나누는 작은 반
+     * (양구 · 인제 · 화천의 「통신실 전원 분전반」, MAIN 125~225A). 계통 하나라 품목은
+     * 소내전원반과 같은 `AC-FEEDER` 이고 분기 수만 다르다.
+     */
+    key: 'AC-PANEL-8-SET', name: '소형 AC 분전반', categoryKey: '전원', sortOrder: 33,
+    labor: labor(1.0, 0.5, 1.0, 1_500_000),
+    items: [
+      { typeKey: 'AC-FEEDER', name: '교류전원', col: 0, row: 0, colSpan: ASSEMBLY_GRID.cols, rowSpan: ASSEMBLY_GRID.rows,
+        portCounts: { 'POWER-OUT-AC': 8 } },
+    ],
+  },
+  {
+    /*
+     * **소형광단국 랙** — PTPU · OMS · I-MUX · PCM 이 섞여 꽂히는 랙. 국마다 실장이 달라
+     * 전부 빈 슬롯이다(통신랙과 같다). 화천H/P 처럼 소형 UPS 를 함께 두는 국이 있어 맨 아래
+     * 한 자리를 그 이름으로 둔다.
+     */
+    key: 'MINI-OPT-RACK', name: '소형광단국 랙', categoryKey: '통신', sortOrder: 25,
+    items: [
+      ...Array.from({ length: ASSEMBLY_GRID.rows - 2 }, (_, i) => ({
+        typeKey: null, name: `슬롯 ${i + 1}`, col: 0, row: i, colSpan: ASSEMBLY_GRID.cols, rowSpan: 1,
+      })),
+      { typeKey: null, name: '소형 UPS', col: 0, row: ASSEMBLY_GRID.rows - 2, colSpan: ASSEMBLY_GRID.cols, rowSpan: 2 },
+    ],
+  },
+  {
     key: 'UPS-MINI-SET', name: '소형 UPS(일체형)', categoryKey: '전원', sortOrder: 43,
     labor: labor(1.0, 0.5, 1.0, 6_000_000),
     items: [
@@ -1231,6 +1518,8 @@ export interface SeedCableCategory {
   unitPrice: number;
   installManDays: number;
   removeManDays: number;
+  /** 선로 대장 값(선로명·접속개소)을 적는 종류인가 — 송전선로를 타는 OPGW 만 그렇다. */
+  managesFiberLine?: boolean;
 }
 
 export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
@@ -1242,7 +1531,7 @@ export const SEED_CABLE_CATEGORIES: SeedCableCategory[] = [
   /* 광 4종은 한 그룹이다. 점퍼코드만 한 가닥에 한 심이고 나머지 셋은 다심인데, 그 구분은
      **포트의 심선 수**(`positions`)가 하지 케이블 품목이 하지 않는다 — 케이블에는 심선 수
      필드가 아예 없다. 종류는 무엇을 깔았는지를 적는 이름일 뿐이다. */
-  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 직종없음, unitPrice: 12_000, installManDays: 0.06,  removeManDays: 0.03  },
+  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 6, laborCode: 직종없음, unitPrice: 12_000, installManDays: 0.06,  removeManDays: 0.03, managesFiberLine: true },
   { groupKey: 'fiber',   name: '광케이블',              sortOrder: 7, laborCode: 직종없음, unitPrice: 3_400, installManDays: 0.06,  removeManDays: 0.03  },
   { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8, laborCode: 직종없음, unitPrice: 5_600, installManDays: 0.06,  removeManDays: 0.03  },
   { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 9, laborCode: 직종없음, unitPrice: 2_100, installManDays: 0.04,  removeManDays: 0.02  },

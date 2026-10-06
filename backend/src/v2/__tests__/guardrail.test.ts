@@ -147,7 +147,11 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
    * 진짜 분기이므로 여전히 걸린다 — 예외는 시드 키 리터럴 패턴에만 적용된다.
    */
   it('packages/core/src 소스(테스트 제외)에 장비 품목 키 리터럴·role 비교가 없다(시드 데이터 파일 제외)', () => {
-    const CORE_SEED_DATA_ALLOWLIST = new Set(['packages/core/src/seed/catalog.ts']);
+    const CORE_SEED_DATA_ALLOWLIST = new Set([
+      'packages/core/src/seed/catalog.ts',
+      /* 국마다 무엇이 서 있는가 — 카탈로그 키를 가리키는 순수 데이터다(분기 코드가 없다). */
+      'packages/core/src/seed/stationKits.ts',
+    ]);
 
     const seedKeys = SEED_ASSET_TYPES.map((t) => t.key);
     const keyPattern = seedKeys.map((k) => `["'\`]${k.replace(/-/g, '\\-')}["'\`]`).join('|');

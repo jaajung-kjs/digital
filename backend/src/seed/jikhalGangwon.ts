@@ -23,6 +23,9 @@ import { randomUUID } from 'node:crypto';
 import { commitSubstation } from '../v2/commit.service.js';
 import { nextDb } from '../v2/db.js';
 import type { CommitPayload } from '../v2/schemas.js';
+import { PLATE_LINES, type PlateLine } from './jikhalGangwonLines.js';
+import { STATION_KITS } from '@twin/core';
+import { placeStationKit } from './kitPlacer.js';
 
 /** 통신실이 있는 층 — 현장 표준. */
 const FLOOR = '3층';
@@ -32,7 +35,7 @@ const FLOOR = '3층';
  * S/Y 열병합). 선번장이 대국을 부르는 표기가 그것이라, 같은 이름으로 세워야 자료와
  * 화면이 같은 말을 한다.
  */
-const STATIONS = [
+export const STATIONS = [
   { key: 'guchuncheon', name: '(구)춘천S/S' },
   { key: 'sinchuncheon', name: '(신)춘천S/S' },
   { key: 'bukchuncheon', name: '북춘천S/S' },
@@ -47,10 +50,10 @@ const STATIONS = [
   { key: 'chuncheonhp', name: '춘천H/P' },
 ] as const;
 
-type StationKey = (typeof STATIONS)[number]['key'];
+export type StationKey = (typeof STATIONS)[number]['key'];
 
 /** 국마다 OFD 에 꽂힌 판 — 선번장의 블록 그대로(슬롯 = 판 한 장, 성단 심수와 상대국). */
-const PLATES: Record<StationKey, { slot: number; cores: number; peer: string }[]> = {
+export const PLATES: Record<StationKey, { slot: number; cores: number; peer: string }[]> = {
   guchuncheon: [
     { slot: 1, cores: 24, peer: '홍천S/S' }, { slot: 2, cores: 24, peer: '북춘천S/S' },
     { slot: 3, cores: 12, peer: '사택계 (12C)' }, { slot: 4, cores: 12, peer: '강원D/D #3' },
@@ -105,7 +108,7 @@ const PLATES: Record<StationKey, { slot: number; cores: number; peer: string }[]
 };
 
 /** 국 안끼리 잇는 OPGW — 판 대 판. 양쪽 판이 서로를 가리키는 것만 여기 있다. */
-const OPGW: { a: StationKey; aSlot: number; b: StationKey; bSlot: number }[] = [
+export const OPGW: { a: StationKey; aSlot: number; b: StationKey; bSlot: number }[] = [
   { a: 'guchuncheon', aSlot: 2, b: 'bukchuncheon', bSlot: 1 },
   { a: 'guchuncheon', aSlot: 10, b: 'sinchuncheon', bSlot: 1 },
   { a: 'guchuncheon', aSlot: 11, b: 'sinchuncheon', bSlot: 2 },
@@ -120,6 +123,57 @@ const OPGW: { a: StationKey; aSlot: number; b: StationKey; bSlot: number }[] = [
   { a: 'seohongcheon', aSlot: 1, b: 'yeolbyeonghap', bSlot: 3 },
   { a: 'yanggu', aSlot: 3, b: 'hwacheonhp', bSlot: 3 },
 ];
+
+
+/**
+ * 국에 **실제로 세우는 판** — OPGW 가 가리키는 판만, 선번장 차례대로.
+ *
+ * 원래 차례를 지키며 번호만 당긴다 — 선번장의 3번 판이 OFD 에서는 2번 자리다. 그래서
+ * 이 목록의 `i` 번째가 OFD 설비 품목의 `i` 번째 구성 항목이다(시드와 backfill 이 같은 규칙을 쓴다).
+ */
+export function seatedPlates(key: StationKey): { slot: number; cores: number; peer: string }[] {
+  const used = new Set(OPGW.flatMap((s) => [
+    ...(s.a === key ? [s.aSlot] : []),
+    ...(s.b === key ? [s.bSlot] : []),
+  ]));
+  return PLATES[key].filter((p) => used.has(p.slot));
+}
+
+/** 선번장 판 번호 → OFD 설비 품목의 구성 항목 id — `seatedPlates` 의 `i` 번째가 `i` 번째 자리다. */
+export function plateItems(key: StationKey, ofdItemIds: readonly string[]): Map<number, string> {
+  return new Map(seatedPlates(key).flatMap((p, i) => (ofdItemIds[i] ? [[p.slot, ofdItemIds[i]!] as const] : [])));
+}
+
+/** OTDR 로 재는 코어 값의 키 — `PlateLine.cores` 의 칸 차례와 같다. */
+export const CORE_VALUE_KEYS = ['loss1310', 'distance1310', 'loss1550', 'distance1550'] as const;
+
+/**
+ * 판 하나의 OTDR 값 — 인입 포트의 코어별 값(`{"1": {loss1310, …}}`, `setPortValueAt` 의 형상).
+ *
+ * 잰 코어에만 측정일을 찍는다 — 화면에서 값을 고치면 찍히는 그 칸이다. 안 잰 코어(회선이
+ * 물려 있다)는 아예 적지 않는다.
+ */
+export function coreValues(line: PlateLine): Record<string, Record<string, unknown>> {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [i, core] of line.cores.entries()) {
+    const v: Record<string, unknown> = {};
+    CORE_VALUE_KEYS.forEach((k, j) => { if (core[j] != null) v[k] = core[j]; });
+    if (Object.keys(v).length === 0) continue;
+    if (line.measuredAt) v.measuredAt = line.measuredAt;
+    out[String(i + 1)] = v;
+  }
+  return out;
+}
+
+/** OPGW 한 본의 선로 값 — 선로명은 먼저 적힌 쪽, 길이는 긍장이 적힌 쪽(km → m). */
+export function opgwSpec(a?: PlateLine, b?: PlateLine): Record<string, unknown> {
+  const lineName = a?.line ?? b?.line;
+  const lengthKm = a?.lengthKm ?? b?.lengthKm;
+  return {
+    ...(lineName ? { lineName } : {}),
+    ...(lengthKm != null ? { lengthM: Math.round(lengthKm * 1000) } : {}),
+  };
+}
 
 type AssetCreate = NonNullable<NonNullable<CommitPayload['assets']>['creates']>[number];
 
@@ -181,6 +235,8 @@ export async function seedJikhalGangwon(): Promise<void> {
     ];
     /** 선번장의 슬롯 번호 → 인입(다심) 포트 id — OPGW 를 여기에 문다. */
     const trunkPort = new Map<number, string>();
+    /** 선번장의 슬롯 번호 → 판 자산 id — 코어 값을 그 자산의 포트 고치기로 싣는다. */
+    const slotAsset = new Map<number, string>();
 
     for (const [i, plate] of plates.entries()) {
       /* 구성 항목에 **고리를 건다** — 이름이 저절로 붙고(`renameLinkedSlots`), 선로를
@@ -197,8 +253,10 @@ export async function seedJikhalGangwon(): Promise<void> {
           if (multi && n === 1) trunkPort.set(plate.slot, id);
         }
       }
+      const slotId = randomUUID();
+      slotAsset.set(plate.slot, slotId);
       creates.push({
-        id: randomUUID(), name: item.name, typeId: item.typeId, parentAssetId: ofdId,
+        id: slotId, name: item.name, typeId: item.typeId, parentAssetId: ofdId,
         assemblyItemId: item.id,
         col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
         portIds,
@@ -206,28 +264,38 @@ export async function seedJikhalGangwon(): Promise<void> {
         portPositions: { 'FIBER-TRUNK': plate.cores },
       } as AssetCreate);
     }
-    return { creates, trunkPort };
+    return { creates, trunkPort, slotAsset };
   };
 
-  /* 이은 판만 — 국마다 OPGW 가 가리키는 슬롯 번호. */
-  const linkedSlots = new Map<StationKey, Set<number>>();
-  for (const seg of OPGW) {
-    (linkedSlots.get(seg.a) ?? linkedSlots.set(seg.a, new Set()).get(seg.a)!).add(seg.aSlot);
-    (linkedSlots.get(seg.b) ?? linkedSlots.set(seg.b, new Set()).get(seg.b)!).add(seg.bSlot);
-  }
-
   const sites: Record<string, { id: string; trunkPort: Map<number, string> }> = {};
+  let measuredPlates = 0;
   for (const [i, { key, name }] of STATIONS.entries()) {
     const substation = await nextDb.substation.create({
       data: { branchId: branch.id, name, sortOrder: i },
     });
     const floorId = randomUUID();
     await commitSubstation(substation.id, { floors: { creates: [{ id: floorId, name: FLOOR, sortOrder: 0 }] } });
-    /* 원래 차례를 지키며 번호만 당긴다 — 선번장의 3번 판이 여기서는 2번 자리다. */
-    const used = (linkedSlots.get(key) ?? new Set<number>());
-    const plates = PLATES[key].filter((p) => used.has(p.slot));
+    const plates = seatedPlates(key);
     const ofd = placeOfd(floorId, plates);
     await commitSubstation(substation.id, { assets: { creates: ofd.creates } });
+    const updates = plates.flatMap((p) => {
+      const line = PLATE_LINES[key]?.[p.slot];
+      const fieldValues = line ? coreValues(line) : {};
+      if (Object.keys(fieldValues).length === 0) return [];
+      measuredPlates++;
+      return [{
+        id: ofd.slotAsset.get(p.slot)!,
+        patch: { portPatches: [{ portId: ofd.trunkPort.get(p.slot)!, fieldValues }] },
+      }];
+    });
+    if (updates.length > 0) {
+      /* 고치기는 기준 버전을 요구한다(OCC) — 방금 만든 판이라 지금 값이 곧 기준이다. */
+      const rows = await nextDb.asset.findMany({
+        where: { id: { in: updates.map((u) => u.id) } }, select: { id: true, updatedAt: true },
+      });
+      const baseVersions = Object.fromEntries(rows.map((r) => [r.id, r.updatedAt.toISOString()]));
+      await commitSubstation(substation.id, { baseVersions, assets: { updates } });
+    }
     sites[key] = { id: substation.id, trunkPort: ofd.trunkPort };
   }
 
@@ -238,9 +306,27 @@ export async function seedJikhalGangwon(): Promise<void> {
     const bPortId = b.trunkPort.get(seg.bSlot);
     if (!aPortId || !bPortId) throw new Error(`인입 포트를 못 찾음: ${seg.a}#${seg.aSlot} ↔ ${seg.b}#${seg.bSlot}`);
     await commitSubstation(a.id, {
-      cables: { creates: [{ id: randomUUID(), aPortId, bPortId, categoryId: opgwCategoryId, specParams: {} }] },
+      cables: { creates: [{
+        id: randomUUID(), aPortId, bPortId, categoryId: opgwCategoryId,
+        specParams: opgwSpec(PLATE_LINES[seg.a]?.[seg.aSlot], PLATE_LINES[seg.b]?.[seg.bSlot]),
+      }] },
     });
   }
 
-  console.log(`[seed:jikhal] 강원본부 직할 — 국 ${STATIONS.length}, OPGW ${OPGW.length}`);
+  /* 통신실 설비 — 전원 계통과 광 장비(`@twin/core` 의 `stationKits.ts`). */
+  let equipment = 0;
+  let cables = 0;
+  for (const { key, name } of STATIONS) {
+    const kit = STATION_KITS[key];
+    if (!kit) continue;
+    const r = await placeStationKit(sites[key].id, kit, {
+      apply: true, plates: plateItems(key, assembly.items.map((i) => i.id)),
+    });
+    equipment += r.equipment;
+    cables += r.cables;
+    for (const s of r.skipped) console.log(`[seed:jikhal] ${name}: ${s}`);
+  }
+
+  console.log(`[seed:jikhal] 강원본부 직할 — 국 ${STATIONS.length}, OPGW ${OPGW.length}, 측정값 실은 판 ${measuredPlates}, `
+    + `설비 ${equipment}, 케이블 ${cables}`);
 }

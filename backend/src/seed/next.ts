@@ -170,6 +170,7 @@ async function main() {
           groupId: group.id, name: cat.name, sortOrder: cat.sortOrder,
           laborCode: cat.laborCode, unitPrice: cat.unitPrice,
           installManDays: cat.installManDays, removeManDays: cat.removeManDays,
+          managesFiberLine: cat.managesFiberLine ?? false,
         },
       });
     }
