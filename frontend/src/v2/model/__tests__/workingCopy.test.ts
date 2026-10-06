@@ -17,7 +17,7 @@ vi.mock('../api', () => ({
 
 import { workingCopyStore as store } from '../store/workingCopy';
 import { effectiveCircuits, effectiveRows, bySubstation, toModelState } from '../store/effective';
-import { deleteRows } from '../store/deleteActions';
+import { addCircuit, deleteRows, removeLastCircuit } from '../store/deleteActions';
 import { buildCommitPayload } from '../store/commitPayload';
 import { expandDeletes } from '@twin/core';
 
@@ -222,5 +222,31 @@ describe('먼 연결 — 들르지 않은 국의, 공유 광선로 코어에 닿
     expect(ms.links.map((l) => l.id)).toContain('fk');
     expect(ms.outsideLinks).toEqual([]);
     expect(expandDeletes(toModelState(store.getState()), { fiberLines: ['L'] }).links).toEqual(['fk']);
+  });
+});
+
+/* 제자리로 돌아온 손질은 변경이 아니다 — 차단기를 하나 더했다 지우면 저장할 것이 없어야 한다. */
+describe('제자리로 돌아온 고치기는 걷힌다', () => {
+  it('차단기를 더했다 지우면 변경 0건, 되돌리기는 그대로 듣는다', async () => {
+    await store.getState().ensureLoaded('S1');
+    store.temporal.getState().clear();
+    expect(addCircuit('pnl')).toBe(3);
+    store.getState().updateCircuit('pnl', 3, { label: 'CB3' });
+    expect(store.getState().dirtyCount()).toBe(2);
+    expect(removeLastCircuit('pnl')).toEqual({ blocked: null });
+    expect(store.getState().overlays.equipment.updates).toEqual({});
+    expect(store.getState().overlays.circuits).toEqual({});
+    expect(store.getState().dirtyCount()).toBe(0);
+
+    store.temporal.getState().undo();
+    expect(effectiveRows(store.getState(), 'equipment').find((e) => e.id === 'pnl')?.circuitCount).toBe(3);
+    expect(store.getState().dirtyCount()).toBe(2);
+  });
+
+  it('다른 칸은 남기고 제자리로 돌아온 칸만 걷는다', async () => {
+    await store.getState().ensureLoaded('S1');
+    store.getState().update('equipment', 'ote', { note: '메모', name: '바꿈' });
+    store.getState().update('equipment', 'ote', { name: '송광치' });
+    expect(store.getState().overlays.equipment.updates).toEqual({ ote: { note: '메모' } });
   });
 });

@@ -35,6 +35,11 @@ const EMPTY_SAVED: Saved = {
   substations: {}, floors: [], racks: [], equipment: [], circuits: [], fiberLines: [], cores: [], coreMeasurements: [],
   links: [], farLinks: [], refEquipment: [], maintenance: [], inspections: [], photos: [],
 };
+/** 저장된 행 — 고치기가 제자리로 돌아왔는지 견줄 기준(`stageUpdate` 의 `base`). */
+export function savedRow(saved: Saved, kind: RowKind, id: string): unknown {
+  return (saved[kind] as { id: string }[]).find((r) => r.id === id);
+}
+
 export function emptyOverlays(): Overlays {
   return {
     floors: emptyOverlay(), racks: emptyOverlay(), equipment: emptyOverlay(), fiberLines: emptyOverlay(),
@@ -184,7 +189,7 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       },
 
       create: (kind, row) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageCreate(s.overlays[kind] as Overlay<typeof row>, (row as { id: string }).id, row) } })),
-      update: (kind, id, patch) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageUpdate(s.overlays[kind] as Overlay<unknown>, id, patch as Partial<unknown>) } })),
+      update: (kind, id, patch) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageUpdate(s.overlays[kind] as Overlay<unknown>, id, patch as Partial<unknown>, savedRow(s.saved, kind, id)) } })),
       remove: (kind, id) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageDelete(s.overlays[kind] as Overlay<unknown>, id) } })),
       updateCircuit: (equipmentId, no, patch) => set((s) => {
         const k = circuitKey(equipmentId, no);

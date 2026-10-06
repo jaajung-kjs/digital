@@ -68,7 +68,13 @@ export function removeLastCircuit(equipmentId: string): { blocked: string | null
   if (dangling(next).some((id) => !before.has(id))) {
     return { blocked: `차단기 ${no} 에 연결이 있어 지울 수 없습니다 — 연결을 먼저 지우세요` };
   }
-  s.update('equipment', equipmentId, { circuitCount: no - 1 });
+  /* 수를 줄이는 일과 그 번호에 고쳐 두던 값을 걷는 일을 **한 번의 set** 으로 — 남겨 두면 보이지 않는
+     차단기의 값이 변경 1건으로 남는다(되돌리기 한 번에 함께 돌아온다). */
+  const k = circuitKey(equipmentId, no);
+  s.applyOverlays((o) => {
+    const { [k]: _gone, ...circuits } = o.circuits;
+    return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no - 1 }, savedEquipment(equipmentId)), circuits };
+  });
   return { blocked: null };
 }
 
@@ -90,7 +96,11 @@ export function addCircuit(equipmentId: string): number | null {
     const circuits = hasSaved
       ? { ...rest, [k]: { label: null, current: null, voltage: null, capacity: null, phase: null, switch: null, purpose: null } }
       : rest;
-    return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no }), circuits };
+    return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no }, savedEquipment(equipmentId)), circuits };
   });
   return no;
+}
+
+function savedEquipment(id: string) {
+  return workingCopyStore.getState().saved.equipment.find((e) => e.id === id);
 }
