@@ -23,6 +23,14 @@ export async function touchedSubstations(tx: Tx, p: CommitPayload): Promise<stri
   const recordEquipment = [
     ...(p.records?.maintenance?.creates ?? []), ...(p.records?.inspections?.creates ?? []), ...(p.records?.photos?.creates ?? []),
   ].map((r) => r.equipmentId);
+  /* 기록·사진 고치기·지우기는 행의 설비를 거쳐 국을 안다. */
+  const rid = (o?: { updates?: { id: string }[]; deletes?: string[] }) => idsOf(o);
+  const [mRows, iRows, pRows] = await Promise.all([
+    tx.maintenanceLog.findMany({ where: { id: { in: rid(p.records?.maintenance) } }, select: { equipmentId: true } }),
+    tx.inspectionLog.findMany({ where: { id: { in: rid(p.records?.inspections) } }, select: { equipmentId: true } }),
+    tx.equipmentPhoto.findMany({ where: { id: { in: rid(p.records?.photos) } }, select: { equipmentId: true } }),
+  ]);
+  recordEquipment.push(...[...mRows, ...iRows, ...pRows].map((r) => r.equipmentId));
   const [floors, racks, equipment, links, lines, lineIdsFromRows] = await Promise.all([
     tx.floor.findMany({ where: { id: { in: idsOf(p.floors) } }, select: { substationId: true } }),
     tx.rack.findMany({ where: { id: { in: idsOf(p.racks) } }, select: { substationId: true } }),
@@ -40,7 +48,6 @@ export async function touchedSubstations(tx: Tx, p: CommitPayload): Promise<stri
   for (const r of [...floors, ...racks, ...equipment, ...links]) add(r.substationId);
   for (const l of lines) { add(l.aSubstationId); add(l.bSubstationId); }
   for (const r of lineIdsFromRows) { add(r.core.line.aSubstationId); add(r.core.line.bSubstationId); }
-  /* 기록·사진 고치기·지우기는 설비를 거쳐 국을 안다 — 같은 설비의 국이 이미 위에서 잡혔다. */
   return [...ids].sort();
 }
 

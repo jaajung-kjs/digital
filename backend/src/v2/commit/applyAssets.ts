@@ -25,27 +25,27 @@ export async function deleteEquipment(tx: Tx, p: Ops, orphaned: string[]): Promi
 }
 
 export async function writeFloorsRacksEquipment(tx: Tx, p: Ops): Promise<void> {
-  for (const f of p.floors?.creates ?? []) await tx.floor.create({ data: f });
+  /* 이름 유일은 문장마다 검사된다 — 지우기 → 고치기 → 만들기 순으로 같은 이름의 철거+신설이 된다. */
+  for (const id of p.floors?.deletes ?? []) await tx.floor.delete({ where: { id } });
   for (const u of p.floors?.updates ?? []) {
     await tx.floor.update({ where: { id: u.id }, data: defined({ ...u.patch, backgroundDrawing: u.patch.backgroundDrawing as Prisma.InputJsonValue | undefined }) });
   }
-  for (const r of p.racks?.creates ?? []) await tx.rack.create({ data: r });
-  for (const u of p.racks?.updates ?? []) await tx.rack.update({ where: { id: u.id }, data: defined(u.patch) });
+  for (const f of p.floors?.creates ?? []) await tx.floor.create({ data: f });
 
-  /* 고치기 먼저 — 설비를 다른 랙으로 옮기고 옛 랙을 지우는 커밋이 흔하다. */
+  for (const u of p.racks?.updates ?? []) await tx.rack.update({ where: { id: u.id }, data: defined(u.patch) });
+  /* 설비 고치기(랙 옮기기)가 옛 랙 지우기보다 먼저 — 설비 지우기는 service 에서 이미 끝났다. */
   for (const u of p.equipment?.updates ?? []) {
     const { circuitCount, installDate, ...rest } = u.patch;
     await tx.equipment.update({ where: { id: u.id }, data: defined({ ...rest, installDate: dateOrNull(installDate) }) });
     if (circuitCount !== undefined) await syncCircuits(tx, u.id, circuitCount);
   }
+  for (const id of p.racks?.deletes ?? []) await tx.rack.delete({ where: { id } });
+  for (const r of p.racks?.creates ?? []) await tx.rack.create({ data: r });
   for (const c of p.equipment?.creates ?? []) {
     const { installDate, ...rest } = c;
     await tx.equipment.create({ data: defined({ ...rest, installDate: dateOrNull(installDate) }) as Prisma.EquipmentUncheckedCreateInput });
     await syncCircuits(tx, c.id, c.circuitCount ?? 0);
   }
-
-  for (const id of p.racks?.deletes ?? []) await tx.rack.delete({ where: { id } });
-  for (const id of p.floors?.deletes ?? []) await tx.floor.delete({ where: { id } });
 }
 
 /**

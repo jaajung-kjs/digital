@@ -168,6 +168,58 @@ describe('PUT /commit — 랙·설비', () => {
     expect((log.summary as { ops: { entity: string }[] }).ops.map((o) => o.entity).sort()).toEqual(['floor', 'inspection', 'maintenance']);
   });
 
+  it('같은 이름의 철거+신설을 한 커밋으로 — 랙·설비·층', async () => {
+    const r = await rackWithEquipment(org.s1, '철거신설 랙');
+    const e = await rackWithEquipment(org.s1, '철거신설 설비');
+    const fl = randomUUID();
+    await commit({ floors: { creates: [{ id: fl, substationId: org.s1, name: '3층R', sortOrder: 0 }] } }).expect(200);
+    const rackRow = await nextDb.rack.findUniqueOrThrow({ where: { id: e.rackId } });
+    const eqRow = await nextDb.equipment.findUniqueOrThrow({ where: { id: e.eqId } });
+    const flRow = await nextDb.floor.findUniqueOrThrow({ where: { id: fl } });
+    // (b) 설비 E 철거 + 같은 이름 신설(같은 랙)
+    await commit({
+      equipment: { deletes: [e.eqId], creates: [{ id: randomUUID(), substationId: org.s1, rackId: e.rackId, name: '철거신설 설비', typeId: m.equipmentTypeId }] },
+      baseVersions: { [e.eqId]: eqRow.updatedAt.toISOString() },
+    }).expect(200);
+    // (a) 빈 랙 철거 + 같은 이름 신설 (e 의 랙은 비워서)
+    const rr = randomUUID(); const rrRow = await nextDb.rack.findUniqueOrThrow({ where: { id: r.rackId } });
+    await commit({
+      equipment: { deletes: [r.eqId] }, racks: { deletes: [r.rackId], creates: [{ id: rr, substationId: org.s1, name: '철거신설 랙', rackTypeId: m.rackTypeId }] },
+      baseVersions: { [r.eqId]: (await nextDb.equipment.findUniqueOrThrow({ where: { id: r.eqId } })).updatedAt.toISOString(), [r.rackId]: rrRow.updatedAt.toISOString() },
+    }).expect(200);
+    expect(await nextDb.rack.findUnique({ where: { id: rr } })).not.toBeNull();
+    void rackRow;
+    // (c) 층
+    await commit({
+      floors: { deletes: [fl], creates: [{ id: randomUUID(), substationId: org.s1, name: '3층R', sortOrder: 0 }] },
+      baseVersions: { [fl]: flRow.updatedAt.toISOString() },
+    }).expect(200);
+  });
+
+  it('기록 고치기만 보내도 반영되고, 이력에 그 설비의 국이 남는다', async () => {
+    const { eqId } = await rackWithEquipment(org.s1, '기록 고치기');
+    const mid = randomUUID();
+    await commit({ records: { maintenance: { creates: [{ id: mid, equipmentId: eqId, occurredAt: '2026-10-01T00:00:00.000Z', content: '처음' }] } } }).expect(200);
+    const row = await nextDb.maintenanceLog.findUniqueOrThrow({ where: { id: mid } });
+    const res = await commit({
+      records: { maintenance: { updates: [{ id: mid, patch: { content: '고침' } }] } },
+      baseVersions: { [mid]: row.updatedAt.toISOString() },
+    }).expect(200);
+    expect((await nextDb.maintenanceLog.findUniqueOrThrow({ where: { id: mid } })).content).toBe('고침');
+    const log = await nextDb.changeLog.findUniqueOrThrow({ where: { id: res.body.changeLogId } });
+    expect((log.summary as { substations: string[] }).substations).toContain(org.s1);
+  });
+
+  it('기록 고치기에 낡은 기준 버전이면 409 CONFLICT', async () => {
+    const { eqId } = await rackWithEquipment(org.s1, '기록 OCC');
+    const mid = randomUUID();
+    await commit({ records: { maintenance: { creates: [{ id: mid, equipmentId: eqId, occurredAt: '2026-10-01T00:00:00.000Z', content: 'a' }] } } }).expect(200);
+    const stale = (await nextDb.maintenanceLog.findUniqueOrThrow({ where: { id: mid } })).updatedAt.toISOString();
+    await commit({ records: { maintenance: { updates: [{ id: mid, patch: { content: 'b' } }] } }, baseVersions: { [mid]: stale } }).expect(200);
+    const res = await commit({ records: { maintenance: { updates: [{ id: mid, patch: { content: 'c' } }] } }, baseVersions: { [mid]: stale } }).expect(409);
+    expect(res.body.error).toBe('CONFLICT');
+  });
+
   it('없는 국에 만들면 404', async () => {
     await commit({ racks: { creates: [{ id: randomUUID(), substationId: randomUUID(), name: 'x', rackTypeId: m.rackTypeId }] } }).expect(404);
   });

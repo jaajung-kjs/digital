@@ -17,7 +17,9 @@ export interface Actor { userId: string; username: string }
  *
  * 순서: 잠금 → 기준 버전 검사 → 지우기(연결·측정·광선로·설비) → 쓰기(층·랙·설비·회로 →
  * 광선로·코어·측정 → 연결 → 기록) → **최종 상태 검증** → 변경 이력.
- * 검증은 다 적용한 뒤 한 번 한다: 중간 상태를 물으면 맞바꾸기 같은 정상 편집이 걸린다.
+ * 검증은 다 적용한 뒤 한 번 한다.
+ * 같은 이름의 철거+신설은 한 커밋에서 된다(지우기가 만들기보다 먼저). 이미 있는 두 이름을
+ * 한 커밋에서 맞바꾸는 것은 안 된다 — 이름 유일은 문장마다 검사되므로 임시 이름을 거친다.
  */
 export async function commitChanges(
   payload: CommitPayload,
@@ -47,7 +49,8 @@ export async function commitChanges(
       });
       return { committedAt: new Date().toISOString(), changeLogId: log.id };
     }, { timeout: 60_000 });
-    await removePhotoFiles(orphaned);
+    /* 커밋은 끝났다 — 정리가 실패해도 성공을 실패로 말하지 않는다. */
+    try { await removePhotoFiles(orphaned); } catch (err) { console.warn('[commit] 고아 사진 파일 정리 실패', err); }
     return result;
   } catch (e) {
     throw asCommitError(e);
@@ -78,7 +81,7 @@ async function checkVersions(tx: Tx, p: CommitPayload): Promise<void> {
   const base = p.baseVersions ?? {};
   const idsOf = (o?: { updates?: { id: string }[]; deletes?: string[] }) => [...(o?.updates ?? []).map((u) => u.id), ...(o?.deletes ?? [])];
   const pick = { id: true, updatedAt: true } as const;
-  const [floors, racks, equipment, lines, measurements, links, circuits, cores] = await Promise.all([
+  const [floors, racks, equipment, lines, measurements, links, circuits, cores, mLogs, iLogs, photos] = await Promise.all([
     tx.floor.findMany({ where: { id: { in: idsOf(p.floors) } }, select: pick }),
     tx.rack.findMany({ where: { id: { in: idsOf(p.racks) } }, select: pick }),
     tx.equipment.findMany({ where: { id: { in: idsOf(p.equipment) } }, select: pick }),
@@ -91,13 +94,17 @@ async function checkVersions(tx: Tx, p: CommitPayload): Promise<void> {
     Promise.all((p.cores?.updates ?? []).map((c) =>
       tx.core.findUnique({ where: { lineId_no: { lineId: c.lineId, no: c.no } }, select: { updatedAt: true } })
         .then((r) => ({ key: coreKey(c.lineId, c.no), at: r?.updatedAt ?? null })))),
+    tx.maintenanceLog.findMany({ where: { id: { in: idsOf(p.records?.maintenance) } }, select: pick }),
+    tx.inspectionLog.findMany({ where: { id: { in: idsOf(p.records?.inspections) } }, select: pick }),
+    tx.equipmentPhoto.findMany({ where: { id: { in: idsOf(p.records?.photos) } }, select: pick }),
   ]);
   const server = new Map<string, string | null>([
-    ...[...floors, ...racks, ...equipment, ...lines, ...measurements, ...links].map((r) => [r.id, r.updatedAt.toISOString()] as const),
+    ...[...floors, ...racks, ...equipment, ...lines, ...measurements, ...links, ...mLogs, ...iLogs, ...photos].map((r) => [r.id, r.updatedAt.toISOString()] as const),
     ...[...circuits, ...cores].map((r) => [r.key, r.at?.toISOString() ?? null] as const),
   ]);
   const wanted = [
     ...idsOf(p.floors), ...idsOf(p.racks), ...idsOf(p.equipment), ...idsOf(p.fiberLines), ...idsOf(p.coreMeasurements), ...idsOf(p.links),
+    ...idsOf(p.records?.maintenance), ...idsOf(p.records?.inspections), ...idsOf(p.records?.photos),
     ...circuits.map((c) => c.key), ...cores.map((c) => c.key),
   ];
   type Conflict = { key: string; reason: 'deleted' } | { key: string; reason: 'modified'; serverUpdatedAt: string };
