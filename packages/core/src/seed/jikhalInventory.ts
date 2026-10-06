@@ -2472,7 +2472,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-춘천H/P",
-          "label": "P WEST-TX:1"
+          "label": "WEST-TX:1"
         }
       },
       {
@@ -2485,7 +2485,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-춘천H/P",
-          "label": "P WEST-RX:1"
+          "label": "WEST-RX:1"
         }
       },
       {
@@ -2498,7 +2498,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-춘천H/P",
-          "label": "P EAST-TX:1"
+          "label": "EAST-TX:1"
         }
       },
       {
@@ -2511,7 +2511,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-춘천H/P",
-          "label": "P EAST-RX:1"
+          "label": "EAST-RX:1"
         }
       },
       {
@@ -2524,7 +2524,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "송광PTP 북춘천-화천H/P",
-          "label": "P EAST-TX:1"
+          "label": "EAST-TX:1"
         }
       },
       {
@@ -2537,7 +2537,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "송광PTP 북춘천-화천H/P",
-          "label": "P WEST-TX:1"
+          "label": "WEST-TX:1"
         }
       },
       {
@@ -7948,7 +7948,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 화천-화천H/P",
-          "label": "P WEST-TX:1"
+          "label": "WEST-TX:1"
         }
       },
       {
@@ -7961,7 +7961,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 화천-화천H/P",
-          "label": "P WEST-RX:1"
+          "label": "WEST-RX:1"
         }
       },
       {
@@ -8128,7 +8128,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "송광PTP 화천H/P-북춘천",
-          "label": "P-북춘천 EAST-TX:1"
+          "label": "EAST-TX:1"
         }
       },
       {
@@ -8141,7 +8141,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "송광PTP 화천H/P-북춘천",
-          "label": "P-북춘천 WEST-TX:1"
+          "label": "WEST-TX:1"
         }
       },
       {
@@ -8206,7 +8206,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 화천-화천H/P",
-          "label": "P EAST-TX:1"
+          "label": "EAST-TX:1"
         }
       },
       {
@@ -8219,7 +8219,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 화천-화천H/P",
-          "label": "P EAST-RX:1"
+          "label": "EAST-RX:1"
         }
       },
       {
@@ -8476,7 +8476,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "송광PTP 화천H/P-북춘천",
-          "label": "P-북춘천 EAST-TX:1"
+          "label": "EAST-TX:1"
         }
       },
       {
@@ -8489,7 +8489,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "송광PTP 화천H/P-북춘천",
-          "label": "P-북춘천 WEST-TX:1"
+          "label": "WEST-TX:1"
         }
       },
       {
@@ -8502,7 +8502,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-춘천H/P",
-          "label": "P EAST-TX:1"
+          "label": "EAST-TX:1"
         }
       },
       {
@@ -8515,7 +8515,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-춘천H/P",
-          "label": "P EAST-RX:1"
+          "label": "EAST-RX:1"
         }
       },
       {
@@ -8528,7 +8528,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-춘천H/P",
-          "label": "P WEST-TX:1"
+          "label": "WEST-TX:1"
         }
       },
       {
@@ -8541,7 +8541,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-춘천H/P",
-          "label": "P WEST-RX:1"
+          "label": "WEST-RX:1"
         }
       },
       {
@@ -8554,7 +8554,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-화천H/P",
-          "label": "P EAST-TX:1"
+          "label": "EAST-TX:1"
         }
       },
       {
@@ -8567,7 +8567,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "통합PTP 북춘천-화천H/P",
-          "label": "P EAST-RX:1"
+          "label": "EAST-RX:1"
         }
       },
       {
@@ -8580,7 +8580,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "I-MUX(북춘천-춘천H/P)",
-          "label": "P) TX:1"
+          "label": "TX:1"
         }
       },
       {
@@ -8593,7 +8593,7 @@ export const JIKHAL_INVENTORY: Record<string, StationInventory> = {
         },
         "b": {
           "equipment": "I-MUX(북춘천-춘천H/P)",
-          "label": "P) RX:1"
+          "label": "RX:1"
         }
       },
       {

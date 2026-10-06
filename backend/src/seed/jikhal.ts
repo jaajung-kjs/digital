@@ -125,9 +125,14 @@ function addInventory(payload: CommitPayload, input: JikhalInput, plateEnd: Map<
         }
       }
     }
+    const eqOf = (name: string): string => {
+      const id = eqId.get(name);
+      if (!id) throw new Error(`국 설비 「${key}」: 연결 끝의 설비 「${name}」 가 없습니다`);
+      return id;
+    };
     const end = (x: InvEnd): NonNullable<Creates<'links'>[number]['a']> | null => {
-      if ('equipment' in x) return { kind: 'equipment', equipmentId: eqId.get(x.equipment)!, label: x.label ?? null };
-      if ('circuit' in x) return { kind: 'circuit', equipmentId: eqId.get(x.circuit[0])!, no: x.circuit[1] };
+      if ('equipment' in x) return { kind: 'equipment', equipmentId: eqOf(x.equipment), label: x.label ?? null };
+      if ('circuit' in x) return { kind: 'circuit', equipmentId: eqOf(x.circuit[0]), no: x.circuit[1] };
       const at = plateEnd.get(`${key}#${x.core[0]}`);
       return at ? { kind: 'core', lineId: at.lineId, no: x.core[1], side: at.side } : null;
     };

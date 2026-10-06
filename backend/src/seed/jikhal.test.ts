@@ -99,6 +99,22 @@ describe('buildJikhalPayload — 국 설비', () => {
     expect(p.circuits!.updates).toHaveLength(total);
   });
 
+  it('직할 인벤토리의 점퍼는 하나도 버려지지 않는다 — 모든 판이 세운 광선로다', () => {
+    const invLinks = Object.values(JIKHAL_INVENTORY).reduce((n, s) => n + s.links.length, 0);
+    expect(p.links!.creates).toHaveLength(invLinks);
+  });
+
+  it('설비 끝의 표기는 포트뿐이다 — 부품 이름은 랙의 주 설비에만, 채운 장비 이름의 「/」 조각이 붙지 않는다', () => {
+    for (const s of Object.values(JIKHAL_INVENTORY)) {
+      /* 랙 이름과 같은 설비 = 랙의 주 설비(부품을 품는다). 나머지는 슬롯에 채운 장비 — 그 자체가 항목이다. */
+      const main = new Set(s.racks.flatMap((r) => r.equipment.filter((e) => e.name === r.name).map((e) => e.name)));
+      for (const l of s.links) for (const e of [l.a, l.b]) {
+        if (!('equipment' in e) || e.label == null) continue;
+        expect(e.label, `${e.equipment}`).toMatch(main.has(e.equipment) ? /^(?:[^ ]+ )?[A-Z0-9-]+:\d+$/ : /^[A-Z0-9-]+:\d+$/);
+      }
+    }
+  });
+
   it('점퍼의 코어 끝은 그 국의 끝(A|B)으로 풀린다 — 판이 광선로가 아니면 버린다', () => {
     const lineEnds = new Map(p.fiberLines!.creates!.flatMap((l) => [[`${l.id}:A`, l.a.substationId], [`${l.id}:B`, l.b.substationId]]));
     for (const l of p.links!.creates!) for (const e of [l.a, l.b]) {
