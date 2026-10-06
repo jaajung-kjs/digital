@@ -345,3 +345,26 @@ describe('차단기 편집 창 바닥', () => {
     expect(within(dialog).getByText('고친 내용은 위 「저장」을 눌러야 저장됩니다')).toBeInTheDocument();
   });
 });
+
+/* 분전반의 연결 탭에 받는 것과 주는 것이 섞이면 어느 것이 이 설비의 전원인지 줄마다 읽어야 안다. */
+describe('설비 상세 — 연결 탭 갈래', () => {
+  it('차단기가 있고 둘 다 있으면 「전원 받는 곳」(설비 자신의 끝)과 「부하」(차단기 끝)로 나눈다', () => {
+    const s = store.getState();
+    s.create('equipment', { ...eqBase, id: 'src', name: '정류기', circuitCount: 0 });
+    s.create('links', { id: 'kf', substationId: 'S1', cableTypeId: null, lengthM: null, spec: null, note: null, pathPoints: [], a: { kind: 'equipment', equipmentId: 'src' }, b: { kind: 'equipment', equipmentId: 'p' }, updatedAt: '' });
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    fireEvent.click(screen.getByRole('tab', { name: '연결' }));
+    const feed = screen.getByRole('region', { name: '전원 받는 곳' });
+    const loads = screen.getByRole('region', { name: '부하' });
+    expect(within(feed).getAllByTestId('link-far').map((e) => e.textContent)).toEqual([expect.stringContaining('정류기')]);
+    expect(within(loads).getAllByTestId('link-far').map((e) => e.textContent)).toEqual([expect.stringContaining('부하')]);
+  });
+
+  it('한쪽뿐이거나 차단기가 없는 설비는 나누지 않는다', () => {
+    render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    fireEvent.click(screen.getByRole('tab', { name: '연결' }));
+    expect(screen.getAllByTestId('link-far')).toHaveLength(1);
+    expect(screen.queryByText('전원 받는 곳')).toBeNull();
+    expect(screen.queryByText('부하', { selector: 'div' })).toBeNull();
+  });
+});

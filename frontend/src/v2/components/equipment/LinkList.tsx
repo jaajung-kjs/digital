@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
-import { Button, CommitInput, isComposing, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListItemRow } from '../../../components/ui';
+import { Button, CommitInput, isComposing, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListHeading, ListItemRow } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
+import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Link } from '../../model/types';
 import { ConnectDialog } from './ConnectDialog';
@@ -13,6 +14,10 @@ import { endLabel, linksOfEquipment, nearLabel, sidesOf } from './endpoints';
  *
  * 한 건 = 두 줄: 첫 줄 **상대 끝 이름**(이 줄만의 것이라 진하게), 둘째 줄 `이쪽: 차단기 3 · 케이블 · 12 m`.
  * 이쪽 설비 이름은 패널 머리에 이미 있으니 다시 적지 않는다. 없는 값(표기·케이블·길이)은 건너뛴다.
+ *
+ * 차단기가 있는 설비(분전반)는 **받는 쪽과 주는 쪽**이 한 목록에 섞이면 어느 것이 이 설비의 전원인지 줄마다
+ * 둘째 줄을 읽어야 안다. 둘 다 있으면 갈래로 나눈다: 「전원 받는 곳」 = 이쪽 끝이 설비 자신인 연결,
+ * 「부하」 = 이쪽 끝이 그 설비의 차단기인 연결. 한쪽뿐이면 나누지 않는다(머리 하나는 아무것도 가르지 않는다).
  */
 export function LinkList({ equipmentId, substationId }: { equipmentId: string; substationId: string }) {
   const catalog = useCatalog().data;
@@ -24,6 +29,17 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
   const [editing, setEditing] = useState<string | null>(null);
   const s = { saved, overlays };
   const links = useMemo(() => linksOfEquipment({ saved, overlays }, equipmentId), [saved, overlays, equipmentId]);
+  const hasBreakers = useMemo(
+    () => (effectiveRows({ saved, overlays }, 'equipment').find((e) => e.id === equipmentId)?.circuitCount ?? 0) > 0,
+    [saved, overlays, equipmentId],
+  );
+  const groups = useMemo(() => {
+    const feed = links.filter((l) => l[sidesOf(l, equipmentId).near].kind === 'equipment');
+    const loads = links.filter((l) => l[sidesOf(l, equipmentId).near].kind === 'circuit');
+    return hasBreakers && feed.length > 0 && loads.length > 0
+      ? [{ title: '전원 받는 곳', links: feed }, { title: '부하', links: loads }]
+      : [{ title: null, links }];
+  }, [links, hasBreakers, equipmentId]);
   const cableName = (id: string | null) => (id ? catalog?.cableTypes.find((c) => c.id === id)?.name ?? null : null);
 
   function relabel(l: Link, side: 'a' | 'b', raw: string) {
@@ -43,37 +59,49 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
       <DetailCardHeader title="연결" actions={<Button variant="secondary" size="sm" onClick={() => setOpen(true)}>잇기</Button>} />
       <ErrorStrip message={error} onDismiss={() => setError(null)} />
       {links.length === 0 && <EmptyState title="아직 연결이 없습니다" />}
-      {links.map((l) => {
-        const { near, far } = sidesOf(l, equipmentId);
-        const nearRef = l[near];
-        const here = nearLabel(nearRef);
-        const meta = [here && `이쪽: ${here}`, cableName(l.cableTypeId), l.lengthM != null ? `${l.lengthM} m` : null].filter(Boolean).join(' · ');
-        const farText = endLabel(s, far);
-        return (
-          <ListItemRow
-            key={l.id}
-            meta={editing === l.id && nearRef.kind === 'equipment' ? (
-              <CommitInput
-                size="sm" autoFocus aria-label="이쪽 표기" placeholder="표기(예 AC IN)" value={nearRef.label ?? ''}
-                onCommit={(v) => relabel(l, near, v)}
-                onBlur={() => setEditing(null)}
-                onKeyDown={(e) => { if (e.key === 'Escape' && !isComposing(e)) setEditing(null); }}
-              />
-            ) : <span data-testid="link-near" title={meta}>{meta}</span>}
-            actions={(
-              <>
-                {nearRef.kind === 'equipment' && (
-                  <IconButton size="sm" aria-label="표기 고치기" title="이쪽 표기 고치기" onClick={() => setEditing(l.id)}><Pencil className="h-3.5 w-3.5" /></IconButton>
-                )}
-                <IconButton size="sm" tone="danger" aria-label="연결 지우기" title="연결 지우기" onClick={() => remove(l.id)}><Trash2 className="h-3.5 w-3.5" /></IconButton>
-              </>
-            )}
-          >
-            <span data-testid="link-far" title={farText}>{farText}</span>
-          </ListItemRow>
-        );
-      })}
+      {/* 줄들은 한 자식으로 묶는다 — 카드는 자식마다 여백을 주므로, 따로 두면 줄 사이가 벌어진다(CONVENTIONS §3 「카드 안 목록 줄」). */}
+      {links.length > 0 && (
+        <div>
+          {groups.map((g) => (
+            <section key={g.title ?? 'all'} aria-label={g.title ?? undefined}>
+              {g.title && <ListHeading>{g.title}</ListHeading>}
+              {g.links.map((l) => row(l))}
+            </section>
+          ))}
+        </div>
+      )}
       <ConnectDialog substationId={substationId} from={{ kind: 'equipment', equipmentId }} open={open} onClose={() => setOpen(false)} onCreated={() => setError(null)} />
     </DetailCard>
   );
+
+  function row(l: Link) {
+    const { near, far } = sidesOf(l, equipmentId);
+    const nearRef = l[near];
+    const here = nearLabel(nearRef);
+    const meta = [here && `이쪽: ${here}`, cableName(l.cableTypeId), l.lengthM != null ? `${l.lengthM} m` : null].filter(Boolean).join(' · ');
+    const farText = endLabel(s, far);
+    return (
+      <ListItemRow
+        key={l.id}
+        meta={editing === l.id && nearRef.kind === 'equipment' ? (
+          <CommitInput
+            size="sm" autoFocus aria-label="이쪽 표기" placeholder="표기(예 AC IN)" value={nearRef.label ?? ''}
+            onCommit={(v) => relabel(l, near, v)}
+            onBlur={() => setEditing(null)}
+            onKeyDown={(e) => { if (e.key === 'Escape' && !isComposing(e)) setEditing(null); }}
+          />
+        ) : <span data-testid="link-near" title={meta}>{meta}</span>}
+        actions={(
+          <>
+            {nearRef.kind === 'equipment' && (
+              <IconButton size="sm" aria-label="표기 고치기" title="이쪽 표기 고치기" onClick={() => setEditing(l.id)}><Pencil className="h-3.5 w-3.5" /></IconButton>
+            )}
+            <IconButton size="sm" tone="danger" aria-label="연결 지우기" title="연결 지우기" onClick={() => remove(l.id)}><Trash2 className="h-3.5 w-3.5" /></IconButton>
+          </>
+        )}
+      >
+        <span data-testid="link-far" title={farText}>{farText}</span>
+      </ListItemRow>
+    );
+  }
 }
