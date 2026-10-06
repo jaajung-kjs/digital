@@ -5,9 +5,9 @@
  * 키는 새 행에서만 적고 그 뒤로는 읽기 전용이다. 순서는 끌어 바꾸지 않고 「순서」 숫자 칸으로
  * 고친다. 지우기가 막히면(쓰이는 품목) 서버 문구가 그 행 아래에 뜬다.
  */
-import { useState, type FocusEvent } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-import { Button, EMPTY, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey } from '../../../components/ui';
+import { useRef, useState } from 'react';
+import { Check, Plus, Trash2, X } from 'lucide-react';
+import { Button, EMPTY, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
 import { apiErrorMessage } from '../../apiError';
 import { useCatalogMutations } from '../../model/hooks';
 import type { CatalogKind } from '../../model/types';
@@ -48,6 +48,9 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
   const rows = rawRows as readonly Row[];
   const { create, patch, remove } = useCatalogMutations();
   const [draft, setDraft] = useState<Row | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
+  /** 만드는 중인가 — 한 번에 하나만 보낸다(Enter 연타·버튼 겹침). */
+  const creating = useRef(false);
   const [error, setError] = useState<{ id: string; message: string } | null>(null);
 
   /* 키는 맨 앞 「순서」 칸 바로 뒤에 선다. */
@@ -61,28 +64,37 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
   function commitPatch(row: Row, col: Column, raw: unknown) {
     const next = parse(col, raw);
     if (next === undefined) return; // 빈 이름은 고치지 않는다
+    if (next === null && col.key === 'sortOrder') return; // 순서는 비울 수 없다
     if (next === (row[col.key] ?? null) || (col.kind !== 'number' && next === str(row[col.key]))) return;
     setError(null);
     patch.mutateAsync({ kind, id: str(row.id), patch: { [col.key]: next } }).catch((e) => fail(str(row.id), e, '고치지 못했습니다'));
   }
 
+  /** 추가는 **분명한 손짓**(Enter·추가 단추)으로만 한다 — 선택 칸은 blur 만으로는 끝났는지 알 수 없다. */
   function submitDraft() {
-    if (!draft) return;
+    if (!draft || creating.current) return;
     const body: Row = {};
     for (const c of cols) {
       const v = parse(c, draft[c.key]);
-      if (c.required && (v === undefined || v === null)) return;
+      if (c.required && (v === undefined || v === null)) {
+        setError({ id: 'new', message: `${c.label}을(를) 입력하세요` });
+        return;
+      }
       if (v !== undefined) body[c.key] = v;
     }
     setError(null);
-    create.mutateAsync({ kind, body }).then(() => setDraft(null)).catch((e) => fail('new', e, '추가하지 못했습니다'));
+    creating.current = true;
+    create.mutateAsync({ kind, body })
+      .then(() => setDraft(null))
+      .catch((e) => fail('new', e, '추가하지 못했습니다'))
+      .finally(() => { creating.current = false; });
   }
 
-  function onDraftBlur(e: FocusEvent<HTMLTableRowElement>) {
-    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) submitDraft();
-  }
+  function cancelDraft() { setDraft(null); setError(null); }
 
-  function removeRow(row: Row) {
+  async function removeRow(row: Row) {
+    const name = str(row.name);
+    if (!(await confirm({ title: `${title} 지우기`, target: name, message: '지우면 되돌릴 수 없습니다.', confirmLabel: '지우기', danger: true }))) return;
     setError(null);
     remove.mutateAsync({ kind, id: str(row.id) }).catch((e) => fail(str(row.id), e, '지우지 못했습니다'));
   }
@@ -109,7 +121,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
         onChange={(e) => set(e.currentTarget.value)}
         onKeyDown={(e) => {
           if (isCommitKey(e)) submitDraft();
-          if (e.key === 'Escape') { e.stopPropagation(); setDraft(null); setError(null); }
+          if (e.key === 'Escape') { e.stopPropagation(); cancelDraft(); }
         }}
       />
     );
@@ -164,6 +176,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
                     <IconButton
                       size="sm"
                       aria-label={`${str(row.name)} 지우기`}
+                      tone="danger"
                       className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                       onClick={() => removeRow(row)}
                     >
@@ -178,9 +191,14 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
             ))}
             {draft && (
               <>
-                <tr className={TABLE_ROW} onBlur={onDraftBlur}>
+                <tr className={TABLE_ROW}>
                   {cols.map((c) => <Td key={c.key} align={alignOf(c)}>{draftCell(c)}</Td>)}
-                  <Td>{' '}</Td>
+                  <Td align="right">
+                    <span className="flex justify-end gap-0.5">
+                      <IconButton size="sm" aria-label="추가 확정" onClick={submitDraft}><Check size={12} /></IconButton>
+                      <IconButton size="sm" tone="danger" aria-label="추가 취소" onClick={cancelDraft}><X size={12} /></IconButton>
+                    </span>
+                  </Td>
                 </tr>
                 {error?.id === 'new' && (
                   <tr><td colSpan={cols.length + 1}><ErrorStrip message={error.message} onDismiss={() => setError(null)} className="px-2.5 py-1" /></td></tr>
@@ -190,6 +208,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
           </tbody>
         </TableCard>
       </div>
+      {confirmDialog}
     </div>
   );
 }
