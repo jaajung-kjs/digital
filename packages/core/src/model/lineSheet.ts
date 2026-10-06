@@ -1,10 +1,10 @@
 import type { LinkEndRef } from './types.js';
 import { endRefKey } from './types.js';
 import { rowsForCount } from './rows.js';
-import { DEFAULT_CORE_STATUS } from './vocab.js';
+import { DEFAULT_CORE_STATUS, type Side } from './vocab.js';
 
 /** 선번장 파생 — 국 끝마다 블록 하나, 코어 행은 1..N. 순수 함수(저장 없음). */
-export type LineSide = 'A' | 'B';
+export type LineSide = Side;
 export interface SheetMeasurement { measuredOn: string | null; loss1310: number | null; dist1310: number | null; loss1550: number | null; dist1550: number | null }
 export interface SheetRow {
   no: number;
@@ -72,7 +72,7 @@ export function lineSheet(input: {
     const coreRows: CoreIn[] = own.length > 0
       ? own
       : rowsForCount([], line.coreCount).create.map((no) => ({
-          lineId: line.id, no, status: DEFAULT_CORE_STATUS as string, role: null, purpose: null, note: null,
+          lineId: line.id, no, status: DEFAULT_CORE_STATUS, role: null, purpose: null, note: null,
         }));
 
     for (const side of ['A', 'B'] as const) {
@@ -123,14 +123,13 @@ export function lineSheet(input: {
   const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   return blocks.sort((x, y) => {
     if ((x.equipmentId === null) !== (y.equipmentId === null)) return x.equipmentId === null ? 1 : -1;
-    if (x.equipmentId !== null && y.equipmentId !== null) {
-      const e = cmp(equipmentOrder(x.equipmentId), equipmentOrder(y.equipmentId));
-      if (e) return e;
-      if ((x.panel === null) !== (y.panel === null)) return x.panel === null ? 1 : -1;
-      if (x.panel !== null && y.panel !== null && x.panel !== y.panel) return x.panel - y.panel;
-      if (x.startNo !== y.startNo) return x.startNo - y.startNo;
-      return 0;
+    if (x.equipmentId === null || y.equipmentId === null) {
+      return cmp(x.peerSubstationId, y.peerSubstationId) || cmp(x.lineId, y.lineId);
     }
-    return cmp(x.peerSubstationId, y.peerSubstationId) || cmp(x.lineId, y.lineId);
+    const e = cmp(equipmentOrder(x.equipmentId), equipmentOrder(y.equipmentId));
+    if (e) return e;
+    if ((x.panel === null) !== (y.panel === null)) return x.panel === null ? 1 : -1;
+    if (x.panel !== null && y.panel !== null && x.panel !== y.panel) return x.panel - y.panel;
+    return x.startNo - y.startNo;
   });
 }

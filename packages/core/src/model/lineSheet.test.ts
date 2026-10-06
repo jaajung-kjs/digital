@@ -65,4 +65,32 @@ describe('lineSheet', () => {
     expect(r.map((x) => x.no)).toEqual([1, 2, 3, 4]);
     expect(r[0]!.status).toBe('ok');
   });
+  it('역방향 미러: B near == A far', () => {
+    const links = [{ id: 'k', a: core('L1', 1, 'B'), b: eq('e1') }];
+    const b = lineSheet({ ...base, lines: [line({ bSubstationId: 'X' })], links });
+    const a = b.find((x) => x.side === 'A')!, bb = b.find((x) => x.side === 'B')!;
+    expect(bb.rows[0]!.near).toEqual(eq('e1'));
+    expect(a.rows[0]!.far).toEqual(bb.rows[0]!.near);
+  });
+  it('정렬: equipmentOrder 로 설비 간, 같은 설비·슬롯이면 startNo', () => {
+    const order2 = (id: string) => ({ e1: 'b', e2: 'a' })[id] ?? id;
+    const b = lineSheet({
+      ...base, equipmentOrder: order2,
+      lines: [line({ id: 'p', aEquipmentId: 'e1' }), line({ id: 'q', aEquipmentId: 'e2' }),
+        line({ id: 'r', aEquipmentId: 'e2', aStartNo: 49 }), line({ id: 's', aEquipmentId: 'e2', aStartNo: 25 })],
+    });
+    expect(b.map((x) => x.lineId)).toEqual(['q', 's', 'r', 'p']);
+  });
+  it('패치 연결: 두 선로 코어끼리, 각 블록 near 는 상대 코어 끝', () => {
+    const links = [{ id: 'k', a: core('L1', 1, 'A'), b: core('L2', 2, 'A') }];
+    const b = lineSheet({ ...base, lines: [line(), line({ id: 'L2' })], links });
+    expect(b.find((x) => x.lineId === 'L1')!.rows[0]!.near).toEqual(core('L2', 2, 'A'));
+    expect(b.find((x) => x.lineId === 'L2')!.rows[1]!.near).toEqual(core('L1', 1, 'A'));
+  });
+  it('점퍼: 같은 선로 두 코어', () => {
+    const links = [{ id: 'k', a: core('L1', 1, 'A'), b: core('L1', 3, 'A') }];
+    const r = lineSheet({ ...base, lines: [line()], links })[0]!.rows;
+    expect(r[0]!.near).toEqual(core('L1', 3, 'A'));
+    expect(r[2]!.near).toEqual(core('L1', 1, 'A'));
+  });
 });
