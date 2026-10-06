@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, EmptyState, ErrorStrip, Input, Select, ViewCard, useConfirm } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, EmptyState, ErrorStrip, Input, ListRow, Select, ViewCard, useConfirm } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
+import { expandDeletes } from '@twin/core';
 import { deleteRows } from '../../model/store/deleteActions';
-import { effectiveRows } from '../../model/store/effective';
+import { effectiveRows, toModelState } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import { RackTypeOptions } from './TypeOptions';
 
@@ -31,6 +32,10 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
   const patch = (p: Partial<typeof rack>) => workingCopyStore.getState().update('racks', rackId, p);
 
   async function remove() {
+    /* 막힌 일은 묻지 않는다 — 먼저 알아보고 까닭을 말한다. */
+    const plan = expandDeletes(toModelState(workingCopyStore.getState(), catalog?.cableTypes), { racks: [rackId] });
+    if (plan.blocked.length > 0) { setBlocked(plan.blocked.map((x) => x.reason).join(' / ')); return; }
+    setBlocked(null);
     if (!(await confirm({ title: '랙 삭제', target: rack!.name, message: '저장 전에는 되돌릴 수 있습니다.', confirmLabel: '삭제', danger: true }))) return;
     const { blocked: b } = deleteRows({ racks: [rackId] });
     if (b.length > 0) { setBlocked(b.map((x) => x.reason).join(' / ')); return; }
@@ -54,9 +59,9 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
         </DetailCard>
         <DetailCard>
           <DetailCardHeader title={`안의 설비 ${inside.length}`} actions={<Button variant="secondary" size="sm" onClick={() => onAddEquipment(rackId)}>설비 추가</Button>} />
-          {inside.length === 0 && <p className="text-xs text-content-faint">안에 설비가 없습니다</p>}
+          {inside.length === 0 && <ListRow>안에 설비가 없습니다</ListRow>}
           {inside.map((e) => (
-            <button key={e.id} type="button" className="block w-full truncate rounded px-1 text-left text-sm text-content hover:bg-surface-2" onClick={() => onSelectEquipment(e.id)}>{e.name}</button>
+            <ListRow key={e.id} onClick={() => onSelectEquipment(e.id)}>{e.name}</ListRow>
           ))}
         </DetailCard>
       </div>

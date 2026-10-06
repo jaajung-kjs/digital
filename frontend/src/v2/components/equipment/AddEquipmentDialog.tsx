@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_EQUIPMENT_STATUS } from '@twin/core';
 import { Button, DetailRow, ErrorStrip, Input, Modal, Select } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
@@ -26,6 +26,8 @@ export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose,
     () => trimmed !== '' && bySubstation(effectiveRows({ saved, overlays }, 'equipment'), substationId).some((e) => e.name === trimmed),
     [saved, overlays, substationId, trimmed],
   );
+  /* 닫히면 쓰던 것을 버린다 — 다시 열면 빈 상자다. */
+  useEffect(() => { if (!open) { setName(''); setTypeId(''); setRackPick(null); setCircuits('0'); } }, [open]);
   const ok = trimmed !== '' && typeId !== '' && rackId !== '' && Number.isInteger(n) && n >= 0 && n <= 999 && !dup;
 
   function submit() {
@@ -36,7 +38,6 @@ export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose,
       model: null, maker: null, madeOn: null, serial: null, installDate: null, manager: null, note: null,
       circuitCount: n, panelCount: null, updatedAt: '',
     });
-    setName(''); setTypeId(''); setRackPick(null); setCircuits('0');
     onCreated(id);
     onClose();
   }

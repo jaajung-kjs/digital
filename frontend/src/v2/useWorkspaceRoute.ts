@@ -53,6 +53,8 @@ export function useWorkspaceRoute() {
         const p = new URLSearchParams(prev);
         if (value) p.set(key, value);
         else p.delete(key);
+        /* 설비와 랙은 하나만 고른다 — 새로 고르면 다른 쪽은 놓는다(한 번의 주소 쓰기). */
+        if (value) p.delete(key === 'eq' ? 'rack' : 'eq');
         return p;
       }, { replace: true });
     },

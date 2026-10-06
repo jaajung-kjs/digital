@@ -68,3 +68,20 @@ describe('설비 추가', () => {
     expect(screen.getByText(/같은 이름의 설비가 있습니다/)).toBeInTheDocument();
   });
 });
+
+describe('닫았다 다시 열면 빈 상자다', () => {
+  it('랙 추가', () => {
+    const { rerender } = render(<AddRackDialog substationId="S1" open onClose={vi.fn()} onCreated={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '쓰다 만' } });
+    rerender(<AddRackDialog substationId="S1" open={false} onClose={vi.fn()} onCreated={vi.fn()} />);
+    rerender(<AddRackDialog substationId="S1" open onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect(screen.getByLabelText('이름')).toHaveValue('');
+  });
+  it('설비 추가', () => {
+    const { rerender } = render(<AddEquipmentDialog substationId="S1" open onClose={vi.fn()} onCreated={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '쓰다 만' } });
+    rerender(<AddEquipmentDialog substationId="S1" open={false} onClose={vi.fn()} onCreated={vi.fn()} />);
+    rerender(<AddEquipmentDialog substationId="S1" open onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect(screen.getByLabelText('이름')).toHaveValue('');
+  });
+});

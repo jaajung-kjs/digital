@@ -408,6 +408,10 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 </DetailGrid>
 ```
 
+### 카드 안 목록의 한 줄(랙 안의 설비 이름 등) → `ListRow`
+
+`<ListRow onClick={…}>{name}</ListRow>` — `onClick` 이 없으면 읽기 전용 줄. 직접 `<button className>` 이나 `<p className>` 로 줄을 만들지 않는다. 라벨과 값이 짝이면 `DetailRow` 다.
+
 ### 목록 안에서 되풀이되는 항목(포트 1·포트 2…) → `ItemCard`
 `DetailCard` *안*에 들어가는 회색 항목 블록. 제목 + (선택)삭제 버튼을 내장한다.
 ```tsx

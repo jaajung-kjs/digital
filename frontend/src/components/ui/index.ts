@@ -55,3 +55,4 @@ export * from './ConfirmModal';
 export * from './useConfirm';
 export * from './useDismissOnOutside';
 export * from './useInlineRename';
+export { ListRow } from './ListRow';

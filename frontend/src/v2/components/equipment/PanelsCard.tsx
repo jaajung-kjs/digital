@@ -21,7 +21,7 @@ export function PanelsCard({ equipmentId, panelCount }: { equipmentId: string; p
     <DetailCard>
       <DetailCardHeader title="판" />
       {ends.map((e) => (
-        <p key={e.id} className="text-sm text-content">{e.panel != null ? `판 ${e.panel}` : '판 미지정'} · {e.label}</p>
+        <DetailRow key={e.id} label={e.panel != null ? `판 ${e.panel}` : '판 —'}>{e.label}</DetailRow>
       ))}
       {panelCount != null && <DetailRow label="빈 판">{Math.max(0, panelCount - used)}</DetailRow>}
     </DetailCard>

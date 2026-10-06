@@ -30,7 +30,10 @@ describe('useWorkspaceRoute', () => {
   });
 
   it('설비·랙을 고르고 놓는다', () => {
-    const { result } = at('/n/sub-1?eq=e1&rack=r1');
+    const { result } = at('/n/sub-1?rack=r1');
+    act(() => result.current.selectEquipment('e1'));
+    act(() => result.current.selectEquipment(null));
+    act(() => result.current.selectRack('r1'));
     act(() => result.current.selectEquipment(null));
     expect(result.current.eqId).toBeNull();
     expect(result.current.rackId).toBe('r1');
@@ -43,5 +46,13 @@ describe('useWorkspaceRoute', () => {
     act(() => result.current.setView('평면도'));
     expect(result.current.view).toBe('평면도');
     expect(result.current.eqId).toBe('e1');
+  });
+
+  it('설비와 랙은 하나만 고른다 — 새로 고르면 다른 쪽은 놓인다', () => {
+    const { result } = at('/n/sub-1?eq=e1');
+    act(() => result.current.selectRack('r1'));
+    expect(result.current).toMatchObject({ eqId: null, rackId: 'r1' });
+    act(() => result.current.selectEquipment('e2'));
+    expect(result.current).toMatchObject({ eqId: 'e2', rackId: null });
   });
 });
