@@ -175,7 +175,19 @@ describe('PUT /commit — 광선로·코어·측정·연결', () => {
     await commit({ links: { updates: [{ id: linkId, patch: { aLabel: '코어에 표기' } }] }, baseVersions: { [linkId]: link.updatedAt.toISOString() } }).expect(422);
   });
 
-  it('OFD 를 지우면 클라이언트가 보낸 대로 — 광선로 끝 단자는 DB 가 비운다(SetNull)', async () => {
+  it('표기만 고쳐도 연결의 버전이 오른다 — 낡은 기준의 두 번째 쓴이는 409', async () => {
+    const lineId = await makeLine(4);
+    const linkId = randomUUID();
+    await commit({ links: { creates: [{ id: linkId, substationId: org.s1, cableTypeId: m.commCableId,
+      a: { kind: 'core', lineId, no: 3, side: 'A' }, b: { kind: 'equipment', equipmentId: site.s1.dev, label: '처음' } }] } }).expect(200);
+    const stale = (await nextDb.link.findUniqueOrThrow({ where: { id: linkId } })).updatedAt.toISOString();
+    await commit({ links: { updates: [{ id: linkId, patch: { bLabel: '먼저' } }] }, baseVersions: { [linkId]: stale } }).expect(200);
+    const res = await commit({ links: { updates: [{ id: linkId, patch: { bLabel: '나중' } }] }, baseVersions: { [linkId]: stale } }).expect(409);
+    expect(res.body.error).toBe('CONFLICT');
+    expect((await nextDb.linkEnd.findUniqueOrThrow({ where: { linkId_end: { linkId, end: 'B' } } })).label).toBe('먼저');
+  });
+
+  it('OFD 를 지우면 그 광선로 끝의 단자 설비와 판을 서버가 비우고, 두 끝 국을 함께 다룬다', async () => {
     const rack = randomUUID(); const ofd = randomUUID();
     await commit({
       racks: { creates: [{ id: rack, substationId: org.s1, name: '임시 OFD 랙', rackTypeId: m.rackTypeId }] },
@@ -185,8 +197,13 @@ describe('PUT /commit — 광선로·코어·측정·연결', () => {
     await commit({ fiberLines: { creates: [{ id: lineId, cableTypeId: m.fiberCableId, coreCount: 2,
       a: { substationId: org.s1, equipmentId: ofd, panel: 1 }, b: { substationId: org.s2 } }] } }).expect(200);
     const eq = await nextDb.equipment.findUniqueOrThrow({ where: { id: ofd } });
-    await commit({ equipment: { deletes: [ofd] }, baseVersions: { [ofd]: eq.updatedAt.toISOString() } }).expect(200);
-    expect((await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } })).aEquipmentId).toBeNull();
+    const lineBefore = await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } });
+    const res = await commit({ equipment: { deletes: [ofd] }, baseVersions: { [ofd]: eq.updatedAt.toISOString() } }).expect(200);
+    const line = await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } });
+    expect([line.aEquipmentId, line.aPanel]).toEqual([null, null]);
+    expect(line.updatedAt.getTime()).toBeGreaterThan(lineBefore.updatedAt.getTime());
+    const log = await nextDb.changeLog.findUniqueOrThrow({ where: { id: res.body.changeLogId } });
+    expect((log.summary as { substations: string[] }).substations).toEqual([org.s1, org.s2].sort());
   });
 
   it('연결 끝이 걸린 코어를 잘라내면 422 ROWS_IN_USE — 코어 수 그대로', async () => {

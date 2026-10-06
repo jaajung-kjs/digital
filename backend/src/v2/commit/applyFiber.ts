@@ -70,10 +70,11 @@ export async function applyFiberWrites(tx: Tx, p: CommitPayload): Promise<void> 
     await tx.coreMeasurement.update({ where: { id: u.id }, data: defined({ ...rest, measuredOn: dateOrNull(measuredOn) }) });
   }
 
-  // ── 연결 (Task 7 에서 쓴 그대로) ──
+  // ── 연결 ──
   for (const u of p.links?.updates ?? []) {
     const { aLabel, bLabel, pathPoints, ...rest } = u.patch;
-    await tx.link.update({ where: { id: u.id }, data: defined({ ...rest, pathPoints }) });
+    /* 표기만 고쳐도(끝 행만 바뀌어도) 연결의 버전을 올린다 — 안 그러면 표기 고치기가 OCC 를 비켜 간다. */
+    await tx.link.update({ where: { id: u.id }, data: { ...defined({ ...rest, pathPoints }), updatedAt: new Date() } });
     for (const [end, label] of [['A', aLabel], ['B', bLabel]] as const) {
       if (label === undefined) continue;
       await tx.linkEnd.update({ where: { linkId_end: { linkId: u.id, end } }, data: { label } });

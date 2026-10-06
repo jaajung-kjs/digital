@@ -31,7 +31,8 @@ export async function touchedSubstations(tx: Tx, p: CommitPayload): Promise<stri
     tx.equipmentPhoto.findMany({ where: { id: { in: rid(p.records?.photos) } }, select: { equipmentId: true } }),
   ]);
   recordEquipment.push(...[...mRows, ...iRows, ...pRows].map((r) => r.equipmentId));
-  const [floors, racks, equipment, links, lines, lineIdsFromRows] = await Promise.all([
+  const eqDeletes = p.equipment?.deletes ?? [];
+  const [floors, racks, equipment, links, lines, lineIdsFromRows, clearedLines] = await Promise.all([
     tx.floor.findMany({ where: { id: { in: idsOf(p.floors) } }, select: { substationId: true } }),
     tx.rack.findMany({ where: { id: { in: idsOf(p.racks) } }, select: { substationId: true } }),
     tx.equipment.findMany({
@@ -44,9 +45,14 @@ export async function touchedSubstations(tx: Tx, p: CommitPayload): Promise<stri
       select: { aSubstationId: true, bSubstationId: true },
     }),
     tx.coreMeasurement.findMany({ where: { id: { in: idsOf(p.coreMeasurements) } }, select: { core: { select: { line: { select: { aSubstationId: true, bSubstationId: true } } } } } }),
+    /* 지우는 설비를 단자로 둔 광선로 — 서버가 그 끝을 비우므로(deleteEquipment) 두 끝 국을 잠그고 검증한다. */
+    tx.fiberLine.findMany({
+      where: { OR: [{ aEquipmentId: { in: eqDeletes } }, { bEquipmentId: { in: eqDeletes } }] },
+      select: { aSubstationId: true, bSubstationId: true },
+    }),
   ]);
   for (const r of [...floors, ...racks, ...equipment, ...links]) add(r.substationId);
-  for (const l of lines) { add(l.aSubstationId); add(l.bSubstationId); }
+  for (const l of [...lines, ...clearedLines]) { add(l.aSubstationId); add(l.bSubstationId); }
   for (const r of lineIdsFromRows) { add(r.core.line.aSubstationId); add(r.core.line.bSubstationId); }
   return [...ids].sort();
 }

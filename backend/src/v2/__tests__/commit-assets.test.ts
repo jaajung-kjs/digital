@@ -45,6 +45,23 @@ describe('PUT /commit — 랙·설비', () => {
       baseVersions: { [eqId]: eq.updatedAt.toISOString() },
     }).expect(200);
     expect((await nextDb.circuit.findMany({ where: { equipmentId: eqId }, orderBy: { no: 'asc' } })).map((c) => c.no)).toEqual([1, 2, 3, 4, 5]);
+    const after = await nextDb.equipment.findUniqueOrThrow({ where: { id: eqId } });
+    expect(after.circuitCount).toBe(5);
+    expect(after.updatedAt.getTime()).toBeGreaterThan(eq.updatedAt.getTime());
+  });
+
+  it('회로 수를 2→4 로 늘린 뒤 새 회로 4 에 연결을 건다', async () => {
+    const pnl = await rackWithEquipment(org.s1, '분전반 P4', 2);
+    const load = await rackWithEquipment(org.s1, '부하 P4');
+    const eq = await nextDb.equipment.findUniqueOrThrow({ where: { id: pnl.eqId } });
+    await commit({
+      equipment: { updates: [{ id: pnl.eqId, patch: { circuitCount: 4 } }] },
+      baseVersions: { [pnl.eqId]: eq.updatedAt.toISOString() },
+    }).expect(200);
+    await commit({
+      links: { creates: [{ id: randomUUID(), substationId: org.s1, cableTypeId: m.powerCableId,
+        a: { kind: 'circuit', equipmentId: pnl.eqId, no: 4 }, b: { kind: 'equipment', equipmentId: load.eqId } }] },
+    }).expect(200);
   });
 
   it('같은 커밋에서 만든 설비의 회로 값을 고친다 — 회로는 자연 키로 가리킨다', async () => {
@@ -194,6 +211,53 @@ describe('PUT /commit — 랙·설비', () => {
       floors: { deletes: [fl], creates: [{ id: randomUUID(), substationId: org.s1, name: '3층R', sortOrder: 0 }] },
       baseVersions: { [fl]: flRow.updatedAt.toISOString() },
     }).expect(200);
+  });
+
+  it('새 랙을 만들고 설비를 옮기고 옛 랙을 지운다 — 한 커밋, 새 랙이 옛 이름을 써도 된다', async () => {
+    for (const reuse of [false, true]) {
+      const old = await rackWithEquipment(org.s1, `이사 랙 ${reuse}`);
+      const newRack = randomUUID();
+      const eqRow = await nextDb.equipment.findUniqueOrThrow({ where: { id: old.eqId } });
+      const rackRow = await nextDb.rack.findUniqueOrThrow({ where: { id: old.rackId } });
+      await commit({
+        racks: { creates: [{ id: newRack, substationId: org.s1, name: reuse ? `이사 랙 ${reuse}` : '이사 새 랙', rackTypeId: m.rackTypeId }], deletes: [old.rackId] },
+        equipment: { updates: [{ id: old.eqId, patch: { rackId: newRack } }] },
+        baseVersions: { [old.eqId]: eqRow.updatedAt.toISOString(), [old.rackId]: rackRow.updatedAt.toISOString() },
+      }).expect(200);
+      expect((await nextDb.equipment.findUniqueOrThrow({ where: { id: old.eqId } })).rackId).toBe(newRack);
+      expect(await nextDb.rack.findUnique({ where: { id: old.rackId } })).toBeNull();
+    }
+  });
+
+  it('변경 이력에 고치기·지우기의 적용 전 행(before)이 남는다', async () => {
+    const a = await rackWithEquipment(org.s1, '이력 A');
+    const b = await rackWithEquipment(org.s1, '이력 B');
+    const linkId = randomUUID();
+    await commit({ links: { creates: [{ id: linkId, substationId: org.s1, cableTypeId: m.commCableId,
+      a: { kind: 'equipment', equipmentId: a.eqId, label: 'P1' }, b: { kind: 'equipment', equipmentId: b.eqId } }] } }).expect(200);
+    const eq = await nextDb.equipment.findUniqueOrThrow({ where: { id: a.eqId } });
+    await commit({ equipment: { updates: [{ id: a.eqId, patch: { note: '옛 메모' } }] }, baseVersions: { [a.eqId]: eq.updatedAt.toISOString() } }).expect(200);
+    const eq2 = await nextDb.equipment.findUniqueOrThrow({ where: { id: a.eqId } });
+    const link = await nextDb.link.findUniqueOrThrow({ where: { id: linkId } });
+    const res = await commit({
+      equipment: { updates: [{ id: a.eqId, patch: { note: '새 메모' } }] }, links: { deletes: [linkId] },
+      baseVersions: { [a.eqId]: eq2.updatedAt.toISOString(), [linkId]: link.updatedAt.toISOString() },
+    }).expect(200);
+    const log = await nextDb.changeLog.findUniqueOrThrow({ where: { id: res.body.changeLogId } });
+    type Op = { entity: string; id: string; op: string; before?: Record<string, unknown> & { ends?: { end: string; label: string | null }[] }; after?: Record<string, unknown> };
+    const ops = (log.summary as { ops: Op[] }).ops;
+    const eqOp = ops.find((o) => o.entity === 'equipment')!;
+    expect(eqOp).toMatchObject({ id: a.eqId, op: 'update', before: { note: '옛 메모' }, after: { note: '새 메모' } });
+    const linkOp = ops.find((o) => o.entity === 'link')!;
+    expect(linkOp).toMatchObject({ id: linkId, op: 'delete', before: { id: linkId, substationId: org.s1, cableTypeId: m.commCableId } });
+    expect(linkOp.before!.ends!.find((e) => e.end === 'A')!.label).toBe('P1');
+  });
+
+  it('달력에 없는 날짜는 400 — 500 이 아니다', async () => {
+    const { eqId } = await rackWithEquipment(org.s1, '날짜 설비');
+    const eq = await nextDb.equipment.findUniqueOrThrow({ where: { id: eqId } });
+    await commit({ equipment: { updates: [{ id: eqId, patch: { installDate: '2024-02-31' } }] }, baseVersions: { [eqId]: eq.updatedAt.toISOString() } }).expect(400);
+    await commit({ equipment: { updates: [{ id: eqId, patch: { installDate: '2024-02-29' } }] }, baseVersions: { [eqId]: eq.updatedAt.toISOString() } }).expect(200);
   });
 
   it('기록 고치기만 보내도 반영되고, 이력에 그 설비의 국이 남는다', async () => {

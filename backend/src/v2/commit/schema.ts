@@ -4,7 +4,9 @@ import { z } from 'zod';
 const values = <T extends readonly { value: string }[]>(xs: T) => z.enum(xs.map((x) => x.value) as [string, ...string[]]);
 const id = z.string().uuid();
 const text = z.string().trim().min(1).nullable().optional();
-const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
+/** 달력에 있는 날만 — 2024-02-31 은 Date 가 3월로 넘겨 버리므로 되짚어 본다(안 그러면 500). */
+const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD')
+  .refine((d) => { const t = new Date(`${d}T00:00:00.000Z`); return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d; }, '없는 날짜입니다');
 const ops = <C extends z.ZodTypeAny, P extends z.ZodTypeAny>(create: C, patch: P) => z.object({
   creates: z.array(create).optional(),
   updates: z.array(z.object({ id, patch })).optional(),

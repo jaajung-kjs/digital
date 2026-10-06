@@ -14,19 +14,38 @@ function defined<T extends object>(o: T): Partial<T> {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
 
-/** 지우기 — 설비(그 사진 파일 경로를 모은다) → (랙·층은 고치기·만들기 뒤에) */
+/**
+ * 지우기 — 설비(그 사진 파일 경로를 모은다) → (랙·층은 고치기·만들기 뒤에)
+ *
+ * 지우는 설비를 단자로 둔 광선로 끝은 **서버가 비운다** — 단자 설비와 판(`{a|b}EquipmentId`·
+ * `{a|b}Panel`)을 null 로, updatedAt 을 올린다. FK 의 SetNull 은 설비만 비우고 판 번호를 남기며
+ * 버전도 안 올린다. 이것이 서버가 몰래 하는 **유일한** 결정적 정리이며 core `expandDeletes` 의
+ * `lineEndClears` 와 같은 규칙이다(두 끝 국은 `touchedSubstations` 가 잠그고 검증한다).
+ */
 export async function deleteEquipment(tx: Tx, p: Ops, orphaned: string[]): Promise<void> {
   const ids = p.equipment?.deletes ?? [];
   if (ids.length === 0) return;
   for (const ph of await tx.equipmentPhoto.findMany({ where: { equipmentId: { in: ids } }, select: { filePath: true } })) {
     orphaned.push(ph.filePath);
   }
+  const now = new Date();
+  await tx.fiberLine.updateMany({ where: { aEquipmentId: { in: ids } }, data: { aEquipmentId: null, aPanel: null, updatedAt: now } });
+  await tx.fiberLine.updateMany({ where: { bEquipmentId: { in: ids } }, data: { bEquipmentId: null, bPanel: null, updatedAt: now } });
   const del = await tx.equipment.deleteMany({ where: { id: { in: ids } } });
   if (del.count !== ids.length) throw new HttpError(422, 'INVALID_TARGET', '지울 설비 중 없는 것이 있습니다');
 }
 
+/** 지울 랙의 이름을 비켜 둔다 — 이름 유일은 문장마다 검사되므로, 비켜 두면 지우기를 맨 뒤로 미뤄도 같은 이름 신설·개명이 된다. */
+const parkedName = (id: string) => `\u0001del:${id}`;
+
+/**
+ * 순서: (지울 랙 이름 비키기) → 층 지우기·고치기·만들기 → 랙 고치기·만들기 → 설비 고치기 →
+ * 랙 지우기 → 설비 만들기. 설비가 **같은 커밋에서 만든 랙으로** 옮겨 갈 수 있어야 하고, 옛 랙은
+ * 설비가 다 떠난 뒤에 지워야 한다. 설비 지우기는 service 에서 이미 끝났다.
+ */
 export async function writeFloorsRacksEquipment(tx: Tx, p: Ops): Promise<void> {
-  /* 이름 유일은 문장마다 검사된다 — 지우기 → 고치기 → 만들기 순으로 같은 이름의 철거+신설이 된다. */
+  for (const id of p.racks?.deletes ?? []) await tx.rack.update({ where: { id }, data: { name: parkedName(id) } });
+
   for (const id of p.floors?.deletes ?? []) await tx.floor.delete({ where: { id } });
   for (const u of p.floors?.updates ?? []) {
     await tx.floor.update({ where: { id: u.id }, data: defined({ ...u.patch, backgroundDrawing: u.patch.backgroundDrawing as Prisma.InputJsonValue | undefined }) });
@@ -34,14 +53,14 @@ export async function writeFloorsRacksEquipment(tx: Tx, p: Ops): Promise<void> {
   for (const f of p.floors?.creates ?? []) await tx.floor.create({ data: f });
 
   for (const u of p.racks?.updates ?? []) await tx.rack.update({ where: { id: u.id }, data: defined(u.patch) });
-  /* 설비 고치기(랙 옮기기)가 옛 랙 지우기보다 먼저 — 설비 지우기는 service 에서 이미 끝났다. */
+  for (const r of p.racks?.creates ?? []) await tx.rack.create({ data: r });
   for (const u of p.equipment?.updates ?? []) {
-    const { circuitCount, installDate, ...rest } = u.patch;
+    const { installDate, ...rest } = u.patch;
+    /* 회로 수도 함께 쓴다 — 칸이 낡으면 새 회로를 가리키는 연결이 검증에서 떨어지고, 개수만 고쳐도 버전이 오른다. */
     await tx.equipment.update({ where: { id: u.id }, data: defined({ ...rest, installDate: dateOrNull(installDate) }) });
-    if (circuitCount !== undefined) await syncCircuits(tx, u.id, circuitCount);
+    if (rest.circuitCount !== undefined) await syncCircuits(tx, u.id, rest.circuitCount);
   }
   for (const id of p.racks?.deletes ?? []) await tx.rack.delete({ where: { id } });
-  for (const r of p.racks?.creates ?? []) await tx.rack.create({ data: r });
   for (const c of p.equipment?.creates ?? []) {
     const { installDate, ...rest } = c;
     await tx.equipment.create({ data: defined({ ...rest, installDate: dateOrNull(installDate) }) as Prisma.EquipmentUncheckedCreateInput });
