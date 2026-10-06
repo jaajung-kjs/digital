@@ -103,6 +103,25 @@ describe('공사 단위 워킹카피', () => {
     expect(validateState(toModelState(store.getState())).map((i) => i.code)).toEqual(['EQUIPMENT_NAME_TAKEN']);
   });
 
+  it('광선로 다른 끝이 들르지 않은 국의 단자 설비여도 흠이 아니다 — 참조로 안다, 그 국을 들르면 effective 가 정답', async () => {
+    const line = {
+      id: 'L', cableTypeId: 'opgw', coreCount: 2, name: null, lengthKm: null, segments: [],
+      aSubstationId: 'S1', aEquipmentId: null, aPanel: null, aStartNo: 1,
+      bSubstationId: 'S2', bEquipmentId: 'far', bPanel: null, bStartNo: 1,
+      aSubstationName: '북춘천', bSubstationName: '춘천HP', updatedAt: 'l1', cores: [],
+    };
+    wcOf.S1.fiberLines = [line];
+    wcOf.S1.refEquipment = [{ id: 'far', name: 'OFD', substationId: 'S2' }];
+    wcOf.S2.fiberLines = [line];
+    const { validateState } = await import('@twin/core');
+    const cables = [{ id: 'opgw', medium: 'fiber' }];
+    await store.getState().ensureLoaded('S1');
+    expect(validateState(toModelState(store.getState(), cables))).toEqual([]);
+    /* S2 를 들렀는데 그 설비가 없다(지워졌다) — 참조는 더는 쓰이지 않는다. */
+    await store.getState().ensureLoaded('S2');
+    expect(validateState(toModelState(store.getState(), cables)).map((i) => i.code)).toEqual(['LINE_END_EQUIPMENT']);
+  });
+
   it('되돌리기(undo)는 오버레이만 되돌린다', async () => {
     await store.getState().ensureLoaded('S1');
     store.getState().update('equipment', 'ote', { note: 'x' });

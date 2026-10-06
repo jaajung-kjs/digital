@@ -40,6 +40,12 @@ export interface ModelState {
   fiberLines: FiberLineRow[];
   links: LinkRow[];
   cableTypes: CableTypeRow[];
+  /**
+   * 판정 범위 **밖** 국의 저장된 설비 — 광선로 다른 끝의 단자 설비가 있다는 것만 안다(⑦).
+   * 이 설비들은 이름·랙 판정을 받지 않는다. 프론트는 들르지 않은 국을 모르므로 이것을 싣고,
+   * 서버는 먼 설비 행을 `equipment` 에 함께 실으므로 비워 둔다.
+   */
+  outsideEquipment?: { id: string; substationId: string }[];
 }
 
 export type ModelIssueCode =

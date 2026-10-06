@@ -132,6 +132,16 @@ describe('validateState', () => {
     expect(codes(s)).toEqual(['LINE_END_EQUIPMENT']);
   });
 
+  it('⑦ 판정 범위 밖 국의 단자 설비는 outsideEquipment 로 안다 — 그 국에 있으면 괜찮고, 다른 국이면 흠', () => {
+    const s = base();
+    s.fiberLines[0]!.bEquipmentId = 'far';
+    expect(codes(s)).toEqual(['LINE_END_EQUIPMENT']);
+    s.outsideEquipment = [{ id: 'far', substationId: 'S2' }];
+    expect(codes(s)).toEqual([]);
+    s.outsideEquipment = [{ id: 'far', substationId: 'S3' }];
+    expect(codes(s)).toEqual(['LINE_END_EQUIPMENT']);
+  });
+
   it('⑧ 연결의 두 끝이 같은 대상이면 흠', () => {
     const s = base();
     s.links[0]!.a = { kind: 'equipment', equipmentId: 'ote', label: 'x' };

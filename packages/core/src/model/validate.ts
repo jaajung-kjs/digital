@@ -16,6 +16,7 @@ export function validateState(state: ModelState): ModelIssue[] {
   const issues: ModelIssue[] = [];
   const rackById = new Map(state.racks.map((r) => [r.id, r]));
   const eqById = new Map(state.equipment.map((e) => [e.id, e]));
+  const outsideById = new Map((state.outsideEquipment ?? []).map((e) => [e.id, e]));
   const lineById = new Map(state.fiberLines.map((l) => [l.id, l]));
   const mediumOf = new Map(state.cableTypes.map((c) => [c.id, c.medium]));
 
@@ -98,7 +99,7 @@ export function validateState(state: ModelState): ModelIssue[] {
     // ⑦ 단자 설비는 그 끝의 국 설비.
     for (const [eqId, subId] of [[l.aEquipmentId, l.aSubstationId], [l.bEquipmentId, l.bSubstationId]] as const) {
       if (eqId === null) continue;
-      const e = eqById.get(eqId);
+      const e = eqById.get(eqId) ?? outsideById.get(eqId);
       if (!e || e.substationId !== subId) {
         issues.push({ code: 'LINE_END_EQUIPMENT', message: '광선로 끝의 단자 설비가 그 끝의 국에 없습니다', ids: [l.id] });
       }

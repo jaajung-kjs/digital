@@ -61,5 +61,10 @@ export function toModelState(s: S & { saved: WorkingCopyState['saved'] }, cableT
     })),
     links: effectiveRows(s, 'links').map((l) => ({ id: l.id, substationId: l.substationId, cableTypeId: l.cableTypeId, a: l.a, b: l.b })),
     cableTypes,
+    /* 들르지 않은 국의 단자 설비(광선로 다른 끝)는 참조로만 안다 — 안 실으면 「없는 설비」로 잘못 판정된다.
+       들른 국의 설비는 effective 행이 정답이라(지운 것 포함) 참조를 쓰지 않는다. */
+    outsideEquipment: s.saved.refEquipment
+      .filter((e) => !(e.substationId in s.saved.substations))
+      .map((e) => ({ id: e.id, substationId: e.substationId })),
   };
 }
