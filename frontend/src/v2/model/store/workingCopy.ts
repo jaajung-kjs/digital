@@ -3,7 +3,6 @@ import { temporal } from 'zundo';
 import { createStore, useStore } from 'zustand';
 import { shallow } from 'zustand/shallow';
 import { apiErrorMessage } from '../../apiError';
-import { useV2Notice } from '../../store/noticeStore';
 import { emptyOverlay, overlayDirtyCount, stageCreate, stageDelete, stageUpdate, type Overlay } from '../../store/overlay';
 import { fetchWorkingcopy } from '../api';
 import type {
@@ -83,6 +82,8 @@ function absorb(saved: Saved, wc: Workingcopy): Saved {
 /** 기준 버전 — uuid 행은 id, 회로·코어는 자연 키. 저장할 때 고치거나 지우는 행의 것만 보낸다. */
 function versionsOf(s: Saved): Record<string, string> {
   const v: Record<string, string> = {};
+  /* 먼 연결(들르지 않은 국의, 공유 코어에 닿은 연결)도 — 광선로를 지우면 함께 지우는 행이다. */
+  for (const r of s.farLinks) v[r.id] = r.updatedAt;
   for (const k of ROW_KINDS) for (const r of s[k] as { id: string; updatedAt: string }[]) v[r.id] = r.updatedAt;
   for (const c of s.circuits) v[circuitKey(c.equipmentId, c.no)] = c.updatedAt;
   for (const c of s.cores) v[coreKey(c.lineId, c.no)] = c.updatedAt;
@@ -94,10 +95,15 @@ export interface WorkingCopyState {
   loaded: string[];
   /** 읽는 중인 국(없으면 null). */
   loading: string | null;
+  /** 읽지 못한 국 → 까닭. 다시 들르면(`ensureLoaded`) 다시 읽는다. */
+  loadErrors: Record<string, string>;
   saved: Saved;
   overlays: Overlays;
   baseVersions: Record<string, string>;
-  /** 국을 들른다 — 이미 들렀으면 아무것도 하지 않는다. **오버레이는 건드리지 않는다.** */
+  /**
+   * 국을 들른다 — 이미 들렀으면 아무것도 하지 않는다. **오버레이는 건드리지 않는다.**
+   * 지난번에 못 읽었으면 다시 읽는다(못 읽은 국은 `loaded` 에 들지 않는다).
+   */
   ensureLoaded: (substationId: string) => Promise<void>;
   /** 들른 국을 모두 다시 읽고 오버레이를 비운다 — 저장·충돌 새로고침 뒤. */
   refresh: () => Promise<void>;
@@ -125,6 +131,7 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
     (set, get) => ({
       loaded: [],
       loading: null,
+      loadErrors: {},
       saved: EMPTY_SAVED,
       overlays: emptyOverlays(),
       baseVersions: {},
@@ -132,14 +139,16 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       ensureLoaded: async (substationId) => {
         if (get().loaded.includes(substationId)) return;
         /* 되돌리기 이력은 overlays 만 본다(partialize) — 읽는 동안의 고침도 되돌릴 수 있다. */
-        set({ loading: substationId });
+        if (get().loading === substationId) return;
+        const { [substationId]: _was, ...rest } = get().loadErrors;
+        set({ loading: substationId, loadErrors: rest });
         try {
           const wc = await fetchWorkingcopy(substationId);
           const saved = absorb(get().saved, wc);
           set({ saved, baseVersions: versionsOf(saved), loaded: [...get().loaded.filter((x) => x !== substationId), substationId], loading: null });
         } catch (e) {
-          set({ loading: null });
-          useV2Notice.getState().showError(apiErrorMessage(e, '변전소를 불러오지 못했습니다'));
+          /* 오류는 그 국 화면이 그린다(다시 시도와 함께) — 전역 띠에는 올리지 않는다(화면당 표면 하나). */
+          set({ loading: null, loadErrors: { ...get().loadErrors, [substationId]: apiErrorMessage(e, '변전소를 불러오지 못했습니다') } });
         }
       },
 
@@ -170,7 +179,7 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       },
 
       reset: () => {
-        set({ loaded: [], loading: null, saved: EMPTY_SAVED, overlays: emptyOverlays(), baseVersions: {} });
+        set({ loaded: [], loading: null, loadErrors: {}, saved: EMPTY_SAVED, overlays: emptyOverlays(), baseVersions: {} });
         workingCopyStore.temporal.getState().clear();
       },
 
@@ -202,6 +211,7 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
           ...(saved[k] as RowOf[K][]).filter((r) => (r as { id: string }).id in o[k].updates || o[k].deletes.includes((r as { id: string }).id)),
         ] as RowOf[K][];
         for (const k of ['floors', 'racks', 'equipment', 'links'] as const) for (const r of rowsOf(k)) subs.add(r.substationId);
+        for (const r of saved.farLinks) if (o.links.deletes.includes(r.id)) subs.add(r.substationId);
         for (const l of rowsOf('fiberLines')) { subs.add(l.aSubstationId); subs.add(l.bSubstationId); }
         for (const k of ['maintenance', 'inspections', 'photos'] as const) for (const r of rowsOf(k)) { const s = subOfEquipment(r.equipmentId); if (s) subs.add(s); }
         for (const key of Object.keys(o.circuits)) { const s = subOfEquipment(key.split(':')[1]!); if (s) subs.add(s); }

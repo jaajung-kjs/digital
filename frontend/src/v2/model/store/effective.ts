@@ -1,6 +1,6 @@
 import { circuitKey, coreKey, DEFAULT_CORE_STATUS, rowsForCount, type ModelState } from '@twin/core';
 import { mergeEffective, type Overlay } from '../../store/overlay';
-import type { Circuit, Core, FiberLine } from '../types';
+import type { Circuit, Core, FiberLine, Link } from '../types';
 import type { RowKind, RowOf, WorkingCopyState } from './workingCopy';
 
 type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
@@ -50,7 +50,24 @@ export function equipmentName(s: S, id: string): string | null {
     ?? s.saved.refEquipment.find((e) => e.id === id)?.name ?? null;
 }
 
-/** core 판정의 입력 — 들른 국 전부의 effective 상태. */
+const linkRow = (l: Link) => ({ id: l.id, substationId: l.substationId, cableTypeId: l.cableTypeId, a: l.a, b: l.b });
+
+/**
+ * 들르지 않은 국의 **먼 연결** — 삭제 펼침만 본다(core `outsideLinks`).
+ *
+ * 공유 광선로를 지우면 그 코어에 닿은 연결은 **양 끝 국 모두** 함께 가야 한다(서버는 Restrict).
+ * 들르지 않은 국의 연결은 먼 연결(`farLinks`)로만 아는데, 그것을 빼면 펼침이 그 연결을 놓쳐
+ * 서버가 저장을 거절한다. 판정에는 넣지 않는다 — 그 끝이 가리키는 다른 광선로·설비를 다 알지
+ * 못해 거짓 흠이 난다(먼 국에서 두 선로 코어를 잇는 점퍼가 실제로 그랬다).
+ * 들른 국의 것은 그 국 행이 정답이라 쓰지 않고(겹치지 않게), 이미 지우기로 한 것은 뺀다.
+ */
+function outsideLinks(s: S): Link[] {
+  const near = new Set(effectiveRows(s, 'links').map((l) => l.id));
+  const gone = new Set(s.overlays.links.deletes);
+  return s.saved.farLinks.filter((l) => !(l.substationId in s.saved.substations) && !near.has(l.id) && !gone.has(l.id));
+}
+
+/** core 판정의 입력 — 들른 국 전부의 effective 상태(+ 삭제 펼침용 먼 연결). */
 export function toModelState(s: S & { saved: WorkingCopyState['saved'] }, cableTypes: { id: string; medium: string }[] = []): ModelState {
   return {
     racks: effectiveRows(s, 'racks').map((r) => ({ id: r.id, substationId: r.substationId, name: r.name })),
@@ -59,7 +76,8 @@ export function toModelState(s: S & { saved: WorkingCopyState['saved'] }, cableT
       id: l.id, cableTypeId: l.cableTypeId, coreCount: l.coreCount,
       aSubstationId: l.aSubstationId, aEquipmentId: l.aEquipmentId, bSubstationId: l.bSubstationId, bEquipmentId: l.bEquipmentId,
     })),
-    links: effectiveRows(s, 'links').map((l) => ({ id: l.id, substationId: l.substationId, cableTypeId: l.cableTypeId, a: l.a, b: l.b })),
+    links: effectiveRows(s, 'links').map(linkRow),
+    outsideLinks: outsideLinks(s).map(linkRow),
     cableTypes,
     /* 들르지 않은 국의 단자 설비(광선로 다른 끝)는 참조로만 안다 — 안 실으면 「없는 설비」로 잘못 판정된다.
        들른 국의 설비는 effective 행이 정답이라(지운 것 포함) 참조를 쓰지 않는다. */

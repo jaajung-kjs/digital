@@ -50,7 +50,7 @@ export function useCommit() {
       try {
         await s.refresh();
       } catch {
-        useV2Notice.getState().showError('저장했지만 새로 불러오지 못했습니다 — 국을 다시 여세요');
+        useV2Notice.getState().showError('저장했지만 새로 불러오지 못했습니다 — 새로고침(F5)하세요');
       }
       await qc.invalidateQueries({ queryKey: ['v2', 'org-tree'] });
       await qc.invalidateQueries({ queryKey: NODE_EQUIPMENT_KEY });

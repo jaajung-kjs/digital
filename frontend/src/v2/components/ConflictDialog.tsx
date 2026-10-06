@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, Modal } from '../../components/ui';
+import { Button, ErrorStrip, Modal } from '../../components/ui';
+import { apiErrorMessage } from '../apiError';
 import { effectiveRows, equipmentName } from '../model/store/effective';
 import { useWorkingCopy, workingCopyStore, type WorkingCopyState } from '../model/store/workingCopy';
 import type { Conflict } from '../model/types';
@@ -46,13 +47,19 @@ function ConflictItem({ conflict }: { conflict: Conflict }) {
 
 export function ConflictDialog({ conflicts, onClose }: ConflictDialogProps) {
   const [reloading, setReloading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   if (conflicts.length === 0) return null;
 
+  /* 새로고침이 실패하면 상자를 닫지 않는다 — 닫으면 충돌은 그대로인데 길이 사라진다. 까닭을
+     상자 안에 적고, 같은 단추로 다시 해 본다. */
   async function handleRefresh() {
     setReloading(true);
+    setError(null);
     try {
       await workingCopyStore.getState().refresh();
       onClose();
+    } catch (e) {
+      setError(apiErrorMessage(e, '서버에서 새로 불러오지 못했습니다'));
     } finally {
       setReloading(false);
     }
@@ -66,7 +73,7 @@ export function ConflictDialog({ conflicts, onClose }: ConflictDialogProps) {
       title="저장 충돌"
       footer={
         <Button size="sm" disabled={reloading} onClick={() => void handleRefresh()}>
-          {reloading ? '새로고침 중…' : '서버 기준으로 새로고침'}
+          {reloading ? '새로고침 중…' : error ? '다시 시도' : '서버 기준으로 새로고침'}
         </Button>
       }
     >
@@ -76,6 +83,7 @@ export function ConflictDialog({ conflicts, onClose }: ConflictDialogProps) {
           <ConflictItem key={c.key} conflict={c} />
         ))}
       </ul>
+      <ErrorStrip message={error} className="mt-3" />
     </Modal>
   );
 }

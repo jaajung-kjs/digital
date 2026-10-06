@@ -46,6 +46,12 @@ export interface ModelState {
    * 서버는 먼 설비 행을 `equipment` 에 함께 실으므로 비워 둔다.
    */
   outsideEquipment?: { id: string; substationId: string }[];
+  /**
+   * 판정 범위 **밖** 국의 연결 중 범위 안 광선로의 코어에 닿은 것(프론트의 먼 연결) — **삭제 펼침만** 본다.
+   * 광선로를 지우면 이것들도 함께 가야 서버(Restrict)가 받는다. 판정(`validateState`)은 보지 않는다:
+   * 그 끝이 가리키는 다른 광선로·설비를 프론트는 다 알지 못해 거짓 흠이 난다.
+   */
+  outsideLinks?: LinkRow[];
 }
 
 export type ModelIssueCode =

@@ -4,14 +4,22 @@ import type { Workingcopy } from '../types';
 const wcOf: Record<string, Workingcopy> = {};
 /* 이 저장소는 mockReset 이라 vi.fn 구현이 시험마다 지워진다 — 일반 함수 + 호출 기록을 쓴다. */
 const fetched: string[] = [];
+/** 읽기에 실패할 국 — 시험이 넣고 뺀다. */
+const failing = new Set<string>();
 vi.mock('../api', () => ({
-  fetchWorkingcopy: async (id: string) => { fetched.push(id); return structuredClone(wcOf[id]!); },
+  fetchWorkingcopy: async (id: string) => {
+    fetched.push(id);
+    if (failing.has(id)) throw new Error('네트워크 끊김');
+    return structuredClone(wcOf[id]!);
+  },
   putCommit: async () => ({}),
 }));
 
 import { workingCopyStore as store } from '../store/workingCopy';
 import { effectiveCircuits, effectiveRows, bySubstation, toModelState } from '../store/effective';
 import { deleteRows } from '../store/deleteActions';
+import { buildCommitPayload } from '../store/commitPayload';
+import { expandDeletes } from '@twin/core';
 
 const base = (id: string, name: string): Workingcopy => ({
   substation: { id, name }, floors: [], racks: [], equipment: [], links: [], fiberLines: [],
@@ -20,6 +28,7 @@ const base = (id: string, name: string): Workingcopy => ({
 
 beforeEach(() => {
   fetched.length = 0;
+  failing.clear();
   wcOf.S1 = base('S1', '북춘천');
   wcOf.S1.racks = [{ id: 'r1', substationId: 'S1', name: '통신랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: 't1' }];
   wcOf.S1.equipment = [
@@ -143,5 +152,75 @@ describe('공사 단위 워킹카피', () => {
     expect(store.getState().dirtyCount()).toBe(2);
     store.temporal.getState().undo();
     expect(store.getState().dirtyCount()).toBe(0);
+  });
+
+  it('국을 못 읽으면 그 국의 까닭을 남기고, 다시 들르면 다시 읽는다', async () => {
+    failing.add('S1');
+    await store.getState().ensureLoaded('S1');
+    expect(store.getState().loaded).toEqual([]);
+    expect(store.getState().loading).toBeNull();
+    expect(store.getState().loadErrors.S1).toBeTruthy();
+    failing.delete('S1');
+    await store.getState().ensureLoaded('S1');
+    expect(fetched).toEqual(['S1', 'S1']);
+    expect(store.getState().loaded).toEqual(['S1']);
+    expect(store.getState().loadErrors.S1).toBeUndefined();
+  });
+
+  it('reset 은 못 읽은 국의 까닭도 지운다', async () => {
+    failing.add('S1');
+    await store.getState().ensureLoaded('S1');
+    store.getState().reset();
+    expect(store.getState().loadErrors).toEqual({});
+  });
+});
+
+describe('먼 연결 — 들르지 않은 국의, 공유 광선로 코어에 닿은 연결', () => {
+  const line = {
+    id: 'L', cableTypeId: 'opgw', coreCount: 2, name: null, lengthKm: null, segments: [],
+    aSubstationId: 'S1', aEquipmentId: null, aPanel: null, aStartNo: 1,
+    bSubstationId: 'S2', bEquipmentId: null, bPanel: null, bStartNo: 1,
+    aSubstationName: '북춘천', bSubstationName: '춘천HP', updatedAt: 'l1', cores: [],
+  };
+  const far = {
+    id: 'fk', substationId: 'S2', cableTypeId: null, lengthM: null, spec: null, note: null, pathPoints: [],
+    a: { kind: 'core' as const, lineId: 'L', no: 1, side: 'B' as const }, b: { kind: 'equipment' as const, equipmentId: 'ofd2' }, updatedAt: 'fkv',
+  };
+  beforeEach(() => {
+    wcOf.S1.fiberLines = [line];
+    wcOf.S1.farLinks = [far];
+    wcOf.S1.refEquipment = [{ id: 'ofd2', name: 'OFD', substationId: 'S2' }];
+    wcOf.S2.fiberLines = [line];
+    wcOf.S2.links = [far];
+    wcOf.S2.racks = [{ id: 'r2', substationId: 'S2', name: '랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: 't' }];
+    wcOf.S2.equipment = [{ id: 'ofd2', substationId: 'S2', rackId: 'r2', name: 'OFD', typeId: 'et', status: 'normal', model: null, maker: null, madeOn: null, serial: null, installDate: null, manager: null, note: null, circuitCount: 0, panelCount: null, updatedAt: 'e', circuits: [] }];
+  });
+
+  it('광선로를 지우면 들르지 않은 국의 먼 연결도 함께 지운다 — 기준 버전도 싣는다', async () => {
+    /* 먼 국에서 두 선로 코어를 잇는 점퍼 — 다른 끝의 선로(X)는 모른다. */
+    wcOf.S1.farLinks = [far, { ...far, id: 'fk2', updatedAt: 'fk2v', b: { kind: 'core', lineId: 'X', no: 1, side: 'A' } }];
+    await store.getState().ensureLoaded('S1');
+    const st = store.getState();
+    expect(expandDeletes(toModelState(st), { fiberLines: ['L'] }).links.sort()).toEqual(['fk', 'fk2']);
+    /* 판정은 먼 연결을 보지 않는다 — 모르는 선로를 가리켜도 거짓 흠이 없다. */
+    const { validateState } = await import('@twin/core');
+    expect(validateState(toModelState(st, [{ id: 'opgw', medium: 'fiber' }]))).toEqual([]);
+    deleteRows({ fiberLines: ['L'] });
+    const p = buildCommitPayload(store.getState());
+    expect(p.links?.deletes?.sort()).toEqual(['fk', 'fk2']);
+    expect(p.fiberLines).toEqual({ deletes: ['L'] });
+    expect(p.baseVersions).toEqual({ L: 'l1', fk: 'fkv', fk2: 'fk2v' });
+    expect(store.getState().touchedSubstations().sort()).toEqual(['S1', 'S2']);
+    /* 이미 지우기로 한 먼 연결은 다시 나오지 않는다. */
+    expect(toModelState(store.getState()).outsideLinks).toEqual([]);
+  });
+
+  it('그 국을 들르면 그 국 행이 정답이다 — 먼 연결과 겹쳐 둘이 되지 않는다', async () => {
+    await store.getState().ensureLoaded('S1');
+    await store.getState().ensureLoaded('S2');
+    const ms = toModelState(store.getState());
+    expect(ms.links.map((l) => l.id)).toContain('fk');
+    expect(ms.outsideLinks).toEqual([]);
+    expect(expandDeletes(toModelState(store.getState()), { fiberLines: ['L'] }).links).toEqual(['fk']);
   });
 });

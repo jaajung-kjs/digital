@@ -34,7 +34,7 @@ export function expandDeletes(state: ModelState, req: DeleteRequest): DeletePlan
     (ref.kind === 'equipment' && eqGone.has(ref.equipmentId))
     || (ref.kind === 'circuit' && eqGone.has(ref.equipmentId))
     || (ref.kind === 'core' && lineGone.has(ref.lineId));
-  for (const l of state.links) if (touches(l.a) || touches(l.b)) links.add(l.id);
+  for (const l of [...state.links, ...(state.outsideLinks ?? [])]) if (touches(l.a) || touches(l.b)) links.add(l.id);
 
   const lineEndClears: DeletePlan['lineEndClears'] = [];
   for (const l of state.fiberLines) {

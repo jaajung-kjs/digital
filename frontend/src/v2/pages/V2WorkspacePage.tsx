@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { EmptyState, ErrorStrip, isCancelKey, PageHeader, PageState, Tabs, useTabs, type TabItem } from '../../components/ui';
+import { BusyOverlay, Button, EmptyState, ErrorStrip, isCancelKey, PageHeader, PageState, Tabs, useTabs, type TabItem } from '../../components/ui';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { SaveBar } from '../components/SaveBar';
@@ -52,6 +52,7 @@ export default function V2WorkspacePage() {
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
   const loadedHere = useWorkingCopy((s) => substationId != null && s.loaded.includes(substationId));
+  const loadError = useWorkingCopy((s) => (substationId != null ? s.loadErrors[substationId] ?? null : null));
   const dirty = useWorkingCopy((s) => s.dirtyCount());
   const nodeEquipment = useNodeEquipment(nodeScope ? selected.id : null);
 
@@ -98,6 +99,7 @@ export default function V2WorkspacePage() {
 
   const waiting = (substationId != null && (!loadedHere || !catalog.data)) || (nodeScope && nodeEquipment.isLoading);
   const nodeError = nodeScope && nodeEquipment.isError ? '현황을 불러오지 못했습니다' : null;
+  const retryLoad = () => { if (substationId) void workingCopyStore.getState().ensureLoaded(substationId); };
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -130,44 +132,50 @@ export default function V2WorkspacePage() {
               )}
               {nodeError ? (
                 <PageState error={nodeError} />
+              ) : loadError ? (
+                <PageState error={loadError} action={<Button variant="secondary" size="sm" onClick={retryLoad}>다시 시도</Button>} />
               ) : waiting ? (
                 <PageState />
               ) : (
-                <div {...viewTabs.panel} className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-4">
-                  {substationId && route.view === '평면도' ? (
-                    <RackPlanView substationId={substationId} selectedRackId={route.rackId} onSelectRack={route.selectRack} railTarget={railEl} />
-                  ) : (
-                    <StatusView
-                      rows={rows}
-                      racks={racks}
-                      selectedId={route.eqId}
-                      onSelect={route.selectEquipment}
-                      selectedRackId={route.rackId}
-                      onSelectRack={route.selectRack}
-                      nodeScope={nodeScope}
-                      onAddRack={substationId ? () => setAdding({ kind: 'rack' }) : undefined}
-                      onAddEquipment={substationId ? (rackId) => setAdding({ kind: 'equipment', rackId }) : undefined}
-                      onOpenElsewhere={nodeScope ? (r) => navigate(`/n/${r.substationId}?eq=${r.id}`) : undefined}
-                    />
-                  )}
-                  {substationId && (
-                    <aside className="flex h-full w-[364px] shrink-0 flex-col">
-                      {route.eqId ? (
-                        <EquipmentDetail equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} />
-                      ) : route.rackId ? (
-                        <RackDetail
-                          rackId={route.rackId}
-                          onClose={() => route.selectRack(null)}
-                          onSelectEquipment={route.selectEquipment}
-                          onDeleted={() => route.selectRack(null)}
-                          onAddEquipment={(rackId) => setAdding({ kind: 'equipment', rackId })}
-                        />
-                      ) : (
-                        <EquipmentPlaceholder row={null} />
-                      )}
-                    </aside>
-                  )}
-                </div>
+                /* 저장이 서버에 가 있는 동안은 판(본문 + 상세)을 잠근다 — 그 사이 고친 것은 저장이
+                   변경안을 비울 때 사라지므로, 처음부터 받지 않는다. */
+                <BusyOverlay busy={commit.isCommitting} label="저장 중…">
+                  <div {...viewTabs.panel} className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-4">
+                    {substationId && route.view === '평면도' ? (
+                      <RackPlanView substationId={substationId} selectedRackId={route.rackId} onSelectRack={route.selectRack} railTarget={railEl} />
+                    ) : (
+                      <StatusView
+                        rows={rows}
+                        racks={racks}
+                        selectedId={route.eqId}
+                        onSelect={route.selectEquipment}
+                        selectedRackId={route.rackId}
+                        onSelectRack={route.selectRack}
+                        nodeScope={nodeScope}
+                        onAddRack={substationId ? () => setAdding({ kind: 'rack' }) : undefined}
+                        onAddEquipment={substationId ? (rackId) => setAdding({ kind: 'equipment', rackId }) : undefined}
+                        onOpenElsewhere={nodeScope ? (r) => navigate(`/n/${r.substationId}?eq=${r.id}`) : undefined}
+                      />
+                    )}
+                    {substationId && (
+                      <aside className="flex h-full w-[364px] shrink-0 flex-col">
+                        {route.eqId ? (
+                          <EquipmentDetail equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} />
+                        ) : route.rackId ? (
+                          <RackDetail
+                            rackId={route.rackId}
+                            onClose={() => route.selectRack(null)}
+                            onSelectEquipment={route.selectEquipment}
+                            onDeleted={() => route.selectRack(null)}
+                            onAddEquipment={(rackId) => setAdding({ kind: 'equipment', rackId })}
+                          />
+                        ) : (
+                          <EquipmentPlaceholder row={null} />
+                        )}
+                      </aside>
+                    )}
+                  </div>
+                </BusyOverlay>
               )}
             </div>
           )}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Redo2, Undo2 } from 'lucide-react';
 import { useStore } from 'zustand';
 import { Button, IconButton, isTypingTarget, useConfirm } from '../../components/ui';
@@ -51,11 +51,15 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
    * 그때 ⌘Z 는 그 칸에서 방금 친 글자를 물리는 것이지 자산 배치를 물리는 것이 아니다
    * (`isTypingTarget` — Esc 와 같은 규칙).
    */
+  /* 저장 중에는 물리지 않는다 — 보낸 본문과 화면이 갈라진다(판도 잠겨 있다, `BusyOverlay`). */
+  const committing = useRef(isCommitting);
+  committing.current = isCommitting;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== 'z' || !(e.metaKey || e.ctrlKey)) return;
       if (isTypingTarget(e.target)) return;
       e.preventDefault();
+      if (committing.current) return;
       const t = workingCopyStore.temporal.getState();
       if (e.shiftKey) t.redo();
       else t.undo();
@@ -81,8 +85,8 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
         aria-label="실행 취소"
         title={`실행 취소 (${MOD}Z)`}
         size="sm"
-        disabled={!canUndo}
-        disabledReason="되돌릴 것이 없습니다"
+        disabled={!canUndo || isCommitting}
+        disabledReason={isCommitting ? '저장 중입니다' : '되돌릴 것이 없습니다'}
         onClick={() => workingCopyStore.temporal.getState().undo()}
       >
         <Undo2 size={14} />
@@ -91,8 +95,8 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
         aria-label="다시 실행"
         title={`다시 실행 (⇧${MOD}Z)`}
         size="sm"
-        disabled={!canRedo}
-        disabledReason="다시 실행할 것이 없습니다"
+        disabled={!canRedo || isCommitting}
+        disabledReason={isCommitting ? '저장 중입니다' : '다시 실행할 것이 없습니다'}
         onClick={() => workingCopyStore.temporal.getState().redo()}
       >
         <Redo2 size={14} />
@@ -101,7 +105,7 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
           버릴 것도 없다(그때 바에 남는 것은 다시 실행뿐이다). */}
       {dirty > 0 && (
         <>
-          <Button variant="secondary" size="sm" onClick={() => void handleRevert()}>
+          <Button variant="secondary" size="sm" disabled={isCommitting} onClick={() => void handleRevert()}>
             되돌리기
           </Button>
           <Button size="sm" disabled={isCommitting || issue != null} onClick={onCommit}>

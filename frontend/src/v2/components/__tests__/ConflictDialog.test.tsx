@@ -45,4 +45,17 @@ describe('ConflictDialog', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(order).toEqual(['refresh', 'close']);
   });
+
+  it('새로고침이 실패하면 닫지 않고 상자 안에 까닭을 적고, 다시 시도할 수 있다', async () => {
+    let fail = true;
+    vi.spyOn(workingCopyStore.getState(), 'refresh').mockImplementation(async () => { if (fail) throw new Error('끊김'); });
+    const onClose = vi.fn();
+    render(<ConflictDialog conflicts={[{ key: 'x'.repeat(12), reason: 'deleted' }]} onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: '서버 기준으로 새로고침' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('서버에서 새로 불러오지 못했습니다');
+    expect(onClose).not.toHaveBeenCalled();
+    fail = false;
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
 });

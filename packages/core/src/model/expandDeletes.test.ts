@@ -42,6 +42,14 @@ describe('expandDeletes', () => {
     expect(expandDeletes(state(), { fiberLines: ['L'] }).links.sort()).toEqual(['far', 'jp']);
   });
 
+  it('광선로를 지우면 판정 범위 밖 국의 연결(outsideLinks)도 함께 간다 — 판정에는 쓰지 않는 입력', () => {
+    const s = state();
+    const far = s.links.pop()!;
+    s.outsideLinks = [far];
+    expect(expandDeletes(s, { fiberLines: ['L'] }).links.sort()).toEqual(['far', 'jp']);
+    expect(expandDeletes(s, { equipment: ['ote'] }).links).not.toContain('far');
+  });
+
   it('설비가 남은 랙은 지울 수 없다', () => {
     const p = expandDeletes(state(), { racks: ['r1'] });
     expect(p.racks).toEqual([]);

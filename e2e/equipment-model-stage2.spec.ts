@@ -146,7 +146,26 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await save(page);
   await expect(main(page).getByRole('row').filter({ hasText: 'E2E랙' })).toHaveCount(0);
 
-  // 10. 품목 관리 — 케이블 품목 17행, 설비 품목에 L3 스위치
+  // 10. 회로 갈래를 교류로 — 말(교류)을 고르고 값(AC)이 저장된다(예전에는 「교류」를 실어 400).
+  //     교류가 아닌 첫 회로를 고쳐 저장하고, 원래 값으로 되돌려 다시 저장한다(다시 돌릴 수 있게).
+  await openEquipment(page, '통신용 분전반');
+  const currents = detail(page).getByRole('button', { name: '갈래 고치기' });
+  const texts = await currents.allInnerTexts();
+  const idx = texts.findIndex((t) => t.trim() !== '교류');
+  expect(idx).toBeGreaterThanOrEqual(0);
+  const original = texts[idx]!.trim();
+  await currents.nth(idx).click();
+  await detail(page).getByRole('combobox', { name: '갈래' }).selectOption({ label: '교류' });
+  await expect(currents.nth(idx)).toHaveText('교류');
+  expect(await changeCount(page)).toBe(1);
+  await save(page);
+  await page.reload();
+  await expect(detail(page).getByRole('button', { name: '갈래 고치기' }).nth(idx)).toHaveText('교류');
+  await detail(page).getByRole('button', { name: '갈래 고치기' }).nth(idx).click();
+  await detail(page).getByRole('combobox', { name: '갈래' }).selectOption({ label: original });
+  await save(page);
+
+  // 11. 품목 관리 — 케이블 품목 17행, 설비 품목에 L3 스위치
   const nav = page.getByRole('navigation', { name: '주요 메뉴' });
   await nav.getByRole('button', { name: '케이블 품목' }).click();
   await expect(page.getByRole('heading', { name: '케이블 품목', level: 1 })).toBeVisible();

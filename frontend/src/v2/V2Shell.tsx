@@ -16,6 +16,7 @@ import { useV2AuthStore, isAdminRole } from './store/authStore';
 import { useV2Notice } from './store/noticeStore';
 import { useUnsaved, unsavedGuard } from './store/unsavedStore';
 import { confirmDiscard, unsavedPrompt } from './leaveGuard';
+import { workingCopyStore } from './model/store/workingCopy';
 import { AppBar, ErrorStrip, MenuBar, useConfirm, type MenuBarItem } from '../components/ui';
 import { PRODUCT_NAME } from '../product';
 
@@ -95,7 +96,14 @@ export function V2Shell() {
   }, [pathname]);
   const success = useV2Notice((st) => st.success);
 
+  /**
+   * 로그아웃도 **떠나는 일**이다 — 저장 안 한 변경이 있으면 같은 상자로 묻고, 나가면 워킹 카피를
+   * 통째로 비운다(들른 국·변경안·들고 있던 사진 파일까지 — `pendingPhotos` 가 스토어를 지켜본다).
+   * 안 비우면 다음 사람이 같은 탭에서 들어올 때 앞사람의 변경안이 그대로 남아 있다.
+   */
   const handleLogout = async () => {
+    if (!(await mayLeave())) return;
+    workingCopyStore.getState().reset();
     await logout();
     navigate('/login', { replace: true });
   };
