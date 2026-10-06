@@ -1,6 +1,6 @@
 // ported from frontend/src/utils/floorplan/dragSystem.ts (Stage 3)
 
-import type { PlacedAsset } from './hitTest';
+import type { PlacedRect } from './hitTest';
 
 export const DRAG_THRESHOLD = 3;
 
@@ -31,7 +31,7 @@ export interface DragSession {
  * 드래그 세션 시작.
  */
 export function createDragSession(
-  asset: PlacedAsset,
+  asset: PlacedRect,
   mouse: { x: number; y: number },
 ): DragSession {
   return {

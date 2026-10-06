@@ -1,17 +1,15 @@
 /**
  * 층 배경 도면(DWG/DXF/DGN) 임포트·제거 — 도구바 오른쪽 `⋯` 안.
  *
- * FloorPlanView 의 도구바에 얹히지만 캔버스 연산에는 전혀 참여하지 않는다 —
+ * 평면도(`RackPlanView`)의 도구바에 얹히지만 캔버스 연산에는 전혀 참여하지 않는다 —
  * 필요한 것은 대상 층 id 와 배경 유무뿐이라 자기 상태를 스스로 소유한다.
- * (FloorPlanView 는 이미 8개 관심사를 안고 있는 1,200줄 파일이고, 그 관심사들은
- *  캔버스 상태를 공유해 떼어낼 수 없다. 이건 공유하지 않으므로 떼어낸다.)
  */
 import { useRef, useState } from 'react';
 import { OverflowMenu } from '../../../components/ui';
 import type { BackgroundDrawing } from '@twin/core';
 import { parseBackground } from '../../api';
 import { apiErrorMessage } from '../../apiError';
-import { useV2WorkingCopy } from '../../store/workingCopyStore';
+import { workingCopyStore } from '../../model/store/workingCopy';
 
 interface BackgroundImportControlsProps {
   /** 대상 층. null 이면 항목이 비활성된다. */
@@ -33,7 +31,7 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
    */
   function stage(drawing: BackgroundDrawing | null) {
     if (floorId == null) return;
-    useV2WorkingCopy.getState().stageFloorUpdate(floorId, { backgroundDrawing: drawing });
+    workingCopyStore.getState().update('floors', floorId, { backgroundDrawing: drawing });
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {

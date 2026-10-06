@@ -1,7 +1,7 @@
 // ported from frontend/src/utils/floorplan/renderers.ts (Stage 3)
 
 import { SELECTION_STYLES, ELEMENT_COLORS } from './constants';
-import type { PlacedAsset } from './hitTest';
+import type { PlacedRect } from './hitTest';
 import { bundleCables, polylineMidpoint } from './cableBundles';
 import { BUNDLE_GAP_PX, cableLineWidth } from './cableStyle';
 
@@ -37,7 +37,7 @@ const mm = (cm: number) => Math.round(cm * 10).toLocaleString();
 
 function renderAssetItem(
   ctx: CanvasRenderingContext2D,
-  item: PlacedAsset,
+  item: PlacedRect,
   isSelected: boolean,
   /** world → 화면 배율(px/cm). 선 굵기와 글자 크기를 화면 기준으로 고정하는 데 쓴다. */
   scale: number,
@@ -87,7 +87,7 @@ function renderAssetItem(
  */
 function renderLeaderLabel(
   ctx: CanvasRenderingContext2D,
-  item: PlacedAsset,
+  item: PlacedRect,
   px: (n: number) => number,
 ): void {
   const { x, y, width: w } = item;
@@ -143,7 +143,7 @@ function renderLeaderLabel(
  */
 function renderDimensions(
   ctx: CanvasRenderingContext2D,
-  item: PlacedAsset,
+  item: PlacedRect,
   px: (n: number) => number,
 ): void {
   const { x, y, width: w, height: h } = item;
@@ -213,13 +213,13 @@ function arrow(
  */
 export function renderPlacedAssets(
   ctx: CanvasRenderingContext2D,
-  assets: PlacedAsset[],
+  assets: PlacedRect[],
   selectedId: string | null,
   preview?: { id: string; x: number; y: number; width?: number; height?: number } | null,
   /** world → 화면 배율(px/cm) — 선 굵기·글자 크기를 화면 기준으로 고정한다. */
   scale = 1,
 ): void {
-  const withPreview = (asset: PlacedAsset): PlacedAsset =>
+  const withPreview = (asset: PlacedRect): PlacedRect =>
     preview && asset.id === preview.id
       ? { ...asset, x: preview.x, y: preview.y,
           width: preview.width ?? asset.width, height: preview.height ?? asset.height }

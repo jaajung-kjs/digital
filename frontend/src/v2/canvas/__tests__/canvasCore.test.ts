@@ -4,7 +4,7 @@ import { findAssetAt, hitTestAsset } from '../hitTest';
 import { createDragSession, dragDelta, inWindow, isThresholdMet } from '../drag';
 
 const rect = { left: 100, top: 50 } as DOMRect;
-const a = (id: string, x: number, y: number, w = 60, h = 80) => ({ id, name: id, x, y, width: w, height: h });
+const a = (id: string, x: number, y: number, w = 60, h = 80) => ({ id, name: id, x, y, width: w, height: h, facing: null });
 
 describe('transform', () => {
   it('snapToGrid: 10 단위 반올림, disabled면 원값', () => {

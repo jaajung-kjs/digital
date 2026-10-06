@@ -18,6 +18,7 @@ import { AddEquipmentDialog } from '../components/equipment/AddEquipmentDialog';
 import { AddRackDialog } from '../components/equipment/AddRackDialog';
 import { EquipmentDetail } from '../components/equipment/EquipmentDetail';
 import { RackDetail } from '../components/equipment/RackDetail';
+import { RackPlanView } from '../components/plan/RackPlanView';
 import { EquipmentPlaceholder } from './workspace/EquipmentPlaceholder';
 
 const VIEW_TABS: readonly TabItem<ViewMode>[] = VIEW_MODES.map((v) => ({ key: v, label: v }));
@@ -81,6 +82,8 @@ export default function V2WorkspacePage() {
   /** 추가 대화상자 — 랙이면 'rack', 설비면 그 기본 랙(없으면 빈 문자열). */
   const [adding, setAdding] = useState<{ kind: 'rack' } | { kind: 'equipment'; rackId?: string } | null>(null);
   const closeAdding = () => setAdding(null);
+  /** 트리 아래 평면도 자리 — 붙을 때 받는다(ref 콜백, §1.7-q). */
+  const [railEl, setRailEl] = useState<HTMLElement | null>(null);
 
   /* Esc 는 고른 것을 놓는다. */
   useEffect(() => {
@@ -103,7 +106,7 @@ export default function V2WorkspacePage() {
           <div className="min-h-0 flex-1">
             <OrgTreePanel selectedId={selected?.id ?? null} onSelect={(n) => route.selectNode(n?.id ?? null)} />
           </div>
-          <div id="v2-plan-rail" className="shrink-0 empty:hidden" />
+          <div ref={setRailEl} className="shrink-0 empty:hidden" />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
           {selected == null ? (
@@ -132,7 +135,7 @@ export default function V2WorkspacePage() {
               ) : (
                 <div {...viewTabs.panel} className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-4">
                   {substationId && route.view === '평면도' ? (
-                    <EmptyState title="평면도를 준비하고 있습니다" />
+                    <RackPlanView substationId={substationId} selectedRackId={route.rackId} onSelectRack={route.selectRack} railTarget={railEl} />
                   ) : (
                     <StatusView
                       rows={rows}

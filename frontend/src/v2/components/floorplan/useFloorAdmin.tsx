@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { PromptModal, type TabItem } from '../../../components/ui';
-import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import type { V2Asset, V2Floor } from '../../types';
+import { workingCopyStore } from '../../model/store/workingCopy';
+import type { Floor, Rack } from '../../model/types';
 import { newId } from '../../newId';
 
 /**
@@ -15,38 +15,34 @@ import { newId } from '../../newId';
  */
 export function useFloorAdmin(args: {
   substationId: string;
-  floors: readonly V2Floor[];
-  /** 지금 화면의 자산 — 층이 비었는지 여기서 센다. */
-  assets: readonly V2Asset[];
+  floors: readonly Floor[];
+  /** 지금 화면의 랙 — 층이 비었는지 여기서 센다. */
+  racks: readonly Rack[];
   confirm: (opts: {
     title: string; target: string | null; message: string; confirmLabel?: string; danger?: boolean;
   }) => Promise<boolean>;
   /** 새 층을 만들면 그 층으로 옮겨 간다. */
   onCreated: (floorId: string) => void;
 }): { tabItems: TabItem<string>[]; startAdd: () => void; floorPrompt: React.ReactNode } {
-  const { substationId, floors, assets, confirm, onCreated } = args;
+  const { substationId, floors, racks, confirm, onCreated } = args;
   const [adding, setAdding] = useState(false);
   /* 같은 이름을 막았다는 말 — 층 이름은 변전소 안에서 하나뿐이다(서버도 같은 규칙). */
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * 이 층에 놓인 자산 수 — **지금 화면의 것**만 센다.
-   *
-   * 예전에는 저장된 것과 화면의 것을 따로 셌다. 층 삭제만 서버가 즉시 하는 일이라, 그 층의
-   * 설비를 지워도 저장 전에는 서버가 막았기 때문이다 — 「저장한 뒤 지울 수 있습니다」.
-   * 층도 워킹카피의 것이 되면서 그 갈림이 사라졌다: 같은 저장에 자산 삭제와 층 삭제가 함께
-   * 나가고, 서버는 자산을 먼저 치운 뒤 층을 지운다.
+   * 이 층에 놓인 랙 수 — **지금 화면의 것**만 센다. 같은 저장에 랙을 빼는 것과 층 삭제가
+   * 함께 나가므로, 저장된 것을 따로 셀 까닭이 없다.
    */
   const load = useMemo(() => {
     const m = new Map<string, number>();
-    for (const a of assets) if (a.floorId) m.set(a.floorId, (m.get(a.floorId) ?? 0) + 1);
+    for (const r of racks) if (r.floorId) m.set(r.floorId, (m.get(r.floorId) ?? 0) + 1);
     return (floorId: string) => m.get(floorId) ?? 0;
-  }, [assets]);
+  }, [racks]);
 
   /** 이 층을 못 지우는 이유 — 없으면 `null`. */
   const blockedReason = (floorId: string): string | null => {
     const onScreen = load(floorId);
-    return onScreen > 0 ? `이 층에 놓인 설비가 ${onScreen}개 있어 지울 수 없습니다` : null;
+    return onScreen > 0 ? `이 층에 놓인 랙이 ${onScreen}개 있어 지울 수 없습니다` : null;
   };
 
   /** 이름이 겹치면 `false` — 그 자리에서 말하고 상자를 닫지 않는다. */
@@ -65,13 +61,13 @@ export function useFloorAdmin(args: {
     setError(null);
     const id = newId();
     const sortOrder = Math.max(0, ...floors.map((f) => f.sortOrder)) + 1;
-    useV2WorkingCopy.getState().stageFloorCreate({ id, name, sortOrder, substationId, updatedAt: '' });
+    workingCopyStore.getState().create('floors', { id, substationId, name, sortOrder, backgroundDrawing: null, backgroundOpacity: 0.5, updatedAt: '' });
     onCreated(id);
   }
 
   function rename(id: string, name: string) {
     if (!nameIsFree(name, id)) return;
-    useV2WorkingCopy.getState().stageFloorUpdate(id, { name });
+    workingCopyStore.getState().update('floors', id, { name });
   }
 
   async function remove(id: string, name: string) {
@@ -83,7 +79,7 @@ export function useFloorAdmin(args: {
       danger: true,
     });
     if (!ok) return;
-    useV2WorkingCopy.getState().stageFloorDelete(id);
+    workingCopyStore.getState().remove('floors', id);
   }
 
   /* 층은 **탭이 곧 관리 지점**이다 — 두 번 눌러 이름을 고치고, 열린 탭의 `⋯` 에서 지운다
