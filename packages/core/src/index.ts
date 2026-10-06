@@ -21,3 +21,5 @@ export * from './report/computeReport.js';
 export * from './report/computeEstimate.js';
 export * from './catalog/laborSpec.js';
 export * from './canvas/backgroundTypes.js';
+export * from './model/vocab.js';
+export * from './model/types.js';
