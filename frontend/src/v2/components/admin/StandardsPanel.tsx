@@ -302,7 +302,7 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
       {rows.length === 0 ? (
         <EmptyState
           title="올린 기준정보가 없습니다"
-          description="위의 「파일 선택」 으로 올리세요."
+          description="노임단가·제비율 탭의 「파일 선택」으로 올리세요."
           className="py-6"
         />
       ) : (

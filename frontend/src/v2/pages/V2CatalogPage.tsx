@@ -13,7 +13,8 @@ import { CatalogTable, type Column } from '../components/catalog/CatalogTable';
 type Kind = 'equipment' | 'rack' | 'cable' | 'category';
 const KINDS: readonly Kind[] = ['equipment', 'rack', 'cable', 'category'];
 
-const ORDER: Column = { key: 'sortOrder', label: '순서', kind: 'number' };
+/** 순서는 두세 자리 수 — 폭을 못 박는다(무게로 나누면 두 열짜리 분야 표에서 30% 를 먹었다). */
+const ORDER: Column = { key: 'sortOrder', label: '순서', kind: 'number', width: '6' };
 const NAME: Column = { key: 'name', label: '이름', kind: 'text', required: true };
 const LABOR: Column[] = [
   { key: 'laborCode', label: '노무유형', kind: 'labor' },

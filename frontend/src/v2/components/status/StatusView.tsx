@@ -40,17 +40,20 @@ const MODES = [{ key: '품목별' as const, label: '품목별' }, { key: '랙별
 /** 상태 거르개 — 하나만 고른다. '' = 전체, 상태 값, 또는 미점검. */
 const NEVER = '__never__';
 
-/** 열 — 앞 넷은 늘 있고, 뒤 넷(모델·제조사·설치일·마지막점검일)은 값이 있을 때만 그린다. */
+/** 열 — 이름·개수·랙(품목)은 늘 있고, 상태(정상 아닌 것)·모델·제조사·설치일·마지막점검일은 값이 있을 때만 그린다. */
 const COLUMNS = [
   { key: 'name', width: 26 }, { key: 'count', width: 7 }, { key: 'status', width: 14 }, { key: 'where', width: 17 },
   { key: 'model', width: 10 }, { key: 'maker', width: 10 }, { key: 'install', width: 9 }, { key: 'inspected', width: 10 },
 ] as const;
 type ColKey = (typeof COLUMNS)[number]['key'];
 const OPTIONAL: Readonly<Record<string, (r: StatusRow) => boolean>> = {
+  /* 정상은 칸을 비운다 — 모두 정상이면 그 열은 통째로 빈 열이다. */
+  status: (r) => r.status !== OK_STATUS,
   model: (r) => !!r.model,
   maker: (r) => !!r.maker,
-  install: (r) => !!formatDate(r.installDate),
-  inspected: (r) => !!formatDate(r.lastInspectedAt),
+  /* 날짜 자체를 본다 — `formatDate` 는 빈 값에도 「—」를 돌려주므로 그것으로 재면 늘 「있다」가 된다. */
+  install: (r) => !!r.installDate,
+  inspected: (r) => !!r.lastInspectedAt,
 };
 const noop = () => {};
 const NO_RACK = '__no_rack__';
@@ -98,6 +101,8 @@ export function StatusView({
   const widths = cols.map((c) => c.width);
   const COLS = cols.length;
   const has = (k: ColKey) => cols.some((c) => c.key === k);
+  /** 랙 행에서 품목 칸 다음 — 이름·개수·(상태)·품목 뒤의 나머지 열. */
+  const restFrom = has('status') ? 4 : 3;
   /** 랙마다 설비가 몇 개인가 — 거르기 전 전체(일체형 판정은 거른 결과에 흔들리지 않는다). */
   const perRack = useMemo(() => {
     const m = new Map<string, number>();
@@ -146,7 +151,7 @@ export function StatusView({
         </span>
       </Td>
       <Td />
-      <Td>{r.status !== OK_STATUS && <StatusDot status={statusTone(r.status)}>{statusLabel(r.status)}</StatusDot>}</Td>
+      {has('status') && <Td>{r.status !== OK_STATUS && <StatusDot status={statusTone(r.status)}>{statusLabel(r.status)}</StatusDot>}</Td>}
       <Td className="truncate text-content-muted">{fourth}</Td>
       {has('model') && <Td className="truncate text-content-muted">{r.model ?? EMPTY}</Td>}
       {has('maker') && <Td className="truncate text-content-muted">{r.maker ?? EMPTY}</Td>}
@@ -219,7 +224,7 @@ export function StatusView({
               </span>
             </Th>
             <Th align="right">개수</Th>
-            <Th>상태</Th>
+            {has('status') && <Th>상태</Th>}
             <Th>{view === '랙별' ? '품목' : '랙'}</Th>
             {has('model') && <Th>모델</Th>}
             {has('maker') && <Th>제조사</Th>}
@@ -267,7 +272,7 @@ export function StatusView({
                         </span>
                       </Td>
                       <Td align="right" className="text-content">{item.count}</Td>
-                      <Td>
+                      {has('status') && <Td>
                         {bad.length > 0 && (
                           <span className="flex flex-wrap items-center gap-1">
                             {bad.map(([value, n]) => (
@@ -275,8 +280,8 @@ export function StatusView({
                             ))}
                           </span>
                         )}
-                      </Td>
-                      <Td colSpan={COLS - 3} />
+                      </Td>}
+                      <Td colSpan={COLS - 2 - (has('status') ? 1 : 0)} />
                     </tr>
                     {open && item.rows.map((r) => equipmentRow(r, 'pl-14', rackCell(r)))}
                   </Fragment>
@@ -300,9 +305,9 @@ export function StatusView({
               >
                 <Td className="truncate font-semibold text-content">{rack.name}</Td>
                 <Td align="right" className="font-semibold text-content">{inRack.length}</Td>
-                <Td />
+                {has('status') && <Td />}
                 <Td className="truncate text-content-muted">{rack.typeName}</Td>
-                {COLS > 4 && <Td colSpan={COLS - 4} />}
+                {COLS > restFrom && <Td colSpan={COLS - restFrom} />}
               </tr>
               {inRack.map((r) => equipmentRow(r, 'pl-8', r.typeName))}
             </Fragment>

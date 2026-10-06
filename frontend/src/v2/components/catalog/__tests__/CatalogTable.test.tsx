@@ -23,6 +23,12 @@ const wrap = (ui: React.ReactElement) => render(<QueryClientProvider client={new
 const columns = [{ key: 'sortOrder', label: '순서', kind: 'number' as const }, { key: 'name', label: '이름', kind: 'text' as const, required: true }];
 
 describe('CatalogTable', () => {
+  it('폭을 정한 열(순서)은 그 폭만 쓰고 나머지가 남은 자리를 나눈다 — 두 열짜리 분야 표에서 순서가 30% 를 먹지 않게', () => {
+    const { container } = wrap(<CatalogTable kind="categories" title="분야" rows={[{ id: 'c1', name: '통신', sortOrder: 1 }]} columns={[{ ...columns[0]!, width: '6' }, columns[1]!]} newRow={() => ({})} />);
+    const widths = [...container.querySelectorAll('col')].map((c) => (c as HTMLElement).style.width);
+    expect(widths).toEqual(['6%', '84%', '10%']);
+  });
+
   it('이름을 고치면 그 행만 patch 한다', async () => {
     wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[{ id: 'r1', key: 'R', name: '19인치', sortOrder: 1 }]} columns={columns} newRow={() => ({})} />);
     fireEvent.click(screen.getByText('19인치'));

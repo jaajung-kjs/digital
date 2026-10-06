@@ -79,6 +79,17 @@ describe('StatusView 도구줄·표 정리', () => {
     expect(screen.queryByRole('columnheader', { name: '제조사' })).toBeNull();
   });
 
+  it('모두 정상이면 상태 열도 머리글째 없다 — 정상 아닌 것이 보이면 나타난다', () => {
+    const ok = rows.filter((r) => r.status === 'normal');
+    const { rerender } = render(<StatusView rows={ok} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.queryByRole('columnheader', { name: '상태' })).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
+    expect(screen.queryByRole('columnheader', { name: '상태' })).toBeNull();
+    expect(screen.getByText('L3 #1').closest('tr')!.querySelectorAll('td')).toHaveLength(3); // 이름·개수·품목
+    rerender(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.getByRole('columnheader', { name: '상태' })).toBeInTheDocument();
+  });
+
   it('일체형 — 랙에 같은 이름의 설비 하나뿐이면 랙별에서 행 하나, 누르면 그 설비', () => {
     const onSelect = vi.fn();
     const merged = [{ ...rows[2]!, name: 'UPS#1' }];

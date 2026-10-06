@@ -61,8 +61,10 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
 
   const cols = columns;
   const weight = (c: Column) => (c.kind === 'labor' ? 2 : c.key === 'name' ? 2 : 1);
-  const total = cols.reduce((n, c) => n + weight(c), 0);
-  const widths = [...cols.map((c) => (c.width ? Number(c.width) : (weight(c) / total) * 90)), 10];
+  /* 폭을 정한 열(순서)은 그 폭만 쓰고, 나머지 열이 남은 자리를 무게대로 나눈다 — 끝 10% 는 줄 손잡이. */
+  const fixed = cols.reduce((n, c) => n + (c.width ? Number(c.width) : 0), 0);
+  const total = cols.reduce((n, c) => n + (c.width ? 0 : weight(c)), 0);
+  const widths = [...cols.map((c) => (c.width ? Number(c.width) : (weight(c) / total) * (90 - fixed))), 10];
 
   const fail = (id: string, e: unknown, fallback: string) => setError({ id, message: apiErrorMessage(e, fallback) });
 
