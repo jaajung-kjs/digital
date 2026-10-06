@@ -340,7 +340,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
             배치
           </Button>
           <div className="w-44">
-            <Select size="sm" aria-label="배치할 랙" value={placeRackId} onChange={(e) => setPickedRackId(e.currentTarget.value)}>
+            <Select size="sm" aria-label="배치할 랙" title="배치할 랙" value={placeRackId} onChange={(e) => setPickedRackId(e.currentTarget.value)}>
               {waiting.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </Select>
           </div>
@@ -417,7 +417,9 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
           {placed.length === 0 && !isArmed && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="text-center text-xs text-content-faint">
-                아직 놓인 랙이 없습니다 — 위 「배치」에서 랙을 골라 그려 놓으세요
+                {waiting.length > 0
+                  ? '아직 놓인 랙이 없습니다 — 위 「배치」에서 랙을 골라 그려 놓으세요'
+                  : '놓을 랙이 없습니다 — 현황에서 랙을 먼저 추가하세요'}
               </span>
             </div>
           )}

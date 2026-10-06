@@ -126,7 +126,7 @@ export function OverheadRatesView({ onError }: { onError: (m: string) => void })
         onError={onError}
         renderPreview={(p) => (
           <>
-            <DetailRow label="공사종류">
+            <DetailRow label="공사 구분">
               <span className="text-sm text-content">{p.kind}</span>
             </DetailRow>
             <DetailRow label="간접노무비">
@@ -296,8 +296,8 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
       <DetailCardHeader title="올린 기록" badge={String(rows.length)} badgeStatus="neutral" />
       {/* 두 기준정보가 적용되는 단위가 다르다 — 상태 칸이 왜 다른지 여기서 한 번 말한다. */}
       <p className="text-xs text-content-faint">
-        제비율은 <b className="font-medium">판</b>을 골라 적용합니다. 노임단가는 올린 값이 회차별로 쌓이고, 직종마다
-        가장 최근 값이 쓰입니다 — 고를 판이 없습니다.
+        제비율은 <b className="font-medium">올린 기록</b> 하나를 골라 적용합니다. 노임단가는 올린 값이 회차별로 쌓이고, 직종마다
+        가장 최근 값이 쓰입니다 — 고를 것이 없습니다.
       </p>
       {rows.length === 0 ? (
         <EmptyState

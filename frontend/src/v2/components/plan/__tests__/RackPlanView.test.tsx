@@ -70,8 +70,16 @@ describe('RackPlanView', () => {
     expect(screen.getByRole('button', { name: '층 추가' })).toBeInTheDocument();
   });
 
-  it('놓인 랙이 없으면 캔버스 가운데 안내가 선다', () => {
+  it('놓을 랙이 없으면 캔버스 안내가 「현황에서 랙을 먼저 추가」 로 바뀐다', () => {
     store.getState().create('floors', floor);
+    view();
+    expect(screen.getByText('놓을 랙이 없습니다 — 현황에서 랙을 먼저 추가하세요')).toBeInTheDocument();
+    expect(screen.queryByText(/위 「배치」/)).toBeNull();
+  });
+
+  it('놓인 랙이 없고 놓을 랙이 있으면 캔버스 가운데 안내가 선다', () => {
+    store.getState().create('floors', floor);
+    store.getState().create('racks', waitingRack);
     view();
     expect(screen.getByText('아직 놓인 랙이 없습니다 — 위 「배치」에서 랙을 골라 그려 놓으세요')).toBeInTheDocument();
   });
