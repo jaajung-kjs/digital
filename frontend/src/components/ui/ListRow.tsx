@@ -15,8 +15,8 @@ type Aria = Pick<HTMLAttributes<HTMLElement>, 'aria-disabled' | 'aria-selected' 
  */
 export function ListRow({ children, onClick, className, trailing, ...aria }: { children: ReactNode; onClick?: () => void; className?: string; trailing?: ReactNode } & Aria) {
   const base = trailing !== undefined
-    ? 'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-content'
-    /* 줄 높이 28px(`py-1` + 20) — 표 줄(`TABLE_ROW` h-7)과 같은 밀도. 카드 여백은 목록 전체가 한 번 받는다. */
+    /* 줄 높이는 두 꼴 모두 28px(`py-1` + 20) — 트리 행·표 줄(`TABLE_ROW` h-7)과 같은 밀도. 카드 여백은 목록 전체가 한 번 받는다. */
+    ? 'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm text-content'
     : 'block w-full truncate rounded px-1 py-1 text-left text-sm text-content';
   const body = trailing !== undefined
     ? (<><span className="min-w-0 flex-1 truncate">{children}</span><span className="shrink-0 text-xs tabular-nums text-content-muted">{trailing}</span></>)

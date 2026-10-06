@@ -1,4 +1,16 @@
-import { chipClass } from './FilterChip';
+import { cn } from './cn';
+
+/**
+ * 갈래 칸의 생김새 — 판의 머리 띠에 서는 다른 컨트롤과 같은 24px.
+ * 모서리는 `rounded`(2px) 하나다(§3.2) — 알약은 업무화면의 밀도에서 「꼬리표」로 읽힌다.
+ * 무엇을 고르는 방식인지는 **모양이 아니라 ARIA**(`role="radio"`)가 말한다.
+ */
+function chipClass(on: boolean) {
+  return cn(
+    'inline-flex h-6 shrink-0 items-center gap-1 rounded border px-2.5 text-xs transition-colors focus-ring',
+    on ? 'border-primary bg-info-bg font-medium text-primary' : 'border-line text-content-muted hover:bg-surface-2',
+  );
+}
 
 export interface SegmentedItem<T extends string> {
   key: T;
