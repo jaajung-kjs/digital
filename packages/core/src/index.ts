@@ -23,3 +23,5 @@ export * from './catalog/laborSpec.js';
 export * from './canvas/backgroundTypes.js';
 export * from './model/vocab.js';
 export * from './model/types.js';
+export * from './model/rows.js';
+export * from './model/validate.js';
