@@ -71,6 +71,8 @@ export function buildJikhalPayload(input: JikhalInput): CommitPayload {
     const bIdx = bPlates.findIndex((p) => p.slot === seg.bSlot);
     const aLine = PLATE_LINES[seg.a]?.[seg.aSlot];
     const bLine = PLATE_LINES[seg.b]?.[seg.bSlot];
+    if (aIdx < 0) throw new Error(`OPGW 판 자리 없음: ${seg.a} 슬롯 ${seg.aSlot}`);
+    if (bIdx < 0) throw new Error(`OPGW 판 자리 없음: ${seg.b} 슬롯 ${seg.bSlot}`);
     const lineId = newId();
     /* 선로명은 먼저 적힌 쪽, 긍장은 적힌 쪽 — 옛 시드(opgwSpec)와 같은 규칙. */
     lines.push({
@@ -110,19 +112,29 @@ export async function seedJikhal(inventory?: Record<string, StationInventory>): 
     return;
   }
   const substationIds = {} as Record<StationKey, string>;
-  for (const [i, s] of STATIONS.entries()) {
-    substationIds[s.key] = (await nextDb.substation.create({ data: { branchId: branch.id, name: s.name, sortOrder: i } })).id;
+  const createdIds: string[] = [];
+  try {
+    for (const [i, s] of STATIONS.entries()) {
+      const id = (await nextDb.substation.create({ data: { branchId: branch.id, name: s.name, sortOrder: i } })).id;
+      substationIds[s.key] = id;
+      createdIds.push(id);
+    }
+    const byKey = (rows: { key: string; id: string }[]) => Object.fromEntries(rows.map((r) => [r.key, r.id]));
+    const payload = buildJikhalPayload({
+      substationIds,
+      rackTypeIds: byKey(await nextDb.rackType.findMany({ select: { key: true, id: true } })),
+      equipmentTypeIds: byKey(await nextDb.equipmentType.findMany({ select: { key: true, id: true } })),
+      cableTypeIds: byKey(await nextDb.cableType.findMany({ select: { key: true, id: true } })),
+      newId: randomUUID,
+      inventory,
+    });
+    await commitChanges(payload, { userId: 'seed', username: 'seed' });
+    console.log(`[seed:jikhal] 국 ${STATIONS.length}, 광선로 ${payload.fiberLines?.creates?.length ?? 0}, 측정 ${payload.coreMeasurements?.creates?.length ?? 0}, `
+      + `설비 ${payload.equipment?.creates?.length ?? 0}, 연결 ${payload.links?.creates?.length ?? 0}`);
+  } catch (e) {
+    /* 국만 남으면 count()>0 이라 시드가 영영 건너뛴다 — 이번에 만든 국을 되돌린다. */
+    await nextDb.substation.deleteMany({ where: { id: { in: createdIds } } });
+    console.log(`[seed:jikhal] 실패 — 이번에 만든 국 ${createdIds.length}곳을 지웠다`);
+    throw e;
   }
-  const byKey = (rows: { key: string; id: string }[]) => Object.fromEntries(rows.map((r) => [r.key, r.id]));
-  const payload = buildJikhalPayload({
-    substationIds,
-    rackTypeIds: byKey(await nextDb.rackType.findMany({ select: { key: true, id: true } })),
-    equipmentTypeIds: byKey(await nextDb.equipmentType.findMany({ select: { key: true, id: true } })),
-    cableTypeIds: byKey(await nextDb.cableType.findMany({ select: { key: true, id: true } })),
-    newId: randomUUID,
-    inventory,
-  });
-  await commitChanges(payload, { userId: 'seed', username: 'seed' });
-  console.log(`[seed:jikhal] 국 ${STATIONS.length}, 광선로 ${payload.fiberLines?.creates?.length ?? 0}, 측정 ${payload.coreMeasurements?.creates?.length ?? 0}, `
-    + `설비 ${payload.equipment?.creates?.length ?? 0}, 연결 ${payload.links?.creates?.length ?? 0}`);
 }

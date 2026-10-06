@@ -2,6 +2,7 @@ import { MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES } from '@
 import { describe, expect, it } from 'vitest';
 import { buildJikhalPayload } from './jikhal.js';
 import { OPGW, STATIONS, seatedPlates } from './jikhalGangwon.js';
+import { PLATE_LINES } from './jikhalGangwonLines.js';
 
 let n = 0;
 const input = () => ({
@@ -51,5 +52,34 @@ describe('buildJikhalPayload — 광선로', () => {
     const p = buildJikhalPayload(input());
     expect(p.floors!.creates).toHaveLength(STATIONS.length);
     expect(p.racks!.creates!.filter((r) => r.rackTypeId === 'rt-RACK-OFD')).toHaveLength(STATIONS.length);
+  });
+
+  it('끝별 측정의 코어 번호는 그 끝 판의 잰 코어와 같다', () => {
+    const p = buildJikhalPayload(input());
+    const ms = p.coreMeasurements!.creates!;
+    const lines = p.fiberLines!.creates!;
+    expect(lines).toHaveLength(OPGW.length);
+    const measured = (st: (typeof OPGW)[number]['a'], slot: number) =>
+      (PLATE_LINES[st]?.[slot]?.cores ?? []).flatMap((c, i) => (c.every((v) => v == null) ? [] : [i + 1]));
+    OPGW.forEach((seg, i) => {
+      const line = lines[i]!;
+      const nos = (side: 'A' | 'B') => ms.filter((m) => m.lineId === line.id && m.side === side).map((m) => m.coreNo).sort((x, y) => x - y);
+      expect(nos('A')).toEqual(measured(seg.a, seg.aSlot));
+      expect(nos('B')).toEqual(measured(seg.b, seg.bSlot));
+    });
+  });
+
+  it('측정 코어 번호는 선로 코어 수를 넘지 않는다', () => {
+    const p = buildJikhalPayload(input());
+    const count = new Map(p.fiberLines!.creates!.map((l) => [l.id, l.coreCount]));
+    for (const m of p.coreMeasurements!.creates!) expect(m.coreNo).toBeLessThanOrEqual(count.get(m.lineId)!);
+  });
+
+  it('OPGW 두 끝 판의 심수는 같다(자료 불변식)', () => {
+    for (const seg of OPGW) {
+      const a = seatedPlates(seg.a).find((x) => x.slot === seg.aSlot)!;
+      const b = seatedPlates(seg.b).find((x) => x.slot === seg.bSlot)!;
+      expect(a.cores).toBe(b.cores);
+    }
   });
 });
