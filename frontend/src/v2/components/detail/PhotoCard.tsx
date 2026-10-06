@@ -1,5 +1,5 @@
 /**
- * PhotoCard — InfoTab 사진 카드 (레코드의 세 번째 종류)
+ * PhotoCard — 상세 패널 사진 카드 (레코드의 세 번째 종류)
  *
  * 업로드(파일 선택 → 워킹카피에 담기)·판 너비를 다 쓰는 목록·캡션
  * 인라인 편집(InlineEditCell)·삭제·클릭 확대(Modal). 표시 대상 계산은
@@ -8,14 +8,14 @@
  * effective*For 는 RecordsTab 이 실제로 쓰지 않는 죽은 셀렉터라 그 형태를
  * 새로 반복하지 않는다).
  */
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { DetailCardHeader, Button, DetailCard, IconButton, Modal } from '../../../components/ui';
 import { photoUrl } from '../../api';
-import { useEffectivePhotos } from '../../store/useWorkingCopy';
+import { effectiveRows } from '../../model/store/effective';
+import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import { holdPhotoFile, pendingPhotoUrl } from '../../store/pendingPhotos';
-import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import type { V2AssetPhoto } from '../../types';
+import type { EquipmentPhoto } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
 import { newId } from '../../newId';
 
@@ -24,16 +24,21 @@ import { newId } from '../../newId';
  *
  * 한 줄로 적어 **두 자리(격자·확대)가 갈리지 않게** 한다.
  */
-function srcOf(p: V2AssetPhoto): string {
+function srcOf(p: EquipmentPhoto): string {
   return pendingPhotoUrl(p.id) ?? photoUrl(p.filePath);
 }
 
 interface PhotoCardProps {
-  assetId: string;
+  equipmentId: string;
 }
 
-export function PhotoCard({ assetId }: PhotoCardProps) {
-  const photos = useEffectivePhotos(assetId);
+export function PhotoCard({ equipmentId }: PhotoCardProps) {
+  const saved = useWorkingCopy((st) => st.saved);
+  const overlays = useWorkingCopy((st) => st.overlays);
+  const photos = useMemo(
+    () => effectiveRows({ saved, overlays }, 'photos').filter((p) => p.equipmentId === equipmentId),
+    [saved, overlays, equipmentId],
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [enlargedId, setEnlargedId] = useState<string | null>(null);
@@ -53,18 +58,18 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
     if (!file) return;
     const id = newId();
     holdPhotoFile(id, file);
-    useV2WorkingCopy.getState().stagePhotoCreate({ id, assetId, filePath: '', caption: null, updatedAt: '' });
+    workingCopyStore.getState().create('photos', { id, equipmentId, filePath: '', caption: null, updatedAt: '' });
   }
 
-  function handleCaptionCommit(photo: V2AssetPhoto, value: string) {
+  function handleCaptionCommit(photo: EquipmentPhoto, value: string) {
     const trimmed = value.trim();
     const nextCaption = trimmed || null;
     if (nextCaption === photo.caption) return;
-    useV2WorkingCopy.getState().stagePhotoUpdate(photo.id, { caption: nextCaption });
+    workingCopyStore.getState().update('photos', photo.id, { caption: nextCaption });
   }
 
   function handleDelete(id: string) {
-    useV2WorkingCopy.getState().stagePhotoDelete(id);
+    workingCopyStore.getState().remove('photos', id);
     if (enlargedId === id) setEnlargedId(null);
   }
 

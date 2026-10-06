@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, formatDate, isCommitKey } from '../../../components/ui';
-import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { useEffectiveInspections, useEffectiveMaintenance } from '../../store/useWorkingCopy';
-import type { V2MaintenanceLog, V2InspectionLog } from '../../types';
+import { effectiveRows } from '../../model/store/effective';
+import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
+import type { InspectionLog, MaintenanceLog } from '../../model/types';
 import { newId } from '../../newId';
 
 // ── ISO 변환 헬퍼 ─────────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ export function isoToLocalInput(iso: string): string {
 
 // ── props ─────────────────────────────────────────────────────────────────────
 interface RecordsTabProps {
-  assetId: string;
+  equipmentId: string;
   /** 'maintenance' = 고장이력, 'inspections' = 점검 */
   kind: 'maintenance' | 'inspections';
   /** kind='maintenance' → 'occurredAt'; kind='inspections' → 'inspectedAt' */
@@ -38,7 +38,7 @@ interface RecordsTabProps {
   emptyMessage: string;
 }
 
-type AnyRecord = V2MaintenanceLog | V2InspectionLog;
+type AnyRecord = MaintenanceLog | InspectionLog;
 
 /** 좁힌 필드 접근자 — dateField/extraField 로 파라미터화된 단일 컴포넌트에서 as any 남용 방지 */
 function fieldOf(r: AnyRecord, k: 'occurredAt' | 'inspectedAt' | 'action' | 'result'): string | null {
@@ -65,7 +65,7 @@ function makeEmpty(): AddState {
 }
 
 export function RecordsTab({
-  assetId,
+  equipmentId,
   kind,
   dateField,
   extraField,
@@ -75,10 +75,13 @@ export function RecordsTab({
   emptyMessage,
 }: RecordsTabProps) {
   const { confirm, confirmDialog } = useConfirm();
-  /* 두 갈래를 다 구독한다 — 훅은 갈래를 골라 부를 수 없다(그것이 훅의 규칙이다). */
-  const maintenance = useEffectiveMaintenance(assetId);
-  const inspections = useEffectiveInspections(assetId);
-  const records: AnyRecord[] = kind === 'maintenance' ? maintenance : inspections;
+  /* 저장본 ⊕ 변경안에서 이 설비의 것만 — 훅은 갈래를 골라 부를 수 없어 두 갈래를 다 구독한다. */
+  const saved = useWorkingCopy((st) => st.saved);
+  const overlays = useWorkingCopy((st) => st.overlays);
+  const records: AnyRecord[] = useMemo(() => {
+    const rows = kind === 'maintenance' ? effectiveRows({ saved, overlays }, 'maintenance') : effectiveRows({ saved, overlays }, 'inspections');
+    return (rows as AnyRecord[]).filter((r) => r.equipmentId === equipmentId);
+  }, [saved, overlays, kind, equipmentId]);
 
   const sorted = useMemo(
     () => [...records].sort((a, b) => (fieldOf(b, dateField) ?? '').localeCompare(fieldOf(a, dateField) ?? '')),
@@ -91,27 +94,15 @@ export function RecordsTab({
 
   // ── 스토어 액션 래퍼 ────────────────────────────────────────────────────────
   function stageCreate(log: AnyRecord) {
-    if (kind === 'maintenance') {
-      useV2WorkingCopy.getState().stageMaintenanceCreate(log as V2MaintenanceLog);
-    } else {
-      useV2WorkingCopy.getState().stageInspectionCreate(log as V2InspectionLog);
-    }
+    workingCopyStore.getState().create(kind, log as never);
   }
 
   function stageUpdate(id: string, patch: Partial<AnyRecord>) {
-    if (kind === 'maintenance') {
-      useV2WorkingCopy.getState().stageMaintenanceUpdate(id, patch as Partial<V2MaintenanceLog>);
-    } else {
-      useV2WorkingCopy.getState().stageInspectionUpdate(id, patch as Partial<V2InspectionLog>);
-    }
+    workingCopyStore.getState().update(kind, id, patch as never);
   }
 
   function stageDelete(id: string) {
-    if (kind === 'maintenance') {
-      useV2WorkingCopy.getState().stageMaintenanceDelete(id);
-    } else {
-      useV2WorkingCopy.getState().stageInspectionDelete(id);
-    }
+    workingCopyStore.getState().remove(kind, id);
   }
 
   // ── 핸들러 ──────────────────────────────────────────────────────────────────
@@ -122,7 +113,7 @@ export function RecordsTab({
     const id = newId();
     const log: AnyRecord = {
       id,
-      assetId,
+      equipmentId,
       [dateField]: isoDate,
       content: addState.content.trim(),
       [extraField]: addState.extra.trim() || null,

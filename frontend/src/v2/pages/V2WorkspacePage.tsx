@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState, ErrorStrip, isCancelKey, PageHeader, PageState, Tabs, useTabs, type TabItem } from '../../components/ui';
 import { ConflictDialog } from '../components/ConflictDialog';
@@ -14,6 +14,10 @@ import { useWorkingCopy, workingCopyStore } from '../model/store/workingCopy';
 import { ancestorPath, flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useUnsavedMark } from '../useUnsavedMark';
 import { useWorkspaceRoute, VIEW_MODES, type ViewMode } from '../useWorkspaceRoute';
+import { AddEquipmentDialog } from '../components/equipment/AddEquipmentDialog';
+import { AddRackDialog } from '../components/equipment/AddRackDialog';
+import { EquipmentDetail } from '../components/equipment/EquipmentDetail';
+import { RackDetail } from '../components/equipment/RackDetail';
 import { EquipmentPlaceholder } from './workspace/EquipmentPlaceholder';
 
 const VIEW_TABS: readonly TabItem<ViewMode>[] = VIEW_MODES.map((v) => ({ key: v, label: v }));
@@ -74,6 +78,9 @@ export default function V2WorkspacePage() {
   /* 저장 안 한 변경이 있으면 셸이 다른 메뉴로 넘어가는 것을 막는다 — 국 사이 이동은 대상이 아니다. */
   useUnsavedMark(dirty, () => workingCopyStore.getState().revert());
   const viewTabs = useTabs(route.view);
+  /** 추가 대화상자 — 랙이면 'rack', 설비면 그 기본 랙(없으면 빈 문자열). */
+  const [adding, setAdding] = useState<{ kind: 'rack' } | { kind: 'equipment'; rackId?: string } | null>(null);
+  const closeAdding = () => setAdding(null);
 
   /* Esc 는 고른 것을 놓는다. */
   useEffect(() => {
@@ -86,7 +93,6 @@ export default function V2WorkspacePage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [route]);
 
-  const selectedRow = rows.find((r) => r.id === route.eqId) ?? null;
   const waiting = (substationId != null && (!loadedHere || !catalog.data)) || (nodeScope && nodeEquipment.isLoading);
   const nodeError = nodeScope && nodeEquipment.isError ? '현황을 불러오지 못했습니다' : null;
 
@@ -136,12 +142,26 @@ export default function V2WorkspacePage() {
                       selectedRackId={route.rackId}
                       onSelectRack={route.selectRack}
                       nodeScope={nodeScope}
+                      onAddRack={substationId ? () => setAdding({ kind: 'rack' }) : undefined}
+                      onAddEquipment={substationId ? (rackId) => setAdding({ kind: 'equipment', rackId }) : undefined}
                       onOpenElsewhere={nodeScope ? (r) => navigate(`/n/${r.substationId}?eq=${r.id}`) : undefined}
                     />
                   )}
                   {substationId && (
                     <aside className="flex h-full w-[364px] shrink-0 flex-col">
-                      <EquipmentPlaceholder row={selectedRow} />
+                      {route.eqId ? (
+                        <EquipmentDetail equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} />
+                      ) : route.rackId ? (
+                        <RackDetail
+                          rackId={route.rackId}
+                          onClose={() => route.selectRack(null)}
+                          onSelectEquipment={route.selectEquipment}
+                          onDeleted={() => route.selectRack(null)}
+                          onAddEquipment={(rackId) => setAdding({ kind: 'equipment', rackId })}
+                        />
+                      ) : (
+                        <EquipmentPlaceholder row={null} />
+                      )}
                     </aside>
                   )}
                 </div>
@@ -150,6 +170,18 @@ export default function V2WorkspacePage() {
           )}
         </main>
       </div>
+      {substationId && (
+        <>
+          <AddRackDialog substationId={substationId} open={adding?.kind === 'rack'} onClose={closeAdding} onCreated={route.selectRack} />
+          <AddEquipmentDialog
+            substationId={substationId}
+            open={adding?.kind === 'equipment'}
+            defaultRackId={adding?.kind === 'equipment' ? adding.rackId : undefined}
+            onClose={closeAdding}
+            onCreated={route.selectEquipment}
+          />
+        </>
+      )}
       {commit.conflicts != null && commit.conflicts.length > 0 && (
         <ConflictDialog conflicts={commit.conflicts} onClose={commit.clearConflicts} />
       )}
