@@ -37,7 +37,8 @@ import {
 } from '../../api';
 import { apiErrorMessage } from '../../apiError';
 import { DURATION_BANDS, SANAN_BANDS, SIZE_BANDS } from '@twin/core';
-import { useStandards, useV2Catalog, useWageRates } from '../../hooks';
+import { useStandards, useWageRates } from '../../hooks';
+import { useCatalog } from '../../model/hooks';
 import type { V2Standard } from '../../types';
 
 /** 파일 · 적용시기 · 올린이 · 상태. 합이 100(`TableCard`). */
@@ -53,7 +54,7 @@ const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
  * 추이도 함께 읽힌다(통신내선공 275,107 → 278,565 → 283,607 → 284,880).
  */
 export function WageRatesView({ onError }: { onError: (m: string) => void }) {
-  const catalog = useV2Catalog();
+  const catalog = useCatalog();
   const standards = useStandards();
   const rates = useWageRates();
   const wage = catalog.data?.wageStandard ?? null;
@@ -106,7 +107,7 @@ export function WageRatesView({ onError }: { onError: (m: string) => void }) {
 
 /** 제비율 — 올리기 + 적용 중인 요율 표. */
 export function OverheadRatesView({ onError }: { onError: (m: string) => void }) {
-  const catalog = useV2Catalog();
+  const catalog = useCatalog();
   const standards = useStandards();
   const overhead = catalog.data?.overheadStandard ?? null;
   const refresh = () => Promise.all([standards.refetch(), catalog.refetch()]);
@@ -149,7 +150,7 @@ export function OverheadRatesView({ onError }: { onError: (m: string) => void })
 
 /** 올린 기록 — 새 판을 올려도 이전 판은 남고, 제비율은 되돌릴 수 있다. */
 export function StandardHistoryView({ onError }: { onError: (m: string) => void }) {
-  const catalog = useV2Catalog();
+  const catalog = useCatalog();
   const standards = useStandards();
 
   async function activate(id: string) {
@@ -439,7 +440,7 @@ function WageRatesCard() {
  * 고정요율, 산안비 대상액 구간.
  */
 function OverheadRatesCard() {
-  const catalog = useV2Catalog();
+  const catalog = useCatalog();
   const t = catalog.data?.overheadStandard ?? null;
   if (!t) return null;
 

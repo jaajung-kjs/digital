@@ -25,6 +25,7 @@ import {
   type OrgKind,
 } from './api';
 import type { V2AssetType, V2WageRow } from './types';
+import { useCatalog } from './model/hooks';
 
 export function useV2Catalog() {
   return useQuery({ queryKey: ['v2', 'catalog'], queryFn: fetchCatalog, staleTime: 60_000 });
@@ -180,7 +181,7 @@ export function useMediumColor(): (key: string) => string | null {
  * 먼저 올리세요」라고 말한다. 저장은 막지 않는다(품셈 없이도 종류는 만들 수 있어야 한다).
  */
 export function useWageCatalog() {
-  const catalog = useV2Catalog();
+  const catalog = useCatalog();
   const std = catalog.data?.wageStandard ?? null;
   return useMemo(() => {
     const rows: V2WageRow[] = std?.rows ?? [];

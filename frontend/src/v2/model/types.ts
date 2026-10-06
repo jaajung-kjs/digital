@@ -1,4 +1,5 @@
 import type { BackgroundDrawing, LinkEndRef, Side } from '@twin/core';
+import type { V2OverheadStandard } from '../types';
 
 /**
  * 새 모델의 **서버 행** — 백엔드 워킹카피(`GET /substations/:id/workingcopy`)가 주는 모양 그대로.
@@ -83,7 +84,7 @@ export interface Catalog {
   categories: Category[]; rackTypes: RackType[]; equipmentTypes: EquipmentType[]; cableTypes: CableType[];
   media: readonly { key: string; name: string; color: string; use: string }[];
   wageStandard: { latestDate: string | null; rows: WageRow[] } | null;
-  overheadStandard: ({ id: string } & Record<string, unknown>) | null;
+  overheadStandard: V2OverheadStandard | null;
 }
 export type CatalogKind = 'categories' | 'rack-types' | 'equipment-types' | 'cable-types';
 
