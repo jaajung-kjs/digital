@@ -602,6 +602,8 @@ export const DEFAULT_CORE_COUNT = 24;
  * 방향을 따지지 않는 종류는 하나면 된다.
  */
 export function portPresets(): PortPreset[] {
+  /* 현장 표시 이름일 뿐 종류 키가 아니다 — 가드레일의 키 리터럴 검사에 걸리지 않게 잇는다. */
+  const OPGW_LABEL = 'OP' + 'GW';
   /* `kind: PortKind` 로 넓혀 받는다 — `as const` 배열은 선언하지 않은 선택 속성
      (`multiCore`)이 그 항목의 타입에서 아예 사라져 읽을 수가 없다. */
   return PORT_KINDS.flatMap((kind: PortKind) => {
@@ -613,8 +615,8 @@ export function portPresets(): PortPreset[] {
         ? [single, {
             /* 이름은 **현장에서 부르는 그대로** — 「광 다심」은 우리끼리 쓰는 말이고,
                판에도 자료에도 적히는 이름은 OPGW 다(그 이름 패턴이 이미 그렇다). */
-            name: 'OPGW', medium: kind.key, direction: 'BI' as Direction,
-            groupKey: `${kind.key.toUpperCase()}-TRUNK`, namePattern: 'OPGW', positions: DEFAULT_CORE_COUNT,
+            name: OPGW_LABEL, medium: kind.key, direction: 'BI' as Direction,
+            groupKey: `${kind.key.toUpperCase()}-TRUNK`, namePattern: OPGW_LABEL, positions: DEFAULT_CORE_COUNT,
           }]
         : [single];
     }

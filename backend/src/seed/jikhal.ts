@@ -57,9 +57,9 @@ export function buildJikhalPayload(input: JikhalInput): CommitPayload {
     const floorId = newId();
     floors.push({ id: floorId, substationId: sub, name: FLOOR, sortOrder: 0 });
     const rackId = newId();
-    racks.push({ id: rackId, substationId: sub, name: 'OFD', rackTypeId: must(input.rackTypeIds, SEED_PICKS.ofdRackType, '랙 종류'), floorId, x: 40, y: 40, width: 70, height: 70, facing: '아래' });
+    racks.push({ id: rackId, substationId: sub, name: SEED_PICKS.ofdEquipmentType, rackTypeId: must(input.rackTypeIds, SEED_PICKS.ofdRackType, '랙 종류'), floorId, x: 40, y: 40, width: 70, height: 70, facing: '아래' });
     const ofdId = newId();
-    equipment.push({ id: ofdId, substationId: sub, rackId, name: 'OFD', typeId: must(input.equipmentTypeIds, SEED_PICKS.ofdEquipmentType, '설비 종류'), panelCount: Math.max(8, seatedPlates(key).length) });
+    equipment.push({ id: ofdId, substationId: sub, rackId, name: SEED_PICKS.ofdEquipmentType, typeId: must(input.equipmentTypeIds, SEED_PICKS.ofdEquipmentType, '설비 종류'), panelCount: Math.max(8, seatedPlates(key).length) });
     ofdOf.set(key, ofdId);
   }
 

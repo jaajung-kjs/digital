@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SEED_ASSET_TYPES, PLACEMENT_FIELDS } from '@twin/core';
+import { SEED_ASSET_TYPES, PLACEMENT_FIELDS, MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES } from '@twin/core';
 
 /**
  * ── 정적 가드레일의 알려진 한계 (은폐 금지, §6-5) ──────────────────────────
@@ -108,8 +108,8 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
    * 따라서 .key\s*=== 검사는 도메인 서버 코드(backend/src)에만 적용한다.
    */
   it('backend/src 소스(테스트·generated 제외)에 장비 품목 키 리터럴·role 비교·.key 직접 비교가 없다', () => {
-    // 시드 타입 키 목록을 SEED_ASSET_TYPES 에서 동적 파생 — 하드코딩 금지.
-    const seedKeys = SEED_ASSET_TYPES.map((t) => t.key);
+    // 마스터 종류 키를 시드 데이터에서 동적 파생 — 하드코딩 금지. 종류 키로 가르는 서버 코드가 0 이어야 한다.
+    const seedKeys = [...MASTER_EQUIPMENT_TYPES, ...MASTER_RACK_TYPES, ...MASTER_CABLE_TYPES].map((t) => t.key);
     const keyPattern = seedKeys.map((k) => `["'\`]${k.replace(/-/g, '\\-')}["'\`]`).join('|');
     const forbidden = new RegExp(`(${keyPattern})|\\brole\\s*[!=]==|\\.key\\s*===`);
 
@@ -149,11 +149,13 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
   it('packages/core/src 소스(테스트 제외)에 장비 품목 키 리터럴·role 비교가 없다(시드 데이터 파일 제외)', () => {
     const CORE_SEED_DATA_ALLOWLIST = new Set([
       'packages/core/src/seed/catalog.ts',
-      /* 국마다 무엇이 서 있는가 — 카탈로그 키를 가리키는 순수 데이터다(분기 코드가 없다). */
-      'packages/core/src/seed/stationKits.ts',
+      /* 마스터 시드 — 종류 키의 선언 원본(데이터). */
+      'packages/core/src/seed/master.ts',
+      /* 국마다 무엇이 서 있는가 — 종류 키를 가리키는 순수 데이터다(분기 코드가 없다). */
+      'packages/core/src/seed/jikhalInventory.ts',
     ]);
 
-    const seedKeys = SEED_ASSET_TYPES.map((t) => t.key);
+    const seedKeys = [...SEED_ASSET_TYPES, ...MASTER_EQUIPMENT_TYPES, ...MASTER_RACK_TYPES, ...MASTER_CABLE_TYPES].map((t) => t.key);
     const keyPattern = seedKeys.map((k) => `["'\`]${k.replace(/-/g, '\\-')}["'\`]`).join('|');
     const literalForbidden = new RegExp(`${keyPattern}`);
     const roleForbidden = /\brole\s*[!=]==/;
@@ -619,5 +621,13 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
       if (/(?:interface|type)\s+BackgroundDrawing\b/.test(src)) offenders.push(file);
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('설비 모델 단순화 — 포트·설비 품목 재도입 금지', () => {
+  it('backend/src 와 packages/core/src/model 에 포트·설비 품목 토큰이 없다', () => {
+    const forbidden = /\b(assetPortTemplate|AssetPortTemplate|assemblyItem|AssemblyItem|assemblyLink|AssemblyLink|cableGroup|CableGroup|portTemplate|instantiatePorts)\b/;
+    const files = [...srcFiles(backendSrc, ['.ts']), ...srcFiles(resolve(coreSrc, 'model'), ['.ts'])];
+    for (const f of files) expect(readFileSync(f, 'utf8'), relToRoot(f)).not.toMatch(forbidden);
   });
 });
