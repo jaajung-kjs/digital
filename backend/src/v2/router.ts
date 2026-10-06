@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { HttpError, zodMessage } from './errors.js';
 import { authRouter } from './auth.routes.js';
 import { backgroundRouter } from './background.routes.js';
+import { catalogRouter } from './catalog.routes.js';
 import { orderRouter } from './order.routes.js';
 import { orgRouter } from './org.routes.js';
 import { photosRouter } from './photos.routes.js';
@@ -17,6 +18,7 @@ v2Router.get('/health', (_req, res) => {
 v2Router.use('/auth', authRouter);
 v2Router.use('/photos', photosRouter);
 v2Router.use('/', backgroundRouter);
+v2Router.use('/', catalogRouter);
 v2Router.use('/', orderRouter);
 v2Router.use('/', orgRouter);
 v2Router.use('/', standardsRouter);

@@ -26,11 +26,9 @@ const FIELD_LABEL: Record<string, string> = {
   name: '이름', key: '키', categoryId: '분류', sortOrder: '차례',
   laborCode: '노무유형', unitPrice: '자재단가',
   installManDays: '신설 공량', removeManDays: '철거 공량', relocateManDays: '이설 공량',
-  col: '열', row: '행', colSpan: '가로 칸수', rowSpan: '세로 칸수',
-  items: '구성', ports: '포트', types: '품목', categories: '분류',
-  portCounts: '포트 수', portPositions: '심선 수',
-  count: '개수', positions: '심선 수', group: '묶음', medium: '매체',
-  direction: '방향', namePattern: '이름 규칙', variant: '갈래',
+  medium: '매체', rackTypeId: '랙 종류', typeId: '설비 종류', rackId: '랙', substationId: '국',
+  circuitCount: '회로 수', panelCount: '판 수', coreCount: '코어 수', cableTypeId: '케이블 종류',
+  lengthKm: '긍장', lengthM: '길이', measuredOn: '측정일', side: '측정 끝',
 };
 
 /** `items.0.name` → 「구성 1번째 이름」. 모르는 칸은 적힌 그대로 둔다. */
