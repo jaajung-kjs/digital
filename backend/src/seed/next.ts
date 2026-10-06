@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { SEED_ORG, DIRECT_BRANCH } from '@twin/core';
+import { JIKHAL_INVENTORY, MASTER_CABLE_TYPES, MASTER_CATEGORIES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES, SEED_ORG, DIRECT_BRANCH } from '@twin/core';
+import { seedJikhal } from './jikhal.js';
 import { PrismaClient } from '../generated/next-client/index.js';
 
 const prisma = new PrismaClient();
@@ -28,7 +29,22 @@ async function main() {
     } else {
       console.log('[seed:next] org already exists — skip');
     }
+
+    /*
+     * 마스터 — **없는 key 만 만든다**. 있는 것은 현장이 고친 값일 수 있어 덮지 않는다.
+     * 새 표준 종류가 생기면 다음 배포에 자연히 들어온다.
+     */
+    for (const c of MASTER_CATEGORIES) {
+      await tx.category.upsert({ where: { key: c.key }, update: {}, create: c });
+    }
+    const catId = Object.fromEntries((await tx.category.findMany()).map((c) => [c.key, c.id]));
+    for (const t of MASTER_RACK_TYPES) await tx.rackType.upsert({ where: { key: t.key }, update: {}, create: t });
+    for (const { categoryKey, ...t } of MASTER_EQUIPMENT_TYPES) {
+      await tx.equipmentType.upsert({ where: { key: t.key }, update: {}, create: { ...t, categoryId: catId[categoryKey]! } });
+    }
+    for (const t of MASTER_CABLE_TYPES) await tx.cableType.upsert({ where: { key: t.key }, update: {}, create: t });
   });
+  await seedJikhal(JIKHAL_INVENTORY);
 }
 
 main()
