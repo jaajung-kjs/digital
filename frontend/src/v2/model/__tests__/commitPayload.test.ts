@@ -9,9 +9,11 @@ const wc: Workingcopy = {
   links: [{ id: 'k1', substationId: 'S1', cableTypeId: null, lengthM: null, spec: null, note: null, pathPoints: [], a: { kind: 'circuit', equipmentId: 'e1', no: 1 }, b: { kind: 'equipment', equipmentId: 'e1', label: 'x' }, updatedAt: 'kv' }],
   fiberLines: [], maintenanceLogs: [], inspectionLogs: [], photos: [],
 };
+const LINE = { id: 'L1', cableTypeId: 'ct', coreCount: 2, name: 'L', lengthKm: null, segments: [], aSubstationId: 'S1', aEquipmentId: null, aPanel: null, aStartNo: null, bSubstationId: 'S1', bEquipmentId: null, bPanel: null, bStartNo: null, updatedAt: 'lv' };
 vi.mock('../api', () => ({ fetchWorkingcopy: async () => structuredClone(wc), putCommit: async () => ({}) }));
 
 import { buildCommitPayload } from '../store/commitPayload';
+import { deleteRows } from '../store/deleteActions';
 import { workingCopyStore as store } from '../store/workingCopy';
 
 beforeEach(async () => { store.getState().reset(); await store.getState().ensureLoaded('S1'); });
@@ -58,5 +60,39 @@ describe('buildCommitPayload', () => {
 
   it('빈 변경안은 빈 객체', () => {
     expect(buildCommitPayload(store.getState())).toEqual({});
+  });
+
+  it('회로 수를 줄이면 잘린 번호의 값 고치기는 싣지 않는다', () => {
+    store.getState().update('equipment', 'e1', { circuitCount: 2 });
+    store.getState().updateCircuit('e1', 2, { label: 'B' });
+    store.getState().update('equipment', 'e1', { circuitCount: 1 });
+    const p = buildCommitPayload(store.getState()) as { circuits?: unknown };
+    expect(p.circuits).toBeUndefined();
+  });
+
+  it('설비를 지우면 그 회로 값 고치기는 싣지 않는다', () => {
+    store.getState().updateCircuit('e1', 1, { label: 'A' });
+    deleteRows({ equipment: ['e1'] });
+    const p = buildCommitPayload(store.getState()) as { circuits?: unknown };
+    expect(p.circuits).toBeUndefined();
+  });
+
+  it('지운 광선로의 코어 값 고치기·측정은 싣지 않는다', () => {
+    const st = store.getState();
+    st.applyOverlays((o) => ({ ...o, fiberLines: { ...o.fiberLines, deletes: ['L1'] } }));
+    st.updateCore('L1', 1, { note: 'x' });
+    store.setState((s) => ({ saved: { ...s.saved, fiberLines: [LINE] } }));
+    store.getState().create('coreMeasurements', { id: 'cm1', lineId: 'L1', coreNo: 1, measuredOn: '2026-10-01', side: 'A', loss1310: null, dist1310: null, loss1550: null, dist1550: null, measuredBy: null, updatedAt: '' } as never);
+    const p = buildCommitPayload(store.getState()) as { cores?: unknown; coreMeasurements?: unknown };
+    expect(p.cores).toBeUndefined();
+    expect(p.coreMeasurements).toBeUndefined();
+  });
+
+  it('deleteRows 가 지운 광선로의 저장 안 된 측정 만들기를 걷는다', () => {
+    store.setState((s) => ({ saved: { ...s.saved, fiberLines: [LINE] } }));
+    store.getState().create('coreMeasurements', { id: 'cm1', lineId: 'L1', coreNo: 1, measuredOn: '2026-10-01', side: 'A', loss1310: null, dist1310: null, loss1550: null, dist1550: null, measuredBy: null, updatedAt: '' } as never);
+    expect(deleteRows({ fiberLines: ['L1'] }).blocked).toEqual([]);
+    expect(store.getState().overlays.coreMeasurements.creates).toEqual({});
+    expect((buildCommitPayload(store.getState()) as { coreMeasurements?: unknown }).coreMeasurements).toBeUndefined();
   });
 });

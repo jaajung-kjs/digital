@@ -1,5 +1,6 @@
 import { circuitKey, coreKey } from '@twin/core';
 import type { Overlay } from '../../store/overlay';
+import { effectiveRows } from './effective';
 import type { CommitPayload } from '../types';
 import type { RowOf, WorkingCopyState } from './workingCopy';
 
@@ -53,9 +54,22 @@ export function buildCommitPayload(s: Pick<WorkingCopyState, 'saved' | 'overlays
   const p: Record<string, unknown> = {};
   const put = (k: string, v: unknown) => { if (v !== undefined) p[k] = v; };
 
-  for (const k of ['floors', 'racks', 'equipment', 'coreMeasurements'] as const) {
+  /* 살아 있는 설비·광선로의 번호 안쪽만 — 줄였거나 지운 것의 값 고치기는 서버가 거절한다. */
+  const eqCount = new Map(effectiveRows(s, 'equipment').map((e) => [e.id, e.circuitCount]));
+  const lineCount = new Map(effectiveRows(s, 'fiberLines').map((l) => [l.id, l.coreCount]));
+  const lineGone = new Set(o.fiberLines.deletes);
+
+  for (const k of ['floors', 'racks', 'equipment'] as const) {
     put(k, ops(o[k] as Overlay<RowOf[typeof k]>, (r) => pick(r, FIELDS[k].create), (patch) => pick(patch, FIELDS[k].update)));
   }
+  /* 지운 광선로의 측정은 서버가 함께 지운다 — 싣지 않는다. */
+  const cm = o.coreMeasurements;
+  const lineOf = (id: string) => (cm.creates[id] ?? s.saved.coreMeasurements.find((m) => m.id === id))?.lineId;
+  const mAlive = (id: string) => { const l = lineOf(id); return !l || !lineGone.has(l); };
+  const cmOps = ops<RowOf['coreMeasurements']>(
+    { creates: Object.fromEntries(Object.entries(cm.creates).filter(([id]) => mAlive(id))), updates: Object.fromEntries(Object.entries(cm.updates).filter(([id]) => mAlive(id))), deletes: cm.deletes.filter(mAlive) },
+    (r) => pick(r, FIELDS.coreMeasurements.create), (patch) => pick(patch, FIELDS.coreMeasurements.update));
+  put('coreMeasurements', cmOps);
   put('fiberLines', ops(o.fiberLines,
     (l) => ({ id: l.id, ...pick(l, LINE_FIELDS), a: lineEnd('a', l as never, true), b: lineEnd('b', l as never, true) }),
     (patch) => {
@@ -79,12 +93,12 @@ export function buildCommitPayload(s: Pick<WorkingCopyState, 'saved' | 'overlays
   const circuits = Object.entries(o.circuits).map(([k, patch]) => {
     const [, equipmentId, no] = k.split(':');
     return { equipmentId: equipmentId!, no: Number(no), patch };
-  });
+  }).filter((c) => c.no <= (eqCount.get(c.equipmentId) ?? 0));
   if (circuits.length) p.circuits = { updates: circuits };
   const cores = Object.entries(o.cores).map(([k, patch]) => {
     const [, lineId, no] = k.split(':');
     return { lineId: lineId!, no: Number(no), patch };
-  });
+  }).filter((c) => c.no <= (lineCount.get(c.lineId) ?? 0));
   if (cores.length) p.cores = { updates: cores };
 
   /* 기록 — 지운 설비의 것은 뺀다. */
@@ -115,10 +129,11 @@ export function buildCommitPayload(s: Pick<WorkingCopyState, 'saved' | 'overlays
   /* 기준 버전 — 고치거나 지우는, 이미 저장된 행만. */
   const bv: Record<string, string> = {};
   const want = (key: string) => { if (s.baseVersions[key]) bv[key] = s.baseVersions[key]; };
-  for (const k of ['floors', 'racks', 'equipment', 'fiberLines', 'coreMeasurements', 'links', 'maintenance', 'inspections', 'photos'] as const) {
+  for (const k of ['floors', 'racks', 'equipment', 'fiberLines', 'links', 'maintenance', 'inspections', 'photos'] as const) {
     for (const id of Object.keys(o[k].updates)) want(id);
     for (const id of o[k].deletes) want(id);
   }
+  for (const id of [...Object.keys(cm.updates), ...cm.deletes]) if (mAlive(id)) want(id);
   for (const c of circuits) want(circuitKey(c.equipmentId, c.no));
   for (const c of cores) want(coreKey(c.lineId, c.no));
   if (Object.keys(bv).length) p.baseVersions = bv;

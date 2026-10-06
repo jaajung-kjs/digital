@@ -103,6 +103,10 @@ export interface WorkingCopyState {
   refresh: () => Promise<void>;
   /** 변경안을 버린다(들른 국은 그대로). */
   revert: () => void;
+  /** 오버레이를 한 번에 바꾼다 — 한 번의 되돌리기로 모두 물린다(삭제 펼침용). */
+  applyOverlays: (fn: (o: Overlays) => Overlays) => void;
+  /** 저장이 끝난 변경안을 비운다 — 되돌리기 이력도 함께. */
+  clearOverlays: () => void;
   /** 처음 상태로 — 시험·로그아웃용. */
   reset: () => void;
   create: <K extends RowKind>(kind: K, row: RowOf[K]) => void;
@@ -127,8 +131,7 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
 
       ensureLoaded: async (substationId) => {
         if (get().loaded.includes(substationId)) return;
-        const t = workingCopyStore.temporal.getState();
-        t.pause();
+        /* 되돌리기 이력은 overlays 만 본다(partialize) — 읽는 동안의 고침도 되돌릴 수 있다. */
         set({ loading: substationId });
         try {
           const wc = await fetchWorkingcopy(substationId);
@@ -137,8 +140,6 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
         } catch (e) {
           set({ loading: null });
           useV2Notice.getState().showError(apiErrorMessage(e, '변전소를 불러오지 못했습니다'));
-        } finally {
-          t.resume();
         }
       },
 
@@ -157,6 +158,13 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       },
 
       revert: () => {
+        set({ overlays: emptyOverlays() });
+        workingCopyStore.temporal.getState().clear();
+      },
+
+      applyOverlays: (fn) => set((s) => ({ overlays: fn(s.overlays) })),
+
+      clearOverlays: () => {
         set({ overlays: emptyOverlays() });
         workingCopyStore.temporal.getState().clear();
       },

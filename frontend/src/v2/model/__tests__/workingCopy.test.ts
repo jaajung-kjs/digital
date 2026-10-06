@@ -117,4 +117,12 @@ describe('공사 단위 워킹카피', () => {
     expect(store.getState().dirtyCount()).toBe(0);
     expect(store.getState().loaded).toEqual(['S1']);
   });
+
+  it('삭제 펼침은 되돌리기 한 번에 모두 돌아온다', async () => {
+    await store.getState().ensureLoaded('S1');
+    deleteRows({ equipment: ['ote'] });
+    expect(store.getState().dirtyCount()).toBe(2);
+    store.temporal.getState().undo();
+    expect(store.getState().dirtyCount()).toBe(0);
+  });
 });
