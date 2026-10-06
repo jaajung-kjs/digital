@@ -218,11 +218,11 @@ describe('adminOnly 미들웨어', () => {
       .send({ username: viewerName, password: 'pass' });
     const token = loginRes.body.accessToken as string;
 
-    // catalog POST 는 adminOnly
+    // 조직 POST 는 adminOnly (카탈로그 API 는 뒤 태스크에서 다시 선다)
     const res = await request(app)
-      .post('/api/v2/catalog/categories')
+      .post('/api/v2/org/headquarters')
       .set('Authorization', `Bearer ${token}`)
-      .send({ key: 'test', name: '테스트', sortOrder: 0 });
+      .send({ name: 't3-auth-viewer-hq' });
 
     expect(res.status).toBe(403);
 

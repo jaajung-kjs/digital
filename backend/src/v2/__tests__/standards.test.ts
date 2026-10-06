@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
+import { authHeader, ensureTestMaster, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const admin = { Authorization: authHeader('admin') };
@@ -72,39 +72,28 @@ describe('기준정보 — 노임단가', () => {
 
   it('등록하면 적용 중이 되고, 이름으로 있던 직종이 코드로 승격된다', async () => {
     /* 승격 대상을 하나 심는다 — 시드 상태에 기대지 않는다(이미 승격됐을 수 있다). */
-    const cat = await nextDb.cableCategory.findFirstOrThrow();
+    const cat = await nextDb.cableType.findUniqueOrThrow({ where: { id: (await ensureTestMaster()).powerCableId } });
     const before = cat.laborCode;
-    await nextDb.cableCategory.update({ where: { id: cat.id }, data: { laborCode: '통신외선공' } });
+    await nextDb.cableType.update({ where: { id: cat.id }, data: { laborCode: '통신외선공' } });
 
     const res = await request(app).post('/api/v2/standards/wage').set(admin).attach('file', hwp).expect(201);
     created.push(res.body.id);
     expect(res.body.effective).toBe('2026년도 상반기');
     expect(res.body.promoted).toBeGreaterThan(0);
 
-    const after = await nextDb.cableCategory.findUniqueOrThrow({ where: { id: cat.id } });
+    const after = await nextDb.cableType.findUniqueOrThrow({ where: { id: cat.id } });
     expect(after.laborCode).toBe('1088'); // 통신외선공
-    await nextDb.cableCategory.update({ where: { id: cat.id }, data: { laborCode: before } });
-
-    // 노임은 **표**로 실려 온다 — 직종마다 가장 최근 값 하나.
-    const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
-    expect(catalog.wageStandard.latestDate).toBe('2026.1.1');
-    const byCode = new Map<string, { wage: number; effectiveLabel: string }>(
-      catalog.wageStandard.rows.map((r: { code: string }) => [r.code, r]),
-    );
-    expect(byCode.get('1086')).toMatchObject({ wage: 284880, effectiveLabel: '2026.1.1' });
-    /* 이번 회차에 조사되지 않은 직종은 **그 직종의 가장 최근 값**이 온다 — 폴백 코드가
-       아니라 시계열에서 접어 낸 결과다. */
-    expect(byCode.get('1032')).toMatchObject({ wage: 210772, effectiveLabel: '2025.9.1' });
+    await nextDb.cableType.update({ where: { id: cat.id }, data: { laborCode: before } });
   });
 
   /* 각주는 **그 행**이 들고 있다 — 판에서 읽으면 옛 회차 값에 새 판의 설명이 붙는다. */
   it('각주는 값과 같은 회차의 문장이다', async () => {
-    const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
-    const row = catalog.wageStandard.rows.find((r: { code: string }) => r.code === '1032');
+    const wages = (await request(app).get('/api/v2/standards/wages').set(admin).expect(200)).body;
+    const row = wages.rows.find((r: { code: string }) => r.code === '1032');
     expect(row.marker).toBe('**');
     expect(row.markerNote).toContain('조사되지 않은 직종');
     // 최신 회차 직종은 각주가 없다.
-    const normal = catalog.wageStandard.rows.find((r: { code: string }) => r.code === '1086');
+    const normal = wages.rows.find((r: { code: string }) => r.code === '1086');
     expect(normal.marker).toBe('');
     expect(normal.markerNote).toBeNull();
   });
@@ -146,7 +135,7 @@ describe('기준정보 — 노임단가', () => {
     expect(missing.markerNote).toContain('조사되지 않은 직종');
   });
 
-  it('제비율은 표를 펼쳐 저장하고 카탈로그에 실려 온다', async () => {
+  it('제비율은 표를 펼쳐 저장한다', async () => {
     const xlsx = join(__dirname, 'fixtures', 'overhead-2026.xlsx');
     await request(app)
       .post('/api/v2/standards/overhead')
@@ -163,14 +152,16 @@ describe('기준정보 — 노임단가', () => {
     const res = await request(app).post('/api/v2/standards/overhead').set(admin).attach('file', xlsx).expect(201);
     created.push(res.body.id);
 
-    const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
+    /* 카탈로그 API 는 뒤 태스크에서 다시 선다 — 지금은 적용 중인 판의 저장값을 바로 읽는다. */
+    const row = await nextDb.laborStandard.findFirstOrThrow({ where: { kind: 'overhead', active: true } });
+    const overheadStandard = row.payload as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     /* 요율은 **구간마다 다르다** — 이 값이 상수로 굳으면 공사가 커질 때 조용히 틀린다. */
-    expect(catalog.overheadStandard.byDuration.간접노무비['10억미만']['183']).toBeCloseTo(0.191, 5);
-    expect(catalog.overheadStandard.bySize.일반관리비['1000억이상']).toBeCloseTo(0.045, 5);
-    expect(catalog.overheadStandard.sanan['5-50억'].base).toBe(3_300_000);
+    expect(overheadStandard.byDuration.간접노무비['10억미만']['183']).toBeCloseTo(0.191, 5);
+    expect(overheadStandard.bySize.일반관리비['1000억이상']).toBeCloseTo(0.045, 5);
+    expect(overheadStandard.sanan['5-50억'].base).toBe(3_300_000);
 
     // 노임과 제비율은 서로를 밀어내지 않는다 — 종류마다 「적용 중」이 하나씩이다.
-    expect(catalog.wageStandard).not.toBeNull();
+    expect(await nextDb.laborRate.count()).toBeGreaterThan(0);
   });
 
   it('제비율 자리에 엉뚱한 파일을 올리면 422', async () => {

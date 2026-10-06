@@ -5,8 +5,8 @@
  * 받은 차례대로 `sortOrder` 를 0,1,2… 로 다시 매긴다. 「하나만 고치고 뒤엣것을 밀기」는
  * 부르는 쪽이 번호를 셈해야 하고, 화면이 본 순서와 서버의 순서가 어긋날 길을 남긴다.
  *
- * 조직(본부·지사·변전소)과 대장(분류·장비 품목·설비 품목·케이블 그룹)이 같은 문을 쓴다 —
- * 예전에는 조직만 순서를 바꿀 수 있었고, 같은 트리 판을 쓰는 대장들은 못 했다. 종류마다
+ * 조직(본부·지사·변전소)과 마스터(분야·랙 종류·설비 종류·케이블 종류)이 같은 문을 쓴다 —
+ * 예전에는 조직만 순서를 바꿀 수 있었고, 같은 트리 판을 쓰는 마스터들은 못 했다. 종류마다
  * 길을 따로 내면 그렇게 갈린다.
  */
 import { Router } from 'express';
@@ -20,10 +20,10 @@ const DELEGATES = {
   headquarters: () => nextDb.headquarters,
   branches: () => nextDb.branch,
   substations: () => nextDb.substation,
-  categories: () => nextDb.assetCategory,
-  types: () => nextDb.assetType,
-  assemblies: () => nextDb.assembly,
-  'cable-groups': () => nextDb.cableGroup,
+  categories: () => nextDb.category,
+  'rack-types': () => nextDb.rackType,
+  'equipment-types': () => nextDb.equipmentType,
+  'cable-types': () => nextDb.cableType,
 } as const;
 
 const orderSchema = z.object({

@@ -13,8 +13,8 @@ const app = makeApp();
 const admin = { Authorization: authHeader('admin') };
 const viewer = { Authorization: authHeader('viewer') };
 
-// 스윕 prefix 규약: helpers.ts 의 nameStartsWith 에 't6-bg-' 를 추가해야 회수된다.
-const PREFIX = 't6-bg-';
+// 스윕 prefix 규약: 접두는 helpers.ts 의 TEST_PREFIXES('t3-')로 시작해야 스윕된다.
+const PREFIX = 't3-bg-';
 let floorId = '';
 
 beforeAll(async () => {

@@ -11,16 +11,16 @@ datasource db {
 // ---------- 조직/공간 (구 모델 유지) ----------
 
 model User {
-  id             String         @id @default(uuid())
-  username       String         @unique
-  passwordHash   String
-  role           String         @default("viewer") // 'admin' | 'viewer'
+  id               String         @id @default(uuid())
+  username         String         @unique
+  passwordHash     String
+  role             String         @default("viewer") // 'admin' | 'viewer'
   // 로그인 시도 제한 — 없으면 계정 열거 이후 무제한 대입으로 바로 이어진다.
-  failedLoginCount Int          @default(0)
+  failedLoginCount Int            @default(0)
   lockedUntil      DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  refreshTokens  RefreshToken[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  refreshTokens    RefreshToken[]
 }
 
 model RefreshToken {
@@ -55,16 +55,19 @@ model Branch {
 }
 
 model Substation {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  sortOrder Int      @default(0)
+  id        String      @id @default(uuid())
+  name      String      @unique
+  sortOrder Int         @default(0)
   branchId  String
-  branch    Branch   @relation(fields: [branchId], references: [id])
+  branch    Branch      @relation(fields: [branchId], references: [id])
   floors    Floor[]
-  assets    Asset[]
-  cables    Cable[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  racks     Rack[]
+  equipment Equipment[]
+  links     Link[]
+  linesA    FiberLine[] @relation("LineA")
+  linesB    FiberLine[] @relation("LineB")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 }
 
 model Floor {
@@ -75,398 +78,303 @@ model Floor {
   substation        Substation @relation(fields: [substationId], references: [id])
   backgroundDrawing Json?
   backgroundOpacity Float      @default(0.5)
-  assets            Asset[]
+  racks             Rack[]
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
   @@unique([substationId, name])
 }
 
-// ---------- 카탈로그 (타입 정의 = 데이터) ----------
+// ---------- 마스터 (관리자가 정의) ----------
 
-model AssetCategory {
-  id        String      @id @default(uuid())
-  key       String      @unique
+/// 분야 — 현황이 묶는 단위.
+model Category {
+  id        String          @id @default(uuid())
+  key       String          @unique
   name      String
-  sortOrder Int         @default(0)
-  types     AssetType[]
-  assemblies Assembly[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  sortOrder Int             @default(0)
+  types     EquipmentType[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
-model AssetType {
-  id             String              @id @default(uuid())
-  key            String              @unique
-  name           String
-  categoryId     String
-  category       AssetCategory       @relation(fields: [categoryId], references: [id])
-  sortOrder      Int                 @default(0)
-  // 공량 규칙
-  laborCode      String?
-  /// 자재단가(원/대) — 설계서 재료비의 근거. 안 적으면 재료비가 0 이다.
-  unitPrice      Int?
-  /// 공량 — `LaborSpec` 이 유일한 선언이다. null = 「안 적었다」, 0 = 「품이 안 든다」.
-  installManDays   Float?
-  removeManDays    Float?
-  relocateManDays  Float?
-  /// 이 종류가 **계통에 서는 반(盤)**인가 — 전원을 나눠 주는 판.
-  /// 켜면 계통 탭이 그 자산을 한 장으로 세우고 출력 포트를 회로로 편다.
-  /// 출력 수로 알아맞히지 않는다 — 랙 안의 −48V 분배반이 분기 일곱이라 변전소 계통에
-  /// 끼어들었다. 나누는 판인지는 물건의 성질이지 포트 수의 성질이 아니다. 선언이 정한다.
-  managesPowerCircuits Boolean @default(false)
-  portTemplates  AssetPortTemplate[]
-  assets         Asset[]
-  assemblyItems  AssemblyItem[]
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-}
-
-model AssetPortTemplate {
-  id          String    @id @default(uuid())
-  typeId      String
-  type        AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
-  group       String
-  count       Int
-  direction   String // 'IN' | 'OUT' | 'BI'
-  medium      String
-  namePattern String
-  /// 이 포트 하나가 나르는 심선 수. 1 = 보통 포트, N = 다심 포트(OPGW 인입).
-  positions   Int       @default(1)
-  /// 종류 안의 **갈래** — 전원의 교류(AC)·직류(DC). 갈래가 없는 종류는 null.
-  /// 갈래가 다른 포트끼리는 잇지 못한다(`validateConnection`). 매체를 나누지 않은 까닭은
-  /// 매체 키가 곧 케이블 그룹 키라, 나누면 같은 F-CV 를 두 그룹에 등록해야 하기 때문이다.
-  variant     String?
-  sortOrder   Int       @default(0)
-
-  @@unique([typeId, group])
-}
-
-// ---------- 설비 종류 (부품 조립) ----------
-
-/// 부품을 조립해 만든 **한 설비**의 설비 종류 — 「송변전광단말장치 1식」 같은 표준 구성.
-///
-/// 자산 타입이 곧 도면에 놓이는 것이면, 랙을 만들고 자리를 세고 장비를 넣는 일을 매번
-/// 손으로 해야 하고 현황에도 그 부산물이 다 올라온다. 설비 종류는 그 조립을 한 번 해 두고
-/// 계속 쓰기 위한 것이다.
-model Assembly {
-  id         String         @id @default(uuid())
-  key        String         @unique
-  name       String
-  /// 설비 종류와 자산 종류는 **같은 분류 체계**를 쓴다 — 그래서 필수도 같다.
-  categoryId String
-  category   AssetCategory @relation(fields: [categoryId], references: [id])
-  /// 격자는 여기 없다 — 모든 설비가 같은 도화지를 쓴다(`ASSEMBLY_GRID`, 14×20).
-  /// 설비 종류마다 행·열 수를 들고 있던 동안, 화면이 그리는 판(상수)과 서버가 재는
-  /// 판(이 컬럼)이 갈려서 눈으로 놓은 자리가 저장할 때만 `out-of-range` 로 튕겼다.
-  sortOrder  Int            @default(0)
-  /// 「1식」 공량 — 설비를 **통째로** 놓거나 걷을 때의 품.
-  ///
-  /// 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. 0 은 「품이 안 든다」는 뜻이라
-  /// 「안 적었다」와 구별해야 하므로 nullable 이다.
-  laborCode     String?
-  unitPrice     Int?
+model RackType {
+  id              String   @id @default(uuid())
+  key             String   @unique
+  name            String
+  sortOrder       Int      @default(0)
+  laborCode       String?
+  unitPrice       Int?
   installManDays  Float?
   removeManDays   Float?
   relocateManDays Float?
-  items      AssemblyItem[]
-  /// 이 설비 **안에서 이미 이어져 있는 것** — 놓으면 이 케이블들이 함께 선다.
-  links      AssemblyLink[]
-  assets     Asset[]
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  racks           Rack[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
-/// 설비 종류의 격자에 놓인 부품 하나 — 어느 타입을, 격자의 어느 자리에.
-///
-/// **평평하다.** 부품이 또 부품을 담지 않는다 — 담는 일은 설비 종류의 격자가 하므로, 담기 위한
-/// 중간 자산(랙·함체)이 필요 없다. OFD 도 「경로슬롯 4장이 놓인 설비 종류」이면 된다.
-model AssemblyItem {
-  id           String         @id @default(uuid())
-  assemblyId   String
-  assembly     Assembly       @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
-  /// 그 자리에 서는 장비 품목 — **비울 수 있다**(빈 슬롯). 빈 슬롯은 놓아도 자산이 안 생긴다.
-  typeId       String?
-  type         AssetType?     @relation(fields: [typeId], references: [id])
-  /// 만들어질 자산의 이름(빈 슬롯이면 그 자리의 이름 — `S.5`).
-  name         String
-  col          Int?
-  row          Int?
-  colSpan      Int?
-  rowSpan      Int?
-  /// 포트 수·심선 수 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다.
-  portCounts    Json          @default("{}")
-  portPositions Json          @default("{}")
-  /// 이 항목에서 나온 자산들 — 자리를 옮겨도 「구성의 무엇인가」는 이 고리가 안다.
-  assets        Asset[]
-  linksA        AssemblyLink[] @relation("AssemblyLinkA")
-  linksB        AssemblyLink[] @relation("AssemblyLinkB")
-  sortOrder    Int            @default(0)
+model EquipmentType {
+  id              String      @id @default(uuid())
+  key             String      @unique
+  name            String
+  categoryId      String
+  category        Category    @relation(fields: [categoryId], references: [id])
+  sortOrder       Int         @default(0)
+  laborCode       String?
+  unitPrice       Int?
+  installManDays  Float?
+  removeManDays   Float?
+  relocateManDays Float?
+  equipment       Equipment[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 }
 
-/// 구성 항목의 포트 하나와 또 하나를 잇는 줄 — **설비 품목이 들고 다니는 내부 배선**.
-///
-/// 랙 한 대짜리 설비의 안쪽 배선은 어느 국에 놓든 같다(정류기 출력이 모선에 물리는 자리는
-/// 설비의 생김새이지 그 국의 사정이 아니다). 그런데 놓을 때 자산과 포트만 생겼기 때문에,
-/// 같은 결선을 설비를 놓을 때마다 손으로 다시 이어야 했다.
-///
-/// **왜 포트 id 가 아니라 `묶음:번호` 인가**: 구성 항목에는 포트가 없다. 포트는 자산이 생길
-/// 때 타입의 선언에서 펴진다(`instantiatePorts`). 그래서 가리킬 id 가 아직 없고, 선언이
-/// 이름을 붙이는 방식 그대로 부른다 — 자산을 만들 때 포트 id 를 `묶음:번호` 로 키 잡아
-/// 넘기는 것과 같은 이름표다(`placeAssembly`).
-model AssemblyLink {
-  id         String   @id @default(uuid())
-  assemblyId String
-  assembly   Assembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
-
-  aItemId String
-  aItem   AssemblyItem @relation("AssemblyLinkA", fields: [aItemId], references: [id], onDelete: Cascade)
-  aGroup  String
-  /// 1부터.
-  aIndex  Int
-  bItemId String
-  bItem   AssemblyItem @relation("AssemblyLinkB", fields: [bItemId], references: [id], onDelete: Cascade)
-  bGroup  String
-  bIndex  Int
-
-  /// 케이블 종류 — 놓자마자 산출 내역에 잡히게. 안 정했으면 null.
-  categoryId String?
-  category   CableCategory? @relation(fields: [categoryId], references: [id])
-  /// 그 케이블의 값(규격 sq 등) — 설비마다 **같은 것만** 여기 적는다(길이는 국마다 다르다).
-  specParams Json   @default("{}")
-  sortOrder  Int    @default(0)
-
-  @@index([assemblyId])
+/// 케이블 종류 — 매체는 `CABLE_MEDIA` 의 키(power|comm|ground|fiber). 품셈은 m 당.
+model CableType {
+  id             String      @id @default(uuid())
+  key            String      @unique
+  name           String
+  medium         String
+  sortOrder      Int         @default(0)
+  laborCode      String?
+  unitPrice      Int?
+  installManDays Float?
+  removeManDays  Float?
+  links          Link[]
+  lines          FiberLine[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 }
 
-// ---------- 케이블 카탈로그 ----------
+// ---------- 현장 (국 → 랙 → 설비) ----------
 
-/// 케이블 그룹 — 포트 종류와 1:1인 **고정 어휘**(`PORT_KINDS`). 사용자가 늘리거나 지울 수
-/// 없고 이름·색만 고친다. 품셈은 여기가 아니라 **종류**가 갖는다: 같은 광이라도 OPGW 가공과
-/// 실내 점퍼 결선은 품이 다르고, 자산·설비도 「종류」가 품셈을 갖는다(층이 같아야 한다).
-model CableGroup {
-  id                String          @id @default(uuid())
-  key               String          @unique
-  name              String
-  color             String
-  sortOrder         Int             @default(0)
-  categories        CableCategory[]
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-}
-
-model CableCategory {
-  id        String     @id @default(uuid())
-  name      String
-  groupId   String
-  group     CableGroup @relation(fields: [groupId], references: [id])
-  sortOrder Int        @default(0)
-  /// 공량·단가 — 자산 종류·설비 종류와 **같은 다섯 칸**이다(`LaborSpec`).
-  /// 단위(m)는 담체가 정한다 — 필드 이름에 박지 않는다.
-  laborCode        String?
-  unitPrice        Int?
-  installManDays   Float?
-  removeManDays    Float?
-  relocateManDays  Float?
-  /// 이 종류가 **광 선로**인가 — OPGW 처럼 송전선로를 타고 오는 다심 인입.
-  /// 켜면 그 케이블에 선로 대장 값(관리번호·선로명·접속개소)이 서고, 선번장이 그 값을 머리에 적는다.
-  /// 이름으로 「OPGW」를 찾지 않는다 — 이름은 본부마다 다르고 바뀐다. 선언이 정한다.
-  managesFiberLine Boolean @default(false)
-  cables    Cable[]
-  /// 설비 품목의 내부 배선이 이 종류를 가리킬 수 있다 — 놓을 때 이 종류로 케이블이 선다.
-  assemblyLinks AssemblyLink[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  @@unique([groupId, name])
-}
-
-// ---------- 인스턴스 ----------
-
-model Asset {
-  id            String      @id @default(uuid())
-  name          String
-  /// **구성의 어느 항목에서 나왔는가** — 설비 품목으로 놓은 자식만 갖는다.
-  ///
-  /// 자리(행·열)로 「몇 번째 판인가」를 되짚던 자리가 있었는데, 놓는 사람이 격자 안에서
-  /// 옮길 수 있어 어긋났다(한 국은 슬롯을 가로로, 다른 국은 세로로 놓아 두었다). 차례로
-  /// 짝지어 넘겼지만 그것도 「형제 수 = 구성 항목 수」를 가정한다. 고리를 두면 가정이 없다.
-  assemblyItemId String?
-  assemblyItem   AssemblyItem? @relation(fields: [assemblyItemId], references: [id], onDelete: SetNull)
-  /// 부품이면 그 부품의 타입. **설비(설비 종류로 놓은 것)는 타입이 없다** — 분류는 설비 종류다.
-  typeId        String?
-  type          AssetType?  @relation(fields: [typeId], references: [id])
-  substationId  String
-  substation    Substation  @relation(fields: [substationId], references: [id])
-  status        String      @default("normal")
-  // 위치 A: 평면도 배치
-  floorId       String?
-  floor         Floor?      @relation(fields: [floorId], references: [id])
-  x             Float?
-  y             Float?
-  width         Float?
-  height        Float?
-  // 위치 B: 설비 격자 안의 자리
-  parentAssetId String?
-  parentAsset   Asset?      @relation("AssetChildren", fields: [parentAssetId], references: [id], onDelete: Restrict)
-  children      Asset[]     @relation("AssetChildren")
-  /// 이 설비가 어느 설비 종류로 만들어졌는가 — **분류**다. 설비 종류의 뿌리 자산에만 적힌다.
-  ///
-  /// 이름을 글자로 굳히지 않고 설비 종류를 계속 가리킨다: 설비 종류 이름을 고치면 이미 놓인 설비의
-  /// 분류 표시도 따라 바뀌어야 한다(같은 설비 종류가니까). 글자로 굳혀 두면 이름을 고치는 순간
-  /// 같은 설비 종류인데 집계가 둘로 갈린다.
-  ///
-  /// **구성은 스냅샷, 분류는 참조**다 — 설비 종류를 고쳐도 이미 놓인 설비의 안쪽 구성은 그대로고
-  /// 사용자가 언제든 그 설비만 따로 고칠 수 있다.
-  assemblyId    String?
-  assembly      Assembly? @relation(fields: [assemblyId], references: [id])
-  /// 함체 격자에서의 자리(0-based). 자리 번호는 저장하지 않고 격자에서 유도한다.
-  col           Int?
-  row           Int?
-  colSpan       Int?
-  rowSpan       Int?
-  // 커스텀 필드 값 { [fieldKey]: value }
-  fieldValues   Json        @default("{}")
-  ports         Port[]
-  logs          MaintenanceLog[]
-  inspections   InspectionLog[]
-  photos        AssetPhoto[]
-  /// 이 자산을 **대상으로 가리키는** 기록들 — 기록의 주인은 그 자산이 속한 설비다.
-  logsAsPart        MaintenanceLog[] @relation("RecordPartM")
-  inspectionsAsPart InspectionLog[]  @relation("RecordPartI")
-  photosAsPart      AssetPhoto[]     @relation("RecordPartP")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  @@index([substationId])
-  @@index([parentAssetId])
-  @@index([floorId])
-
-  // 카탈로그가 타입 편집/삭제 전 _count.assets 로 사용 중 여부를 센다.
-  @@index([typeId])
-}
-
-model Port {
-  id          String  @id @default(uuid())
-  assetId     String
-  asset       Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  group       String
-  index       Int
-  name        String
-  direction   String // 'IN' | 'OUT' | 'BI'
-  medium      String
-  /// 이 포트 하나가 나르는 심선 수. 1 = 보통 포트, N = 다심 포트(OPGW 인입 한 가닥에 N심).
-  /// 예전에는 그 N심을 포트 N개 + 케이블 N본으로 폈고, 그래서 설계서 공량이 심선 수만큼
-  /// 부풀었다(40m 한 가닥 → 160m). 케이블은 1본이고 코어는 여기서 센다.
-  positions   Int     @default(1)
-  /// 종류 안의 **갈래** — 전원의 교류(AC)·직류(DC). 갈래가 없는 종류는 null.
-  /// 갈래가 다른 포트끼리는 잇지 못한다(`validateConnection`). 매체를 나누지 않은 까닭은
-  /// 매체 키가 곧 케이블 그룹 키라, 나누면 같은 F-CV 를 두 그룹에 등록해야 하기 때문이다.
-  variant     String?
-  /// 이 포트에 딸린 값 — 광 심선의 손실(dB)·점검일처럼 **심선마다 다른** 것.
-  /// 다심 포트에서는 코어 번호를 키로 한 겹 중첩된다: `{ "1": { lossDb: 0.6 }, … }`.
-  fieldValues Json    @default("{}")
-  cablesA     Cable[] @relation("CableA")
-  cablesB     Cable[] @relation("CableB")
-
-  @@unique([assetId, group, index])
-  @@index([assetId])
-}
-
-model Cable {
-  id           String         @id @default(uuid())
-  name         String?
+model Rack {
+  id           String      @id @default(uuid())
   substationId String
-  substation   Substation     @relation(fields: [substationId], references: [id])
-  aPortId      String
-  aPort        Port           @relation("CableA", fields: [aPortId], references: [id])
-  bPortId      String
-  bPort        Port           @relation("CableB", fields: [bPortId], references: [id])
-  categoryId   String?
-  category     CableCategory? @relation(fields: [categoryId], references: [id])
-  pathPoints   Json           @default("[]")
-  specParams   Json           @default("{}")
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  substation   Substation  @relation(fields: [substationId], references: [id])
+  name         String
+  rackTypeId   String
+  rackType     RackType    @relation(fields: [rackTypeId], references: [id])
+  floorId      String?
+  floor        Floor?      @relation(fields: [floorId], references: [id])
+  x            Float?
+  y            Float?
+  width        Float?
+  height       Float?
+  facing       String?
+  equipment    Equipment[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
-  @@index([substationId])
-  @@index([aPortId])
-  @@index([bPortId])
+  @@unique([substationId, name])
+  @@index([floorId])
 }
 
-// ---------- 이력 (타입 무관 제네릭 — 구 모델 유지) ----------
+model Equipment {
+  id           String           @id @default(uuid())
+  substationId String
+  substation   Substation       @relation(fields: [substationId], references: [id])
+  rackId       String
+  rack         Rack             @relation(fields: [rackId], references: [id], onDelete: Restrict)
+  name         String
+  typeId       String
+  type         EquipmentType    @relation(fields: [typeId], references: [id])
+  status       String           @default("normal")
+  model        String?
+  maker        String?
+  madeOn       String?
+  serial       String?
+  installDate  DateTime?        @db.Date
+  manager      String?
+  note         String?
+  circuitCount Int              @default(0)
+  panelCount   Int?
+  circuits     Circuit[]
+  linkEnds     LinkEnd[]
+  linesA       FiberLine[]      @relation("LineAEquipment")
+  linesB       FiberLine[]      @relation("LineBEquipment")
+  maintenance  MaintenanceLog[]
+  inspections  InspectionLog[]
+  photos       EquipmentPhoto[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([substationId, name])
+  @@index([rackId])
+}
+
+/// 회로 — 공급 설비의 번호 행. 자연 키 (equipmentId, no).
+model Circuit {
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  no          Int
+  label       String?
+  current     String?
+  voltage     String?
+  capacity    String?
+  phase       String?
+  switch      String?
+  purpose     String?
+  linkEnds    LinkEnd[]
+  updatedAt   DateTime  @updatedAt
+
+  @@id([equipmentId, no])
+}
+
+/// 광선로 — 두 끝(국·단자 설비·판·시작번호). 끝의 국은 만든 뒤 바꾸지 않는다.
+model FiberLine {
+  id            String     @id @default(uuid())
+  cableTypeId   String
+  cableType     CableType  @relation(fields: [cableTypeId], references: [id])
+  coreCount     Int
+  name          String?
+  lengthKm      Float?
+  segments      Json       @default("[]")
+  aSubstationId String
+  aSubstation   Substation @relation("LineA", fields: [aSubstationId], references: [id])
+  aEquipmentId  String?
+  aEquipment    Equipment? @relation("LineAEquipment", fields: [aEquipmentId], references: [id], onDelete: SetNull)
+  aPanel        Int?
+  aStartNo      Int        @default(1)
+  bSubstationId String
+  bSubstation   Substation @relation("LineB", fields: [bSubstationId], references: [id])
+  bEquipmentId  String?
+  bEquipment    Equipment? @relation("LineBEquipment", fields: [bEquipmentId], references: [id], onDelete: SetNull)
+  bPanel        Int?
+  bStartNo      Int        @default(1)
+  cores         Core[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([aSubstationId])
+  @@index([bSubstationId])
+}
+
+/// 코어 — 광선로의 번호 행. 자연 키 (lineId, no). 「사용 중」은 저장하지 않는다.
+model Core {
+  lineId       String
+  line         FiberLine         @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  no           Int
+  status       String            @default("ok")
+  role         String?
+  purpose      String?
+  note         String?
+  measurements CoreMeasurement[]
+  linkEnds     LinkEnd[]
+  updatedAt    DateTime          @updatedAt
+
+  @@id([lineId, no])
+}
+
+model CoreMeasurement {
+  id         String    @id @default(uuid())
+  lineId     String
+  coreNo     Int
+  core       Core      @relation(fields: [lineId, coreNo], references: [lineId, no], onDelete: Cascade)
+  measuredOn DateTime? @db.Date
+  side       String
+  loss1310   Float?
+  dist1310   Float?
+  loss1550   Float?
+  dist1550   Float?
+  measuredBy String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([lineId, coreNo])
+}
+
+/// 국 내 연결 — 국 안의 물리 케이블. 끝은 LinkEnd 둘.
+model Link {
+  id           String     @id @default(uuid())
+  substationId String
+  substation   Substation @relation(fields: [substationId], references: [id])
+  cableTypeId  String?
+  cableType    CableType? @relation(fields: [cableTypeId], references: [id])
+  lengthM      Float?
+  spec         String?
+  note         String?
+  pathPoints   Json       @default("[]")
+  ends         LinkEnd[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([substationId])
+}
+
+/// 연결의 한 끝 — 설비(+표기) | 회로 | 코어 끝 중 정확히 하나(마이그레이션의 CHECK).
+/// 회로 끝·코어 끝은 유일(NULL 은 서로 다르므로 일반 유일 제약으로 충분하다).
+/// 대상 쪽 삭제는 **Restrict** — 연결을 함께 지우는 것은 클라이언트의 삭제 펼침이 한다.
+model LinkEnd {
+  id                 String     @id @default(uuid())
+  linkId             String
+  link               Link       @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  end                String
+  equipmentId        String?
+  equipment          Equipment? @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  label              String?
+  circuitEquipmentId String?
+  circuitNo          Int?
+  circuit            Circuit?   @relation(fields: [circuitEquipmentId, circuitNo], references: [equipmentId, no], onDelete: Restrict)
+  coreLineId         String?
+  coreNo             Int?
+  coreSide           String?
+  core               Core?      @relation(fields: [coreLineId, coreNo], references: [lineId, no], onDelete: Restrict)
+
+  @@unique([linkId, end])
+  @@unique([circuitEquipmentId, circuitNo])
+  @@unique([coreLineId, coreNo, coreSide])
+  @@index([equipmentId])
+}
+
+/// 커밋 한 번 = 한 줄. 누가·언제·무엇을(행별 전/후).
+model ChangeLog {
+  id       String   @id @default(uuid())
+  userId   String
+  username String
+  at       DateTime @default(now())
+  summary  Json
+}
 
 model MaintenanceLog {
-  id         String   @id @default(uuid())
-  assetId    String
-  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-    /// 이 기록이 가리키는 **부품** — 「L3 스위치 고장」처럼 설비 안의 무엇에 대한 것인지.
-  /// 비우면 설비 전체에 대한 기록이다.
-  ///
-  /// 기록의 주인은 **설비**다: 설비 이력을 훑을 때 안의 부품 일도 한 줄로 읽혀야 하고,
-  /// 부품마다 따로 쌓으면 「어디에 남겼더라」가 생긴다(실제로 설비 패널에서 부품 기록이
-  /// 보이지 않았다).
-  partAssetId String?
-  partAsset   Asset?   @relation("RecordPartM", fields: [partAssetId], references: [id], onDelete: SetNull)
-  occurredAt DateTime
-  content    String
-  action     String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String    @id @default(uuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  occurredAt  DateTime
+  content     String
+  action      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // 자산 cascade 삭제와 워킹카피 조인이 이 컬럼을 탄다.
-  // Postgres 는 FK 에 인덱스를 자동 생성하지 않아, 없으면 부모 1행 삭제마다 전체 스캔.
-  @@index([assetId])
+  @@index([equipmentId])
 }
 
 model InspectionLog {
-  id          String   @id @default(uuid())
-  assetId     String
-  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-    /// 이 기록이 가리키는 **부품** — 「L3 스위치 고장」처럼 설비 안의 무엇에 대한 것인지.
-  /// 비우면 설비 전체에 대한 기록이다.
-  ///
-  /// 기록의 주인은 **설비**다: 설비 이력을 훑을 때 안의 부품 일도 한 줄로 읽혀야 하고,
-  /// 부품마다 따로 쌓으면 「어디에 남겼더라」가 생긴다(실제로 설비 패널에서 부품 기록이
-  /// 보이지 않았다).
-  partAssetId String?
-  partAsset   Asset?   @relation("RecordPartI", fields: [partAssetId], references: [id], onDelete: SetNull)
+  id          String    @id @default(uuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
   inspectedAt DateTime
   content     String
   result      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // 자산 cascade 삭제와 워킹카피 조인이 이 컬럼을 탄다.
-  // Postgres 는 FK 에 인덱스를 자동 생성하지 않아, 없으면 부모 1행 삭제마다 전체 스캔.
-  @@index([assetId])
+  @@index([equipmentId])
 }
 
-model AssetPhoto {
-  id        String   @id @default(uuid())
-  assetId   String
-  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-    /// 이 기록이 가리키는 **부품** — 「L3 스위치 고장」처럼 설비 안의 무엇에 대한 것인지.
-  /// 비우면 설비 전체에 대한 기록이다.
-  ///
-  /// 기록의 주인은 **설비**다: 설비 이력을 훑을 때 안의 부품 일도 한 줄로 읽혀야 하고,
-  /// 부품마다 따로 쌓으면 「어디에 남겼더라」가 생긴다(실제로 설비 패널에서 부품 기록이
-  /// 보이지 않았다).
-  partAssetId String?
-  partAsset   Asset?   @relation("RecordPartP", fields: [partAssetId], references: [id], onDelete: SetNull)
-  filePath  String
-  caption   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model EquipmentPhoto {
+  id          String    @id @default(uuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  filePath    String
+  caption     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // 자산 cascade 삭제와 워킹카피 조인이 이 컬럼을 탄다.
-  // Postgres 는 FK 에 인덱스를 자동 생성하지 않아, 없으면 부모 1행 삭제마다 전체 스캔.
-  @@index([assetId])
+  @@index([equipmentId])
 }
 
-/// 설계에 쓰는 **기준정보 한 판** — 반기·고시마다 새로 올린다.
-///
-/// 왜 판째로 쌓나: 작년 설계서를 다시 열었을 때 그때 요율·노임으로 재현돼야 한다. 새 판을
 /// 올려도 이전 판은 지우지 않고, 「적용 중」 하나만 갈아 끼운다.
 ///
 /// 카탈로그는 이 판을 가리키지 않는다 — **직종 코드**만 들고 있고 단가는 적용 중인 판에서

@@ -112,7 +112,7 @@ orgRouter.post('/org/substations', adminOnly, async (req, res, next) => {
 
 // 본부/지점/변전소 3종의 PATCH·DELETE 핸들러는 델리게이트만 다른 동일 스켈레톤이므로
 // 고정 3종 테이블(kind → 델리게이트·자식카운트 함수)로 파라미터화한다.
-// 주의: 변전소는 자식이 두 관계(floor + asset)에 걸쳐 있어 childCount 함수가 다른 3종과 모양이 다르다 —
+// 주의: 변전소는 자식이 두 관계(floor + rack + fiberLine)에 걸쳐 있어 childCount 함수가 다른 3종과 모양이 다르다 —
 // 이 비대칭은 문자열 분기가 아니라 테이블 값(함수) 차이로만 표현한다.
 interface OrgKindEntry {
   path: 'headquarters' | 'branches' | 'substations';
@@ -144,10 +144,12 @@ const orgKinds: OrgKindEntry[] = [
   {
     path: 'substations',
     delegate: nextDb.substation,
-    // 변전소 자식: floor + asset(substationId 직결) — 두 관계 합산
+    // 변전소 자식: 층·랙·광선로 끝 — 광선로는 두 국에 걸치므로 어느 끝이든 센다
     childCount: async (id) =>
-      (await nextDb.floor.count({ where: { substationId: id } })) + (await nextDb.asset.count({ where: { substationId: id } })),
-    childLabel: '층·자산',
+      (await nextDb.floor.count({ where: { substationId: id } }))
+      + (await nextDb.rack.count({ where: { substationId: id } }))
+      + (await nextDb.fiberLine.count({ where: { OR: [{ aSubstationId: id }, { bSubstationId: id }] } })),
+    childLabel: '층·랙·광선로',
   },
 ];
 

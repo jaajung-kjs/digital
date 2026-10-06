@@ -3,16 +3,10 @@ import { ZodError } from 'zod';
 import { HttpError, zodMessage } from './errors.js';
 import { authRouter } from './auth.routes.js';
 import { backgroundRouter } from './background.routes.js';
-import { catalogRouter } from './catalog.routes.js';
-import { commitRouter } from './commit.routes.js';
-import { nodesRouter } from './nodes.routes.js';
 import { orderRouter } from './order.routes.js';
 import { orgRouter } from './org.routes.js';
 import { photosRouter } from './photos.routes.js';
-import { reachRouter } from './reach.routes.js';
-import { searchRouter } from './search.routes.js';
 import { standardsRouter } from './standards.routes.js';
-import { workingcopyRouter } from './workingcopy.routes.js';
 
 export const v2Router = Router();
 
@@ -21,16 +15,10 @@ v2Router.get('/health', (_req, res) => {
 });
 
 v2Router.use('/auth', authRouter);
-v2Router.use('/catalog', catalogRouter);
 v2Router.use('/photos', photosRouter);
 v2Router.use('/', backgroundRouter);
 v2Router.use('/', orderRouter);
 v2Router.use('/', orgRouter);
-v2Router.use('/', workingcopyRouter);
-v2Router.use('/', commitRouter);
-v2Router.use('/', nodesRouter);
-v2Router.use('/', reachRouter);
-v2Router.use('/', searchRouter);
 v2Router.use('/', standardsRouter);
 
 // v2 에러 매핑 (HttpError/Zod). 그 외는 전역 errorHandler 로 위임.

@@ -63,13 +63,13 @@ function parseEffective(label: string): Date {
 
 /** 지금 카탈로그가 쓰는 직종 값들 — 코드일 수도, 아직 승격 전 이름일 수도 있다. */
 async function usedLaborValues(): Promise<Map<string, number>> {
-  const [types, assemblies, cables] = await Promise.all([
-    nextDb.assetType.groupBy({ by: ['laborCode'], _count: { _all: true } }),
-    nextDb.assembly.groupBy({ by: ['laborCode'], _count: { _all: true } }),
-    nextDb.cableCategory.groupBy({ by: ['laborCode'], _count: { _all: true } }),
+  const [rackTypes, equipmentTypes, cableTypes] = await Promise.all([
+    nextDb.rackType.groupBy({ by: ['laborCode'], _count: { _all: true } }),
+    nextDb.equipmentType.groupBy({ by: ['laborCode'], _count: { _all: true } }),
+    nextDb.cableType.groupBy({ by: ['laborCode'], _count: { _all: true } }),
   ]);
   const out = new Map<string, number>();
-  for (const row of [...types, ...assemblies, ...cables]) {
+  for (const row of [...rackTypes, ...equipmentTypes, ...cableTypes]) {
     if (!row.laborCode) continue;
     out.set(row.laborCode, (out.get(row.laborCode) ?? 0) + row._count._all);
   }
@@ -181,9 +181,9 @@ standardsRouter.post('/standards/wage', adminOnly, uploadSingle, async (req, res
       /* 이름으로 들어 있던 값을 코드로 올린다 — 시드가 넣은 「통신내선공」이 여기서 1086 이
          된다. 이 한 번이 지나면 이름이 바뀌어도 카탈로그는 그대로다. */
       for (const p of promote) {
-        await tx.assetType.updateMany({ where: { laborCode: p.from }, data: { laborCode: p.toCode } });
-        await tx.assembly.updateMany({ where: { laborCode: p.from }, data: { laborCode: p.toCode } });
-        await tx.cableCategory.updateMany({ where: { laborCode: p.from }, data: { laborCode: p.toCode } });
+        await tx.rackType.updateMany({ where: { laborCode: p.from }, data: { laborCode: p.toCode } });
+        await tx.equipmentType.updateMany({ where: { laborCode: p.from }, data: { laborCode: p.toCode } });
+        await tx.cableType.updateMany({ where: { laborCode: p.from }, data: { laborCode: p.toCode } });
       }
       return row;
     });
