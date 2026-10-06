@@ -25,3 +25,4 @@ export * from './model/vocab.js';
 export * from './model/types.js';
 export * from './model/rows.js';
 export * from './model/validate.js';
+export * from './model/expandDeletes.js';
