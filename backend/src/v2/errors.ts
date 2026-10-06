@@ -23,11 +23,11 @@ export class HttpError extends Error {
  * 늘어도 따로 손댈 것이 없다: 모르는 칸 이름은 그 이름 그대로 적는다(거짓말하지 않는다).
  */
 const FIELD_LABEL: Record<string, string> = {
-  name: '이름', key: '키', categoryId: '분류', sortOrder: '차례',
+  name: '이름', key: '내부 키', categoryId: '분야', sortOrder: '순서',
   laborCode: '노무유형', unitPrice: '자재단가',
   installManDays: '신설 공량', removeManDays: '철거 공량', relocateManDays: '이설 공량',
-  medium: '매체', rackTypeId: '랙 종류', typeId: '설비 종류', rackId: '랙', substationId: '국',
-  circuitCount: '회로 수', panelCount: '판 수', coreCount: '코어 수', cableTypeId: '케이블 종류',
+  medium: '매체', rackTypeId: '랙 품목', typeId: '설비 품목', rackId: '랙', substationId: '국',
+  circuitCount: '차단기 수', panelCount: '슬롯 수', coreCount: '코어 수', cableTypeId: '케이블 품목',
   lengthKm: '긍장', lengthM: '길이', measuredOn: '측정일', side: '측정 끝',
 };
 

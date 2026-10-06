@@ -23,11 +23,37 @@ interface Delegate {
 }
 
 /** 종류마다 다른 것은 델리게이트와 「무엇이 쓰고 있나」 셈뿐이다 — 테이블 값으로만 가른다. */
-const KINDS: Record<CatalogKind, { delegate: () => Delegate; usage: (id: string) => Promise<number> }> = {
-  categories: { delegate: () => nextDb.category as unknown as Delegate, usage: (id) => nextDb.equipmentType.count({ where: { categoryId: id } }) },
-  'rack-types': { delegate: () => nextDb.rackType as unknown as Delegate, usage: (id) => nextDb.rack.count({ where: { rackTypeId: id } }) },
-  'equipment-types': { delegate: () => nextDb.equipmentType as unknown as Delegate, usage: (id) => nextDb.equipment.count({ where: { typeId: id } }) },
+/**
+ * `label` 은 화면에 뜨는 이름, `inUse` 는 지우려는데 쓰이고 있을 때의 말 — 무엇이 막는지까지 짚는다.
+ * 조사가 이름마다 달라(분야를/품목을) 문장을 통째로 적는다.
+ */
+const KINDS: Record<CatalogKind, {
+  delegate: () => Delegate;
+  usage: (id: string) => Promise<number>;
+  label: string;
+  inUse: (n: number) => string;
+}> = {
+  categories: {
+    delegate: () => nextDb.category as unknown as Delegate,
+    usage: (id) => nextDb.equipmentType.count({ where: { categoryId: id } }),
+    label: '분야',
+    inUse: (n) => `설비 품목 ${n}개가 이 분야에 들어 있어 지울 수 없습니다`,
+  },
+  'rack-types': {
+    delegate: () => nextDb.rackType as unknown as Delegate,
+    usage: (id) => nextDb.rack.count({ where: { rackTypeId: id } }),
+    label: '랙 품목',
+    inUse: (n) => `랙 ${n}대가 이 랙 품목을 쓰고 있어 지울 수 없습니다`,
+  },
+  'equipment-types': {
+    delegate: () => nextDb.equipmentType as unknown as Delegate,
+    usage: (id) => nextDb.equipment.count({ where: { typeId: id } }),
+    label: '설비 품목',
+    inUse: (n) => `설비 ${n}대가 이 설비 품목을 쓰고 있어 지울 수 없습니다`,
+  },
   'cable-types': {
+    label: '케이블 품목',
+    inUse: (n) => `연결·광선로 ${n}건이 이 케이블 품목을 쓰고 있어 지울 수 없습니다`,
     delegate: () => nextDb.cableType as unknown as Delegate,
     usage: async (id) => (await nextDb.link.count({ where: { cableTypeId: id } })) + (await nextDb.fiberLine.count({ where: { cableTypeId: id } })),
   },
@@ -90,13 +116,13 @@ catalogRouter.patch('/catalog/:kind/:id', adminOnly, async (req, res, next) => {
     const patch = catalogPatches[kind].parse(req.body);
     const d = KINDS[kind].delegate();
     const current = (await d.findUnique({ where: { id: req.params.id } })) as { medium?: string } | null;
-    if (!current) throw new HttpError(404, 'NOT_FOUND', '해당 종류를 찾을 수 없습니다');
+    if (!current) throw new HttpError(404, 'NOT_FOUND', `찾을 수 없는 ${KINDS[kind].label}입니다`);
     /* 쓰이는 케이블 종류의 매체를 바꾸면 그것을 쓰는 연결·광선로가 한꺼번에 검증에서 떨어져
        그 국들이 저장할 수 없게 된다 — 매체는 쓰이지 않을 때만 바꾼다. */
     const nextMedium = (patch as { medium?: string }).medium;
     if (kind === 'cable-types' && nextMedium !== undefined && nextMedium !== current.medium) {
       const used = await KINDS[kind].usage(req.params.id);
-      if (used > 0) throw new HttpError(409, 'TYPE_IN_USE', `${used}건이 이 케이블 종류를 쓰고 있어 매체를 바꿀 수 없습니다 — 새 종류를 만들어 옮기세요`);
+      if (used > 0) throw new HttpError(409, 'TYPE_IN_USE', `연결·광선로 ${used}건이 이 케이블 품목을 쓰고 있어 매체를 바꿀 수 없습니다 — 새 품목을 만들어 옮기세요`);
     }
     res.json(await d.update({ where: { id: req.params.id }, data: patch }));
   } catch (e) {
@@ -107,11 +133,11 @@ catalogRouter.patch('/catalog/:kind/:id', adminOnly, async (req, res, next) => {
 catalogRouter.delete('/catalog/:kind/:id', adminOnly, async (req, res, next) => {
   try {
     const kind = kindOf(req.params.kind);
-    const { delegate, usage } = KINDS[kind];
+    const { delegate, usage, label, inUse } = KINDS[kind];
     const d = delegate();
-    if (!(await d.findUnique({ where: { id: req.params.id } }))) throw new HttpError(404, 'NOT_FOUND', '해당 종류를 찾을 수 없습니다');
+    if (!(await d.findUnique({ where: { id: req.params.id } }))) throw new HttpError(404, 'NOT_FOUND', `찾을 수 없는 ${label}입니다`);
     const used = await usage(req.params.id);
-    if (used > 0) throw new HttpError(409, 'TYPE_IN_USE', `${used}건이 이 종류를 쓰고 있어 지울 수 없습니다`);
+    if (used > 0) throw new HttpError(409, 'TYPE_IN_USE', inUse(used));
     await d.delete({ where: { id: req.params.id } });
     res.status(204).end();
   } catch (e) {

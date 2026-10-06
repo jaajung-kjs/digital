@@ -9,7 +9,7 @@ const remove = vi.fn();
 beforeEach(() => {
   create.mockResolvedValue({});
   patch.mockResolvedValue({});
-  remove.mockRejectedValue(Object.assign(new Error('x'), { isAxiosError: true, response: { status: 409, data: { error: 'TYPE_IN_USE', message: '3건이 이 종류를 쓰고 있어 지울 수 없습니다' } } }));
+  remove.mockRejectedValue(Object.assign(new Error('x'), { isAxiosError: true, response: { status: 409, data: { error: 'TYPE_IN_USE', message: '설비 3대가 이 설비 품목을 쓰고 있어 지울 수 없습니다' } } }));
 });
 vi.mock('../../../model/api', () => ({ createCatalogRow: (...a: unknown[]) => create(...a), patchCatalogRow: (...a: unknown[]) => patch(...a), deleteCatalogRow: (...a: unknown[]) => remove(...a), fetchCatalog: vi.fn(), fetchNodeEquipment: vi.fn(), putOrder: vi.fn() }));
 
@@ -42,7 +42,7 @@ describe('CatalogTable', () => {
     wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[{ id: 'r1', key: 'R', name: '19인치', sortOrder: 1 }]} columns={columns} newRow={() => ({})} />);
     fireEvent.click(screen.getByRole('button', { name: '19인치 지우기' }));
     fireEvent.click(await screen.findByRole('button', { name: '지우기' }));
-    expect(await screen.findByText(/3건이 이 종류를 쓰고 있어/)).toBeInTheDocument();
+    expect(await screen.findByText(/설비 3대가 이 설비 품목을 쓰고 있어/)).toBeInTheDocument();
   });
 
   it('추가 행에 이름을 적고 Enter 하면 접두 맞는 키가 자동으로 실려 create 한다', async () => {

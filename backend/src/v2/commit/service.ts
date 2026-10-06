@@ -142,7 +142,7 @@ function asCommitError(e: unknown): unknown {
   if (isPrismaError(e, 'P2002')) {
     const target = String((e as Prisma.PrismaClientKnownRequestError).meta?.target ?? '');
     if (target.includes('name')) return new HttpError(409, 'NAME_TAKEN', '같은 국에 같은 이름이 이미 있습니다');
-    return new HttpError(422, 'INVALID_STATE', '한 회로·코어 끝에는 연결이 하나뿐입니다');
+    return new HttpError(422, 'INVALID_STATE', '한 차단기·코어 끝에는 연결이 하나뿐입니다');
   }
   if (isPrismaError(e, 'P2003')) {
     return new HttpError(422, 'DANGLING_REFERENCE', '가리키는 대상이 없거나, 지우려는 것을 아직 가리키는 것이 있습니다 — 함께 지우거나 먼저 옮기세요');

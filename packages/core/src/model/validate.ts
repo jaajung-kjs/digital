@@ -68,7 +68,7 @@ export function validateState(state: ModelState): ModelIssue[] {
   for (const link of state.links) {
     for (const ref of [link.a, link.b]) {
       if (!endValid(link, ref)) {
-        issues.push({ code: 'LINK_END_INVALID', message: '연결의 끝이 이 국의 설비·회로·코어 끝이 아닙니다', ids: [link.id] });
+        issues.push({ code: 'LINK_END_INVALID', message: '연결의 끝이 이 국의 설비·차단기·코어 끝이 아닙니다', ids: [link.id] });
       }
       if (ref.kind !== 'equipment') {
         const k = endRefKey(ref);
@@ -81,17 +81,17 @@ export function validateState(state: ModelState): ModelIssue[] {
     }
     // ⑥ 국 내 연결의 매체.
     if (link.cableTypeId !== null && !isLinkMedium(mediumOf.get(link.cableTypeId) ?? '')) {
-      issues.push({ code: 'LINK_MEDIUM', message: '국 내 연결에 쓸 수 없는 케이블 종류입니다', ids: [link.id] });
+      issues.push({ code: 'LINK_MEDIUM', message: '국 내 연결에 쓸 수 없는 케이블 품목입니다', ids: [link.id] });
     }
   }
   for (const ids of takenBy.values()) {
-    if (ids.length > 1) issues.push({ code: 'LINK_END_TAKEN', message: '한 회로·코어 끝에 연결이 둘 이상입니다', ids });
+    if (ids.length > 1) issues.push({ code: 'LINK_END_TAKEN', message: '한 차단기·코어 끝에 연결이 둘 이상입니다', ids });
   }
 
   for (const l of state.fiberLines) {
     // ⑥ 광선로의 매체.
     if (!isLineMedium(mediumOf.get(l.cableTypeId) ?? '')) {
-      issues.push({ code: 'LINE_MEDIUM', message: '광선로에 쓸 수 없는 케이블 종류입니다', ids: [l.id] });
+      issues.push({ code: 'LINE_MEDIUM', message: '광선로에 쓸 수 없는 케이블 품목입니다', ids: [l.id] });
     }
     if (!Number.isInteger(l.coreCount) || l.coreCount < 1) {
       issues.push({ code: 'LINE_CORE_COUNT', message: '코어 수는 1 이상이어야 합니다', ids: [l.id] });

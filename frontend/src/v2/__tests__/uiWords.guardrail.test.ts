@@ -9,10 +9,21 @@ import { describe, expect, it } from 'vitest';
  * 금지어: 회로 · 안의 설비 · 종류 · 자산 · 「판」(홀로 쓴 명사) · 열 머리 「키」.
  * 쓰는 말은 랙·설비·실장 설비·차단기·슬롯·품목·분야. 코드 식별자는 영문이라 걸리지 않는다.
  *
- * 보는 곳: `frontend/src/**` 의 `.ts`·`.tsx`(시험 제외)에서 주석을 걷은 뒤, 문자열·템플릿 리터럴과
+ * 보는 곳: `frontend/src/**`·`packages/core/src/**`(시드 제외)·`backend/src/v2/**` 의 `.ts`·`.tsx`(시험 제외)에서 주석을 걷은 뒤, 문자열·템플릿 리터럴과
  * JSX 글자 안의 한글. 느슨하게 만들지 말고 글자를 고친다 — 정말 예외가 있으면 ALLOW 에 파일+구절과 까닭을 적는다.
  */
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const REPO = join(SRC, '..', '..');
+
+/**
+ * 화면에 닿는 글자는 frontend 밖에서도 온다 — 검증 문구(core)와 서버가 돌려주는 오류 문구(backend)가
+ * 그대로 화면 띠·칸 아래에 뜬다. 같은 검사를 그 뿌리에도 건다. 시드(공식 품목 이름)는 제외한다.
+ */
+const ROOTS: ReadonlyArray<{ dir: string; skip?: RegExp }> = [
+  { dir: SRC },
+  { dir: join(REPO, 'packages', 'core', 'src'), skip: /[\\/]seed[\\/]/ },
+  { dir: join(REPO, 'backend', 'src', 'v2') },
+];
 
 /** 파일(src 기준 경로) → 허용 구절. 더하려면 까닭을 한 줄로 적는다. */
 const ALLOW: ReadonlyArray<{ file: string; phrase: string; why: string }> = [
@@ -86,7 +97,7 @@ export function stripComments(src: string): string {
 
 function hits(): string[] {
   const out: string[] = [];
-  for (const f of walk(SRC)) {
+  for (const f of ROOTS.flatMap((r) => walk(r.dir).filter((p) => !r.skip?.test(p)))) {
     if (!/\.tsx?$/.test(f) || /\.test\.tsx?$/.test(f) || f.includes('__tests__')) continue;
     const rel = relative(SRC, f);
     stripComments(readFileSync(f, 'utf8')).split('\n').forEach((line, i) => {

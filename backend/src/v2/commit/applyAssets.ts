@@ -77,7 +77,7 @@ async function syncCircuits(tx: Tx, equipmentId: string, count: number): Promise
   const { create, remove } = rowsForCount(existing, count);
   if (remove.length > 0) {
     const used = await tx.linkEnd.count({ where: { circuitEquipmentId: equipmentId, circuitNo: { in: remove } } });
-    if (used > 0) throw new HttpError(422, 'ROWS_IN_USE', `연결이 남은 회로 ${used}개를 잘라낼 수 없습니다 — 연결을 먼저 지우세요`);
+    if (used > 0) throw new HttpError(422, 'ROWS_IN_USE', `연결이 남은 차단기 ${used}개를 지울 수 없습니다 — 연결을 먼저 지우세요`);
     await tx.circuit.deleteMany({ where: { equipmentId, no: { in: remove } } });
   }
   if (create.length > 0) await tx.circuit.createMany({ data: create.map((no) => ({ equipmentId, no })) });
@@ -89,7 +89,7 @@ export async function writeCircuits(tx: Tx, p: Ops): Promise<void> {
       await tx.circuit.update({ where: { equipmentId_no: { equipmentId: u.equipmentId, no: u.no } }, data: defined(u.patch) });
     } catch (e) {
       if (!isPrismaError(e, 'P2025')) throw e;
-      throw new HttpError(422, 'INVALID_TARGET', `없는 회로입니다: ${circuitKey(u.equipmentId, u.no)}`);
+      throw new HttpError(422, 'INVALID_TARGET', `없는 차단기입니다: ${circuitKey(u.equipmentId, u.no)}`);
     }
   }
 }
