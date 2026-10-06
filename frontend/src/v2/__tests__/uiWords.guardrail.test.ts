@@ -14,8 +14,10 @@ import { describe, expect, it } from 'vitest';
  */
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** 파일(src 기준 경로) → 허용 구절. 지금은 없다. 더하려면 까닭을 한 줄로 적는다. */
-const ALLOW: ReadonlyArray<{ file: string; phrase: string; why: string }> = [];
+/** 파일(src 기준 경로) → 허용 구절. 더하려면 까닭을 한 줄로 적는다. */
+const ALLOW: ReadonlyArray<{ file: string; phrase: string; why: string }> = [
+  { file: 'v2/components/admin/StandardsPanel.tsx', phrase: 'label="공사종류"', why: '조달청 표 열 이름 그대로' },
+];
 
 const FORBIDDEN: ReadonlyArray<[string, RegExp]> = [
   ['회로', /회로/],
@@ -23,8 +25,8 @@ const FORBIDDEN: ReadonlyArray<[string, RegExp]> = [
   ['종류', /종류/],
   ['자산', /자산/],
   // 판 — 홀로 쓴 명사만(「판매」「분전판」「판단」「평판」 같은 낱말 속 글자는 제외). 앞이 한글이 아니고 뒤가 한글이 아니거나 조사.
-  ['판', /(?<![가-힣])판(?![가-힣])|(?<![가-힣])판(?=[을를이가은는의에도과와으로])/],
-  ['키(열 머리)', /(['"`>])키\1?(?=['"`<])/],
+  ['판', /(?<![가-힣])판(?![가-힣])|(?<![가-힣])판(?=(?:을|를|이|가|은|는|의|에|도|과|와|으로|입니다|마다|만|별))/],
+  ['키(열 머리)', /(['"`>])키\1?(?=['"`<])|^\s*키\s*$|label:\s*['"`]키['"`]/],
 ];
 
 function walk(dir: string): string[] {
@@ -34,12 +36,52 @@ function walk(dir: string): string[] {
   });
 }
 
-function stripComments(src: string): string {
-  const blank = (m: string) => m.replace(/[^\n]/g, ' ');
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, blank)
-    // 줄 주석 — URL(`://`)·문자열 속 `//` 는 건드리지 않게 앞이 `:` 가 아닌 `//` 만.
-    .replace(/(^|[^:'"`\\])\/\/[^\n]*/g, (m, pre: string) => pre + ' '.repeat(m.length - pre.length));
+/**
+ * 주석을 공백으로 바꾼다(줄 수·자리는 그대로). 문자열 안의 `/*`·`//` 는 주석을 열지 못한다 —
+ * 작은 토크나이저로 '…' "…" `…`(`${}` 중첩 포함)를 따라간다. 따옴표는 줄이 끝나면 닫힌 것으로 본다
+ * (JSX 글자 속 아포스트로피가 뒤를 삼키지 않게). JSX 글자 속 `//` 는 같은 줄 뒤에 `</`·`/>` 가 있으면 글자로 본다.
+ */
+export function stripComments(src: string): string {
+  let out = '';
+  let i = 0;
+  const tpl: number[] = []; // 템플릿 리터럴 안 `${` 의 중괄호 깊이 스택
+  let braces = 0;
+  let q: string | null = null; // ' " ` 안
+  while (i < src.length) {
+    const c = src[i]!;
+    const n = src[i + 1];
+    if (q) {
+      if (c === '\\') { out += c + (n ?? ''); i += 2; continue; }
+      if (c === '\n' && q !== '`') { q = null; out += c; i++; continue; }
+      if (q === '`' && c === '$' && n === '{') { tpl.push(braces); braces = 0; q = null; out += '${'; i += 2; continue; }
+      if (c === q) q = null;
+      out += c; i++; continue;
+    }
+    if (c === "'" || c === '"' || c === '`') { q = c; out += c; i++; continue; }
+    if (tpl.length > 0) {
+      if (c === '{') braces++;
+      else if (c === '}') {
+        if (braces === 0) { braces = tpl.pop()!; q = '`'; out += c; i++; continue; }
+        braces--;
+      }
+    }
+    if (c === '/' && n === '*') {
+      const end = src.indexOf('*/', i + 2);
+      const stop = end < 0 ? src.length : end + 2;
+      out += src.slice(i, stop).replace(/[^\n]/g, ' ');
+      i = stop; continue;
+    }
+    if (c === '/' && n === '/') {
+      const nl = src.indexOf('\n', i);
+      const stop = nl < 0 ? src.length : nl;
+      const lineStart = src.lastIndexOf('\n', i - 1) + 1;
+      const rest = src.slice(i, stop);
+      const atStart = src.slice(lineStart, i).trim() === '';
+      if (atStart || !/<\/|\/>/.test(rest)) { out += ' '.repeat(stop - i); i = stop; continue; }
+    }
+    out += c; i++;
+  }
+  return out;
 }
 
 function hits(): string[] {
@@ -74,4 +116,29 @@ describe('화면 글자 금지어', () => {
       expect(FORBIDDEN.some(([, re]) => re.test(ok))).toBe(false);
     }
   });
+
+  it('주석 걷기 — 문자열 속 /* 는 주석이 아니고, 진짜 주석은 걷힌다', () => {
+    const flagged = (src: string) => FORBIDDEN.some(([, re]) => stripComments(src).split('\n').some((l) => re.test(l)));
+    expect(flagged('<input accept="image/*" />\n<b>회로</b>')).toBe(true);
+    expect(flagged('<span>a // 회로</span>')).toBe(true);
+    expect(flagged('/* 회로 */\nconst a = 1;')).toBe(false);
+    expect(flagged('const a = 1; // 회로')).toBe(false);
+    expect(flagged('const a = `x ${b} /* ${"회로"}`;')).toBe(true);
+    expect(stripComments('a\n/* x\ny */\nb').split('\n')).toHaveLength(4);
+  });
+
+  it('키 열 머리 — 줄 단독 JSX 글자·label 도 잡는다', () => {
+    expect(flaggedWord('<th>\n  키\n</th>', '키(열 머리)')).toBe(true);
+    expect(flaggedWord("{ label: '키' }", '키(열 머리)')).toBe(true);
+    expect(flaggedWord("'키보드'", '키(열 머리)')).toBe(false);
+  });
+
+  it('판 조사 — 입니다·마다·으로 는 잡고 분전반·판매·판단은 놓아 둔다', () => {
+    for (const w of ['판입니다', '판마다', '판으로']) expect(flaggedWord(w, '판')).toBe(true);
+    for (const w of ['판매', '판단', '분전반']) expect(flaggedWord(w, '판')).toBe(false);
+  });
 });
+
+function flaggedWord(text: string, name: string): boolean {
+  return text.split('\n').some((l) => FORBIDDEN.some(([n, re]) => n === name && re.test(l)));
+}

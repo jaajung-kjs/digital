@@ -126,7 +126,7 @@ export function OverheadRatesView({ onError }: { onError: (m: string) => void })
         onError={onError}
         renderPreview={(p) => (
           <>
-            <DetailRow label="공사 구분">
+            <DetailRow label="공사종류">
               <span className="text-sm text-content">{p.kind}</span>
             </DetailRow>
             <DetailRow label="간접노무비">
