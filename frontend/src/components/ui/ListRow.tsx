@@ -6,12 +6,21 @@ import { SELECTABLE } from './selection';
  * 카드 안 목록의 한 줄 — 이름 하나를 읽고, `onClick` 을 주면 누를 수 있다(랙 안의 설비 목록).
  * 긴 이름은 잘리고(`truncate`), 누를 수 있는 줄은 선택 가능한 표면의 호버를 쓴다.
  */
-type Aria = Pick<HTMLAttributes<HTMLElement>, 'aria-disabled' | 'aria-selected'>;
+type Aria = Pick<HTMLAttributes<HTMLElement>, 'aria-disabled' | 'aria-selected' | 'aria-current'>;
 
-export function ListRow({ children, onClick, className, ...aria }: { children: ReactNode; onClick?: () => void; className?: string } & Aria) {
-  const base = 'block w-full truncate rounded px-1 text-left text-sm text-content';
-  if (!onClick) return <div className={cn(base, className)} {...aria}>{children}</div>;
-  return <button type="button" className={cn(base, SELECTABLE, className)} onClick={onClick} {...aria}>{children}</button>;
+/**
+ * `trailing` 을 주면 **탐색 목록 줄**이 된다 — 이름은 왼쪽, 오른쪽 끝에 개수 같은 부가값(`tabular-nums`)이 서고
+ * 줄은 트리 행과 같은 높이다(품목 관리의 왼쪽 목록).
+ */
+export function ListRow({ children, onClick, className, trailing, ...aria }: { children: ReactNode; onClick?: () => void; className?: string; trailing?: ReactNode } & Aria) {
+  const base = trailing !== undefined
+    ? 'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-content'
+    : 'block w-full truncate rounded px-1 text-left text-sm text-content';
+  const body = trailing !== undefined
+    ? (<><span className="min-w-0 flex-1 truncate">{children}</span><span className="shrink-0 text-xs tabular-nums text-content-muted">{trailing}</span></>)
+    : children;
+  if (!onClick) return <div className={cn(base, className)} {...aria}>{body}</div>;
+  return <button type="button" className={cn(base, SELECTABLE, className)} onClick={onClick} {...aria}>{body}</button>;
 }
 
 /**

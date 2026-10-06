@@ -42,7 +42,7 @@ const MAIN_NAV: readonly MenuBarItem[] = [
  * 지금 어느 메뉴에 있나 — **가장 긴 접두사**가 이긴다.
  *
  * `/` 는 모든 경로의 접두사라 그것만으로 고르면 늘 「설비 현황」이 켜진다. 길이로 정렬해
- * 먼저 맞는 것을 쓰면 `/equipment-types` 는 제 것을 켜고 `/n/:id` 는 `/` 로 떨어진다.
+ * 먼저 맞는 것을 쓰면 `/catalog` 는 제 것을 켜고 `/n/:id` 는 `/` 로 떨어진다.
  */
 function navKeyOf(pathname: string): string {
   const hit = [...MAIN_NAV]

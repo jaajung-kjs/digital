@@ -7,14 +7,14 @@
  */
 import { useRef, useState } from 'react';
 import { Check, Plus, Trash2, X } from 'lucide-react';
-import { Button, EMPTY, SELECTABLE, cn, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
+import { Button, EMPTY, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
 import { isAxiosError } from 'axios';
 import { apiErrorMessage } from '../../apiError';
 import { useWageCatalog } from '../../hooks';
 import { newCatalogKey } from './catalogKey';
 import { useCatalogMutations } from '../../model/hooks';
 import type { CatalogKind } from '../../model/types';
-import { InlineEditCell } from '../InlineEditCell';
+import { InlineEditCell, readCellClass } from '../InlineEditCell';
 import { LaborTypeSelect } from '../admin/LaborTypeSelect';
 
 export interface Column {
@@ -233,7 +233,7 @@ function LaborCell({ value, onChange, ariaLabel }: { value: string | null; onCha
       <button
         type="button"
         aria-label={`${ariaLabel} 고치기`}
-        className={cn('w-full rounded px-1 text-sm [text-align:inherit]', value ? 'text-content' : 'text-content-faint', SELECTABLE)}
+        className={readCellClass(!!value)}
         onClick={() => setEditing(true)}
       >
         {value ? wage.nameOf(value) : EMPTY}

@@ -13,6 +13,10 @@ beforeEach(() => {
 });
 vi.mock('../../../model/api', () => ({ createCatalogRow: (...a: unknown[]) => create(...a), patchCatalogRow: (...a: unknown[]) => patch(...a), deleteCatalogRow: (...a: unknown[]) => remove(...a), fetchCatalog: vi.fn(), fetchNodeEquipment: vi.fn(), putOrder: vi.fn() }));
 
+vi.mock('../../../hooks', () => ({
+  useWageCatalog: () => ({ rows: [{ code: '1086', name: '통신내선공', sector: '통신', wage: 1 }], known: () => true, nameOf: (c: string | null) => (c ? '통신내선공' : null), effective: '2026' }),
+}));
+
 import { CatalogTable } from '../CatalogTable';
 
 const wrap = (ui: React.ReactElement) => render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
@@ -132,5 +136,13 @@ describe('CatalogTable', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await new Promise((r) => setTimeout(r, 20));
     expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('노무유형 칸은 글자로 먼저 보이고 누르면 고르기가 열린다', () => {
+    const cols = [...columns, { key: 'laborCode', label: '노무유형', kind: 'labor' as const }];
+    wrap(<CatalogTable kind="equipment-types" title="설비 품목" rows={[{ id: 'e1', name: 'OFD', sortOrder: 1, laborCode: '1086' }]} columns={cols} newRow={() => ({})} />);
+    expect(screen.queryByRole('combobox')).toBeNull();
+    fireEvent.click(screen.getByText('통신내선공'));
+    expect(screen.getByRole('combobox', { name: 'OFD 노무유형' })).toBeInTheDocument();
   });
 });

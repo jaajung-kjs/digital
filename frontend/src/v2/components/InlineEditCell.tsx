@@ -58,6 +58,10 @@ interface InlineEditCellProps {
   format?: (value: string) => string;
 }
 
+/** 읽는 줄 버튼의 모양 — 칸 종류가 달라도(노무유형 등) 평소 모습은 이 하나를 쓴다. */
+export const readCellClass = (filled: boolean, muted?: boolean) =>
+  cn('w-full rounded px-1 text-sm [text-align:inherit]', muted && 'text-content-faint', filled ? 'text-content' : 'text-content-faint', SELECTABLE);
+
 /** 목록 끝의 「직접 입력」 — 이 값은 저장되지 않고 칸을 자유 입력으로 바꾼다. */
 const FREE_INPUT = '\u0000free';
 
@@ -74,12 +78,7 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit, op
         aria-label={`${label} 고치기`}
         /* 줄맞춤은 **열이 정한다**(`Td align`) — 여기서 정하면 값이 있는 줄과 대시만 있는
            줄이 한 열에서 서로 다른 자리에 선다. 물려받기만 한다. */
-        className={cn(
-          'w-full rounded px-1 text-sm [text-align:inherit]',
-          muted && 'text-content-faint',
-          value ? 'text-content' : 'text-content-faint',
-          SELECTABLE,
-        )}
+        className={readCellClass(!!value, muted)}
         onClick={() => setEditing(true)}
         /* 키보드로 훑다가 바로 고치는 길 — Enter 는 버튼이 이미 누름으로 읽는다. */
         onFocus={(e) => { if (e.relatedTarget) e.currentTarget.dataset.touched = '1'; }}

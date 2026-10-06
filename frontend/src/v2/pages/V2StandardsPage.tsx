@@ -7,7 +7,7 @@
  * 탭 셋이 표를 폭 가득 채운다. 무엇이 들어와 있는지는 탭 안의 표가 말한다.
  */
 import { useState } from 'react';
-import { ErrorStrip, PageHeader, Tabs, useTabs } from '../../components/ui';
+import { ErrorStrip, Tabs, useTabs } from '../../components/ui';
 import { OverheadRatesView, StandardHistoryView, WageRatesView } from '../components/admin/StandardsPanel';
 
 type View = 'wage' | 'overhead' | 'history';
@@ -25,8 +25,8 @@ export default function V2StandardsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title="기준정보" />
-      <Tabs {...t.list} items={TABS} onChange={setView} />
+      {/* 탭 줄 왼쪽 끝을 내용 여백(16px)에 맞춘다. */}
+      <Tabs {...t.list} items={TABS} onChange={setView} className="pl-4" />
       <ErrorStrip
         message={error}
         onDismiss={() => setError(null)}

@@ -6,7 +6,7 @@
  */
 import { useSearchParams } from 'react-router-dom';
 import { CABLE_MEDIA } from '@twin/core';
-import { ListRow, PageHeader, PageState, SELECTED } from '../../components/ui';
+import { ListHeading, ListRow, PageState, SELECTED } from '../../components/ui';
 import { useCatalog } from '../model/hooks';
 import { CatalogTable, type Column } from '../components/catalog/CatalogTable';
 
@@ -42,17 +42,18 @@ export default function V2CatalogPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title="품목 관리" />
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-56 shrink-0 flex-col gap-0.5 border-r border-line bg-sidebar p-2">
+          <ListHeading>품목</ListHeading>
           {list.map((x) => (
             <ListRow
               key={x.kind}
-              aria-selected={kind === x.kind}
+              aria-current={kind === x.kind ? 'true' : undefined}
               className={kind === x.kind ? SELECTED : undefined}
+              trailing={x.count}
               onClick={() => setParams({ kind: x.kind }, { replace: true })}
             >
-              {x.label} <span className="text-xs text-content-muted">{x.count}</span>
+              {x.label}
             </ListRow>
           ))}
         </aside>

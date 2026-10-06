@@ -34,6 +34,7 @@ describe('V2CatalogPage', () => {
     expect(screen.getByRole('button', { name: /케이블 품목\s*1/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /분야\s*1/ })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: '키' })).toBeNull();
+    expect(screen.getByRole('button', { name: /설비 품목/ })).toHaveAttribute('aria-current', 'true');
   });
 
   it('케이블 품목을 누르면 kind=cable 과 케이블 표', async () => {
