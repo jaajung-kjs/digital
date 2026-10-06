@@ -17,7 +17,7 @@ beforeEach(() => {
 });
 
 describe('잇기 대화상자', () => {
-  it('회로에서 설비로 — 국 내 연결 케이블 품목만 고를 수 있다', () => {
+  it('차단기에서 설비로 — 국 내 연결 케이블 품목만 고를 수 있다', () => {
     const onCreated = vi.fn();
     render(<ConnectDialog substationId="S1" from={{ kind: 'circuit', equipmentId: 'p', no: 1 }} open onClose={vi.fn()} onCreated={onCreated} />);
     fireEvent.click(screen.getByText('송광치'));
@@ -38,11 +38,11 @@ describe('잇기 대화상자', () => {
     expect(screen.getByText('연결의 두 끝이 같습니다')).toBeInTheDocument();
   });
 
-  it('쓰인 회로 끝은 고를 수 없다', () => {
+  it('쓰인 차단기 끝은 고를 수 없다', () => {
     const s = store.getState();
     s.create('links', { id: 'k', substationId: 'S1', cableTypeId: null, lengthM: null, spec: null, note: null, pathPoints: [], a: { kind: 'circuit', equipmentId: 'p', no: 1 }, b: { kind: 'equipment', equipmentId: 'o' }, updatedAt: '' });
     render(<ConnectDialog substationId="S1" from={{ kind: 'equipment', equipmentId: 'o' }} open onClose={vi.fn()} onCreated={vi.fn()} />);
-    const taken = screen.getByText('분전반 회로 1');
+    const taken = screen.getByText('분전반 차단기 1');
     expect(taken).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(taken);
     expect(taken).not.toHaveAttribute('aria-selected', 'true');

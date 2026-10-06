@@ -16,7 +16,7 @@ interface Props {
   onAddEquipment: (rackId: string) => void;
 }
 
-/** 랙 상세 — 이름·랙 품목·안의 설비. 지우기는 안에 설비가 남으면 막힌다. */
+/** 랙 상세 — 이름·랙 품목·실장 설비. 지우기는 안에 설비가 남으면 막힌다. */
 export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAddEquipment }: Props) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
@@ -58,8 +58,8 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
           <ErrorStrip message={blocked} onDismiss={() => setBlocked(null)} />
         </DetailCard>
         <DetailCard>
-          <DetailCardHeader title={`안의 설비 ${inside.length}`} actions={<Button variant="secondary" size="sm" onClick={() => onAddEquipment(rackId)}>설비 추가</Button>} />
-          {inside.length === 0 && <ListRow>안에 설비가 없습니다</ListRow>}
+          <DetailCardHeader title={`실장 설비 ${inside.length}`} actions={<Button variant="secondary" size="sm" onClick={() => onAddEquipment(rackId)}>설비 추가</Button>} />
+          {inside.length === 0 && <ListRow>실장 설비가 없습니다</ListRow>}
           {inside.map((e) => (
             <ListRow key={e.id} onClick={() => onSelectEquipment(e.id)}>{e.name}</ListRow>
           ))}

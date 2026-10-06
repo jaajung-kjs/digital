@@ -65,7 +65,7 @@ describe('StatusView 도구줄·표 정리', () => {
     fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
     const ok = screen.getByText('L3 #1').closest('tr')!;
     const bad = screen.getByText('L3 #2').closest('tr')!;
-    expect(ok.querySelectorAll('td')[2]).toHaveTextContent('');
+    expect(ok.querySelectorAll('td')[2]!.textContent).toBe('');
     expect(ok).not.toHaveTextContent('정상');
     expect(bad.querySelectorAll('td')[2]).toHaveTextContent('고장');
   });
@@ -100,7 +100,7 @@ describe('StatusView 도구줄·표 정리', () => {
 
   it('품목 행의 상태 칸은 정상 아닌 것이 있을 때만 채운다 — 「—」 를 쓰지 않는다', () => {
     render(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
-    expect(screen.getByText('UPS').closest('tr')!.querySelectorAll('td')[2]).toHaveTextContent('');
+    expect(screen.getByText('UPS').closest('tr')!.querySelectorAll('td')[2]!.textContent).toBe('');
     expect(screen.getByText('L3 스위치').closest('tr')!.querySelectorAll('td')[2]).toHaveTextContent('고장 1');
   });
 });

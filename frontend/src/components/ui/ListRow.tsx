@@ -6,7 +6,8 @@ import { SELECTABLE } from './selection';
  * 카드 안 목록의 한 줄 — 이름 하나를 읽고, `onClick` 을 주면 누를 수 있다(랙 안의 설비 목록).
  * 긴 이름은 잘리고(`truncate`), 누를 수 있는 줄은 선택 가능한 표면의 호버를 쓴다.
  */
-type Aria = Pick<HTMLAttributes<HTMLElement>, 'aria-disabled' | 'aria-selected' | 'aria-current'>;
+/* `title` — 잘린 줄의 온 글을 손을 얹으면 보인다. */
+type Aria = Pick<HTMLAttributes<HTMLElement>, 'aria-disabled' | 'aria-selected' | 'aria-current' | 'title'>;
 
 /**
  * `trailing` 을 주면 **탐색 목록 줄**이 된다 — 이름은 왼쪽, 오른쪽 끝에 개수 같은 부가값(`tabular-nums`)이 서고
@@ -32,15 +33,24 @@ export function ListHeading({ children }: { children: ReactNode }) {
 }
 
 /**
- * 칸이 여럿인 목록 줄 + **호버에서 드러나는 손잡이**(§1.7) — 연결 목록처럼 한 줄에 값이 여럿이다.
+ * 목록 줄 + **호버에서 드러나는 손잡이**(§1.7) — 연결 목록처럼 한 줄에 값이 여럿이다.
  *
- * 칸(`children`)은 가로로 늘어서고, `actions` 는 자리를 늘 차지한 채 투명도만 바뀐다(떨림 방지).
- * 칸 안의 폭·잘림은 부르는 쪽이 정한다 — `truncate` 에는 `min-w-0` 짝을 붙인다.
+ * `actions` 는 자리를 늘 차지한 채 투명도만 바뀐다(떨림 방지).
+ *
+ * - `meta` 를 주면 **두 줄 줄**이 된다: 첫 줄 `children`(진하게 — 그 줄만의 것), 둘째 줄 `meta`(`text-xs` 흐리게).
+ *   둘 다 넘치면 말줄임. 좁은 패널(364px)에서 칸 넷을 한 줄에 늘어세우면 고정 폭 칸들이 자리를 다 먹고
+ *   정작 늘어나야 할 칸이 0px 로 눌린다(연결 목록의 상대 끝이 실제로 그랬다) — 그때 이것을 쓴다.
+ * - `meta` 가 없으면 `children` 칸들이 가로로 늘어선다. 칸 폭·잘림은 부르는 쪽이 정한다(`truncate` 에는 `min-w-0`).
  */
-export function ListItemRow({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+export function ListItemRow({ children, meta, actions }: { children: ReactNode; meta?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="group flex items-center gap-2 border-b border-line py-1 text-sm text-content">
-      {children}
+      {meta !== undefined ? (
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium">{children}</div>
+          <div className="truncate text-xs text-content-muted">{meta}</div>
+        </div>
+      ) : children}
       {actions && (
         <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           {actions}

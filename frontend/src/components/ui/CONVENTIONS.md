@@ -360,7 +360,7 @@ import { DetailCard, DetailCardHeader, DetailRow } from '../../components/ui';
 `FormRow`/`EditableField` 라는 별도 컴포넌트는 없다 — `DetailRow` 하나가 상세 표시 행과 편집 행을 겸한다.
 라벨 폭(`w-16`)·검증 문구 위치가 여기서 고정되므로, 라벨+입력 조합을 직접 `<div className="flex">` 로 짜지 않는다.
 ```tsx
-<DetailRow label="회로 수" issue={countIssue}>
+<DetailRow label="코어 수" issue={countIssue}>
   <Input size="sm" value={...} onChange={...} />
 </DetailRow>
 <DetailRow label="구성" align="start">{/* 세로로 긴 값이면 align="start" */}</DetailRow>
@@ -406,7 +406,10 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 `<ListRow onClick={…}>{name}</ListRow>` — `onClick` 이 없으면 읽기 전용 줄. 직접 `<button className>` 이나 `<p className>` 로 줄을 만들지 않는다. 라벨과 값이 짝이면 `DetailRow` 다.
 
 - **목록 안 갈래의 머리**(잇기 상자의 「설비」·「회로」·「코어」) → `ListHeading`. 카드 절 제목(`DetailCardHeader`)이 아니다 — 한 목록 안의 묶음 라벨이다.
-- **칸이 여럿인 줄 + 호버 손잡이**(연결 목록: 이쪽 표기 · 반대쪽 끝 · 케이블 · 길이 · 🗑) → `ListItemRow`. `actions` 는 §1.7 대로 자리를 차지한 채 투명도만 바뀐다. 칸 폭·잘림은 부르는 쪽이 정한다(`truncate` 에는 `min-w-0`).
+- **값이 여럿인 줄 + 호버 손잡이** → `ListItemRow`. `actions` 는 §1.7 대로 자리를 차지한 채 투명도만 바뀐다.
+  - **좁은 패널(364px)에서는 두 줄**(`meta`): 첫 줄 = 그 줄만의 것(연결 목록의 **상대 끝 이름**, 진하게), 둘째 줄 = 나머지(`이쪽: 차단기 3 · F-CV · 12 m`, `text-xs`). 없는 값은 「없음」이라 적지 않고 건너뛴다. 고정 폭 칸 넷을 한 줄에 늘어세우면 늘어나야 할 칸 하나가 **0px 로 눌려 사라진다** — 연결 목록의 상대 끝이 실제로 그랬다(이쪽 128 + 케이블 83 + 길이 56 + 손잡이 + 틈 = 패널 폭 전부).
+  - 넓은 자리에서만 칸을 가로로 늘어세운다(`meta` 없이). 칸 폭·잘림은 부르는 쪽이 정한다(`truncate` 에는 `min-w-0`).
+- **좁은 패널의 요약 목록 + 넓은 편집 창** — 9열짜리 표(차단기)를 364px 패널에 두면 글자가 세로로 쪼개진다. 패널에는 한 줄 요약(`ListRow`, `번호 · 표기 · 용량 · 갈래 · 개폐 → 부하`, 빈 값 건너뜀)만 두고, 줄을 누르면 넓은 `Modal`(`xl`) 안의 표가 그 줄로 열린다(`BreakerEditor`). 개수 입력 칸을 두지 않는다 — 한 줄씩 「추가」, 마지막 한 줄 「지우기」(연결이 남으면 까닭을 띄우고 그대로).
 - 목록이 비었거나 검색에 걸린 것이 없다는 한 줄도 `ListRow`(읽기 전용)다 — `<div className="px-1 text-xs …">` 로 따로 짓지 않는다.
 
 ### 목록 안에서 되풀이되는 항목 → `ItemCard`

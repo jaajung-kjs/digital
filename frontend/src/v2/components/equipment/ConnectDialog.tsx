@@ -10,7 +10,7 @@ import { endLabel, endpointOptions, type EndpointOption } from './endpoints';
 
 interface Props { substationId: string; from: LinkEndRef; open: boolean; onClose: () => void; onCreated: (linkId: string) => void }
 
-const GROUPS = ['설비', '회로', '코어'] as const;
+const GROUPS = ['설비', '차단기', '코어'] as const;
 const withLabel = (ref: LinkEndRef, label: string): LinkEndRef => (ref.kind === 'equipment' ? { ...ref, label: label.trim() || null } : ref);
 
 /** 잇기 — 이쪽 끝(from)에 반대쪽 끝을 이 국의 목록에서 골라 연결 한 건을 만든다. */
@@ -76,7 +76,7 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
     >
       <div className="space-y-2">
         <p className="text-xs text-content-muted">{`이쪽 끝 ${endLabel({ saved, overlays }, from)}`}</p>
-        <TableSearch aria-label="반대쪽 끝 검색" placeholder="설비 · 회로 · 코어 검색" value={query} onChange={setQuery} shown={shown.length} total={options.length} />
+        <TableSearch aria-label="반대쪽 끝 검색" placeholder="설비 · 차단기 · 코어 검색" value={query} onChange={setQuery} shown={shown.length} total={options.length} />
         <div className="max-h-56 overflow-y-auto rounded border border-line p-1">
           {GROUPS.map((g) => {
             const rows = shown.filter((o) => o.group === g);

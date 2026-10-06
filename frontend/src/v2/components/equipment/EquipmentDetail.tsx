@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import { expandDeletes } from '@twin/core';
-import { Button, EmptyState, Tabs, ViewCard, useConfirm, useTabs, type TabItem } from '../../../components/ui';
+import { MAX_CIRCUITS, expandDeletes } from '@twin/core';
+import { Button, EmptyState, OverflowMenu, Tabs, ViewCard, useConfirm, useTabs, type TabItem } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
 import { effectiveRows, toModelState } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import { PhotoCard } from '../detail/PhotoCard';
 import { RecordsTab } from '../detail/RecordsTab';
+import { BreakerEditor } from './BreakerEditor';
 import { CircuitCard } from './CircuitCard';
 import { EquipmentInfoCard } from './EquipmentInfoCard';
 import { LinkList } from './LinkList';
@@ -24,6 +25,8 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipment
   const [tab, setTab] = useState<Tab>('정보');
   const tabs = useTabs(tab);
   const { confirm, confirmDialog } = useConfirm();
+  /** 차단기 편집 창 — 열려 있으면 `at` 이 표시할 줄(없으면 표만). */
+  const [breakers, setBreakers] = useState<{ at: number | null } | null>(null);
 
   if (!eq) return <ViewCard><EmptyState title="고른 설비가 없습니다" /></ViewCard>;
 
@@ -36,15 +39,32 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipment
     onDeleted();
   }
 
+  /** 차단기 한 줄 더하기 — 끝 번호로 생기고, 편집 창이 그 줄로 열린다. 개수를 묻지 않는다. */
+  function addBreaker() {
+    const n = eq!.circuitCount + 1;
+    if (n > MAX_CIRCUITS) return;
+    workingCopyStore.getState().update('equipment', equipmentId, { circuitCount: n });
+    setBreakers({ at: n });
+  }
+
   return (
-    <ViewCard title={eq.name} actions={<Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>} body="scroll">
+    <ViewCard
+      title={eq.name}
+      actions={(
+        <>
+          <OverflowMenu items={[{ label: '차단기 추가', onSelect: addBreaker, disabled: eq.circuitCount >= MAX_CIRCUITS, disabledReason: `차단기는 ${MAX_CIRCUITS}개까지입니다` }]} />
+          <Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>
+        </>
+      )}
+      body="scroll"
+    >
       <div className="space-y-3">
         <Tabs {...tabs.list} items={TABS} onChange={setTab} />
         <div {...tabs.panel} className="space-y-3">
           {tab === '정보' && (
             <>
               <EquipmentInfoCard eq={eq} catalog={catalog} onDelete={remove} />
-              <CircuitCard equipmentId={equipmentId} circuitCount={eq.circuitCount} />
+              <CircuitCard equipmentId={equipmentId} onEdit={(at) => setBreakers({ at })} onAdd={addBreaker} />
               <PanelsCard equipmentId={equipmentId} panelCount={eq.panelCount} />
             </>
           )}
@@ -58,6 +78,7 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipment
           {tab === '사진' && <PhotoCard equipmentId={equipmentId} />}
         </div>
       </div>
+      <BreakerEditor equipmentId={equipmentId} equipmentName={eq.name} open={breakers !== null} focusNo={breakers?.at ?? null} onAdd={addBreaker} onClose={() => setBreakers(null)} />
       {confirmDialog}
     </ViewCard>
   );

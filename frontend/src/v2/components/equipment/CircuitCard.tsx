@@ -1,50 +1,46 @@
-import { useMemo, useState } from 'react';
-import { MAX_CIRCUITS } from '@twin/core';
-import { Button, DetailCard, DetailCardHeader, DetailRow, ErrorStrip, Input, isCommitKey } from '../../../components/ui';
-import { effectiveRows } from '../../model/store/effective';
-import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
-import { CircuitTable } from './CircuitTable';
+import { useMemo } from 'react';
+import { CIRCUIT_CURRENTS, MAX_CIRCUITS, SWITCH_STATES } from '@twin/core';
+import { Button, DetailCard, DetailCardHeader, ListRow } from '../../../components/ui';
+import { effectiveCircuits, effectiveRows } from '../../model/store/effective';
+import { useWorkingCopy } from '../../model/store/workingCopy';
+import type { Circuit } from '../../model/types';
+import { circuitLink, endLabel } from './endpoints';
 
-/** 회로 수 + 회로 표. 줄이기에서 잘릴 회로에 연결이 남아 있으면 줄이지 않고 까닭을 말한다. */
-export function CircuitCard({ equipmentId, circuitCount }: { equipmentId: string; circuitCount: number }) {
+const wordOf = (vocab: readonly { value: string; label: string }[], v: string | null) => (v ? vocab.find((x) => x.value === v)?.label ?? v : null);
+
+/**
+ * 차단기 요약 — 좁은 패널(364px)에서는 **한 줄씩만** 읽는다: `번호 · 표기 · 용량 · 갈래 · 개폐 → 부하`.
+ * 빈 칸은 건너뛰고 넘치면 말줄임. 고치는 일은 넓은 편집 창(`BreakerEditor`)이 맡는다 — 줄을 누르면 그 줄로 열린다.
+ * 차단기가 없으면 카드를 그리지 않는다(더하는 길은 설비 머리 `⋯ › 차단기 추가`).
+ */
+export function CircuitCard({ equipmentId, onEdit, onAdd }: { equipmentId: string; onEdit: (no: number | null) => void; onAdd: () => void }) {
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
+  const rows = useMemo(() => effectiveCircuits({ saved, overlays }, equipmentId), [saved, overlays, equipmentId]);
   const links = useMemo(() => effectiveRows({ saved, overlays }, 'links'), [saved, overlays]);
-  const [draft, setDraft] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  if (rows.length === 0) return null;
 
-  function apply(raw: string) {
-    setDraft(null);
-    const n = Number(raw);
-    if (raw.trim() === '' || !Number.isInteger(n) || n < 0 || n > MAX_CIRCUITS) { setError(`회로 수는 0~${MAX_CIRCUITS} 사이의 정수입니다`); return; }
-    if (n === circuitCount) { setError(null); return; }
-    const cut = new Set<number>();
-    for (const l of links) for (const e of [l.a, l.b]) if (e.kind === 'circuit' && e.equipmentId === equipmentId && e.no > n) cut.add(e.no);
-    if (cut.size > 0) { setError(`연결이 남은 회로 ${cut.size}개를 잘라낼 수 없습니다`); return; }
-    setError(null);
-    workingCopyStore.getState().update('equipment', equipmentId, { circuitCount: n });
-  }
+  const line = (c: Circuit) => {
+    const head = [String(c.no), c.label, c.capacity, wordOf(CIRCUIT_CURRENTS, c.current), wordOf(SWITCH_STATES, c.switch)].filter(Boolean).join(' · ');
+    const hit = circuitLink(links, equipmentId, c.no);
+    return hit ? `${head} → ${endLabel({ saved, overlays }, hit.far)}` : head;
+  };
 
-  if (circuitCount === 0 && draft == null) {
-    return (
-      <DetailCard>
-        <DetailCardHeader title="회로" actions={<Button variant="secondary" size="sm" onClick={() => apply('1')}>회로 추가</Button>} />
-      </DetailCard>
-    );
-  }
   return (
     <DetailCard>
-      <DetailCardHeader title="회로" />
-      <DetailRow label="회로 수">
-        <Input
-          size="sm" numeric value={draft ?? String(circuitCount)}
-          onChange={(e) => { setDraft(e.currentTarget.value); setError(null); }}
-          onBlur={(e) => apply(e.currentTarget.value)}
-          onKeyDown={(e) => { if (isCommitKey(e)) e.currentTarget.blur(); }}
-        />
-      </DetailRow>
-      <ErrorStrip message={error} />
-      <CircuitTable equipmentId={equipmentId} />
+      <DetailCardHeader
+        title={`차단기 ${rows.length}`}
+        actions={(
+          <>
+            <Button variant="secondary" size="sm" onClick={() => onEdit(null)}>편집</Button>
+            <Button variant="secondary" size="sm" disabled={rows.length >= MAX_CIRCUITS} onClick={onAdd}>추가</Button>
+          </>
+        )}
+      />
+      {rows.map((c) => {
+        const text = line(c);
+        return <ListRow key={c.no} title={text} onClick={() => onEdit(c.no)}>{text}</ListRow>;
+      })}
     </DetailCard>
   );
 }

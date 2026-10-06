@@ -40,7 +40,8 @@ export function EquipmentInfoCard({ eq, catalog, onDelete }: { eq: Equipment; ca
       {TEXTS.slice(0, 2).map((t) => (
         <DetailRow key={t.key} label={t.label}><CommitInput size="sm" aria-label={t.label} value={eq[t.key] ?? ''} onCommit={(v) => patch({ [t.key]: v || null })} /></DetailRow>
       ))}
-      <DetailRow label="제조년월"><DateInput size="sm" value={eq.madeOn ?? ''} onChange={(e) => patch({ madeOn: e.currentTarget.value || null })} /></DetailRow>
+      {/* 제조년월은 명판에 적힌 그대로의 글 — 날짜 고르기를 두면 없는 「일」을 지어내야 한다. */}
+      <DetailRow label="제조년월"><CommitInput size="sm" aria-label="제조년월" placeholder="예 2008-05" value={eq.madeOn ?? ''} onCommit={(v) => patch({ madeOn: v || null })} /></DetailRow>
       {TEXTS.slice(2, 3).map((t) => (
         <DetailRow key={t.key} label={t.label}><CommitInput size="sm" aria-label={t.label} value={eq[t.key] ?? ''} onCommit={(v) => patch({ [t.key]: v || null })} /></DetailRow>
       ))}

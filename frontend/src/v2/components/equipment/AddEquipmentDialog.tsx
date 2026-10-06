@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_EQUIPMENT_STATUS, MAX_CIRCUITS } from '@twin/core';
+import { DEFAULT_EQUIPMENT_STATUS } from '@twin/core';
 import { Button, DetailRow, ErrorStrip, Input, Modal, Select } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { bySubstation, effectiveRows } from '../../model/store/effective';
@@ -9,7 +9,7 @@ import { EquipmentTypeOptions } from './TypeOptions';
 
 interface Props { substationId: string; open: boolean; defaultRackId?: string; onClose: () => void; onCreated: (equipmentId: string) => void }
 
-/** 설비 추가 — 이름·품목·랙·회로 수. */
+/** 설비 추가 — 이름·품목·랙. 차단기는 묻지 않는다 — 상세에서 「차단기 추가」로 한 줄씩 더한다. */
 export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose, onCreated }: Props) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
@@ -17,19 +17,16 @@ export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose,
   const [name, setName] = useState('');
   const [typeId, setTypeId] = useState('');
   const [rackPick, setRackPick] = useState<string | null>(null);
-  const [circuits, setCircuits] = useState('0');
   const racks = useMemo(() => bySubstation(effectiveRows({ saved, overlays }, 'racks'), substationId), [saved, overlays, substationId]);
   const rackId = rackPick ?? defaultRackId ?? '';
   const trimmed = name.trim();
-  const n = Number(circuits);
   const dup = useMemo(
     () => trimmed !== '' && bySubstation(effectiveRows({ saved, overlays }, 'equipment'), substationId).some((e) => e.name === trimmed),
     [saved, overlays, substationId, trimmed],
   );
   /* 닫히면 쓰던 것을 버린다 — 다시 열면 빈 상자다. */
-  useEffect(() => { if (!open) { setName(''); setTypeId(''); setRackPick(null); setCircuits('0'); } }, [open]);
-  const circuitsOk = circuits.trim() !== '' && Number.isInteger(n) && n >= 0 && n <= MAX_CIRCUITS;
-  const ok = trimmed !== '' && typeId !== '' && rackId !== '' && circuitsOk && !dup;
+  useEffect(() => { if (!open) { setName(''); setTypeId(''); setRackPick(null); } }, [open]);
+  const ok = trimmed !== '' && typeId !== '' && rackId !== '' && !dup;
 
   function submit() {
     if (!ok) return;
@@ -37,7 +34,7 @@ export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose,
     workingCopyStore.getState().create('equipment', {
       id, substationId, rackId, name: trimmed, typeId, status: DEFAULT_EQUIPMENT_STATUS,
       model: null, maker: null, madeOn: null, serial: null, installDate: null, manager: null, note: null,
-      circuitCount: n, panelCount: null, updatedAt: '',
+      circuitCount: 0, panelCount: null, updatedAt: '',
     });
     onCreated(id);
     onClose();
@@ -63,9 +60,6 @@ export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose,
             <option value="">선택</option>
             {racks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </Select>
-        </DetailRow>
-        <DetailRow label="회로 수" issue={circuitsOk ? undefined : `회로 수는 0~${MAX_CIRCUITS} 사이의 정수입니다`}>
-          <Input size="sm" numeric invalid={!circuitsOk} value={circuits} onChange={(e) => setCircuits(e.currentTarget.value)} />
         </DetailRow>
         <ErrorStrip message={dup ? '같은 이름의 설비가 있습니다' : null} />
       </div>

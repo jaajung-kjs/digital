@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MAX_CIRCUITS } from '@twin/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { workingCopyStore as store } from '../../../model/store/workingCopy';
 import { AddEquipmentDialog } from '../AddEquipmentDialog';
@@ -46,29 +45,17 @@ describe('랙 추가', () => {
 });
 
 describe('설비 추가', () => {
-  it('회로 수는 서버와 같은 끝(MAX_CIRCUITS)까지만 — 넘으면 추가할 수 없고 까닭을 말한다', () => {
-    store.getState().create('racks', rack0);
-    render(<AddEquipmentDialog substationId="S1" open defaultRackId="r0" onClose={vi.fn()} onCreated={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '분전반' } });
-    fireEvent.change(screen.getByLabelText('설비 품목'), { target: { value: 'et' } });
-    fireEvent.change(screen.getByLabelText('회로 수'), { target: { value: String(MAX_CIRCUITS + 1) } });
-    fireEvent.blur(screen.getByLabelText('회로 수'));
-    expect(screen.getByRole('button', { name: '추가' })).toBeDisabled();
-    expect(screen.getByText(`회로 수는 0~${MAX_CIRCUITS} 사이의 정수입니다`)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('회로 수'), { target: { value: String(MAX_CIRCUITS) } });
-    expect(screen.getByRole('button', { name: '추가' })).toBeEnabled();
-  });
-
-  it('고른 랙에 회로 수와 함께 만든다', () => {
+  it('고른 랙에 차단기 없이 만든다 — 차단기·회로 수를 묻지 않는다(차단기는 상세에서 한 줄씩 더한다)', () => {
     store.getState().create('racks', rack0);
     const onCreated = vi.fn();
     render(<AddEquipmentDialog substationId="S1" open defaultRackId="r0" onClose={vi.fn()} onCreated={onCreated} />);
+    expect(screen.queryByLabelText(/차단기 수|회로 수/)).toBeNull();
+    expect(screen.queryByText(/차단기 수|회로 수/)).toBeNull();
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '송광치' } });
     fireEvent.change(screen.getByLabelText('설비 품목'), { target: { value: 'et' } });
-    fireEvent.change(screen.getByLabelText('회로 수'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: '추가' }));
     const eq = Object.values(store.getState().overlays.equipment.creates)[0]!;
-    expect(eq).toMatchObject({ name: '송광치', typeId: 'et', rackId: 'r0', substationId: 'S1', circuitCount: 3, status: 'normal' });
+    expect(eq).toMatchObject({ name: '송광치', typeId: 'et', rackId: 'r0', substationId: 'S1', circuitCount: 0, status: 'normal' });
     expect(onCreated).toHaveBeenCalledWith(eq.id);
   });
 

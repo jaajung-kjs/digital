@@ -16,7 +16,7 @@ describe('잇기 끝 목록', () => {
   it('이 국의 설비·회로·이 국 쪽 코어 끝이 나온다 — 쓰인 회로는 taken', () => {
     const opts = endpointOptions(store.getState(), 'S1');
     expect(opts.filter((o) => o.group === '설비').map((o) => o.label).sort()).toEqual(['분전반', '송광치']);
-    expect(opts.filter((o) => o.group === '회로').map((o) => [o.label, o.taken])).toEqual([['분전반 회로 1', true], ['분전반 회로 2', false]]);
+    expect(opts.filter((o) => o.group === '차단기').map((o) => [o.label, o.taken])).toEqual([['분전반 차단기 1', true], ['분전반 차단기 2', false]]);
     expect(opts.filter((o) => o.group === '코어').map((o) => o.ref)).toEqual([
       { kind: 'core', lineId: 'L', no: 1, side: 'A' }, { kind: 'core', lineId: 'L', no: 2, side: 'A' },
     ]);
@@ -29,7 +29,7 @@ describe('잇기 끝 목록', () => {
 
   it('끝 이름', () => {
     const s = store.getState();
-    expect(endLabel(s, { kind: 'circuit', equipmentId: 'p', no: 1 })).toBe('분전반 회로 1');
+    expect(endLabel(s, { kind: 'circuit', equipmentId: 'p', no: 1 })).toBe('분전반 차단기 1');
     expect(endLabel(s, { kind: 'equipment', equipmentId: 'o', label: 'AC IN' })).toBe('송광치 AC IN');
     expect(endLabel(s, { kind: 'core', lineId: 'L', no: 2, side: 'A' })).toBe('북춘천–춘천HP 코어 2');
   });
