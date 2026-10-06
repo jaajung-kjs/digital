@@ -63,7 +63,7 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
   const row = (o: EndpointOption) => {
     const selected = pick !== null && endRefKey(pick) === endRefKey(o.ref);
     return (
-      <ListRow key={endRefKey(o.ref)} className={o.taken ? 'opacity-50' : selected ? SELECTED : undefined} onClick={o.taken ? undefined : () => setPick(o.ref)}>
+      <ListRow key={endRefKey(o.ref)} className={o.taken ? 'opacity-50' : selected ? SELECTED : undefined} aria-disabled={o.taken || undefined} aria-selected={selected} onClick={o.taken ? undefined : () => setPick(o.ref)}>
         {o.label}
       </ListRow>
     );

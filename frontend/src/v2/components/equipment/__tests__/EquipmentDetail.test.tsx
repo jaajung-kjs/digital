@@ -81,3 +81,33 @@ describe('설비 상세', () => {
     expect(screen.getAllByRole('button', { name: '잇기' })).toHaveLength(1);
   });
 });
+
+describe('랙 상세', () => {
+  const props = { rackId: 'r1', onClose: vi.fn(), onSelectEquipment: vi.fn(), onDeleted: vi.fn(), onAddEquipment: vi.fn() };
+
+  it('안의 설비를 누르면 그 설비를 고른다', () => {
+    const onSelectEquipment = vi.fn();
+    render(<RackDetail {...props} onSelectEquipment={onSelectEquipment} />);
+    fireEvent.click(screen.getByText('분전반 P1'));
+    expect(onSelectEquipment).toHaveBeenCalledWith('p');
+  });
+
+  it('설비가 든 랙은 묻지 않고 까닭만 띄운다', () => {
+    render(<RackDetail {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/랙 안에 설비가 2대/);
+    expect(store.getState().overlays.racks.creates.r1).toBeDefined();
+  });
+
+  it('빈 랙은 확인한 뒤 지운다', async () => {
+    store.getState().create('racks', { id: 'r2', substationId: 'S1', name: '빈 랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: '' });
+    const onDeleted = vi.fn();
+    render(<RackDetail {...props} rackId="r2" onDeleted={onDeleted} />);
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
+    await waitFor(() => expect(onDeleted).toHaveBeenCalled());
+    expect(store.getState().overlays.racks.creates.r2).toBeUndefined();
+  });
+});

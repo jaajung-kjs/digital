@@ -34,35 +34,35 @@ export function CircuitTable({ equipmentId }: { equipmentId: string }) {
 
   return (
     <>
-    <TableCard widths={WIDTHS}>
-      <thead>
-        <tr>
-          <Th>번호</Th><Th>표기</Th><Th>갈래</Th><Th>전압</Th><Th>용량</Th><Th>상</Th><Th>개폐</Th><Th>용도</Th><Th>연결</Th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((c) => (
-          <tr key={c.no} className={TABLE_ROW}>
-            <Td><span data-testid="circuit-no">{c.no}</span></Td>
-            <Td>{cell(c, 'label', '표기')}</Td>
-            <Td>{cell(c, 'current', '갈래', CURRENT_OPTIONS)}</Td>
-            <Td>{cell(c, 'voltage', '전압')}</Td>
-            <Td>{cell(c, 'capacity', '용량')}</Td>
-            <Td>{cell(c, 'phase', '상')}</Td>
-            <Td>{cell(c, 'switch', '개폐', SWITCH_OPTIONS)}</Td>
-            <Td>{cell(c, 'purpose', '용도')}</Td>
-            <Td>
-              {(() => {
-                const hit = circuitLink(links, equipmentId, c.no);
-                return hit
-                  ? <span className="block truncate text-sm">{endLabel({ saved, overlays }, hit.far)}</span>
-                  : <Button variant="secondary" size="sm" onClick={() => setConnectNo(c.no)}>잇기</Button>;
-              })()}
-            </Td>
+      <TableCard widths={WIDTHS}>
+        <thead>
+          <tr>
+            <Th>번호</Th><Th>표기</Th><Th>갈래</Th><Th>전압</Th><Th>용량</Th><Th>상</Th><Th>개폐</Th><Th>용도</Th><Th>연결</Th>
           </tr>
-        ))}
-      </tbody>
-    </TableCard>
+        </thead>
+        <tbody>
+          {rows.map((c) => (
+            <tr key={c.no} className={TABLE_ROW}>
+              <Td><span data-testid="circuit-no">{c.no}</span></Td>
+              <Td>{cell(c, 'label', '표기')}</Td>
+              <Td>{cell(c, 'current', '갈래', CURRENT_OPTIONS)}</Td>
+              <Td>{cell(c, 'voltage', '전압')}</Td>
+              <Td>{cell(c, 'capacity', '용량')}</Td>
+              <Td>{cell(c, 'phase', '상')}</Td>
+              <Td>{cell(c, 'switch', '개폐', SWITCH_OPTIONS)}</Td>
+              <Td>{cell(c, 'purpose', '용도')}</Td>
+              <Td>
+                {(() => {
+                  const hit = circuitLink(links, equipmentId, c.no);
+                  return hit
+                    ? <span className="block truncate text-sm">{endLabel({ saved, overlays }, hit.far)}</span>
+                    : <Button variant="secondary" size="sm" onClick={() => setConnectNo(c.no)}>잇기</Button>;
+                })()}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </TableCard>
       {substationId && connectNo !== null && (
         <ConnectDialog substationId={substationId} from={{ kind: 'circuit', equipmentId, no: connectNo }} open onClose={() => setConnectNo(null)} onCreated={() => undefined} />
       )}

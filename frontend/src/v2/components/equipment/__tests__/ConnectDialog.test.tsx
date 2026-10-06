@@ -37,4 +37,17 @@ describe('잇기 대화상자', () => {
     expect(screen.getByRole('button', { name: '잇기' })).toBeDisabled();
     expect(screen.getByText('연결의 두 끝이 같습니다')).toBeInTheDocument();
   });
+
+  it('쓰인 회로 끝은 고를 수 없다', () => {
+    const s = store.getState();
+    s.create('links', { id: 'k', substationId: 'S1', cableTypeId: null, lengthM: null, spec: null, note: null, pathPoints: [], a: { kind: 'circuit', equipmentId: 'p', no: 1 }, b: { kind: 'equipment', equipmentId: 'o' }, updatedAt: '' });
+    render(<ConnectDialog substationId="S1" from={{ kind: 'equipment', equipmentId: 'o' }} open onClose={vi.fn()} onCreated={vi.fn()} />);
+    const taken = screen.getByText('분전반 회로 1');
+    expect(taken).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(taken);
+    expect(taken).not.toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('button', { name: '잇기' })).toBeDisabled();
+    fireEvent.click(screen.getByText('분전반'));
+    expect(screen.getByText('분전반')).toHaveAttribute('aria-selected', 'true');
+  });
 });
