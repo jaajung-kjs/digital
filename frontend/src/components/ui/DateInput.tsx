@@ -48,7 +48,8 @@ export function DateInput({
           else if (inputRef) inputRef.current = el;
         }}
         disabled={disabled}
-        placeholder="YYYY-MM-DD"
+        /* 형식(`YYYY-MM-DD`)을 예로 보인다 — 제조년월의 「예 2008-05」와 같은 어법. */
+        placeholder="예 2008-05-01"
         inputMode="numeric"
         {...rest}
       />

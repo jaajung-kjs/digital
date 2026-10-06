@@ -11,7 +11,7 @@ const wordOf = (vocab: readonly { value: string; label: string }[], v: string | 
 /**
  * 차단기 요약 — 좁은 패널(364px)에서는 **한 줄씩만** 읽는다: `번호 · 표기 · 용량 · 갈래 · 개폐 → 부하`.
  * 빈 칸은 건너뛰고 넘치면 말줄임. 고치는 일은 넓은 편집 창(`BreakerEditor`)이 맡는다 — 줄을 누르면 그 줄로 열린다.
- * 차단기가 없으면 카드를 그리지 않는다(더하는 길은 설비 머리 `⋯ › 차단기 추가`).
+ * 차단기가 없으면 카드를 그리지 않는다(더하는 길은 설비 머리의 「차단기 추가」).
  */
 export function CircuitCard({ equipmentId, onEdit, onAdd }: { equipmentId: string; onEdit: (no: number | null) => void; onAdd: () => void }) {
   const saved = useWorkingCopy((s) => s.saved);

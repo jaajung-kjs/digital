@@ -503,7 +503,7 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 **그림은 지도, 상세는 서식 — 그림 위에 컨트롤을 얹지 않는다.** 업계도 그렇게 하지 않는다: NetBox 는 PowerOutlet 의 상태를 **필드(배지)** 로 두고, SCADA/HMI 는 **심볼 자체**의 모습(채움·색)으로 말하며 조작은 심볼을 눌러 여는 별도 자리에서 한다.
 
 ### 버튼 → `Button` / `IconButton`
-`Button` 은 `variant`(`primary`/`secondary`/`ghost`/`danger`) + `size`(`xs`/`sm`/`md`) props 로 톤을 결정한다 — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`(`size` `sm`/`md` + `tone` `default`/`danger`).
+`Button` 은 `variant`(`primary`/`secondary`/`ghost`/`danger`) + `size`(`xs`/`sm`/`md`) props 로 톤을 결정한다 — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`(`size` `sm`/`md` + `tone` `default`/`danger`). 글자 단추로 둔 지우기(되돌릴 수 있어 확인을 묻지 않는 것 — 「차단기 22 지우기」)는 `Button variant="secondary" tone="danger"` — 글자만 붉다.
 
 **표 줄 안의 단추는 `size="xs"`**(높이 h-5 고정 · `py-0`) — 표 줄은 `TABLE_ROW` 28px 이고 `Td` 가 위아래 4px 씩 쓰므로 단추에 남는 자리는 20px 다. `sm`(테두리까지 26px)을 두면 그 줄만 33px 로 부풀어 「잇기」가 든 줄과 안 든 줄의 높이가 갈린다(차단기 편집 창이 실제로 그랬다).
 

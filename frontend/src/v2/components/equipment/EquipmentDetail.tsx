@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { MAX_CIRCUITS, expandDeletes } from '@twin/core';
-import { Button, EmptyState, OverflowMenu, Tabs, ViewCard, useConfirm, useTabs, type TabItem } from '../../../components/ui';
+import { expandDeletes } from '@twin/core';
+import { Button, EmptyState, Tabs, ViewCard, useConfirm, useTabs, type TabItem } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { addCircuit, deleteRows } from '../../model/store/deleteActions';
 import { effectiveRows, toModelState } from '../../model/store/effective';
@@ -50,7 +50,9 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipment
       title={eq.name}
       actions={(
         <>
-          <OverflowMenu items={[{ label: '차단기 추가', onSelect: addBreaker, disabled: eq.circuitCount >= MAX_CIRCUITS, disabledReason: `차단기는 ${MAX_CIRCUITS}개까지입니다` }]} />
+          {/* 차단기가 하나도 없을 때만 — 있으면 차단기 카드 머리에 「추가」가 선다. 항목 하나짜리 `⋯` 는 두지 않는다
+              (아이콘만으로는 무엇이 들었는지 모르고, 한 겹 안에 숨길 만큼 드문 일도 아니다). */}
+          {eq.circuitCount === 0 && <Button variant="ghost" size="xs" onClick={addBreaker}>차단기 추가</Button>}
           <Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>
         </>
       )}

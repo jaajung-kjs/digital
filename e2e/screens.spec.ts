@@ -84,14 +84,11 @@ for (const vp of VIEWPORTS) {
       await expect(editor.getByTestId('circuit-no').first()).toBeVisible();
       await noForbiddenWords(page, '차단기 편집 창');
       await shot(page, '05-breaker-editor');
-      await editor.getByRole('button', { name: '닫기' }).last().click();
+      await editor.getByRole('button', { name: '완료' }).click();
       await expect(editor).toHaveCount(0);
 
-      // ⋯ 메뉴
-      await detail(page).getByRole('button', { name: '더 보기' }).click();
-      await expect(page.getByRole('menuitem', { name: '차단기 추가' })).toBeVisible();
-      await shot(page, '06-equipment-menu');
-      await page.keyboard.press('Escape');
+      // 설비 머리 — 항목 하나짜리 ⋯ 메뉴는 없다(차단기가 있으면 카드의 「추가」가 그 길)
+      await expect(detail(page).getByRole('button', { name: '더 보기' })).toHaveCount(0);
 
       // 랙 상세 — 실장 설비
       await main(page).getByRole('row').filter({ hasText: RACK }).first().click();

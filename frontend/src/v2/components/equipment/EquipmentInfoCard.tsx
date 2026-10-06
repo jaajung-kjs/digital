@@ -6,9 +6,13 @@ import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy'
 import type { Catalog, Equipment } from '../../model/types';
 import { EquipmentTypeOptions } from './TypeOptions';
 
+const MADE_ON = /^\d{4}-(0[1-9]|1[0-2])$/;
+/** 연-월 꼴이 아니면 한 줄 안내 — 비었으면 말하지 않는다. */
+const madeOnHint = (v: string | null) => (v && !MADE_ON.test(v) ? '연-월(예 2008-05)로 적으면 정렬·집계가 맞습니다' : undefined);
+
 type TextKey = 'model' | 'maker' | 'serial' | 'manager' | 'note';
 const TEXTS: { key: TextKey; label: string }[] = [
-  { key: 'model', label: '모델명' }, { key: 'maker', label: '제작사' }, { key: 'serial', label: 'S/N' },
+  { key: 'model', label: '모델명' }, { key: 'maker', label: '제조사' }, { key: 'serial', label: 'S/N' },
   { key: 'manager', label: '담당자' }, { key: 'note', label: '비고' },
 ];
 
@@ -40,8 +44,9 @@ export function EquipmentInfoCard({ eq, catalog, onDelete }: { eq: Equipment; ca
       {TEXTS.slice(0, 2).map((t) => (
         <DetailRow key={t.key} label={t.label}><CommitInput size="sm" aria-label={t.label} value={eq[t.key] ?? ''} onCommit={(v) => patch({ [t.key]: v || null })} /></DetailRow>
       ))}
-      {/* 제조년월은 명판에 적힌 그대로의 글 — 날짜 고르기를 두면 없는 「일」을 지어내야 한다. */}
-      <DetailRow label="제조년월"><CommitInput size="sm" aria-label="제조년월" placeholder="예 2008-05" value={eq.madeOn ?? ''} onCommit={(v) => patch({ madeOn: v || null })} /></DetailRow>
+      {/* 제조년월은 명판에 적힌 그대로의 글 — 날짜 고르기를 두면 없는 「일」을 지어내야 한다.
+          꼴이 어긋나면 **알려만 준다**(저장은 막지 않는다): 명판이 「2008.5」·「08년」처럼 적혀 있는 일이 있다. */}
+      <DetailRow label="제조년월" hint={madeOnHint(eq.madeOn)}><CommitInput size="sm" aria-label="제조년월" placeholder="예 2008-05" value={eq.madeOn ?? ''} onCommit={(v) => patch({ madeOn: v || null })} /></DetailRow>
       {TEXTS.slice(2, 3).map((t) => (
         <DetailRow key={t.key} label={t.label}><CommitInput size="sm" aria-label={t.label} value={eq[t.key] ?? ''} onCommit={(v) => patch({ [t.key]: v || null })} /></DetailRow>
       ))}

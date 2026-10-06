@@ -14,6 +14,11 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
    * 기본값이 실제로 쓰는 값이어야 적지 않은 것이 틀리지 않는다.
    */
   size?: ButtonSize;
+  /**
+   * `danger` — 지우는 글자 단추(`secondary`·`ghost` 에만). 붉은 덩어리(`variant="danger"`)는 확인 상자의
+   * 최종 확인 같은 **주 동작**에만 쓰고, 늘 떠 있는 지우기는 글자만 붉게 둔다(CONVENTIONS §3 버튼).
+   */
+  tone?: 'default' | 'danger';
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
 }
@@ -23,6 +28,12 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary: 'bg-surface border border-line text-content hover:bg-surface-2',
   ghost: 'text-content hover:bg-surface-2',
   danger: 'bg-danger text-white hover:opacity-90',
+};
+
+/** 글자만 붉은 지우기 단추 — `cn` 은 tailwind-merge 가 아니라 글자색을 덧대면 충돌하므로 통째로 바꾼다. */
+const dangerToneClasses: Partial<Record<ButtonVariant, string>> = {
+  secondary: 'bg-surface border border-line text-danger hover:bg-danger-bg',
+  ghost: 'text-danger hover:bg-danger-bg',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -35,7 +46,7 @@ const sizeClasses: Record<ButtonSize, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'sm', leftIcon, rightIcon, className, children, type, disabled, ...rest },
+  { variant = 'primary', size = 'sm', tone = 'default', leftIcon, rightIcon, className, children, type, disabled, ...rest },
   ref,
 ) {
   return (
@@ -45,7 +56,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled}
       className={cn(
         'press-btn focus-ring inline-flex items-center gap-1.5 rounded font-medium',
-        variantClasses[variant],
+        (tone === 'danger' && dangerToneClasses[variant]) || variantClasses[variant],
         sizeClasses[size],
         /* 비활성은 **색을 죽인다** — 반투명으로만 두면 흰 글자 대비가 2.73:1 로 떨어지면서도
            여전히 파란 주 버튼처럼 보여, 눌리지 않는 이유가 화면에 없다. */

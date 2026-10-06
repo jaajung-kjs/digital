@@ -37,12 +37,6 @@ async function openEquipment(page: Page, name: string) {
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(name);
 }
 
-/** 저장 바의 「실행 취소」를 변경안이 빌 때까지 누른다(수를 늘렸다 줄여도 변경안에는 한 건이 남는다). */
-async function undoAll(page: Page) {
-  const undo = page.getByRole('button', { name: '실행 취소' });
-  for (let guard = 0; guard < 10 && (await changeCount(page)) > 0; guard++) await undo.click();
-  expect(await changeCount(page)).toBe(0);
-}
 
 /** 차단기 편집 창을 연다 — 상세 패널 차단기 카드의 「편집」. */
 async function openBreakers(page: Page) {
@@ -102,23 +96,19 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   let editor = await openBreakers(page);
   await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers);
 
-  //    차단기 추가 → 끝에 빈 줄 하나(편집 창이 그 줄로 연다) → 마지막 차단기 지우기 → 원래 수. 실행 취소로 변경안을 비운다
+  //    차단기 추가 → 끝에 빈 줄 하나(편집 창이 그 줄로 연다) → 「차단기 n 지우기」 → 원래 수. 제자리로 돌아왔으니 변경 0건
   await editor.getByRole('button', { name: '차단기 추가' }).click();
   await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers + 1);
   await expect(editor.getByTestId(`circuit-row-${breakers + 1}`)).toHaveAttribute('aria-current', 'true');
-  await editor.getByRole('button', { name: '마지막 차단기 지우기' }).click();
+  await editor.getByRole('button', { name: `차단기 ${breakers + 1} 지우기` }).click();
   await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers);
-  await editor.getByRole('button', { name: '닫기' }).last().click();
+  await expect(editor.getByText('고친 내용은 위 「저장」을 눌러야 저장됩니다')).toBeVisible();
+  await editor.getByRole('button', { name: '완료' }).click();
   await expect(editor).toHaveCount(0);
-  await undoAll(page);
-  //    ⋯ 메뉴의 「차단기 추가」도 같은 길 — 창이 새 줄로 열린다. 지우고 닫는다
-  await detail(page).getByRole('button', { name: '더 보기' }).click();
-  await page.getByRole('menuitem', { name: '차단기 추가' }).click();
-  await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers + 1);
-  await editor.getByRole('button', { name: '마지막 차단기 지우기' }).click();
-  await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers);
-  await editor.getByRole('button', { name: '닫기' }).last().click();
-  await undoAll(page);
+  expect(await changeCount(page)).toBe(0);
+  //    차단기가 있는 설비 머리에는 「차단기 추가」 단추도 ⋯ 메뉴도 없다 — 더하는 길은 카드의 「추가」
+  await expect(detail(page).getByRole('button', { name: '더 보기' })).toHaveCount(0);
+  await expect(detail(page).getByRole('button', { name: '차단기 추가' })).toHaveCount(0);
 
   // 4. 랙 추가 → 설비 추가(개수 칸 없음)
   await main(page).getByRole('button', { name: '랙 추가' }).click();
@@ -204,7 +194,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await openEquipment(page, PANEL);
   editor = await openBreakers(page);
   await expect(editor.getByTestId('circuit-row-2').getByRole('button', { name: '잇기' })).toBeVisible();
-  await editor.getByRole('button', { name: '닫기' }).last().click();
+  await editor.getByRole('button', { name: '완료' }).click();
 
   // 정리 — 빈 E2E랙도 지워 다시 돌릴 수 있게
   await main(page).getByRole('row').filter({ hasText: 'E2E랙' }).click();
@@ -230,7 +220,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await editor.getByRole('combobox', { name: '갈래' }).selectOption({ label: '교류' });
   await expect(currents.nth(idx)).toHaveText('교류');
   expect(await changeCount(page)).toBe(1);
-  await editor.getByRole('button', { name: '닫기' }).last().click();
+  await editor.getByRole('button', { name: '완료' }).click();
   await save(page);
   await page.reload();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
@@ -238,7 +228,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await expect(editor.getByRole('button', { name: '갈래 고치기' }).nth(idx)).toHaveText('교류');
   await editor.getByRole('button', { name: '갈래 고치기' }).nth(idx).click();
   await editor.getByRole('combobox', { name: '갈래' }).selectOption({ label: original });
-  await editor.getByRole('button', { name: '닫기' }).last().click();
+  await editor.getByRole('button', { name: '완료' }).click();
   await save(page);
 
   // 11. 품목 관리 — 메뉴 하나, 왼쪽 목록에서 고른다. 케이블 품목 17행, 설비 품목에 L3 스위치. 키 열은 없다
