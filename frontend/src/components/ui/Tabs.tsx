@@ -44,6 +44,8 @@ interface TabsProps<T extends string> {
    * 컴포넌트를 따로 만들지 않는다.
    */
   edge?: 'top' | 'bottom';
+  /** 열린 탭의 메뉴 단추 글자 — 없으면 `⋯` 아이콘만 선다. 아이콘만으로는 무엇의 메뉴인지 모른다(예: `층 관리`). */
+  menuText?: string;
   className?: string;
 }
 
@@ -88,7 +90,7 @@ export function useTabs<T extends string>(value: T) {
  * 바로 열린다(automatic activation): 탭 내용이 이미 다 손에 있어 여는 값이 싸므로, 화살표로
  * 훑는 사람에게 Enter 를 한 번 더 누르게 할 이유가 없다.
  */
-export function Tabs<T extends string>({ items, value, onChange, idBase, fill, edge = 'top', className }: TabsProps<T>) {
+export function Tabs<T extends string>({ items, value, onChange, idBase, fill, edge = 'top', menuText, className }: TabsProps<T>) {
   const list = useRef<HTMLDivElement>(null);
   /* 이름을 고치는 규칙(빈 이름·그대로면 아무 일 없음, Enter/포커스 잃음=확정, Esc=물림)은
      앱 공통이다 — 여기서 다시 적지 않는다. */
@@ -195,7 +197,7 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, fill, e
         })}
       </div>
       {menu.length > 0 && activeItem && (
-        <OverflowMenu label={`${activeItem.label} 더 보기`} items={menu} />
+        <OverflowMenu label={`${activeItem.label} 더 보기`} text={menuText} items={menu} />
       )}
     </div>
   );

@@ -56,6 +56,7 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
           하단으로 내려가면서 갈 곳이 없어졌다. */}
       <OverflowMenu
         label="배경 도면"
+        text="도면"
         items={[
           {
             label: busy ? '임포트 중…' : '배경 임포트',

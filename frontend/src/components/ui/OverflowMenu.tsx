@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
+import { Button } from './Button';
 import { IconButton } from './IconButton';
 import { MenuPopup, type MenuAnchor, type MenuItem } from './MenuPopup';
 
@@ -21,10 +22,13 @@ export type OverflowMenuItem = MenuItem;
  */
 export function OverflowMenu({
   label = '더 보기',
+  text,
   items,
   disabled,
 }: {
   label?: string;
+  /** 있으면 `⋯` 아이콘 대신 이 글자를 단 단추로 선다 — 무엇의 메뉴인지 글자로 알린다(예: `도면`, `층 관리`). */
+  text?: string;
   items: MenuItem[];
   disabled?: boolean;
 }) {
@@ -37,23 +41,41 @@ export function OverflowMenu({
     trigger.current?.focus();
   }
 
+  function toggle() {
+    if (at) return close();
+    const r = trigger.current?.getBoundingClientRect();
+    /* 단추 **아래**에 선다. 아래가 좁으면 단추 위로 접힌다(`flipY`). */
+    if (r) setAt({ x: r.left, y: r.bottom + 4, flipY: r.top - 4 });
+  }
+
   return (
     <>
-      <IconButton
-        ref={trigger}
-        aria-label={label}
-        aria-haspopup="menu"
-        aria-expanded={at !== null}
-        disabled={disabled}
-        onClick={() => {
-          if (at) return close();
-          const r = trigger.current?.getBoundingClientRect();
-          /* 단추 **아래**에 선다. 아래가 좁으면 단추 위로 접힌다(`flipY`). */
-          if (r) setAt({ x: r.left, y: r.bottom + 4, flipY: r.top - 4 });
-        }}
-      >
-        <MoreHorizontal size={14} />
-      </IconButton>
+      {text ? (
+        <Button
+          ref={trigger}
+          variant="ghost"
+          size="sm"
+          title={label}
+          aria-haspopup="menu"
+          aria-expanded={at !== null}
+          disabled={disabled}
+          onClick={toggle}
+          rightIcon={<MoreHorizontal size={14} aria-hidden />}
+        >
+          {text}
+        </Button>
+      ) : (
+        <IconButton
+          ref={trigger}
+          aria-label={label}
+          aria-haspopup="menu"
+          aria-expanded={at !== null}
+          disabled={disabled}
+          onClick={toggle}
+        >
+          <MoreHorizontal size={14} />
+        </IconButton>
+      )}
       {at && <MenuPopup items={items} at={at} onClose={close} />}
     </>
   );

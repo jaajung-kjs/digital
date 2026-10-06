@@ -368,7 +368,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
 
   const status = (
     <StatusBar className="pl-0">
-      <Tabs {...floorTabs.list} edge="bottom" items={tabItems} onChange={setPickedFloorId} className="h-full border-t-0" />
+      <Tabs {...floorTabs.list} edge="bottom" menuText="층 관리" items={tabItems} onChange={setPickedFloorId} className="h-full border-t-0" />
       <IconButton aria-label="층 추가" size="sm" onClick={startAdd}>
         <Plus size={14} />
       </IconButton>
@@ -417,9 +417,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
           {placed.length === 0 && !isArmed && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="text-center text-xs text-content-faint">
-                이 층에 놓인 랙이 없습니다
-                <br />
-                {waiting.length > 0 ? '위에서 랙을 고르고 「배치」를 켠 뒤 도면에 끌어 그리세요' : '현황에서 랙을 추가하면 여기에 놓을 수 있습니다'}
+                아직 놓인 랙이 없습니다 — 위 「배치」에서 랙을 골라 그려 놓으세요
               </span>
             </div>
           )}

@@ -68,53 +68,30 @@ function renderAssetItem(
 }
 
 /**
- * 도면 주기 — **이름은 상자 밖으로, 지시선으로 잇는다.**
+ * 도면 주기 — **이름은 상자 안 가운데, 안 들어가면 상자 바로 아래 가운데.** 지시선은 없다.
  *
- * 한때 이름을 상자 안에 적었다. 그러면 두 가지가 생긴다: 상자가 좁아지는 순간 글자가
- * `통신용 충전…` 으로 잘리다 아예 사라지고, 배경에 건축 도면이 깔리면 글자가 벽·치수선과
- * 겹쳐 읽히지 않는다. 무엇보다 **글자가 상자를 채우면 상자가 「물건의 자리」가 아니라
- * 「글자를 담는 그릇」으로 읽힌다.**
+ * 지시선은 이웃 설비와 겹쳐 어느 이름이 어느 상자의 것인지 오히려 헷갈렸다. 이름은 자기 상자에
+ * 붙어 있어야 읽힌다. 글자 크기는 화면 기준으로 고정이라(`LABEL_PX`) 상자가 작으면 안에
+ * 들어가지 않는다 — 그때만 아래로 내린다. 긴 이름은 말줄임(…)으로 자른다.
  *
- * 도면은 반대로 한다: 물건은 실제 치수로만 그리고, 이름은 **밖에 적고 선으로 가리킨다**.
- * 그러면 배율과 무관하게 늘 읽히고, 남은 사각형은 오직 물건이 차지한 자리가 된다.
- *
- * 방향은 **늘 오른쪽 위**로 고정이다. 「비어 있는 쪽으로 피한다」 같은 규칙을 두면 아무
- * 상관없는 설비를 하나 옮길 때마다 온 도면의 주기가 춤춘다 — 인출선에서 이미 겪은 일이다.
+ * 자리는 **상자 크기만으로** 정해진다(이웃을 보지 않는다) — 설비 하나를 옮겨도 다른 주기가
+ * 춤추지 않는다. 글자에는 바탕색 테를 둘러 겹쳐도 읽히게 한다(text halo).
  */
-function renderLeaderLabel(
+function renderLabel(
   ctx: CanvasRenderingContext2D,
   item: PlacedRect,
+  scale: number,
   px: (n: number) => number,
 ): void {
-  const { x, y, width: w } = item;
-  const sx = x + w;
-  const sy = y;
-  const mx = sx + px(16);
-  const my = sy - px(16);
-  const ex = mx + px(10);
-
+  const { x, y, width: w, height: h } = item;
   ctx.save();
-  ctx.strokeStyle = ELEMENT_COLORS.rack.stroke;
+  ctx.font = `600 ${px(LABEL_PX)}px sans-serif`;
   ctx.fillStyle = ELEMENT_COLORS.rack.text;
-  ctx.lineWidth = px(1);
-  ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.lineTo(mx, my);
-  ctx.lineTo(ex, my);
-  ctx.stroke();
-  /* 지시선이 가리키는 끝에 점을 찍는다 — 어느 상자의 주기인지 한눈에 붙는다. */
-  ctx.beginPath();
-  ctx.arc(sx, sy, px(1.8), 0, Math.PI * 2);
-  ctx.fill();
-
-  /**
-   * 이름은 지시선 **위**, 치수는 **아래**(도면 관례 — 주기는 선을 걸치고 앉는다).
-   *
-   * **글자에 흰 테를 두른다.** 주기는 상자 밖에 앉으므로 이웃의 선·주기와 겹칠 수밖에 없다.
-   * 자리를 피해 다니게 만들면 아무 상관없는 설비 하나를 옮길 때마다 온 도면의 주기가 춤춘다
-   * — 인출선에서 이미 겪은 일이다. CAD·GIS 는 대신 **글자 둘레를 바탕색으로 훑어** 겹쳐도
-   * 읽히게 한다(text halo). 자리는 고정, 읽힘은 테가 맡는다.
-   */
+  ctx.textAlign = 'center';
+  const wPx = w * scale;
+  const hPx = h * scale;
+  const textPx = ctx.measureText(item.name).width * scale;
+  const inside = textPx + 8 <= wPx && LABEL_PX + 4 <= hPx;
   const halo = (text: string, tx: number, ty: number) => {
     ctx.strokeStyle = ELEMENT_COLORS.plan.paper;
     ctx.lineWidth = px(3);
@@ -122,13 +99,24 @@ function renderLeaderLabel(
     ctx.strokeText(text, tx, ty);
     ctx.fillText(text, tx, ty);
   };
-  /* **이름 한 줄뿐이다.** 치수를 흐린 글씨로 달아 봤는데, 늘 같은 자리에 늘 있는 값은
-     읽히지 않으면서 자리만 차지한다 — 치수가 궁금할 때는 그 설비를 고르면 치수선이 붙는다. */
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'bottom';
-  ctx.font = `600 ${px(LABEL_PX)}px sans-serif`;
-  halo(item.name, ex + px(4), my - px(3));
+  if (inside) {
+    ctx.textBaseline = 'middle';
+    halo(item.name, x + w / 2, y + h / 2);
+  } else {
+    /* 아래 주기는 상자보다 넓어도 되지만 끝없이 길면 이웃을 덮는다 — 상자 폭의 두 배(최소 96px)까지. */
+    const maxPx = Math.max(wPx * 2, 96);
+    ctx.textBaseline = 'top';
+    halo(ellipsize(ctx, item.name, px(maxPx)), x + w / 2, y + h + px(4));
+  }
   ctx.restore();
+}
+
+/** 글자가 `maxWorld`(world 단위) 를 넘으면 끝을 `…` 로 줄인다. */
+function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWorld: number): string {
+  if (ctx.measureText(text).width <= maxWorld) return text;
+  let n = text.length;
+  while (n > 1 && ctx.measureText(`${text.slice(0, n)}…`).width > maxWorld) n--;
+  return `${text.slice(0, n)}…`;
 }
 
 /**
@@ -231,7 +219,7 @@ export function renderPlacedAssets(
   const px = (n: number) => n / Math.max(scale, 0.0001);
   for (const asset of assets) {
     const item = withPreview(asset);
-    renderLeaderLabel(ctx, item, px);
+    renderLabel(ctx, item, scale, px);
     /* **치수선도 주기다** — 늘 맨 위에 선다. 상자 패스에서 그렸더니 뒤에 그려지는 이웃
        상자가 치수선과 숫자를 덮었다(겹쳐 놓인 설비에서 그대로 가려졌다). */
     if (item.id === selectedId) renderDimensions(ctx, item, px);

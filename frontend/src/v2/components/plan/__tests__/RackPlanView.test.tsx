@@ -70,6 +70,26 @@ describe('RackPlanView', () => {
     expect(screen.getByRole('button', { name: '층 추가' })).toBeInTheDocument();
   });
 
+  it('놓인 랙이 없으면 캔버스 가운데 안내가 선다', () => {
+    store.getState().create('floors', floor);
+    view();
+    expect(screen.getByText('아직 놓인 랙이 없습니다 — 위 「배치」에서 랙을 골라 그려 놓으세요')).toBeInTheDocument();
+  });
+
+  it('놓인 랙이 있으면 안내가 없다', () => {
+    store.getState().create('floors', floor);
+    store.getState().create('racks', placedRack);
+    view();
+    expect(screen.queryByText(/아직 놓인 랙이 없습니다/)).toBeNull();
+  });
+
+  it('층 탭의 메뉴 단추는 글자로 「층 관리」 라 읽힌다', () => {
+    store.getState().create('floors', floor);
+    useV2AuthStore.setState({ user: { id: 'u1', username: 'a', role: 'admin' } } as never);
+    view();
+    expect(screen.getByRole('button', { name: '층 관리' })).toBeInTheDocument();
+  });
+
   it('대기 랙을 골라 배치를 켜고 그리면 그 층에 놓인다', () => {
     store.getState().create('floors', floor);
     store.getState().create('racks', waitingRack);
@@ -220,13 +240,13 @@ describe('RackPlanView — 배경 도면', () => {
     store.getState().create('floors', floor);
   });
   const menu = () => {
-    fireEvent.click(screen.getByRole('button', { name: '배경 도면' }));
+    fireEvent.click(screen.getByRole('button', { name: '도면' }));
     return within(screen.getByRole('menu'));
   };
 
   it('비관리자에게는 배경 도면 메뉴가 없다', () => {
     view();
-    expect(screen.queryByRole('button', { name: '배경 도면' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '도면' })).toBeNull();
   });
 
   it('관리자가 파일을 고르면 읽어서 그 층에 얹는다 — 서버로 가는 것은 저장할 때다', async () => {

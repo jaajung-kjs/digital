@@ -11,7 +11,7 @@
  */
 export type CanvasToken =
   | 'canvas-paper'
-  | 'canvas-grid-major' | 'canvas-grid-minor' | 'canvas-grid-fine' | 'canvas-origin'
+  | 'canvas-grid-major' | 'canvas-grid-minor' | 'canvas-grid-fine'
   | 'canvas-select' | 'canvas-select-fill' | 'canvas-select-point'
   | 'plan-door-fill' | 'plan-door-stroke'
   | 'plan-window-fill' | 'plan-window-stroke'

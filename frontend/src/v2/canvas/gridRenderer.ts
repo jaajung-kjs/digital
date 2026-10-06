@@ -43,7 +43,7 @@ const GRID_CONFIG = {
 };
 
 /**
- * Render dual grid (minor + major) and origin marker
+ * Render dual grid (minor + major)
  */
 export function renderGrid(
   ctx: CanvasRenderingContext2D,
@@ -110,18 +110,6 @@ export function renderGrid(
     ctx.beginPath();
     ctx.moveTo(gridStartX, y);
     ctx.lineTo(gridEndX, y);
-    ctx.stroke();
-  }
-
-  // Origin marker (0,0)
-  if (left <= 0 && right >= 0 && top <= 0 && bottom >= 0) {
-    ctx.strokeStyle = canvasColor('canvas-origin');
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-10, 0);
-    ctx.lineTo(10, 0);
-    ctx.moveTo(0, -10);
-    ctx.lineTo(0, 10);
     ctx.stroke();
   }
 }
