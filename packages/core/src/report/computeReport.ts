@@ -1,4 +1,4 @@
-import type { LaborRules } from '../catalog/types.js';
+import type { LaborRules } from '../catalog/laborSpec.js';
 
 export type ReportKind = 'asset-install' | 'asset-remove' | 'asset-relocate' | 'cable-install' | 'cable-remove';
 

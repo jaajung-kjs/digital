@@ -19,7 +19,7 @@ import type { PlacedRect } from '../../canvas/hitTest';
 import { screenToWorld, snapToGrid, type Viewport } from '../../canvas/transform';
 import { SNAP_GRID } from '../../canvas/constants';
 import { applyResize, type HandleKey } from '../../canvas/resize';
-import { isDrawLargeEnough, normalizeRect } from '../../floorPlacement';
+import { isDrawLargeEnough, normalizeRect } from './drawRect';
 
 type Pt = { x: number; y: number };
 export type Rect = { x: number; y: number; width: number; height: number };

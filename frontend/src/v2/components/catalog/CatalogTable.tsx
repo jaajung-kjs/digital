@@ -77,7 +77,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
     for (const c of cols) {
       const v = parse(c, draft[c.key]);
       if (c.required && (v === undefined || v === null)) {
-        setError({ id: 'new', message: `${c.label}을(를) 입력하세요` });
+        setError({ id: 'new', message: `${c.label} 칸을 채우세요` });
         return;
       }
       if (v !== undefined) body[c.key] = v;
@@ -185,7 +185,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
                   </Td>
                 </tr>
                 {error?.id === str(row.id) && (
-                  <tr><td colSpan={cols.length + 1}><ErrorStrip message={error.message} onDismiss={() => setError(null)} className="px-2.5 py-1" /></td></tr>
+                  <tr><Td colSpan={cols.length + 1}><ErrorStrip message={error.message} onDismiss={() => setError(null)} /></Td></tr>
                 )}
               </RowFragment>
             ))}
@@ -201,7 +201,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
                   </Td>
                 </tr>
                 {error?.id === 'new' && (
-                  <tr><td colSpan={cols.length + 1}><ErrorStrip message={error.message} onDismiss={() => setError(null)} className="px-2.5 py-1" /></td></tr>
+                  <tr><Td colSpan={cols.length + 1}><ErrorStrip message={error.message} onDismiss={() => setError(null)} /></Td></tr>
                 )}
               </>
             )}

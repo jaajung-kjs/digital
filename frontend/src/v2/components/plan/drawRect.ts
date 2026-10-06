@@ -1,5 +1,5 @@
 /**
- * floorPlacement.ts — 평면도 배치 순수 헬퍼
+ * drawRect.ts — 평면도에 끌어 그린 사각형의 순수 헬퍼
  */
 
 export const MIN_DRAW = 10;

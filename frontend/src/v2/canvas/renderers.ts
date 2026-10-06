@@ -1,9 +1,5 @@
-// ported from frontend/src/utils/floorplan/renderers.ts (Stage 3)
-
 import { SELECTION_STYLES, ELEMENT_COLORS } from './constants';
 import type { PlacedRect } from './hitTest';
-import { bundleCables, polylineMidpoint } from './cableBundles';
-import { BUNDLE_GAP_PX, cableLineWidth } from './cableStyle';
 
 // ============================================
 // Asset 렌더링 (V2 필드: x/y/width/height, rotation 없음)
@@ -21,7 +17,7 @@ import { BUNDLE_GAP_PX, cableLineWidth } from './cableStyle';
  */
 const LABEL_PX = 12;
 /**
- * 정면이 보는 쪽 → 굵게 그을 변. 키는 선언된 값 그대로다(`COMMON_ASSET_FIELDS.facing`).
+ * 정면이 보는 쪽 → 굵게 그을 변. 키는 랙의 `facing` 값 그대로다(`model/types.ts` 의 `Facing`).
  *
  * 화면 좌표는 아래로 갈수록 y 가 커진다 — 「위」가 y, 「아래」가 y+h 인 까닭이다.
  */
@@ -239,121 +235,6 @@ export function renderPlacedAssets(
     /* **치수선도 주기다** — 늘 맨 위에 선다. 상자 패스에서 그렸더니 뒤에 그려지는 이웃
        상자가 치수선과 숫자를 덮었다(겹쳐 놓인 설비에서 그대로 가려졌다). */
     if (item.id === selectedId) renderDimensions(ctx, item, px);
-  }
-}
-
-// ============================================
-// 케이블 렌더링
-// ============================================
-
-export interface CableRenderSegment {
-  /** 묶음의 대표를 고르고 선택 상태를 잇기 위해 필요하다. */
-  id: string;
-  /** 종류가 다르면 색이 다르므로 합치지 않는다 — 묶음 판정에 쓴다. */
-  categoryId: string | null;
-  points: { x: number; y: number }[];
-  color: string;
-  selected: boolean;
-  /**
-   * 이 도면을 **떠나는 회선**의 행선지 — 있으면 끝에 화살촉과 꼬리표를 그린다.
-   *
-   * 반대쪽 끝이 이 층에 없는 회선(OPGW 로 다른 국에 가는 광, 다른 층으로 가는 케이블)은
-   * 선을 그을 두 점이 없어 도면에서 통째로 빠져 있었다 — 선번장에만 있고 도면에는 없었다.
-   */
-  outgoingLabel?: string;
-}
-
-/**
- * 케이블 세그먼트 목록을 폴리라인으로 렌더링.
- * 색상·선택 여부는 호출부(FloorPlanView)가 categoryId → group.color 맵핑 후 전달.
- * 선택 시 SELECTION_STYLES stroke 색으로 두껍게 표시.
- */
-export function renderCables(
-  ctx: CanvasRenderingContext2D,
-  segments: CableRenderSegment[],
-  /** 지금 배율(1 = 100%) — 선 굵기를 화면 기준으로 유지한다. */
-  scale = 1,
-): void {
-  /* 같은 자리에 겹치는 케이블은 묶어서 그린다 — 함체 사이 케이블은 양 끝 자산 중심을
-     잇는 같은 선이 되므로, 4본이든 1본처럼 보였다. 묶는 규칙은 cableBundles 참고. */
-  /* 굵기도 다발 간격도 **화면 기준**이다 — 배율은 `cableStyle` 이 정한 만큼만 탄다. */
-  for (const b of bundleCables(segments.map((s) => ({
-    id: s.id,
-    categoryId: s.categoryId,
-    color: s.color,
-    points: s.points,
-    selected: s.selected,
-    /* 같은 자리·같은 종류라도 **가는 곳이 다르면** 한 다발이 아니다. */
-    bundleKey: s.outgoingLabel,
-  })), BUNDLE_GAP_PX / scale)) {
-    ctx.save();
-    ctx.strokeStyle = b.selected ? SELECTION_STYLES.stroke : b.color;
-    ctx.lineWidth = cableLineWidth(scale, b.selected) / scale;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(b.points[0]!.x, b.points[0]!.y);
-    for (let i = 1; i < b.points.length; i++) {
-      ctx.lineTo(b.points[i]!.x, b.points[i]!.y);
-    }
-    ctx.stroke();
-
-    /* 나가는 회선 — 끝에 화살촉을 얹고 **어디로 가는지** 적는다(도면 밖으로 나가는 표시). */
-    if (b.bundleKey) {
-      const end = b.points[b.points.length - 1]!;
-      const prev = b.points[b.points.length - 2] ?? end;
-      const angle = Math.atan2(end.y - prev.y, end.x - prev.x);
-      const stroke = b.selected ? SELECTION_STYLES.stroke : b.color;
-      ctx.save();
-      ctx.translate(end.x, end.y);
-      ctx.rotate(angle);
-      ctx.fillStyle = stroke;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-9, 4);
-      ctx.lineTo(-9, -4);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-
-      /* 꼬리표는 화살촉 **너머**에 둔다 — 선 위에 얹으면 선과 글자가 서로를 가린다. */
-      const label = b.count > 1 ? `${b.bundleKey} ×${b.count}` : b.bundleKey;
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = Math.cos(angle) < 0 ? 'right' : 'left';
-      ctx.textBaseline = 'middle';
-      const tx = end.x + Math.cos(angle) * 6;
-      const ty = end.y + Math.sin(angle) * 6;
-      const w = ctx.measureText(label).width + 6;
-      const left = ctx.textAlign === 'right' ? tx - w : tx;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(left, ty - 7, w, 14);
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(left, ty - 7, w, 14);
-      ctx.fillStyle = stroke;
-      ctx.fillText(label, ctx.textAlign === 'right' ? tx - 3 : tx + 3, ty);
-      ctx.restore();
-      continue;
-    }
-
-    // 여러 본이면 몇 본인지 선 위에 적는다(업계 도면이 회선 수를 적는 방식).
-    if (b.count > 1) {
-      const mid = polylineMidpoint(b.points);
-      const label = `×${b.count}`;
-      ctx.font = 'bold 10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const w = ctx.measureText(label).width + 6;
-      // 선 위에 글자가 겹치지 않도록 배경을 깔아 준다.
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(mid.x - w / 2, mid.y - 7, w, 14);
-      ctx.strokeStyle = b.selected ? SELECTION_STYLES.stroke : b.color;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(mid.x - w / 2, mid.y - 7, w, 14);
-      ctx.fillStyle = b.selected ? SELECTION_STYLES.stroke : b.color;
-      ctx.fillText(label, mid.x, mid.y);
-    }
-    ctx.restore();
   }
 }
 

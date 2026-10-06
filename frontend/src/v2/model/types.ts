@@ -1,5 +1,4 @@
 import type { BackgroundDrawing, LinkEndRef, Side } from '@twin/core';
-import type { V2OverheadStandard } from '../types';
 
 /**
  * 새 모델의 **서버 행** — 백엔드 워킹카피(`GET /substations/:id/workingcopy`)가 주는 모양 그대로.
@@ -84,7 +83,7 @@ export interface Catalog {
   categories: Category[]; rackTypes: RackType[]; equipmentTypes: EquipmentType[]; cableTypes: CableType[];
   media: readonly { key: string; name: string; color: string; use: string }[];
   wageStandard: { latestDate: string | null; rows: WageRow[] } | null;
-  overheadStandard: V2OverheadStandard | null;
+  overheadStandard: OverheadStandard | null;
 }
 export type CatalogKind = 'categories' | 'rack-types' | 'equipment-types' | 'cable-types';
 
@@ -101,3 +100,37 @@ export type CommitPayload = Record<string, unknown>;
 
 /** 저장이 409 로 돌려주는 충돌 한 줄 — 키는 uuid 행이면 id, 회로·코어는 자연 키. */
 export interface Conflict { key: string; reason: 'deleted' | 'modified'; serverUpdatedAt?: string }
+
+/**
+ * 적용 중인 제비율 판 — 간접노무비부터 이윤까지, **구간별로 펼쳐진 표**다.
+ *
+ * 요율은 고정 상수가 아니다: (공사규모 × 공사기간 × 계약방법) 으로 갈린다. 상수로 박아 두면
+ * 공사가 커질 때 조용히 틀린다.
+ */
+export interface OverheadStandard {
+  id: string;
+  effective: string;
+  kind: string;
+  byDuration: Record<'간접노무비' | '기타경비', Record<string, Record<string, number>>>;
+  bySize: Record<'일반관리비' | '이윤', Record<string, number>>;
+  fixed: Record<string, number>;
+  sanan: Record<string, { rate: number; base: number | null }>;
+}
+
+/** 올려 둔 기준정보 한 판(목록용 — 내용은 빼고). */
+export interface Standard {
+  id: string;
+  kind: 'wage' | 'overhead';
+  effective: string;
+  sourceName: string;
+  active: boolean;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+/** 조직 트리(`GET /org-tree`) — 층은 이름·순서만 온다(배경 도면은 워킹카피에서 읽는다). */
+export interface OrgFloor { id: string; name: string; sortOrder: number; substationId: string }
+export interface OrgSubstation { id: string; name: string; sortOrder: number; branchId: string; floors: OrgFloor[] }
+export interface OrgBranch { id: string; name: string; sortOrder: number; headquartersId: string; substations: OrgSubstation[] }
+export interface OrgHq { id: string; name: string; sortOrder: number; branches: OrgBranch[] }
+export interface OrgTree { headquarters: OrgHq[] }

@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SEED_ASSET_TYPES, PLACEMENT_FIELDS, MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES } from '@twin/core';
+import { MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES } from '@twin/core';
 
 /**
  * ── 정적 가드레일의 알려진 한계 (은폐 금지, §6-5) ──────────────────────────
@@ -103,11 +103,11 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
    * 이 주석은 의도를 문서화하는 목적이며, 검사를 약화하지 않는다.
    *
    * .key\s*=== 스코프 주의:
-   * 프론트엔드는 e.key === 'Enter' / fd.key === 'switchState' 처럼 키보드 이벤트나
-   * FieldDef 조회에 .key 를 정당하게 사용한다 — 장비 품목 분기와 무관.
+   * 프론트엔드는 e.key === 'Enter' 처럼 키보드 이벤트나
+   * 열 정의 조회에 .key 를 정당하게 사용한다 — 품목 분기와 무관.
    * 따라서 .key\s*=== 검사는 도메인 서버 코드(backend/src)에만 적용한다.
    */
-  it('backend/src 소스(테스트·generated 제외)에 장비 품목 키 리터럴·role 비교·.key 직접 비교가 없다', () => {
+  it('backend/src 소스(테스트·generated 제외)에 품목 키 리터럴·role 비교·.key 직접 비교가 없다', () => {
     // 마스터 종류 키를 시드 데이터에서 동적 파생 — 하드코딩 금지. 종류 키로 가르는 서버 코드가 0 이어야 한다.
     const seedKeys = [...MASTER_EQUIPMENT_TYPES, ...MASTER_RACK_TYPES, ...MASTER_CABLE_TYPES].map((t) => t.key);
     const keyPattern = seedKeys.map((k) => `["'\`]${k.replace(/-/g, '\\-')}["'\`]`).join('|');
@@ -118,12 +118,13 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
     }
   });
 
-  it('frontend/src 소스(테스트·generated 제외)에 장비 품목 키 리터럴·role 비교가 없다', () => {
-    // 프론트엔드는 .key 를 키보드 이벤트·FieldDef 조회에 사용하므로 .key\s*=== 는 제외.
-    // 장비 품목 키 리터럴과 domain role 직접 비교만 금지.
+  it('frontend/src 소스(테스트·generated 제외)에 품목 키 리터럴·role 비교가 없다', () => {
+    // 프론트엔드는 .key 를 키보드 이벤트·열 정의 조회에 사용하므로 .key\s*=== 는 제외.
+    // 품목 키 리터럴과 domain role 직접 비교만 금지.
     // asset.key/type.key/typeKey 비교(==/!=)는 구 frontend/src/v2/__tests__/guardrail.test.ts
     // (B-S2, 중복 스캐너)에만 있던 핀 — 단일 홈으로 통합하며 이관.
-    const seedKeys = SEED_ASSET_TYPES.map((t) => t.key);
+    // 키 목록은 마스터 시드(설비·랙·케이블 품목)에서 동적 파생 — 백엔드 검사와 같은 출처다.
+    const seedKeys = [...MASTER_EQUIPMENT_TYPES, ...MASTER_RACK_TYPES, ...MASTER_CABLE_TYPES].map((t) => t.key);
     const keyPattern = seedKeys.map((k) => `["'\`]${k.replace(/-/g, '\\-')}["'\`]`).join('|');
     const forbidden = new RegExp(
       `(${keyPattern})|\\brole\\s*[!=]==|\\basset\\.key\\s*[!=]==|\\btype\\.key\\s*[!=]==|\\btypeKey\\s*[!=]==`,
@@ -139,23 +140,22 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
    * 리터럴 금지 검사 대상이 아니었다 — core 에 role 문자열 분기가 추가돼도 어떤
    * 가드레일도 못 잡는 사각지대였다.
    *
-   * 예외(정확한 경로 1개, basename 아님): packages/core/src/seed/catalog.ts 는
-   * SEED_ASSET_TYPES 자체의 선언 원본이다 — 이 파일의 키 리터럴은 **데이터**이지
+   * 예외(정확한 경로, basename 아님): packages/core/src/seed/master.ts 는
+   * 마스터 품목 키 자체의 선언 원본이다 — 이 파일의 키 리터럴은 **데이터**이지
    * 휴리스틱 분기가 아니다(파일 전체가 "키가 무엇인가"의 SSOT). 데이터 ≠ 휴리스틱:
    * 분기 코드가 문자열을 추측하는 것과, 데이터 파일이 자신의 데이터를 선언하는
    * 것은 다르다. 이 파일에서 role 비교가 발견되면(현재 0건) 그건 데이터가 아니라
    * 진짜 분기이므로 여전히 걸린다 — 예외는 시드 키 리터럴 패턴에만 적용된다.
    */
-  it('packages/core/src 소스(테스트 제외)에 장비 품목 키 리터럴·role 비교가 없다(시드 데이터 파일 제외)', () => {
+  it('packages/core/src 소스(테스트 제외)에 품목 키 리터럴·role 비교가 없다(시드 데이터 파일 제외)', () => {
     const CORE_SEED_DATA_ALLOWLIST = new Set([
-      'packages/core/src/seed/catalog.ts',
       /* 마스터 시드 — 종류 키의 선언 원본(데이터). */
       'packages/core/src/seed/master.ts',
       /* 국마다 무엇이 서 있는가 — 종류 키를 가리키는 순수 데이터다(분기 코드가 없다). */
       'packages/core/src/seed/jikhalInventory.ts',
     ]);
 
-    const seedKeys = [...SEED_ASSET_TYPES, ...MASTER_EQUIPMENT_TYPES, ...MASTER_RACK_TYPES, ...MASTER_CABLE_TYPES].map((t) => t.key);
+    const seedKeys = [...MASTER_EQUIPMENT_TYPES, ...MASTER_RACK_TYPES, ...MASTER_CABLE_TYPES].map((t) => t.key);
     const keyPattern = seedKeys.map((k) => `["'\`]${k.replace(/-/g, '\\-')}["'\`]`).join('|');
     const literalForbidden = new RegExp(`${keyPattern}`);
     const roleForbidden = /\brole\s*[!=]==/;
@@ -165,78 +165,7 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
       const rel = relToRoot(f);
       expect(src, `${rel}: role 비교 감지`).not.toMatch(roleForbidden);
       if (CORE_SEED_DATA_ALLOWLIST.has(rel)) continue; // 데이터 파일 — 위 JSDoc 참조
-      expect(src, `${rel}: 장비 품목 키 리터럴 감지`).not.toMatch(literalForbidden);
-    }
-  });
-});
-
-describe('v2 가드레일 — PLACEMENT_FIELDS 리터럴 재정의 금지', () => {
-  function checkDir(dir: string, ext: string) {
-    // canvas/* 제외: x/y/width/height 를 TypeScript Pick 타입 인수로 쓰는 기하 코드
-    // (예: hitTest.ts 의 Pick<V2Asset, 'x'|'y'|'width'|'height'>) — 재정의가 아님.
-    const files = srcFiles(dir, [ext]).filter((f) => !f.includes(`${sep}canvas${sep}`));
-
-    // 9개 필드 중 4개 이상이 하나의 파일에서 리터럴 문자열로 등장하면 재정의 의심.
-    // (import 선언의 { PLACEMENT_FIELDS } 나 런타임 사용 시 변수명은 통과 — 리터럴 따옴표 포함 형태만 검사)
-    const fieldLiterals = PLACEMENT_FIELDS.map((f) => `["'\`]${f}["'\`]`);
-    const threshold = 4; // 4개 이상 문자열 리터럴 = 재정의 의심
-
-    for (const file of files) {
-      const src = readFileSync(file, 'utf8');
-      const hits = fieldLiterals.filter((pattern) => new RegExp(pattern).test(src));
-      expect(
-        hits.length,
-        `${file}: PLACEMENT_FIELDS 리터럴 ${hits.length}개 발견(재정의 의심) — @twin/core PLACEMENT_FIELDS 를 import하세요`,
-      ).toBeLessThan(threshold);
-    }
-  }
-
-  it('backend/src 소스(테스트·generated 제외)에 배치 필드명 9개 전체를 나열한 로컬 배열/집합 리터럴이 없다', () => {
-    checkDir(backendSrc, '.ts');
-  });
-
-  it('frontend/src 소스(테스트·generated 제외)에 배치 필드명 로컬 배열/집합 리터럴이 없다', () => {
-    checkDir(frontendSrc, '.ts');
-    checkDir(frontendSrc, '.tsx');
-  });
-});
-
-describe('v2 가드레일 §6-4 — aRef/bRef 끝점 접근 peerResolve.ts 한 곳 규칙 (B-V1 회귀 핀)', () => {
-  /**
-   * V2Cable.aRef / .bRef 프로퍼티에 대한 실제 값 접근(읽기)은
-   * peerResolve.ts 와 types.ts(타입 선언)에만 허용된다.
-   * 다른 파일에서 .aRef 또는 .bRef 를 참조하면 인라인 peer 해소 또는 ref 추출
-   * 재구현으로 간주한다(§6-4 단일 구현 위반).
-   *
-   * 허용 목록(정확한 경로 — basename 아님. 가드레일 갭 분석 2c: 어디든 같은
-   * 이름의 파일을 만들면 자동 면제되는 우회로였다):
-   *   - frontend/src/v2/peerResolve.ts : 끝점 해소 단일 구현 (endpointRef · resolvePeer · cableEndpointName)
-   *   - frontend/src/v2/types.ts       : V2Cable 인터페이스 선언 (aRef?: V2CableRef 필드 선언)
-   *
-   * 구조분해 검출(가드레일 갭 분석 1번): `const { aRef, bRef } = cable;` 는
-   * 기존 dot/quote 접두 패턴(`[.?!['"\`]`)에 안 걸린다 — `{`/`,` 가 접두 문자
-   * 클래스에 없기 때문. 아래 destructurePattern 이 이를 보강한다.
-   * 여전히 못 잡는 형태: `const { aRef: a } = cable;` 처럼 별칭을 준 뒤 이후
-   * 코드에서 원 이름 대신 별칭 `a` 만 쓰는 경우는 이 파일 상단 "알려진 한계" 참고
-   * (별칭-후-비교 계열과 동일한 근본 한계 — 정적 텍스트 스캔은 데이터플로우를 못 쫓는다).
-   */
-  it('frontend/src 비-테스트 소스에서 aRef/bRef 프로퍼티 접근이 peerResolve.ts 외에 없다', () => {
-    const ALLOWLIST = new Set(['frontend/src/v2/peerResolve.ts', 'frontend/src/v2/types.ts']);
-    // aRef 또는 bRef 프로퍼티 접근 패턴: `.aRef` `?.aRef` `'aRef'` `"aRef"` (선언·접근)
-    // 주석 내 단어('aRef/bRef 접근 금지' 등)는 /\baRef\b/ 에 걸리므로 프로퍼티 접근 형태만 검사.
-    const dotOrQuotePattern = /[.?!['"`]\s*[ab]Ref\b/;
-    // 구조분해 할당: `{ ... aRef ... } = <expr>` (순서·동반 변수 무관, aRef 또는 bRef 단독도 포착)
-    const destructurePattern = /\{[^}]*\b[ab]Ref\b[^}]*\}\s*=/;
-    const pattern = new RegExp(`${dotOrQuotePattern.source}|${destructurePattern.source}`);
-
-    const files = srcFiles(frontendSrc, ['.ts', '.tsx']);
-
-    for (const f of files) {
-      if (ALLOWLIST.has(relToRoot(f))) continue;
-      expect(
-        readFileSync(f, 'utf8'),
-        `${f}: aRef/bRef 직접 접근 감지 — peerResolve.ts 의 endpointRef·resolvePeer·cableEndpointName 을 사용하세요 (§6-4 한 곳 규칙)`,
-      ).not.toMatch(pattern);
+      expect(src, `${rel}: 품목 키 리터럴 감지`).not.toMatch(literalForbidden);
     }
   });
 });
@@ -249,11 +178,9 @@ describe('v2 가드레일 §6-4 — overlay effective-merge overlay.ts 한 곳 �
    *
    * 허용 목록(정확한 경로 — basename 아님. 경계 소유자, 병합이 아니라 직렬화
    * 또는 이터레이션 목적):
-   *   - frontend/src/v2/store/overlay.ts            : mergeEffective 및 stage* 단일 구현 원본
-   *   - frontend/src/v2/store/workingCopyStore.ts   : 오버레이 상태를 정의하는 스토어 (경계 소유자)
-   *   - frontend/src/v2/store/buildCommitPayload.ts : 커밋 페이로드 직렬화 (creates/updates/deletes 전송 경계)
-   *   - frontend/src/v2/reportSelectors.ts          : 리포트 항목 생성 경계 — 각 버킷을 별도 이터레이션(병합 아님)
-   *                                                    (합계 공량 계산은 mergeEffective 경유, 버킷 이터레이션은 별도 용도)
+   *   - frontend/src/v2/store/overlay.ts               : mergeEffective 및 stage* 단일 구현 원본
+   *   - frontend/src/v2/model/store/workingCopy.ts     : 오버레이 상태를 정의하는 스토어 (경계 소유자)
+   *   - frontend/src/v2/model/store/commitPayload.ts   : 커밋 페이로드 직렬화 (creates/updates/deletes 전송 경계)
    *
    * 구조분해 검출(가드레일 갭 분석 2a번): `const { creates, updates, deletes } = o;`
    * 는 기존 dot 전제 정규식(`\.creates\b` 등) 3개 모두를 피해간다. 아래
@@ -275,9 +202,8 @@ describe('v2 가드레일 §6-4 — overlay effective-merge overlay.ts 한 곳 �
     // 경계 소유자 — 위 JSDoc 주석 참조
     const ALLOWLIST = new Set([
       'frontend/src/v2/store/overlay.ts',
-      'frontend/src/v2/store/workingCopyStore.ts',
-      'frontend/src/v2/store/buildCommitPayload.ts',
-      'frontend/src/v2/reportSelectors.ts',
+      'frontend/src/v2/model/store/workingCopy.ts',
+      'frontend/src/v2/model/store/commitPayload.ts',
     ]);
 
     const files = srcFiles(frontendSrc, ['.ts', '.tsx']);
@@ -411,7 +337,7 @@ describe('v2 가드레일 §Minor-5 — 프론트엔드 자산타입 키 리터�
    * 패턴: \.key\s*===\s*['"][A-Z][A-Z0-9-]*['"]
    * 백엔드 가드레일과 달리 프론트엔드는 키보드 이벤트(e.key === 'Enter') 등에서
    * .key 를 정당하게 사용하므로 .key\s*=== 전체 금지는 과잉이다.
-   * 대신 대문자 전용 패턴으로 장비 품목 키 직접 비교(예: type.key === 'RACK')만 차단한다.
+   * 대신 대문자 전용 패턴으로 품목 키 직접 비교(예: type.key === 'RACK')만 차단한다.
    *
    * 현재 트리: 0매치 확인 완료(2026-07-29, Stage 7 Task 5 fix round).
    */
@@ -422,7 +348,7 @@ describe('v2 가드레일 §Minor-5 — 프론트엔드 자산타입 키 리터�
     for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
       expect(
         readFileSync(f, 'utf8'),
-        `${f}: .key === '대문자키' 직접 비교 감지 — 장비 품목 분기는 카탈로그 메타(isPlaceable 등)를 사용하세요 (§Minor-5)`,
+        `${f}: .key === '대문자키' 직접 비교 감지 — 품목 분기는 카탈로그 행의 값(medium·categoryId 등)을 사용하세요 (§Minor-5)`,
       ).not.toMatch(pattern);
     }
   });
@@ -513,23 +439,6 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
   });
 
   /**
-   * **포트 구획 참조는 손으로 짓지 않는다** — `groupRefOf`·`groupRefOfTemplate` 이 짓는다.
-   *
-   * 네 화면이 같은 객체를 손으로 채우고 있었는데 그중 셋이 `variant` 를 빠뜨렸다. 그래서
-   * 교류 판과 직류 판이 같은 이름이 되어, 이름 대신 그룹 키(`POWER-IN-AC`)가 화면에 튀어나왔다.
-   * 칸이 늘 때마다 네 곳을 같이 고쳐야 하는 모양 자체를 막는다.
-   */
-  it('구획 참조는 groupRefOf 로 짓는다 — 손으로 채우지 않는다', () => {
-    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
-      const src = readFileSync(f, 'utf8');
-      expect(
-        /sampleName:/.test(src),
-        `${f}: 구획 참조를 손으로 채우고 있다 — groupRefOf(포트) · groupRefOfTemplate(선언) 를 쓰세요`,
-      ).toBe(false);
-    }
-  });
-
-  /**
    * **보안 컨텍스트 전용 API 를 화면이 직접 부르지 않는다.**
    *
    * `crypto.randomUUID` 는 https·localhost 에서만 있다. 개발이 늘 localhost 라 아무도 몰랐고,
@@ -546,27 +455,6 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
         /crypto\.randomUUID\s*\(/.test(src),
         `${f}: 평문 주소(사내망)에서는 없는 함수다 — newId() 를 쓰세요`,
       ).toBe(false);
-    }
-  });
-
-  /**
-   * **고른 포트는 화면이 따로 들고 있지 않는다** — 주소가 쥔다(`?port=`).
-   *
-   * 상세 판이 제 지역 상태로 고른 포트를 들고 있었다. 그래서 표에서 줄을 누르면 판이 따라왔지만
-   * (주소를 거쳐서) 판에서 포트를 누르면 표는 아무것도 몰랐다 — 같은 것을 가리키는 두 화면이
-   * 서로 다른 것을 고른 채 나란히 섰다. 선택이 사는 자리가 둘이면 반드시 어긋난다.
-   */
-  it('고른 포트를 화면이 따로 들고 있지 않는다 — 주소가 쥔다', () => {
-    /* **설비 품목 편집기는 작업공간이 아니다.** 이 규칙이 막는 것은 「같은 포트를 보는 두
-       화면이 서로 다른 것을 고른 채 나란히 서는 일」인데, 구성 편집에는 판이 하나뿐이라
-       어긋날 상대가 없다. 게다가 그 화면에는 주소가 쥘 것이 없다 — 저장 전 초안이고
-       `useWorkspaceRoute`(변전소·층·자산)가 아예 안 도는 자리다. */
-    const ALLOW = new Set(['frontend/src/v2/components/admin/AssemblyPanel.tsx']);
-    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
-      if (ALLOW.has(relToRoot(f))) continue;
-      const src = readFileSync(f, 'utf8');
-      const hit = src.match(/const \[selected(Port|Core)\w*\s*,/);
-      expect(hit?.[0], `${f}: 고른 포트를 지역 상태로 들고 있다 — 주소(useWorkspaceRoute)가 쥐게 하세요`).toBeUndefined();
     }
   });
 
@@ -625,9 +513,15 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
 });
 
 describe('설비 모델 단순화 — 포트·설비 품목 재도입 금지', () => {
-  it('backend/src 와 packages/core/src/model 에 포트·설비 품목 토큰이 없다', () => {
+  /* 옛 모델(포트 템플릿·설비 품목 격자·케이블 그룹)은 백엔드·core·프론트 모두에서 걷혔다 —
+     세 트리 어디에도 그 낱말이 다시 서면 안 된다. */
+  it('backend/src · packages/core/src · frontend/src 에 포트·설비 품목 토큰이 없다', () => {
     const forbidden = /\b(assetPortTemplate|AssetPortTemplate|assemblyItem|AssemblyItem|assemblyLink|AssemblyLink|cableGroup|CableGroup|portTemplate|instantiatePorts)\b/;
-    const files = [...srcFiles(backendSrc, ['.ts']), ...srcFiles(resolve(coreSrc, 'model'), ['.ts'])];
+    const files = [
+      ...srcFiles(backendSrc, ['.ts']),
+      ...srcFiles(coreSrc, ['.ts']),
+      ...srcFiles(frontendSrc, ['.ts', '.tsx']),
+    ];
     for (const f of files) expect(readFileSync(f, 'utf8'), relToRoot(f)).not.toMatch(forbidden);
   });
 });

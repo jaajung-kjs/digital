@@ -1,9 +1,9 @@
-import type { V2OrgTree } from './types';
+import type { OrgTree } from './model/types';
 
 export type OrgNodeKind = 'hq' | 'branch' | 'substation';
 export interface FlatOrgNode { kind: OrgNodeKind; id: string; name: string; depth: number; parentId: string | null }
 
-export function flattenTree(tree: V2OrgTree): FlatOrgNode[] {
+export function flattenTree(tree: OrgTree): FlatOrgNode[] {
   const out: FlatOrgNode[] = [];
   for (const hq of tree.headquarters) {
     out.push({ kind: 'hq', id: hq.id, name: hq.name, depth: 0, parentId: null });

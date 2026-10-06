@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { V2OrgTree } from '../types';
+import type { OrgTree } from '../model/types';
 import { flattenTree } from '../orgTreeSelectors';
 
-const tree: V2OrgTree = {
+const tree: OrgTree = {
   headquarters: [
     {
       id: 'hq1', name: '본부', sortOrder: 1,

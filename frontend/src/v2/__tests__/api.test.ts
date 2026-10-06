@@ -18,45 +18,9 @@ vi.mock('../httpClient', () => ({
 }));
 
 import { httpClient as api } from '../httpClient';
-import {
-  createOrgNode,
-  deleteOrgNode,
-  fetchAssetPorts,
-  fetchCatalog,
-  fetchNodeAssets,
-  fetchOrgTree,
-  fetchWorkingcopy,
-  patchOrgNode,
-  photoUrl,
-  putCommit,
-  browseAssets,
-} from '../api';
+import { createOrgNode, deleteOrgNode, fetchOrgTree, patchOrgNode, photoUrl } from '../api';
 
-describe('v2 api 경로', () => {
-  it('catalog/workingcopy/nodes/commit 경로', async () => {
-    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
-    (api.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
-
-    await fetchCatalog();
-    expect(api.get).toHaveBeenCalledWith('/v2/catalog');
-    await fetchWorkingcopy('sub-1');
-    expect(api.get).toHaveBeenCalledWith('/v2/substations/sub-1/workingcopy');
-    await fetchNodeAssets('node-1');
-    expect(api.get).toHaveBeenCalledWith('/v2/nodes/node-1/assets');
-    await putCommit('sub-1', { assets: {} });
-    expect(api.put).toHaveBeenCalledWith('/v2/substations/sub-1/commit', { assets: {} });
-  });
-
-  it('browseAssets/fetchAssetPorts 경로', async () => {
-    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [] });
-
-    /* 대국은 **둘러본다** — 다른 국의 설비 이름을 외우고 있을 리 없다. */
-    await browseAssets('sub-9');
-    expect(api.get).toHaveBeenCalledWith('/v2/search/assets', { params: { substationId: 'sub-9' } });
-    await fetchAssetPorts('a-1');
-    expect(api.get).toHaveBeenCalledWith('/v2/assets/a-1/ports');
-  });
-
+describe('v2 api 경로 — 조직·사진', () => {
   it('org-tree/org CRUD 경로', async () => {
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
     (api.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
@@ -91,32 +55,6 @@ describe('v2 api 경로', () => {
     });
     (api.delete as ReturnType<typeof vi.fn>).mockRejectedValueOnce(conflict);
     await expect(deleteOrgNode('substations', 'busy')).rejects.toBe(conflict);
-  });
-
-  it('사진이 있으면 저장이 multipart 로 간다 — 칸 이름이 그 사진의 id 다', async () => {
-    (api.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { committedAt: 'now' } });
-    const file = new File(['a'], 'a.png', { type: 'image/png' });
-
-    await putCommit('sub-1', { records: { photos: { creates: [{ id: 'ph-1', assetId: 'a-1' }] } } }, new Map([['ph-1', file]]));
-
-    const [url, body, config] = (api.put as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
-    expect(url).toBe('/v2/substations/sub-1/commit');
-    expect(body).toBeInstanceOf(FormData);
-    /* 저장 내용은 payload 칸에, 파일은 제 id 칸에 — 서버가 그 줄에 경로를 지어 준다. */
-    expect(JSON.parse((body as FormData).get('payload') as string)).toMatchObject({
-      records: { photos: { creates: [{ id: 'ph-1' }] } },
-    });
-    expect((body as FormData).get('ph-1')).toBe(file);
-    expect(config?.headers?.['Content-Type']).toBeUndefined();
-  });
-
-  it('사진이 없으면 저장은 그냥 JSON 이다', async () => {
-    (api.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { committedAt: 'now' } });
-
-    await putCommit('sub-1', { assets: {} });
-
-    const [, body] = (api.put as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
-    expect(body).toEqual({ assets: {} });
   });
 
   it('photoUrl: filePath의 basename만 취해 서빙 경로 생성', () => {

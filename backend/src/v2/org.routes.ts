@@ -37,7 +37,7 @@ orgRouter.get('/org-tree', async (_req, res, next) => {
                   orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
                   // 조직 트리는 앱 진입 시마다 재조회된다(staleTime 30s) — 층당
                   // 수백KB인 backgroundDrawing 을 여기서 실어 나르면 안 된다.
-                  // 그 필드는 FloorPlanView 가 워킹카피(saved.floors)에서만 읽는다.
+                  // 그 필드는 평면도(RackPlanView)가 워킹카피의 층에서만 읽는다.
                   select: { id: true, name: true, sortOrder: true, substationId: true },
                 },
               },

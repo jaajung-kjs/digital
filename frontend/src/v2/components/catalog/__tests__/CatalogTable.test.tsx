@@ -83,7 +83,7 @@ describe('CatalogTable', () => {
   it('필수 칸이 비면 어느 칸인지 알린다', () => {
     draftRack(); open();
     fireEvent.keyDown(screen.getByLabelText('키'), { key: 'Enter' });
-    expect(screen.getByText('키을(를) 입력하세요')).toBeInTheDocument();
+    expect(screen.getByText('키 칸을 채우세요')).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
   });
 

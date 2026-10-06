@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDrawLargeEnough, normalizeRect } from '../floorPlacement';
+import { isDrawLargeEnough, normalizeRect } from '../drawRect';
 
 describe('normalizeRect', () => {
   it('역방향 드래그 정규화', () => {

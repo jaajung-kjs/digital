@@ -1,35 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import {
-  putOrder,
-  type OrderKind,
-  createAssembly,
-  createCategory,
   createOrgNode,
-  createType,
-  deleteCategory,
-  deleteAssembly,
   deleteOrgNode,
-  deleteType,
-  fetchCatalog,
-  fetchNodeAssets,
   fetchOrgTree,
-  fetchReach,
   fetchStandards,
   fetchWageRates,
-  patchCategory,
   patchOrgNode,
-  putCableGroup,
-  updateAssembly,
-  updateType,
   type OrgKind,
 } from './api';
-import type { V2AssetType, V2WageRow } from './types';
+import { putOrder, type OrderKind } from './model/api';
+import type { WageRow } from './model/types';
 import { useCatalog } from './model/hooks';
 
-export function useV2Catalog() {
-  return useQuery({ queryKey: ['v2', 'catalog'], queryFn: fetchCatalog, staleTime: 60_000 });
-}
 /** 올려 둔 기준정보 판 목록 — 「기준정보」 탭이 쓴다. */
 export function useStandards() {
   return useQuery({ queryKey: ['v2', 'standards'], queryFn: fetchStandards, staleTime: 60_000 });
@@ -41,33 +24,6 @@ export function useWageRates() {
 export function useV2OrgTree() {
   return useQuery({ queryKey: ['v2', 'org-tree'], queryFn: fetchOrgTree, staleTime: 30_000 });
 }
-export function useV2NodeAssets(nodeId: string | null) {
-  return useQuery({
-    queryKey: ['v2', 'node-assets', nodeId],
-    queryFn: () => fetchNodeAssets(nodeId as string),
-    enabled: !!nodeId,
-    staleTime: 30_000,
-  });
-}
-/**
- * 이어진 것 전부 — **모달이 열릴 때만** 부른다.
- *
- * 국 경계를 넘는 조회라 워킹카피보다 무겁다. 상세 패널을 여는 것만으로 이걸 부르면
- * 아무도 안 볼 그림을 매번 계산하는 셈이다.
- */
-export function useReach(portId: string | null, enabled: boolean) {
-  return useQuery({
-    queryKey: ['v2', 'reach', portId],
-    queryFn: () => fetchReach(portId!),
-    enabled: enabled && portId != null,
-    staleTime: 30_000,
-  });
-}
-
-export function useTypesById(types: V2AssetType[] | undefined): Map<string, V2AssetType> {
-  return useMemo(() => new Map((types ?? []).map((t) => [t.id, t])), [types]);
-}
-
 /**
  * 대장의 모든 부르는 쪽은 `mutateAsync` 를 기다렸다가 **제 화면에** 오류를 그린다(저장 바,
  * 분류 오류 줄, 모달 안). 그래서 전역 띠까지 뜨면 같은 문장이 두 번 선다 — `meta.quiet` 이
@@ -75,28 +31,6 @@ export function useTypesById(types: V2AssetType[] | undefined): Map<string, V2As
  * 유일한 표면이므로 붙이지 않는다.
  */
 const QUIET = { quiet: true } as const;
-
-/** 카탈로그 어드민 뮤테이션 — 성공 시 ['v2','catalog'] 자동 무효화 */
-export function useCatalogMutations() {
-  const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['v2', 'catalog'] });
-
-  return {
-    createType: useMutation({ mutationFn: createType, onSuccess: invalidate, meta: QUIET }),
-    updateType: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateType>[1] }) => updateType(id, body), onSuccess: invalidate, meta: QUIET }),
-    deleteType: useMutation({ mutationFn: deleteType, onSuccess: invalidate, meta: QUIET }),
-
-    createCategory: useMutation({ mutationFn: createCategory, onSuccess: invalidate, meta: QUIET }),
-    patchCategory: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof patchCategory>[1] }) => patchCategory(id, body), onSuccess: invalidate, meta: QUIET }),
-    deleteCategory: useMutation({ mutationFn: deleteCategory, onSuccess: invalidate, meta: QUIET }),
-
-    putCableGroup: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof putCableGroup>[1] }) => putCableGroup(id, body), onSuccess: invalidate, meta: QUIET }),
-
-    createAssembly: useMutation({ mutationFn: createAssembly, onSuccess: invalidate, meta: QUIET }),
-    updateAssembly: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateAssembly>[1] }) => updateAssembly(id, body), onSuccess: invalidate, meta: QUIET }),
-    deleteAssembly: useMutation({ mutationFn: deleteAssembly, onSuccess: invalidate, meta: QUIET }),
-  };
-}
 
 /** 조직 트리 뮤테이션 — 성공 시 ['v2','org-tree'] 자동 무효화 */
 export function useOrgMutations() {
@@ -124,14 +58,7 @@ export function useOrgMutations() {
 }
 
 /**
- * 매체 키(fiber·power·network…) → 사람이 읽는 이름(광·전원·네트워크).
- *
- * 매체는 케이블 그룹의 키다 — 이름은 카탈로그에 있으므로 거기서 찾는다. 이 해석이
- * 두 곳에 복제되면 한쪽만 고쳐져 화면마다 다른 말이 나온다(실제로 포트 목록은 키를
- * 그대로 보여주고 있었다).
- */
-/**
- * 순서 바꾸기 — **모든 트리가 같은 것을 쓴다**(조직 · 분류 · 품목 · 케이블 그룹).
+ * 순서 바꾸기 — **모든 트리가 같은 것을 쓴다**(조직 · 분야 · 품목).
  *
  * 예전에는 조직만 제 손으로 순서를 고쳤고, 같은 트리 판을 쓰는 대장들은 못 했다. 종류마다
  * 길을 따로 내면 그렇게 갈린다 — 문은 하나고(`putOrder`), 무엇의 순서인지만 다르다.
@@ -150,27 +77,6 @@ export function useReorder() {
   });
 }
 
-export function useMediumLabel(): (key: string) => string {
-  const catalog = useV2Catalog();
-  const groups = catalog.data?.cableGroups;
-  return (key: string) => groups?.find((g) => g.key === key)?.name ?? key;
-}
-
-/**
- * 매체 키 → 그 종류의 색.
- *
- * 색은 카탈로그(케이블 그룹)가 선언한다. 평면도가 케이블을 그 색으로 그리고 있으므로,
- * 포트도 같은 색을 쓰면 **꽂는 케이블의 색이 곧 포트의 색**이 된다 — 실제 배선판에서
- * 전원 단자와 통신 단자를 색으로 구분하는 것과 같다.
- *
- * 카탈로그에서 색을 바꾸면 선과 포트가 함께 따라온다. 여기서 색을 다시 적으면 그 둘이 갈린다.
- */
-export function useMediumColor(): (key: string) => string | null {
-  const catalog = useV2Catalog();
-  const groups = catalog.data?.cableGroups;
-  return (key: string) => groups?.find((g) => g.key === key)?.color ?? null;
-}
-
 /**
  * 직종 어휘 — **적용 중인 노임단가 판**이 유일한 출처다.
  *
@@ -184,7 +90,7 @@ export function useWageCatalog() {
   const catalog = useCatalog();
   const std = catalog.data?.wageStandard ?? null;
   return useMemo(() => {
-    const rows: V2WageRow[] = std?.rows ?? [];
+    const rows: WageRow[] = std?.rows ?? [];
     const byCode = new Map(rows.map((r) => [r.code, r]));
     return {
       effective: std?.latestDate ?? null,

@@ -39,30 +39,21 @@ function screenFiles(): string[] {
 /**
  * **같은 일에는 문이 하나다.**
  *
- * 화면마다 문이 있어도(도면 · 포트 탭 · 대국 검색) 그 문 뒤에서 하는 일은 하나여야 한다.
- * 문마다 글을 따로 적으면 반드시 갈린다 — 실제로 갈렸다: 케이블을 도면에서는 **묻지도 않고**
- * 지웠는데 포트 탭에서는 물었고, 첫 끝점에 넣는 자산이 문마다 달라 미리보기가 한쪽에서만
- * 나왔다. 잇고 지우는 일은 `cableActions`·`deleteActions` 에서만 한다.
+ * 화면마다 문이 있어도(설비 상세 · 랙 상세 · 잇기 목록 · 기록 · 사진 · 층 탭) 그 문 뒤에서 하는
+ * 일은 하나여야 한다. 문마다 글을 따로 적으면 반드시 갈린다 — 실제로 갈렸다: 케이블을 도면에서는
+ * **묻지도 않고** 지웠는데 다른 탭에서는 물었다. 지우기는 「무엇이 함께 가는가」를 펼쳐야 하는
+ * 일이라(`expandDeletes`), 스토어의 `remove` 를 화면이 직접 부르면 그 화면만 펼치기를 건너뛴다.
+ * 지우는 일은 `model/store/deleteActions.ts`(`deleteRows`·`deleteLeafRow`)에서만 한다.
  */
 describe('같은 일에는 문이 하나다', () => {
-  const OWNERS: Record<string, string> = {
-    'stageCableCreate': 'cableActions.ts',
-    'stageCableDelete': 'deleteActions.ts',
-    /* 분류는 설비 품목과 장비 품목이 **함께 쓰는 체계**다. 두 화면이 각자 적고 있었고,
-       그래서 한쪽만 확인을 묻고 오류 문구도 갈렸다. 문은 상자 하나다. */
-    'createCategory.mutateAsync': 'useCategoryAdmin.tsx',
-    'patchCategory.mutateAsync': 'useCategoryAdmin.tsx',
-    'deleteCategory.mutateAsync': 'useCategoryAdmin.tsx',
-  };
-
-  it('케이블을 잇고 지우는 일, 분류를 고치는 일은 그 한 곳에서만 한다', () => {
+  it('워킹카피에서 지우는 일은 deleteActions 한 곳에서만 한다', () => {
     const files = screenFiles();
-    for (const [call, owner] of Object.entries(OWNERS)) {
-      const offenders = files.filter(
-        (f) => !f.endsWith(owner) && new RegExp(`\\.${call.replace('.', '\\.')}\\(`).test(readFileSync(f, 'utf8')),
-      );
-      expect(offenders, `${call} 을 ${owner} 밖에서 부른 곳: ${offenders.join(', ')}`).toEqual([]);
-    }
+    expect(files.length, '스캔 대상 0개 — 가드가 무력화된 상태다').toBeGreaterThan(0);
+    const owner = join('model', 'store', 'deleteActions.ts');
+    const offenders = files.filter(
+      (f) => !f.endsWith(owner) && /workingCopyStore\.getState\(\)\.remove\(/.test(readFileSync(f, 'utf8')),
+    );
+    expect(offenders, `스토어 remove 를 deleteActions 밖에서 부른 곳 — deleteRows 를 쓰세요: ${offenders.join(', ')}`).toEqual([]);
   });
 });
 
@@ -72,11 +63,12 @@ describe('저장 여부로 갈라서지 않는다', () => {
    *
    * 「저장된 것 + 아직 저장 안 한 것」을 화면마다 손으로 합치고 있었다(아홉 파일에 스무 번).
    * 같은 규칙을 스무 번 적으면 한 곳이 어긋나도 아무도 모른다 — 도면만 제 나름의 조건을
-   * 하나 더 걸고 있던 것이 바로 그 케이블 버그였다. 합치기는 `store/useWorkingCopy`·`model/store/effective.ts` 의
-   * 훅들이 하고, 화면은 그것을 읽기만 한다.
+   * 하나 더 걸고 있던 것이 바로 그 케이블 버그였다. 합치기(`mergeEffective`)는
+   * `model/store/effective.ts` 한 곳이 하고, 화면은 그 결과(`effectiveRows`·`effectiveCircuits` 등)를 읽기만 한다.
    */
-  it('화면이 워킹카피를 손으로 다시 합치지 않는다', () => {
-    const files = screenFiles().filter((f) => !f.endsWith('reportSelectors.ts') && !f.endsWith(join('model', 'store', 'effective.ts')));
+  it('mergeEffective 는 model/store/effective.ts 에서만 부른다', () => {
+    const files = screenFiles().filter((f) => !f.endsWith(join('model', 'store', 'effective.ts')));
+    expect(files.length, '스캔 대상 0개 — 가드가 무력화된 상태다').toBeGreaterThan(0);
     const offenders = files.filter((f) => /mergeEffective\s*\(/.test(readFileSync(f, 'utf8')));
     expect(offenders, `손으로 합친 곳: ${offenders.join(', ')}`).toEqual([]);
   });

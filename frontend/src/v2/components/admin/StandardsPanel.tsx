@@ -39,7 +39,7 @@ import { apiErrorMessage } from '../../apiError';
 import { DURATION_BANDS, SANAN_BANDS, SIZE_BANDS } from '@twin/core';
 import { useStandards, useWageRates } from '../../hooks';
 import { useCatalog } from '../../model/hooks';
-import type { V2Standard } from '../../types';
+import type { Standard } from '../../model/types';
 
 /** 파일 · 적용시기 · 올린이 · 상태. 합이 100(`TableCard`). */
 /* 상태와 동작은 **다른 열**이다 — 한 칸에 섞으면 같은 열에 배지·맨글자·단추가 뒤섞인다. */
@@ -289,7 +289,7 @@ function StandardCard<P extends { sourceName: string; effective: string }>({
 }
 
 /** 올린 기록 — 새 판을 올려도 이전 판은 남고, 되돌릴 수 있다. */
-function HistoryCard({ rows, onActivate }: { rows: V2Standard[]; onActivate: (id: string) => void }) {
+function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: string) => void }) {
   const KIND_LABEL: Record<string, string> = { wage: '노임단가', overhead: '제비율' };
   return (
     <DetailCard>

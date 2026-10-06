@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { PromptModal, type TabItem } from '../../../components/ui';
 import { workingCopyStore } from '../../model/store/workingCopy';
+import { deleteLeafRow } from '../../model/store/deleteActions';
 import type { Floor, Rack } from '../../model/types';
 import { newId } from '../../newId';
 
@@ -79,7 +80,7 @@ export function useFloorAdmin(args: {
       danger: true,
     });
     if (!ok) return;
-    workingCopyStore.getState().remove('floors', id);
+    deleteLeafRow('floors', id);
   }
 
   /* 층은 **탭이 곧 관리 지점**이다 — 두 번 눌러 이름을 고치고, 열린 탭의 `⋯` 에서 지운다

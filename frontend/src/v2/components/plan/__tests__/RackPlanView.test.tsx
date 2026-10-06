@@ -1,7 +1,7 @@
 /**
  * RackPlanView — 실제 컴포넌트 + 실제 워킹카피 스토어.
  *
- * 캔버스는 옛 FloorPlanView 시험과 같은 방식으로 다룬다: `getContext`·`ResizeObserver` 는 전역
+ * 캔버스는 jsdom 에 없으므로 이렇게 다룬다: `getContext`·`ResizeObserver` 는 전역
  * setup(`src/tests/setup.ts`)이 채우고, 픽셀은 단언하지 않는다. jsdom 의 `getBoundingClientRect`
  * 는 늘 (0,0) 이라 처음 뷰포트(100%, pan 0)에서 화면 좌표 = 도면 좌표다.
  *

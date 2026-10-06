@@ -36,3 +36,14 @@ export function deleteRows(req: DeleteRequest): { blocked: { id: string; reason:
   });
   return { blocked: [] };
 }
+
+/** 딸려 가는 것이 없는 행 — 기록·사진, 그리고 층(랙이 놓인 층은 화면이 먼저 막는다). */
+export type LeafRowKind = Extract<RowKind, 'floors' | 'maintenance' | 'inspections' | 'photos'>;
+
+/**
+ * 한 행만 지운다 — **지우는 문은 이 파일 하나다**(`deleteRows` 와 같은 자리). 화면이 스토어의
+ * `remove` 를 직접 부르면, 언젠가 딸려 가야 할 것이 생겼을 때 그 화면만 펼치기를 건너뛴다.
+ */
+export function deleteLeafRow(kind: LeafRowKind, id: string): void {
+  workingCopyStore.getState().remove(kind, id);
+}

@@ -14,6 +14,7 @@ import { DetailCardHeader, Button, DetailCard, IconButton, Modal } from '../../.
 import { photoUrl } from '../../api';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
+import { deleteLeafRow } from '../../model/store/deleteActions';
 import { holdPhotoFile, pendingPhotoUrl } from '../../store/pendingPhotos';
 import type { EquipmentPhoto } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
@@ -69,7 +70,7 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
   }
 
   function handleDelete(id: string) {
-    workingCopyStore.getState().remove('photos', id);
+    deleteLeafRow('photos', id);
     if (enlargedId === id) setEnlargedId(null);
   }
 

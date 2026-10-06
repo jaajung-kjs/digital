@@ -3,6 +3,7 @@ import { Check, X } from 'lucide-react';
 import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, formatDate, isCommitKey } from '../../../components/ui';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
+import { deleteLeafRow } from '../../model/store/deleteActions';
 import type { InspectionLog, MaintenanceLog } from '../../model/types';
 import { newId } from '../../newId';
 
@@ -102,7 +103,7 @@ export function RecordsTab({
   }
 
   function stageDelete(id: string) {
-    workingCopyStore.getState().remove(kind, id);
+    deleteLeafRow(kind, id);
   }
 
   // ── 핸들러 ──────────────────────────────────────────────────────────────────
