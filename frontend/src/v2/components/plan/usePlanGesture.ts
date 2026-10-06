@@ -9,6 +9,8 @@
  * - 창 밖에서 뗀 손은 놓은 것이 아니다(`inWindow`).
  * - 캡처를 못 붙잡았거나 풀리면 `pointerup` 이 안 올 수 있다 — 그 자리에서 접는다.
  * - Esc 는 그리던 것까지 걷는다(그리고 배치 도구를 끈다).
+ * - 크기 조절도 같은 주인이다 — 손잡이는 `data-handle` 로 자기를 알릴 뿐이다.
+ * - 판이 내려가면 손짓도 함께 접힌다.
  */
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { isCancelKey, isTypingTarget } from '../../../components/ui';
@@ -16,6 +18,7 @@ import { createDragSession, dragDelta, inWindow, isThresholdMet, type DragSessio
 import type { PlacedRect } from '../../canvas/hitTest';
 import { screenToWorld, snapToGrid, type Viewport } from '../../canvas/transform';
 import { SNAP_GRID } from '../../canvas/constants';
+import { applyResize, type HandleKey } from '../../canvas/resize';
 import { isDrawLargeEnough, normalizeRect } from '../../floorPlacement';
 
 type Pt = { x: number; y: number };
@@ -25,17 +28,27 @@ export type Gesture =
   /** 밀기 — `select` 면 움직이지 않고 뗀 손이 빈 곳 누르기(고른 것 놓기)다. */
   | { kind: 'pan'; pointerId: number; startClient: Pt; startPan: Pt; moved: boolean; select: boolean }
   | { kind: 'draw'; pointerId: number; rackId: string; floorId: string; start: Pt; end: Pt }
-  | { kind: 'move'; pointerId: number; session: DragSession; at: Pt | null };
+  | { kind: 'move'; pointerId: number; session: DragSession; at: Pt | null }
+  | { kind: 'resize'; pointerId: number; rackId: string; handle: HandleKey; startClient: Pt; startRect: Rect; rect: Rect };
+
+/** 끄는 중인 자리 — 옮기기면 x·y 만, 크기면 넷 다. */
+export type Preview = { id: string; x: number; y: number; width?: number; height?: number };
+
+/** 크기를 바꿀 때 가장 작은 변(cm). */
+const MIN_SIZE = 20;
 
 export interface PlanGestureArgs {
   viewportRef: { current: Viewport };
   setViewport: Dispatch<SetStateAction<Viewport>>;
   /** 그 자리의 랙(맨 위). */
   hitAt: (world: Pt) => PlacedRect | null;
+  /** 손잡이가 달린 랙(고른 놓인 랙) — 없으면 `null`. */
+  resizable: () => PlacedRect | null;
   /** 지금 배치 도구가 겨눈 것 — 꺼져 있으면 `null`. */
   armed: () => { rackId: string; floorId: string } | null;
   onDraw: (rackId: string, floorId: string, rect: Rect) => void;
   onMove: (rackId: string, at: Pt) => void;
+  onResize: (rackId: string, rect: Rect) => void;
   onSelect: (rackId: string | null) => void;
   /** Esc — 배치 도구를 끈다. */
   onEscape: () => void;
@@ -50,20 +63,27 @@ export function usePlanGesture(args: PlanGestureArgs) {
   a.current = args;
   const gesture = useRef<Gesture | null>(null);
   /** 끄는 중인 자리 — DOM 손잡이도 따라오게 state 로도 든다(캔버스는 `gesture` 를 읽는다). */
-  const [movePreview, setMovePreview] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
   const spaceDown = useRef(false);
 
-  const worldOf = (e: React.PointerEvent<HTMLCanvasElement>): Pt => {
+  const worldOf = (e: React.PointerEvent<HTMLElement>): Pt => {
     const { zoom, panX, panY } = a.current.viewportRef.current;
     return screenToWorld(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect(), panX, panY, zoom);
   };
   const snapped = (p: Pt) => snapToGrid(p.x, p.y, SNAP_GRID);
 
+  /** 손잡이 손짓의 지금 사각형 — 배율은 **이벤트 시점**의 것을 읽는다(끄는 중 확대 대비). */
+  const resized = (g: Extract<Gesture, { kind: 'resize' }>, e: { clientX: number; clientY: number }): Rect => {
+    const scale = a.current.viewportRef.current.zoom / 100;
+    const d = { x: (e.clientX - g.startClient.x) / scale, y: (e.clientY - g.startClient.y) / scale };
+    return applyResize(g.startRect, g.handle, d, MIN_SIZE, (v) => Math.round(v / SNAP_GRID) * SNAP_GRID);
+  };
+
   /** 손짓을 접는다 — 아무것도 남기지 않는다. */
   const fold = () => {
     if (!gesture.current) return;
     gesture.current = null;
-    setMovePreview(null);
+    setPreview(null);
     a.current.onChange();
   };
 
@@ -85,13 +105,14 @@ export function usePlanGesture(args: PlanGestureArgs) {
     // fold 는 ref 만 읽는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  /* 판이 내려가면 손짓도 접힌다 — 남은 손짓이 나중에 쓰지 못하게. */
+  useEffect(() => () => { gesture.current = null; }, []);
 
-  function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+  function onPointerDown(e: React.PointerEvent<HTMLElement>) {
     if (gesture.current) return; // 손짓은 포인터 하나의 것이다
     if (e.button !== 0 && e.button !== 1) return;
-    const canvas = e.currentTarget;
     try {
-      canvas.setPointerCapture(e.pointerId);
+      e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
       return; // 못 붙잡으면 끝을 못 받는다 — 시작하지 않는다
     }
@@ -102,6 +123,13 @@ export function usePlanGesture(args: PlanGestureArgs) {
       ({ kind: 'pan', pointerId: e.pointerId, startClient: { x: e.clientX, y: e.clientY }, startPan: { x: panX, y: panY }, moved: false, select });
 
     if (e.button === 1 || spaceDown.current) { gesture.current = pan(false); return; }
+    const handle = (e.target as HTMLElement).closest?.('[data-handle]')?.getAttribute('data-handle') as HandleKey | null | undefined;
+    const target = handle ? a.current.resizable() : null;
+    if (handle && target) {
+      const startRect = { x: target.x, y: target.y, width: target.width, height: target.height };
+      gesture.current = { kind: 'resize', pointerId: e.pointerId, rackId: target.id, handle, startClient: { x: e.clientX, y: e.clientY }, startRect, rect: startRect };
+      return;
+    }
     const armed = a.current.armed();
     if (armed) {
       const p = snapped(world);
@@ -114,7 +142,7 @@ export function usePlanGesture(args: PlanGestureArgs) {
     gesture.current = hit ? { kind: 'move', pointerId: e.pointerId, session: createDragSession(hit, world), at: null } : pan(true);
   }
 
-  function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+  function onPointerMove(e: React.PointerEvent<HTMLElement>) {
     const world = worldOf(e);
     a.current.onPointerWorld(world);
     const g = gesture.current;
@@ -127,26 +155,34 @@ export function usePlanGesture(args: PlanGestureArgs) {
     } else if (g.kind === 'draw') {
       g.end = snapped(world);
       a.current.onChange();
+    } else if (g.kind === 'resize') {
+      g.rect = resized(g, e);
+      setPreview({ id: g.rackId, ...g.rect });
+      a.current.onChange();
     } else {
       if (!g.session.moved && !isThresholdMet(g.session, world)) return;
       g.session.moved = true;
       g.at = dragDelta(g.session, world, snapped);
-      setMovePreview({ id: g.session.assetId, ...g.at });
+      setPreview({ id: g.session.assetId, ...g.at });
       a.current.onChange();
     }
   }
 
-  function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+  function onPointerUp(e: React.PointerEvent<HTMLElement>) {
     const g = gesture.current;
     if (!g || g.pointerId !== e.pointerId) return;
     gesture.current = null;
-    setMovePreview(null);
+    setPreview(null);
     const inside = inWindow(e);
     if (g.kind === 'pan') {
       if (!g.moved && g.select) a.current.onSelect(null);
     } else if (g.kind === 'draw') {
       const rect = normalizeRect(g.start, snapped(worldOf(e)));
       if (inside && isDrawLargeEnough(rect)) a.current.onDraw(g.rackId, g.floorId, rect);
+    } else if (g.kind === 'resize') {
+      const r = resized(g, e);
+      const same = r.x === g.startRect.x && r.y === g.startRect.y && r.width === g.startRect.width && r.height === g.startRect.height;
+      if (inside && !same) a.current.onResize(g.rackId, r);
     } else if (!g.session.moved) {
       a.current.onSelect(g.session.assetId);
     } else if (inside) {
@@ -157,13 +193,14 @@ export function usePlanGesture(args: PlanGestureArgs) {
   }
 
   /** 캡처가 풀렸거나 브라우저가 손짓을 가져갔다 — 끝을 못 받으므로 그 자리에서 접는다. */
-  function onPointerLost(e: React.PointerEvent<HTMLCanvasElement>) {
+  function onPointerLost(e: React.PointerEvent<HTMLElement>) {
     if (gesture.current?.pointerId === e.pointerId) fold();
   }
 
   return {
     gesture,
-    movePreview,
+    preview,
+    fold,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerLost, onLostPointerCapture: onPointerLost },
   };
 }

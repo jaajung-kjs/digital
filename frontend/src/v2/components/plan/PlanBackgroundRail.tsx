@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { BackgroundDrawing } from '@twin/core';
 import { DetailCardHeader } from '../../../components/ui';
@@ -18,6 +18,7 @@ export function PlanBackgroundRail({
   onToggle: (name: string) => void;
   onShowAll: () => void;
   opacity: number;
+  /** 손을 뗄 때 한 번 불린다. */
   onOpacity: (v: number) => void;
 }) {
   /* 도면이 실제로 그리는 레이어만 — 선언만 있고 아무것도 안 그리는 것이 흔하다(`DEFPOINTS`). */
@@ -29,7 +30,14 @@ export function PlanBackgroundRail({
     for (const f of drawing.filled ?? []) used.add(f.layer);
     return drawing.layers.filter((l) => used.has(l.name));
   }, [drawing]);
+  /* 끄는 동안은 화면만 바꾸고, **손을 뗄 때 한 번** 쓴다 — 한 칸마다 쓰면 되돌리기가 칸 수만큼 쌓인다. */
+  const [draft, setDraft] = useState<number | null>(null);
   if (!target || !drawing) return null;
+  const shown = draft ?? opacity;
+  const commit = () => {
+    if (draft != null && draft !== opacity) onOpacity(draft);
+    setDraft(null);
+  };
   const offCount = layers.filter((l) => hidden.has(l.name)).length;
 
   return createPortal(
@@ -46,12 +54,15 @@ export function PlanBackgroundRail({
           min={10}
           max={100}
           step={5}
-          value={Math.round(opacity * 100)}
+          value={Math.round(shown * 100)}
           aria-label="배경 농도"
           className="min-w-0 flex-1"
-          onChange={(e) => onOpacity(Number(e.currentTarget.value) / 100)}
+          onChange={(e) => setDraft(Number(e.currentTarget.value) / 100)}
+          onPointerUp={commit}
+          onKeyUp={commit}
+          onBlur={commit}
         />
-        <span className="w-8 shrink-0 text-right tabular-nums text-content">{Math.round(opacity * 100)}%</span>
+        <span className="w-8 shrink-0 text-right tabular-nums text-content">{Math.round(shown * 100)}%</span>
       </div>
       <DetailCardHeader
         title={`레이어 ${layers.length - offCount}/${layers.length}`}

@@ -63,7 +63,7 @@ backend/src/generated/
 # Local data / source drawings (not for git)
 downloads/
 downloads.zip
-plan/
+/plan/
 
 # Backend uploads (사용자 업로드 artifact)
 backend/uploads/

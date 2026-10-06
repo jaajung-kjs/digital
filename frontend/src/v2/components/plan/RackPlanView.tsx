@@ -32,7 +32,7 @@ import { BackgroundImportControls } from '../floorplan/BackgroundImportControls'
 import { useFloorAdmin } from '../floorplan/useFloorAdmin';
 import { PlanBackgroundRail } from './PlanBackgroundRail';
 import { nextFacing, placedRacks, planLinks, unplacedRacks, type PlanLink } from './planSelectors';
-import { usePlanGesture, type Rect } from './usePlanGesture';
+import { usePlanGesture } from './usePlanGesture';
 
 /** 주 격자 — 타일 다섯 장(3 m). 보조 격자(타일 한 장, 60 cm)의 배수여야 두 격자가 겹친다. */
 const MAJOR_GRID = 300;
@@ -55,7 +55,6 @@ interface Latest {
   links: PlanLink[];
   selectedRackId: string | null;
   hiddenLayers: ReadonlySet<string>;
-  resizePreview: (Rect & { id: string }) | null;
 }
 
 export function RackPlanView({ substationId, selectedRackId, onSelectRack, railTarget = null }: Props) {
@@ -76,11 +75,17 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
   const activeFloorId = floors.some((f) => f.id === pickedFloorId) ? pickedFloorId : (floors[0]?.id ?? null);
   const activeFloor = floors.find((f) => f.id === activeFloorId) ?? null;
 
-  /* 고른 랙이 다른 층에 놓였으면 그 층으로 따라간다 — 사람이 고른 층을 덮는 명령이라 effect 다. */
+  /* 고른 랙이 다른 층에 놓였으면 그 층으로 따라간다 — 사람이 고른 층을 덮는 명령이라 effect 다.
+     **고른 것이 바뀔 때 한 번만** 따라간다: 매번 따르면 랙을 고른 채로는 다른 층 탭을 열 수 없다. */
+  const followedFor = useRef<string | null>(null);
   useEffect(() => {
+    if (!selectedRackId) { followedFor.current = null; return; }
+    if (followedFor.current === selectedRackId) return;
     const floorId = racks.find((r) => r.id === selectedRackId)?.floorId;
-    if (floorId && floorId !== activeFloorId && floors.some((f) => f.id === floorId)) setPickedFloorId(floorId);
-  }, [selectedRackId, racks, floors, activeFloorId]);
+    if (!floorId || !floors.some((f) => f.id === floorId)) return; // 아직 안 놓였다 — 놓이면 그때
+    followedFor.current = selectedRackId;
+    setPickedFloorId(floorId);
+  }, [selectedRackId, racks, floors]);
 
   const placed = useMemo(
     () => (activeFloorId ? placedRacks({ saved, overlays }, activeFloorId) : []),
@@ -120,18 +125,17 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
     hiddenFor.current = activeFloorId;
     if (hiddenLayers.size > 0) setHiddenLayers(new Set());
   }
-  const [resizePreview, setResizePreview] = useState<(Rect & { id: string }) | null>(null);
-
-  const latest = useRef<Latest>({ viewport, floor: activeFloor, placed, links, selectedRackId, hiddenLayers, resizePreview });
-  latest.current = { viewport, floor: activeFloor, placed, links, selectedRackId, hiddenLayers, resizePreview };
+  const latest = useRef<Latest>({ viewport, floor: activeFloor, placed, links, selectedRackId, hiddenLayers });
+  latest.current = { viewport, floor: activeFloor, placed, links, selectedRackId, hiddenLayers };
   const viewportRef = useRef(viewport);
   viewportRef.current = viewport;
 
   const update = workingCopyStore.getState().update;
-  const { gesture, movePreview, handlers } = usePlanGesture({
+  const { gesture, preview, fold, handlers } = usePlanGesture({
     viewportRef,
     setViewport,
     hitAt: (w) => findAssetAt(w.x, w.y, latest.current.placed),
+    resizable: () => latest.current.placed.find((r) => r.id === latest.current.selectedRackId) ?? null,
     armed: () => (isArmed && activeFloorId ? { rackId: placeRackId, floorId: activeFloorId } : null),
     onDraw: (rackId, floorId, rect) => {
       update('racks', rackId, { floorId, ...rect, facing: nextFacing(null) });
@@ -139,6 +143,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
       onSelectRack(rackId);
     },
     onMove: (rackId, at) => update('racks', rackId, at),
+    onResize: (rackId, rect) => update('racks', rackId, rect),
     onSelect: onSelectRack,
     onEscape: () => setArmed(false),
     onChange: () => scheduleRender(),
@@ -179,9 +184,9 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
 
       /* 끄는 중인 랙 — 상자와 선이 **같은 것을 본다**(선이 옛 자리에 남았다가 뗄 때 튀지 않게). */
       const g = gesture.current;
-      const preview = L.resizePreview
-        ?? (g?.kind === 'move' && g.at ? { id: g.session.assetId, x: g.at.x, y: g.at.y } : null);
-      const shifted = previewCenters(L.placed, preview);
+      const live = g?.kind === 'resize' ? { id: g.rackId, ...g.rect }
+        : g?.kind === 'move' && g.at ? { id: g.session.assetId, x: g.at.x, y: g.at.y } : null;
+      const shifted = previewCenters(L.placed, live);
 
       // 3. 연결선 — 같은 두 랙 사이 여러 줄은 겹쳐 그린다(묶음 없음).
       ctx.save();
@@ -199,7 +204,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
       ctx.restore();
 
       // 4. 랙
-      renderPlacedAssets(ctx, L.placed, L.selectedRackId, preview, scale);
+      renderPlacedAssets(ctx, L.placed, L.selectedRackId, live, scale);
 
       // 5. 그리는 네모
       if (g?.kind === 'draw') renderDrawPreview(ctx, g.start, g.end);
@@ -301,11 +306,14 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
     update('racks', selectedRackId, { floorId: null, x: null, y: null, width: null, height: null, facing: null });
   };
 
+  /* 고른 것이 바뀌면 그 랙에 걸린 크기 손짓은 접는다 — 손잡이가 사라진 뒤에 쓰지 않게. */
+  useEffect(() => {
+    if (gesture.current?.kind === 'resize' && gesture.current.rackId !== selectedRackId) fold();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRackId]);
+
   /* 손잡이 자리 — 끄는 중이면 끌려간 자리다(크기든 이동이든). */
-  const handleRect = resizePreview
-    ?? (selectedPlaced && movePreview?.id === selectedPlaced.id
-      ? { ...selectedPlaced, x: movePreview.x, y: movePreview.y }
-      : selectedPlaced);
+  const handleRect = selectedPlaced && preview?.id === selectedPlaced.id ? { ...selectedPlaced, ...preview } : selectedPlaced;
 
   const floorTabs = useTabs(activeFloorId ?? '');
   const { tabItems, startAdd, floorPrompt } = useFloorAdmin({ substationId, floors, racks, confirm, onCreated: setPickedFloorId });
@@ -397,23 +405,15 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
     >
       {floorPrompt}
       <div {...floorTabs.panel} className="flex min-h-0 min-w-0 flex-1">
-        <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-surface">
+        {/* 손짓의 주인은 이 판 하나다 — 캔버스와 손잡이의 누름이 모두 여기로 온다(§1.7-t). */}
+        <div className="relative min-h-0 min-w-0 flex-1 touch-none overflow-hidden bg-surface" {...handlers}>
           <canvas
             ref={attachCanvas}
-            className="absolute inset-0 block h-full w-full touch-none"
+            className="absolute inset-0 block h-full w-full"
             style={{ cursor: isArmed ? 'crosshair' : undefined }}
-            {...handlers}
             data-testid="rackplan-canvas"
           />
-          {selectedRackId && handleRect && (
-            <AssetResizeHandles
-              viewport={viewport}
-              rect={{ x: handleRect.x, y: handleRect.y, width: handleRect.width, height: handleRect.height }}
-              onResizePreview={(r) => setResizePreview({ id: selectedRackId, ...r })}
-              onResizeEnd={(r) => { setResizePreview(null); update('racks', selectedRackId, r); }}
-              onResizeCancel={() => setResizePreview(null)}
-            />
-          )}
+          {handleRect && <AssetResizeHandles viewport={viewport} rect={handleRect} />}
           {placed.length === 0 && !isArmed && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="text-center text-xs text-content-faint">

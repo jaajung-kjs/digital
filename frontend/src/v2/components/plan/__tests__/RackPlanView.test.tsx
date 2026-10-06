@@ -152,6 +152,62 @@ describe('RackPlanView', () => {
   });
 });
 
+describe('RackPlanView — 크기 조절은 같은 손짓 규칙', () => {
+  const handle = (key: string) => document.querySelector(`[data-handle="${key}"]`) as HTMLElement;
+  const hDown = (x: number, y: number) => fireEvent.pointerDown(handle('br'), { pointerId: 1, button: 0, clientX: x, clientY: y });
+  const hMove = (x: number, y: number) => fireEvent.pointerMove(handle('br'), { pointerId: 1, button: 0, clientX: x, clientY: y });
+  const hUp = (x: number, y: number) => fireEvent.pointerUp(handle('br'), { pointerId: 1, button: 0, clientX: x, clientY: y });
+  const history = () => store.temporal.getState().pastStates.length;
+
+  beforeEach(() => {
+    store.getState().create('floors', floor);
+    store.getState().create('racks', placedRack);
+    render(<RackPlanView substationId="S1" selectedRackId="R1" onSelectRack={() => {}} />);
+  });
+
+  it('손잡이를 끌어 놓으면 새 크기로 한 번 쓴다', () => {
+    const before = history();
+    hDown(160, 160);
+    hMove(180, 170);
+    hMove(200, 190);
+    expect(rackR1().width).toBe(60); // 끄는 동안은 그리기만
+    hUp(200, 190);
+    expect(rackR1()).toMatchObject({ x: 100, y: 100, width: 100, height: 90 });
+    expect(history()).toBe(before + 1);
+  });
+
+  it('크기를 바꾸다 Esc 를 누르면 아무것도 바뀌지 않는다', () => {
+    const before = history();
+    hDown(160, 160);
+    hMove(200, 190);
+    fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+    hUp(200, 190);
+    expect(rackR1()).toMatchObject({ width: 60, height: 60 });
+    expect(history()).toBe(before);
+  });
+
+  it('창 밖에서 뗀 손은 놓은 것이 아니다', () => {
+    const before = history();
+    hDown(160, 160);
+    hMove(200, 190);
+    hUp(5000, 190);
+    expect(rackR1()).toMatchObject({ width: 60, height: 60 });
+    expect(history()).toBe(before);
+  });
+});
+
+describe('RackPlanView — 층 따라가기', () => {
+  it('고른 랙이 있어도 다른 층 탭을 누르면 그 층에 머문다', () => {
+    store.getState().create('floors', floor);
+    store.getState().create('floors', { ...floor, id: 'F2', name: '2층', sortOrder: 2 });
+    store.getState().create('racks', placedRack);
+    render(<RackPlanView substationId="S1" selectedRackId="R1" onSelectRack={() => {}} />);
+    expect(screen.getByRole('tab', { name: '1층' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('tab', { name: '2층' }));
+    expect(screen.getByRole('tab', { name: '2층' })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
 const drawing = (fileName: string): BackgroundDrawing => ({
   source: { fileName, importedAt: '2026-08-04T00:00:00.000Z', fileType: 'DWG' },
   bounds: { minX: 0, minY: 0, maxX: 100, maxY: 100 },
@@ -189,8 +245,14 @@ describe('RackPlanView — 배경 도면', () => {
     document.body.appendChild(rail);
     act(() => store.getState().update('floors', 'F1', { backgroundDrawing: drawing('plan.dwg') }));
     render(<RackPlanView substationId="S1" selectedRackId={null} onSelectRack={() => {}} railTarget={rail} />);
-    fireEvent.change(within(rail).getByRole('slider', { name: '배경 농도' }), { target: { value: '80' } });
+    const slider = within(rail).getByRole('slider', { name: '배경 농도' });
+    const before = store.temporal.getState().pastStates.length;
+    fireEvent.change(slider, { target: { value: '70' } });
+    fireEvent.change(slider, { target: { value: '80' } });
+    expect(store.getState().overlays.floors.creates.F1!.backgroundOpacity).toBe(0.5); // 끄는 동안은 쓰지 않는다
+    fireEvent.pointerUp(slider);
     expect(store.getState().overlays.floors.creates.F1!.backgroundOpacity).toBe(0.8);
+    expect(store.temporal.getState().pastStates.length).toBe(before + 1);
     rail.remove();
   });
 });
