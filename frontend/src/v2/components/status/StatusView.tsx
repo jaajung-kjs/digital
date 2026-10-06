@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EQUIPMENT_STATUSES } from '@twin/core';
 import {
-  Button, EMPTY, EmptyState, FilterChip, IconButton, SegmentedControl, SELECTABLE, SELECTED, StatusDot,
+  Button, EMPTY, EmptyState, IconButton, SegmentedControl, Select, SELECTABLE, SELECTED, StatusDot,
   TABLE_ROW, TableCard, TableSearch, Td, Th, ViewCard, cn, formatDate, selectableRow, useScrollSelectedIntoView,
 } from '../../../components/ui';
 import { summarize } from '../../statusSummary';
@@ -37,12 +37,21 @@ export interface StatusViewProps {
 
 type Mode = '품목별' | '랙별';
 const MODES = [{ key: '품목별' as const, label: '품목별' }, { key: '랙별' as const, label: '랙별' }];
-interface Filter { status: string | null; neverInspected: boolean }
-const NO_FILTER: Filter = { status: null, neverInspected: false };
+/** 상태 거르개 — 하나만 고른다. '' = 전체, 상태 값, 또는 미점검. */
+const NEVER = '__never__';
 
-/** 열 폭(%) — 항목, 개수, 상태, 랙, 모델, 제조사, 설치일, 마지막점검일. */
-const WIDTHS = [26, 7, 14, 17, 10, 10, 8, 8];
-const COLS = WIDTHS.length;
+/** 열 — 앞 넷은 늘 있고, 뒤 넷(모델·제조사·설치일·마지막점검일)은 값이 있을 때만 그린다. */
+const COLUMNS = [
+  { key: 'name', width: 26 }, { key: 'count', width: 7 }, { key: 'status', width: 14 }, { key: 'where', width: 17 },
+  { key: 'model', width: 10 }, { key: 'maker', width: 10 }, { key: 'install', width: 8 }, { key: 'inspected', width: 8 },
+] as const;
+type ColKey = (typeof COLUMNS)[number]['key'];
+const OPTIONAL: Readonly<Record<string, (r: StatusRow) => boolean>> = {
+  model: (r) => !!r.model,
+  maker: (r) => !!r.maker,
+  install: (r) => !!formatDate(r.installDate),
+  inspected: (r) => !!formatDate(r.lastInspectedAt),
+};
 const noop = () => {};
 const NO_RACK = '__no_rack__';
 
@@ -55,7 +64,7 @@ export function StatusView({
 }: StatusViewProps) {
   const [mode, setMode] = useState<Mode>('품목별');
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>(NO_FILTER);
+  const [filter, setFilter] = useState('');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const canRackView = !nodeScope && racks != null;
@@ -67,12 +76,12 @@ export function StatusView({
     return next;
   };
 
-  const filtering = query.trim() !== '' || filter.status != null || filter.neverInspected;
+  const filtering = query.trim() !== '' || filter !== '';
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
-      if (filter.status && r.status !== filter.status) return false;
-      if (filter.neverInspected && r.lastInspectedAt != null) return false;
+      if (filter === NEVER) { if (r.lastInspectedAt != null) return false; }
+      else if (filter && r.status !== filter) return false;
       if (!q) return true;
       return [r.name, r.typeName, r.categoryName, r.rackName, r.substationName, r.model, r.maker].some((v) => (v ?? '').toLowerCase().includes(q));
     });
@@ -80,6 +89,22 @@ export function StatusView({
   const summary = useMemo(() => summarize(shown), [shown]);
   /** 칩의 숫자는 거르기 전 전체다. */
   const all = useMemo(() => summarize(rows), [rows]);
+  /** 보이는 행에 값이 하나라도 있는 열만 그린다 — 열 정의는 그대로, 표시만 거른다. */
+  const cols = useMemo(() => {
+    const on = COLUMNS.filter((c) => !OPTIONAL[c.key] || shown.some(OPTIONAL[c.key]!));
+    const sum = on.reduce((a, c) => a + c.width, 0);
+    return on.map((c) => ({ key: c.key as ColKey, width: (c.width / sum) * 100 }));
+  }, [shown]);
+  const widths = cols.map((c) => c.width);
+  const COLS = cols.length;
+  const has = (k: ColKey) => cols.some((c) => c.key === k);
+  /** 랙마다 설비가 몇 개인가 — 거르기 전 전체(일체형 판정은 거른 결과에 흔들리지 않는다). */
+  const perRack = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) m.set(r.rackId, (m.get(r.rackId) ?? 0) + 1);
+    return m;
+  }, [rows]);
+  const STATUS_OPTIONS = EQUIPMENT_STATUSES.filter((s) => s.value !== OK_STATUS).map((s) => [s.value, s.label, all.byStatus[s.value] ?? 0] as const);
   const allCollapsed = summary.groups.length > 0 && summary.groups.every((g) => collapsed.has(g.categoryName));
   const scrollRef = useScrollSelectedIntoView<HTMLDivElement>(selectedId);
 
@@ -99,9 +124,9 @@ export function StatusView({
 
   const rackCell = (r: StatusRow) => (nodeScope ? [r.substationName, r.rackName].filter(Boolean).join(' · ') : r.rackName);
 
-  const equipmentRow = (r: StatusRow, indent: string, fourth: string) => (
+  const equipmentRow = (r: StatusRow, indent: string, fourth: string, key: string = r.id) => (
     <tr
-      key={r.id}
+      key={key}
       {...selectableRow(selectedId, r.id, onSelect)}
       className={cn(TABLE_ROW, 'group', SELECTABLE, r.id === selectedId && SELECTED)}
     >
@@ -121,12 +146,12 @@ export function StatusView({
         </span>
       </Td>
       <Td />
-      <Td><StatusDot status={statusTone(r.status)}>{statusLabel(r.status)}</StatusDot></Td>
+      <Td>{r.status !== OK_STATUS && <StatusDot status={statusTone(r.status)}>{statusLabel(r.status)}</StatusDot>}</Td>
       <Td className="truncate text-content-muted">{fourth}</Td>
-      <Td className="truncate text-content-muted">{r.model ?? EMPTY}</Td>
-      <Td className="truncate text-content-muted">{r.maker ?? EMPTY}</Td>
-      <Td className="text-content-muted">{formatDate(r.installDate) || EMPTY}</Td>
-      <Td className="text-content-muted">{formatDate(r.lastInspectedAt) || EMPTY}</Td>
+      {has('model') && <Td className="truncate text-content-muted">{r.model ?? EMPTY}</Td>}
+      {has('maker') && <Td className="truncate text-content-muted">{r.maker ?? EMPTY}</Td>}
+      {has('install') && <Td className="text-content-muted">{formatDate(r.installDate) || EMPTY}</Td>}
+      {has('inspected') && <Td className="text-content-muted">{formatDate(r.lastInspectedAt) || EMPTY}</Td>}
     </tr>
   );
 
@@ -143,26 +168,17 @@ export function StatusView({
       onClearSelection={() => onSelect(null)}
       bodyRef={scrollRef}
       tools={
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-2">
           {canRackView && <SegmentedControl aria-label="현황 보기" items={MODES} value={mode} onChange={setMode} />}
-          {canRackView && <span className="mx-1 h-4 w-px bg-line" aria-hidden />}
-          {EQUIPMENT_STATUSES.filter((s) => s.value !== OK_STATUS).map((s) => (
-            <FilterChip
-              key={s.value}
-              label={s.label}
-              count={all.byStatus[s.value] ?? 0}
-              tone="danger"
-              on={filter.status === s.value}
-              onClick={() => setFilter((f) => ({ ...f, status: f.status === s.value ? null : s.value }))}
-            />
-          ))}
-          <FilterChip
-            label="미점검"
-            count={all.neverInspected}
-            tone="warning"
-            on={filter.neverInspected}
-            onClick={() => setFilter((f) => ({ ...f, neverInspected: !f.neverInspected }))}
-          />
+          <div className="w-40 shrink-0">
+            <Select size="sm" aria-label="상태" value={filter} onChange={(e) => setFilter(e.currentTarget.value)}>
+              <option value="">전체</option>
+              {STATUS_OPTIONS.map(([value, label, n]) => (
+                <option key={value} value={value} className={n === 0 ? 'text-content-faint' : undefined}>{label} {n}</option>
+              ))}
+              <option value={NEVER} className={all.neverInspected === 0 ? 'text-content-faint' : undefined}>미점검 {all.neverInspected}</option>
+            </Select>
+          </div>
         </div>
       }
       actions={
@@ -171,7 +187,8 @@ export function StatusView({
           {onAddEquipment && <Button variant="secondary" size="sm" onClick={() => onAddEquipment(selectedRackId ?? undefined)}>설비 추가</Button>}
           <TableSearch
             aria-label="현황 검색"
-            placeholder="분야·품목·이름·랙으로 검색"
+            className="w-44"
+            placeholder="이름·품목·랙 검색"
             value={query}
             onChange={setQuery}
             shown={shown.length}
@@ -180,7 +197,7 @@ export function StatusView({
         </div>
       }
     >
-      <TableCard fill widths={WIDTHS}>
+      <TableCard fill widths={widths}>
         <thead>
           <tr className="sticky top-0 z-sticky">
             <Th>
@@ -204,10 +221,10 @@ export function StatusView({
             <Th align="right">개수</Th>
             <Th>상태</Th>
             <Th>{view === '랙별' ? '품목' : '랙'}</Th>
-            <Th>모델</Th>
-            <Th>제조사</Th>
-            <Th>설치일</Th>
-            <Th>마지막점검일</Th>
+            {has('model') && <Th>모델</Th>}
+            {has('maker') && <Th>제조사</Th>}
+            {has('install') && <Th>설치일</Th>}
+            {has('inspected') && <Th>마지막점검일</Th>}
           </tr>
         </thead>
         <tbody>
@@ -271,7 +288,13 @@ export function StatusView({
           ))}
 
           {view === '랙별' && rackGroups.length === 0 && empty}
-          {view === '랙별' && rackGroups.map(({ rack, rows: inRack }) => (
+          {view === '랙별' && rackGroups.map(({ rack, rows: inRack }) => {
+            /* 일체형 — 랙 안에 설비가 하나뿐이고 이름이 랙과 같으면 랙 행 하나로 그린다. */
+            const only = inRack[0];
+            if (only && inRack.length === 1 && perRack.get(rack.id) === 1 && only.name === rack.name) {
+              return equipmentRow(only, '', [only.typeName, rack.typeName].filter(Boolean).join(' · '), `rack:${rack.id}`);
+            }
+            return (
             <Fragment key={rack.id}>
               <tr
                 {...(rack.id === NO_RACK ? {} : selectableRow(selectedRackId, rack.id, onSelectRack ?? noop))}
@@ -281,11 +304,12 @@ export function StatusView({
                 <Td align="right" className="font-semibold text-content">{inRack.length}</Td>
                 <Td />
                 <Td className="truncate text-content-muted">{rack.typeName}</Td>
-                <Td colSpan={COLS - 4} />
+                {COLS > 4 && <Td colSpan={COLS - 4} />}
               </tr>
               {inRack.map((r) => equipmentRow(r, 'pl-8', r.typeName))}
             </Fragment>
-          ))}
+            );
+          })}
         </tbody>
       </TableCard>
     </ViewCard>

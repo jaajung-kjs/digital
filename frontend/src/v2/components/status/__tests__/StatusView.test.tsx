@@ -45,3 +45,56 @@ describe('StatusView 빈 화면·고아 설비', () => {
     expect(screen.getAllByText('UPS').length).toBeGreaterThan(0);
   });
 });
+
+describe('StatusView 도구줄·표 정리', () => {
+  it('상태 거르개는 Select 하나다 — 칩이 없고, 고장을 고르면 고장 행만', () => {
+    render(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: /고장/ })).toBeNull();
+    const select = screen.getByRole('combobox', { name: '상태' });
+    expect(screen.getByRole('option', { name: '고장 1' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '예비 0' })).toBeInTheDocument(); // 0 도 보인다
+    fireEvent.change(select, { target: { value: 'fault' } });
+    fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
+    expect(screen.getByText('L3 #2')).toBeInTheDocument();
+    expect(screen.queryByText('L3 #1')).toBeNull();
+    expect(screen.queryByText('UPS')).toBeNull();
+  });
+
+  it('정상은 상태 칸을 비우고, 정상이 아닌 것만 이름을 단다', () => {
+    render(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
+    const ok = screen.getByText('L3 #1').closest('tr')!;
+    const bad = screen.getByText('L3 #2').closest('tr')!;
+    expect(ok.querySelectorAll('td')[2]).toHaveTextContent('');
+    expect(ok).not.toHaveTextContent('정상');
+    expect(bad.querySelectorAll('td')[2]).toHaveTextContent('고장');
+  });
+
+  it('값이 하나도 없는 열은 머리글째 없다 — 값이 생기면 나타난다', () => {
+    const { rerender } = render(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.queryByRole('columnheader', { name: '모델' })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: '제조사' })).toBeNull();
+    rerender(<StatusView rows={[{ ...rows[0]!, model: 'X-1' }, ...rows.slice(1)]} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.getByRole('columnheader', { name: '모델' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: '제조사' })).toBeNull();
+  });
+
+  it('일체형 — 랙에 같은 이름의 설비 하나뿐이면 랙별에서 행 하나, 누르면 그 설비', () => {
+    const onSelect = vi.fn();
+    const merged = [{ ...rows[2]!, name: 'UPS#1' }];
+    render(<StatusView rows={merged} racks={[racks[1]!]} selectedId={null} onSelect={onSelect} onSelectRack={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
+    expect(screen.getAllByText('UPS#1')).toHaveLength(1);
+    const tr = screen.getByText('UPS#1').closest('tr')!;
+    expect(tr).toHaveTextContent('UPS · UPS반');
+    fireEvent.click(tr);
+    expect(onSelect).toHaveBeenCalledWith('e3');
+  });
+
+  it('이름이 다르면 일체형이 아니다 — 랙 행 + 설비 행', () => {
+    render(<StatusView rows={[rows[2]!]} racks={[racks[1]!]} selectedId={null} onSelect={vi.fn()} onSelectRack={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
+    expect(screen.getByText('UPS#1')).toBeInTheDocument();
+    expect(screen.getByText('UPS#1').closest('tbody')!.querySelectorAll('tr')).toHaveLength(2);
+  });
+});

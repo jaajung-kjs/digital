@@ -6,6 +6,8 @@ export interface TableSearchProps {
   /** 무엇을 훑는지 알려주는 안내 — `이름 · 종류 · 담당자 검색` 처럼 실제 대상 열을 적는다. */
   placeholder: string;
   'aria-label': string;
+  /** 상자 폭 — 배치용(기본 `w-64`). 좁은 머리 띠에서만 줄인다. */
+  className?: string;
   /** 걸러낸 뒤 남은 건수. */
   shown: number;
   /** 거르기 전 전체 건수. */
@@ -26,7 +28,7 @@ export interface TableSearchProps {
  * 필요하다. 하지만 안 거를 때의 수는 화면이 이미 말하고 있는 것을 되풀이할 뿐이고,
  * 접어 둔 표에서는 화면과 다른 수가 되기까지 했다(두 줄이 보이는데 「18건」).
  */
-export function TableSearch({ value, onChange, placeholder, shown, total, ...rest }: TableSearchProps) {
+export function TableSearch({ value, onChange, placeholder, shown, total, className, ...rest }: TableSearchProps) {
   const filtering = value.trim().length > 0;
   return (
     <div className="flex shrink-0 items-center gap-2">
@@ -38,7 +40,7 @@ export function TableSearch({ value, onChange, placeholder, shown, total, ...res
           {shown} / {total}건
         </span>
       )}
-      <div className="w-64">
+      <div className={className ?? 'w-64'}>
         <Input
           size="sm"
           aria-label={rest['aria-label']}

@@ -29,7 +29,8 @@ export async function openStation(page: Page, hq: string, branch: string, statio
   expect(branchIdx, `지사 ${branch}`).toBeGreaterThan(hqIdx);
   await items.nth(branchIdx).click();
   await selectStation(page, station);
-  await expect(page.getByTestId('v2-selected')).toHaveText(`${hq} › ${branch} › ${station}`);
+  await expect(page.getByRole('heading', { level: 1, name: station })).toBeVisible();
+  await expect(page.getByTestId('v2-selected')).toHaveText(`${hq} › ${branch}`);
 }
 
 /** 이미 펼쳐진 트리에서 국을 누른다(국 이름은 트리에서 유일하다고 본다). */
@@ -37,5 +38,5 @@ export async function selectStation(page: Page, station: string) {
   const tree = page.getByRole('tree', { name: '조직' });
   const escaped = station.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
   await tree.getByRole('treeitem', { name: new RegExp(`^${escaped} `) }).click();
-  await expect(page.getByTestId('v2-selected')).toHaveText(new RegExp(`${escaped}$`));
+  await expect(page.getByRole('heading', { level: 1, name: station })).toBeVisible();
 }

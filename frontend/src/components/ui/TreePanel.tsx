@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { IconButton } from './IconButton';
 import { Input } from './Input';
@@ -6,6 +6,7 @@ import { isCommitKey } from './keyboard';
 import { cn } from './cn';
 import { SELECTABLE, SELECTED } from './selection';
 import { SelectionScope } from './SelectionScope';
+import { useScrollSelectedIntoView } from './useScrollSelectedIntoView';
 import { selectOrToggle } from './rowSelection';
 
 /** 트리에 서는 줄 하나. 계층은 `depth` 가 말한다 — 이미 펼쳐 놓은 평평한 목록을 받는다. */
@@ -162,7 +163,6 @@ export function TreePanel({
 }: TreePanelProps) {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  const listRef = useRef<HTMLDivElement>(null);
   /**
    * Tab 으로 닿는 줄은 **하나뿐**이다(roving tabindex).
    *
@@ -219,6 +219,12 @@ export function TreePanel({
     }
     return out;
   }, [nodes, query, collapsed]);
+
+  /* 고른 줄이 화면 밖이면 옮긴다 — 다른 데서(주소·상세 패널) 골라진 줄도 포함. 줄이 **그려져 있을
+     때만** 키를 준다: 트리 자료가 늦게 오거나 접힌 가지 안이면, 그려지는 순간 한 번 옮긴다. */
+  const listRef = useScrollSelectedIntoView<HTMLDivElement>(
+    selectedId != null && shown.some((n) => n.id === selectedId) ? selectedId : null,
+  );
 
   /**
    * 만드는 중인 빈 줄은 **그 부모 바로 아래**에 선다 — 어디에 생기는지 목록이 보여 준다.

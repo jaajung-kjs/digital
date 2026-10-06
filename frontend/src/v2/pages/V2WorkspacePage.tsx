@@ -116,8 +116,8 @@ export default function V2WorkspacePage() {
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               <PageHeader
-                title="설비 현황"
-                path={<span data-testid="v2-selected">{orgPath.map((n) => n.name).join(' › ')}</span>}
+                title={selected.name}
+                path={orgPath.length > 1 ? <span data-testid="v2-selected">{orgPath.slice(0, -1).map((n) => n.name).join(' › ')}</span> : undefined}
                 actions={<SaveBar onCommit={commit.commit} isCommitting={commit.isCommitting} substationNames={touched} issue={commit.issues[0]?.message ?? null} />}
               />
               {substationId && (

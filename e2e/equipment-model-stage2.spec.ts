@@ -113,7 +113,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   // 8. 저장 → 새로고침 → 남아 있다
   await save(page);
   await page.reload();
-  await expect(page.getByTestId('v2-selected')).toHaveText(new RegExp(`${STATION}$`));
+  await expect(page.getByRole('heading', { level: 1, name: STATION })).toBeVisible();
   await main(page).getByRole('tab', { name: '현황' }).click();
   await main(page).getByRole('radio', { name: '랙별' }).click();
   await expect(main(page).getByRole('row').filter({ hasText: 'E2E랙' })).toHaveCount(1);
