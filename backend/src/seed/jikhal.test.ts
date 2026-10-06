@@ -1,4 +1,4 @@
-import { MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES } from '@twin/core';
+import { JIKHAL_INVENTORY, MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES, validateState, type ModelState } from '@twin/core';
 import { describe, expect, it } from 'vitest';
 import { buildJikhalPayload } from './jikhal.js';
 import { OPGW, STATIONS, seatedPlates } from './jikhalGangwon.js';
@@ -81,5 +81,41 @@ describe('buildJikhalPayload — 광선로', () => {
       const b = seatedPlates(seg.b).find((x) => x.slot === seg.bSlot)!;
       expect(a.cores).toBe(b.cores);
     }
+  });
+});
+
+describe('buildJikhalPayload — 국 설비', () => {
+  const p = buildJikhalPayload({ ...input(), inventory: JIKHAL_INVENTORY });
+
+  it('인벤토리의 랙·설비가 OFD 와 함께 실린다', () => {
+    const invEq = Object.values(JIKHAL_INVENTORY).reduce((n, s) => n + s.racks.reduce((m, r) => m + r.equipment.length, 0), 0);
+    expect(p.equipment!.creates).toHaveLength(STATIONS.length + invEq);
+  });
+
+  it('회로가 있는 설비는 회로 수와 회로 값을 함께 싣는다', () => {
+    const withCircuits = p.equipment!.creates!.filter((e) => (e.circuitCount ?? 0) > 0);
+    expect(withCircuits.length).toBeGreaterThan(0);
+    const total = withCircuits.reduce((n, e) => n + e.circuitCount!, 0);
+    expect(p.circuits!.updates).toHaveLength(total);
+  });
+
+  it('점퍼의 코어 끝은 그 국의 끝(A|B)으로 풀린다 — 판이 광선로가 아니면 버린다', () => {
+    const lineEnds = new Map(p.fiberLines!.creates!.flatMap((l) => [[`${l.id}:A`, l.a.substationId], [`${l.id}:B`, l.b.substationId]]));
+    for (const l of p.links!.creates!) for (const e of [l.a, l.b]) {
+      if (e.kind === 'core') expect(lineEnds.get(`${e.lineId}:${e.side}`)).toBe(l.substationId);
+    }
+  });
+
+  it('완성된 페이로드는 core 검증을 통과한다 — 시드가 화면과 같은 규칙을 지킨다', () => {
+    const cableMedium = new Map([...MASTER_CABLE_TYPES.map((t) => [`ct-${t.key}`, t.medium] as const)]);
+    const state: ModelState = {
+      racks: p.racks!.creates!.map((r) => ({ id: r.id, substationId: r.substationId, name: r.name })),
+      equipment: p.equipment!.creates!.map((e) => ({ id: e.id, substationId: e.substationId, rackId: e.rackId, name: e.name, circuitCount: e.circuitCount ?? 0 })),
+      fiberLines: p.fiberLines!.creates!.map((l) => ({ id: l.id, cableTypeId: l.cableTypeId, coreCount: l.coreCount,
+        aSubstationId: l.a.substationId, aEquipmentId: l.a.equipmentId ?? null, bSubstationId: l.b.substationId, bEquipmentId: l.b.equipmentId ?? null })),
+      links: p.links!.creates!.map((l) => ({ id: l.id, substationId: l.substationId, cableTypeId: l.cableTypeId ?? null, a: l.a, b: l.b })),
+      cableTypes: [...cableMedium].map(([id, medium]) => ({ id, medium })),
+    };
+    expect(validateState(state)).toEqual([]);
   });
 });

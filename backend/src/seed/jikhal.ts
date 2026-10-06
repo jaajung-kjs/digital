@@ -5,7 +5,7 @@
  * 들어간다. 페이로드를 짓는 부분은 순수 함수라 DB 없이 시험한다.
  */
 import { randomUUID } from 'node:crypto';
-import { SEED_PICKS, type StationInventory } from '@twin/core';
+import { SEED_PICKS, type InvEnd, type StationInventory } from '@twin/core';
 import { commitChanges } from '../v2/commit/service.js';
 import type { CommitPayload } from '../v2/commit/schema.js';
 import { nextDb } from '../v2/db.js';
@@ -97,8 +97,51 @@ export function buildJikhalPayload(input: JikhalInput): CommitPayload {
   return payload;
 }
 
-/** 국 설비(랙·설비·회로·연결) — Task 11 에서 채운다. */
-function addInventory(_payload: CommitPayload, _input: JikhalInput, _plateEnd: Map<string, { lineId: string; side: 'A' | 'B' }>): void {}
+/**
+ * 국 설비 — 랙·설비(+회로 수와 회로 값)·연결. 이름으로 적힌 끝을 id 로 푼다.
+ * 점퍼가 가리키는 판이 세운 광선로가 아니면(대국이 직할 밖) 그 점퍼는 버린다 — 반대편이 없다.
+ */
+function addInventory(payload: CommitPayload, input: JikhalInput, plateEnd: Map<string, { lineId: string; side: 'A' | 'B' }>): void {
+  const racks = payload.racks!.creates!;
+  const equipment = payload.equipment!.creates!;
+  const circuits: NonNullable<NonNullable<CommitPayload['circuits']>['updates']> = [];
+  const links: Creates<'links'> = [];
+  let dropped = 0;
+
+  for (const { key } of STATIONS) {
+    const inv = input.inventory![key];
+    if (!inv) continue;
+    const sub = input.substationIds[key];
+    const eqId = new Map<string, string>();
+    for (const r of inv.racks) {
+      const rackId = input.newId();
+      racks.push({ id: rackId, substationId: sub, name: r.name, rackTypeId: must(input.rackTypeIds, r.rackType, '랙 종류') });
+      for (const e of r.equipment) {
+        const id = input.newId();
+        eqId.set(e.name, id);
+        equipment.push({ id, substationId: sub, rackId, name: e.name, typeId: must(input.equipmentTypeIds, e.type, '설비 종류'), circuitCount: e.circuits?.length ?? 0 });
+        for (const c of e.circuits ?? []) {
+          circuits.push({ equipmentId: id, no: c.no, patch: { label: c.label, current: c.current, capacity: c.capacity } });
+        }
+      }
+    }
+    const end = (x: InvEnd): NonNullable<Creates<'links'>[number]['a']> | null => {
+      if ('equipment' in x) return { kind: 'equipment', equipmentId: eqId.get(x.equipment)!, label: x.label ?? null };
+      if ('circuit' in x) return { kind: 'circuit', equipmentId: eqId.get(x.circuit[0])!, no: x.circuit[1] };
+      const at = plateEnd.get(`${key}#${x.core[0]}`);
+      return at ? { kind: 'core', lineId: at.lineId, no: x.core[1], side: at.side } : null;
+    };
+    for (const l of inv.links) {
+      const a = end(l.a);
+      const b = end(l.b);
+      if (!a || !b) { dropped++; continue; }
+      links.push({ id: input.newId(), substationId: sub, cableTypeId: must(input.cableTypeIds, l.cable, '케이블 종류'), a, b });
+    }
+  }
+  payload.circuits = { updates: circuits };
+  payload.links = { creates: links };
+  if (dropped > 0) console.log(`[seed:jikhal] 직할 밖 판을 가리키는 점퍼 ${dropped}건은 버림`);
+}
 
 /** 국이 하나도 없을 때만 — 재시작마다 도는 시드가 운영 데이터를 건드리면 안 된다. */
 export async function seedJikhal(inventory?: Record<string, StationInventory>): Promise<void> {

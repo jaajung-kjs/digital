@@ -16,7 +16,6 @@ export * from './topology/graph.js';
 export * from './topology/layout.js';
 export * from './seed/catalog.js';
 export * from './seed/org.js';
-export * from './seed/stationKits.js';
 export * from './seed/master.js';
 export * from './report/computeReport.js';
 export * from './report/computeEstimate.js';
