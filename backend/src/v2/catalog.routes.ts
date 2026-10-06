@@ -3,7 +3,7 @@
  *
  * 옛 카탈로그는 포트 템플릿·구성 그리드·내부 결선을 안고 있어 한 종류를 고치는 데 구조
  * 검사(TYPE_IN_USE 의 구조 변경 판정·accepts 정규화)가 따랐다. 이제 종류는 이름과 품셈뿐이라
- * 「쓰이는 중이면 못 지운다」 하나만 남는다.
+ * 「쓰이는 중이면 못 지운다」와 「쓰이는 케이블 종류의 매체는 못 바꾼다」 둘만 남는다.
  */
 import { CABLE_MEDIA } from '@twin/core';
 import { Router } from 'express';
@@ -68,7 +68,15 @@ catalogRouter.patch('/catalog/:kind/:id', adminOnly, async (req, res, next) => {
     const kind = kindOf(req.params.kind);
     const patch = catalogPatches[kind].parse(req.body);
     const d = KINDS[kind].delegate();
-    if (!(await d.findUnique({ where: { id: req.params.id } }))) throw new HttpError(404, 'NOT_FOUND', '해당 종류를 찾을 수 없습니다');
+    const current = (await d.findUnique({ where: { id: req.params.id } })) as { medium?: string } | null;
+    if (!current) throw new HttpError(404, 'NOT_FOUND', '해당 종류를 찾을 수 없습니다');
+    /* 쓰이는 케이블 종류의 매체를 바꾸면 그것을 쓰는 연결·광선로가 한꺼번에 검증에서 떨어져
+       그 국들이 저장할 수 없게 된다 — 매체는 쓰이지 않을 때만 바꾼다. */
+    const nextMedium = (patch as { medium?: string }).medium;
+    if (kind === 'cable-types' && nextMedium !== undefined && nextMedium !== current.medium) {
+      const used = await KINDS[kind].usage(req.params.id);
+      if (used > 0) throw new HttpError(409, 'TYPE_IN_USE', `${used}건이 이 케이블 종류를 쓰고 있어 매체를 바꿀 수 없습니다 — 새 종류를 만들어 옮기세요`);
+    }
     res.json(await d.update({ where: { id: req.params.id }, data: patch }));
   } catch (e) {
     next(e);

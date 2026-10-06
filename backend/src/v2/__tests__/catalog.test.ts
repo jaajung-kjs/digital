@@ -50,6 +50,17 @@ describe('카탈로그', () => {
     expect(res2.body.error).toBe('TYPE_IN_USE');
   });
 
+  it('쓰이는 케이블 종류의 매체는 바꿀 수 없다 — 409 TYPE_IN_USE, 이름은 고칠 수 있다', async () => {
+    const org = await makeOrg('t3-catm');
+    await nextDb.fiberLine.create({ data: { cableTypeId: m.fiberCableId, coreCount: 2, aSubstationId: org.s1, bSubstationId: org.s2 } });
+    const res = await request(app).patch(`/api/v2/catalog/cable-types/${m.fiberCableId}`).set(admin).send({ medium: 'comm' }).expect(409);
+    expect(res.body.error).toBe('TYPE_IN_USE');
+    expect((await nextDb.cableType.findUniqueOrThrow({ where: { id: m.fiberCableId } })).medium).toBe('fiber');
+    await request(app).patch(`/api/v2/catalog/cable-types/${m.fiberCableId}`).set(admin).send({ medium: 'fiber', name: '시험 FIBER' }).expect(200);
+    const unused = (await request(app).post('/api/v2/catalog/cable-types').set(admin).send({ key: 'TEST_UNUSED', name: '안 씀', medium: 'comm' }).expect(201)).body;
+    await request(app).patch(`/api/v2/catalog/cable-types/${unused.id}`).set(admin).send({ medium: 'power' }).expect(200);
+  });
+
   it('관리자가 아니면 쓰기 403', async () => {
     await request(app).post('/api/v2/catalog/categories').set(viewer).send({ key: 'TEST_X', name: 'x' }).expect(403);
   });
