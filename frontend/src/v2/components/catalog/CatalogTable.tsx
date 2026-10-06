@@ -4,13 +4,17 @@
  * 네 종류가 같은 표를 쓴다: 읽는 줄이 기본이고 칸을 누르면 그 자리에서 고친다(§1.7-i).
  * 키는 화면에 없다 — 새 행을 만들 때 자동으로 찍는다. 순서는 끌어 바꾸지 않고 「순서」 숫자 칸으로
  * 고친다. 지우기가 막히면(쓰이는 품목) 서버 문구가 그 행 아래에 뜬다.
+ *
+ * **「순서」 칸은 몇 번째인가(1..n)를 보인다** — 저장된 `sortOrder` 는 시드·삭제가 남긴 틈이 있어
+ * (20 다음 31, 분야가 2 부터) 그대로 보이면 무슨 뜻인지 읽을 수 없다. 칸에 k 를 적으면 그 줄을 k 번째로
+ * 옮기고 목록 전체를 한 번에 다시 매긴다(`PATCH /v2/order` — 트리가 끌어 옮길 때와 같은 문).
  */
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Check, Plus, Trash2, X } from 'lucide-react';
 import { Button, EMPTY, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
 import { isAxiosError } from 'axios';
 import { apiErrorMessage } from '../../apiError';
-import { useWageCatalog } from '../../hooks';
+import { useReorder, useWageCatalog } from '../../hooks';
 import { newCatalogKey } from './catalogKey';
 import { useCatalogMutations } from '../../model/hooks';
 import type { CatalogKind } from '../../model/types';
@@ -50,9 +54,16 @@ function parse(col: Column, raw: unknown): unknown {
   return s === '' ? undefined : s;
 }
 
+const ORDER_KEY = 'sortOrder';
+
 export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Props) {
-  const rows = rawRows as readonly Row[];
+  /* 보이는 차례 = 저장된 순서. 서버가 이미 그렇게 주지만, 「몇 번째」를 보이는 칸이 이 차례에 기대므로 여기서 못 박는다. */
+  const rows = useMemo(
+    () => [...(rawRows as readonly Row[])].sort((a, b) => Number(a[ORDER_KEY] ?? 0) - Number(b[ORDER_KEY] ?? 0)),
+    [rawRows],
+  );
   const { create, patch, remove } = useCatalogMutations();
+  const reorder = useReorder();
   const [draft, setDraft] = useState<Row | null>(null);
   const { confirm, confirmDialog } = useConfirm();
   /** 만드는 중인가 — 한 번에 하나만 보낸다(Enter 연타·버튼 겹침). */
@@ -75,6 +86,19 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
     if (next === (row[col.key] ?? null) || (col.kind !== 'number' && next === str(row[col.key]))) return;
     setError(null);
     patch.mutateAsync({ kind, id: str(row.id), patch: { [col.key]: next } }).catch((e) => fail(str(row.id), e, '고치지 못했습니다'));
+  }
+
+  /** 줄을 k 번째(1..n)로 옮긴다 — 목록 전체의 새 차례를 보낸다. 범위 밖은 끝으로 붙인다. */
+  function moveTo(row: Row, raw: string) {
+    const want = Math.round(Number(raw));
+    if (raw.trim() === '' || Number.isNaN(want)) return;
+    const from = rows.indexOf(row);
+    const to = Math.min(Math.max(want, 1), rows.length) - 1;
+    if (to === from) return;
+    const ids = rows.filter((r) => r !== row).map((r) => str(r.id));
+    ids.splice(to, 0, str(row.id));
+    setError(null);
+    reorder.mutateAsync({ kind, ids }).catch((e) => fail(str(row.id), e, '순서를 바꾸지 못했습니다'));
   }
 
   /** 추가는 **분명한 손짓**(Enter·추가 단추)으로만 한다 — 선택 칸은 blur 만으로는 끝났는지 알 수 없다. */
@@ -110,6 +134,8 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
   }
 
   function draftCell(c: Column) {
+    /* 새 줄은 늘 맨 끝 — 몇 번째가 될지만 보인다(저장 값은 `newRow` 가 정한 끝 번호). */
+    if (c.key === ORDER_KEY) return <span className={readCellClass(true)}>{rows.length + 1}</span>;
     const set = (v: unknown) => setDraft((d) => ({ ...d, [c.key]: v }));
     if (c.kind === 'labor') return <LaborTypeSelect value={(draft?.[c.key] as string | null) ?? null} onChange={set} ariaLabel={c.label} />;
     if (c.kind === 'select') {
@@ -137,7 +163,17 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
     );
   }
 
-  function readCell(row: Row, c: Column) {
+  function readCell(row: Row, c: Column, rank: number) {
+    if (c.key === ORDER_KEY) {
+      return (
+        <InlineEditCell
+          label={`${str(row.name)} ${c.label}`}
+          type="number"
+          value={String(rank)}
+          onCommit={(raw) => moveTo(row, raw)}
+        />
+      );
+    }
     if (c.kind === 'labor') {
       return <LaborCell value={(row[c.key] as string | null) ?? null} onChange={(code) => commitPatch(row, c, code ?? '')} ariaLabel={`${str(row.name)} ${c.label}`} />;
     }
@@ -181,10 +217,10 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.map((row, i) => (
               <RowFragment key={str(row.id)}>
                 <tr className={`group ${TABLE_ROW}`}>
-                  {cols.map((c) => <Td key={c.key} align={alignOf(c)} className="truncate">{readCell(row, c)}</Td>)}
+                  {cols.map((c) => <Td key={c.key} align={alignOf(c)} className="truncate">{readCell(row, c, i + 1)}</Td>)}
                   <Td align="right">
                     <IconButton
                       size="sm"

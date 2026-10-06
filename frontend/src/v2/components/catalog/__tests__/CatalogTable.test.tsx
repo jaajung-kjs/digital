@@ -5,15 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const create = vi.fn();
 const patch = vi.fn();
 const remove = vi.fn();
+const reorder = vi.fn();
 /* vitest.config 의 mockReset 이 매 시험 전에 구현을 비우므로 여기서 다시 채운다. */
 beforeEach(() => {
   create.mockResolvedValue({});
   patch.mockResolvedValue({});
+  reorder.mockResolvedValue(undefined);
   remove.mockRejectedValue(Object.assign(new Error('x'), { isAxiosError: true, response: { status: 409, data: { error: 'TYPE_IN_USE', message: '설비 3대가 이 설비 품목을 쓰고 있어 지울 수 없습니다' } } }));
 });
 vi.mock('../../../model/api', () => ({ createCatalogRow: (...a: unknown[]) => create(...a), patchCatalogRow: (...a: unknown[]) => patch(...a), deleteCatalogRow: (...a: unknown[]) => remove(...a), fetchCatalog: vi.fn(), fetchNodeEquipment: vi.fn(), putOrder: vi.fn() }));
 
 vi.mock('../../../hooks', () => ({
+  useReorder: () => ({ mutateAsync: (...a: unknown[]) => reorder(...a) }),
   useWageCatalog: () => ({ rows: [{ code: '1086', name: '통신내선공', sector: '통신', wage: 1 }], known: () => true, nameOf: (c: string | null) => (c ? '통신내선공' : null), effective: '2026' }),
 }));
 
@@ -150,5 +153,30 @@ describe('CatalogTable', () => {
     expect(screen.queryByRole('combobox')).toBeNull();
     fireEvent.click(screen.getByText('통신내선공'));
     expect(screen.getByRole('combobox', { name: 'OFD 노무유형' })).toBeInTheDocument();
+  });
+
+  /* 저장된 sortOrder 는 틈이 있다(20 다음 31) — 칸은 몇 번째인가를 보이고, 고치면 목록 전체를 다시 매긴다. */
+  it('순서 칸은 1..n 차례를 보이고, k 를 적으면 그 줄을 k 번째로 옮겨 전체 차례를 보낸다', async () => {
+    const rows = [{ id: 'a', name: '가', sortOrder: 2 }, { id: 'c', name: '다', sortOrder: 31 }, { id: 'b', name: '나', sortOrder: 20 }];
+    wrap(<CatalogTable kind="categories" title="분야" rows={rows} columns={columns} newRow={() => ({ sortOrder: 32 })} />);
+    expect(screen.getAllByRole('button', { name: / 순서 고치기$/ }).map((b) => b.textContent)).toEqual(['1', '2', '3']);
+    expect(screen.getAllByRole('button', { name: / 순서 고치기$/ }).map((b) => b.getAttribute('aria-label'))).toEqual(['가 순서 고치기', '나 순서 고치기', '다 순서 고치기']);
+    fireEvent.click(screen.getByRole('button', { name: '다 순서 고치기' }));
+    const input = screen.getByDisplayValue('3');
+    fireEvent.change(input, { target: { value: '1' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(reorder).toHaveBeenCalledWith({ kind: 'categories', ids: ['c', 'a', 'b'] }));
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('새 줄의 순서는 맨 끝 차례를 보이고, 저장 값은 newRow 의 끝 번호다', async () => {
+    wrap(<CatalogTable kind="categories" title="분야" rows={[{ id: 'a', name: '가', sortOrder: 20 }]} columns={columns} newRow={() => ({ sortOrder: 21 })} />);
+    fireEvent.click(screen.getByRole('button', { name: '추가' }));
+    expect(screen.queryByLabelText('순서')).toBeNull();
+    const name = screen.getByLabelText('이름');
+    fireEvent.change(name, { target: { value: '새' } });
+    fireEvent.keyDown(name, { key: 'Enter' });
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][1]).toMatchObject({ sortOrder: 21, name: '새' });
   });
 });
