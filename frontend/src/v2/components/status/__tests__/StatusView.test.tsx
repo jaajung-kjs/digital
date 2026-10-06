@@ -31,3 +31,17 @@ describe('StatusView', () => {
     expect(onSelect).toHaveBeenCalledWith('e2');
   });
 });
+
+describe('StatusView 빈 화면·고아 설비', () => {
+  it('노드 범위의 빈 표는 「설비 추가」를 권하지 않는다', () => {
+    render(<StatusView rows={[]} nodeScope selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.getByText('설비가 없습니다')).toBeInTheDocument();
+    expect(screen.queryByText(/설비 추가/)).toBeNull();
+  });
+  it('랙별 — 랙 목록에 없는 랙의 설비는 「랙 없음」 아래', () => {
+    render(<StatusView rows={rows} racks={[racks[0]!]} selectedId={null} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
+    expect(screen.getByText('랙 없음')).toBeInTheDocument();
+    expect(screen.getAllByText('UPS').length).toBeGreaterThan(0);
+  });
+});

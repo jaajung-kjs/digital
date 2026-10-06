@@ -87,7 +87,8 @@ export default function V2WorkspacePage() {
   }, [route]);
 
   const selectedRow = rows.find((r) => r.id === route.eqId) ?? null;
-  const waiting = substationId != null && (!loadedHere || !catalog.data);
+  const waiting = (substationId != null && (!loadedHere || !catalog.data)) || (nodeScope && nodeEquipment.isLoading);
+  const nodeError = nodeScope && nodeEquipment.isError ? '현황을 불러오지 못했습니다' : null;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -118,7 +119,9 @@ export default function V2WorkspacePage() {
                   <ErrorStrip message={commit.error} onDismiss={commit.clearError} />
                 </div>
               )}
-              {waiting ? (
+              {nodeError ? (
+                <PageState error={nodeError} />
+              ) : waiting ? (
                 <PageState />
               ) : (
                 <div {...viewTabs.panel} className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-4">

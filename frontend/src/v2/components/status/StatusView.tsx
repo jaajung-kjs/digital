@@ -44,6 +44,7 @@ const NO_FILTER: Filter = { status: null, neverInspected: false };
 const WIDTHS = [26, 7, 14, 17, 10, 10, 8, 8];
 const COLS = WIDTHS.length;
 const noop = () => {};
+const NO_RACK = '__no_rack__';
 
 /**
  * 현황 — 설비를 **품목별**(분야 ▸ 품목 ▸ 설비) 또는 **랙별**(랙 ▸ 설비)로 읽는다.
@@ -86,10 +87,14 @@ export function StatusView({
     if (!racks) return [];
     const byRack = new Map<string, StatusRow[]>();
     for (const r of shown) byRack.set(r.rackId, [...(byRack.get(r.rackId) ?? []), r]);
-    return racks
+    const known = new Set(racks.map((r) => r.id));
+    const orphans = shown.filter((r) => !known.has(r.rackId));
+    const groups = racks
       .map((rack) => ({ rack, rows: (byRack.get(rack.id) ?? []).sort((a, b) => a.name.localeCompare(b.name, 'ko')) }))
       .filter((g) => !filtering || g.rows.length > 0)
       .sort((a, b) => a.rack.name.localeCompare(b.rack.name, 'ko'));
+    if (orphans.length > 0) groups.push({ rack: { id: NO_RACK, name: '랙 없음', typeName: '' }, rows: orphans });
+    return groups;
   }, [racks, shown, filtering]);
 
   const rackCell = (r: StatusRow) => (nodeScope ? [r.substationName, r.rackName].filter(Boolean).join(' · ') : r.rackName);
@@ -128,7 +133,7 @@ export function StatusView({
   const empty = (
     <tr>
       <Td colSpan={COLS}>
-        {filtering ? <EmptyState title="조건과 맞는 설비가 없습니다" /> : <EmptyState title="설비가 없습니다" description="「설비 추가」로 놓으세요." />}
+        {filtering ? <EmptyState title="조건과 맞는 설비가 없습니다" /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」로 놓으세요.' : undefined} />}
       </Td>
     </tr>
   );
@@ -269,8 +274,8 @@ export function StatusView({
           {view === '랙별' && rackGroups.map(({ rack, rows: inRack }) => (
             <Fragment key={rack.id}>
               <tr
-                {...selectableRow(selectedRackId, rack.id, onSelectRack ?? noop)}
-                className={cn(TABLE_ROW, 'border-b-0 border-t', SELECTABLE, rack.id === selectedRackId && SELECTED)}
+                {...(rack.id === NO_RACK ? {} : selectableRow(selectedRackId, rack.id, onSelectRack ?? noop))}
+                className={cn(TABLE_ROW, 'border-b-0 border-t', rack.id !== NO_RACK && SELECTABLE, rack.id === selectedRackId && SELECTED)}
               >
                 <Td className="truncate font-semibold text-content">{rack.name}</Td>
                 <Td align="right" className="font-semibold text-content">{inRack.length}</Td>
