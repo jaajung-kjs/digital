@@ -8,7 +8,7 @@
  * (그리기마다 옮기면 사람이 표를 굴려 다른 데를 보고 있어도 화면이 자꾸 되돌아온다)
  * ③ 안 골랐으면 아무것도 안 한다.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { selectableRow, useScrollSelectedIntoView } from '../../components/ui';
 
@@ -80,6 +80,60 @@ describe('useScrollSelectedIntoView', () => {
     const calls = watchScroll();
     render(<Table selected="없는줄" />);
     expect(calls).toEqual([]);
+  });
+});
+
+/* 트리는 맥락이 필요해 가운데로 옮기지만, **이미 보이는 줄을 누를 때마다** 가운데로 끌면
+   누른 자리가 손 밑에서 달아난다(조직 트리가 클릭마다 출렁였다). 보이면 가만히. */
+describe("useScrollSelectedIntoView — 'center-if-needed'", () => {
+  function List({ selected }: { selected: string }) {
+    const ref = useScrollSelectedIntoView<HTMLDivElement>(selected, 'center-if-needed');
+    return (
+      <div ref={ref} data-box style={{ overflowY: 'auto' }}>
+        {['a', 'b', 'z'].map((id) => (
+          <div key={id} data-row={id} {...selectableRow(selected, id, () => {})}>{id}</div>
+        ))}
+      </div>
+    );
+  }
+  /** 상자는 0~100px, a·b 는 그 안, z 는 아래로 벗어난 줄. */
+  const RECTS: Record<string, { top: number; bottom: number; height: number }> = {
+    box: { top: 0, bottom: 100, height: 100 },
+    a: { top: 0, bottom: 28, height: 28 },
+    b: { top: 28, bottom: 56, height: 28 },
+    z: { top: 300, bottom: 328, height: 28 },
+  };
+  const original = Element.prototype.getBoundingClientRect;
+  afterEach(() => { Element.prototype.getBoundingClientRect = original; });
+
+  function measure(boxHeight = 100) {
+    Element.prototype.getBoundingClientRect = function rect(this: Element) {
+      if (this.hasAttribute('data-box')) return { ...RECTS.box, height: boxHeight } as DOMRect;
+      return RECTS[this.getAttribute('data-row') ?? ''] as DOMRect;
+    };
+  }
+
+  it('보이는 줄은 옮기지 않는다', () => {
+    const calls = watchScroll();
+    measure();
+    const { rerender } = render(<List selected="a" />);
+    rerender(<List selected="b" />);
+    expect(calls).toEqual([]);
+  });
+
+  it('상자 밖의 줄은 옮긴다', () => {
+    const calls = watchScroll();
+    measure();
+    const { rerender } = render(<List selected="a" />);
+    rerender(<List selected="z" />);
+    expect(calls).toEqual(['z']);
+  });
+
+  it('상자를 아직 잴 수 없으면(첫 화면) 옮긴다', () => {
+    const calls = watchScroll();
+    measure(0);
+    render(<List selected="b" />);
+    expect(calls).toEqual(['b']);
   });
 });
 

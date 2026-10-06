@@ -17,11 +17,15 @@ import { useEffect, useRef } from 'react';
  *     <div ref={scrollRef}>…표…</div>
  *
  * `block: 'nearest'` 라 이미 보이는 줄은 건드리지 않는다 — 보이지 않을 때만 딱 그만큼 굴린다.
+ *
+ * 트리처럼 위아래 맥락이 필요한 목록은 `'center-if-needed'` — **보이면 가만히, 안 보일 때만
+ * 가운데로.** 그냥 `'center'` 를 주면 이미 보이는 줄을 누를 때마다 목록이 가운데로 끌려가
+ * 누른 자리가 손 밑에서 달아난다(조직 트리가 클릭마다 출렁였다).
  */
 export function useScrollSelectedIntoView<T extends HTMLElement = HTMLDivElement>(
   selectedKey: string | null,
-  /** 기본 `nearest`(보이면 가만히). 트리처럼 맥락이 필요한 목록은 `center`. */
-  block: ScrollLogicalPosition = 'nearest',
+  /** 기본 `nearest`(보이면 가만히). 트리처럼 맥락이 필요한 목록은 `center-if-needed`. */
+  block: ScrollLogicalPosition | 'center-if-needed' = 'nearest',
 ) {
   const ref = useRef<T>(null);
   useEffect(() => {
@@ -37,8 +41,36 @@ export function useScrollSelectedIntoView<T extends HTMLElement = HTMLDivElement
       ? head.getBoundingClientRect().height
       : 0;
     row.style.scrollMarginTop = `${stuck}px`;
+    if (block === 'center-if-needed') {
+      if (!isFullyVisible(row, stuck)) row.scrollIntoView({ block: 'center', inline: 'nearest' });
+      return;
+    }
     row.scrollIntoView({ block, inline: 'nearest' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey]);
   return ref;
+}
+
+/** 줄을 굴리는 상자 — 가장 가까운 세로 스크롤 조상. 없으면 창이 굴린다(null). */
+function scrollBoxOf(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const y = getComputedStyle(p).overflowY;
+    if (y === 'auto' || y === 'scroll' || y === 'overlay') return p;
+  }
+  return null;
+}
+
+/**
+ * 줄이 스크롤 상자 안에 **통째로** 보이는가. 반쯤 걸친 줄은 안 보이는 것으로 친다.
+ * 상자나 줄을 잴 수 없으면(아직 안 그려졌다) 안 보이는 것으로 친다 — 첫 화면·주소로 들어온 경우가
+ * 그렇고, 그때는 옮기는 것이 맞다.
+ */
+function isFullyVisible(row: HTMLElement, stuckTop: number): boolean {
+  const box = scrollBoxOf(row);
+  const b = box
+    ? box.getBoundingClientRect()
+    : { top: 0, bottom: window.innerHeight, height: window.innerHeight };
+  const r = row.getBoundingClientRect();
+  if (!b.height || !r.height) return false;
+  return r.top >= b.top + stuckTop && r.bottom <= b.bottom;
 }
