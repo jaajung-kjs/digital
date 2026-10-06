@@ -51,8 +51,8 @@ describe('StatusView 도구줄·표 정리', () => {
     render(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
     expect(screen.queryByRole('button', { name: /고장/ })).toBeNull();
     const select = screen.getByRole('combobox', { name: '상태' });
-    expect(screen.getByRole('option', { name: '고장 1' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '예비 0' })).toBeInTheDocument(); // 0 도 보인다
+    expect(screen.getByRole('option', { name: '상태: 고장 1' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '상태: 예비 0' })).toBeInTheDocument(); // 0 도 보인다
     fireEvent.change(select, { target: { value: 'fault' } });
     fireEvent.click(screen.getByRole('button', { name: 'L3 스위치 펼치기' }));
     expect(screen.getByText('L3 #2')).toBeInTheDocument();
@@ -96,5 +96,11 @@ describe('StatusView 도구줄·표 정리', () => {
     fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
     expect(screen.getByText('UPS#1')).toBeInTheDocument();
     expect(screen.getByText('UPS#1').closest('tbody')!.querySelectorAll('tr')).toHaveLength(2);
+  });
+
+  it('품목 행의 상태 칸은 정상 아닌 것이 있을 때만 채운다 — 「—」 를 쓰지 않는다', () => {
+    render(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.getByText('UPS').closest('tr')!.querySelectorAll('td')[2]).toHaveTextContent('');
+    expect(screen.getByText('L3 스위치').closest('tr')!.querySelectorAll('td')[2]).toHaveTextContent('고장 1');
   });
 });

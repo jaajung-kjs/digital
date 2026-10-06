@@ -43,7 +43,7 @@ const NEVER = '__never__';
 /** 열 — 앞 넷은 늘 있고, 뒤 넷(모델·제조사·설치일·마지막점검일)은 값이 있을 때만 그린다. */
 const COLUMNS = [
   { key: 'name', width: 26 }, { key: 'count', width: 7 }, { key: 'status', width: 14 }, { key: 'where', width: 17 },
-  { key: 'model', width: 10 }, { key: 'maker', width: 10 }, { key: 'install', width: 8 }, { key: 'inspected', width: 8 },
+  { key: 'model', width: 10 }, { key: 'maker', width: 10 }, { key: 'install', width: 9 }, { key: 'inspected', width: 10 },
 ] as const;
 type ColKey = (typeof COLUMNS)[number]['key'];
 const OPTIONAL: Readonly<Record<string, (r: StatusRow) => boolean>> = {
@@ -104,7 +104,7 @@ export function StatusView({
     for (const r of rows) m.set(r.rackId, (m.get(r.rackId) ?? 0) + 1);
     return m;
   }, [rows]);
-  const STATUS_OPTIONS = EQUIPMENT_STATUSES.filter((s) => s.value !== OK_STATUS).map((s) => [s.value, s.label, all.byStatus[s.value] ?? 0] as const);
+  const statusChoices = EQUIPMENT_STATUSES.filter((s) => s.value !== OK_STATUS).map((s) => [s.value, s.label, all.byStatus[s.value] ?? 0] as const);
   const allCollapsed = summary.groups.length > 0 && summary.groups.every((g) => collapsed.has(g.categoryName));
   const scrollRef = useScrollSelectedIntoView<HTMLDivElement>(selectedId);
 
@@ -172,11 +172,11 @@ export function StatusView({
           {canRackView && <SegmentedControl aria-label="현황 보기" items={MODES} value={mode} onChange={setMode} />}
           <div className="w-36 shrink-0">
             <Select size="sm" aria-label="상태" value={filter} onChange={(e) => setFilter(e.currentTarget.value)}>
-              <option value="">전체</option>
-              {STATUS_OPTIONS.map(([value, label, n]) => (
-                <option key={value} value={value} className={n === 0 ? 'text-content-faint' : undefined}>{label} {n}</option>
+              <option value="">상태 전체</option>
+              {statusChoices.map(([value, label, n]) => (
+                <option key={value} value={value}>상태: {label} {n}</option>
               ))}
-              <option value={NEVER} className={all.neverInspected === 0 ? 'text-content-faint' : undefined}>미점검 {all.neverInspected}</option>
+              <option value={NEVER}>상태: 미점검 {all.neverInspected}</option>
             </Select>
           </div>
         </div>
@@ -224,7 +224,7 @@ export function StatusView({
             {has('model') && <Th>모델</Th>}
             {has('maker') && <Th>제조사</Th>}
             {has('install') && <Th>설치일</Th>}
-            {has('inspected') && <Th>마지막점검일</Th>}
+            {has('inspected') && <Th>최근 점검</Th>}
           </tr>
         </thead>
         <tbody>
@@ -268,9 +268,7 @@ export function StatusView({
                       </Td>
                       <Td align="right" className="text-content">{item.count}</Td>
                       <Td>
-                        {bad.length === 0 ? (
-                          <span className="text-xs text-content-faint">{EMPTY}</span>
-                        ) : (
+                        {bad.length > 0 && (
                           <span className="flex flex-wrap items-center gap-1">
                             {bad.map(([value, n]) => (
                               <StatusDot key={value} status={statusTone(value)}>{statusLabel(value)} {n}</StatusDot>

@@ -224,6 +224,7 @@ export function TreePanel({
      때만** 키를 준다: 트리 자료가 늦게 오거나 접힌 가지 안이면, 그려지는 순간 한 번 옮긴다. */
   const listRef = useScrollSelectedIntoView<HTMLDivElement>(
     selectedId != null && shown.some((n) => n.id === selectedId) ? selectedId : null,
+    'center',
   );
 
   /**

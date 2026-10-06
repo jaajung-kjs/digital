@@ -20,6 +20,8 @@ import { useEffect, useRef } from 'react';
  */
 export function useScrollSelectedIntoView<T extends HTMLElement = HTMLDivElement>(
   selectedKey: string | null,
+  /** 기본 `nearest`(보이면 가만히). 트리처럼 맥락이 필요한 목록은 `center`. */
+  block: ScrollLogicalPosition = 'nearest',
 ) {
   const ref = useRef<T>(null);
   useEffect(() => {
@@ -35,7 +37,8 @@ export function useScrollSelectedIntoView<T extends HTMLElement = HTMLDivElement
       ? head.getBoundingClientRect().height
       : 0;
     row.style.scrollMarginTop = `${stuck}px`;
-    row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    row.scrollIntoView({ block, inline: 'nearest' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey]);
   return ref;
 }
