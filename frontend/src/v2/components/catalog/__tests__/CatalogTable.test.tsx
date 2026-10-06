@@ -35,19 +35,48 @@ describe('CatalogTable', () => {
     expect(await screen.findByText(/3건이 이 종류를 쓰고 있어/)).toBeInTheDocument();
   });
 
-  it('추가 행에 키와 이름을 적고 Enter 하면 create 한다', async () => {
+  it('추가 행에 이름을 적고 Enter 하면 접두 맞는 키가 자동으로 실려 create 한다', async () => {
     wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[]} columns={columns} newRow={() => ({ sortOrder: 5 })} />);
+    expect(screen.queryByText('키')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '추가' }));
-    fireEvent.change(screen.getByLabelText('키'), { target: { value: 'K' } });
     const name = screen.getByLabelText('이름');
     fireEvent.change(name, { target: { value: '새 랙' } });
     fireEvent.keyDown(name, { key: 'Enter' });
-    await waitFor(() => expect(create).toHaveBeenCalledWith('rack-types', { sortOrder: 5, key: 'K', name: '새 랙' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    const body = create.mock.calls[0][1] as Record<string, unknown>;
+    expect(body).toMatchObject({ sortOrder: 5, name: '새 랙' });
+    expect(body.key).toMatch(/^RACK-[0-9a-z]+-[0-9a-z]{4}$/);
+  });
+
+  it('KEY_TAKEN 이면 다른 키로 한 번 다시 시도한다', async () => {
+    create.mockRejectedValueOnce(Object.assign(new Error('x'), { isAxiosError: true, response: { status: 409, data: { error: 'KEY_TAKEN', message: '같은 키가 이미 있습니다' } } }));
+    wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[]} columns={columns} newRow={() => ({})} />);
+    fireEvent.click(screen.getByRole('button', { name: '추가' }));
+    const name = screen.getByLabelText('이름');
+    fireEvent.change(name, { target: { value: '새 랙' } });
+    fireEvent.keyDown(name, { key: 'Enter' });
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+    expect((create.mock.calls[1][1] as { key: string }).key).not.toBe((create.mock.calls[0][1] as { key: string }).key);
+    await waitFor(() => expect(screen.queryByLabelText('이름')).toBeNull());
+  });
+
+  it('자재단가는 천 단위로 보이고 고칠 때는 원래 수다', () => {
+    const cols = [...columns, { key: 'unitPrice', label: '자재단가', kind: 'number' as const }];
+    wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[{ id: 'r1', name: '19인치', sortOrder: 1, unitPrice: 3000000 }]} columns={cols} newRow={() => ({})} />);
+    fireEvent.click(screen.getByText('3,000,000'));
+    expect(screen.getByDisplayValue('3000000')).toBeInTheDocument();
+  });
+
+  it('고르기 칸은 평소 글자이고 누르면 고르기가 열린다', () => {
+    const cols = [...columns, { key: 'categoryId', label: '분야', kind: 'select' as const, options: [{ value: 'c1', label: '통신' }] }];
+    wrap(<CatalogTable kind="equipment-types" title="설비 품목" rows={[{ id: 'e1', name: 'OFD', sortOrder: 1, categoryId: 'c1' }]} columns={cols} newRow={() => ({})} />);
+    expect(screen.queryByRole('combobox')).toBeNull();
+    fireEvent.click(screen.getByText('통신'));
+    expect(screen.getByRole('combobox', { name: 'OFD 분야' })).toBeInTheDocument();
   });
 
   const open = () => fireEvent.click(screen.getByRole('button', { name: '추가' }));
   const fill = () => {
-    fireEvent.change(screen.getByLabelText('키'), { target: { value: 'K' } });
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '새 랙' } });
   };
   const draftRack = () => wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[]} columns={columns} newRow={() => ({})} />);
@@ -82,8 +111,8 @@ describe('CatalogTable', () => {
 
   it('필수 칸이 비면 어느 칸인지 알린다', () => {
     draftRack(); open();
-    fireEvent.keyDown(screen.getByLabelText('키'), { key: 'Enter' });
-    expect(screen.getByText('키 칸을 채우세요')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByLabelText('이름'), { key: 'Enter' });
+    expect(screen.getByText('이름 칸을 채우세요')).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
   });
 

@@ -61,7 +61,7 @@ export function WageRatesView({ onError }: { onError: (m: string) => void }) {
   const refresh = () => Promise.all([standards.refetch(), catalog.refetch(), rates.refetch()]);
 
   return (
-    <div className="flex max-w-4xl flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <StandardCard<WagePreview>
         title="노임단가"
         accept=".hwp"
@@ -113,7 +113,7 @@ export function OverheadRatesView({ onError }: { onError: (m: string) => void })
   const refresh = () => Promise.all([standards.refetch(), catalog.refetch()]);
 
   return (
-    <div className="flex max-w-4xl flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <StandardCard<OverheadPreview>
         title="제비율"
         accept=".xlsx"
@@ -163,7 +163,7 @@ export function StandardHistoryView({ onError }: { onError: (m: string) => void 
   }
 
   return (
-    <div className="flex max-w-4xl flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <HistoryCard rows={standards.data ?? []} onActivate={activate} />
     </div>
   );

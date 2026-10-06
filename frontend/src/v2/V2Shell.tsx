@@ -34,8 +34,7 @@ import { PRODUCT_NAME } from '../product';
  */
 const MAIN_NAV: readonly MenuBarItem[] = [
   { key: '/', label: '설비 현황', divideAfter: true },
-  { key: '/equipment-types', label: '설비 품목' },
-  { key: '/cable-types', label: '케이블 품목', divideAfter: true },
+  { key: '/catalog', label: '품목 관리', divideAfter: true },
   { key: '/standards', label: '기준정보' },
 ];
 

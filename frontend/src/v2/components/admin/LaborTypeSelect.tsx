@@ -18,11 +18,15 @@ export function LaborTypeSelect({
   value,
   onChange,
   ariaLabel = '노무유형',
+  autoFocus,
+  onBlur,
 }: {
   /** 저장돼 있는 직종 코드. 아직 없으면 null. */
   value: string | null;
   onChange: (code: string | null) => void;
   ariaLabel?: string;
+  autoFocus?: boolean;
+  onBlur?: () => void;
 }) {
   const wage = useWageCatalog();
   const empty = wage.rows.length === 0;
@@ -42,6 +46,8 @@ export function LaborTypeSelect({
     <div className="flex w-full flex-col gap-0.5">
       <Select
         aria-label={ariaLabel}
+        autoFocus={autoFocus}
+        onBlur={onBlur}
         disabled={empty && !unknown}
         value={value ?? ''}
         onChange={(e) => onChange(e.currentTarget.value || null)}

@@ -54,12 +54,14 @@ interface InlineEditCellProps {
    * 「교류」를 실어 보내면 서버가 400 을 돌려준다(실제로 그랬다).
    */
   choices?: readonly { value: string; label: string }[];
+  /** 읽는 줄에서만 값을 꾸민다(천 단위 구분 등) — 고치는 칸에는 원래 값이 선다. */
+  format?: (value: string) => string;
 }
 
 /** 목록 끝의 「직접 입력」 — 이 값은 저장되지 않고 칸을 자유 입력으로 바꾼다. */
 const FREE_INPUT = '\u0000free';
 
-export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options, muted, choices }: InlineEditCellProps) {
+export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options, muted, choices, format }: InlineEditCellProps) {
   const [editing, setEditing] = useState(false);
   /** 목록을 두고도 손으로 치는 중인가 — 「직접 입력」을 고른 뒤. */
   const [freeform, setFreeform] = useState(false);
@@ -84,7 +86,7 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit, op
       >
         {value ? (
           <>
-            {choices ? (choices.find((c) => c.value === value)?.label ?? value) : type === 'date' ? formatDate(value) : value}
+            {choices ? (choices.find((c) => c.value === value)?.label ?? value) : type === 'date' ? formatDate(value) : format ? format(value) : value}
             {unit && <span className="ml-0.5 text-content-faint">{unit}</span>}
           </>
         ) : (

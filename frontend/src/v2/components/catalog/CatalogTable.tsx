@@ -2,13 +2,16 @@
  * CatalogTable — 마스터 한 종류(분야·설비 품목·랙 품목·케이블 품목)의 편집 표.
  *
  * 네 종류가 같은 표를 쓴다: 읽는 줄이 기본이고 칸을 누르면 그 자리에서 고친다(§1.7-i).
- * 키는 새 행에서만 적고 그 뒤로는 읽기 전용이다. 순서는 끌어 바꾸지 않고 「순서」 숫자 칸으로
+ * 키는 화면에 없다 — 새 행을 만들 때 자동으로 찍는다. 순서는 끌어 바꾸지 않고 「순서」 숫자 칸으로
  * 고친다. 지우기가 막히면(쓰이는 품목) 서버 문구가 그 행 아래에 뜬다.
  */
 import { useRef, useState } from 'react';
 import { Check, Plus, Trash2, X } from 'lucide-react';
-import { Button, EMPTY, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
+import { Button, EMPTY, SELECTABLE, cn, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
+import { isAxiosError } from 'axios';
 import { apiErrorMessage } from '../../apiError';
+import { useWageCatalog } from '../../hooks';
+import { newCatalogKey } from './catalogKey';
 import { useCatalogMutations } from '../../model/hooks';
 import type { CatalogKind } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
@@ -33,7 +36,10 @@ interface Props {
   title: string;
 }
 
-const KEY_COL: Column = { key: 'key', label: '키', kind: 'text', required: true };
+const KO = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 3 });
+/** 읽는 줄의 수 — 천 단위 구분(편집 칸은 원래 수). */
+const showNumber = (v: string) => (v === '' || Number.isNaN(Number(v)) ? v : KO.format(Number(v)));
+const isKeyTaken = (e: unknown) => isAxiosError(e) && (e.response?.data as { error?: string } | undefined)?.error === 'KEY_TAKEN';
 const str = (v: unknown) => (v == null ? '' : String(v));
 
 /** 값 → 서버 본문 값. 빈 수는 null, 빈 글은 undefined(보내지 않는다). */
@@ -53,8 +59,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
   const creating = useRef(false);
   const [error, setError] = useState<{ id: string; message: string } | null>(null);
 
-  /* 키는 맨 앞 「순서」 칸 바로 뒤에 선다. */
-  const cols = columns[0]?.key === 'sortOrder' ? [columns[0], KEY_COL, ...columns.slice(1)] : [KEY_COL, ...columns];
+  const cols = columns;
   const weight = (c: Column) => (c.kind === 'labor' ? 2 : c.key === 'name' ? 2 : 1);
   const total = cols.reduce((n, c) => n + weight(c), 0);
   const widths = [...cols.map((c) => (c.width ? Number(c.width) : (weight(c) / total) * 90)), 10];
@@ -84,7 +89,10 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
     }
     setError(null);
     creating.current = true;
+    if (body.key === undefined) body.key = newCatalogKey(kind);
     create.mutateAsync({ kind, body })
+      /* 키가 겹치면(드물다) 새 키로 한 번만 다시 — 사람이 쓴 값이 아니라 우리가 찍은 값이다. */
+      .catch((e) => (isKeyTaken(e) ? create.mutateAsync({ kind, body: { ...body, key: newCatalogKey(kind) } }) : Promise.reject(e)))
       .then(() => setDraft(null))
       .catch((e) => fail('new', e, '추가하지 못했습니다'))
       .finally(() => { creating.current = false; });
@@ -128,15 +136,17 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
   }
 
   function readCell(row: Row, c: Column) {
-    if (c.key === 'key') return <span className="text-content-muted">{str(row.key)}</span>;
     if (c.kind === 'labor') {
-      return <LaborTypeSelect value={(row[c.key] as string | null) ?? null} onChange={(code) => commitPatch(row, c, code ?? '')} ariaLabel={`${str(row.name)} ${c.label}`} />;
+      return <LaborCell value={(row[c.key] as string | null) ?? null} onChange={(code) => commitPatch(row, c, code ?? '')} ariaLabel={`${str(row.name)} ${c.label}`} />;
     }
     if (c.kind === 'select') {
       return (
-        <Select aria-label={`${str(row.name)} ${c.label}`} size="cell" value={str(row[c.key])} onChange={(e) => commitPatch(row, c, e.currentTarget.value)}>
-          {c.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </Select>
+        <InlineEditCell
+          label={`${str(row.name)} ${c.label}`}
+          value={str(row[c.key])}
+          choices={c.options}
+          onCommit={(raw) => commitPatch(row, c, raw)}
+        />
       );
     }
     return (
@@ -144,6 +154,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
         label={`${str(row.name)} ${c.label}`}
         type={c.kind === 'number' ? 'number' : 'text'}
         value={str(row[c.key])}
+        format={c.kind === 'number' ? showNumber : undefined}
         onCommit={(raw) => commitPatch(row, c, raw)}
       />
     );
@@ -211,6 +222,25 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
       {confirmDialog}
     </div>
   );
+}
+
+/** 노무유형 — 평소엔 직종 이름, 누르면 고르기가 열린다. */
+function LaborCell({ value, onChange, ariaLabel }: { value: string | null; onChange: (code: string | null) => void; ariaLabel: string }) {
+  const [editing, setEditing] = useState(false);
+  const wage = useWageCatalog();
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        aria-label={`${ariaLabel} 고치기`}
+        className={cn('w-full rounded px-1 text-sm [text-align:inherit]', value ? 'text-content' : 'text-content-faint', SELECTABLE)}
+        onClick={() => setEditing(true)}
+      >
+        {value ? wage.nameOf(value) : EMPTY}
+      </button>
+    );
+  }
+  return <LaborTypeSelect value={value} ariaLabel={ariaLabel} autoFocus onBlur={() => setEditing(false)} onChange={(c) => { onChange(c); setEditing(false); }} />;
 }
 
 function RowFragment({ children }: { children: React.ReactNode }) {

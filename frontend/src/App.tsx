@@ -5,8 +5,7 @@ import { useV2AuthStore } from './v2/store/authStore';
 import { V2Shell } from './v2/V2Shell';
 import V2LoginPage from './v2/pages/V2LoginPage';
 import V2WorkspacePage from './v2/pages/V2WorkspacePage';
-import V2EquipmentTypesPage from './v2/pages/V2EquipmentTypesPage';
-import V2CableTypesPage from './v2/pages/V2CableTypesPage';
+import V2CatalogPage from './v2/pages/V2CatalogPage';
 import V2StandardsPage from './v2/pages/V2StandardsPage';
 import { queryClient } from './lib/queryClient';
 
@@ -73,19 +72,19 @@ export default function App() {
             <Route path="/" element={<V2WorkspacePage />} />
             {/* 보고 있는 자리는 주소가 안다 — `useWorkspaceRoute` 참고. */}
             <Route path="/n/:nodeId" element={<V2WorkspacePage />} />
-            <Route path="/equipment-types" element={<V2EquipmentTypesPage />} />
-            <Route path="/cable-types" element={<V2CableTypesPage />} />
+            <Route path="/catalog" element={<V2CatalogPage />} />
             <Route path="/standards" element={<V2StandardsPage />} />
           </Route>
 
           {/* 구 /v2 경로 호환 리다이렉트 */}
           <Route path="/v2" element={<Navigate to="/" replace />} />
           {/* 대장이 셋으로 갈렸다 — 옛 주소는 첫 대장으로 보낸다. */}
-          <Route path="/catalog" element={<Navigate to="/equipment-types" replace />} />
-          <Route path="/v2/catalog" element={<Navigate to="/equipment-types" replace />} />
-          <Route path="/assemblies" element={<Navigate to="/equipment-types" replace />} />
-          <Route path="/assets" element={<Navigate to="/equipment-types" replace />} />
-          <Route path="/cables" element={<Navigate to="/equipment-types" replace />} />
+          <Route path="/equipment-types" element={<Navigate to="/catalog?kind=equipment" replace />} />
+          <Route path="/cable-types" element={<Navigate to="/catalog?kind=cable" replace />} />
+          <Route path="/v2/catalog" element={<Navigate to="/catalog" replace />} />
+          <Route path="/assemblies" element={<Navigate to="/catalog" replace />} />
+          <Route path="/assets" element={<Navigate to="/catalog" replace />} />
+          <Route path="/cables" element={<Navigate to="/catalog" replace />} />
 
           {/* 기타 → 루트 */}
           <Route path="*" element={<Navigate to="/" replace />} />
