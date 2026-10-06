@@ -1,5 +1,6 @@
 import { httpClient as api } from '../httpClient';
-import type { Catalog, CatalogKind, CommitPayload, NodeEquipmentRow, Workingcopy } from './types';
+import type { CommitPayload } from '@twin/core';
+import type { Catalog, CatalogKind, NodeEquipmentRow, Workingcopy } from './types';
 
 /** ISO datetime → `YYYY-MM-DD`. 이미 그 꼴이거나 비었으면 그대로. */
 function dateOnly(v: string | null | undefined): string | null {

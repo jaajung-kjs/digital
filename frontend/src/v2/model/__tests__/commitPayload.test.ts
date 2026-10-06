@@ -58,6 +58,12 @@ describe('buildCommitPayload', () => {
     expect(p.records).toBeUndefined();
   });
 
+  it('회로 갈래·개폐는 서버 어휘 값(AC·on)으로 싣는다 — 읽기 칸은 싣지 않는다', () => {
+    store.getState().updateCircuit('e1', 1, { current: 'AC', switch: 'on' });
+    const p = buildCommitPayload(store.getState());
+    expect(p.circuits).toEqual({ updates: [{ equipmentId: 'e1', no: 1, patch: { current: 'AC', switch: 'on' } }] });
+  });
+
   it('빈 변경안은 빈 객체', () => {
     expect(buildCommitPayload(store.getState())).toEqual({});
   });

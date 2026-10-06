@@ -1,7 +1,12 @@
-import { CIRCUIT_CURRENTS, CORE_ROLES, CORE_STATUSES, EQUIPMENT_STATUSES, SIDES, SWITCH_STATES } from '@twin/core';
+import {
+  CIRCUIT_CURRENTS, CORE_ROLES, CORE_STATUSES, EQUIPMENT_STATUSES, MAX_CIRCUITS, MAX_CORES, SIDES, SWITCH_STATES,
+  type CommitPayload as CoreCommitPayload,
+} from '@twin/core';
 import { z } from 'zod';
 
-const values = <T extends readonly { value: string }[]>(xs: T) => z.enum(xs.map((x) => x.value) as [string, ...string[]]);
+/** 어휘의 값만 — 낱말 타입을 지켜야 core `CommitPayload` 와 맞춰 볼 수 있다. */
+const values = <T extends readonly { value: string }[]>(xs: T) =>
+  z.enum(xs.map((x) => x.value) as [T[number]['value'], ...T[number]['value'][]]);
 const id = z.string().uuid();
 const text = z.string().trim().min(1).nullable().optional();
 /** 달력에 있는 날만 — 2024-02-31 은 Date 가 3월로 넘겨 버리므로 되짚어 본다(안 그러면 500). */
@@ -41,7 +46,7 @@ const equipmentFields = {
   model: text, maker: text, madeOn: text, serial: text,
   installDate: date.nullable().optional(),
   manager: text, note: text,
-  circuitCount: z.number().int().min(0).max(500).optional(),
+  circuitCount: z.number().int().min(0).max(MAX_CIRCUITS).optional(),
   panelCount: z.number().int().min(0).max(200).nullable().optional(),
 };
 const equipmentCreate = z.object({ id, substationId: id, ...equipmentFields });
@@ -65,13 +70,13 @@ const lineEnd = {
   startNo: z.number().int().min(1).optional(),
 };
 const fiberLineCreate = z.object({
-  id, cableTypeId: id, coreCount: z.number().int().min(1).max(432),
+  id, cableTypeId: id, coreCount: z.number().int().min(1).max(MAX_CORES),
   name: text, lengthKm: z.number().min(0).nullable().optional(), segments: z.array(z.unknown()).optional(),
   a: z.object({ substationId: id, ...lineEnd }),
   b: z.object({ substationId: id, ...lineEnd }),
 });
 const fiberLinePatch = z.object({
-  cableTypeId: id.optional(), coreCount: z.number().int().min(1).max(432).optional(),
+  cableTypeId: id.optional(), coreCount: z.number().int().min(1).max(MAX_CORES).optional(),
   name: text, lengthKm: z.number().min(0).nullable().optional(), segments: z.array(z.unknown()).optional(),
   a: z.object(lineEnd).optional(), b: z.object(lineEnd).optional(),
 });
@@ -131,4 +136,10 @@ export const commitPayloadSchema = z.object({
 });
 
 export type CommitPayload = z.infer<typeof commitPayloadSchema>;
+
+/* 프론트는 core 의 손으로 적은 `CommitPayload` 로 본문을 짓는다 — 이 스키마와 갈라지면 여기서
+   컴파일이 깨진다(양방향 대입). 칸 하나를 이쪽에만 더하거나 어휘를 넓히면 둘 중 하나가 걸린다. */
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const _payloadMatchesCore: Same<CommitPayload, CoreCommitPayload> = true;
+void _payloadMatchesCore;
 export type LinkEndInput = z.infer<typeof linkEnd>;

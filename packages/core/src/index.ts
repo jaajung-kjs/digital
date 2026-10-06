@@ -9,4 +9,5 @@ export * from './model/types.js';
 export * from './model/rows.js';
 export * from './model/validate.js';
 export * from './model/expandDeletes.js';
+export * from './model/commitPayload.js';
 export * from './seed/jikhalInventory.js';

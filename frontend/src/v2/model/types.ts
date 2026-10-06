@@ -1,4 +1,4 @@
-import type { BackgroundDrawing, LinkEndRef, Side } from '@twin/core';
+import type { BackgroundDrawing, CircuitCurrent, CoreRole, CoreStatus, EquipmentStatus, LinkEndRef, Side, SwitchState } from '@twin/core';
 
 /**
  * 새 모델의 **서버 행** — 백엔드 워킹카피(`GET /substations/:id/workingcopy`)가 주는 모양 그대로.
@@ -19,12 +19,12 @@ export interface Rack {
 
 export interface Circuit {
   equipmentId: string; no: number;
-  label: string | null; current: string | null; voltage: string | null; capacity: string | null;
-  phase: string | null; switch: string | null; purpose: string | null; updatedAt: string;
+  label: string | null; current: CircuitCurrent | null; voltage: string | null; capacity: string | null;
+  phase: string | null; switch: SwitchState | null; purpose: string | null; updatedAt: string;
 }
 
 export interface Equipment {
-  id: string; substationId: string; rackId: string; name: string; typeId: string; status: string;
+  id: string; substationId: string; rackId: string; name: string; typeId: string; status: EquipmentStatus;
   model: string | null; maker: string | null; madeOn: string | null; serial: string | null;
   installDate: string | null; manager: string | null; note: string | null;
   circuitCount: number; panelCount: number | null; updatedAt: string;
@@ -37,7 +37,7 @@ export interface CoreMeasurement {
 }
 
 export interface Core {
-  lineId: string; no: number; status: string; role: string | null;
+  lineId: string; no: number; status: CoreStatus; role: CoreRole | null;
   purpose: string | null; note: string | null; updatedAt: string;
 }
 
@@ -94,9 +94,6 @@ export interface NodeEquipmentRow {
   model: string | null; maker: string | null; madeOn: string | null; serial: string | null;
   installDate: string | null; manager: string | null; lastInspectedAt: string | null;
 }
-
-/** 저장 본문 — 서버 `commitPayloadSchema`(backend/src/v2/commit/schema.ts)와 같은 모양. */
-export type CommitPayload = Record<string, unknown>;
 
 /** 저장이 409 로 돌려주는 충돌 한 줄 — 키는 uuid 행이면 id, 회로·코어는 자연 키. */
 export interface Conflict { key: string; reason: 'deleted' | 'modified'; serverUpdatedAt?: string }

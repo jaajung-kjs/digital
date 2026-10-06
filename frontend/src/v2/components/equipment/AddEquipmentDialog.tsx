@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_EQUIPMENT_STATUS } from '@twin/core';
+import { DEFAULT_EQUIPMENT_STATUS, MAX_CIRCUITS } from '@twin/core';
 import { Button, DetailRow, ErrorStrip, Input, Modal, Select } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { bySubstation, effectiveRows } from '../../model/store/effective';
@@ -28,7 +28,8 @@ export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose,
   );
   /* 닫히면 쓰던 것을 버린다 — 다시 열면 빈 상자다. */
   useEffect(() => { if (!open) { setName(''); setTypeId(''); setRackPick(null); setCircuits('0'); } }, [open]);
-  const ok = trimmed !== '' && typeId !== '' && rackId !== '' && Number.isInteger(n) && n >= 0 && n <= 999 && !dup;
+  const circuitsOk = circuits.trim() !== '' && Number.isInteger(n) && n >= 0 && n <= MAX_CIRCUITS;
+  const ok = trimmed !== '' && typeId !== '' && rackId !== '' && circuitsOk && !dup;
 
   function submit() {
     if (!ok) return;
@@ -63,8 +64,8 @@ export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose,
             {racks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </Select>
         </DetailRow>
-        <DetailRow label="회로 수">
-          <Input size="sm" numeric value={circuits} onChange={(e) => setCircuits(e.currentTarget.value)} />
+        <DetailRow label="회로 수" issue={circuitsOk ? undefined : `회로 수는 0~${MAX_CIRCUITS} 사이의 정수입니다`}>
+          <Input size="sm" numeric invalid={!circuitsOk} value={circuits} onChange={(e) => setCircuits(e.currentTarget.value)} />
         </DetailRow>
         <ErrorStrip message={dup ? '같은 이름의 설비가 있습니다' : null} />
       </div>

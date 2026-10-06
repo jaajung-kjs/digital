@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
+import { MAX_CIRCUITS } from '@twin/core';
 import { Button, DetailCard, DetailCardHeader, DetailRow, ErrorStrip, Input, isCommitKey } from '../../../components/ui';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import { CircuitTable } from './CircuitTable';
-
-const MAX_CIRCUITS = 999;
 
 /** 회로 수 + 회로 표. 줄이기에서 잘릴 회로에 연결이 남아 있으면 줄이지 않고 까닭을 말한다. */
 export function CircuitCard({ equipmentId, circuitCount }: { equipmentId: string; circuitCount: number }) {
@@ -17,7 +16,7 @@ export function CircuitCard({ equipmentId, circuitCount }: { equipmentId: string
   function apply(raw: string) {
     setDraft(null);
     const n = Number(raw);
-    if (raw.trim() === '' || !Number.isInteger(n) || n < 0 || n > MAX_CIRCUITS) return;
+    if (raw.trim() === '' || !Number.isInteger(n) || n < 0 || n > MAX_CIRCUITS) { setError(`회로 수는 0~${MAX_CIRCUITS} 사이의 정수입니다`); return; }
     if (n === circuitCount) { setError(null); return; }
     const cut = new Set<number>();
     for (const l of links) for (const e of [l.a, l.b]) if (e.kind === 'circuit' && e.equipmentId === equipmentId && e.no > n) cut.add(e.no);

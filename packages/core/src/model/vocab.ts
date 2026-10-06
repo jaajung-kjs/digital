@@ -77,3 +77,12 @@ export type SwitchState = (typeof SWITCH_STATES)[number]['value'];
 /** 광선로의 두 끝. */
 export const SIDES = ['A', 'B'] as const;
 export type Side = (typeof SIDES)[number];
+
+/**
+ * 설비 하나가 가질 수 있는 회로 수의 끝 — 화면(회로 수 칸·설비 추가)과 서버 스키마가 같은 값을 읽는다.
+ * 둘이 따로 적으면 화면은 999 를 받고 서버는 500 에서 거절한다(실제로 그랬다).
+ */
+export const MAX_CIRCUITS = 500;
+
+/** 광선로 하나의 코어 수 끝 — 서버 스키마와 화면이 같은 값을 읽는다. */
+export const MAX_CORES = 432;
