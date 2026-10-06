@@ -9,12 +9,13 @@ import { PhotoCard } from '../detail/PhotoCard';
 import { RecordsTab } from '../detail/RecordsTab';
 import { CircuitCard } from './CircuitCard';
 import { EquipmentInfoCard } from './EquipmentInfoCard';
+import { LinkList } from './LinkList';
 import { PanelsCard } from './PanelsCard';
 
 type Tab = '정보' | '연결' | '점검·고장' | '사진';
 const TABS: readonly TabItem<Tab>[] = (['정보', '연결', '점검·고장', '사진'] as const).map((k) => ({ key: k, label: k }));
 
-/** 설비 상세 — 정보 · 연결 · 점검·고장 · 사진. 연결 탭 내용은 ③ 이 채운다. */
+/** 설비 상세 — 정보 · 연결 · 점검·고장 · 사진.  */
 export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipmentId: string; onClose: () => void; onDeleted: () => void }) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
@@ -47,7 +48,7 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipment
               <PanelsCard equipmentId={equipmentId} panelCount={eq.panelCount} />
             </>
           )}
-          {tab === '연결' && <EmptyState title="아직 연결이 없습니다" />}
+          {tab === '연결' && <LinkList equipmentId={equipmentId} substationId={eq.substationId} />}
           {tab === '점검·고장' && (
             <>
               <RecordsTab equipmentId={equipmentId} kind="inspections" dateField="inspectedAt" extraField="result" dateLabel="점검일" extraLabel="결과" sectionTitle="점검" emptyMessage="점검 기록이 없습니다" />

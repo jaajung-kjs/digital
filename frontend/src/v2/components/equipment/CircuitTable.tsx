@@ -1,11 +1,13 @@
-import { useMemo } from 'react';
-import { TABLE_ROW, TableCard, Td, Th } from '../../../components/ui';
-import { effectiveCircuits } from '../../model/store/effective';
+import { useMemo, useState } from 'react';
+import { Button, TABLE_ROW, TableCard, Td, Th } from '../../../components/ui';
+import { effectiveCircuits, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Circuit } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
+import { ConnectDialog } from './ConnectDialog';
+import { circuitLink, endLabel } from './endpoints';
 
-const WIDTHS = [8, 18, 12, 14, 12, 10, 12, 14];
+const WIDTHS = [8, 16, 10, 12, 10, 8, 10, 12, 14];
 const CURRENT_OPTIONS = ['교류', '직류'] as const;
 const SWITCH_OPTIONS = ['투입', '개방'] as const;
 
@@ -17,6 +19,10 @@ export function CircuitTable({ equipmentId }: { equipmentId: string }) {
   const overlays = useWorkingCopy((s) => s.overlays);
   const rows = useMemo(() => effectiveCircuits({ saved, overlays }, equipmentId), [saved, overlays, equipmentId]);
 
+  const links = useMemo(() => effectiveRows({ saved, overlays }, 'links'), [saved, overlays]);
+  const substationId = useMemo(() => effectiveRows({ saved, overlays }, 'equipment').find((e) => e.id === equipmentId)?.substationId ?? null, [saved, overlays, equipmentId]);
+  const [connectNo, setConnectNo] = useState<number | null>(null);
+
   const set = (no: number, patch: Partial<Circuit>) => workingCopyStore.getState().updateCircuit(equipmentId, no, patch);
   const commit = (no: number, field: keyof Circuit, current: string | null, raw: string) => {
     const next = raw.trim() || null;
@@ -27,10 +33,11 @@ export function CircuitTable({ equipmentId }: { equipmentId: string }) {
   );
 
   return (
+    <>
     <TableCard widths={WIDTHS}>
       <thead>
         <tr>
-          <Th>번호</Th><Th>표기</Th><Th>갈래</Th><Th>전압</Th><Th>용량</Th><Th>상</Th><Th>개폐</Th><Th>용도</Th>
+          <Th>번호</Th><Th>표기</Th><Th>갈래</Th><Th>전압</Th><Th>용량</Th><Th>상</Th><Th>개폐</Th><Th>용도</Th><Th>연결</Th>
         </tr>
       </thead>
       <tbody>
@@ -44,9 +51,21 @@ export function CircuitTable({ equipmentId }: { equipmentId: string }) {
             <Td>{cell(c, 'phase', '상')}</Td>
             <Td>{cell(c, 'switch', '개폐', SWITCH_OPTIONS)}</Td>
             <Td>{cell(c, 'purpose', '용도')}</Td>
+            <Td>
+              {(() => {
+                const hit = circuitLink(links, equipmentId, c.no);
+                return hit
+                  ? <span className="block truncate text-sm">{endLabel({ saved, overlays }, hit.far)}</span>
+                  : <Button variant="secondary" size="sm" onClick={() => setConnectNo(c.no)}>잇기</Button>;
+              })()}
+            </Td>
           </tr>
         ))}
       </tbody>
     </TableCard>
+      {substationId && connectNo !== null && (
+        <ConnectDialog substationId={substationId} from={{ kind: 'circuit', equipmentId, no: connectNo }} open onClose={() => setConnectNo(null)} onCreated={() => undefined} />
+      )}
+    </>
   );
 }
