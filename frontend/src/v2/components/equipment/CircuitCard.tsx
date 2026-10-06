@@ -37,10 +37,13 @@ export function CircuitCard({ equipmentId, onEdit, onAdd }: { equipmentId: strin
           </>
         )}
       />
-      {rows.map((c) => {
-        const text = line(c);
-        return <ListRow key={c.no} title={text} onClick={() => onEdit(c.no)}>{text}</ListRow>;
-      })}
+      {/* 줄들을 한 자식으로 묶는다 — 카드는 자식마다 여백을 주므로, 따로 두면 줄마다 py-2 가 붙어 36px 로 벌어진다. */}
+      <div>
+        {rows.map((c) => {
+          const text = line(c);
+          return <ListRow key={c.no} title={text} onClick={() => onEdit(c.no)}>{text}</ListRow>;
+        })}
+      </div>
     </DetailCard>
   );
 }

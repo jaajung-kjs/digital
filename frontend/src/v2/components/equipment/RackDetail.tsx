@@ -59,10 +59,13 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
         </DetailCard>
         <DetailCard>
           <DetailCardHeader title={`실장 설비 ${inside.length}`} actions={<Button variant="secondary" size="sm" onClick={() => onAddEquipment(rackId)}>설비 추가</Button>} />
-          {inside.length === 0 && <ListRow>실장 설비가 없습니다</ListRow>}
-          {inside.map((e) => (
-            <ListRow key={e.id} onClick={() => onSelectEquipment(e.id)}>{e.name}</ListRow>
-          ))}
+          {/* 줄들은 한 자식 — 카드 여백을 한 번만 받는다(차단기 요약과 같은 밀도). */}
+          <div>
+            {inside.length === 0 && <ListRow>실장 설비가 없습니다</ListRow>}
+            {inside.map((e) => (
+              <ListRow key={e.id} onClick={() => onSelectEquipment(e.id)}>{e.name}</ListRow>
+            ))}
+          </div>
         </DetailCard>
       </div>
       {confirmDialog}

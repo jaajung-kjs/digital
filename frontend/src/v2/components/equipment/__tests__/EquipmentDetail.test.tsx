@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MAX_CIRCUITS } from '@twin/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildCommitPayload } from '../../../model/store/commitPayload';
 import { workingCopyStore as store } from '../../../model/store/workingCopy';
@@ -115,6 +116,47 @@ describe('설비 상세 — 차단기', () => {
     expect(store.getState().overlays.equipment.creates.p!.circuitCount).toBe(2);
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByText('차단기 2')).toBeInTheDocument();
+  });
+});
+
+describe('설비 상세 — 차단기 다시 더하기·끝', () => {
+  it('마지막 차단기를 지웠다 다시 더하면 빈 줄이다 — 고치던 값이 되살아나지 않는다', () => {
+    store.getState().update('equipment', 'p', { circuitCount: 3 });
+    store.getState().updateCircuit('p', 3, { label: 'OLD', capacity: '30A' });
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    openEditor();
+    fireEvent.click(screen.getByRole('button', { name: '마지막 차단기 지우기' }));
+    fireEvent.click(screen.getByRole('button', { name: '차단기 추가' }));
+    expect(store.getState().overlays.equipment.creates.p!.circuitCount).toBe(3);
+    expect(within(screen.getByRole('dialog')).getAllByRole('button', { name: '표기 고치기' })[2]).toHaveTextContent('—');
+    expect(store.getState().overlays.circuits['circuit:p:3']?.label ?? null).toBeNull();
+  });
+
+  it('저장된 차단기 값도 되살아나지 않는다 — 더하기는 그 번호를 빈 값으로 덮고, 되돌리기 한 번에 함께 물러난다', () => {
+    store.setState({ saved: { ...store.getState().saved, circuits: [{ equipmentId: 'p', no: 3, label: 'SAVED', current: 'AC', voltage: null, capacity: '30A', phase: null, switch: 'on', purpose: null, updatedAt: '' }] } });
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    const before = store.temporal.getState().pastStates.length;
+    fireEvent.click(within(breakerCard()).getByRole('button', { name: '추가' }));
+    expect(store.getState().overlays.equipment.creates.p!.circuitCount).toBe(3);
+    expect(breakerRows()[2]).toHaveTextContent(/^3$/);
+    expect(store.temporal.getState().pastStates.length).toBe(before + 1);
+    store.temporal.getState().undo();
+    expect(store.getState().overlays.equipment.creates.p!.circuitCount).toBe(2);
+    expect(store.getState().overlays.circuits['circuit:p:3']).toBeUndefined();
+  });
+
+  it('편집 창의 지우기는 0 개에서, 추가는 MAX_CIRCUITS 에서 꺼진다', () => {
+    store.getState().update('equipment', 'p', { circuitCount: MAX_CIRCUITS });
+    const { unmount } = render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    openEditor();
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: '차단기 추가' })).toBeDisabled();
+    unmount();
+    render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '더 보기' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '차단기 추가' }));
+    fireEvent.click(screen.getByRole('button', { name: '마지막 차단기 지우기' }));
+    expect(store.getState().overlays.equipment.creates.l!.circuitCount).toBe(0);
+    expect(screen.getByRole('button', { name: '마지막 차단기 지우기' })).toBeDisabled();
   });
 });
 

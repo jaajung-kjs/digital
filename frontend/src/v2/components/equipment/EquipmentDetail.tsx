@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { MAX_CIRCUITS, expandDeletes } from '@twin/core';
 import { Button, EmptyState, OverflowMenu, Tabs, ViewCard, useConfirm, useTabs, type TabItem } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
-import { deleteRows } from '../../model/store/deleteActions';
+import { addCircuit, deleteRows } from '../../model/store/deleteActions';
 import { effectiveRows, toModelState } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import { PhotoCard } from '../detail/PhotoCard';
@@ -39,12 +39,10 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipment
     onDeleted();
   }
 
-  /** 차단기 한 줄 더하기 — 끝 번호로 생기고, 편집 창이 그 줄로 열린다. 개수를 묻지 않는다. */
+  /** 차단기 한 줄 더하기 — 끝 번호의 빈 줄로 생기고(`addCircuit`), 편집 창이 그 줄로 열린다. 개수를 묻지 않는다. */
   function addBreaker() {
-    const n = eq!.circuitCount + 1;
-    if (n > MAX_CIRCUITS) return;
-    workingCopyStore.getState().update('equipment', equipmentId, { circuitCount: n });
-    setBreakers({ at: n });
+    const n = addCircuit(equipmentId);
+    if (n !== null) setBreakers({ at: n });
   }
 
   return (
@@ -78,7 +76,7 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipment
           {tab === '사진' && <PhotoCard equipmentId={equipmentId} />}
         </div>
       </div>
-      <BreakerEditor equipmentId={equipmentId} equipmentName={eq.name} open={breakers !== null} focusNo={breakers?.at ?? null} onAdd={addBreaker} onClose={() => setBreakers(null)} />
+      <BreakerEditor equipmentId={equipmentId} equipmentName={eq.name} count={eq.circuitCount} open={breakers !== null} focusNo={breakers?.at ?? null} onAdd={addBreaker} onClose={() => setBreakers(null)} />
       {confirmDialog}
     </ViewCard>
   );

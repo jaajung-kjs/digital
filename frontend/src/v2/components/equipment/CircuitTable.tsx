@@ -76,7 +76,7 @@ export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: str
                   const hit = circuitLink(links, equipmentId, c.no);
                   return hit
                     ? <span className="block truncate text-sm">{endLabel({ saved, overlays }, hit.far)}</span>
-                    : <Button variant="secondary" size="sm" onClick={() => setConnectNo(c.no)}>잇기</Button>;
+                    : <Button variant="secondary" size="xs" onClick={() => setConnectNo(c.no)}>잇기</Button>;
                 })()}
               </Td>
             </tr>

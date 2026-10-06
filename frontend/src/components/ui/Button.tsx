@@ -2,12 +2,12 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { cn } from './cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-export type ButtonSize = 'sm' | 'md';
+export type ButtonSize = 'xs' | 'sm' | 'md';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   /**
-   * 기본은 **`sm`(24px)**.
+   * 기본은 **`sm`(24px)**. 표 줄 안에서는 **`xs`**(h-5 고정) — 그보다 크면 `Td` 여백과 합쳐 그 줄만 높아진다.
    *
    * 업무화면의 버튼은 작다 — 표 행이 28px 인 화면에서 32px 버튼은 줄 사이를 벌린다. 예전
    * 기본값이 `md` 라 크기를 안 적은 여섯 곳만 다른 크기로 서 있었다(적은 곳은 전부 `sm`).
@@ -26,6 +26,10 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
+  /* 표 줄(`TABLE_ROW` h-7, 28px) 안의 단추 — `Td` 가 위아래 4px 씩 쓰므로 남는 자리는 20px 이다.
+     높이를 그만큼 못 박아 줄을 벌리지 않는다(h-6 이면 그 줄만 33px). 기준선에 앉히면 글자 아래 여백만큼
+     또 1~2px 벌어지므로 `align-top`. */
+  xs: 'h-5 text-xs px-2 py-0 align-top',
   sm: 'text-xs px-2.5 py-1',
   md: 'text-sm px-3.5 py-2',
 };

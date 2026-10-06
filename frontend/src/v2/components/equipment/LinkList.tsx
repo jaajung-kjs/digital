@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
-import { Button, CommitInput, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListItemRow } from '../../../components/ui';
+import { Button, CommitInput, isComposing, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListItemRow } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -57,7 +57,7 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
                 size="sm" autoFocus aria-label="이쪽 표기" placeholder="표기(예 AC IN)" value={nearRef.label ?? ''}
                 onCommit={(v) => relabel(l, near, v)}
                 onBlur={() => setEditing(null)}
-                onKeyDown={(e) => { if (e.key === 'Escape') setEditing(null); }}
+                onKeyDown={(e) => { if (e.key === 'Escape' && !isComposing(e)) setEditing(null); }}
               />
             ) : <span data-testid="link-near" title={meta}>{meta}</span>}
             actions={(

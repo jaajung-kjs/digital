@@ -23,11 +23,13 @@ export function PanelsCard({ equipmentId, panelCount }: { equipmentId: string; p
   return (
     <DetailCard>
       <DetailCardHeader title="광선로 슬롯" />
-      {ends.map((e) => {
-        const text = [e.slot != null ? `슬롯 ${e.slot}` : null, e.label].filter(Boolean).join(' · ');
-        return <ListRow key={e.id} title={text}>{text}</ListRow>;
-      })}
-      {panelCount != null && <ListRow>{`빈 슬롯 ${Math.max(0, panelCount - used)}`}</ListRow>}
+      <div>
+        {ends.map((e) => {
+          const text = [e.slot != null ? `슬롯 ${e.slot}` : null, e.label].filter(Boolean).join(' · ');
+          return <ListRow key={e.id} title={text}>{text}</ListRow>;
+        })}
+        {panelCount != null && <ListRow>{`빈 슬롯 ${Math.max(0, panelCount - used)}`}</ListRow>}
+      </div>
     </DetailCard>
   );
 }

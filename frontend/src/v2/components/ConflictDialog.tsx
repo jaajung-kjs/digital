@@ -13,10 +13,10 @@ interface ConflictDialogProps {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** 충돌 키를 사람이 읽는 이름으로 — uuid 는 effective 행에서, 회로·코어는 자연 키에서. */
+/** 충돌 키를 사람이 읽는 이름으로 — uuid 는 effective 행에서, 차단기(모델의 회로)·코어는 자연 키에서. */
 export function conflictLabel(s: Pick<WorkingCopyState, 'saved' | 'overlays'>, key: string): string {
   const [kind, owner, no] = key.split(':');
-  if (kind === 'circuit' && owner && no) return `${equipmentName(s, owner) ?? owner.slice(0, 8)} 회로 ${no}`;
+  if (kind === 'circuit' && owner && no) return `${equipmentName(s, owner) ?? owner.slice(0, 8)} 차단기 ${no}`;
   if (kind === 'core' && owner && no) {
     const line = effectiveRows(s, 'fiberLines').find((l) => l.id === owner);
     return `${line?.name ?? owner.slice(0, 8)} 코어 ${no}`;

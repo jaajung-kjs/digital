@@ -1,4 +1,4 @@
-import { expandDeletes, sameEndRef, type DeleteRequest } from '@twin/core';
+import { MAX_CIRCUITS, circuitKey, expandDeletes, validateState, type DeleteRequest } from '@twin/core';
 import { stageDelete, stageUpdate, type Overlay } from '../../store/overlay';
 import { effectiveRows, toModelState } from './effective';
 import { workingCopyStore, type RowKind } from './workingCopy';
@@ -51,8 +51,9 @@ export function deleteLeafRow(kind: LeafRowKind, id: string): void {
 /**
  * 마지막 차단기 지우기 — 차단기 수를 하나 줄인다. 차단기는 수로만 생기므로 지울 수 있는 것은 늘 끝 번호다.
  *
- * 그 차단기에 연결이 남아 있으면 **아무것도 바꾸지 않고** 까닭을 돌려준다(core 규칙: 연결의 차단기 끝은
- * 차단기 수 안에 있어야 한다 — `validateState` LINK_END_INVALID). 연결을 말없이 함께 지우지 않는다:
+ * 판정은 core 한 곳(`validateState`)이다: 수를 하나 줄인 상태에서 **새로** 「끝이 없는 연결」(LINK_END_INVALID)이
+ * 생기면 그 차단기에 연결이 남아 있는 것이다 — 그때는 **아무것도 바꾸지 않고** 까닭을 돌려준다. 이미 있던 흠은
+ * 이 지우기의 탓이 아니므로 빼고 본다(잇기 미리 보기와 같은 어법). 연결을 말없이 함께 지우지 않는다:
  * 부하가 어디서 전원을 받는지가 사라지는 일이라 사람이 먼저 지워야 한다.
  */
 export function removeLastCircuit(equipmentId: string): { blocked: string | null } {
@@ -60,10 +61,36 @@ export function removeLastCircuit(equipmentId: string): { blocked: string | null
   const eq = effectiveRows(s, 'equipment').find((e) => e.id === equipmentId);
   if (!eq || eq.circuitCount === 0) return { blocked: null };
   const no = eq.circuitCount;
-  const ref = { kind: 'circuit', equipmentId, no } as const;
-  if (effectiveRows(s, 'links').some((l) => sameEndRef(l.a, ref) || sameEndRef(l.b, ref))) {
+  const now = toModelState(s);
+  const next = { ...now, equipment: now.equipment.map((e) => (e.id === equipmentId ? { ...e, circuitCount: no - 1 } : e)) };
+  const dangling = (m: typeof now) => validateState(m).filter((i) => i.code === 'LINK_END_INVALID').flatMap((i) => i.ids);
+  const before = new Set(dangling(now));
+  if (dangling(next).some((id) => !before.has(id))) {
     return { blocked: `차단기 ${no} 에 연결이 있어 지울 수 없습니다 — 연결을 먼저 지우세요` };
   }
   s.update('equipment', equipmentId, { circuitCount: no - 1 });
   return { blocked: null };
+}
+
+/**
+ * 차단기 한 줄 더하기 — 끝 번호 n 으로 생긴다. **새 줄은 빈 줄이다**: 예전에 n 번이 있다가 지워졌으면
+ * 그때 저장된 값(saved 행)이나 고치던 값(오버레이)이 되살아나면 안 된다. 그래서 수를 늘리는 일과
+ * n 번 값을 비우는 일을 **한 번의 set** 으로 싣는다 — 되돌리기 한 번에 함께 물러난다.
+ * 저장된 n 번 행이 있으면 모든 칸을 null 로 덮고, 없으면 남은 오버레이만 걷는다(빈 패치를 싣지 않는다).
+ */
+export function addCircuit(equipmentId: string): number | null {
+  const s = workingCopyStore.getState();
+  const eq = effectiveRows(s, 'equipment').find((e) => e.id === equipmentId);
+  if (!eq || eq.circuitCount >= MAX_CIRCUITS) return null;
+  const no = eq.circuitCount + 1;
+  const k = circuitKey(equipmentId, no);
+  const hasSaved = s.saved.circuits.some((c) => c.equipmentId === equipmentId && c.no === no);
+  s.applyOverlays((o) => {
+    const { [k]: _old, ...rest } = o.circuits;
+    const circuits = hasSaved
+      ? { ...rest, [k]: { label: null, current: null, voltage: null, capacity: null, phase: null, switch: null, purpose: null } }
+      : rest;
+    return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no }), circuits };
+  });
+  return no;
 }

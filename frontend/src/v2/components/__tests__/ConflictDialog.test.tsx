@@ -18,8 +18,8 @@ const s = {
 } as never;
 
 describe('conflictLabel', () => {
-  it('회로·코어 자연 키', () => {
-    expect(conflictLabel(s, `circuit:${U(2)}:3`)).toBe('L3 #1 회로 3');
+  it('차단기·코어 자연 키', () => {
+    expect(conflictLabel(s, `circuit:${U(2)}:3`)).toBe('L3 #1 차단기 3');
     expect(conflictLabel(s, `core:${U(4)}:7`)).toBe('북춘천-춘천 코어 7');
   });
   it('uuid 는 랙·설비·층·광선로·연결로 푼다', () => {
