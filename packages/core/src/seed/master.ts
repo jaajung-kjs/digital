@@ -65,7 +65,7 @@ export const MASTER_EQUIPMENT_TYPES = [
   { key: 'PIA', name: 'PIA', categoryKey: '통신', sortOrder: 16, ...labor(0.5, 0.25, 0.5, 1_500_000) },
   { key: 'SERVER', name: '서버(랙형)', categoryKey: '통신', sortOrder: 17, ...labor(0.75, 0.4, 0.75, 8_000_000) },
   { key: 'RTU', name: 'RTU', categoryKey: '통신', sortOrder: 18, ...labor(1, 0.5, 1, null) },
-  { key: 'OFD', name: 'OFD', categoryKey: '통신', sortOrder: 19, ...labor(0.5, 0.25, 0.5, 350_000) },
+  { key: 'EQ-OFD', name: 'OFD', categoryKey: '통신', sortOrder: 19, ...labor(0.5, 0.25, 0.5, 350_000) },
   { key: 'EXT', name: '외부 설비', categoryKey: '통신', sortOrder: 20, ...labor(0, 0, 0, 0) },
   // 전원
   { key: 'AC-HOUSE', name: '소내전원반', categoryKey: '전원', sortOrder: 31, ...labor(3, 1.5, 3, 8_000_000) },
@@ -89,7 +89,7 @@ export const MASTER_CABLE_TYPES: {
   { key: 'VCT', name: '캡타이어 VCT', medium: 'power', sortOrder: 3, laborCode: null, unitPrice: 3_900, installManDays: 0.03, removeManDays: 0.015 },
   { key: 'HIV', name: '비닐절연전선 HIV', medium: 'power', sortOrder: 4, laborCode: null, unitPrice: 900, installManDays: 0.02, removeManDays: 0.01 },
   { key: 'UTP', name: 'UTP/S-FTP케이블', medium: 'comm', sortOrder: 5, laborCode: null, unitPrice: 700, installManDays: 0.02, removeManDays: 0.01 },
-  { key: 'OPGW', name: 'OPGW(광복합가공지선)', medium: 'fiber', sortOrder: 6, laborCode: null, unitPrice: 12_000, installManDays: 0.06, removeManDays: 0.03 },
+  { key: 'CABLE-OPGW', name: 'OPGW(광복합가공지선)', medium: 'fiber', sortOrder: 6, laborCode: null, unitPrice: 12_000, installManDays: 0.06, removeManDays: 0.03 },
   { key: 'FIBER-CABLE', name: '광케이블', medium: 'fiber', sortOrder: 7, laborCode: null, unitPrice: 3_400, installManDays: 0.06, removeManDays: 0.03 },
   { key: 'BREAKOUT', name: '브레이크아웃케이블', medium: 'fiber', sortOrder: 8, laborCode: null, unitPrice: 5_600, installManDays: 0.06, removeManDays: 0.03 },
   { key: 'FIBER-JUMPER', name: '광점퍼코드', medium: 'comm', sortOrder: 9, laborCode: null, unitPrice: 2_100, installManDays: 0.04, removeManDays: 0.02 },
@@ -109,6 +109,6 @@ export const MASTER_CABLE_TYPES: {
  */
 export const SEED_PICKS = {
   ofdRackType: 'RACK-OFD',
-  ofdEquipmentType: 'OFD',
-  opgwCableType: 'OPGW',
+  ofdEquipmentType: 'EQ-OFD',
+  opgwCableType: 'CABLE-OPGW',
 } as const;

@@ -1,4 +1,4 @@
-import { JIKHAL_INVENTORY, MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES, validateState, type ModelState } from '@twin/core';
+import { JIKHAL_INVENTORY, MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES, SEED_PICKS, validateState, type ModelState } from '@twin/core';
 import { describe, expect, it } from 'vitest';
 import { buildJikhalPayload } from './jikhal.js';
 import { OPGW, STATIONS, seatedPlates } from './jikhalGangwon.js';
@@ -21,7 +21,7 @@ describe('buildJikhalPayload — 광선로', () => {
     for (const l of p.fiberLines!.creates!) {
       expect(ofdIds.has(l.a.equipmentId!)).toBe(true);
       expect(ofdIds.has(l.b.equipmentId!)).toBe(true);
-      expect(l.cableTypeId).toBe('ct-OPGW');
+      expect(l.cableTypeId).toBe(`ct-${SEED_PICKS.opgwCableType}`);
     }
   });
 
