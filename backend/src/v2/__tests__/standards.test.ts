@@ -152,16 +152,17 @@ describe('기준정보 — 노임단가', () => {
     const res = await request(app).post('/api/v2/standards/overhead').set(admin).attach('file', xlsx).expect(201);
     created.push(res.body.id);
 
-    /* 카탈로그 API 는 뒤 태스크에서 다시 선다 — 지금은 적용 중인 판의 저장값을 바로 읽는다. */
-    const row = await nextDb.laborStandard.findFirstOrThrow({ where: { kind: 'overhead', active: true } });
-    const overheadStandard = row.payload as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    /* 카탈로그 API 를 통해 적용 중인 기준정보를 읽는다 — 화면이 사용하는 유일한 통로다. */
+    const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
+    const overheadStandard = catalog.overheadStandard as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    expect(overheadStandard).not.toBeNull();
     /* 요율은 **구간마다 다르다** — 이 값이 상수로 굳으면 공사가 커질 때 조용히 틀린다. */
     expect(overheadStandard.byDuration.간접노무비['10억미만']['183']).toBeCloseTo(0.191, 5);
     expect(overheadStandard.bySize.일반관리비['1000억이상']).toBeCloseTo(0.045, 5);
     expect(overheadStandard.sanan['5-50억'].base).toBe(3_300_000);
 
     // 노임과 제비율은 서로를 밀어내지 않는다 — 종류마다 「적용 중」이 하나씩이다.
-    expect(await nextDb.laborRate.count()).toBeGreaterThan(0);
+    expect(catalog.wageStandard).not.toBeNull();
   });
 
   it('제비율 자리에 엉뚱한 파일을 올리면 422', async () => {

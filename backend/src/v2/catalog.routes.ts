@@ -41,13 +41,34 @@ function kindOf(raw: string): CatalogKind {
 catalogRouter.get('/catalog', async (_req, res, next) => {
   try {
     const order = [{ sortOrder: 'asc' as const }, { name: 'asc' as const }];
-    const [categories, rackTypes, equipmentTypes, cableTypes] = await Promise.all([
+    const [categories, rackTypes, equipmentTypes, cableTypes, activeStandards, rates] = await Promise.all([
       nextDb.category.findMany({ orderBy: order }),
       nextDb.rackType.findMany({ orderBy: order }),
       nextDb.equipmentType.findMany({ orderBy: order }),
       nextDb.cableType.findMany({ orderBy: order }),
+      /* 적용 중인 기준정보를 카탈로그에 싣는다 — 노임은 노무유형 고르기의 어휘이자 설계서의
+         단가이고, 제비율은 설계서의 요율이다. 화면마다 따로 조회하면 「어느 판을 봤나」가 갈린다. */
+      nextDb.laborStandard.findMany({ where: { active: true } }),
+      /* 직종 노임은 시계열 — 코드마다 가장 최근 값이 현재 단가다. */
+      nextDb.laborRate.findMany({ orderBy: [{ code: 'asc' }, { effectiveOn: 'desc' }] }),
     ]);
-    res.json({ categories, rackTypes, equipmentTypes, cableTypes, media: CABLE_MEDIA });
+    const latestByCode = new Map<string, (typeof rates)[number]>();
+    for (const r of rates) if (!latestByCode.has(r.code)) latestByCode.set(r.code, r);
+    const latest = rates.reduce<(typeof rates)[number] | null>((acc, r) => (acc === null || r.effectiveOn > acc.effectiveOn ? r : acc), null);
+    const overhead = activeStandards.find((s) => s.kind === 'overhead') ?? null;
+    res.json({
+      categories, rackTypes, equipmentTypes, cableTypes, media: CABLE_MEDIA,
+      wageStandard: latestByCode.size > 0
+        ? {
+            latestDate: latest?.effectiveLabel ?? null,
+            rows: [...latestByCode.values()].map((r) => ({
+              code: r.code, name: r.name, sector: r.sector, wage: r.wage,
+              marker: r.marker, markerNote: r.markerNote, effectiveLabel: r.effectiveLabel,
+            })),
+          }
+        : null,
+      overheadStandard: overhead ? { id: overhead.id, ...(overhead.payload as Record<string, unknown>) } : null,
+    });
   } catch (e) {
     next(e);
   }

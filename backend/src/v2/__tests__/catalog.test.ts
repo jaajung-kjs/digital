@@ -68,4 +68,14 @@ describe('카탈로그', () => {
   it('없는 id 는 404', async () => {
     await request(app).patch(`/api/v2/catalog/rack-types/${randomUUID()}`).set(admin).send({ name: 'x' }).expect(404);
   });
+
+  it('GET 은 적용 중인 노임·제비율 기준을 함께 싣는다 — 없으면 null', async () => {
+    const body = (await request(app).get('/api/v2/catalog').set(viewer).expect(200)).body;
+    expect(body).toHaveProperty('wageStandard');
+    expect(body).toHaveProperty('overheadStandard');
+    if (body.wageStandard) {
+      expect(Array.isArray(body.wageStandard.rows)).toBe(true);
+      expect(body.wageStandard.rows[0]).toHaveProperty('effectiveLabel');
+    }
+  });
 });
