@@ -72,11 +72,11 @@ describe('저장 여부로 갈라서지 않는다', () => {
    *
    * 「저장된 것 + 아직 저장 안 한 것」을 화면마다 손으로 합치고 있었다(아홉 파일에 스무 번).
    * 같은 규칙을 스무 번 적으면 한 곳이 어긋나도 아무도 모른다 — 도면만 제 나름의 조건을
-   * 하나 더 걸고 있던 것이 바로 그 케이블 버그였다. 합치기는 `store/useWorkingCopy` 의
+   * 하나 더 걸고 있던 것이 바로 그 케이블 버그였다. 합치기는 `store/useWorkingCopy`·`model/store/effective.ts` 의
    * 훅들이 하고, 화면은 그것을 읽기만 한다.
    */
   it('화면이 워킹카피를 손으로 다시 합치지 않는다', () => {
-    const files = screenFiles().filter((f) => !f.endsWith('reportSelectors.ts'));
+    const files = screenFiles().filter((f) => !f.endsWith('reportSelectors.ts') && !f.endsWith(join('model', 'store', 'effective.ts')));
     const offenders = files.filter((f) => /mergeEffective\s*\(/.test(readFileSync(f, 'utf8')));
     expect(offenders, `손으로 합친 곳: ${offenders.join(', ')}`).toEqual([]);
   });

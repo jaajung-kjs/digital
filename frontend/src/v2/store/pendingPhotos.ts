@@ -9,7 +9,7 @@
  * 거기에 파일이 실리면 물릴 때마다 사진을 복사하게 된다. 대신 스토어를 지켜보다가, 담아
  * 둔 줄이 사라지면(지웠거나·되돌렸거나·저장했거나) 들고 있던 것도 놓는다.
  */
-import { v2WorkingCopyStore } from './workingCopyStore';
+import { workingCopyStore } from '../model/store/workingCopy';
 
 interface Held {
   file: File;
@@ -48,7 +48,7 @@ function release(photoId: string): void {
  * 지우기·되돌리기(⌘Z)·되돌리기 단추·저장 — 어느 길로 사라지든 같은 자리에서 알아챈다.
  * 길마다 「여기서도 놓아 주기」를 적으면 반드시 하나를 빠뜨린다.
  */
-v2WorkingCopyStore.subscribe((s) => {
+workingCopyStore.subscribe((s) => {
   if (held.size === 0) return;
   const creates = s.overlays.photos.creates;
   for (const id of [...held.keys()]) if (!(id in creates)) release(id);
