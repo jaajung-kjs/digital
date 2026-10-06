@@ -170,7 +170,7 @@ export function StatusView({
       tools={
         <div className="flex min-w-0 items-center gap-2">
           {canRackView && <SegmentedControl aria-label="현황 보기" items={MODES} value={mode} onChange={setMode} />}
-          <div className="w-40 shrink-0">
+          <div className="w-36 shrink-0">
             <Select size="sm" aria-label="상태" value={filter} onChange={(e) => setFilter(e.currentTarget.value)}>
               <option value="">전체</option>
               {STATUS_OPTIONS.map(([value, label, n]) => (
@@ -187,7 +187,7 @@ export function StatusView({
           {onAddEquipment && <Button variant="secondary" size="sm" onClick={() => onAddEquipment(selectedRackId ?? undefined)}>설비 추가</Button>}
           <TableSearch
             aria-label="현황 검색"
-            className="w-44"
+            className="w-40"
             placeholder="이름·품목·랙 검색"
             value={query}
             onChange={setQuery}
