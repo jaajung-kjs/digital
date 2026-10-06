@@ -114,4 +114,15 @@ describe('StatusView 도구줄·표 정리', () => {
     expect(screen.getByText('UPS').closest('tr')!.querySelectorAll('td')[2]!.textContent).toBe('');
     expect(screen.getByText('L3 스위치').closest('tr')!.querySelectorAll('td')[2]).toHaveTextContent('고장 1');
   });
+
+  /* 품목 줄이 접혀 있어도 「어디에」가 읽혀야 한다 — 랙 칸이 비어 있으면 펴 봐야 안다. */
+  it('품목 행의 랙 칸 — 한 랙에 다 있으면 그 랙 이름, 여럿이면 「랙 n개」', () => {
+    const spread = [...rows, { ...rows[0]!, id: 'e4', rackId: 'r2', rackName: 'UPS#1', name: 'L3 #3' }];
+    const { unmount } = render(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.getByText('L3 스위치').closest('tr')).toHaveTextContent('통신랙');
+    expect(screen.getByText('UPS', { selector: 'span' }).closest('tr')).toHaveTextContent('UPS#1');
+    unmount();
+    render(<StatusView rows={spread} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.getByText('L3 스위치').closest('tr')).toHaveTextContent('랙 2개');
+  });
 });

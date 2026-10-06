@@ -128,6 +128,11 @@ export function StatusView({
   }, [racks, shown, filtering]);
 
   const rackCell = (r: StatusRow) => (nodeScope ? [r.substationName, r.rackName].filter(Boolean).join(' · ') : r.rackName);
+  /** 품목 줄의 랙 칸 — 접힌 채로도 「어디에」가 읽히게: 한 랙에 다 있으면 그 랙, 아니면 「랙 n개」. */
+  const rackSummary = (items: readonly StatusRow[]) => {
+    const where = new Set(items.map((r) => `${r.substationId}:${r.rackId}`));
+    return where.size === 1 && items[0] ? rackCell(items[0]) : `랙 ${where.size}개`;
+  };
 
   const equipmentRow = (r: StatusRow, indent: string, fourth: string, key: string = r.id) => (
     <tr
@@ -281,7 +286,8 @@ export function StatusView({
                           </span>
                         )}
                       </Td>}
-                      <Td colSpan={COLS - 2 - (has('status') ? 1 : 0)} />
+                      {(() => { const where = rackSummary(item.rows); return <Td className="truncate text-content-muted" title={where}>{where}</Td>; })()}
+                      {COLS > restFrom && <Td colSpan={COLS - restFrom} />}
                     </tr>
                     {open && item.rows.map((r) => equipmentRow(r, 'pl-14', rackCell(r)))}
                   </Fragment>
