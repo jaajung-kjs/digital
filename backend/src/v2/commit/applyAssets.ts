@@ -1,5 +1,6 @@
 import { circuitKey, rowsForCount } from '@twin/core';
 import { Prisma } from '../../generated/next-client/index.js';
+import { isPrismaError } from '../db.js';
 import { HttpError } from '../errors.js';
 import type { CommitPayload } from './schema.js';
 
@@ -67,7 +68,8 @@ export async function writeCircuits(tx: Tx, p: Ops): Promise<void> {
   for (const u of p.circuits?.updates ?? []) {
     try {
       await tx.circuit.update({ where: { equipmentId_no: { equipmentId: u.equipmentId, no: u.no } }, data: defined(u.patch) });
-    } catch {
+    } catch (e) {
+      if (!isPrismaError(e, 'P2025')) throw e;
       throw new HttpError(422, 'INVALID_TARGET', `없는 회로입니다: ${circuitKey(u.equipmentId, u.no)}`);
     }
   }

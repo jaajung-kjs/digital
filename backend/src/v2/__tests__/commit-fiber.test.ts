@@ -84,7 +84,8 @@ describe('PUT /commit — 광선로·코어·측정·연결', () => {
     const mk = () => ({ id: randomUUID(), substationId: org.s1, cableTypeId: m.commCableId,
       a: { kind: 'core', lineId, no: 1, side: 'A' }, b: { kind: 'equipment', equipmentId: site.s1.dev } });
     await commit({ links: { creates: [mk()] } }).expect(200);
-    await commit({ links: { creates: [mk()] } }).expect(422);
+    const dup = await commit({ links: { creates: [mk()] } }).expect(422);
+    expect(dup.body.error).toBe('INVALID_STATE');
   });
 
   it('중계국 패치 — 같은 국 두 선로의 코어 끝을 한 연결로 잇는다', async () => {
@@ -186,5 +187,55 @@ describe('PUT /commit — 광선로·코어·측정·연결', () => {
     const eq = await nextDb.equipment.findUniqueOrThrow({ where: { id: ofd } });
     await commit({ equipment: { deletes: [ofd] }, baseVersions: { [ofd]: eq.updatedAt.toISOString() } }).expect(200);
     expect((await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } })).aEquipmentId).toBeNull();
+  });
+
+  it('연결 끝이 걸린 코어를 잘라내면 422 ROWS_IN_USE — 코어 수 그대로', async () => {
+    const lineId = await makeLine(4);
+    await commit({ links: { creates: [{ id: randomUUID(), substationId: org.s1, cableTypeId: m.commCableId,
+      a: { kind: 'core', lineId, no: 4, side: 'A' }, b: { kind: 'equipment', equipmentId: site.s1.dev } }] } }).expect(200);
+    const line = await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } });
+    const res = await commit({ fiberLines: { updates: [{ id: lineId, patch: { coreCount: 2 } }] }, baseVersions: { [lineId]: line.updatedAt.toISOString() } }).expect(422);
+    expect(res.body.error).toBe('ROWS_IN_USE');
+    expect((await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } })).coreCount).toBe(4);
+  });
+
+  it('안 쓰는 코어는 잘라낼 수 있다', async () => {
+    const lineId = await makeLine(4);
+    const line = await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } });
+    await commit({ fiberLines: { updates: [{ id: lineId, patch: { coreCount: 2 } }] }, baseVersions: { [lineId]: line.updatedAt.toISOString() } }).expect(200);
+    expect(await nextDb.core.count({ where: { lineId } })).toBe(2);
+  });
+
+  it('광선로 끝을 고친다 — 판·시작번호·단자 설비, 단자는 null 로 비운다', async () => {
+    const lineId = await makeLine(4);
+    let line = await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } });
+    await commit({ fiberLines: { updates: [{ id: lineId, patch: { a: { panel: 7, startNo: 9 }, b: { equipmentId: site.s2.dev } } }] },
+      baseVersions: { [lineId]: line.updatedAt.toISOString() } }).expect(200);
+    line = await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } });
+    expect([line.aPanel, line.aStartNo, line.bEquipmentId, line.aEquipmentId]).toEqual([7, 9, site.s2.dev, site.s1.ofd]);
+    await commit({ fiberLines: { updates: [{ id: lineId, patch: { a: { equipmentId: null } } }] },
+      baseVersions: { [lineId]: line.updatedAt.toISOString() } }).expect(200);
+    expect((await nextDb.fiberLine.findUniqueOrThrow({ where: { id: lineId } })).aEquipmentId).toBeNull();
+  });
+
+  it('측정을 고치고 지운다 — 날짜는 UTC 자정, 값은 null 로 비운다', async () => {
+    const lineId = await makeLine(4);
+    const mid = randomUUID();
+    await commit({ coreMeasurements: { creates: [{ id: mid, lineId, coreNo: 2, side: 'A', measuredOn: '2024-09-25', loss1310: -6.4, dist1310: 18.7 }] } }).expect(200);
+    let row = await nextDb.coreMeasurement.findUniqueOrThrow({ where: { id: mid } });
+    await commit({ coreMeasurements: { updates: [{ id: mid, patch: { measuredOn: '2025-01-02', loss1310: null } }] },
+      baseVersions: { [mid]: row.updatedAt.toISOString() } }).expect(200);
+    row = await nextDb.coreMeasurement.findUniqueOrThrow({ where: { id: mid } });
+    expect(row.measuredOn?.toISOString()).toBe('2025-01-02T00:00:00.000Z');
+    expect(row.loss1310).toBeNull();
+    expect(row.dist1310).not.toBeNull();
+    await commit({ coreMeasurements: { deletes: [mid] }, baseVersions: { [mid]: row.updatedAt.toISOString() } }).expect(200);
+    expect(await nextDb.coreMeasurement.count({ where: { id: mid } })).toBe(0);
+  });
+
+  it('없는 코어에 측정을 달면 422 DANGLING_REFERENCE', async () => {
+    const lineId = await makeLine(2);
+    const res = await commit({ coreMeasurements: { creates: [{ id: randomUUID(), lineId, coreNo: 9, side: 'A', loss1310: -1 }] } }).expect(422);
+    expect(res.body.error).toBe('DANGLING_REFERENCE');
   });
 });

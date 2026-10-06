@@ -1,5 +1,6 @@
 import { coreKey, rowsForCount } from '@twin/core';
 import { Prisma } from '../../generated/next-client/index.js';
+import { isPrismaError } from '../db.js';
 import { HttpError } from '../errors.js';
 import type { CommitPayload, LinkEndInput } from './schema.js';
 
@@ -55,7 +56,8 @@ export async function applyFiberWrites(tx: Tx, p: CommitPayload): Promise<void> 
   for (const u of p.cores?.updates ?? []) {
     try {
       await tx.core.update({ where: { lineId_no: { lineId: u.lineId, no: u.no } }, data: defined(u.patch) });
-    } catch {
+    } catch (e) {
+      if (!isPrismaError(e, 'P2025')) throw e;
       throw new HttpError(422, 'INVALID_TARGET', `없는 코어입니다: ${coreKey(u.lineId, u.no)}`);
     }
   }

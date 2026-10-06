@@ -129,7 +129,7 @@ function asCommitError(e: unknown): unknown {
     return new HttpError(422, 'INVALID_STATE', '한 회로·코어 끝에는 연결이 하나뿐입니다');
   }
   if (isPrismaError(e, 'P2003')) {
-    return new HttpError(422, 'DANGLING_REFERENCE', '지우려는 것을 아직 가리키는 것이 있습니다 — 함께 지우거나 먼저 옮기세요');
+    return new HttpError(422, 'DANGLING_REFERENCE', '가리키는 대상이 없거나, 지우려는 것을 아직 가리키는 것이 있습니다 — 함께 지우거나 먼저 옮기세요');
   }
   if (isPrismaError(e, 'P2025')) return new HttpError(422, 'INVALID_TARGET', '고치거나 지울 대상이 없습니다');
   if (e instanceof Prisma.PrismaClientUnknownRequestError && /check constraint/i.test(e.message)) {
