@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { JIKHAL_INVENTORY, MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES, SEED_PICKS, validateState, type ModelState } from '@twin/core';
 import { describe, expect, it } from 'vitest';
 import { buildJikhalPayload } from './jikhal.js';
 import { OPGW, STATIONS, seatedPlates } from './jikhalGangwon.js';
+import { PLATE_CORES } from './jikhalGangwonCores.js';
 import { PLATE_LINES } from './jikhalGangwonLines.js';
+import { commitPayloadSchema } from '../v2/commit/schema.js';
 
 let n = 0;
 const input = () => ({
@@ -133,5 +136,62 @@ describe('buildJikhalPayload — 국 설비', () => {
       cableTypes: [...cableMedium].map(([id, medium]) => ({ id, medium })),
     };
     expect(validateState(state)).toEqual([]);
+  });
+});
+
+describe('buildJikhalPayload — 코어 용도·상태·비고(OFD 선번장)', () => {
+  const p = buildJikhalPayload(input());
+  const lines = p.fiberLines!.creates!;
+  const updates = p.cores!.updates!;
+  /* (구)춘천 판 2(No.25~48) = A 끝, 북춘천 판 1 = B 끝. */
+  const seg = OPGW.findIndex((s) => s.a === 'guchuncheon' && s.aSlot === 2 && s.b === 'bukchuncheon' && s.bSlot === 1);
+  const core = (no: number) => updates.find((u) => u.lineId === lines[seg]!.id && u.no === no)?.patch;
+
+  it('코어 3 — 두 시트가 다르면 A 끝((구)춘천 No.27) 값, 북춘천 값은 비고에 덧붙인다', () => {
+    expect(core(3)).toEqual({
+      status: 'ok', purpose: '소형광 · PTP(춘천-북춘천) EAST', note: '(북춘천S/S 시트: 소형광 · PTP(춘천-북춘천) WEST)',
+    });
+  });
+
+  it('코어 1 — 회선수용내역의 「단선(융착) …」 은 상태 broken, 원문은 비고로', () => {
+    expect(core(1)).toEqual({
+      status: 'broken', purpose: null,
+      note: '단선(융착) / 북춘천변전소 OFD 내 융착으로 인한 단선 / (구)kepcit 10G · (북춘천S/S 시트: 단선(융착) / 춘천계1,2-춘천HP계 11,12)',
+    });
+  });
+
+  it('코어 21~24 — 북춘천 판 1 비고 「실제 21~24코어는 사용불가」 가 범위 전부를 사용불가로', () => {
+    for (const no of [21, 22, 23, 24]) {
+      expect(core(no)).toEqual({ status: 'unusable', purpose: null, note: '실제 21~24코어는 사용불가. 그 아래 FDF의 3~6코어만 사용 가능' });
+    }
+  });
+
+  it('코어 17 — 공백만 다른 용도는 같은 값으로 본다(A 값), B 의 비고는 A 에 비고가 없으면 그대로', () => {
+    expect(core(17)).toEqual({ status: 'ok', purpose: '차세대KepCIT · 차세대KepCIT 강원#1링 (화천B/O-본부)', note: '라벨링 필요' });
+  });
+
+  it('값이 없는 코어는 updates 에 없다, 있는 코어는 선로 코어 수 안이다', () => {
+    expect(core(9)).toBeUndefined();
+    const count = new Map(lines.map((l) => [l.id, l.coreCount]));
+    for (const u of updates) expect(u.no).toBeLessThanOrEqual(count.get(u.lineId)!);
+    expect(new Set(updates.map((u) => `${u.lineId}:${u.no}`)).size).toBe(updates.length);
+  });
+
+  it('세운 광선로 두 끝의 선번장 코어는 하나도 빠지지 않는다', () => {
+    OPGW.forEach((s, i) => {
+      const nos = new Set([...(PLATE_CORES[s.a]?.[s.aSlot] ?? []), ...(PLATE_CORES[s.b]?.[s.bSlot] ?? [])].map((c) => c.no));
+      expect(updates.filter((u) => u.lineId === lines[i]!.id).map((u) => u.no).sort((x, y) => x - y)).toEqual([...nos].sort((x, y) => x - y));
+    });
+  });
+
+  it('페이로드는 커밋 스키마를 통과한다(빈 글 없음, 상태 값은 CORE_STATUSES)', () => {
+    const uuids = (keys: readonly { key: string }[]) => Object.fromEntries(keys.map((t) => [t.key, randomUUID()]));
+    const real = buildJikhalPayload({
+      substationIds: uuids(STATIONS) as Record<(typeof STATIONS)[number]['key'], string>,
+      rackTypeIds: uuids(MASTER_RACK_TYPES), equipmentTypeIds: uuids(MASTER_EQUIPMENT_TYPES), cableTypeIds: uuids(MASTER_CABLE_TYPES),
+      newId: randomUUID,
+    });
+    const r = commitPayloadSchema.safeParse(real);
+    expect(r.error?.issues ?? []).toEqual([]);
   });
 });

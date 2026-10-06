@@ -1,15 +1,16 @@
 /**
- * 강원본부 직할 — 국·OFD·광선로·코어 측정(+ 국 설비, Task 11)을 **커밋 한 번**으로 세운다.
+ * 강원본부 직할 — 국·OFD·광선로·코어 값(용도·상태·비고)·코어 측정(+ 국 설비, Task 11)을 **커밋 한 번**으로 세운다.
  *
  * 화면과 같은 저장 길(`commitChanges`)을 탄다: 시드가 따로 DB 에 쓰면 검증을 건너뛴 데이터가
  * 들어간다. 페이로드를 짓는 부분은 순수 함수라 DB 없이 시험한다.
  */
 import { randomUUID } from 'node:crypto';
-import { SEED_PICKS, type InvEnd, type StationInventory } from '@twin/core';
+import { CORE_STATUSES, SEED_PICKS, type InvEnd, type StationInventory } from '@twin/core';
 import { commitChanges } from '../v2/commit/service.js';
 import type { CommitPayload } from '../v2/commit/schema.js';
 import { nextDb } from '../v2/db.js';
 import { OPGW, STATIONS, seatedPlates, type StationKey } from './jikhalGangwon.js';
+import { PLATE_CORES, type PlateCore } from './jikhalGangwonCores.js';
 import { PLATE_LINES, type PlateLine } from './jikhalGangwonLines.js';
 
 const FLOOR = '3층';
@@ -40,6 +41,38 @@ function measurementsOf(line: PlateLine | undefined, lineId: string, side: 'A' |
       : [{ id: newId(), lineId, coreNo: i + 1, side, measuredOn: line.measuredAt, loss1310, dist1310, loss1550, dist1550 }]);
 }
 
+type CoreUpdates = NonNullable<NonNullable<CommitPayload['cores']>['updates']>;
+const STATUS_LABEL: Record<PlateCore['status'], string> = Object.fromEntries(CORE_STATUSES.map((s) => [s.value, s.label])) as Record<PlateCore['status'], string>;
+const STATION_NAME = new Map<StationKey, string>(STATIONS.map((s) => [s.key, s.name]));
+const same = (x: string, y: string) => x.replace(/\s+/g, '') === y.replace(/\s+/g, '');
+
+/**
+ * 한 광선로의 코어 값 — 두 끝 판(A·B 국 시트)의 선번장 값을 합친다. 코어 행은 공유라 값은 하나다:
+ * 칸마다 **A 끝 값이 우선**, A 가 비었으면(상태 정상·용도/비고 없음) B 값. 둘 다 적혔는데 다르면
+ * (공백만 다른 것은 같다) B 값을 비고 끝에 `(<B국> 시트: …)` 로 덧붙인다.
+ */
+function coreUpdatesOf(seg: (typeof OPGW)[number], lineId: string): CoreUpdates {
+  const byNo = (key: StationKey, slot: number) => new Map((PLATE_CORES[key]?.[slot] ?? []).map((c) => [c.no, c]));
+  const as = byNo(seg.a, seg.aSlot);
+  const bs = byNo(seg.b, seg.bSlot);
+  const bName = STATION_NAME.get(seg.b)!;
+  return [...new Set([...as.keys(), ...bs.keys()])].sort((x, y) => x - y).map((no) => {
+    const a = as.get(no);
+    const b = bs.get(no);
+    const status = a && a.status !== 'ok' ? a.status : b?.status ?? 'ok';
+    const purpose = a?.purpose ?? b?.purpose ?? null;
+    const note = a?.note ?? b?.note ?? null;
+    const differs: string[] = [];
+    if (a && b) {
+      if (a.status !== 'ok' && b.status !== 'ok' && a.status !== b.status) differs.push(STATUS_LABEL[b.status]);
+      if (a.purpose && b.purpose && !same(a.purpose, b.purpose)) differs.push(b.purpose);
+      if (a.note && b.note && !same(a.note, b.note)) differs.push(b.note);
+    }
+    const notes = [note, differs.length > 0 ? `(${bName} 시트: ${differs.join(' · ')})` : null].filter((x): x is string => x != null);
+    return { lineId, no, patch: { status, purpose, note: notes.length > 0 ? notes.join(' · ') : null } };
+  });
+}
+
 export function buildJikhalPayload(input: JikhalInput): CommitPayload {
   const { substationIds, newId } = input;
   const floors: Creates<'floors'> = [];
@@ -47,6 +80,7 @@ export function buildJikhalPayload(input: JikhalInput): CommitPayload {
   const equipment: Creates<'equipment'> = [];
   const lines: Creates<'fiberLines'> = [];
   const measurements: Creates<'coreMeasurements'> = [];
+  const cores: CoreUpdates = [];
   /** 국 → OFD 설비 id. */
   const ofdOf = new Map<StationKey, string>();
   /** (국, 선번장 판 번호) → { 선로 id, 끝 } — 국 설비의 점퍼가 코어를 가리킬 때 쓴다. */
@@ -82,6 +116,7 @@ export function buildJikhalPayload(input: JikhalInput): CommitPayload {
       b: { substationId: substationIds[seg.b], equipmentId: ofdOf.get(seg.b)!, panel: bIdx + 1 },
     });
     measurements.push(...measurementsOf(aLine, lineId, 'A', newId), ...measurementsOf(bLine, lineId, 'B', newId));
+    cores.push(...coreUpdatesOf(seg, lineId));
     plateEnd.set(`${seg.a}#${seg.aSlot}`, { lineId, side: 'A' });
     plateEnd.set(`${seg.b}#${seg.bSlot}`, { lineId, side: 'B' });
   }
@@ -91,6 +126,8 @@ export function buildJikhalPayload(input: JikhalInput): CommitPayload {
     racks: { creates: racks },
     equipment: { creates: equipment },
     fiberLines: { creates: lines },
+    /* 코어 행은 선로를 만들 때 서버가 coreCount 로 세운다 — 값은 같은 커밋의 updates 로(만들기 다음에 적용된다). */
+    cores: { updates: cores },
     coreMeasurements: { creates: measurements },
   };
   if (input.inventory) addInventory(payload, input, plateEnd);
@@ -178,7 +215,7 @@ export async function seedJikhal(inventory?: Record<string, StationInventory>): 
     });
     await commitChanges(payload, { userId: 'seed', username: 'seed' });
     console.log(`[seed:jikhal] 국 ${STATIONS.length}, 광선로 ${payload.fiberLines?.creates?.length ?? 0}, 측정 ${payload.coreMeasurements?.creates?.length ?? 0}, `
-      + `설비 ${payload.equipment?.creates?.length ?? 0}, 연결 ${payload.links?.creates?.length ?? 0}`);
+      + `코어 값 ${payload.cores?.updates?.length ?? 0}, 설비 ${payload.equipment?.creates?.length ?? 0}, 연결 ${payload.links?.creates?.length ?? 0}`);
   } catch (e) {
     /* 국만 남으면 count()>0 이라 시드가 영영 건너뛴다 — 이번에 만든 국을 되돌린다. */
     await nextDb.substation.deleteMany({ where: { id: { in: createdIds } } });
