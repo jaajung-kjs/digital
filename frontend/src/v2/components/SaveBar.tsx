@@ -2,11 +2,15 @@ import { useEffect } from 'react';
 import { Redo2, Undo2 } from 'lucide-react';
 import { useStore } from 'zustand';
 import { Button, IconButton, isTypingTarget, useConfirm } from '../../components/ui';
-import { useV2WorkingCopy, v2WorkingCopyStore } from '../store/workingCopyStore';
+import { useWorkingCopy, workingCopyStore } from '../model/store/workingCopy';
 
 interface SaveBarProps {
   onCommit: () => void;
   isCommitting: boolean;
+  /** 변경이 닿은 국 이름 — 「북춘천S/S·춘천H/P」. */
+  substationNames: string[];
+  /** 저장을 막는 첫 흠 문구 — 있으면 저장 단추가 잠기고 문구가 뜬다. */
+  issue: string | null;
 }
 
 /** 이 자판에서 「실행 취소」는 무엇으로 누르나 — 맥은 ⌘, 나머지는 Ctrl. */
@@ -27,13 +31,13 @@ const MOD = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator
  * 바가 서는 조건은 「고칠 것이 있거나, **되돌아갈 수 있을 때**」다. 예전에는 고친 것이 없으면
  * 무조건 사라졌는데, 그러면 ⌘Z 로 전부 물린 순간 바가 사라져 **다시 실행할 길이 없어졌다**.
  */
-export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
+export function SaveBar({ onCommit, isCommitting, substationNames, issue }: SaveBarProps) {
   const { confirm, confirmDialog } = useConfirm();
   // 반응형 dirty count — 스토어 파생 getter 구독 (primitive 반환, 재렌더 안전)
-  const dirty = useV2WorkingCopy((s) => s.dirtyCount());
+  const dirty = useWorkingCopy((s) => s.dirtyCount());
   /* 되돌아갈 수 있나 — 시간 여행 스토어를 따로 구독한다(값이 아니라 개수만 본다). */
-  const canUndo = useStore(v2WorkingCopyStore.temporal, (t) => t.pastStates.length > 0);
-  const canRedo = useStore(v2WorkingCopyStore.temporal, (t) => t.futureStates.length > 0);
+  const canUndo = useStore(workingCopyStore.temporal, (t) => t.pastStates.length > 0);
+  const canRedo = useStore(workingCopyStore.temporal, (t) => t.futureStates.length > 0);
 
   /* 탭을 닫을 때 묻는 일은 여기서 하지 않는다 — 그 자리는 셸 하나다(`V2Shell`).
      화면이 하는 일은 「안 저장된 것이 몇 건」인지 손을 드는 것뿐이고(`useUnsavedMark`),
@@ -52,7 +56,7 @@ export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
       if (e.key.toLowerCase() !== 'z' || !(e.metaKey || e.ctrlKey)) return;
       if (isTypingTarget(e.target)) return;
       e.preventDefault();
-      const t = v2WorkingCopyStore.temporal.getState();
+      const t = workingCopyStore.temporal.getState();
       if (e.shiftKey) t.redo();
       else t.undo();
     };
@@ -64,19 +68,22 @@ export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
 
   async function handleRevert() {
     if (!(await confirm({ title: '변경 되돌리기', target: null, message: `저장하지 않은 변경 ${dirty}건이 모두 사라집니다.`, confirmLabel: '되돌리기', danger: true }))) return;
-    useV2WorkingCopy.getState().revert();
+    workingCopyStore.getState().revert();
   }
 
   return (
     <>
-      <span className="shrink-0 text-xs text-content-muted">변경 {dirty}건</span>
+      <span className="shrink-0 text-xs text-content-muted">
+        변경 {dirty}건{substationNames.length > 0 && ` · ${substationNames.join('·')}`}
+      </span>
+      {issue && <span className="min-w-0 truncate text-xs text-danger" role="alert">{issue}</span>}
       <IconButton
         aria-label="실행 취소"
         title={`실행 취소 (${MOD}Z)`}
         size="sm"
         disabled={!canUndo}
         disabledReason="되돌릴 것이 없습니다"
-        onClick={() => v2WorkingCopyStore.temporal.getState().undo()}
+        onClick={() => workingCopyStore.temporal.getState().undo()}
       >
         <Undo2 size={14} />
       </IconButton>
@@ -86,7 +93,7 @@ export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
         size="sm"
         disabled={!canRedo}
         disabledReason="다시 실행할 것이 없습니다"
-        onClick={() => v2WorkingCopyStore.temporal.getState().redo()}
+        onClick={() => workingCopyStore.temporal.getState().redo()}
       >
         <Redo2 size={14} />
       </IconButton>
@@ -97,7 +104,7 @@ export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
           <Button variant="secondary" size="sm" onClick={() => void handleRevert()}>
             되돌리기
           </Button>
-          <Button size="sm" disabled={isCommitting} onClick={onCommit}>
+          <Button size="sm" disabled={isCommitting || issue != null} onClick={onCommit}>
             {isCommitting ? '저장 중…' : '저장'}
           </Button>
         </>

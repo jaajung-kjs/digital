@@ -1,0 +1,288 @@
+import { Fragment, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { EQUIPMENT_STATUSES } from '@twin/core';
+import {
+  Button, EMPTY, EmptyState, FilterChip, IconButton, SegmentedControl, SELECTABLE, SELECTED, StatusDot,
+  TABLE_ROW, TableCard, TableSearch, Td, Th, ViewCard, cn, formatDate, selectableRow, useScrollSelectedIntoView,
+} from '../../../components/ui';
+import { summarize } from '../../statusSummary';
+import type { StatusRow } from './statusRows';
+
+type Tone = 'success' | 'warning' | 'danger' | 'neutral';
+const STATUS = new Map<string, { label: string; tone: Tone }>(
+  EQUIPMENT_STATUSES.map((s) => [s.value, { label: s.label, tone: s.tone }]),
+);
+const statusLabel = (v: string) => STATUS.get(v)?.label ?? v;
+const statusTone = (v: string): Tone => STATUS.get(v)?.tone ?? 'neutral';
+
+/** 좋은 상태 하나 — 나머지(예비·고장…)만 칩으로 세운다. */
+const OK_STATUS = EQUIPMENT_STATUSES.find((s) => s.tone === 'success')?.value ?? 'normal';
+
+export interface StatusRackInfo { id: string; name: string; typeName: string }
+
+export interface StatusViewProps {
+  rows: StatusRow[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  /** 본부·지사를 고른 상태 — 읽기 전용, 랙이 아니라 변전소가 먼저다. */
+  nodeScope?: boolean;
+  /** 「국에서 열기」 — 본부·지사에서만 준다. */
+  onOpenElsewhere?: (row: StatusRow) => void;
+  racks?: StatusRackInfo[];
+  selectedRackId?: string | null;
+  onSelectRack?: (id: string | null) => void;
+  onAddRack?: () => void;
+  onAddEquipment?: (rackId?: string) => void;
+}
+
+type Mode = '품목별' | '랙별';
+const MODES = [{ key: '품목별' as const, label: '품목별' }, { key: '랙별' as const, label: '랙별' }];
+interface Filter { status: string | null; neverInspected: boolean }
+const NO_FILTER: Filter = { status: null, neverInspected: false };
+
+/** 열 폭(%) — 항목, 개수, 상태, 랙, 모델, 제조사, 설치일, 마지막점검일. */
+const WIDTHS = [26, 7, 14, 17, 10, 10, 8, 8];
+const COLS = WIDTHS.length;
+const noop = () => {};
+
+/**
+ * 현황 — 설비를 **품목별**(분야 ▸ 품목 ▸ 설비) 또는 **랙별**(랙 ▸ 설비)로 읽는다.
+ * 세는 것은 사실뿐이다: 개수·상태·점검 이력 없음. 랙은 세지 않는다.
+ */
+export function StatusView({
+  rows, selectedId, onSelect, nodeScope, onOpenElsewhere, racks, selectedRackId = null, onSelectRack, onAddRack, onAddEquipment,
+}: StatusViewProps) {
+  const [mode, setMode] = useState<Mode>('품목별');
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>(NO_FILTER);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const canRackView = !nodeScope && racks != null;
+  const view: Mode = canRackView ? mode : '품목별';
+  const toggle = (set: ReadonlySet<string>, key: string): ReadonlySet<string> => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  };
+
+  const filtering = query.trim() !== '' || filter.status != null || filter.neverInspected;
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (filter.status && r.status !== filter.status) return false;
+      if (filter.neverInspected && r.lastInspectedAt != null) return false;
+      if (!q) return true;
+      return [r.name, r.typeName, r.categoryName, r.rackName, r.substationName, r.model, r.maker].some((v) => (v ?? '').toLowerCase().includes(q));
+    });
+  }, [rows, query, filter]);
+  const summary = useMemo(() => summarize(shown), [shown]);
+  /** 칩의 숫자는 거르기 전 전체다. */
+  const all = useMemo(() => summarize(rows), [rows]);
+  const allCollapsed = summary.groups.length > 0 && summary.groups.every((g) => collapsed.has(g.categoryName));
+  const scrollRef = useScrollSelectedIntoView<HTMLDivElement>(selectedId);
+
+  const rackGroups = useMemo(() => {
+    if (!racks) return [];
+    const byRack = new Map<string, StatusRow[]>();
+    for (const r of shown) byRack.set(r.rackId, [...(byRack.get(r.rackId) ?? []), r]);
+    return racks
+      .map((rack) => ({ rack, rows: (byRack.get(rack.id) ?? []).sort((a, b) => a.name.localeCompare(b.name, 'ko')) }))
+      .filter((g) => !filtering || g.rows.length > 0)
+      .sort((a, b) => a.rack.name.localeCompare(b.rack.name, 'ko'));
+  }, [racks, shown, filtering]);
+
+  const rackCell = (r: StatusRow) => (nodeScope ? [r.substationName, r.rackName].filter(Boolean).join(' · ') : r.rackName);
+
+  const equipmentRow = (r: StatusRow, indent: string, fourth: string) => (
+    <tr
+      key={r.id}
+      {...selectableRow(selectedId, r.id, onSelect)}
+      className={cn(TABLE_ROW, 'group', SELECTABLE, r.id === selectedId && SELECTED)}
+    >
+      <Td className={cn(indent, 'text-content')}>
+        <span className="flex items-center gap-1">
+          <span className="min-w-0 truncate">{r.name}</span>
+          {onOpenElsewhere && (
+            <IconButton
+              size="sm"
+              aria-label={`${r.name} 이 있는 국에서 열기`}
+              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+              onClick={(e) => { e.stopPropagation(); onOpenElsewhere(r); }}
+            >
+              <ExternalLink size={12} />
+            </IconButton>
+          )}
+        </span>
+      </Td>
+      <Td />
+      <Td><StatusDot status={statusTone(r.status)}>{statusLabel(r.status)}</StatusDot></Td>
+      <Td className="truncate text-content-muted">{fourth}</Td>
+      <Td className="truncate text-content-muted">{r.model ?? EMPTY}</Td>
+      <Td className="truncate text-content-muted">{r.maker ?? EMPTY}</Td>
+      <Td className="text-content-muted">{formatDate(r.installDate) || EMPTY}</Td>
+      <Td className="text-content-muted">{formatDate(r.lastInspectedAt) || EMPTY}</Td>
+    </tr>
+  );
+
+  const empty = (
+    <tr>
+      <Td colSpan={COLS}>
+        {filtering ? <EmptyState title="조건과 맞는 설비가 없습니다" /> : <EmptyState title="설비가 없습니다" description="「설비 추가」로 놓으세요." />}
+      </Td>
+    </tr>
+  );
+
+  return (
+    <ViewCard
+      onClearSelection={() => onSelect(null)}
+      bodyRef={scrollRef}
+      tools={
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {canRackView && <SegmentedControl aria-label="현황 보기" items={MODES} value={mode} onChange={setMode} />}
+          {canRackView && <span className="mx-1 h-4 w-px bg-line" aria-hidden />}
+          {EQUIPMENT_STATUSES.filter((s) => s.value !== OK_STATUS).map((s) => (
+            <FilterChip
+              key={s.value}
+              label={s.label}
+              count={all.byStatus[s.value] ?? 0}
+              tone="danger"
+              on={filter.status === s.value}
+              onClick={() => setFilter((f) => ({ ...f, status: f.status === s.value ? null : s.value }))}
+            />
+          ))}
+          <FilterChip
+            label="미점검"
+            count={all.neverInspected}
+            tone="warning"
+            on={filter.neverInspected}
+            onClick={() => setFilter((f) => ({ ...f, neverInspected: !f.neverInspected }))}
+          />
+        </div>
+      }
+      actions={
+        <div className="flex items-center gap-1.5">
+          {onAddRack && <Button variant="secondary" size="sm" onClick={onAddRack}>랙 추가</Button>}
+          {onAddEquipment && <Button variant="secondary" size="sm" onClick={() => onAddEquipment(selectedRackId ?? undefined)}>설비 추가</Button>}
+          <TableSearch
+            aria-label="현황 검색"
+            placeholder="분야·품목·이름·랙으로 검색"
+            value={query}
+            onChange={setQuery}
+            shown={shown.length}
+            total={rows.length}
+          />
+        </div>
+      }
+    >
+      <TableCard fill widths={WIDTHS}>
+        <thead>
+          <tr className="sticky top-0 z-sticky">
+            <Th>
+              <span className="flex items-center gap-2">
+                항목
+                {view === '품목별' && summary.groups.length > 0 && (
+                  <button
+                    type="button"
+                    className="rounded px-1 font-normal text-content-faint hover:bg-surface-3 hover:text-content"
+                    onClick={() => {
+                      if (allCollapsed) return setCollapsed(new Set());
+                      setExpanded(new Set());
+                      setCollapsed(new Set(summary.groups.map((g) => g.categoryName)));
+                    }}
+                  >
+                    {allCollapsed ? '모두 펴기' : '모두 접기'}
+                  </button>
+                )}
+              </span>
+            </Th>
+            <Th align="right">개수</Th>
+            <Th>상태</Th>
+            <Th>{view === '랙별' ? '품목' : '랙'}</Th>
+            <Th>모델</Th>
+            <Th>제조사</Th>
+            <Th>설치일</Th>
+            <Th>마지막점검일</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {view === '품목별' && summary.groups.length === 0 && empty}
+          {view === '품목별' && summary.groups.map((group) => (
+            <Fragment key={group.categoryName}>
+              <tr className={cn(TABLE_ROW, 'border-b-0 border-t', SELECTABLE)} onClick={() => setCollapsed((p) => toggle(p, group.categoryName))}>
+                <Td className="text-content">
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label={`${group.categoryName} ${collapsed.has(group.categoryName) ? '펼치기' : '접기'}`}
+                      aria-expanded={!collapsed.has(group.categoryName)}
+                      className="shrink-0 text-content-faint hover:text-content"
+                    >
+                      {collapsed.has(group.categoryName) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                    <span className="min-w-0 truncate font-semibold">{group.categoryName}</span>
+                  </span>
+                </Td>
+                <Td align="right" className="font-semibold text-content">{group.count}</Td>
+                <Td colSpan={COLS - 2} />
+              </tr>
+              {!collapsed.has(group.categoryName) && group.items.map((item) => {
+                const open = expanded.has(item.key);
+                const bad = Object.entries(item.byStatus).filter(([v]) => v !== OK_STATUS);
+                return (
+                  <Fragment key={item.key}>
+                    <tr className={cn(TABLE_ROW, SELECTABLE)} onClick={() => setExpanded((p) => toggle(p, item.key))}>
+                      <Td className="truncate pl-8 text-content">
+                        <span className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label={`${item.itemName} ${open ? '접기' : '펼치기'}`}
+                            className="shrink-0 text-content-faint hover:text-content"
+                          >
+                            {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          </button>
+                          <span className="min-w-0 truncate">{item.itemName}</span>
+                        </span>
+                      </Td>
+                      <Td align="right" className="text-content">{item.count}</Td>
+                      <Td>
+                        {bad.length === 0 ? (
+                          <span className="text-xs text-content-faint">{EMPTY}</span>
+                        ) : (
+                          <span className="flex flex-wrap items-center gap-1">
+                            {bad.map(([value, n]) => (
+                              <StatusDot key={value} status={statusTone(value)}>{statusLabel(value)} {n}</StatusDot>
+                            ))}
+                          </span>
+                        )}
+                      </Td>
+                      <Td colSpan={COLS - 3} />
+                    </tr>
+                    {open && item.rows.map((r) => equipmentRow(r, 'pl-14', rackCell(r)))}
+                  </Fragment>
+                );
+              })}
+            </Fragment>
+          ))}
+
+          {view === '랙별' && rackGroups.length === 0 && empty}
+          {view === '랙별' && rackGroups.map(({ rack, rows: inRack }) => (
+            <Fragment key={rack.id}>
+              <tr
+                {...selectableRow(selectedRackId, rack.id, onSelectRack ?? noop)}
+                className={cn(TABLE_ROW, 'border-b-0 border-t', SELECTABLE, rack.id === selectedRackId && SELECTED)}
+              >
+                <Td className="truncate font-semibold text-content">{rack.name}</Td>
+                <Td align="right" className="font-semibold text-content">{inRack.length}</Td>
+                <Td />
+                <Td className="truncate text-content-muted">{rack.typeName}</Td>
+                <Td colSpan={COLS - 4} />
+              </tr>
+              {inRack.map((r) => equipmentRow(r, 'pl-8', r.typeName))}
+            </Fragment>
+          ))}
+        </tbody>
+      </TableCard>
+    </ViewCard>
+  );
+}

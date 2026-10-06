@@ -1,4 +1,4 @@
-import type { StatusRow } from './statusRows';
+import type { StatusRow } from './components/status/statusRows';
 
 /**
  * 현황을 **집계로 읽는다** — 「무엇이 몇 개 있고, 어디에 있고, 손볼 것이 있나」.
@@ -15,15 +15,13 @@ export interface SummaryItem {
   key: string;
   categoryName: string;
   itemName: string;
-  /** 설비인가 그 안의 장비인가 — 「현황엔 설비만」과 「L3 스위치 몇 개」가 둘 다 필요하다. */
-  kind: '설비' | '장비';
   count: number;
-  /** 상태값 → 개수. 어휘는 `ASSET_STATUSES` 가 정하고 여기서는 세기만 한다. */
+  /** 상태값 → 개수. 어휘는 `EQUIPMENT_STATUSES` 가 정하고 여기서는 세기만 한다. */
   byStatus: Record<string, number>;
   /** 점검 이력이 하나도 없는 것 — 임의의 기간 기준 없이 말할 수 있는 사실이다. */
   neverInspected: number;
   /**
-   * 이 품목의 개체들 — **자리 순**으로.
+   * 이 품목의 개체들 — **랙 순**으로.
    *
    * 집계 줄에는 「어디에 몇 개」를 적지 않는다: 펼치면 그 자리들이 순서대로 나오므로 같은
    * 말을 두 번 하는 셈이고, 접힌 줄에 분포를 욱여넣으면 긴 목록에서 줄이 길어져 개수가
@@ -41,8 +39,6 @@ export interface SummaryGroup {
 export interface Summary {
   groups: SummaryGroup[];
   total: number;
-  assemblies: number;
-  devices: number;
   byStatus: Record<string, number>;
   neverInspected: number;
 }
@@ -58,18 +54,15 @@ export const UNSET = '미지정';
 export function summarize(rows: StatusRow[]): Summary {
   const items = new Map<string, SummaryItem>();
   const byStatus: Record<string, number> = {};
-  let assemblies = 0;
-  let devices = 0;
   let neverInspected = 0;
 
   for (const r of rows) {
     const categoryName = r.categoryName || UNSET;
-    const key = `${categoryName} ${r.typeName} ${r.kind}`;
+    const key = `${categoryName} ${r.typeName}`;
     const item = items.get(key) ?? {
       key,
       categoryName,
       itemName: r.typeName,
-      kind: r.kind,
       count: 0,
       byStatus: {} as Record<string, number>,
       neverInspected: 0,
@@ -82,14 +75,12 @@ export function summarize(rows: StatusRow[]): Summary {
     items.set(key, item);
 
     byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
-    if (r.kind === '설비') assemblies += 1;
-    else devices += 1;
     if (r.lastInspectedAt == null) neverInspected += 1;
   }
 
   /* 펼쳤을 때 **같은 자리 것끼리 붙어** 보이게 — 어디에 몇 개인지가 순서로 읽힌다. */
   for (const item of items.values()) {
-    item.rows.sort((a, b) => (a.where || '').localeCompare(b.where || '', 'ko') || a.name.localeCompare(b.name, 'ko'));
+    item.rows.sort((a, b) => a.rackName.localeCompare(b.rackName, 'ko') || a.name.localeCompare(b.name, 'ko'));
   }
 
   const groups = new Map<string, SummaryGroup>();
@@ -108,8 +99,6 @@ export function summarize(rows: StatusRow[]): Summary {
       (a, b) => b.count - a.count || a.categoryName.localeCompare(b.categoryName, 'ko'),
     ),
     total: rows.length,
-    assemblies,
-    devices,
     byStatus,
     neverInspected,
   };

@@ -17,37 +17,31 @@ const at = (path: string) =>
 
 describe('useWorkspaceRoute', () => {
   it('주소가 보고 있는 자리를 그대로 말한다', () => {
-    const { result } = at('/n/sub-1?view=선번장&asset=a1&part=p1&port=po1');
-    expect(result.current).toMatchObject({
-      nodeId: 'sub-1',
-      view: '선번장',
-      assetId: 'a1',
-      partId: 'p1',
-      portId: 'po1',
-    });
+    const { result } = at('/n/sub-1?view=평면도&eq=e1&rack=r1');
+    expect(result.current).toMatchObject({ nodeId: 'sub-1', view: '평면도', eqId: 'e1', rackId: 'r1' });
   });
 
   it('없거나 모르는 판 이름은 첫 판으로 — 주소는 남이 손으로 고칠 수 있다', () => {
     expect(at('/n/sub-1').result.current.view).toBe('현황');
     expect(at('/n/sub-1?view=없는판').result.current.view).toBe('현황');
-    /* 이름만 바뀐 옛 주소는 **그 화면으로 받아 준다** — 북마크가 엉뚱한 탭으로 떨어지지 않게.
-       두 번 바뀌었다: 설비 대장 → 설비 현황 → 현황(상단 메뉴가 「설비 현황」을 가져갔다). */
+    expect(at('/n/sub-1?view=선번장').result.current.view).toBe('현황');
     expect(at('/n/sub-1?view=설비 대장').result.current.view).toBe('현황');
     expect(at('/n/sub-1?view=설비 현황').result.current.view).toBe('현황');
   });
 
-  it('자산을 지우면 장비·포트도 함께 지워진다 — 셋은 한 동작의 결과다', () => {
-    const { result } = at('/n/sub-1?asset=a1&part=p1&port=po1');
-    act(() => result.current.selectAsset(null));
-    expect(result.current.assetId).toBeNull();
-    expect(result.current.partId).toBeNull();
-    expect(result.current.portId).toBeNull();
+  it('설비·랙을 고르고 놓는다', () => {
+    const { result } = at('/n/sub-1?eq=e1&rack=r1');
+    act(() => result.current.selectEquipment(null));
+    expect(result.current.eqId).toBeNull();
+    expect(result.current.rackId).toBe('r1');
+    act(() => result.current.selectRack('r2'));
+    expect(result.current.rackId).toBe('r2');
   });
 
-  it('판을 바꿔도 보던 자산은 그대로다 — 같은 자리를 다르게 보는 일이다', () => {
-    const { result } = at('/n/sub-1?asset=a1');
-    act(() => result.current.setView('계통'));
-    expect(result.current.view).toBe('계통');
-    expect(result.current.assetId).toBe('a1');
+  it('판을 바꿔도 고른 설비는 그대로다 — 같은 자리를 다르게 보는 일이다', () => {
+    const { result } = at('/n/sub-1?eq=e1');
+    act(() => result.current.setView('평면도'));
+    expect(result.current.view).toBe('평면도');
+    expect(result.current.eqId).toBe('e1');
   });
 });
