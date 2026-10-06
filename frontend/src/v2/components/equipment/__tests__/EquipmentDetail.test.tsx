@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildCommitPayload } from '../../../model/store/commitPayload';
 import { workingCopyStore as store } from '../../../model/store/workingCopy';
 import { EquipmentDetail } from '../EquipmentDetail';
 import { RackDetail } from '../RackDetail';
@@ -43,10 +44,47 @@ describe('설비 상세', () => {
     expect(screen.getByText(/연결이 남은 회로 1개/)).toBeInTheDocument();
   });
 
-  it('이름을 고치면 오버레이에 실린다', () => {
+  it('이름은 다 친 뒤(blur) 한 번 오버레이에 실린다 — 치는 동안은 초안이다', () => {
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '송광치' } });
+    const name = screen.getByLabelText('이름');
+    fireEvent.change(name, { target: { value: '송' } });
+    fireEvent.change(name, { target: { value: '송광치 ' } });
+    expect(store.getState().overlays.equipment.creates.l!.name).toBe('부하');
+    fireEvent.blur(name);
     expect(store.getState().overlays.equipment.creates.l!.name).toBe('송광치');
+  });
+
+  it('이름을 비우고 나가면 원래 이름으로 돌아간다 — 빈 이름은 변경안에 들지 않는다', () => {
+    render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    const name = screen.getByLabelText('이름') as HTMLInputElement;
+    fireEvent.change(name, { target: { value: '   ' } });
+    fireEvent.blur(name);
+    expect(store.getState().overlays.equipment.creates.l!.name).toBe('부하');
+    expect(name.value).toBe('부하');
+  });
+
+  it('이름 고치기는 Enter 로도 커밋되고, 되돌리기 이력은 한 칸만 쌓인다', () => {
+    render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    const before = store.temporal.getState().pastStates.length;
+    const name = screen.getByLabelText('이름');
+    name.focus();
+    for (const v of ['송', '송광', '송광치']) fireEvent.change(name, { target: { value: v } });
+    fireEvent.keyDown(name, { key: 'Enter' });
+    expect(store.getState().overlays.equipment.creates.l!.name).toBe('송광치');
+    expect(store.temporal.getState().pastStates.length).toBe(before + 1);
+  });
+
+  it('회로 갈래는 말(교류)로 고르고 값(AC)으로 싣는다 — 저장된 on 은 투입으로 읽힌다', () => {
+    store.getState().updateCircuit('p', 2, { switch: 'on' });
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    expect(screen.getAllByRole('button', { name: '개폐 고치기' })[1]).toHaveTextContent('투입');
+    fireEvent.click(screen.getAllByRole('button', { name: '갈래 고치기' })[0]!);
+    const select = screen.getByRole('combobox', { name: '갈래' });
+    expect([...(select as HTMLSelectElement).options].map((o) => o.textContent)).not.toContain('직접 입력…');
+    fireEvent.change(select, { target: { value: 'AC' } });
+    expect(store.getState().overlays.circuits['circuit:p:1']?.current).toBe('AC');
+    expect(buildCommitPayload(store.getState()).circuits?.updates).toContainEqual({ equipmentId: 'p', no: 1, patch: { current: 'AC' } });
+    expect(screen.getAllByRole('button', { name: '갈래 고치기' })[0]).toHaveTextContent('교류');
   });
 
   it('삭제는 함께 지워질 연결 수를 알리고 확인 뒤에 지운다', async () => {
@@ -84,6 +122,19 @@ describe('설비 상세', () => {
 
 describe('랙 상세', () => {
   const props = { rackId: 'r1', onClose: vi.fn(), onSelectEquipment: vi.fn(), onDeleted: vi.fn(), onAddEquipment: vi.fn() };
+
+  it('랙 이름도 다 친 뒤 한 번, 비우면 원래 이름', () => {
+    render(<RackDetail {...props} />);
+    const name = screen.getByLabelText('이름') as HTMLInputElement;
+    fireEvent.change(name, { target: { value: '' } });
+    fireEvent.blur(name);
+    expect(store.getState().overlays.racks.creates.r1!.name).toBe('분전반함');
+    expect(name.value).toBe('분전반함');
+    fireEvent.change(name, { target: { value: '통신랙' } });
+    expect(store.getState().overlays.racks.creates.r1!.name).toBe('분전반함');
+    fireEvent.blur(name);
+    expect(store.getState().overlays.racks.creates.r1!.name).toBe('통신랙');
+  });
 
   it('안의 설비를 누르면 그 설비를 고른다', () => {
     const onSelectEquipment = vi.fn();

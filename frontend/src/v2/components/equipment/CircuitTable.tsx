@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { CIRCUIT_CURRENTS, SWITCH_STATES, type CircuitCurrent, type SwitchState } from '@twin/core';
 import { Button, TABLE_ROW, TableCard, Td, Th } from '../../../components/ui';
 import { effectiveCircuits, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -8,8 +9,6 @@ import { ConnectDialog } from './ConnectDialog';
 import { circuitLink, endLabel } from './endpoints';
 
 const WIDTHS = [8, 16, 10, 12, 10, 8, 10, 12, 14];
-const CURRENT_OPTIONS = ['교류', '직류'] as const;
-const SWITCH_OPTIONS = ['투입', '개방'] as const;
 
 type TextField = 'label' | 'voltage' | 'capacity' | 'phase' | 'purpose';
 
@@ -24,12 +23,24 @@ export function CircuitTable({ equipmentId }: { equipmentId: string }) {
   const [connectNo, setConnectNo] = useState<number | null>(null);
 
   const set = (no: number, patch: Partial<Circuit>) => workingCopyStore.getState().updateCircuit(equipmentId, no, patch);
-  const commit = (no: number, field: keyof Circuit, current: string | null, raw: string) => {
-    const next = raw.trim() || null;
-    if (next !== current) set(no, { [field]: next });
-  };
-  const cell = (c: Circuit, field: 'current' | 'switch' | TextField, label: string, options?: readonly string[]) => (
-    <InlineEditCell value={c[field] ?? ''} label={label} options={options} onCommit={(v) => commit(c.no, field, c[field], v)} />
+  const text = (c: Circuit, field: TextField, label: string) => (
+    <InlineEditCell
+      value={c[field] ?? ''} label={label}
+      onCommit={(raw) => { const next = raw.trim() || null; if (next !== c[field]) set(c.no, { [field]: next }); }}
+    />
+  );
+  /* 갈래·개폐는 닫힌 어휘 — 칸에는 말(교류·투입)이, 변경안에는 값(AC·on)이 들어간다. */
+  const current = (c: Circuit) => (
+    <InlineEditCell
+      value={c.current ?? ''} label="갈래" choices={CIRCUIT_CURRENTS}
+      onCommit={(v) => { const next = (v || null) as CircuitCurrent | null; if (next !== c.current) set(c.no, { current: next }); }}
+    />
+  );
+  const switchCell = (c: Circuit) => (
+    <InlineEditCell
+      value={c.switch ?? ''} label="개폐" choices={SWITCH_STATES}
+      onCommit={(v) => { const next = (v || null) as SwitchState | null; if (next !== c.switch) set(c.no, { switch: next }); }}
+    />
   );
 
   return (
@@ -44,13 +55,13 @@ export function CircuitTable({ equipmentId }: { equipmentId: string }) {
           {rows.map((c) => (
             <tr key={c.no} className={TABLE_ROW}>
               <Td><span data-testid="circuit-no">{c.no}</span></Td>
-              <Td>{cell(c, 'label', '표기')}</Td>
-              <Td>{cell(c, 'current', '갈래', CURRENT_OPTIONS)}</Td>
-              <Td>{cell(c, 'voltage', '전압')}</Td>
-              <Td>{cell(c, 'capacity', '용량')}</Td>
-              <Td>{cell(c, 'phase', '상')}</Td>
-              <Td>{cell(c, 'switch', '개폐', SWITCH_OPTIONS)}</Td>
-              <Td>{cell(c, 'purpose', '용도')}</Td>
+              <Td>{text(c, 'label', '표기')}</Td>
+              <Td>{current(c)}</Td>
+              <Td>{text(c, 'voltage', '전압')}</Td>
+              <Td>{text(c, 'capacity', '용량')}</Td>
+              <Td>{text(c, 'phase', '상')}</Td>
+              <Td>{switchCell(c)}</Td>
+              <Td>{text(c, 'purpose', '용도')}</Td>
               <Td>
                 {(() => {
                   const hit = circuitLink(links, equipmentId, c.no);

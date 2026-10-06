@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, EmptyState, ErrorStrip, Input, ListRow, Select, ViewCard, useConfirm } from '../../../components/ui';
+import { Button, CommitInput, DetailCard, DetailCardHeader, DetailRow, EMPTY, EmptyState, ErrorStrip, ListRow, Select, ViewCard, useConfirm } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { expandDeletes } from '@twin/core';
 import { deleteRows } from '../../model/store/deleteActions';
@@ -48,7 +48,7 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
       <div className="space-y-3">
         <DetailCard>
           <DetailCardHeader title="랙 정보" actions={<Button variant="secondary" size="sm" onClick={remove}>삭제</Button>} />
-          <DetailRow label="이름"><Input size="sm" value={rack.name} onChange={(e) => patch({ name: e.currentTarget.value })} /></DetailRow>
+          <DetailRow label="이름"><CommitInput size="sm" aria-label="이름" required value={rack.name} onCommit={(v) => patch({ name: v })} /></DetailRow>
           <DetailRow label="랙 품목">
             <Select size="sm" value={rack.rackTypeId} onChange={(e) => patch({ rackTypeId: e.currentTarget.value })}>
               <RackTypeOptions types={catalog?.rackTypes ?? []} />

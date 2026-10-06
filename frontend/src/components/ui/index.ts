@@ -55,4 +55,7 @@ export * from './ConfirmModal';
 export * from './useConfirm';
 export * from './useDismissOnOutside';
 export * from './useInlineRename';
-export { ListRow } from './ListRow';
+export { ListHeading, ListItemRow, ListRow } from './ListRow';
+export { BusyOverlay } from './BusyOverlay';
+export { CommitInput } from './CommitInput';
+export type { CommitInputProps } from './CommitInput';

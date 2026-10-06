@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { endRefKey, isLinkMedium, validateState, type LinkEndRef } from '@twin/core';
-import { Button, DetailRow, ErrorStrip, Input, ListRow, Modal, SELECTED, Select, TableSearch } from '../../../components/ui';
+import { Button, DetailRow, ErrorStrip, Input, ListHeading, ListRow, Modal, SELECTED, Select, TableSearch } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { toModelState } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -83,12 +83,12 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
             if (rows.length === 0) return null;
             return (
               <div key={g}>
-                <div className="px-1 pt-1 text-xs text-content-muted">{g}</div>
+                <ListHeading>{g}</ListHeading>
                 {rows.map(row)}
               </div>
             );
           })}
-          {shown.length === 0 && <div className="px-1 text-xs text-content-muted">찾는 끝이 없습니다</div>}
+          {shown.length === 0 && <ListRow>찾는 끝이 없습니다</ListRow>}
         </div>
         <DetailRow label="케이블 품목">
           <Select size="sm" aria-label="케이블 품목" value={cableTypeId} onChange={(e) => setCableTypeId(e.currentTarget.value)}>

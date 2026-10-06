@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import type { LinkEndRef } from '@twin/core';
-import { Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListItemRow } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -45,7 +45,10 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
         const far = near === 'a' ? l.b : l.a;
         const nearRef = l[near];
         return (
-          <div key={l.id} className="group flex items-center gap-2 border-b border-line py-1 text-sm text-content">
+          <ListItemRow
+            key={l.id}
+            actions={<IconButton size="sm" tone="danger" aria-label="연결 지우기" onClick={() => remove(l.id)}><Trash2 className="h-3.5 w-3.5" /></IconButton>}
+          >
             <span className="w-32 shrink-0 truncate">
               {nearRef.kind === 'equipment'
                 ? <InlineEditCell value={nearRef.label ?? ''} label="표기" onCommit={(v) => relabel(l, near, v)} />
@@ -54,10 +57,7 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
             <span className="min-w-0 flex-1 truncate">{endLabel(s, far)}</span>
             <span className="shrink-0 text-xs text-content-muted">{cableName(l.cableTypeId)}</span>
             <span className="w-14 shrink-0 text-right text-xs text-content-muted">{l.lengthM != null ? `${l.lengthM} m` : '—'}</span>
-            <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              <IconButton size="sm" tone="danger" aria-label="연결 지우기" onClick={() => remove(l.id)}><Trash2 className="h-3.5 w-3.5" /></IconButton>
-            </span>
-          </div>
+          </ListItemRow>
         );
       })}
       <ConnectDialog substationId={substationId} from={{ kind: 'equipment', equipmentId }} open={open} onClose={() => setOpen(false)} onCreated={() => setError(null)} />

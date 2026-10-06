@@ -46,12 +46,20 @@ interface InlineEditCellProps {
    * 묻힌다. 흐리게 두면 **다른 것만 눈에 걸린다** — 조서가 ditto 로 하던 일이다.
    */
   muted?: boolean;
+  /**
+   * **닫힌 어휘**(갈래 교류/직류, 개폐 투입/개방) — 값과 보이는 말이 다르다.
+   *
+   * `options` 와 달리 「직접 입력」이 없다: 서버가 그 값 말고는 받지 않으므로 손으로 친 값은
+   * 저장에서 통째로 거절된다. 칸에는 **말(label)** 이 보이고, 넘기는 것은 **값(value)** 이다 —
+   * 「교류」를 실어 보내면 서버가 400 을 돌려준다(실제로 그랬다).
+   */
+  choices?: readonly { value: string; label: string }[];
 }
 
 /** 목록 끝의 「직접 입력」 — 이 값은 저장되지 않고 칸을 자유 입력으로 바꾼다. */
 const FREE_INPUT = '\u0000free';
 
-export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options, muted }: InlineEditCellProps) {
+export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options, muted, choices }: InlineEditCellProps) {
   const [editing, setEditing] = useState(false);
   /** 목록을 두고도 손으로 치는 중인가 — 「직접 입력」을 고른 뒤. */
   const [freeform, setFreeform] = useState(false);
@@ -76,13 +84,32 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit, op
       >
         {value ? (
           <>
-            {type === 'date' ? formatDate(value) : value}
+            {choices ? (choices.find((c) => c.value === value)?.label ?? value) : type === 'date' ? formatDate(value) : value}
             {unit && <span className="ml-0.5 text-content-faint">{unit}</span>}
           </>
         ) : (
           EMPTY
         )}
       </button>
+    );
+  }
+
+  /* 닫힌 어휘 — 말을 보이고 값을 넘긴다. 적힌 값이 어휘 밖이어도 지우지 않고 보여 준다. */
+  if (choices) {
+    const items = value && !choices.some((c) => c.value === value) ? [{ value, label: value }, ...choices] : choices;
+    return (
+      <Select
+        aria-label={label}
+        size="cell"
+        autoFocus
+        defaultValue={value}
+        onChange={(e) => { onCommit(e.currentTarget.value); setEditing(false); }}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); } }}
+      >
+        <option value="">{EMPTY}</option>
+        {items.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+      </Select>
     );
   }
 

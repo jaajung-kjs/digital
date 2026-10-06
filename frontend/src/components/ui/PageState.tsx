@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from './cn';
 
 /**
@@ -9,14 +10,18 @@ import { cn } from './cn';
  *
  * 말은 하나다: 읽는 중이면 **불러오는 중…**, 못 읽었으면 **무엇을 못 읽었는지**.
  * 그리고 `null` 을 돌려주지 않는다 — 아무것도 없는 화면은 고장과 구별되지 않는다.
+ *
+ * 못 읽었으면 **다시 해 볼 길**을 함께 둔다(`action` — 대개 「다시 시도」 단추). 길이 없으면
+ * 사람은 새로고침하거나 다른 데를 눌렀다 돌아오는 수밖에 없다.
  */
-export function PageState({ error, className }: { error?: string | null; className?: string }) {
+export function PageState({ error, action, className }: { error?: string | null; action?: ReactNode; className?: string }) {
   return (
     <div
-      className={cn('flex h-full items-center justify-center text-sm', error ? 'text-danger' : 'text-content-muted', className)}
+      className={cn('flex h-full flex-col items-center justify-center gap-2 text-sm', error ? 'text-danger' : 'text-content-muted', className)}
       role={error ? 'alert' : 'status'}
     >
-      {error ?? '불러오는 중…'}
+      <span>{error ?? '불러오는 중…'}</span>
+      {error && action}
     </div>
   );
 }

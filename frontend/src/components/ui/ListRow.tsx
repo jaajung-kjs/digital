@@ -13,3 +13,30 @@ export function ListRow({ children, onClick, className, ...aria }: { children: R
   if (!onClick) return <div className={cn(base, className)} {...aria}>{children}</div>;
   return <button type="button" className={cn(base, SELECTABLE, className)} onClick={onClick} {...aria}>{children}</button>;
 }
+
+/**
+ * 목록 안 묶음의 머리 한 줄(「설비」·「회로」·「코어」) — 줄들 위에 작은 라벨로 선다.
+ * 카드의 절 제목(`DetailCardHeader`)이 아니라 **한 목록 안의 갈래**다.
+ */
+export function ListHeading({ children }: { children: ReactNode }) {
+  return <div className="px-1 pt-1 text-xs text-content-muted">{children}</div>;
+}
+
+/**
+ * 칸이 여럿인 목록 줄 + **호버에서 드러나는 손잡이**(§1.7) — 연결 목록처럼 한 줄에 값이 여럿이다.
+ *
+ * 칸(`children`)은 가로로 늘어서고, `actions` 는 자리를 늘 차지한 채 투명도만 바뀐다(떨림 방지).
+ * 칸 안의 폭·잘림은 부르는 쪽이 정한다 — `truncate` 에는 `min-w-0` 짝을 붙인다.
+ */
+export function ListItemRow({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="group flex items-center gap-2 border-b border-line py-1 text-sm text-content">
+      {children}
+      {actions && (
+        <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          {actions}
+        </span>
+      )}
+    </div>
+  );
+}

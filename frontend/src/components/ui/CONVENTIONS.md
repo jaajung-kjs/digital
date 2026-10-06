@@ -328,7 +328,8 @@
 실제로 존재하는 공용 컴포넌트는 전부 `src/components/ui`(배럴 `index.ts`)에 있다:
 `Badge`, `Button`, `IconButton`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailGrid`,
 `ItemCard`, `ListRow`, `PanelHeader`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
-`Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `cn`, `controlSize`.
+`Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `cn`, `controlSize`,
+`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -399,6 +400,10 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 ### 카드 안 목록의 한 줄(랙 안의 설비 이름 등) → `ListRow`
 
 `<ListRow onClick={…}>{name}</ListRow>` — `onClick` 이 없으면 읽기 전용 줄. 직접 `<button className>` 이나 `<p className>` 로 줄을 만들지 않는다. 라벨과 값이 짝이면 `DetailRow` 다.
+
+- **목록 안 갈래의 머리**(잇기 상자의 「설비」·「회로」·「코어」) → `ListHeading`. 카드 절 제목(`DetailCardHeader`)이 아니다 — 한 목록 안의 묶음 라벨이다.
+- **칸이 여럿인 줄 + 호버 손잡이**(연결 목록: 이쪽 표기 · 반대쪽 끝 · 케이블 · 길이 · 🗑) → `ListItemRow`. `actions` 는 §1.7 대로 자리를 차지한 채 투명도만 바뀐다. 칸 폭·잘림은 부르는 쪽이 정한다(`truncate` 에는 `min-w-0`).
+- 목록이 비었거나 검색에 걸린 것이 없다는 한 줄도 `ListRow`(읽기 전용)다 — `<div className="px-1 text-xs …">` 로 따로 짓지 않는다.
 
 ### 목록 안에서 되풀이되는 항목 → `ItemCard`
 `DetailCard` *안*에 들어가는 회색 항목 블록. 제목 + (선택)삭제 버튼을 내장한다.
@@ -533,8 +538,14 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 ### 단위는 **값 뒤에** 붙는다 — 머리글이 아니라
 `1310 손실(dB)` 이 아니라 머리글은 `1310 손실`, 값이 `-13.05 dB` 다. 단위는 **값의 성질**이지 열 이름의 일부가 아니고, 이름에 달면 그만큼 길어져 잘린다(잘린 머리글은 그 열 전체의 뜻을 잃는다). 고칠 때 상자에는 **수만** 남는다 — 단위까지 지웠다 다시 치게 하지 않는다(`InlineEditCell unit`). 수 칸은 `type="number"`(`inputmode="decimal"`) 라 숫자와 소수점만 들어간다.
 
+### 폼 글 칸은 **다 친 뒤 한 번** → `CommitInput`
+상세 카드의 이름·모델명처럼 워킹 카피에 바로 싣는 글 칸. 치는 동안은 초안이고, 포커스를 잃거나 Enter 에서 앞뒤 공백을 걷은 값으로 `onCommit` 을 한 번 부른다(그대로면 부르지 않는다). Esc 는 초안을 버린다. 비울 수 없는 칸(이름)은 `required` — 비우고 나가면 원래 값으로 돌아간다.
+`onChange` 마다 변경안에 실으면 ① 되돌리기 이력이 글자 수만큼 쌓이고 ② 이름을 다 지운 순간 빈 이름이 변경안에 들어가 저장이 서버에서 거절된다.
+
 ### 표 셀 인라인 편집(blur/Enter 커밋) → `InlineEditCell`
 `src/v2/components/InlineEditCell.tsx` — 회로 표·연결 목록처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.
+
+**닫힌 어휘는 `choices`** — 값과 보이는 말이 다른 칸(회로 갈래 `AC`/교류, 개폐 `on`/투입). `options` 와 달리 「직접 입력」이 없고, 칸에는 말이 보이며 `onCommit` 으로 넘어가는 것은 값이다. 어휘는 core(`CIRCUIT_CURRENTS`·`SWITCH_STATES`)에서 읽는다 — 화면에 말 목록을 따로 적으면 말이 그대로 서버로 가 저장이 400 으로 거절된다(실제로 그랬다).
 
 ### 대화상자 → `Modal`
 Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버레이(`fixed inset-0` 직접 구현)를 새로 만들지 말고 이걸 재사용한다.
@@ -751,6 +762,12 @@ CAD·GIS 업무 도구는 좌표·축척·스냅·선택 수를 화면 아래 �
 
 그 패널 파일 안에서 일회용 스타일을 만들지 않는다 — 그게 비일관성의 원인이다.
 
+### 화면이 아직 못 그리는 이유 → `PageState`
+읽는 중이면 `<PageState />`(「불러오는 중…」), 못 읽었으면 `<PageState error={…} action={<Button …>다시 시도</Button>} />`. 못 읽은 화면에는 **다시 해 볼 길**을 함께 둔다 — 길이 없으면 영원히 도는 화면과 다를 바 없다.
+
+### 서버에 가 있는 동안 판을 잠글 때 → `BusyOverlay`
+`<BusyOverlay busy={isCommitting} label="저장 중…">{판}</BusyOverlay>` — 감싼 판을 `inert` 로 들어내고(클릭·Tab·읽기 모두) 그 위에 덮개를 세운다. 저장 중에 고친 것은 저장이 변경안을 비울 때 사라지므로 처음부터 받지 않는다. 자판 단축키(⌘Z)처럼 판 밖에서 오는 손도 같은 동안 막는다(`SaveBar`).
+
 ### 오류 한 줄 표시 → `ErrorStrip`
 `{error && <span className="text-xs text-danger">…` 을 직접 쓰지 않는다. 닫기가 필요하면 `onDismiss` 를 준다.
 ```tsx
@@ -867,6 +884,7 @@ const KINDS = [
 현장 값이 사실상 정해진 칸(전압·차단기 용량·전선 규격)은 선택지를 선언하고 화면이 목록을 낸다(`InlineEditCell options`). 손으로 치게 두면 같은 값이 「AC220V」·「AC 220V」·「220v」로 갈려 세지도 거르지도 못한다.
 
 - **닫아 걸지 않는다.** 목록 끝의 「직접 입력」과 「적힌 값은 목록에 실어 보여 주기」가 예외의 문이다 — 현장에는 늘 목록 밖 값이 있다(강릉에 110V 회로가 하나 있다).
+  **예외: 서버가 닫아 건 어휘**(core 의 `{ value, label }` 목록 — 회로 갈래·개폐, 코어 상태·역할)는 닫는다. 목록 밖 값은 저장에서 통째로 거절되니 「직접 입력」은 거짓 문이다 → `InlineEditCell choices`.
 - **목록은 자료에서 뽑는다.** 표준 계열이라며 240sq·600A 까지 늘어놓은 적이 있는데 그런 전선도 차단기도 그 자료 어디에도 없었다. 넓은 목록은 고르는 일을 느리게 하고(스무 줄에서 다섯 줄 찾기) 「목록에 있으니 맞겠지」라는 잘못된 안심을 준다.
 - 목록이 열 폭도 정한다 — 그 열은 **어떤 선택지든** 한 줄에 담아야 한다.
 

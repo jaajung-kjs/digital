@@ -514,3 +514,43 @@ describe('SELECTABLE', () => {
     expect(SELECTABLE).toContain('select-none');
   });
 });
+
+import { BusyOverlay } from './BusyOverlay';
+import { PageState } from './PageState';
+import { ListItemRow } from './ListRow';
+
+describe('BusyOverlay', () => {
+  it('바쁜 동안은 덮개가 서고 감싼 판은 inert 다 — 칸에 닿지 못한다', () => {
+    const { rerender } = render(<BusyOverlay busy={false} label="저장 중…"><input aria-label="이름" /></BusyOverlay>);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByTestId('busy-scope').inert).toBe(false);
+    rerender(<BusyOverlay busy label="저장 중…"><input aria-label="이름" /></BusyOverlay>);
+    expect(screen.getByRole('status')).toHaveTextContent('저장 중…');
+    expect(screen.getByTestId('busy-scope').inert).toBe(true);
+    expect(screen.getByTestId('busy-scope')).toContainElement(screen.getByLabelText('이름'));
+    rerender(<BusyOverlay busy={false} label="저장 중…"><input aria-label="이름" /></BusyOverlay>);
+    expect(screen.getByTestId('busy-scope').inert).toBe(false);
+  });
+});
+
+describe('PageState', () => {
+  it('못 읽었으면 까닭과 다시 해 볼 길을 함께 보인다', () => {
+    const retry = vi.fn();
+    render(<PageState error="변전소를 불러오지 못했습니다" action={<Button onClick={retry}>다시 시도</Button>} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('변전소를 불러오지 못했습니다');
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(retry).toHaveBeenCalled();
+  });
+  it('읽는 중에는 단추를 두지 않는다', () => {
+    render(<PageState action={<Button>다시 시도</Button>} />);
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+});
+
+describe('ListItemRow', () => {
+  it('칸들과 손잡이를 한 줄에 둔다', () => {
+    render(<ListItemRow actions={<Button>지우기</Button>}><span>회로 1</span></ListItemRow>);
+    expect(screen.getByText('회로 1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지우기' })).toBeInTheDocument();
+  });
+});
