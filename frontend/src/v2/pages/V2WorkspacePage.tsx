@@ -160,6 +160,7 @@ export default function V2WorkspacePage() {
                         onSelectEquipment={route.selectEquipment}
                         focus={route.block}
                         onFocus={route.focusBlock}
+                        onOpenEquipment={route.openEquipment}
                       />
                     ) : (
                       <StatusView

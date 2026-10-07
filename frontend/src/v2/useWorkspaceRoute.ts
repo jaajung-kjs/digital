@@ -84,6 +84,8 @@ export function useWorkspaceRoute() {
    * 선번장의 그 블록으로 — 판과 초점을 **한 번의 주소 쓰기**로 바꾼다(둘로 나누면 앞의 쓰기가 뒤에 덮인다).
    * 고른 설비·랙은 놓는다 — 선번장은 12열 표가 우선이라(상세가 서면 1280·1440 모두 측정 열이 판 밖으로 밀린다)
    * 블록을 읽으러 간 사람에게 표 전체를 준다. 초점 블록은 테두리로 남는다.
+   *
+   * **기록을 남긴다**(판 바꾸기와 다르다) — 다른 자리로 건너가는 일이라, 뒤로 가기가 떠나 온 설비 상세로 돌아와야 한다.
    */
   const openBlock = useCallback(
     (next: BlockFocus) => {
@@ -95,7 +97,26 @@ export function useWorkspaceRoute() {
         p.delete('eq');
         p.delete('rack');
         return p;
-      }, { replace: true });
+      });
+    },
+    [setParams],
+  );
+
+  /**
+   * 그 설비의 상세로 — 현황 판에서 그 설비를 고른다(상세 레일이 선다). 선번장 블록 머리의 단자 이름이 부른다.
+   * 블록 초점은 놓고, `openBlock` 처럼 **기록을 남긴다** — 뒤로 가면 보던 블록으로 돌아온다.
+   */
+  const openEquipment = useCallback(
+    (id: string) => {
+      setParams((prev) => {
+        const p = new URLSearchParams(prev);
+        p.set('view', '현황');
+        p.set('eq', id);
+        p.delete('rack');
+        p.delete('line');
+        p.delete('side');
+        return p;
+      });
     },
     [setParams],
   );
@@ -111,7 +132,7 @@ export function useWorkspaceRoute() {
 
   /* 같은 객체로 유지한다 — 의존성에 넣은 콜백·캔버스가 매 렌더 다시 만들어지지 않게. */
   return useMemo(
-    () => ({ nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock }),
-    [nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock],
+    () => ({ nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment }),
+    [nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment],
   );
 }

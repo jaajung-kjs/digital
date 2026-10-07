@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { coreKey } from '@twin/core';
 import { workingCopyStore as store } from '../../../model/store/workingCopy';
@@ -52,10 +52,18 @@ beforeEach(() => {
 function Harness() {
   const route = useWorkspaceRoute();
   const loc = useLocation();
+  const navigate = useNavigate();
   return (
     <>
       <span data-testid="loc">{decodeURIComponent(loc.search)}</span>
-      <LineSheetView substationId="S1" selectedEquipmentId={route.eqId} onSelectEquipment={route.selectEquipment} focus={route.block} onFocus={route.focusBlock} />
+      <button type="button" onClick={() => navigate(-1)}>뒤로</button>
+      <button type="button" onClick={() => route.openBlock({ lineId: 'L1', side: 'A' })}>슬롯에서 블록 열기</button>
+      {route.view === '선번장' && (
+        <LineSheetView
+          substationId="S1" selectedEquipmentId={route.eqId} onSelectEquipment={route.selectEquipment} focus={route.block} onFocus={route.focusBlock}
+          onOpenEquipment={route.openEquipment}
+        />
+      )}
     </>
   );
 }
@@ -217,6 +225,73 @@ describe('선번장', () => {
     expect(blocks().map((b) => b.dataset.line)).toEqual(['L3']);
     expect(within(blockOf('L3')).queryByTestId('sheet-row-1')).toBeNull();
     expect(within(blockOf('L3')).getByTestId('sheet-row-2')).toBeInTheDocument();
+  });
+
+  it('블록 머리의 단자 이름은 그 설비 상세(현황 · eq)로 가는 길이고, 뒤로 가면 보던 블록으로 돌아온다', () => {
+    renderSheet('/n/S1?view=선번장&line=L1&side=A');
+    const head = within(blockOf('L1')).getByTestId('sheet-block-head');
+    expect(head).toHaveTextContent('OFD · 슬롯 2 · 어댑터 25–28');
+    fireEvent.click(within(head).getByRole('button', { name: 'OFD' }));
+    expect(screen.getByTestId('loc')).toHaveTextContent('view=현황&eq=ofd');
+    expect(screen.getByTestId('loc')).not.toHaveTextContent('line=');
+    fireEvent.click(screen.getByRole('button', { name: '뒤로' }));
+    expect(screen.getByTestId('loc')).toHaveTextContent('view=선번장&line=L1&side=A');
+  });
+
+  it('슬롯 → 선번장(openBlock)은 기록을 남긴다 — 뒤로 가면 떠나 온 설비 상세로', () => {
+    renderSheet('/n/S1?view=현황&eq=ofd');
+    fireEvent.click(screen.getByRole('button', { name: '슬롯에서 블록 열기' }));
+    expect(screen.getByTestId('loc')).toHaveTextContent('view=선번장&line=L1&side=A');
+    fireEvent.click(screen.getByRole('button', { name: '뒤로' }));
+    expect(screen.getByTestId('loc')).toHaveTextContent('view=현황&eq=ofd');
+  });
+
+  it('단자 미지정 블록의 머리에는 설비로 가는 길이 없다', () => {
+    renderSheet();
+    const head = within(blockOf('L2')).getByTestId('sheet-block-head');
+    expect(within(head).queryByRole('button', { name: /상세 보기/ })).toBeNull();
+    expect(within(head).getByRole('button', { name: '단자 미지정' })).toBeInTheDocument();
+  });
+
+  it('검색은 자국·대국 연결 이름도 본다 — 「춘천 광단말」로 그 국에 이어진 코어가 걸린다', () => {
+    renderSheet();
+    fireEvent.change(screen.getByRole('textbox', { name: '선번장 검색' }), { target: { value: '춘천 광단말' } });
+    expect(blocks().map((b) => b.dataset.line)).toEqual(['L1']);
+    expect(within(blockOf('L1')).getByTestId('sheet-row-1')).toBeInTheDocument();
+    expect(within(blockOf('L1')).queryByTestId('sheet-row-2')).toBeNull();
+    fireEvent.change(screen.getByRole('textbox', { name: '선번장 검색' }), { target: { value: '광단말 A' } });
+    expect(blocks().map((b) => b.dataset.line)).toEqual(['L1']);
+  });
+
+  it('검색에 걸린 것이 없으면 검색어를 되짚는다', () => {
+    renderSheet();
+    fireEvent.change(screen.getByRole('textbox', { name: '선번장 검색' }), { target: { value: '없는말' } });
+    expect(screen.getByText("'없는말' 와 맞는 코어가 없습니다")).toBeInTheDocument();
+  });
+
+  it('빈 자국·대국 칸은 같은 「—」 — 자국 칸의 잇기는 따로 선다', () => {
+    renderSheet();
+    const near = cell(rowOf('L1', 2), 'near');
+    const far = cell(rowOf('L1', 2), 'far');
+    expect(far).toHaveTextContent(/^—$/);
+    expect(near).toHaveTextContent('—');
+    expect(within(near).getByRole('button', { name: '잇기' })).toBeInTheDocument();
+  });
+
+  it('지우개·잇기는 이름 위에 겹치지 않고 제 자리, 호버 없는 기기에서도 보인다(HOVER_REVEAL)', () => {
+    renderSheet();
+    const trash = within(cell(rowOf('L1', 1), 'near')).getByRole('button', { name: '연결 지우기' });
+    expect(trash.className).toContain('[@media(hover:none)]:opacity-100');
+    expect(trash.className).not.toContain('absolute');
+  });
+
+  it('거리는 1550 이 없으면 1310 으로 물러서고 「(1310)」을 붙인다', () => {
+    const m = { lineId: 'L1', side: 'A' as const, measuredBy: null, updatedAt: '', loss1310: null, loss1550: null };
+    store.getState().create('coreMeasurements', { ...m, id: 'm1', coreNo: 1, measuredOn: '2025-01-01', dist1310: 12.5, dist1550: null });
+    store.getState().create('coreMeasurements', { ...m, id: 'm2', coreNo: 2, measuredOn: '2025-01-01', dist1310: 12.5, dist1550: 12.6 });
+    renderSheet();
+    expect(cell(rowOf('L1', 1), 'dist')).toHaveTextContent('12.5(1310)');
+    expect(cell(rowOf('L1', 2), 'dist')).toHaveTextContent(/^12\.6$/);
   });
 
   it('광선로가 없으면 빈 상태가 다음 할 일을 말한다', () => {

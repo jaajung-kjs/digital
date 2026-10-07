@@ -24,6 +24,8 @@ export interface LineSheetViewProps {
   onSelectEquipment: (id: string | null) => void;
   focus: BlockFocus | null;
   onFocus: (focus: BlockFocus | null) => void;
+  /** 블록 머리의 단자 이름 → 그 설비 상세(현황 판). */
+  onOpenEquipment: (equipmentId: string) => void;
 }
 
 const blockKey = (b: { lineId: string; side: string }) => `${b.lineId}:${b.side}`;
@@ -36,7 +38,7 @@ const blockKey = (b: { lineId: string; side: string }) => `${b.lineId}:${b.side}
  * 남의 국 것이라 읽기만 한다(그 국을 들르면 그 국 선번장에서 고친다).
  */
 export function LineSheetView({
-  substationId, selectedEquipmentId, onSelectEquipment, focus, onFocus,
+  substationId, selectedEquipmentId, onSelectEquipment, focus, onFocus, onOpenEquipment,
 }: LineSheetViewProps) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
@@ -71,10 +73,12 @@ export function LineSheetView({
     const cableName = (id: string) => catalog?.cableTypes.find((c) => c.id === id)?.name.replace(/\s*\(.*\)\s*$/, '') ?? null;
     const m = new Map<string, BlockHead>();
     for (const b of blocks) {
-      const { where, peer } = blockWhere(s, b);
+      const { where, terminal, place, peer } = blockWhere(s, b);
       const cable = cableName(b.cableTypeId);
       m.set(blockKey(b), {
         title: where,
+        terminal,
+        place,
         peer,
         lineName: b.name,
         length: b.lengthKm != null ? `${b.lengthKm} km` : null,
@@ -84,7 +88,8 @@ export function LineSheetView({
     return m;
   }, [blocks, s, catalog]);
 
-  /* 거르기 — 단자로 블록을, 검색으로 블록(상대국·선로명) 또는 줄(용도·비고)을. */
+  /* 거르기 — 단자로 블록을, 검색으로 블록(상대국·선로명) 또는 줄(용도·비고·자국/대국 연결 이름)을.
+     연결 이름까지 보아야 「송광치」로 그 국에 이어진 코어가 걸린다. */
   const q = query.trim().toLowerCase();
   const shown = useMemo(() => {
     const has = (t: string | null | undefined) => !!t && t.toLowerCase().includes(q);
@@ -94,11 +99,12 @@ export function LineSheetView({
       if (q === '') { out.push(b); continue; }
       const h = heads.get(blockKey(b));
       if (has(h?.peer) || has(b.name)) { out.push(b); continue; }
-      const rows = b.rows.filter((r) => has(r.purpose) || has(r.peerPurpose) || has(r.note));
+      const rows = b.rows.filter((r) => has(r.purpose) || has(r.peerPurpose) || has(r.note)
+        || (r.near != null && has(endLabel(s, r.near))) || (r.far != null && has(endLabel(s, r.far))));
       if (rows.length > 0) out.push({ ...b, rows });
     }
     return out;
-  }, [blocks, activeTerminal, q, heads]);
+  }, [blocks, activeTerminal, q, heads, s]);
   const totalRows = useMemo(() => blocks.reduce((n, b) => n + b.rows.length, 0), [blocks]);
   const shownRows = shown.reduce((n, b) => n + b.rows.length, 0);
 
@@ -159,7 +165,7 @@ export function LineSheetView({
           <div className="flex items-center gap-1.5">
             {addLine}
             <TableSearch
-              aria-label="선번장 검색" className="w-56" placeholder="상대국 · 선로명 · 용도 · 비고 검색"
+              aria-label="선번장 검색" className="w-56" placeholder="상대국 · 선로명 · 연결 · 용도 · 비고 검색"
               value={query} onChange={setQuery} shown={shownRows} total={totalRows}
             />
           </div>
@@ -169,7 +175,7 @@ export function LineSheetView({
         {blocks.length === 0 ? (
           <EmptyState title="이 국에 닿은 광선로가 없습니다" description="「광선로 추가」로 상대국과 코어 수를 정하세요" action={addLine} />
         ) : shown.length === 0 ? (
-          <EmptyState title="조건과 맞는 코어가 없습니다" />
+          <EmptyState title={query.trim() ? `'${query.trim()}' 와 맞는 코어가 없습니다` : '조건과 맞는 코어가 없습니다'} />
         ) : (
           <div className="space-y-4">
             {shown.map((b) => {
@@ -190,6 +196,7 @@ export function LineSheetView({
                   onMeasure={() => setMeasuring(f)}
                   onEdit={() => setDialog({ edit: f })}
                   onOpenCore={(no) => setHistory({ ...f, no })}
+                  onOpenEquipment={onOpenEquipment}
                 />
               );
             })}
