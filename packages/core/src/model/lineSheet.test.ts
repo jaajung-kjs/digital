@@ -93,4 +93,16 @@ describe('lineSheet', () => {
     expect(r[0]!.near).toEqual(core('L1', 3, 'A'));
     expect(r[2]!.near).toEqual(core('L1', 1, 'A'));
   });
+  it('용도·비고는 블록 끝의 값, peerPurpose 는 상대 끝 용도 — 같은 국 선로면 A 블록 aPurpose, B 블록 bPurpose', () => {
+    const cores = [{ lineId: 'L1', no: 1, status: 'broken', role: 'main', aPurpose: 'PTP EAST', aNote: 'A 메모', bPurpose: 'PTP WEST', bNote: null }];
+    const b = lineSheet({ ...base, cores, lines: [line({ coreCount: 1, bSubstationId: 'X' })] });
+    const a = b.find((x) => x.side === 'A')!.rows[0]!, bb = b.find((x) => x.side === 'B')!.rows[0]!;
+    expect(a).toMatchObject({ status: 'broken', role: 'main', purpose: 'PTP EAST', note: 'A 메모', peerPurpose: 'PTP WEST' });
+    expect(bb).toMatchObject({ status: 'broken', role: 'main', purpose: 'PTP WEST', note: null, peerPurpose: 'PTP EAST' });
+  });
+  it('두 국 선로의 B 국 블록은 b 값만 본다', () => {
+    const cores = [{ lineId: 'L1', no: 1, status: 'ok', role: null, aPurpose: 'A쪽', aNote: 'a', bPurpose: null, bNote: 'b' }];
+    const r = lineSheet({ ...base, substationId: 'Y', cores, lines: [line({ coreCount: 1 })] })[0]!.rows[0]!;
+    expect(r).toMatchObject({ purpose: null, note: 'b', peerPurpose: 'A쪽' });
+  });
 });

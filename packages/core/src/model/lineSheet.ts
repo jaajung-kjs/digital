@@ -13,7 +13,11 @@ export interface SheetRow {
   nearLinkId: string | null;
   far: LinkEndRef | null;
   farLinkId: string | null;
-  status: string; role: string | null; purpose: string | null; note: string | null;
+  status: string; role: string | null;
+  /** 이 블록 끝의 용도·비고(끝별 저장). */
+  purpose: string | null; note: string | null;
+  /** 상대 끝의 용도 — 읽기 참고. */
+  peerPurpose: string | null;
   latest: SheetMeasurement | null;
   measurementCount: number;
 }
@@ -33,7 +37,10 @@ interface LineIn {
   aSubstationId: string; aEquipmentId: string | null; aPanel: number | null; aStartNo: number;
   bSubstationId: string; bEquipmentId: string | null; bPanel: number | null; bStartNo: number;
 }
-interface CoreIn { lineId: string; no: number; status: string; role: string | null; purpose: string | null; note: string | null }
+interface CoreIn {
+  lineId: string; no: number; status: string; role: string | null;
+  aPurpose: string | null; aNote: string | null; bPurpose: string | null; bNote: string | null;
+}
 interface MeasIn extends SheetMeasurement { lineId: string; coreNo: number; side: LineSide }
 
 export function lineSheet(input: {
@@ -72,7 +79,7 @@ export function lineSheet(input: {
     const coreRows: CoreIn[] = own.length > 0
       ? own
       : rowsForCount([], line.coreCount).create.map((no) => ({
-          lineId: line.id, no, status: DEFAULT_CORE_STATUS, role: null, purpose: null, note: null,
+          lineId: line.id, no, status: DEFAULT_CORE_STATUS, role: null, aPurpose: null, aNote: null, bPurpose: null, bNote: null,
         }));
 
     for (const side of ['A', 'B'] as const) {
@@ -102,7 +109,10 @@ export function lineSheet(input: {
           nearLinkId: nearHit?.id ?? null,
           far: farHit?.other ?? null,
           farLinkId: farHit?.id ?? null,
-          status: c.status, role: c.role, purpose: c.purpose, note: c.note,
+          status: c.status, role: c.role,
+          purpose: side === 'A' ? c.aPurpose : c.bPurpose,
+          note: side === 'A' ? c.aNote : c.bNote,
+          peerPurpose: side === 'A' ? c.bPurpose : c.aPurpose,
           latest: latest
             ? { measuredOn: latest.measuredOn, loss1310: latest.loss1310, dist1310: latest.dist1310, loss1550: latest.loss1550, dist1550: latest.dist1550 }
             : null,
