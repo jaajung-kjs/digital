@@ -59,18 +59,24 @@ interface InlineEditCellProps {
    * `choices` 와 함께 주면 말(label) 대신 이것이 선다.
    */
   format?: (value: string) => React.ReactNode;
+  /** 읽는 줄을 **접는다** — 표 밖에서 여러 줄이 곧 내용인 자리(사진 설명)만. 표 칸은 한 줄 + 말줄임. */
+  wrap?: boolean;
+  /** 빈 값이 없는 닫힌 어휘(코어 상태) — 목록에 「—」를 세우지 않는다. */
+  required?: boolean;
+  /** 읽는 줄의 title — 주지 않으면 글 칸은 값 전문(말줄임 대비). 덧붙일 참고가 있을 때 준다. */
+  title?: string;
 }
 
 /** 읽는 줄 버튼의 모양 — 칸 종류가 달라도(노무유형 등) 평소 모습은 이 하나를 쓴다. */
-export const readCellClass = (filled: boolean, muted?: boolean) =>
+export const readCellClass = (filled: boolean, muted?: boolean, wrap?: boolean) =>
   /* 흐림이 이긴다 — 두 색 클래스를 함께 걸면 CSS 순서가 정한다(`cn` 은 병합하지 않는다). */
   /* 한 줄로 선다 — 표 줄은 `TABLE_ROW` 한 높이라, 긴 글이 접히면 그 줄만 부푼다. 넘치면 말줄임(전문은 title). */
-  cn('block w-full truncate rounded px-1 text-sm [text-align:inherit]', muted || !filled ? 'text-content-faint' : 'text-content', SELECTABLE);
+  cn('block w-full rounded px-1 text-sm [text-align:inherit]', !wrap && 'truncate', muted || !filled ? 'text-content-faint' : 'text-content', SELECTABLE);
 
 /** 목록 끝의 「직접 입력」 — 이 값은 저장되지 않고 칸을 자유 입력으로 바꾼다. */
 const FREE_INPUT = '\u0000free';
 
-export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options, muted, choices, format }: InlineEditCellProps) {
+export function InlineEditCell({ value, onCommit, type = 'text', label, unit, options, muted, choices, format, wrap, required, title }: InlineEditCellProps) {
   const [editing, setEditing] = useState(false);
   /** 목록을 두고도 손으로 치는 중인가 — 「직접 입력」을 고른 뒤. */
   const [freeform, setFreeform] = useState(false);
@@ -83,8 +89,8 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit, op
         aria-label={`${label} 고치기`}
         /* 줄맞춤은 **열이 정한다**(`Td align`) — 여기서 정하면 값이 있는 줄과 대시만 있는
            줄이 한 열에서 서로 다른 자리에 선다. 물려받기만 한다. */
-        className={readCellClass(!!value, muted)}
-        title={value && !choices && type === 'text' ? value : undefined}
+        className={readCellClass(!!value, muted, wrap)}
+        title={title ?? (value && !wrap && !choices && type === 'text' ? value : undefined)}
         onClick={() => setEditing(true)}
         /* 키보드로 훑다가 바로 고치는 길 — Enter 는 버튼이 이미 누름으로 읽는다. */
         onFocus={(e) => { if (e.relatedTarget) e.currentTarget.dataset.touched = '1'; }}
@@ -114,7 +120,7 @@ export function InlineEditCell({ value, onCommit, type = 'text', label, unit, op
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); } }}
       >
-        <option value="">{EMPTY}</option>
+        {!required && <option value="">{EMPTY}</option>}
         {items.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
       </Select>
     );

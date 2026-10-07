@@ -5,7 +5,7 @@
  * 행을 공유하므로 양쪽 응답에 같은 id 로 실린다(화면이 id 로 합친다).
  *
  * 「대국 연결」(선번장의 상대 국 끝)은 상대 국의 연결이라 이 국의 것이 아니다 — 고칠 수 없는
- * 참조로 `farLinks`·`refEquipment` 에 싣는다. 그 국을 들르면 그때 제 것으로 읽힌다.
+ * 참조로 `farLinks`·`refEquipment`·`refLines` 에 싣는다. 그 국을 들르면 그때 제 것으로 읽힌다.
  */
 import { Router } from 'express';
 import type { Prisma } from '../generated/next-client/index.js';
@@ -66,12 +66,26 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
       ? await nextDb.equipment.findMany({ where: { id: { in: [...refIds] } }, select: { id: true, name: true, substationId: true } })
       : [];
 
+    /* 연결 끝이 가리키는 **남의 광선로**(상대 국의 점퍼가 다른 선로 코어에 물린 것 등) — 이름만 참조로 싣는다.
+       없으면 화면이 그 끝을 「광선로 코어 22」로밖에 못 부른다. */
+    const ownLines = new Set(lineIds);
+    const refLineIds = new Set<string>();
+    for (const l of [...links, ...farLinks]) for (const e of l.ends) {
+      if (e.coreLineId && !ownLines.has(e.coreLineId)) refLineIds.add(e.coreLineId);
+    }
+    const refLines = refLineIds.size
+      ? (await nextDb.fiberLine.findMany({
+          where: { id: { in: [...refLineIds] } },
+          select: { id: true, name: true, aSubstation: { select: { name: true } }, bSubstation: { select: { name: true } } },
+        })).map(({ aSubstation, bSubstation, ...l }) => ({ ...l, aSubstationName: aSubstation.name, bSubstationName: bSubstation.name }))
+      : [];
+
     res.json({
       substation, floors, racks, equipment,
       links: links.map(withRefs),
       fiberLines: fiberLines.map(({ aSubstation, bSubstation, ...l }) => ({ ...l, aSubstationName: aSubstation.name, bSubstationName: bSubstation.name })),
       farLinks: farLinks.map(withRefs),
-      refEquipment, maintenanceLogs, inspectionLogs, photos,
+      refEquipment, refLines, maintenanceLogs, inspectionLogs, photos,
     });
   } catch (e) {
     next(e);

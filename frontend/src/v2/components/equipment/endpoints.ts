@@ -6,9 +6,13 @@ import type { Link } from '../../model/types';
 type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
 export interface EndpointOption { ref: LinkEndRef; label: string; group: '설비' | '차단기' | '코어'; taken: boolean }
 
+/**
+ * 광선로 이름 — 들른 국의 광선로, 없으면 연결 끝이 가리키는 참조 광선로(`refLines`, 상대 국 점퍼가 물린 남의 선로).
+ * 이름이 없으면 「A국–B국」, 정말 모르면 「광선로」.
+ */
 const lineName = (s: S, lineId: string) => {
-  const l = effectiveRows(s, 'fiberLines').find((x) => x.id === lineId);
-  return l ? (l.name ?? `${l.aSubstationName}–${l.bSubstationName}`) : '선로';
+  const l = effectiveRows(s, 'fiberLines').find((x) => x.id === lineId) ?? s.saved.refLines.find((x) => x.id === lineId);
+  return l ? (l.name ?? `${l.aSubstationName}–${l.bSubstationName}`) : '광선로';
 };
 
 /** 끝 이름 — 「분전반 차단기 3」「송광치 AC IN」「북춘천–춘천HP 코어 5」(모델의 회로 = 화면의 차단기). */

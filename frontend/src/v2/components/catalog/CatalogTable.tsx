@@ -272,6 +272,7 @@ function LaborCell({ value, onChange, ariaLabel }: { value: string | null; onCha
         type="button"
         aria-label={`${ariaLabel} 고치기`}
         className={readCellClass(!!value)}
+        title={(value && wage.nameOf(value)) || undefined}
         onClick={() => setEditing(true)}
       >
         {value ? wage.nameOf(value) : EMPTY}

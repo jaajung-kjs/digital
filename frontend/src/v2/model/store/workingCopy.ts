@@ -7,7 +7,7 @@ import { emptyOverlay, overlayDirtyCount, stageCreate, stageDelete, stageUpdate,
 import { fetchWorkingcopy } from '../api';
 import type {
   Circuit, Core, CoreMeasurement, EquipmentPhoto, Equipment, FiberLine, Floor, InspectionLog, Link,
-  MaintenanceLog, Rack, RefEquipment, Workingcopy,
+  MaintenanceLog, Rack, RefEquipment, RefLine, Workingcopy,
 } from '../types';
 
 export interface RowOf {
@@ -21,7 +21,7 @@ export interface Saved {
   substations: Record<string, { id: string; name: string }>;
   floors: Floor[]; racks: Rack[]; equipment: Equipment[]; circuits: Circuit[];
   fiberLines: FiberLine[]; cores: Core[]; coreMeasurements: CoreMeasurement[];
-  links: Link[]; farLinks: Link[]; refEquipment: RefEquipment[];
+  links: Link[]; farLinks: Link[]; refEquipment: RefEquipment[]; refLines: RefLine[];
   maintenance: MaintenanceLog[]; inspections: InspectionLog[]; photos: EquipmentPhoto[];
 }
 export type Overlays = { [K in RowKind]: Overlay<RowOf[K]> } & {
@@ -33,7 +33,7 @@ export type Overlays = { [K in RowKind]: Overlay<RowOf[K]> } & {
 
 const EMPTY_SAVED: Saved = {
   substations: {}, floors: [], racks: [], equipment: [], circuits: [], fiberLines: [], cores: [], coreMeasurements: [],
-  links: [], farLinks: [], refEquipment: [], maintenance: [], inspections: [], photos: [],
+  links: [], farLinks: [], refEquipment: [], refLines: [], maintenance: [], inspections: [], photos: [],
 };
 /** 저장된 행 — 고치기가 제자리로 돌아왔는지 견줄 기준(`stageUpdate` 의 `base`). */
 export function savedRow(saved: Saved, kind: RowKind, id: string): unknown {
@@ -78,6 +78,7 @@ function absorb(saved: Saved, wc: Workingcopy): Saved {
     coreMeasurements: [...saved.coreMeasurements.filter((m) => !lineIds.has(m.lineId)), ...measurements],
     farLinks: mergeById(saved.farLinks, wc.farLinks, byId),
     refEquipment: mergeById(saved.refEquipment, wc.refEquipment, byId),
+    refLines: mergeById(saved.refLines, wc.refLines ?? [], byId),
     maintenance: [...saved.maintenance.filter((r) => !eqIds.has(r.equipmentId)), ...wc.maintenanceLogs],
     inspections: [...saved.inspections.filter((r) => !eqIds.has(r.equipmentId)), ...wc.inspectionLogs],
     photos: [...saved.photos.filter((r) => !eqIds.has(r.equipmentId)), ...wc.photos],

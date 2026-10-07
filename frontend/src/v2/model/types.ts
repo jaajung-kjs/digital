@@ -59,6 +59,8 @@ export interface MaintenanceLog { id: string; equipmentId: string; occurredAt: s
 export interface InspectionLog { id: string; equipmentId: string; inspectedAt: string; content: string; result: string | null; updatedAt: string }
 export interface EquipmentPhoto { id: string; equipmentId: string; filePath: string; caption: string | null; updatedAt: string }
 export interface RefEquipment { id: string; name: string; substationId: string }
+/** 이 국 광선로가 아닌데 연결 끝(상대 국 점퍼 등)이 가리키는 광선로 — 이름만 안다. */
+export interface RefLine { id: string; name: string | null; aSubstationName: string; bSubstationName: string }
 
 export interface Workingcopy {
   substation: { id: string; name: string };
@@ -69,6 +71,8 @@ export interface Workingcopy {
   fiberLines: (FiberLine & { cores: (Core & { measurements: CoreMeasurement[] })[] })[];
   farLinks: Link[];
   refEquipment: RefEquipment[];
+  /** 옛 서버 응답에는 없다 — 없으면 빈 것으로 읽는다. */
+  refLines?: RefLine[];
   maintenanceLogs: MaintenanceLog[];
   inspectionLogs: InspectionLog[];
   photos: EquipmentPhoto[];

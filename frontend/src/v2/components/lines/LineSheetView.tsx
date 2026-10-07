@@ -91,7 +91,7 @@ export function LineSheetView({
     return m;
   }, [blocks, s, catalog]);
 
-  /* 거르기 — 단자로 블록을, 검색으로 블록(상대국·선로명) 또는 줄(용도)을. */
+  /* 거르기 — 단자로 블록을, 검색으로 블록(상대국·선로명) 또는 줄(용도·비고)을. */
   const q = query.trim().toLowerCase();
   const shown = useMemo(() => {
     const has = (t: string | null | undefined) => !!t && t.toLowerCase().includes(q);
@@ -101,7 +101,7 @@ export function LineSheetView({
       if (q === '') { out.push(b); continue; }
       const h = heads.get(blockKey(b));
       if (has(h?.peer) || has(b.name)) { out.push(b); continue; }
-      const rows = b.rows.filter((r) => has(r.purpose) || has(r.peerPurpose));
+      const rows = b.rows.filter((r) => has(r.purpose) || has(r.peerPurpose) || has(r.note));
       if (rows.length > 0) out.push({ ...b, rows });
     }
     return out;
@@ -117,6 +117,20 @@ export function LineSheetView({
     bodyRef.current?.querySelector<HTMLElement>('[data-testid="sheet-block"][aria-current="true"]')?.scrollIntoView?.({ block: 'start' });
   }, [focusKey]);
 
+  /* 판이 가로로 넘쳐 오른쪽이 가려져 있는가 — 상세 패널이 서서 좁아졌을 때. 가려진 쪽 가장자리에 그늘을 세운다. */
+  const [clippedRight, setClippedRight] = useState(false);
+  useEffect(() => {
+    const box = bodyRef.current?.parentElement;
+    if (!box) return;
+    const check = () => setClippedRight(box.scrollLeft + box.clientWidth < box.scrollWidth - 1);
+    check();
+    box.addEventListener('scroll', check, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check);
+    ro?.observe(box);
+    if (bodyRef.current) ro?.observe(bodyRef.current);
+    return () => { box.removeEventListener('scroll', check); ro?.disconnect(); };
+  }, []);
+
   const label = (ref: LinkEndRef) => endLabel(s, ref);
   const updateCore = (lineId: string) => (no: number, patch: Partial<Core>) => workingCopyStore.getState().updateCore(lineId, no, patch);
   async function unlink(linkId: string, target: string) {
@@ -127,61 +141,66 @@ export function LineSheetView({
   const addLine = <Button variant="secondary" size="sm" disabled={!onAddLine} onClick={onAddLine}>광선로 추가</Button>;
 
   return (
-    <ViewCard
-      body="scroll"
-      bodyRef={bodyRef}
-      tools={
-        <div className="w-40 shrink-0">
-          <Select size="sm" aria-label="단자" value={activeTerminal} onChange={(e) => setTerminal(e.currentTarget.value)}>
-            <option value="">전체</option>
-            {terminals.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
-          </Select>
-        </div>
-      }
-      actions={
-        <div className="flex items-center gap-1.5">
-          {addLine}
-          <TableSearch
-            aria-label="선번장 검색" className="w-48" placeholder="상대국 · 선로명 · 용도 검색"
-            value={query} onChange={setQuery} shown={shownRows} total={totalRows}
-          />
-        </div>
-      }
-    >
-      {error && <div className="mb-3"><ErrorStrip message={error} onDismiss={() => setError(null)} /></div>}
-      {blocks.length === 0 ? (
-        <EmptyState title="이 국에 닿은 광선로가 없습니다" description="「광선로 추가」로 상대국과 코어 수를 정하세요" action={onAddLine ? addLine : undefined} />
-      ) : shown.length === 0 ? (
-        <EmptyState title="조건과 맞는 코어가 없습니다" />
-      ) : (
-        <div className="space-y-4">
-          {shown.map((b) => {
-            const f: BlockFocus = { lineId: b.lineId, side: b.side };
-            return (
-              <LineBlock
-                key={blockKey(b)}
-                block={b}
-                head={heads.get(blockKey(b))!}
-                focused={focusKey === blockKey(b)}
-                selectedEquipmentId={selectedEquipmentId}
-                label={label}
-                onSelectEquipment={onSelectEquipment}
-                onConnect={setConnectFrom}
-                onUnlink={(id, target) => void unlink(id, target)}
-                onUpdateCore={updateCore(b.lineId)}
-                onFocus={() => onFocus(f)}
-                onMeasure={onMeasure ? () => onMeasure(f) : undefined}
-                onEdit={onEditLine ? () => onEditLine(f) : undefined}
-                onOpenCore={onOpenCore ? (no) => onOpenCore(f, no) : undefined}
-              />
-            );
-          })}
-        </div>
+    <div className="relative flex min-h-0 min-w-0 flex-1">
+      <ViewCard
+        body="scroll"
+        bodyRef={bodyRef}
+        tools={
+          <div className="w-40 shrink-0">
+            <Select size="sm" aria-label="단자" value={activeTerminal} onChange={(e) => setTerminal(e.currentTarget.value)}>
+              <option value="">전체</option>
+              {terminals.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+            </Select>
+          </div>
+        }
+        actions={
+          <div className="flex items-center gap-1.5">
+            {addLine}
+            <TableSearch
+              aria-label="선번장 검색" className="w-56" placeholder="상대국 · 선로명 · 용도 · 비고 검색"
+              value={query} onChange={setQuery} shown={shownRows} total={totalRows}
+            />
+          </div>
+        }
+      >
+        {error && <div className="mb-3"><ErrorStrip message={error} onDismiss={() => setError(null)} /></div>}
+        {blocks.length === 0 ? (
+          <EmptyState title="이 국에 닿은 광선로가 없습니다" description="「광선로 추가」로 상대국과 코어 수를 정하세요" action={onAddLine ? addLine : undefined} />
+        ) : shown.length === 0 ? (
+          <EmptyState title="조건과 맞는 코어가 없습니다" />
+        ) : (
+          <div className="space-y-4">
+            {shown.map((b) => {
+              const f: BlockFocus = { lineId: b.lineId, side: b.side };
+              return (
+                <LineBlock
+                  key={blockKey(b)}
+                  block={b}
+                  head={heads.get(blockKey(b))!}
+                  focused={focusKey === blockKey(b)}
+                  selectedEquipmentId={selectedEquipmentId}
+                  label={label}
+                  onSelectEquipment={onSelectEquipment}
+                  onConnect={setConnectFrom}
+                  onUnlink={(id, target) => void unlink(id, target)}
+                  onUpdateCore={updateCore(b.lineId)}
+                  onFocus={() => onFocus(f)}
+                  onMeasure={onMeasure ? () => onMeasure(f) : undefined}
+                  onEdit={onEditLine ? () => onEditLine(f) : undefined}
+                  onOpenCore={onOpenCore ? (no) => onOpenCore(f, no) : undefined}
+                />
+              );
+            })}
+          </div>
+        )}
+        {connectFrom && (
+          <ConnectDialog substationId={substationId} from={connectFrom} open onClose={() => setConnectFrom(null)} onCreated={() => setError(null)} />
+        )}
+        {confirmDialog}
+      </ViewCard>
+      {clippedRight && (
+        <div aria-hidden data-testid="sheet-clip-shade" className="pointer-events-none absolute bottom-px right-px top-8 w-4 bg-gradient-to-l from-content/15 to-transparent" />
       )}
-      {connectFrom && (
-        <ConnectDialog substationId={substationId} from={connectFrom} open onClose={() => setConnectFrom(null)} onCreated={() => setError(null)} />
-      )}
-      {confirmDialog}
-    </ViewCard>
+    </div>
   );
 }

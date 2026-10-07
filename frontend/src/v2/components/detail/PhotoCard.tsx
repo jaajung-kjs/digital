@@ -127,7 +127,7 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
               </button>
               <div className="flex items-center gap-1">
                 <div className="min-w-0 flex-1">
-                  <InlineEditCell value={p.caption ?? ''} onCommit={(v) => handleCaptionCommit(p, v)} label="설명" />
+                  <InlineEditCell value={p.caption ?? ''} onCommit={(v) => handleCaptionCommit(p, v)} label="설명" wrap />
                 </div>
                 <IconButton aria-label="사진 삭제" onClick={() => handleDelete(p.id)}>
                   <Trash2 size={14} />

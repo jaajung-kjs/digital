@@ -37,8 +37,16 @@ export function TableCard({
   children,
   className,
 }: {
-  /** 열 폭 비율. 합이 100 이 되게 준다. 열 개수와 순서가 머리글과 같아야 한다. */
-  widths: readonly number[];
+  /**
+   * 열 폭 — 수는 비율(%), `'40px'` 꼴은 고정 폭. 열 개수와 순서가 머리글과 같아야 한다.
+   *
+   * 비율만 쓰면 합이 100 이 되게 준다. **섞으면** 고정 폭 열이 먼저 제 폭을 갖고, 비율 열들이
+   * 남은 폭을 그 비율대로 나눈다(비율의 합은 100). 내용 폭이 정해진 열(번호·상태·수·날짜)은
+   * 고정 폭으로, 이름처럼 길이가 들쭉날쭉한 열은 비율로 둔다 — 전부 비율이면 좁은 화면에서
+   * 번호 열까지 같이 줄어 「어댑터」가 잘리고, 정작 이름 열은 넓은 화면에서도 모자란다(선번장).
+   * 고정 폭의 합이 판보다 넓어질 수 있으면 감싸는 쪽이 `min-w-*` 로 바닥을 정한다.
+   */
+  widths: readonly (number | `${number}px`)[];
   /**
    * 표가 **주어진 높이를 채운다** — 행 수와 무관하게 카드 크기가 같고, 넘치면 카드 안에서
    * 스크롤한다(머리글은 `sticky` 로 남는다).
@@ -63,7 +71,7 @@ export function TableCard({
       <table className="w-full table-fixed text-sm">
         <colgroup>
           {widths.map((w, i) => (
-            <col key={i} style={{ width: `${w}%` }} />
+            <col key={i} style={{ width: typeof w === 'number' ? `${w}%` : w }} />
           ))}
         </colgroup>
         {children}
@@ -120,6 +128,12 @@ interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> 
   onSort?: () => void;
   /** 지금 이 열로 정렬돼 있는가. `onSort` 가 있을 때만 뜻이 있다. */
   sort?: 'asc' | 'desc' | null;
+  /**
+   * 내용이 **제 배치를 갖는다** — 말줄임 감싸개를 두르지 않는다. 묶음 머리줄(`colSpan` 으로 표 폭을
+   * 다 쓰는 한 줄: 제목 + 메타 + 단추)처럼 안에서 `sticky` 를 쓰는 칸용이다 — 말줄임 감싸개는
+   * `overflow: hidden` 이라 그 안의 `sticky` 가 감싸개에 갇혀 붙지 않는다. 잘림은 내용이 맡는다.
+   */
+  bare?: boolean;
 }
 
 /**
@@ -135,7 +149,7 @@ interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> 
  *
  * 배경이 **불투명**해야 `sticky` 머리글 아래로 행이 비치지 않는다.
  */
-export function Th({ children, className, align = 'left', unit, onSort, sort = null, ...rest }: ThProps) {
+export function Th({ children, className, align = 'left', unit, onSort, sort = null, bare = false, ...rest }: ThProps) {
   /* 단위는 **아랫줄**에 흐리게 — 무엇을 세는 열인지는 이름이 말하고, 단위는 곁들인다.
      옆에 붙이면 머리글이 그만큼 길어지는데, 열 폭은 `colgroup` 이 못 박아 두므로(고정 레이아웃)
      길어진 만큼 잘린다: 실제로 「노임단가 원…」·「자재단가…」로 잘려 무슨 열인지 읽을 수
@@ -159,7 +173,7 @@ export function Th({ children, className, align = 'left', unit, onSort, sort = n
       )}
       {...rest}
     >
-      {onSort ? (
+      {bare ? children : onSort ? (
         /* 누를 수 있는 것은 **단추**여야 한다 — `<th onClick>` 은 키보드로 닿지 않는다.
            쉬는 상태에도 흐린 이중 화살표를 세운다: 어포던스 없는 클릭 타깃은 없는 것과
            같아서, 정렬된다는 사실 자체를 아무도 모른다. */

@@ -151,6 +151,65 @@ describe('선번장', () => {
     await waitFor(() => expect(store.getState().overlays.links.creates.k1).toBeUndefined());
   });
 
+  it('같은 국 안 광선로는 블록이 둘 — 용도는 그 블록 끝의 필드만 고친다(Review Focus 1)', () => {
+    store.getState().create('fiberLines', line({ id: 'L4', coreCount: 2, bSubstationId: 'S1', bSubstationName: '북춘천S/S', aEquipmentId: 'ofd', aPanel: 3, bEquipmentId: 'ofd2', bPanel: 2 }));
+    renderSheet();
+    expect(blocks().filter((b) => b.dataset.line === 'L4').map((b) => b.dataset.side)).toEqual(['A', 'B']);
+    const edit = (side: 'A' | 'B', value: string) => {
+      const blk = blocks().find((b) => b.dataset.line === 'L4' && b.dataset.side === side)!;
+      fireEvent.click(within(within(blk).getByTestId('sheet-row-1').querySelector<HTMLElement>('[data-col="purpose"]')!).getByRole('button', { name: '용도 고치기' }));
+      const input = within(blk).getByRole('textbox');
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    };
+    edit('A', 'A쪽');
+    expect(store.getState().overlays.cores[coreKey('L4', 1)]).toEqual({ aPurpose: 'A쪽' });
+    edit('B', 'B쪽');
+    expect(store.getState().overlays.cores[coreKey('L4', 1)]).toEqual({ aPurpose: 'A쪽', bPurpose: 'B쪽' });
+  });
+
+  it('상대 국을 들러 같은 연결이 그 국 연결과 먼 연결 양쪽에 있어도 대국 칸에는 한 번', () => {
+    const fk = store.getState().saved.farLinks[0]!;
+    store.setState({ saved: { ...store.getState().saved, substations: { ...store.getState().saved.substations, S2: { id: 'S2', name: '춘천S/S' } }, links: [fk] } });
+    renderSheet();
+    expect(cell(rowOf('L1', 1), 'far').textContent).toBe('춘천 광단말 RX');
+  });
+
+  it('대국 끝이 남의 광선로 코어면 그 선로 이름으로 — 이름이 없으면 「A국–B국」, 모르면 「광선로」', () => {
+    const saved = store.getState().saved;
+    store.setState({ saved: { ...saved,
+      refLines: [{ id: 'LX', name: null, aSubstationName: '춘천S/S', bSubstationName: '화천S/S' }],
+      farLinks: [...saved.farLinks,
+        link('fx', 'S2', { kind: 'core', lineId: 'L1', no: 2, side: 'B' }, { kind: 'core', lineId: 'LX', no: 22, side: 'A' }),
+        link('fy', 'S2', { kind: 'core', lineId: 'L1', no: 3, side: 'B' }, { kind: 'core', lineId: 'LZ', no: 5, side: 'A' })],
+    } });
+    renderSheet();
+    expect(cell(rowOf('L1', 2), 'far')).toHaveTextContent('춘천S/S–화천S/S 코어 22');
+    expect(cell(rowOf('L1', 3), 'far')).toHaveTextContent('광선로 코어 5');
+  });
+
+  it('주소의 line·side 가 가리키는 블록이 초점(aria-current)', () => {
+    renderSheet('/n/S1?view=선번장&line=L3&side=A');
+    expect(blockOf('L3')).toHaveAttribute('aria-current', 'true');
+    expect(blockOf('L1')).not.toHaveAttribute('aria-current');
+  });
+
+  it('상태 목록에는 「—」가 없다 — 상태는 비울 수 없다', () => {
+    renderSheet();
+    fireEvent.click(within(cell(rowOf('L1', 2), 'status')).getByRole('button', { name: '상태 고치기' }));
+    const pick = within(cell(rowOf('L1', 2), 'status')).getByRole('combobox') as HTMLSelectElement;
+    expect([...pick.options].map((o) => o.textContent)).toEqual(['정상', '단선', '사용불가']);
+  });
+
+  it('검색은 비고도 본다', () => {
+    store.getState().updateCore('L3', 2, { aNote: '라벨링 필요' });
+    renderSheet();
+    fireEvent.change(screen.getByRole('textbox', { name: '선번장 검색' }), { target: { value: '라벨링' } });
+    expect(blocks().map((b) => b.dataset.line)).toEqual(['L3']);
+    expect(within(blockOf('L3')).queryByTestId('sheet-row-1')).toBeNull();
+    expect(within(blockOf('L3')).getByTestId('sheet-row-2')).toBeInTheDocument();
+  });
+
   it('광선로가 없으면 빈 상태가 다음 할 일을 말한다', () => {
     store.getState().reset();
     renderSheet();
