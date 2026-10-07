@@ -104,6 +104,15 @@ describe('lineSheet', () => {
     });
     expect(b.map((x) => x.lineId)).toEqual(['q', 's', 'r', 'p']);
   });
+  it('정렬: 설비 이름은 자연 순서(OFD2 < OFD10), 같은 이름이면 id 로 묶음을 가른다', () => {
+    const names: Record<string, string> = { e10: 'OFD10', e2: 'OFD2', z: 'OFD', y: 'OFD' };
+    const b = lineSheet({
+      ...base, equipmentOrder: (id) => names[id] ?? id,
+      lines: [line({ id: 'p', aEquipmentId: 'e10' }), line({ id: 'q', aEquipmentId: 'e2' }),
+        line({ id: 'r', aEquipmentId: 'z' }), line({ id: 's', aEquipmentId: 'y', aPanel: 9 }), line({ id: 't', aEquipmentId: 'z', aPanel: 2 })],
+    });
+    expect(b.map((x) => x.lineId)).toEqual(['s', 'r', 't', 'q', 'p']);
+  });
   it('패치 연결: 두 선로 코어끼리, 각 블록 near 는 상대 코어 끝', () => {
     const links = [{ id: 'k', a: core('L1', 1, 'A'), b: core('L2', 2, 'A') }];
     const b = lineSheet({ ...base, lines: [line(), line({ id: 'L2' })], links });

@@ -1,5 +1,5 @@
 import {
-  CIRCUIT_CURRENTS, CORE_ROLES, CORE_STATUSES, EQUIPMENT_STATUSES, MAX_CIRCUITS, MAX_CORES, SIDES, SWITCH_STATES,
+  CIRCUIT_CURRENTS, CORE_ROLES, CORE_STATUSES, EQUIPMENT_STATUSES, MAX_CIRCUITS, MAX_CORES, MAX_PANELS, SIDES, SWITCH_STATES,
   type CommitPayload as CoreCommitPayload,
 } from '@twin/core';
 import { z } from 'zod';
@@ -47,7 +47,7 @@ const equipmentFields = {
   installDate: date.nullable().optional(),
   manager: text, note: text,
   circuitCount: z.number().int().min(0).max(MAX_CIRCUITS).optional(),
-  panelCount: z.number().int().min(0).max(200).nullable().optional(),
+  panelCount: z.number().int().min(0).max(MAX_PANELS).nullable().optional(),
 };
 const equipmentCreate = z.object({ id, substationId: id, ...equipmentFields });
 const equipmentPatch = z.object(equipmentFields).partial();

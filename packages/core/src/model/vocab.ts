@@ -86,3 +86,6 @@ export const MAX_CIRCUITS = 500;
 
 /** 광선로 하나의 코어 수 끝 — 서버 스키마와 화면이 같은 값을 읽는다. */
 export const MAX_CORES = 432;
+
+/** OFD 등 광 설비 하나의 슬롯 수 끝 — 서버 스키마(`panelCount`)와 설비 상세의 슬롯 수 칸이 같은 값을 읽는다. */
+export const MAX_PANELS = 200;

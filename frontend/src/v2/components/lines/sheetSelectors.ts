@@ -21,8 +21,8 @@ export function sheetBlocks(s: S, substationId: string): SheetBlock[] {
     cores: lines.flatMap((l) => effectiveCores(s, l.id)),
     measurements: effectiveRows(s, 'coreMeasurements').filter((m) => ids.has(m.lineId)),
     links: [...effectiveRows(s, 'links'), ...outsideLinks(s)],
-    /* 단자 설비 차례 — 이름(OFD < OFD#2), 같으면 id. */
-    equipmentOrder: (id) => `${equipmentName(s, id) ?? ''}\u0000${id}`,
+    /* 단자 설비 차례 — 이름(자연 순서: OFD2 < OFD10), 같으면 id(core 가 가른다). */
+    equipmentOrder: (id) => equipmentName(s, id) ?? '',
   });
 }
 
