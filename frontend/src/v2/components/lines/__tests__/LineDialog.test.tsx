@@ -139,6 +139,30 @@ describe('광선로 추가', () => {
     expect(blocks().filter((b) => b.dataset.line === created.id).map((b) => b.dataset.side).sort()).toEqual(['A', 'B']);
   });
 
+  it('상대국을 바꾸면 상대 끝 칸이 비워진다 — 앞 국의 단자 설비가 남지 않는다', () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: '광선로 추가' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: /^춘천S\/S/ }));
+    set('상대 단자 설비', 'cofd');
+    set('상대 시작번호', '7');
+    expect(field('상대 단자 설비')).toHaveValue('cofd');
+    fireEvent.click(within(dialog()).getByRole('button', { name: /^북춘천S\/S/ }));
+    expect(field('상대 단자 설비')).toHaveValue('');
+    expect(within(field('상대 단자 설비')).queryByRole('option', { name: '춘천 OFD' })).toBeNull();
+    expect(field('상대 시작번호')).toHaveValue('1');
+    set('케이블 품목', 'opgw');
+    set('코어 수', '2');
+    set('선로명', '바꾼 선로');
+    fireEvent.click(within(dialog()).getByRole('button', { name: '추가' }));
+    expect(lines().find((l) => l.name === '바꾼 선로')).toMatchObject({ bSubstationId: 'S1', bEquipmentId: null });
+  });
+
+  it('상대국 목록은 「본부 · 지사」로 어디의 국인지 적는다', () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: '광선로 추가' }));
+    expect(within(dialog()).getByRole('button', { name: /^춘천S\/S/ })).toHaveTextContent('강원본부 · 직할');
+  });
+
   it('들르지 않은 상대국을 고르면 그 국을 불러오고, 불러오는 중은 그 칸에 말한다', () => {
     const ensure = vi.fn(async () => {});
     store.setState({ ensureLoaded: ensure, loading: 'S3' });
@@ -172,8 +196,9 @@ describe('광선로 편집', () => {
     expect(field('이쪽 단자 설비')).toHaveValue('ofd');
     expect(field('이쪽 슬롯')).toHaveValue('2');
     expect(field('이쪽 시작번호')).toHaveValue('25');
-    /* 끝의 국은 만든 뒤 바꾸지 않는다 — 고르는 목록이 없다. */
+    /* 끝의 국은 만든 뒤 바꾸지 않는다 — 고르는 목록이 없고 그 까닭을 적는다. */
     expect(within(dialog()).queryByRole('button', { name: /^화천S\/S/ })).toBeNull();
+    expect(within(dialog()).getByText('끝의 국은 바꿀 수 없습니다 — 바꾸려면 지우고 다시 추가하세요')).toBeInTheDocument();
     set('이쪽 슬롯', '3');
     set('이쪽 시작번호', '13');
     fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
@@ -200,14 +225,36 @@ describe('광선로 편집', () => {
     renderSheet();
     openEdit('L1');
     const before = store.getState().overlays;
+    /* 막는 말은 막힌 순간에 — 치는 동안은 말하지 않고 확인은 눌린다. */
     set('코어 수', '2');
-    expect(within(dialog()).getByRole('alert')).toHaveTextContent('코어 3–4 에 연결·측정이 있어 줄일 수 없습니다');
-    expect(within(dialog()).queryByRole('button', { name: '확인' })).toBeNull();
+    expect(within(dialog()).queryByText(/줄일 수 없습니다/)).toBeNull();
+    const ok = within(dialog()).getByRole('button', { name: '확인' });
+    expect(ok).toBeEnabled();
+    fireEvent.click(ok);
+    /* 상자는 그대로, 까닭은 코어 수 칸에. */
+    expect(within(dialog()).getByText('코어 3, 4 에 연결·측정이 있어 줄일 수 없습니다')).toBeInTheDocument();
+    expect(field('코어 수')).toHaveAttribute('aria-invalid', 'true');
+    expect(store.getState().overlays).toBe(before);
+    /* 코어 수를 고치면 까닭이 걷힌다. */
     set('코어 수', '3');
-    expect(within(dialog()).getByRole('alert')).toHaveTextContent('코어 4 에 연결·측정이 있어 줄일 수 없습니다');
+    expect(within(dialog()).queryByText(/줄일 수 없습니다/)).toBeNull();
+    fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
+    expect(within(dialog()).getByText('코어 4 에 연결·측정이 있어 줄일 수 없습니다')).toBeInTheDocument();
     expect(store.getState().overlays).toBe(before);
     expect(lines().find((l) => l.id === 'L1')!.coreCount).toBe(4);
     expect(within(blockOf('L1')).getAllByTestId(/^sheet-row-/)).toHaveLength(4);
+  });
+
+  it('막는 코어는 이어진 것끼리 묶어 적는다 — 사이가 빈 코어는 범위에 넣지 않는다', () => {
+    const s = store.getState();
+    s.create('links', link('k3', 'S1', { kind: 'core', lineId: 'L1', no: 3, side: 'A' }, { kind: 'equipment', equipmentId: 'lt', label: 'RX' }));
+    s.create('coreMeasurements', { id: 'm5', lineId: 'L1', coreNo: 5, measuredOn: null, side: 'A', loss1310: 1, dist1310: null, loss1550: null, dist1550: null, measuredBy: null, updatedAt: '' });
+    s.update('fiberLines', 'L1', { coreCount: 6 });
+    renderSheet();
+    openEdit('L1');
+    set('코어 수', '2');
+    fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
+    expect(within(dialog()).getByText('코어 3, 5 에 연결·측정이 있어 줄일 수 없습니다')).toBeInTheDocument();
   });
 
   it('쓰지 않는 코어는 줄일 수 있다 — 잘린 코어에 고쳐 두던 값도 함께 걷는다', () => {

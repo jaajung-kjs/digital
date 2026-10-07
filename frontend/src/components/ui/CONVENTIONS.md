@@ -410,6 +410,7 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
   <DetailRow label="열 수">…</DetailRow>
 </DetailGrid>
 ```
+**짝이 되는 두 카드를 나란히 둘 때도 이것이다** — 광선로 상자의 「이쪽 끝 · 상대 끝」처럼 같은 칸을 가진 카드 둘은 `DetailGrid` 안에 `DetailCard` 둘을 넣어 좌우로 견주게 한다(위아래로 쌓으면 같은 칸을 두 번 내려 읽어야 한다).
 
 ### 카드 안 목록의 한 줄(랙에 실린 설비 이름 등) → `ListRow`
 
@@ -530,6 +531,8 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 ### 표 위 검색 상자 → `TableSearch`
 `src/components/ui/TableSearch.tsx` — 현황·선번장·계통이 같은 검색 헤더를 쓴다. 상자와 `N / M건` 표시를 맡고, **무엇으로 거를지는 호출부**가 정한다(열 구성이 표마다 다르다). 검색 중 결과가 비면 빈 상태 문구도 검색어를 되짚어 준다 — "검색이 잘못됐나" 와 "원래 없다" 가 구분되지 않으면 같은 검색을 반복하게 된다. 상자 폭은 `className`(배치용, 기본 `w-64`)으로만 줄인다 — 현황처럼 머리 띠가 한 줄에 다 들어가야 하는 좁은 판(1280px)에서만.
+
+**고르개(대화상자 안 목록 위의 검색)는 `count="inside"`** — 건수가 칸 **안 오른쪽**에 붙는다. 머리 띠에서는 건수가 칸 앞에 서야 칸이 안 튀지만(오른쪽 끝이 `ml-auto`), 폭을 다 쓰는 고르개에서 앞에 서면 치는 순간 칸이 옆으로 밀린다. 목록은 `InsetBox`(+ `max-h-*` 스크롤)에 담는다 — 잇기·광선로 상대국이 같은 모양이다.
 
 ### 입력/선택 → `Input` / `Select`
 별도의 `fieldClass` 유틸은 없다. 크기는 `size` prop(`sm`/`md`) 으로만 정한다(§1.5) — `className` 으로 여백·글자를 덮어쓰지 않는다.

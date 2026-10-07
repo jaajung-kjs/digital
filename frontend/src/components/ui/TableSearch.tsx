@@ -12,6 +12,11 @@ export interface TableSearchProps {
   shown: number;
   /** 거르기 전 전체 건수. */
   total: number;
+  /**
+   * 건수를 둘 자리 — `before`(기본, 표 머리 띠: 오른쪽 끝이 `ml-auto` 라 앞에 서야 칸이 안 튄다) ·
+   * `inside`(고르개: 칸이 폭을 다 쓰는 상자 안 목록 위 — 앞에 서면 칸이 옆으로 밀리므로 칸 안 오른쪽에 붙인다).
+   */
+  count?: 'before' | 'inside';
 }
 
 /**
@@ -28,17 +33,16 @@ export interface TableSearchProps {
  * 필요하다. 하지만 안 거를 때의 수는 화면이 이미 말하고 있는 것을 되풀이할 뿐이고,
  * 접어 둔 표에서는 화면과 다른 수가 되기까지 했다(두 줄이 보이는데 「18건」).
  */
-export function TableSearch({ value, onChange, placeholder, shown, total, className, ...rest }: TableSearchProps) {
+export function TableSearch({ value, onChange, placeholder, shown, total, className, count = 'before', ...rest }: TableSearchProps) {
   const filtering = value.trim().length > 0;
+  const label = `${shown} / ${total}건`;
   return (
     <div className="flex shrink-0 items-center gap-2">
       {/* 건수는 입력칸 **앞**에 선다 — 머리 띠의 오른쪽 끝은 `ml-auto` 로 밀려 있어서,
           건수를 뒤에 두면 글자를 치는 순간 그것이 나타나며 입력칸이 왼쪽으로 튄다.
           줄바꿈되지 않게: 좁은 칸에서 "48" / "건" 으로 갈라져 두 줄이 됐다. */}
-      {filtering && (
-        <span className="whitespace-nowrap text-xs text-content-muted">
-          {shown} / {total}건
-        </span>
+      {count === 'before' && filtering && (
+        <span className="whitespace-nowrap text-xs text-content-muted">{label}</span>
       )}
       <div className={className ?? 'w-64'}>
         <Input
@@ -47,6 +51,8 @@ export function TableSearch({ value, onChange, placeholder, shown, total, classN
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.currentTarget.value)}
+          /* 안쪽 건수는 늘 빈 글자라도 준다 — 단위가 생기고 없어질 때 칸이 다른 요소로 바뀌면 치던 글자의 초점을 잃는다. */
+          suffix={count === 'inside' ? (filtering ? label : '') : undefined}
         />
       </div>
     </div>

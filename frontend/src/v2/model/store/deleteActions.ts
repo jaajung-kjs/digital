@@ -143,10 +143,26 @@ export function lineShrinkBlock(lineId: string, count: number): string | null {
   }
   for (const m of effectiveRows(s, 'coreMeasurements')) if (m.lineId === lineId && m.coreNo > count) used.add(m.coreNo);
   if (used.size === 0) return null;
-  const nos = [...used].sort((a, b) => a - b);
-  const lo = nos[0]!;
-  const hi = nos[nos.length - 1]!;
-  return `코어 ${lo === hi ? lo : `${lo}–${hi}`} 에 연결·측정이 있어 줄일 수 없습니다`;
+  return `코어 ${coreRuns([...used])} 에 연결·측정이 있어 줄일 수 없습니다`;
+}
+
+/**
+ * 코어 번호 목록을 읽을 수 있게 — 셋 이상 이어지면 `15–20`, 그 밖은 하나씩(`3, 4, 13, 15–20`).
+ * 범위 하나(`3–20`)로 뭉치면 사이의 빈 코어까지 막힌 것처럼 읽힌다. 덩어리가 많으면 앞 `max` 개만 적고 남은 코어 수를 붙인다.
+ */
+export function coreRuns(nos: number[], max = 5): string {
+  const sorted = [...new Set(nos)].sort((a, b) => a - b);
+  const runs: number[][] = [];
+  for (const n of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && n === last[last.length - 1]! + 1) last.push(n);
+    else runs.push([n]);
+  }
+  const parts = runs.flatMap((r) => (r.length >= 3 ? [`${r[0]}–${r[r.length - 1]}`] : r.map(String)));
+  if (parts.length <= max) return parts.join(', ');
+  const shown = parts.slice(0, max);
+  const shownCount = shown.reduce((n, p) => n + (p.includes('–') ? Number(p.split('–')[1]) - Number(p.split('–')[0]) + 1 : 1), 0);
+  return `${shown.join(', ')} 외 ${sorted.length - shownCount}개`;
 }
 
 /**

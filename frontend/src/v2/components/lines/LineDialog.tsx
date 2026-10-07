@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MAX_CORES, isLineMedium, type Side } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, ErrorStrip, Input, ListRow, Modal, SELECTED, Select, TableSearch, useConfirm,
+  Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, ErrorStrip, InsetBox, Input, IssueReveal, ListRow, Modal, SELECTED, Select, TableSearch, useConfirm,
 } from '../../../components/ui';
 import { useV2OrgTree } from '../../hooks';
 import { useCatalog } from '../../model/hooks';
-import { deleteRows, lineDeleteSummary, lineShrinkBlock, updateFiberLine } from '../../model/store/deleteActions';
+import { deleteRows, lineDeleteSummary, updateFiberLine } from '../../model/store/deleteActions';
 import { bySubstation, effectiveRows, equipmentName } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { FiberLine } from '../../model/types';
@@ -44,15 +44,14 @@ function positiveInt(raw: string): number | null {
  * 단자 설비 · 슬롯 · 시작번호.
  *
  * 끝의 국은 만든 뒤 바꾸지 않는다(서버 규칙) — 편집에서는 상대국을 이름으로만 보인다. 담는 곳은 워킹카피뿐이고
- * 서버로 가는 문은 위 저장 바 하나다. 코어 수를 줄일 때 잘릴 코어에 연결·측정이 있으면 확인 단추 대신
- * 그 까닭이 선다(판정은 `lineShrinkBlock`, 아무것도 바꾸지 않는다).
+ * 서버로 가는 문은 위 저장 바 하나다. 코어 수를 줄일 때 잘릴 코어에 연결·측정이 있으면 확인을 누른 그 순간
+ * 코어 수 칸에 까닭이 선다(판정은 `updateFiberLine`→`lineShrinkBlock`, 아무것도 바꾸지 않는다).
  */
 export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogProps) {
   const catalog = useCatalog().data;
   const orgTree = useV2OrgTree().data;
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
-  const loading = useWorkingCopy((s) => s.loading);
   const loadedList = useWorkingCopy((s) => s.loaded);
   const loadErrors = useWorkingCopy((s) => s.loadErrors);
   const { confirm, confirmDialog } = useConfirm();
@@ -71,12 +70,21 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
   const [nearEnd, setNearEnd] = useState<EndDraft>(line ? endOf(line, near) : BLANK_END);
   const [farEnd, setFarEnd] = useState<EndDraft>(line ? endOf(line, far) : BLANK_END);
   const [query, setQuery] = useState('');
+  /* 막힌 순간의 까닭(§1.7-f) — 확인을 눌러 코어 수 줄이기가 막혔을 때만 서고, 코어 수를 고치면 걷힌다. */
+  const [shrinkBlocked, setShrinkBlocked] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   /* 상대국 목록 — 조직 트리의 국 전부(이 국 포함), 트리 차례대로. */
   const flat = useMemo(() => (orgTree ? flattenTree(orgTree) : []), [orgTree]);
   const substations = useMemo(() => {
-    const branchName = new Map(flat.filter((n) => n.kind === 'branch').map((n) => [n.id, n.name]));
-    return flat.filter((n) => n.kind === 'substation').map((n) => ({ id: n.id, name: n.name, where: n.parentId ? branchName.get(n.parentId) ?? '' : '' }));
+    /* 어디의 국인가는 「본부 · 지사」 — 「직할」은 본부마다 있어 지사 이름만으로는 갈리지 않는다. */
+    const byId = new Map(flat.map((n) => [n.id, n]));
+    const where = (parentId: string | null) => {
+      const branch = parentId ? byId.get(parentId) : undefined;
+      const hq = branch?.parentId ? byId.get(branch.parentId) : undefined;
+      return [hq?.name, branch?.name].filter(Boolean).join(' · ');
+    };
+    return flat.filter((n) => n.kind === 'substation').map((n) => ({ id: n.id, name: n.name, where: where(n.parentId) }));
   }, [flat]);
   const nameOf = (id: string) => substations.find((x) => x.id === id)?.name ?? saved.substations[id]?.name ?? '';
   const q = query.trim().toLowerCase();
@@ -88,7 +96,8 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
   }, [peerId]);
   const peerLoaded = peerId !== '' && loadedList.includes(peerId);
   const peerError = peerId ? loadErrors[peerId] ?? null : null;
-  const peerLoading = peerId !== '' && !peerLoaded && !peerError && (loading === peerId || loading == null);
+  /* 들르기 전(효과가 아직 안 돈 첫 프레임 포함)과 읽는 중은 같다 — 다 읽었거나 실패하기 전까지는 기다린다. */
+  const peerLoading = peerId !== '' && !peerLoaded && !peerError;
 
   const cables = (catalog?.cableTypes ?? []).filter((c) => isLineMedium(c.medium));
   const equipmentOf = (sid: string, current: string) => {
@@ -111,8 +120,6 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
   const farIssues = endIssues(farEnd);
   const ok = peerId !== '' && cableTypeId !== '' && !countIssue && !lengthIssue
     && !nearIssues.panel && !nearIssues.startNo && !farIssues.panel && !farIssues.startNo;
-  /* 줄이는 것만 묻는다 — 판정은 스토어(core) 한 곳. */
-  const shrinkBlock = line && !countIssue && count != null && count < line.coreCount ? lineShrinkBlock(line.id, count) : null;
 
   /** 끝 칸 → 광선로 칸(그 끝의 side 로). 단자가 비면 슬롯도 비운다. */
   const endFields = (side: Side, e: EndDraft): Partial<FiberLine> => {
@@ -123,7 +130,7 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
   };
 
   function submit() {
-    if (!ok || shrinkBlock || count == null) return;
+    if (!ok || count == null) return;
     const fields: Partial<FiberLine> = {
       cableTypeId, coreCount: count, name: name.trim() || null, lengthKm,
       ...endFields(near, nearEnd), ...endFields(far, farEnd),
@@ -142,7 +149,11 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
     }
     /* 바뀐 칸만 싣는다 — 그대로인 칸을 실으면 변경 1건이 공연히 선다. */
     const patch = Object.fromEntries(Object.entries(fields).filter(([k, v]) => !Object.is(line[k as keyof FiberLine], v))) as Partial<FiberLine>;
-    if (Object.keys(patch).length > 0 && updateFiberLine(line.id, patch).blocked) return;
+    /* 코어 수 줄이기가 막히면 아무것도 바뀌지 않고 그 까닭이 코어 수 칸에 선다(판정은 스토어·core 한 곳). */
+    if (Object.keys(patch).length > 0) {
+      const { blocked } = updateFiberLine(line.id, patch);
+      if (blocked) { setShrinkBlocked(blocked); return; }
+    }
     onDone({ lineId: line.id, side: near });
   }
 
@@ -157,7 +168,8 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
       danger: true,
     });
     if (!ask) return;
-    const blocked = deleteRows({ fiberLines: [line.id] }).blocked[0]?.reason;
+    const blocked = deleteRows({ fiberLines: [line.id] }).blocked[0]?.reason ?? null;
+    setRemoveError(blocked);
     if (!blocked) onDone(null);
   }
 
@@ -204,33 +216,35 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
         <>
           {line && <Button variant="secondary" tone="danger" className="mr-auto" onClick={() => void remove()}>광선로 지우기</Button>}
           <Button variant="secondary" onClick={onClose}>취소</Button>
-          {shrinkBlock
-            ? <ErrorStrip className="max-w-xs" message={shrinkBlock} />
-            : <Button disabled={!ok} onClick={submit}>{line ? '확인' : '추가'}</Button>}
+          <Button disabled={!ok} onClick={submit}>{line ? '확인' : '추가'}</Button>
         </>
       }
     >
       <div className="space-y-3">
+        <ErrorStrip message={removeError} onDismiss={() => setRemoveError(null)} />
         <DetailCard>
           <DetailCardHeader title="광선로" />
           {line ? (
-            <DetailRow label="상대국">{nameOf(peerId) + (peerId === nearSid ? ' (같은 국 안)' : '')}</DetailRow>
+            <DetailRow label="상대국" hint="끝의 국은 바꿀 수 없습니다 — 바꾸려면 지우고 다시 추가하세요">
+              {nameOf(peerId) + (peerId === nearSid ? ' (같은 국 안)' : '')}
+            </DetailRow>
           ) : (
             <DetailRow label="상대국" required align="start" wide>
               <div className="space-y-1 py-1">
-                <TableSearch aria-label="상대국 검색" className="w-full" placeholder="국 · 지사 검색" value={query} onChange={setQuery} shown={shownSubs.length} total={substations.length} />
-                <div className="max-h-40 overflow-y-auto rounded border border-line p-1">
+                <TableSearch aria-label="상대국 검색" className="w-full" count="inside" placeholder="국 · 본부 · 지사 검색" value={query} onChange={setQuery} shown={shownSubs.length} total={substations.length} />
+                <InsetBox className="max-h-40 overflow-y-auto p-1">
                   {shownSubs.map((x) => (
                     <ListRow
                       key={x.id} aria-current={x.id === peerId ? 'true' : undefined} className={x.id === peerId ? SELECTED : undefined}
                       trailing={x.id === substationId ? '같은 국 안' : x.where}
-                      onClick={() => setPeerId(x.id)}
+                      /* 국을 바꾸면 상대 끝 칸은 처음부터 — 앞 국의 단자 설비가 새 국 끝에 남으면 남의 국 설비를 가리킨다. */
+                      onClick={() => { if (x.id !== peerId) { setPeerId(x.id); setFarEnd(BLANK_END); } }}
                     >
                       {x.name}
                     </ListRow>
                   ))}
                   {shownSubs.length === 0 && <ListRow>찾는 국이 없습니다</ListRow>}
-                </div>
+                </InsetBox>
               </div>
             </DetailRow>
           )}
@@ -240,9 +254,15 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
               {cables.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </DetailRow>
-          <DetailRow label="코어 수" required issue={coreCount.trim() === '' ? null : countIssue}>
-            <Input size="sm" numeric aria-label="코어 수" invalid={coreCount.trim() !== '' && !!countIssue} value={coreCount} onChange={(e) => setCoreCount(e.currentTarget.value)} />
-          </DetailRow>
+          {/* 줄이기가 막힌 까닭은 손대기 전이라도 곧바로 보인다 — 방금 확인을 누른 결과다. */}
+          <IssueReveal.Provider value={shrinkBlocked != null}>
+            <DetailRow label="코어 수" required issue={shrinkBlocked ?? (coreCount.trim() === '' ? null : countIssue)}>
+              <Input
+                size="sm" numeric aria-label="코어 수" invalid={shrinkBlocked != null || (coreCount.trim() !== '' && !!countIssue)} value={coreCount}
+                onChange={(e) => { setCoreCount(e.currentTarget.value); setShrinkBlocked(null); }}
+              />
+            </DetailRow>
+          </IssueReveal.Provider>
           <DetailRow label="선로명">
             <Input size="sm" aria-label="선로명" value={name} onChange={(e) => setName(e.currentTarget.value)} />
           </DetailRow>

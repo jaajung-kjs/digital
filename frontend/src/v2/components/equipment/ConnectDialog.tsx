@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { endRefKey, isLinkMedium, validateState, type LinkEndRef } from '@twin/core';
-import { Button, DetailRow, ErrorStrip, Input, ListHeading, ListRow, Modal, SELECTED, Select, TableSearch } from '../../../components/ui';
+import { Button, DetailRow, ErrorStrip, InsetBox, Input, ListHeading, ListRow, Modal, SELECTED, Select, TableSearch } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { toModelState } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -76,8 +76,8 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
     >
       <div className="space-y-2">
         <p className="text-xs text-content-muted">{`이쪽 끝 ${endLabel({ saved, overlays }, from)}`}</p>
-        <TableSearch aria-label="반대쪽 끝 검색" placeholder="설비 · 차단기 · 코어 검색" value={query} onChange={setQuery} shown={shown.length} total={options.length} />
-        <div className="max-h-56 overflow-y-auto rounded border border-line p-1">
+        <TableSearch aria-label="반대쪽 끝 검색" className="w-full" count="inside" placeholder="설비 · 차단기 · 코어 검색" value={query} onChange={setQuery} shown={shown.length} total={options.length} />
+        <InsetBox className="max-h-56 overflow-y-auto p-1">
           {GROUPS.map((g) => {
             const rows = shown.filter((o) => o.group === g);
             if (rows.length === 0) return null;
@@ -89,7 +89,7 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
             );
           })}
           {shown.length === 0 && <ListRow>찾는 끝이 없습니다</ListRow>}
-        </div>
+        </InsetBox>
         <DetailRow label="케이블 품목">
           <Select size="sm" aria-label="케이블 품목" value={cableTypeId} onChange={(e) => setCableTypeId(e.currentTarget.value)}>
             <option value="">선택 안 함</option>
