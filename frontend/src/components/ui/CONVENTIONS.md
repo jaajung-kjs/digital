@@ -376,7 +376,7 @@
 실제로 존재하는 공용 컴포넌트는 전부 `src/components/ui`(배럴 `index.ts`)에 있다:
 `Badge`, `Button`, `IconButton`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailGrid`,
 `ItemCard`, `ListRow`, `PanelHeader`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
-`Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `cn`, `controlSize`,
+`Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `TreeRow`, `cn`, `controlSize`,
 `ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`, `HOVER_REVEAL`, `useOverflowShade`·`OverflowShade`·`scrollBoxToTop`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다.
 
@@ -973,6 +973,9 @@ const KINDS = [
 - **전역 오류 띠는 화면을 따라다니지 않는다** — 경로가 바뀌면 지운다(`V2Shell`). 조치할 자리가 없는 곳에 남은 경고는 읽히지 않고, 읽히지 않는 경고는 다음 경고까지 가린다.
 
 떠 있는 메뉴(`OverflowMenu`)는 **포털로 띄운다**(`MenuPopup`) — 스크롤 상자 안에서 잘리지 않게. 바깥 눌림 판정에 메뉴 자신의 참조를 함께 넘겨야 한다(안 그러면 메뉴를 누르는 것이 「바깥」이 되어 항목이 눌리기 전에 닫힌다).
+
+### 트리 한 줄(들여쓰기 · 셰브런 · 28px) → `TreeRow`
+조직 트리(`TreePanel`)와 전원 계통도가 **같은 줄 모양**을 쓴다 — 들여쓰기는 층마다 `TREE_INDENT`(16px = 셰브런 12 + 틈 4, 자식의 셰브런이 부모 이름 첫 글자 아래에 선다), 셰브런 자리는 잎에서도 비워 두고, 높이·호버·선택색은 `SELECTABLE`·`SELECTED`. `role="treeitem"`·`aria-level`·`aria-selected`·`aria-expanded` 를 함께 단다(고른 줄 스크롤이 `aria-selected` 를 찾는다). 무엇을 담을지와 누르면 무슨 일인지는 부르는 쪽이 정한다 — 판(머리줄·검색·만들기)까지 필요하면 `TreePanel`, 줄만 필요하면(머리 띠에 검색이 이미 있는 판) `TreeRow`. 줄 아래에 붙는 것은 `treeIndent(depth)` 로 맞춘다.
 
 ### 정해진 값은 **고르게** 한다 — 다만 목록은 **사실만큼만**
 현장 값이 사실상 정해진 칸(전압·차단기 용량·전선 규격)은 선택지를 선언하고 화면이 목록을 낸다(`InlineEditCell options`). 손으로 치게 두면 같은 값이 「AC220V」·「AC 220V」·「220v」로 갈려 세지도 거르지도 못한다.

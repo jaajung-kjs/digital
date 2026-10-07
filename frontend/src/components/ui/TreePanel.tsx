@@ -1,11 +1,11 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { IconButton } from './IconButton';
 import { Input } from './Input';
 import { isCommitKey } from './keyboard';
 import { cn } from './cn';
 import { HOVER_REVEAL } from './hoverReveal';
-import { SELECTABLE, SELECTED } from './selection';
+import { TreeRow, treeIndent } from './TreeRow';
 import { SelectionScope } from './SelectionScope';
 import { useScrollSelectedIntoView } from './useScrollSelectedIntoView';
 import { selectOrToggle } from './rowSelection';
@@ -499,9 +499,14 @@ export function TreePanel({
           const editingHere = n.id === CREATE_ROW || renaming?.id === n.id;
           return (
             <Fragment key={n.id}>
-            <div
-              data-selectable=""
+            <TreeRow
               data-id={n.id}
+              depth={n.depth}
+              branch={branch}
+              collapsed={isCollapsed}
+              toggleLabel={n.text}
+              onToggle={() => (n.onOpen ? n.onOpen() : toggle(n.id))}
+              selected={selectedId === n.id}
               /* 끌 수 있는 줄인가 — 이름을 치는 중에는 끌지 않는다(글자를 고르는 중이다). */
               draggable={onReorder != null && kindAt(n.depth)?.reorder !== false && !creating && !renaming}
               onDragStart={(e) => {
@@ -524,20 +529,12 @@ export function TreePanel({
                 drop();
               }}
               className={cn(
-                'group flex items-center gap-1 px-2 py-1 text-sm',
-                SELECTABLE,
-                selectedId === n.id ? SELECTED : 'text-content',
                 /* 놓일 자리를 **선 하나**로 보여 준다 — 줄을 통째로 물들이면 어느 쪽에
                    들어가는지(위·아래) 말하지 못한다. */
                 dropAt?.id === n.id && dropAt.where === 'before' && 'border-t-2 border-primary',
                 dropAt?.id === n.id && dropAt.where === 'after' && 'border-b-2 border-primary',
                 dragId === n.id && 'opacity-40',
               )}
-              style={{ paddingLeft: 8 + n.depth * 14 }}
-              role="treeitem"
-              aria-level={n.depth + 1}
-              aria-selected={selectedId === n.id}
-              aria-expanded={branch ? !isCollapsed : undefined}
               /* Tab 으로 닿는 줄은 하나 — 고른 줄, 없으면 첫 줄. 나머지는 화살표로 온다. */
               tabIndex={(activeId ?? selectedId ?? shown[0]?.id) === n.id ? 0 : -1}
               onFocus={() => setActiveId(n.id)}
@@ -585,24 +582,6 @@ export function TreePanel({
                   });
               }}
             >
-              {/* 셰브런 자리는 늘 차지한다 — 없으면 이름이 층마다 어긋나 보인다. */}
-              {branch ? (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-label={`${n.text} ${isCollapsed ? '펼치기' : '접기'}`}
-                  className="shrink-0 rounded text-content-faint hover:text-content"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (n.onOpen) n.onOpen();
-                    else toggle(n.id);
-                  }}
-                >
-                  {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                </button>
-              ) : (
-                <span className="w-3 shrink-0" aria-hidden />
-              )}
               {n.dot && (
                 <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: n.dot }} />
               )}
@@ -648,10 +627,10 @@ export function TreePanel({
                   {handlesFor(n)}
                 </span>
               )}
-            </div>
+            </TreeRow>
             {editingHere && failed && (
               /* 이름을 치던 자리 바로 아래 — 고쳐서 다시 확정하면 되는 것들이다. */
-              <p role="alert" className="px-2 pb-1 text-xs text-danger" style={{ paddingLeft: 8 + n.depth * 14 + 16 }}>
+              <p role="alert" className="px-2 pb-1 text-xs text-danger" style={{ paddingLeft: treeIndent(n.depth) + 16 }}>
                 {failed}
               </p>
             )}

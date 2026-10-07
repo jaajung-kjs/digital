@@ -1,4 +1,4 @@
-import { powerLedger, type CurrentFilter, type PowerInput, type PowerNode } from '@twin/core';
+import { powerLedger, powerTree, type CurrentFilter, type PowerBreaker, type PowerInput, type PowerNode } from '@twin/core';
 import { bySubstation, effectiveCircuits, effectiveRows, equipmentName } from '../../model/store/effective';
 import type { WorkingCopyState } from '../../model/store/workingCopy';
 
@@ -25,3 +25,85 @@ export function ledgerBlocks(s: S, substationId: string, filter: CurrentFilter):
   return powerLedger(powerInput(s, substationId, filter));
 }
 
+
+/**
+ * 계통도의 한 줄 — core `powerTree` 를 위에서 아래로 펼친 것. 줄 종류는 둘이다:
+ * - `equipment` — 뿌리(입력 전원이 이 보기 안에 없는 공급 설비).
+ * - `breaker` — 「차단기 n · 표기 · 용량 · 갈래 → 부하」. 부하가 차단기를 가진 설비면 그 차단기들이 이 줄의 자식이다.
+ */
+export interface PowerTreeRow {
+  /** 뿌리부터의 길(`r:<설비>/<차단기 번호>/…`) — 같은 설비가 두 곳에 서도(이중 입력) 줄마다 다르고, 다시 그려도 그대로다. */
+  key: string;
+  parentKey: string | null;
+  depth: number;
+  kind: 'equipment' | 'breaker';
+  /** 뿌리면 그 설비, 차단기 줄이면 그 차단기를 가진 공급 설비. */
+  equipmentId: string;
+  breaker: PowerBreaker | null;
+  /** 이 줄이 가리키는 설비(누르면 고른다) — 뿌리면 그 설비, 차단기 줄이면 부하 설비(없으면 null). */
+  target: string | null;
+  /** 자식 줄이 있다(펼친 공급 설비이고 이 보기에서 보일 차단기가 있다). */
+  branch: boolean;
+  /** 이 설비를 **처음 펼친** 줄 — 「위에 표시됨」이 이리로 데려온다. */
+  anchor: boolean;
+  /** 검색이 훑는 글자(소문자) — 설비 이름, 차단기 표기·용도, 부하 이름. */
+  text: string;
+}
+
+/** 계통도 줄 — `powerTree` 의 뿌리부터 깊이 순서(차단기 번호 순)로 편다. */
+export function treeRows(s: S, substationId: string, filter: CurrentFilter, loadText: (b: PowerBreaker) => string): PowerTreeRow[] {
+  const { roots } = powerTree(powerInput(s, substationId, filter));
+  const out: PowerTreeRow[] = [];
+  const name = (id: string) => equipmentName(s, id) ?? '';
+  const lower = (...xs: (string | null | undefined)[]) => xs.filter(Boolean).join(' ').toLowerCase();
+  const walk = (node: PowerNode, parentKey: string, depth: number) => {
+    for (const b of node.breakers) {
+      const key = `${parentKey}/${b.no}`;
+      out.push({
+        key, parentKey, depth, kind: 'breaker', equipmentId: node.equipmentId, breaker: b,
+        target: b.load?.kind === 'equipment' ? b.load.equipmentId : null,
+        branch: (b.child?.breakers.length ?? 0) > 0,
+        anchor: b.child != null,
+        text: lower(b.label, b.purpose, loadText(b)),
+      });
+      if (b.child) walk(b.child, key, depth + 1);
+    }
+  };
+  for (const r of roots) {
+    const key = `r:${r.equipmentId}`;
+    out.push({
+      key, parentKey: null, depth: 0, kind: 'equipment', equipmentId: r.equipmentId, breaker: null,
+      target: r.equipmentId, branch: r.breakers.length > 0, anchor: true, text: lower(name(r.equipmentId)),
+    });
+    walk(r, key, 1);
+  }
+  return out;
+}
+
+/** 검색 — 맞는 줄과 그 조상만 남긴다(차례는 그대로). `matched` 는 맞는 줄 수(조상은 세지 않는다). */
+export function searchTreeRows(rows: readonly PowerTreeRow[], q: string): { rows: PowerTreeRow[]; matched: number } {
+  const needle = q.trim().toLowerCase();
+  if (needle === '') return { rows: [...rows], matched: rows.length };
+  const byKey = new Map(rows.map((r) => [r.key, r]));
+  const keep = new Set<string>();
+  let matched = 0;
+  for (const r of rows) {
+    if (!r.text.includes(needle)) continue;
+    matched++;
+    for (let k: string | null = r.key; k != null && !keep.has(k); k = byKey.get(k)?.parentKey ?? null) keep.add(k);
+  }
+  return { rows: rows.filter((r) => keep.has(r.key)), matched };
+}
+
+/** 접힌 줄의 자손 전부를 감춘다 — 부모만 보면 손자가 남는다. */
+export function visibleTreeRows(rows: readonly PowerTreeRow[], collapsed: ReadonlySet<string>): PowerTreeRow[] {
+  const out: PowerTreeRow[] = [];
+  let hideDeeperThan: number | null = null;
+  for (const r of rows) {
+    if (hideDeeperThan !== null && r.depth > hideDeeperThan) continue;
+    hideDeeperThan = null;
+    out.push(r);
+    if (r.branch && collapsed.has(r.key)) hideDeeperThan = r.depth;
+  }
+  return out;
+}

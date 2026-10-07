@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CIRCUIT_CURRENTS, type CurrentFilter, type LinkEndRef, type PowerNode } from '@twin/core';
+import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { CIRCUIT_CURRENTS, EQUIPMENT_STATUSES, type CurrentFilter, type LinkEndRef, type PowerBreaker, type PowerNode } from '@twin/core';
 import {
-  EMPTY, EmptyState, OverflowShade, SegmentedControl, Select, TableSearch, ViewCard, scrollBoxToTop, useOverflowShade, type SegmentedItem,
+  EMPTY, EmptyState, IconButton, OverflowShade, SegmentedControl, Select, TableSearch, ViewCard, scrollBoxToTop, useOverflowShade, type SegmentedItem,
 } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { addCircuit } from '../../model/store/deleteActions';
-import { effectiveCircuits, equipmentName } from '../../model/store/effective';
+import { bySubstation, effectiveCircuits, effectiveRows, equipmentName } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore, type WorkingCopyState } from '../../model/store/workingCopy';
 import type { PowerView as PowerViewMode } from '../../useWorkspaceRoute';
 import { ConnectDialog } from '../equipment/ConnectDialog';
 import { endLabel } from '../equipment/endpoints';
 import { PowerLedger, type LedgerHead } from './PowerLedger';
-import { ledgerBlocks } from './powerSelectors';
+import { ledgerBlocks, searchTreeRows, treeRows } from './powerSelectors';
+import { PowerTreeView, type TreeEquipmentInfo } from './PowerTreeView';
+
+const STATUS = new Map(EQUIPMENT_STATUSES.map((st) => [st.value as string, st]));
 
 /**
  * 입력 전원 메타 — 받는 차단기의 갈래로 묶는다: 「교류 입력: …」·「직류 입력: …」, 갈래가 비면 「입력 전원: …」.
@@ -68,6 +72,8 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
   const [filter, setFilter] = useState<CurrentFilter>('all');
   const [query, setQuery] = useState('');
   const [connectFrom, setConnectFrom] = useState<LinkEndRef | null>(null);
+  /** 계통도에서 접은 줄(줄 키) — 도구줄의 「모두 펼치기 / 모두 접기」가 함께 쥔다. */
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 
   const all = useMemo(() => ledgerBlocks(s, substationId, 'all'), [s, substationId]);
   const filtered = useMemo(() => (filter === 'all' ? all : ledgerBlocks(s, substationId, filter)), [all, s, substationId, filter]);
@@ -103,6 +109,35 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
   const total = useMemo(() => all.reduce((k, n) => k + n.breakers.length, 0), [all]);
   const shownRows = shown.reduce((k, n) => k + n.breakers.length, 0);
 
+  /* 계통도 — 줄로 편 트리(거르기 적용) → 검색(맞는 줄과 그 조상). 건수는 맞는 줄 수. */
+  const otherLoad = (b: PowerBreaker) => (b.load?.kind === 'other' ? endLabel(s, b.load.ref) : '');
+  const loadText = (b: PowerBreaker) => (b.load == null ? '' : b.load.kind === 'equipment' ? equipmentName(s, b.load.equipmentId) ?? '' : endLabel(s, b.load.ref));
+  const tree = useMemo(
+    () => (view === 'tree' ? treeRows(s, substationId, filter, loadText) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [view, s, substationId, filter],
+  );
+  const treeShown = useMemo(() => searchTreeRows(tree, q), [tree, q]);
+  const equipmentInfo = useMemo(() => {
+    const types = new Map((catalog?.equipmentTypes ?? []).map((t) => [t.id, t.name]));
+    const m = new Map<string, TreeEquipmentInfo>();
+    for (const e of bySubstation(effectiveRows(s, 'equipment'), substationId)) {
+      const st = STATUS.get(e.status);
+      m.set(e.id, {
+        name: e.name || EMPTY,
+        type: types.get(e.typeId) ?? null,
+        status: st && st.tone !== 'success' ? { label: st.label, tone: st.tone } : null,
+      });
+    }
+    return m;
+  }, [s, substationId, catalog]);
+  const info = (id: string): TreeEquipmentInfo => equipmentInfo.get(id) ?? { name: equipmentName(s, id) ?? EMPTY, type: null, status: null };
+  const rootMeta = (id: string) => {
+    const n = all.find((x) => x.equipmentId === id);
+    return n ? feedMetas(s, n, 'all') : [];
+  };
+  const isTree = view === 'tree';
+
   /* 초점 블록이 바뀔 때만 화면 안으로(주소로 들어온 경우 포함). */
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -116,7 +151,7 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
   return (
     <div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1">
       <ViewCard
-        body="scroll"
+        body={isTree ? 'fill' : 'scroll'}
         bodyRef={bodyRef}
         tools={(
           <>
@@ -127,20 +162,35 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
                 {CIRCUIT_CURRENTS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </Select>
             </div>
+            {isTree && (
+              <>
+                {/* 아이콘 단추 — 상세 레일이 선 1280 에서도 도구줄이 한 줄에 들어가야 한다(이름은 aria-label·title). */}
+                <IconButton aria-label="모두 펼치기" title="모두 펼치기" onClick={() => setCollapsed(new Set())}><ChevronsUpDown size={14} /></IconButton>
+                <IconButton aria-label="모두 접기" title="모두 접기" onClick={() => setCollapsed(new Set(tree.filter((r) => r.branch).map((r) => r.key)))}><ChevronsDownUp size={14} /></IconButton>
+              </>
+            )}
           </>
         )}
         actions={(
           <TableSearch
-            aria-label="전원 계통 검색" className="w-72" placeholder="설비 · 차단기 표기 · 부하 · 용도 검색"
-            value={query} onChange={setQuery} shown={shownRows} total={total}
+            aria-label="전원 계통 검색" className={isTree ? 'w-60' : 'w-72'} placeholder="설비 · 차단기 표기 · 부하 · 용도 검색"
+            value={query} onChange={setQuery} shown={isTree ? treeShown.matched : shownRows} total={isTree ? tree.length : total}
           />
         )}
       >
-        {view === 'tree' ? (
-          /* 계통도는 다음 단계(Task 3)에서 선다. */
-          <EmptyState title="계통도는 준비 중입니다" description="「차단기 대장」에서 공급 설비별 차단기를 조회할 수 있습니다" />
-        ) : all.length === 0 ? (
+        {all.length === 0 ? (
           <EmptyState title="차단기가 있는 설비가 없습니다" description="분전반·UPS 등의 설비 상세에서 「차단기 추가」로 시작하세요" />
+        ) : isTree ? (
+          treeShown.rows.length === 0 ? (
+            <EmptyState title={q ? `'${query.trim()}'에 해당하는 설비·차단기가 없습니다` : '조건에 해당하는 차단기가 없습니다'} />
+          ) : (
+            <PowerTreeView
+              rows={treeShown.rows} allRows={tree} searching={q !== ''} onClearSearch={() => setQuery('')}
+              collapsed={collapsed} onCollapsedChange={setCollapsed}
+              selectedEquipmentId={selectedEquipmentId} onSelectEquipment={onSelectEquipment}
+              info={info} rootMeta={rootMeta} otherLoad={otherLoad}
+            />
+          )
         ) : shown.length === 0 ? (
           <EmptyState title={q ? `'${query.trim()}'에 해당하는 차단기가 없습니다` : '조건에 해당하는 차단기가 없습니다'} />
         ) : (

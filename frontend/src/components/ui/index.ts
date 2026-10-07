@@ -14,6 +14,8 @@ export { FloatingBar } from './FloatingBar';
 export { Input } from './Input';
 export { InsetBox } from './InsetBox';
 export { TreePanel } from './TreePanel';
+export { TREE_INDENT, TreeRow, treeIndent } from './TreeRow';
+export type { TreeRowProps } from './TreeRow';
 export type { TreeKind, TreeNode, TreePanelProps } from './TreePanel';
 export { isCancelKey, isCommitKey, isComposing, isTypingTarget } from './keyboard';
 export { selectableRow, selectOrToggle } from './rowSelection';
