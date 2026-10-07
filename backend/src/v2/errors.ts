@@ -26,9 +26,9 @@ const FIELD_LABEL: Record<string, string> = {
   name: '이름', key: '내부 키', categoryId: '분야', sortOrder: '순서',
   laborCode: '노무유형', unitPrice: '자재단가',
   installManDays: '신설 공량', removeManDays: '철거 공량', relocateManDays: '이설 공량',
-  medium: '매체', rackTypeId: '랙 품목', typeId: '설비 품목', rackId: '랙', substationId: '국',
+  medium: '매체', rackTypeId: '랙 품목', typeId: '설비 품목', rackId: '랙', substationId: '변전소',
   circuitCount: '차단기 수', panelCount: '슬롯 수', coreCount: '코어 수', cableTypeId: '케이블 품목',
-  lengthKm: '긍장', lengthM: '길이', measuredOn: '측정일', side: '측정 끝',
+  lengthKm: '긍장', lengthM: '길이', measuredOn: '측정일', side: '측정 위치',
 };
 
 /** `items.0.name` → 「구성 1번째 이름」. 모르는 칸은 적힌 그대로 둔다. */
@@ -51,7 +51,7 @@ function ruleText(issue: { code: string; [k: string]: unknown }): string {
     case 'too_big':
       return issue.type === 'string' ? `${issue.maximum}자 이하여야 합니다` : `${issue.maximum} 이하여야 합니다`;
     case 'invalid_type':
-      if (issue.received === 'undefined') return '빠졌습니다';
+      if (issue.received === 'undefined') return '누락되었습니다';
       if (issue.expected === 'integer') return '정수여야 합니다';
       if (issue.expected === 'number') return '숫자여야 합니다';
       return '형식이 올바르지 않습니다';
@@ -61,7 +61,7 @@ function ruleText(issue: { code: string; [k: string]: unknown }): string {
       return '형식이 올바르지 않습니다';
     case 'invalid_enum_value':
     case 'invalid_union':
-      return '고를 수 없는 값입니다';
+      return '선택할 수 없는 값입니다';
     default:
       return '값이 올바르지 않습니다';
   }

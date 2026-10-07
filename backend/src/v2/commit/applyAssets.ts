@@ -32,7 +32,7 @@ export async function deleteEquipment(tx: Tx, p: Ops, orphaned: string[]): Promi
   await tx.fiberLine.updateMany({ where: { aEquipmentId: { in: ids } }, data: { aEquipmentId: null, aPanel: null, updatedAt: now } });
   await tx.fiberLine.updateMany({ where: { bEquipmentId: { in: ids } }, data: { bEquipmentId: null, bPanel: null, updatedAt: now } });
   const del = await tx.equipment.deleteMany({ where: { id: { in: ids } } });
-  if (del.count !== ids.length) throw new HttpError(422, 'INVALID_TARGET', '지울 설비 중 없는 것이 있습니다');
+  if (del.count !== ids.length) throw new HttpError(422, 'INVALID_TARGET', '삭제할 설비 중 존재하지 않는 항목이 있습니다');
 }
 
 /** 지울 랙의 이름을 비켜 둔다 — 이름 유일은 문장마다 검사되므로, 비켜 두면 지우기를 맨 뒤로 미뤄도 같은 이름 신설·개명이 된다. */
@@ -77,7 +77,7 @@ async function syncCircuits(tx: Tx, equipmentId: string, count: number): Promise
   const { create, remove } = rowsForCount(existing, count);
   if (remove.length > 0) {
     const used = await tx.linkEnd.count({ where: { circuitEquipmentId: equipmentId, circuitNo: { in: remove } } });
-    if (used > 0) throw new HttpError(422, 'ROWS_IN_USE', `연결이 남은 차단기 ${used}개를 지울 수 없습니다 — 연결을 먼저 지우세요`);
+    if (used > 0) throw new HttpError(422, 'ROWS_IN_USE', `연결이 남아 있는 차단기 ${used}개를 삭제할 수 없습니다 — 연결을 먼저 삭제하세요`);
     await tx.circuit.deleteMany({ where: { equipmentId, no: { in: remove } } });
   }
   if (create.length > 0) await tx.circuit.createMany({ data: create.map((no) => ({ equipmentId, no })) });
@@ -119,7 +119,7 @@ export async function writeRecords(tx: Tx, p: Ops, photoFiles: ReadonlyMap<strin
   for (const c of r.photos?.creates ?? []) {
     /* 파일이 함께 오지 않은 사진 줄은 만들 수 없다 — 그런 줄은 볼 수 없는 사진이 된다. */
     const filePath = photoFiles.get(c.id);
-    if (!filePath) throw new HttpError(400, 'INVALID_UPLOAD', '사진 파일이 함께 오지 않았습니다');
+    if (!filePath) throw new HttpError(400, 'INVALID_UPLOAD', '사진 파일이 전송되지 않았습니다');
     await tx.equipmentPhoto.create({ data: { id: c.id, equipmentId: c.equipmentId, filePath, caption: c.caption ?? null } });
   }
 }

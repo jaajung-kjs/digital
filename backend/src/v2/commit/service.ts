@@ -141,15 +141,15 @@ function asCommitError(e: unknown): unknown {
   if (e instanceof HttpError) return e;
   if (isPrismaError(e, 'P2002')) {
     const target = String((e as Prisma.PrismaClientKnownRequestError).meta?.target ?? '');
-    if (target.includes('name')) return new HttpError(409, 'NAME_TAKEN', '같은 국에 같은 이름이 이미 있습니다');
-    return new HttpError(422, 'INVALID_STATE', '한 차단기·코어 끝에는 연결이 하나뿐입니다');
+    if (target.includes('name')) return new HttpError(409, 'NAME_TAKEN', '같은 변전소에 같은 이름이 이미 있습니다');
+    return new HttpError(422, 'INVALID_STATE', '한 차단기·코어에는 연결을 하나만 등록할 수 있습니다');
   }
   if (isPrismaError(e, 'P2003')) {
-    return new HttpError(422, 'DANGLING_REFERENCE', '가리키는 대상이 없거나, 지우려는 것을 아직 가리키는 것이 있습니다 — 함께 지우거나 먼저 옮기세요');
+    return new HttpError(422, 'DANGLING_REFERENCE', '참조 대상이 없거나, 삭제하려는 항목을 참조하는 항목이 남아 있습니다 — 함께 삭제하거나 먼저 이동하세요');
   }
-  if (isPrismaError(e, 'P2025')) return new HttpError(422, 'INVALID_TARGET', '고치거나 지울 대상이 없습니다');
+  if (isPrismaError(e, 'P2025')) return new HttpError(422, 'INVALID_TARGET', '수정 또는 삭제할 대상이 없습니다');
   if (e instanceof Prisma.PrismaClientUnknownRequestError && /check constraint/i.test(e.message)) {
-    return new HttpError(422, 'INVALID_STATE', '연결 끝의 모양이 맞지 않습니다');
+    return new HttpError(422, 'INVALID_STATE', '연결 단자 형식이 올바르지 않습니다');
   }
   return e;
 }

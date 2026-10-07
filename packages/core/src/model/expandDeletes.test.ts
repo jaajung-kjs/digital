@@ -53,7 +53,7 @@ describe('expandDeletes', () => {
   it('설비가 남은 랙은 지울 수 없다', () => {
     const p = expandDeletes(state(), { racks: ['r1'] });
     expect(p.racks).toEqual([]);
-    expect(p.blocked).toEqual([{ id: 'r1', reason: '랙 안에 설비가 3대 있습니다 — 먼저 옮기거나 지우세요' }]);
+    expect(p.blocked).toEqual([{ id: 'r1', reason: '랙에 실장 설비가 3대 있습니다 — 먼저 이동하거나 삭제하세요' }]);
   });
 
   it('안의 설비를 함께 지우면 랙도 지울 수 있다', () => {

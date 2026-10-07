@@ -32,7 +32,7 @@ export function validateState(state: ModelState): ModelIssue[] {
     }
     for (const [k, ids] of seen) {
       if (ids.length > 1) {
-        issues.push({ code, message: `같은 국에 ${what} 이름 「${k.split('\u0000')[1]}」이 ${ids.length}개 있습니다`, ids });
+        issues.push({ code, message: `같은 변전소에 ${what} 이름 「${k.split('\u0000')[1]}」이 ${ids.length}개 있습니다`, ids });
       }
     }
   }
@@ -41,7 +41,7 @@ export function validateState(state: ModelState): ModelIssue[] {
   for (const e of state.equipment) {
     const rack = rackById.get(e.rackId);
     if (!rack || rack.substationId !== e.substationId) {
-      issues.push({ code: 'EQUIPMENT_RACK_INVALID', message: `설비 「${e.name}」의 랙이 같은 국에 없습니다`, ids: [e.id] });
+      issues.push({ code: 'EQUIPMENT_RACK_INVALID', message: `설비 「${e.name}」의 랙이 같은 변전소에 없습니다`, ids: [e.id] });
     }
   }
 
@@ -68,7 +68,7 @@ export function validateState(state: ModelState): ModelIssue[] {
   for (const link of state.links) {
     for (const ref of [link.a, link.b]) {
       if (!endValid(link, ref)) {
-        issues.push({ code: 'LINK_END_INVALID', message: '연결의 끝이 이 국의 설비·차단기·코어 끝이 아닙니다', ids: [link.id] });
+        issues.push({ code: 'LINK_END_INVALID', message: '연결 단자가 이 변전소의 설비·차단기·코어가 아닙니다', ids: [link.id] });
       }
       if (ref.kind !== 'equipment') {
         const k = endRefKey(ref);
@@ -77,21 +77,21 @@ export function validateState(state: ModelState): ModelIssue[] {
     }
     // ⑧ 두 끝이 같은 대상.
     if (endRefKey(link.a) === endRefKey(link.b)) {
-      issues.push({ code: 'LINK_SELF', message: '연결의 두 끝이 같습니다', ids: [link.id] });
+      issues.push({ code: 'LINK_SELF', message: '연결의 양쪽 단자가 같습니다', ids: [link.id] });
     }
     // ⑥ 국 내 연결의 매체.
     if (link.cableTypeId !== null && !isLinkMedium(mediumOf.get(link.cableTypeId) ?? '')) {
-      issues.push({ code: 'LINK_MEDIUM', message: '국 내 연결에 쓸 수 없는 케이블 품목입니다', ids: [link.id] });
+      issues.push({ code: 'LINK_MEDIUM', message: '변전소 내 연결에 사용할 수 없는 케이블 품목입니다', ids: [link.id] });
     }
   }
   for (const ids of takenBy.values()) {
-    if (ids.length > 1) issues.push({ code: 'LINK_END_TAKEN', message: '한 차단기·코어 끝에 연결이 둘 이상입니다', ids });
+    if (ids.length > 1) issues.push({ code: 'LINK_END_TAKEN', message: '한 차단기·코어에 연결이 둘 이상입니다', ids });
   }
 
   for (const l of state.fiberLines) {
     // ⑥ 광선로의 매체.
     if (!isLineMedium(mediumOf.get(l.cableTypeId) ?? '')) {
-      issues.push({ code: 'LINE_MEDIUM', message: '광선로에 쓸 수 없는 케이블 품목입니다', ids: [l.id] });
+      issues.push({ code: 'LINE_MEDIUM', message: '광선로에 사용할 수 없는 케이블 품목입니다', ids: [l.id] });
     }
     if (!Number.isInteger(l.coreCount) || l.coreCount < 1) {
       issues.push({ code: 'LINE_CORE_COUNT', message: '코어 수는 1 이상이어야 합니다', ids: [l.id] });
@@ -101,7 +101,7 @@ export function validateState(state: ModelState): ModelIssue[] {
       if (eqId === null) continue;
       const e = eqById.get(eqId) ?? outsideById.get(eqId);
       if (!e || e.substationId !== subId) {
-        issues.push({ code: 'LINE_END_EQUIPMENT', message: '광선로 끝의 단자 설비가 그 끝의 국에 없습니다', ids: [l.id] });
+        issues.push({ code: 'LINE_END_EQUIPMENT', message: '광선로 종단의 단자 설비가 해당 종단 변전소에 없습니다', ids: [l.id] });
       }
     }
   }

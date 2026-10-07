@@ -37,7 +37,7 @@ function uploadSingle(req: Request, res: Response, next: NextFunction) {
     if (err instanceof MulterError) {
       next(
         err.code === 'LIMIT_FILE_SIZE'
-          ? new HttpError(413, 'FILE_TOO_LARGE', '기준정보 파일은 20MB 이하만 올릴 수 있습니다')
+          ? new HttpError(413, 'FILE_TOO_LARGE', '기준정보 파일은 20MB 이하만 업로드할 수 있습니다')
           : new HttpError(400, 'UPLOAD_FAILED', '파일을 읽지 못했습니다'),
       );
       return;
@@ -290,7 +290,7 @@ standardsRouter.post('/standards/:id/activate', adminOnly, async (req, res, next
     const row = await nextDb.laborStandard.findUnique({ where: { id } });
     if (!row) throw new HttpError(404, 'NOT_FOUND', '기준정보를 찾을 수 없습니다');
     if (row.kind === 'wage') {
-      throw new HttpError(409, 'NOT_VERSIONED', '노임단가는 통째로 바꿔 올리지 않습니다 — 직종마다 가장 최근 값이 쓰입니다');
+      throw new HttpError(409, 'NOT_VERSIONED', '노임단가는 일괄 교체하지 않습니다 — 직종별로 가장 최근 값이 적용됩니다');
     }
     await nextDb.$transaction([
       nextDb.laborStandard.updateMany({ where: { kind: row.kind, active: true }, data: { active: false } }),

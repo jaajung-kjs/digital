@@ -25,8 +25,8 @@ export async function parseBackground(
         400,
         'UNSUPPORTED_FORMAT',
         ext
-          ? `${ext} 파일은 지원하지 않습니다. CAD 프로그램에서 DXF로 내보낸 뒤 올려주세요`
-          : `지원하지 않는 파일 형식입니다. CAD 프로그램에서 DXF로 내보낸 뒤 올려주세요`,
+          ? `${ext} 파일은 지원하지 않습니다. CAD 프로그램에서 DXF로 내보낸 후 업로드하세요`
+          : `지원하지 않는 파일 형식입니다. CAD 프로그램에서 DXF로 내보낸 후 업로드하세요`,
       );
   }
 }

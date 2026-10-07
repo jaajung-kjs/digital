@@ -37,30 +37,30 @@ const KINDS: Record<CatalogKind, {
     delegate: () => nextDb.category as unknown as Delegate,
     usage: (id) => nextDb.equipmentType.count({ where: { categoryId: id } }),
     label: '분야',
-    inUse: (n) => `설비 품목 ${n}개가 이 분야에 들어 있어 지울 수 없습니다`,
+    inUse: (n) => `이 분야에 설비 품목 ${n}개가 포함되어 있어 삭제할 수 없습니다`,
   },
   'rack-types': {
     delegate: () => nextDb.rackType as unknown as Delegate,
     usage: (id) => nextDb.rack.count({ where: { rackTypeId: id } }),
     label: '랙 품목',
-    inUse: (n) => `랙 ${n}대가 이 랙 품목을 쓰고 있어 지울 수 없습니다`,
+    inUse: (n) => `랙 ${n}대가 이 랙 품목을 사용 중이어서 삭제할 수 없습니다`,
   },
   'equipment-types': {
     delegate: () => nextDb.equipmentType as unknown as Delegate,
     usage: (id) => nextDb.equipment.count({ where: { typeId: id } }),
     label: '설비 품목',
-    inUse: (n) => `설비 ${n}대가 이 설비 품목을 쓰고 있어 지울 수 없습니다`,
+    inUse: (n) => `설비 ${n}대가 이 설비 품목을 사용 중이어서 삭제할 수 없습니다`,
   },
   'cable-types': {
     label: '케이블 품목',
-    inUse: (n) => `연결·광선로 ${n}건이 이 케이블 품목을 쓰고 있어 지울 수 없습니다`,
+    inUse: (n) => `연결·광선로 ${n}건이 이 케이블 품목을 사용 중이어서 삭제할 수 없습니다`,
     delegate: () => nextDb.cableType as unknown as Delegate,
     usage: async (id) => (await nextDb.link.count({ where: { cableTypeId: id } })) + (await nextDb.fiberLine.count({ where: { cableTypeId: id } })),
   },
 };
 
 function kindOf(raw: string): CatalogKind {
-  if (!(CATALOG_KINDS as string[]).includes(raw)) throw new HttpError(404, 'NOT_FOUND', '없는 목록입니다');
+  if (!(CATALOG_KINDS as string[]).includes(raw)) throw new HttpError(404, 'NOT_FOUND', '존재하지 않는 목록입니다');
   return raw as CatalogKind;
 }
 
@@ -122,7 +122,7 @@ catalogRouter.patch('/catalog/:kind/:id', adminOnly, async (req, res, next) => {
     const nextMedium = (patch as { medium?: string }).medium;
     if (kind === 'cable-types' && nextMedium !== undefined && nextMedium !== current.medium) {
       const used = await KINDS[kind].usage(req.params.id);
-      if (used > 0) throw new HttpError(409, 'TYPE_IN_USE', `연결·광선로 ${used}건이 이 케이블 품목을 쓰고 있어 매체를 바꿀 수 없습니다 — 새 품목을 만들어 옮기세요`);
+      if (used > 0) throw new HttpError(409, 'TYPE_IN_USE', `연결·광선로 ${used}건이 이 케이블 품목을 사용 중이어서 매체를 변경할 수 없습니다 — 새 품목을 추가하여 교체하세요`);
     }
     res.json(await d.update({ where: { id: req.params.id }, data: patch }));
   } catch (e) {

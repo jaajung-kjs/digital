@@ -100,7 +100,7 @@ async function syncCores(tx: Tx, lineId: string, count: number): Promise<void> {
     const linked = await tx.linkEnd.count({ where: { coreLineId: lineId, coreNo: { in: remove } } });
     const measured = await tx.coreMeasurement.count({ where: { lineId, coreNo: { in: remove } } });
     if (linked + measured > 0) {
-      throw new HttpError(422, 'ROWS_IN_USE', `연결 ${linked}건·측정 ${measured}건이 남은 코어를 잘라낼 수 없습니다`);
+      throw new HttpError(422, 'ROWS_IN_USE', `연결 ${linked}건·측정 ${measured}건이 남아 있는 코어를 삭제할 수 없습니다`);
     }
     await tx.core.deleteMany({ where: { lineId, no: { in: remove } } });
   }

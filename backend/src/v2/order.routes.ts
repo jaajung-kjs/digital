@@ -47,7 +47,7 @@ orderRouter.patch('/order', adminOnly, async (req, res, next) => {
   } catch (e) {
     /* 없는 id 가 섞이면 전부 되돌아간다 — 무엇이 잘못됐는지 말해 준다. */
     if (e instanceof Error && e.message.includes('Record to update not found')) {
-      next(new HttpError(404, 'NOT_FOUND', '순서를 매길 대상을 찾을 수 없습니다'));
+      next(new HttpError(404, 'NOT_FOUND', '순서를 변경할 대상을 찾을 수 없습니다'));
       return;
     }
     next(e);

@@ -31,7 +31,7 @@ function uploadSingle(req: Request, res: Response, next: NextFunction) {
   upload.single('file')(req, res, (err: unknown) => {
     if (err instanceof MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        next(new HttpError(413, 'FILE_TOO_LARGE', '도면 파일은 50MB 이하만 올릴 수 있습니다'));
+        next(new HttpError(413, 'FILE_TOO_LARGE', '도면 파일은 50MB 이하만 업로드할 수 있습니다'));
         return;
       }
       next(new HttpError(400, 'INVALID_UPLOAD', '파일 업로드에 실패했습니다'));

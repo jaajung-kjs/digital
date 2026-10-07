@@ -179,7 +179,7 @@ for (const { path, delegate, childCount, childLabel } of orgKinds) {
       // 자식 확인
       const count = await childCount(id);
       if (count > 0) {
-        throw new HttpError(409, 'HAS_CHILDREN', `${childLabel} ${count}개가 딸려 있어 삭제할 수 없습니다`);
+        throw new HttpError(409, 'HAS_CHILDREN', `하위 ${childLabel} ${count}개가 있어 삭제할 수 없습니다`);
       }
       await delegate.delete({ where: { id } });
       res.status(204).end();

@@ -47,7 +47,7 @@ export function expandDeletes(state: ModelState, req: DeleteRequest): DeletePlan
   const blocked: DeletePlan['blocked'] = [];
   for (const rackId of req.racks ?? []) {
     const left = state.equipment.filter((e) => e.rackId === rackId && !eqGone.has(e.id)).length;
-    if (left > 0) blocked.push({ id: rackId, reason: `랙 안에 설비가 ${left}대 있습니다 — 먼저 옮기거나 지우세요` });
+    if (left > 0) blocked.push({ id: rackId, reason: `랙에 실장 설비가 ${left}대 있습니다 — 먼저 이동하거나 삭제하세요` });
     else racks.push(rackId);
   }
 
