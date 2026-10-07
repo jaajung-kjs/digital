@@ -14,16 +14,16 @@ export type CurrentFilter = 'all' | 'AC' | 'DC';
 /** 이 설비가 전원을 받는 차단기. */
 export interface PowerFeed { equipmentId: string; circuitNo: number; linkId: string }
 /**
- * 모선 — 한 공급 설비 안에서 같은 갈래의 입력 전원과 차단기를 묶은 것.
- * 입력 전원에 교류·직류가 함께 들어오는 설비(통신용 분전반: 교류는 소내전원반, 직류는 충전기)는 **갈래마다 한 모선**이고,
+ * 모선 — 한 공급 설비 안에서 같은 교류/직류의 입력 전원과 차단기를 묶은 것.
+ * 입력 전원에 교류·직류가 함께 들어오는 설비(통신용 분전반: 교류는 소내전원반, 직류는 충전기)는 **교류/직류마다 한 모선**이고,
  * 그 밖의 설비는 모선 하나(`key: '*'`, `current: null`)다.
  */
 export interface PowerBus {
-  /** 설비 안에서 모선을 가르는 열쇠 — 모선 하나면 `'*'`, 여럿이면 갈래(`'AC'`·`'DC'`, 갈래 없음은 `'-'`). */
+  /** 설비 안에서 모선을 가르는 열쇠 — 모선 하나면 `'*'`, 여럿이면 교류/직류(`'AC'`·`'DC'`, 교류/직류 없음은 `'-'`). */
   key: string;
-  /** 모선의 갈래 — 모선이 하나뿐인 설비와 갈래 없는 모선은 null. */
+  /** 모선의 교류/직류 — 모선이 하나뿐인 설비와 교류/직류 없는 모선은 null. */
   current: string | null;
-  /** 이 모선으로 들어오는 입력 전원(받는 차단기의 갈래로 가른다) — 거르기와 무관하게 모두. */
+  /** 이 모선으로 들어오는 입력 전원(받는 차단기의 교류/직류로 가른다) — 거르기와 무관하게 모두. */
   feeds: PowerFeed[];
   /** 이 모선의 차단기(거르기 적용 후, 번호 순). */
   breakers: PowerBreaker[];
@@ -34,7 +34,8 @@ export interface PowerNode {
   feeds: PowerFeed[];
   /**
    * 모선 — 대장에서는 이 설비의 모선 전부. 트리에서는 **이 자리에 펼친 모선 하나**다
-   * (차단기를 따라 들어온 모선 — 충전기 직류 차단기 아래의 분전반이면 그 직류 모선만).
+   * (차단기를 따라 들어온 모선 — 충전기 직류 차단기 아래의 분전반이면 그 직류 모선만). 모선이 여럿인 설비를 처음 펼친 자리에는
+   * 「교류/직류 미지정」 묶음(`key '-'`, 입력 없음)이 마지막 묶음으로 함께 달린다 — 따로 뿌리로 서지 않는다.
    */
   buses: PowerBus[];
   /** 이 설비의 모선이 둘 이상이다(교류·직류를 함께 받는다) — 화면이 모선 이름을 붙일지 정한다. */
@@ -56,7 +57,7 @@ export interface PowerBreaker {
   child: PowerNode | null;
   /** 이 부하(그 모선)는 이미 다른 가지에서 펼쳤다 — child 는 null. */
   repeat: boolean;
-  /** 이 부하(그 모선)가 위로 올라가는 길에 이미 있다 — child 는 null. 같은 갈래로 되돌아갈 때만이다(UPS 교류 → 분전반 교류 모선). */
+  /** 이 부하(그 모선)가 위로 올라가는 길에 이미 있다 — child 는 null. 같은 교류/직류로 되돌아갈 때만이다(UPS 교류 → 분전반 교류 모선). */
   cycle: boolean;
 }
 
@@ -131,18 +132,18 @@ function derive(input: PowerInput) {
     arr.sort((p, q) => byName(p.equipmentId, q.equipmentId) || p.circuitNo - q.circuitNo || cmp(p.linkId, q.linkId));
   }
   const feeds = (id: string) => feedsOf.get(id) ?? [];
-  /** 저장된 차단기의 갈래 — 기본 행·국 밖 차단기는 null. */
+  /** 저장된 차단기의 교류/직류 — 기본 행·국 밖 차단기는 null. */
   const currentOf = (equipmentId: string, no: number) => stored.get(`${equipmentId}:${no}`)?.current ?? null;
 
-  // 모선 — 입력 전원의 갈래(받는 차단기의 갈래)가 둘 이상이면 갈래마다 한 모선, 아니면 모선 하나('*').
+  // 모선 — 입력 전원의 교류/직류(받는 차단기의 교류/직류)가 둘 이상이면 교류/직류마다 한 모선, 아니면 모선 하나('*').
   const multi = new Set<string>();
   for (const id of supply.keys()) {
     const cs = new Set(feeds(id).map((f) => currentOf(f.equipmentId, f.circuitNo)).filter((c): c is string => c != null));
     if (cs.size > 1) multi.add(id);
   }
-  /** 갈래 c 의 차단기(또는 갈래 c 차단기에서 받는 입력)가 서는 모선. */
+  /** 교류/직류 c 의 차단기(또는 교류/직류 c 차단기에서 받는 입력)가 서는 모선. */
   const busKeyOf = (supplyId: string, c: string | null) => (multi.has(supplyId) ? c ?? '-' : '*');
-  /** 모선의 차례 — 갈래 이름 순(교류 AC < 직류 DC), 갈래 없음은 끝. */
+  /** 모선의 차례 — 교류/직류 이름 순(교류 AC < 직류 DC), 교류/직류 없음은 끝. */
   const busOrder = (a: string | null, b: string | null) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : cmp(a, b));
 
   /** 이 보기에서 보이는 차단기 행과 그 부하·연결 — 아래 가지(child·repeat·cycle)는 부르는 쪽이 정한다. */
@@ -167,7 +168,7 @@ function derive(input: PowerInput) {
   });
 
   /**
-   * 이 설비의 모선 — 이 보기에서 보이는 차단기를 갈래로 가른다. 모선 목록은 거르기와 무관하다
+   * 이 설비의 모선 — 이 보기에서 보이는 차단기를 교류/직류로 가른다. 모선 목록은 거르기와 무관하다
    * (거른 보기에서 차단기가 하나도 안 보이는 모선도 빈 채로 남는다 — 숨길지는 부르는 쪽이 정한다).
    */
   const busesOf = (e: EquipmentIn): PowerBus[] => {
@@ -208,7 +209,7 @@ export function powerLedger(input: PowerInput): PowerNode[] {
 /**
  * 계통도 — 입력 전원에서 부하까지. 펼침·순환·중복은 **(설비, 모선)** 마다 가린다:
  * 충전기 직류 차단기 → 통신용 분전반이면 그 분전반의 직류 모선으로 내려가고(교류 모선 아래에서 왔어도 순환이 아니다),
- * 같은 갈래로 되돌아갈 때만(UPS 교류 → 분전반 교류 모선) 순환이다.
+ * 같은 교류/직류로 되돌아갈 때만(UPS 교류 → 분전반 교류 모선) 순환이다.
  */
 export function powerTree(input: PowerInput): { roots: PowerNode[] } {
   const { filter, supply, ordered, feeds, visibleBreaker, busesOf, multi, busKeyOf, currentOf } = derive(input);
@@ -217,13 +218,20 @@ export function powerTree(input: PowerInput): { roots: PowerNode[] } {
   // 설비마다 모선을 한 번만 짓는다(거르기 적용).
   const busesById = new Map(ordered.map((id) => [id, busesOf(supply.get(id)!)]));
 
+  /** 모선이 여럿인 설비의 「교류/직류 미지정」 묶음(교류/직류를 적지 않은 차단기 — 「차단기 추가」 직후의 새 행 등). */
+  const UNSPECIFIED = '-';
+  const isLoose = (id: string, busKey: string) => multi.has(id) && busKey === UNSPECIFIED;
+
   const expanded = new Set<string>();
   const build = (e: EquipmentIn, busKey: string, path: Set<string>): PowerNode => {
-    const me = pair(e.id, busKey);
-    expanded.add(me);
-    path.add(me);
-    const bus = busesById.get(e.id)!.find((b) => b.key === busKey)!;
-    const breakers = bus.breakers.map((b) => {
+    const all = busesById.get(e.id)!;
+    // 모선이 여럿인 설비를 처음 펼칠 때, 입력이 없는 「교류/직류 미지정」 묶음은 따로 뿌리로 세우지 않고 이 자리의 마지막 묶음으로 단다.
+    const loose = !isLoose(e.id, busKey)
+      ? all.find((b) => isLoose(e.id, b.key) && b.breakers.length > 0 && !expanded.has(pair(e.id, b.key)))
+      : undefined;
+    const mine = [all.find((b) => b.key === busKey)!, ...(loose ? [loose] : [])];
+    for (const bus of mine) { expanded.add(pair(e.id, bus.key)); path.add(pair(e.id, bus.key)); }
+    const buses = mine.map((bus) => ({ ...bus, breakers: bus.breakers.map((b) => {
       const sub = b.load?.kind === 'equipment' ? supply.get(b.load.equipmentId) : undefined;
       if (!sub) return b;
       // 들어갈 모선 — 그 설비에 없으면(입력으로 세지 않는 제 차단기 → 제 설비 등) 첫 모선.
@@ -233,16 +241,18 @@ export function powerTree(input: PowerInput): { roots: PowerNode[] } {
       if (path.has(target)) return { ...b, loadBus: key, cycle: true };
       if (expanded.has(target)) return { ...b, loadBus: key, repeat: true };
       return { ...b, loadBus: key, child: build(sub, key, path) };
-    });
-    path.delete(me);
-    return { equipmentId: e.id, feeds: feeds(e.id), buses: [{ ...bus, breakers }], multiBus: multi.has(e.id), breakers };
+    }) }));
+    for (const bus of mine) path.delete(pair(e.id, bus.key));
+    return { equipmentId: e.id, feeds: feeds(e.id), buses, multiBus: multi.has(e.id), breakers: flat(buses) };
   };
 
   // 펼칠 (설비, 모선) — 이름 순, 모선 차례. 거른 보기에서 보일 차단기가 없는 모선은 세우지 않는다
   // (세웠다가 빼면 다른 가지의 「이미 펼침」이 사라진 뿌리를 가리킨다). 전체 보기의 모선 하나짜리 설비는 빈 채로도 선다.
-  const pairs = ordered.flatMap((id) => busesById.get(id)!
+  const candidates = ordered.flatMap((id) => busesById.get(id)!
     .filter((b) => b.breakers.length > 0 || (filter === 'all' && !multi.has(id)))
     .map((b) => ({ id, bus: b })));
+  // 「교류/직류 미지정」 묶음은 그 설비의 모선 아래에 달린다 — 뿌리 후보에서 빼고, 끝까지 달리지 못한 것만 마지막에 세운다.
+  const pairs = candidates.filter((p) => !isLoose(p.id, p.bus.key));
   const visibleFeeds = (b: PowerBus) => b.feeds.filter((f) => visibleBreaker(f.equipmentId, f.circuitNo));
 
   // 뿌리 = 이 보기에서 보이는 이 국 차단기로부터 받는 입력 전원이 없는 모선.
@@ -281,6 +291,9 @@ export function powerTree(input: PowerInput): { roots: PowerNode[] } {
       return [...ancestors(k)].every((a) => a === k || ancestors(a).has(k));
     }) ?? left[0]!;
     roots.push(build(supply.get(pick.id)!, pick.bus.key, new Set()));
+  }
+  for (const p of candidates) {
+    if (isLoose(p.id, p.bus.key) && !expanded.has(pair(p.id, p.bus.key))) roots.push(build(supply.get(p.id)!, p.bus.key, new Set()));
   }
   return { roots };
 }

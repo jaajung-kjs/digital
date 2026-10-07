@@ -124,7 +124,7 @@ describe('powerTree', () => {
     expect(second.child).toBeNull();
   });
 
-  it('거르기 — DC 면 AC 차단기 빠짐, 갈래 null 은 all 에서만, 아래 가지도 같은 거르기', () => {
+  it('거르기 — DC 면 AC 차단기 빠짐, 교류/직류 null 은 all 에서만, 아래 가지도 같은 거르기', () => {
     const equipment = [eq('p', 3, '반'), eq('q', 2, '하위')];
     const circuits = [ci('p', 1, 'AC'), ci('p', 2, 'DC'), ci('q', 1, 'AC'), ci('q', 2, 'DC')];
     const links = [lk('k', C('p', 2), E('q'))];
@@ -293,7 +293,7 @@ const busFixture = () => {
 };
 
 describe('powerTree — 모선', () => {
-  it('교류·직류를 함께 받는 설비는 갈래마다 한 모선 — 소내전원반 → 분전반 교류 모선 → 충전기 → 분전반 직류 모선', () => {
+  it('교류·직류를 함께 받는 설비는 교류/직류마다 한 모선 — 소내전원반 → 분전반 교류 모선 → 충전기 → 분전반 직류 모선', () => {
     const { equipment, circuits, links } = busFixture();
     const r = run(equipment, circuits, links);
     expect(r.roots.map((n) => n.equipmentId)).toEqual(['panel']);
@@ -318,7 +318,7 @@ describe('powerTree — 모선', () => {
     expect(back.child!.breakers.map((b) => b.no)).toEqual([4, 5]);
     expect(br(back.child!, 4).load).toEqual({ kind: 'equipment', equipmentId: 'pia', port: null });
 
-    // UPS 교류 → 분전반 교류 모선: 같은 갈래로 되돌아간다 — 순환.
+    // UPS 교류 → 분전반 교류 모선: 같은 교류/직류로 되돌아간다 — 순환.
     const ups = br(distAc, 2).child!;
     expect(br(ups, 1)).toMatchObject({ loadBus: 'AC', cycle: true, repeat: false, child: null });
   });
@@ -356,6 +356,24 @@ describe('powerTree — 모선', () => {
     expect(dAc.breakers.map((b) => b.no)).toEqual([1, 2, 3, 6]);
     expect(br(dAc, 1).child!.breakers).toEqual([]); // 충전기의 직류 차단기는 걸러진다
     expect(br(br(dAc, 2).child!, 1)).toMatchObject({ cycle: true });
+  });
+
+  it('교류/직류를 적지 않은 차단기(차단기 추가 직후)는 따로 뿌리가 아니라 처음 펼친 모선 자리의 마지막 묶음', () => {
+    const { equipment, circuits, links } = busFixture();
+    const more = equipment.map((e) => (e.id === 'dist' ? { ...e, circuitCount: 7 } : e));
+    const r = run(more, circuits, links);
+    expect(r.roots.map((n) => n.equipmentId)).toEqual(['panel']);
+    const distAc = br(r.roots[0]!, 4).child!;
+    expect(distAc.buses.map((b) => [b.key, b.current, b.feeds.length, b.breakers.map((x) => x.no)])).toEqual([
+      ['AC', 'AC', 2, [1, 2, 3, 6]],
+      ['-', null, 0, [7]],
+    ]);
+    // 직류 모선 자리에는 다시 달리지 않는다
+    const distDc = br(br(distAc, 1).child!, 1).child!;
+    expect(distDc.buses.map((b) => b.key)).toEqual(['DC']);
+    // 거른 보기에서는 교류/직류 없는 차단기가 보이지 않아 묶음도 없다
+    const dc = run(more, circuits, links, 'DC');
+    expect(dc.roots.map((n) => n.equipmentId)).toEqual(['chg']);
   });
 
   it('순환뿐인 무리의 대신 뿌리 — 남은 것에서 받기만 하는 꼬리가 아니라 고리에서 세운다', () => {
@@ -398,5 +416,17 @@ describe('powerLedger — 모선', () => {
     // 거른 보기 — 모선 목록은 그대로, 차단기만 거른다.
     const dc = powerLedger({ substationId: S, equipment, circuits, links, filter: 'DC', nameOf: (id) => names.get(id) ?? id });
     expect(dc.find((n) => n.equipmentId === 'dist')!.buses.map((b) => [b.key, b.breakers.length])).toEqual([['AC', 0], ['DC', 2]]);
+  });
+
+  it('교류/직류를 적지 않은 차단기는 마지막 「교류/직류 미지정」 묶음(입력 없음)', () => {
+    const { equipment, circuits, links } = busFixture();
+    const more = equipment.map((e) => (e.id === 'dist' ? { ...e, circuitCount: 7 } : e));
+    const names = new Map(more.map((e) => [e.id, e.name]));
+    const r = powerLedger({ substationId: S, equipment: more, circuits, links, filter: 'all', nameOf: (id) => names.get(id) ?? id });
+    expect(r.find((n) => n.equipmentId === 'dist')!.buses.map((b) => [b.key, b.current, b.feeds.length, b.breakers.map((x) => x.no)])).toEqual([
+      ['AC', 'AC', 2, [1, 2, 3, 6]],
+      ['DC', 'DC', 1, [4, 5]],
+      ['-', null, 0, [7]],
+    ]);
   });
 });
