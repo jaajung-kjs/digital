@@ -146,8 +146,8 @@ describe('powerTree', () => {
     const circuits = [ci('ac', 1, 'AC'), ci('chg', 1, 'DC')];
     const links = [lk('k1', C('ac', 1), E('chg')), lk('k2', C('chg', 1), E('load'))];
     const dc = run(equipment, circuits, links, 'DC');
-    expect(dc.roots.map((n) => n.equipmentId)).toEqual(['ac', 'chg']); // 이름: 소내전원반 < 충전기
-    expect(dc.roots[0]!.breakers).toEqual([]); // 교류 차단기뿐 — 직류 보기에서는 비어 있다
+    // 소내전원반은 교류 차단기뿐 — 직류 보기에서 보일 차단기가 없어 뿌리에서 빠진다(unfed 에는 남는다).
+    expect(dc.roots.map((n) => n.equipmentId)).toEqual(['chg']);
     const chg = dc.roots.find((n) => n.equipmentId === 'chg')!;
     expect(chg.feeds).toEqual([{ equipmentId: 'ac', circuitNo: 1, linkId: 'k1' }]);
     expect(br(chg, 1).load).toEqual({ kind: 'equipment', equipmentId: 'load', port: null });
@@ -186,5 +186,43 @@ describe('powerTree', () => {
     const a = run(equipment, circuits, l2);
     const b = run([...equipment].reverse(), [...circuits].reverse(), [...l2].reverse());
     expect(b).toEqual(a);
+  });
+
+  it('순환이면서 이미 펼친 설비 — 순환이 먼저, 길 밖에서 다시 만나면 repeat', () => {
+    // R1 → A, A1 → B, B1 → A(길 위: 순환), R2 → A(길 밖: 중복)
+    const equipment = [eq('R', 2), eq('A', 1), eq('B', 1)];
+    const links = [
+      lk('r1', C('R', 1), E('A')), lk('r2', C('R', 2), E('A')),
+      lk('ab', C('A', 1), E('B')), lk('ba', C('B', 1), E('A')),
+    ];
+    const r = run(equipment, [], links);
+    expect(r.roots.map((n) => n.equipmentId)).toEqual(['R']);
+    const b1 = br(br(br(r.roots[0]!, 1).child!, 1).child!, 1);
+    expect(b1).toMatchObject({ cycle: true, repeat: false, child: null });
+    expect(br(r.roots[0]!, 2)).toMatchObject({ cycle: false, repeat: true, child: null });
+  });
+
+  it('거르기와 중복 — 보이는 차단기끼리만 repeat 를 가린다', () => {
+    const equipment = [eq('d', 3, '분전반'), eq('chg', 1, '충전기')];
+    const circuits = [ci('d', 1, 'AC'), ci('d', 2, 'DC'), ci('d', 3, 'DC'), ci('chg', 1, 'DC')];
+    const links = [lk('k1', C('d', 1), E('chg')), lk('k2', C('d', 2), E('chg')), lk('k3', C('d', 3), E('chg'))];
+    const dc = run(equipment, circuits, links, 'DC');
+    expect(dc.roots.map((n) => n.equipmentId)).toEqual(['d']);
+    expect(dc.roots[0]!.breakers.map((b) => b.no)).toEqual([2, 3]);
+    expect(br(dc.roots[0]!, 2).child!.equipmentId).toBe('chg');
+    expect(br(dc.roots[0]!, 3)).toMatchObject({ repeat: true, child: null });
+    const ac = run(equipment, circuits, links, 'AC');
+    // 교류 보기: d1 만 보이고 그 아래 충전기를 펼친다(직류 차단기는 걸러져 빈 노드).
+    expect(br(ac.roots[0]!, 1)).toMatchObject({ repeat: false, cycle: false });
+    expect(br(ac.roots[0]!, 1).child!.breakers).toEqual([]);
+  });
+
+  it('제 차단기에서 제 설비 끝으로 — 입력 전원이 아니고 순환으로 멈춘다', () => {
+    const equipment = [eq('A', 1)];
+    const r = run(equipment, [], [lk('self', C('A', 1), E('A'))]);
+    expect(r.roots.map((n) => n.equipmentId)).toEqual(['A']);
+    expect(r.unfed).toEqual(['A']);
+    expect(r.roots[0]!.feeds).toEqual([]);
+    expect(br(r.roots[0]!, 1)).toMatchObject({ load: { kind: 'equipment', equipmentId: 'A', port: null }, cycle: true, repeat: false, child: null });
   });
 });

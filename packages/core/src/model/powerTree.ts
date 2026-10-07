@@ -43,6 +43,9 @@ interface CircuitIn {
 }
 interface LinkIn { id: string; substationId: string; cableTypeId: string | null; lengthM: number | null; a: LinkEndRef; b: LinkEndRef }
 
+/** 이름 자연 순서 — 한 번 만들어 모든 비교가 함께 쓴다. */
+const NAME_ORDER = new Intl.Collator('ko', { numeric: true });
+
 export function powerTree(input: {
   substationId: string;
   equipment: EquipmentIn[];
@@ -55,7 +58,7 @@ export function powerTree(input: {
 
   const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   /* 사람이 읽는 이름은 자연 순서로(분전반2 < 분전반10). 같은 이름이면 id 로. */
-  const byName = (a: string, b: string) => nameOf(a).localeCompare(nameOf(b), 'ko', { numeric: true }) || cmp(a, b);
+  const byName = (a: string, b: string) => NAME_ORDER.compare(nameOf(a), nameOf(b)) || cmp(a, b);
 
   // 이 국의 공급 설비 = 차단기를 가진 설비.
   const supply = new Map<string, EquipmentIn>();
@@ -77,6 +80,10 @@ export function powerTree(input: {
   };
 
   // 끝 키 → 연결(끝마다 첫 하나 — id 순이라 입력 순서에 흔들리지 않는다).
+  // 한 끝에 연결이 둘 이상 걸리면(검증이 막는 흠) 차단기의 부하·연결 칸은 id 첫 연결만 보인다.
+  // 다만 입력 전원(feeds)은 연결마다 세므로, 가려진 연결도 그 설비의 입력 전원으로는 남을 수 있다.
+  // 차단기 ↔ 차단기 연결은 어느 쪽이 공급인지 정할 수 없어(둘 다 회로 행을 가짐) 입력 전원으로 세지 않는다 —
+  // 양쪽 차단기의 부하는 모두 `other` 이고, 그 너머로 내려가지 않는다.
   const own = links.filter((l) => l.substationId === substationId).sort((x, y) => cmp(x.id, y.id));
   const byEnd = new Map<string, { link: LinkIn; other: LinkEndRef }>();
   const feedsOf = new Map<string, PowerFeed[]>();
@@ -136,9 +143,11 @@ export function powerTree(input: {
   // 뿌리 = 이 보기에서 보이는 이 국 차단기로부터 받는 입력 전원이 없는 공급 설비.
   // (거르기 'all' 이면 스펙 그대로 「입력 없음 + 모두 국 밖/알 수 없음」. 직류 보기에서 교류로만 받는 충전기는 뿌리가 된다.)
   const rootIds = ordered.filter((id) => !feeds(id).some((f) => visibleBreaker(f.equipmentId, f.circuitNo)));
-  const roots: PowerNode[] = rootIds.map((id) => build(supply.get(id)!, new Set()));
+  const built: PowerNode[] = rootIds.map((id) => build(supply.get(id)!, new Set()));
   // 순환만으로 이어진 무리는 정식 뿌리가 없다 — 펼쳐지지 않은 공급 설비를 이름 순으로 뿌리로 세워 빠뜨리지 않는다.
-  for (const id of ordered) if (!expanded.has(id)) roots.push(build(supply.get(id)!, new Set()));
+  for (const id of ordered) if (!expanded.has(id)) built.push(build(supply.get(id)!, new Set()));
+  // 교류/직류 보기에서는 보일 차단기가 하나도 없는 뿌리를 뺀다(예: 직류 보기의 교류 전용 반). unfed 는 그대로.
+  const roots = filter === 'all' ? built : built.filter((n) => n.breakers.length > 0);
 
   const unfed = ordered.filter((id) => feeds(id).length === 0);
   return { roots, unfed };
