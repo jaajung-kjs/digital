@@ -105,10 +105,11 @@ export const MASTER_CABLE_TYPES: {
 
 /**
  * 시드 코드가 **고르는** 종류 — 서버 코드에 종류 key 를 적지 않으려고 여기 둔다(가드레일).
- * 직할 시드가 OFD 를 세우고 OPGW 선로를 까는 데 쓴다.
+ * 직할 시드가 OFD 를 세우고 OPGW 선로를 까는 데 쓴다. 엑셀 근거 중계 패치(코어 ↔ 코어)는 광점퍼코드.
  */
 export const SEED_PICKS = {
   ofdRackType: 'RACK-OFD',
   ofdEquipmentType: 'EQ-OFD',
   opgwCableType: 'CABLE-OPGW',
+  fiberJumperCableType: 'FIBER-JUMPER',
 } as const;

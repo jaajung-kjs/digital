@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { JIKHAL_INVENTORY, MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES, SEED_PICKS, validateState, type ModelState } from '@twin/core';
 import { describe, expect, it } from 'vitest';
-import { buildJikhalPayload } from './jikhal.js';
+import { buildJikhalPayload, coreRoleOf, EXCEL_RELAY_PATCHES } from './jikhal.js';
 import { OPGW, STATIONS, seatedPlates } from './jikhalGangwon.js';
 import { PLATE_CORES } from './jikhalGangwonCores.js';
 import { PLATE_LINES } from './jikhalGangwonLines.js';
@@ -102,9 +102,30 @@ describe('buildJikhalPayload — 국 설비', () => {
     expect(p.circuits!.updates).toHaveLength(total);
   });
 
-  it('직할 인벤토리의 점퍼는 하나도 버려지지 않는다 — 모든 판이 세운 광선로다', () => {
+  it('직할 인벤토리의 점퍼와 엑셀 중계 패치는 하나도 버려지지 않는다 — 모든 판이 세운 광선로다', () => {
     const invLinks = Object.values(JIKHAL_INVENTORY).reduce((n, s) => n + s.links.length, 0);
-    expect(p.links!.creates).toHaveLength(invLinks);
+    expect(p.links!.creates).toHaveLength(invLinks + EXCEL_RELAY_PATCHES.length);
+  });
+
+  it('화천 중계 패치 — 「회선현황」 G7 「…화천HP(OFD:1)-화천(OFD:37)-철원」: 화천HP 쪽 코어 1 ↔ 철원 쪽 코어 13', () => {
+    const line = (a: string, aSlot: number, b: string, bSlot: number) =>
+      p.fiberLines!.creates![OPGW.findIndex((s) => s.a === a && s.aSlot === aSlot && s.b === b && s.bSlot === bSlot)]!;
+    const toHp = line('hwacheon', 1, 'hwacheonhp', 2); // 화천 = A 끝
+    const toCheorwon = line('cheorwon', 1, 'hwacheon', 2); // 화천 = B 끝
+    const relay = p.links!.creates!.filter((l) => l.substationId === 'sub-hwacheon' && l.a.kind === 'core' && l.b.kind === 'core'
+      && l.a.lineId === toHp.id && l.a.no === 1);
+    expect(relay).toHaveLength(1);
+    expect(relay[0]!.a).toEqual({ kind: 'core', lineId: toHp.id, no: 1, side: 'A' });
+    expect(relay[0]!.b).toEqual({ kind: 'core', lineId: toCheorwon.id, no: 13, side: 'B' });
+    expect(relay[0]!.cableTypeId).toBe(`ct-${SEED_PICKS.fiberJumperCableType}`);
+  });
+
+  it('엑셀 중계 패치의 코어 끝은 국 설비 목록이 이미 쓰지 않는 끝이다(코어 끝마다 연결 하나)', () => {
+    for (const r of EXCEL_RELAY_PATCHES) {
+      const used = JIKHAL_INVENTORY[r.station]!.links.flatMap((l) => [l.a, l.b]).filter((e) => 'core' in e).map((e) => ('core' in e ? e.core.join(':') : ''));
+      expect(used).not.toContain(r.a.join(':'));
+      expect(used).not.toContain(r.b.join(':'));
+    }
   });
 
   it('설비 끝의 표기는 포트뿐이다 — 부품 이름은 랙의 주 설비에만, 채운 장비 이름의 「/」 조각이 붙지 않는다', () => {
@@ -147,7 +168,7 @@ describe('buildJikhalPayload — 코어 용도·상태·비고(OFD 선번장)', 
   const seg = OPGW.findIndex((s) => s.a === 'guchuncheon' && s.aSlot === 2 && s.b === 'bukchuncheon' && s.bSlot === 1);
   const core = (no: number) => updates.find((u) => u.lineId === lines[seg]!.id && u.no === no)?.patch;
 
-  const blank = { aPurpose: null, aNote: null, bPurpose: null, bNote: null };
+  const blank = { role: null, aPurpose: null, aNote: null, bPurpose: null, bNote: null };
 
   it('코어 3 — 용도는 끝별: (구)춘천 끝(A, No.27)은 EAST, 북춘천 끝(B)은 WEST', () => {
     expect(core(3)).toEqual({ ...blank, status: 'ok', aPurpose: '소형광 · PTP(춘천-북춘천) EAST', bPurpose: '소형광 · PTP(춘천-북춘천) WEST' });
@@ -202,5 +223,59 @@ describe('buildJikhalPayload — 코어 용도·상태·비고(OFD 선번장)', 
     });
     const r = commitPayloadSchema.safeParse(real);
     expect(r.error?.issues ?? []).toEqual([]);
+  });
+});
+
+describe('buildJikhalPayload — 코어 주/예비(회선수용내역의 명시 표기만)', () => {
+  const p = buildJikhalPayload(input());
+  const lines = p.fiberLines!.creates!;
+  const updates = p.cores!.updates!;
+  const role = (a: string, aSlot: number, b: string, bSlot: number, no: number) => {
+    const i = OPGW.findIndex((s) => s.a === a && s.aSlot === aSlot && s.b === b && s.bSlot === bSlot);
+    return updates.find((u) => u.lineId === lines[i]!.id && u.no === no)?.patch.role;
+  };
+
+  it('북춘천-춘천HP 통합PTP — 1·2 주(「WEST Rx㈜」/「EAST Tx(주)」), 7·8 예비(「EAST Tx(예)」/「Tx(예)」)', () => {
+    expect([1, 2].map((n) => role('bukchuncheon', 2, 'chuncheonhp', 3, n))).toEqual(['main', 'main']);
+    expect([7, 8].map((n) => role('bukchuncheon', 2, 'chuncheonhp', 3, n))).toEqual(['backup', 'backup']);
+  });
+
+  it('북춘천 RTU 예비회선 사슬 — 「RTU 예비회선용 광스위치 북춘천-철원(…중계)」 코어는 구간마다 예비', () => {
+    expect(role('bukchuncheon', 2, 'chuncheonhp', 3, 9)).toBe('backup');
+    expect(role('hwacheonhp', 1, 'chuncheonhp', 2, 20)).toBe('backup');
+    expect(role('hwacheon', 1, 'hwacheonhp', 2, 1)).toBe('backup');
+    expect(role('cheorwon', 1, 'hwacheon', 2, 13)).toBe('backup');
+  });
+
+  it('한 끝만 적었으면 그 값 — 춘천HP 끝 「I-MUX 북춘천S/S-춘천H/P 주_Tx」(북춘천 끝 「I-MUX(B) Tx」 는 장치 이름)', () => {
+    expect(role('bukchuncheon', 2, 'chuncheonhp', 3, 5)).toBe('main');
+    expect(role('bukchuncheon', 2, 'chuncheonhp', 3, 17)).toBe('backup'); // 「I-MUX … 예비_Tx」
+  });
+
+  it('「주회선용 L2 패치」 는 주, 「(SCC예비회선)」 은 예비', () => {
+    expect(role('guchuncheon', 11, 'sinchuncheon', 2, 5)).toBe('main');
+    expect(role('guchuncheon', 11, 'sinchuncheon', 2, 18)).toBe('backup');
+  });
+
+  it('표기 없는 코어는 null — PTP(춘천-북춘천) EAST/WEST', () => {
+    expect(role('guchuncheon', 2, 'bukchuncheon', 1, 3)).toBeNull();
+  });
+
+  it('두 끝이 어긋나면 null(추측하지 않는다), 한 끝만이면 그 값', () => {
+    expect(coreRoleOf('main', 'backup')).toEqual({ role: null, conflict: true });
+    expect(coreRoleOf(null, 'backup')).toEqual({ role: 'backup', conflict: false });
+    expect(coreRoleOf('main', 'main')).toEqual({ role: 'main', conflict: false });
+  });
+
+  it('직할 세운 광선로의 주/예비 수 — 주 7, 예비 18, 어긋남 0', () => {
+    let conflicts = 0;
+    OPGW.forEach((s) => {
+      const as = new Map((PLATE_CORES[s.a]?.[s.aSlot] ?? []).map((c) => [c.no, c.role]));
+      const bs = new Map((PLATE_CORES[s.b]?.[s.bSlot] ?? []).map((c) => [c.no, c.role]));
+      for (const no of new Set([...as.keys(), ...bs.keys()])) if (coreRoleOf(as.get(no) ?? null, bs.get(no) ?? null).conflict) conflicts++;
+    });
+    expect(updates.filter((u) => u.patch.role === 'main')).toHaveLength(7);
+    expect(updates.filter((u) => u.patch.role === 'backup')).toHaveLength(18);
+    expect(conflicts).toBe(0);
   });
 });

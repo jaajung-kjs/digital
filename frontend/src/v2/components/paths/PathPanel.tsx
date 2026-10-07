@@ -51,7 +51,7 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onRin
   const shown = filterBundles(view, model, query);
   const any = picked.bundles.size + picked.rings.size + picked.warnings.size > 0;
   /* 주/예비가 하나도 지정되지 않으면 이중화는 판정할 수 없다 — 0 을 「이상 없음」으로 보이지 않는다. */
-  const judged = model.bundles.some((b) => b.role !== null);
+  const judged = model.bundles.some((b) => roleKey(b.role) !== 'none');
   const on = (yes: boolean) => (yes ? { 'aria-current': true as const, className: SELECTED } : {});
 
   return (

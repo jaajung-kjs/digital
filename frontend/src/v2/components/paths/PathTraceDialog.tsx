@@ -7,6 +7,7 @@ import { useWorkingCopy } from '../../model/store/workingCopy';
 import { ancestorPath, flattenTree } from '../../orgTreeSelectors';
 import { useWorkspaceRoute } from '../../useWorkspaceRoute';
 import { effectiveNetwork } from './networkSelectors';
+import { ROLE_LABEL, roleKey } from './PathPanel';
 import { pathSteps, pathSummary, pathTitle, type BlockAt, type ChainStep as Step } from './pathChain';
 
 export interface PathTraceDialogProps {
@@ -55,8 +56,8 @@ export function PathTraceDialog({ substationId, at, onClose }: PathTraceDialogPr
           <div className="flex min-w-0 items-center gap-2">
             <span data-testid="path-summary" className="min-w-0 flex-1 break-words text-sm font-medium tabular-nums">{pathSummary(view, path).split('-').flatMap((part, i) => (i === 0 ? [part] : ['-', <wbr key={i} />, part]))}</span>
             {/* 코어의 주/예비 값 — 사슬의 코어가 모두 같을 때만(core 가 정한다). 사용자 권한 role 이 아니다. */}
-            {path.role === 'main' && <Badge status="info">주회선</Badge>}
-            {path.role === 'backup' && <Badge status="neutral">예비회선</Badge>}
+            {roleKey(path.role) === 'main' && <Badge status="info">{ROLE_LABEL.main}</Badge>}
+            {roleKey(path.role) === 'backup' && <Badge status="neutral">{ROLE_LABEL.backup}</Badge>}
             {!path.complete && <Badge status="warning">경로 미완결</Badge>}
           </div>
           <Chain aria-label="중계경로">

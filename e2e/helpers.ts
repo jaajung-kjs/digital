@@ -20,6 +20,14 @@ export async function login(page: Page) {
  * 「직할」처럼 본부마다 겹치는 이름은 본부 바로 아래 것을 고른다.
  */
 export async function openStation(page: Page, hq: string, branch: string, station: string) {
+  await openBranch(page, hq, branch);
+  await selectStation(page, station);
+  await expect(page.getByRole('heading', { level: 1, name: station })).toBeVisible();
+  await expect(page.getByTestId('v2-selected')).toHaveText(`${hq} › ${branch}`);
+}
+
+/** 조직 트리에서 본부 › 지사를 누른다 — 지사 판(현황·광 계통도)이 선다. 「직할」처럼 겹치는 이름은 그 본부 바로 아래 것. */
+export async function openBranch(page: Page, hq: string, branch: string) {
   const tree = page.getByRole('tree', { name: '조직' });
   const items = tree.getByRole('treeitem');
   const labels = await items.evaluateAll((els) => els.map((e) => `${e.getAttribute('aria-level')}:${e.textContent ?? ''}`));
@@ -28,9 +36,7 @@ export async function openStation(page: Page, hq: string, branch: string, statio
   const branchIdx = labels.findIndex((l, i) => i > hqIdx && l.startsWith(`2:${branch}`));
   expect(branchIdx, `지사 ${branch}`).toBeGreaterThan(hqIdx);
   await items.nth(branchIdx).click();
-  await selectStation(page, station);
-  await expect(page.getByRole('heading', { level: 1, name: station })).toBeVisible();
-  await expect(page.getByTestId('v2-selected')).toHaveText(`${hq} › ${branch}`);
+  await expect(page.getByRole('heading', { level: 1, name: branch })).toBeVisible();
 }
 
 /** 이미 펼쳐진 트리에서 국을 누른다(국 이름은 트리에서 유일하다고 본다). */

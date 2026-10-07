@@ -37,7 +37,7 @@ export function StatusItem({
   className?: string;
 }) {
   return (
-    <span className={cn('flex items-center gap-1.5 border-r border-line px-3 tabular-nums first:pl-0', className)}>
+    <span className={cn('flex shrink-0 items-center gap-1.5 whitespace-nowrap border-r border-line px-3 tabular-nums first:pl-0', className)}>
       {label && <span className="text-content-faint">{label}</span>}
       <span className="text-content">{children}</span>
     </span>

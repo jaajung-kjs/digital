@@ -15,6 +15,7 @@ import { DRAG_THRESHOLD } from '../../canvas/drag';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
 import type { MapLine, MapStation, OpticalMapModel } from './opticalMapModel';
+import { roleKey } from './PathPanel';
 
 type Pt = { x: number; y: number };
 type Role = PathBundle['role'];
@@ -189,10 +190,10 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
               d={curvePath(line, a, b, (i - (roles.length - 1) / 2) * OVERLAY_GAP)}
               data-overlay={line.id}
               data-role={role ?? 'none'}
-              className={cn('pointer-events-none fill-none', role === null ? 'stroke-primary/60' : 'stroke-primary')}
-              strokeWidth={role === null ? 4 : 3}
-              strokeDasharray={role === 'backup' ? '8 5' : undefined}
-              strokeLinecap={role === 'backup' ? 'butt' : 'round'}
+              className={cn('pointer-events-none fill-none', roleKey(role) === 'none' ? 'stroke-primary/60' : 'stroke-primary')}
+              strokeWidth={roleKey(role) === 'none' ? 4 : 3}
+              strokeDasharray={roleKey(role) === 'backup' ? '8 5' : undefined}
+              strokeLinecap={roleKey(role) === 'backup' ? 'butt' : 'round'}
             />
           ));
         })}

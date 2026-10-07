@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { login, openStation } from './helpers';
+import { login, openBranch, openStation } from './helpers';
 
 /**
  * 화면 스크린샷 — ②-b 정리 뒤 모든 화면을 두 폭(1280×800 · 1440×900)으로 찍어 `test-results/screens/` 에 남긴다.
@@ -236,6 +236,30 @@ for (const vp of VIEWPORTS) {
       await settle(page);
       await noForbiddenWords(page, '상세 → 차단기 대장');
       await shot(page, '35-power-from-detail');
+
+      await expect(page.getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+    });
+
+    test('광 계통도 · 회선 · 이중화 경고', async ({ page }) => {
+      await login(page);
+      await openBranch(page, '강원본부', '직할');
+      await main(page).getByRole('tab', { name: '광 계통도' }).click();
+      const map = main(page).getByTestId('optical-map');
+      const panel = main(page).getByTestId('path-panel');
+      await expect(map.locator('[data-station]').first()).toBeVisible();
+      await expect(main(page).getByTestId('map-legend')).toContainText('예비회선');
+
+      // 판 전체 — 국·광선로, 오른쪽 이중화 경고 · 링 · 회선
+      await settle(page);
+      await noForbiddenWords(page, '광 계통도');
+      await shot(page, '40-optical-map');
+
+      // 이중화 경고를 고르면 — 함께 지나는 광선로 띠 + 주회선 실선 · 예비회선 점선
+      await panel.getByTestId('warning-list').getByRole('button').first().click();
+      await expect(map.locator('[data-warned]')).toHaveCount(1);
+      await settle(page);
+      await noForbiddenWords(page, '광 계통도 이중화 경고');
+      await shot(page, '41-optical-map-warning');
 
       await expect(page.getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
     });

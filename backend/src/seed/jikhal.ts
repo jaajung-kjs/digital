@@ -5,7 +5,7 @@
  * 들어간다. 페이로드를 짓는 부분은 순수 함수라 DB 없이 시험한다.
  */
 import { randomUUID } from 'node:crypto';
-import { SEED_PICKS, type InvEnd, type StationInventory } from '@twin/core';
+import { SEED_PICKS, type InvEnd, type InvLink, type StationInventory } from '@twin/core';
 import { commitChanges } from '../v2/commit/service.js';
 import type { CommitPayload } from '../v2/commit/schema.js';
 import { nextDb } from '../v2/db.js';
@@ -59,10 +59,35 @@ function coreUpdatesOf(seg: (typeof OPGW)[number], lineId: string): CoreUpdates 
     const status = a && a.status !== 'ok' ? a.status : b?.status ?? 'ok';
     return {
       lineId, no,
-      patch: { status, aPurpose: a?.purpose ?? null, aNote: a?.note ?? null, bPurpose: b?.purpose ?? null, bNote: b?.note ?? null },
+      patch: { status, role: coreRoleOf(a?.role ?? null, b?.role ?? null).role, aPurpose: a?.purpose ?? null, aNote: a?.note ?? null, bPurpose: b?.purpose ?? null, bNote: b?.note ?? null },
     };
   });
 }
+
+type Role = 'main' | 'backup' | null;
+
+/**
+ * 코어의 주/예비 — 두 끝 공유 값. 끝마다 회선수용내역의 명시 표기(추출 규칙)만 본다:
+ * 한 끝만 적었으면 그 값, 두 끝이 같으면 그 값, **어긋나면 null + conflict**(추측하지 않는다).
+ */
+export function coreRoleOf(a: Role, b: Role): { role: Role; conflict: boolean } {
+  if (a && b && a !== b) return { role: null, conflict: true };
+  return { role: a ?? b, conflict: false };
+}
+
+/**
+ * 국 설비 목록(`JIKHAL_INVENTORY`)에 없던 **중계 패치**(코어 ↔ 코어) — 엑셀에 그 국의 코어 대 코어가
+ * 명시된 것만 싣는다(추측 금지). 코어는 [선번장 판 번호, 판 안 코어 번호].
+ */
+export const EXCEL_RELAY_PATCHES: { station: StationKey; a: readonly [number, number]; b: readonly [number, number]; source: string }[] = [
+  {
+    /* 북춘천 RTU 예비회선 — 화천에서 화천HP 쪽 코어 1 이 철원 쪽 OFD 37(판 2 코어 13 = 24 + 13)로 이어진다. */
+    station: 'hwacheon', a: [1, 1], b: [2, 13],
+    source: 'SCADA 회선현황 「회선현황」 G7 「북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원」; '
+      + 'OFD 선번장 「화천」 D5(판 1 No.1) 「RTU 예비회선용 광스위치 북춘천-철원(화천수력-화천 중계)」, '
+      + 'D45(판 2 No.13) 「RTU 예비회선용 광스위치 북춘천-철원(춘천수력-화천수력 중계)」',
+  },
+];
 
 export function buildJikhalPayload(input: JikhalInput): CommitPayload {
   const { substationIds, newId } = input;
@@ -164,7 +189,9 @@ function addInventory(payload: CommitPayload, input: JikhalInput, plateEnd: Map<
       const at = plateEnd.get(`${key}#${x.core[0]}`);
       return at ? { kind: 'core', lineId: at.lineId, no: x.core[1], side: at.side } : null;
     };
-    for (const l of inv.links) {
+    const relays: InvLink[] = EXCEL_RELAY_PATCHES.filter((r) => r.station === key)
+      .map((r) => ({ cable: SEED_PICKS.fiberJumperCableType, a: { core: r.a }, b: { core: r.b } }));
+    for (const l of [...inv.links, ...relays]) {
       const a = end(l.a);
       const b = end(l.b);
       if (!a || !b) { dropped++; continue; }

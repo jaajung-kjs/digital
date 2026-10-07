@@ -116,7 +116,8 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await expect(cell(first, 1, 'status')).toHaveText('단선');
   await expect(cell(first, 21, 'status')).toHaveText('사용불가');
   //    대국 연결은 읽기 전용 — 잇기·지우기 단추가 없다
-  await expect(cell(first, 3, 'far').getByRole('button')).toHaveCount(0);
+  await expect(cell(first, 3, 'far').getByRole('button', { name: /연결/ })).toHaveCount(0);
+  await expect(cell(first, 3, 'far').getByRole('button', { name: '코어 3 중계경로' })).toHaveCount(1); // 중계경로만 — 대국 칸 꼬리
 
   // 3. 빈 코어 잇기 — 슬롯 3 코어 11 → 같은 국 L2 스위치(표기 E2E-FX) · 광점퍼코드 → 저장 → 자국 연결 이름
   const slot3 = blockOf(page, SLOT3_LINE);

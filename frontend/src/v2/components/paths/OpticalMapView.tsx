@@ -83,11 +83,12 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
       <StatusItem label="국">{model.stations.length}</StatusItem>
       <StatusItem label="광선로">{model.lines.length}</StatusItem>
       <StatusItem label="회선">{model.bundles.length}</StatusItem>
-      <span className="flex min-w-0 items-center gap-3 px-3" data-testid="map-legend">
+      {/* 범례는 좁으면 잘린다(글자를 세로로 쪼개지 않는다) — 수·확대 단추가 먼저다. */}
+      <span className="flex min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap px-3" data-testid="map-legend">
         {roles.map((r) => <LegendLine key={roleKey(r)} role={r} />)}
-        {outside && <span className="flex items-center gap-1.5"><svg width="12" height="12" aria-hidden className="opacity-50"><circle cx="6" cy="6" r="4" className="fill-surface stroke-content" strokeWidth={1.5} strokeDasharray="3 2" /></svg>범위 밖 국</span>}
+        {outside && <span className="flex shrink-0 items-center gap-1.5"><svg width="12" height="12" aria-hidden className="opacity-50"><circle cx="6" cy="6" r="4" className="fill-surface stroke-content" strokeWidth={1.5} strokeDasharray="3 2" /></svg>범위 밖 국</span>}
       </span>
-      <span className="ml-auto flex items-center gap-0.5">
+      <span className="ml-auto flex shrink-0 items-center gap-0.5">
         <IconButton aria-label="축소" size="sm" onClick={vp.zoomOut}><Minus size={14} /></IconButton>
         <span className="min-w-10 text-center tabular-nums text-content">{Math.round(vp.viewport.zoom)}%</span>
         <IconButton aria-label="확대" size="sm" onClick={vp.zoomIn}><Plus size={14} /></IconButton>
@@ -135,11 +136,11 @@ const order = (r: PathBundle['role']) => (r === 'main' ? 0 : r === 'backup' ? 1 
 
 function LegendLine({ role }: { role: PathBundle['role'] }) {
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex shrink-0 items-center gap-1.5">
       <svg width="22" height="6" aria-hidden>
         <line x1="1" y1="3" x2="21" y2="3" strokeWidth={3}
-          className={role === null ? 'stroke-primary/60' : 'stroke-primary'}
-          strokeDasharray={role === 'backup' ? '6 3' : undefined}
+          className={roleKey(role) === 'none' ? 'stroke-primary/60' : 'stroke-primary'}
+          strokeDasharray={roleKey(role) === 'backup' ? '6 3' : undefined}
         />
       </svg>
       {ROLE_LABEL[roleKey(role)]}
