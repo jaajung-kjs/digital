@@ -4,6 +4,7 @@ import { IconButton } from './IconButton';
 import { Input } from './Input';
 import { isCommitKey } from './keyboard';
 import { cn } from './cn';
+import { HOVER_REVEAL } from './hoverReveal';
 import { SELECTABLE, SELECTED } from './selection';
 import { SelectionScope } from './SelectionScope';
 import { useScrollSelectedIntoView } from './useScrollSelectedIntoView';
@@ -641,7 +642,7 @@ export function TreePanel({
                 /* 자리는 항상 차지하고 보이기만 바뀐다 — 호버할 때 요소가 끼어들면 줄 크기가
                    바뀌고, 그 바람에 호버가 껐다 켜졌다 반복한다(목록이 떠는 원인). */
                 <span
-                  className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                  className={cn('flex shrink-0 items-center gap-0.5', HOVER_REVEAL)}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {handlesFor(n)}

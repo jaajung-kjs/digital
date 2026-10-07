@@ -33,6 +33,12 @@ describe('StatusView', () => {
 });
 
 describe('StatusView 빈 화면·고아 설비', () => {
+  it('검색에 걸린 것이 없으면 검색어를 되짚는다', () => {
+    render(<StatusView rows={rows} racks={racks} selectedId={null} onSelect={vi.fn()} />);
+    fireEvent.change(screen.getByRole('textbox', { name: '현황 검색' }), { target: { value: '없는말' } });
+    expect(screen.getByText("'없는말' 와 맞는 설비가 없습니다")).toBeInTheDocument();
+  });
+
   it('노드 범위의 빈 표는 「설비 추가」를 권하지 않는다', () => {
     render(<StatusView rows={[]} nodeScope selectedId={null} onSelect={vi.fn()} />);
     expect(screen.getByText('설비가 없습니다')).toBeInTheDocument();

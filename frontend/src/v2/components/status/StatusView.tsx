@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EQUIPMENT_STATUSES } from '@twin/core';
 import {
-  Button, EMPTY, EmptyState, IconButton, SegmentedControl, Select, SELECTABLE, SELECTED, StatusDot,
+  Button, EMPTY, EmptyState, HOVER_REVEAL, IconButton, SegmentedControl, Select, SELECTABLE, SELECTED, StatusDot,
   TABLE_ROW, TableCard, TableSearch, Td, Th, ViewCard, cn, formatDate, selectableRow, useScrollSelectedIntoView,
 } from '../../../components/ui';
 import { summarize } from '../../statusSummary';
@@ -147,7 +147,7 @@ export function StatusView({
             <IconButton
               size="sm"
               aria-label={`${r.name} 이 있는 국에서 열기`}
-              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+              className={cn('shrink-0', HOVER_REVEAL)}
               onClick={(e) => { e.stopPropagation(); onOpenElsewhere(r); }}
             >
               <ExternalLink size={12} />
@@ -168,7 +168,7 @@ export function StatusView({
   const empty = (
     <tr>
       <Td colSpan={COLS}>
-        {filtering ? <EmptyState title="조건과 맞는 설비가 없습니다" /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」로 놓으세요.' : undefined} />}
+        {filtering ? <EmptyState title={query.trim() ? `'${query.trim()}' 와 맞는 설비가 없습니다` : '조건과 맞는 설비가 없습니다'} /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」로 놓으세요.' : undefined} />}
       </Td>
     </tr>
   );

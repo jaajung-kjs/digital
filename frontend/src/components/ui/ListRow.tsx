@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from './cn';
+import { HOVER_REVEAL } from './hoverReveal';
 import { SELECTABLE } from './selection';
 
 /**
@@ -53,7 +54,7 @@ export function ListItemRow({ children, meta, actions }: { children: ReactNode; 
         </div>
       ) : children}
       {actions && (
-        <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <span className={cn('flex shrink-0 items-center gap-0.5', HOVER_REVEAL)}>
           {actions}
         </span>
       )}

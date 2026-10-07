@@ -11,7 +11,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { Check, Plus, Trash2, X } from 'lucide-react';
-import { Button, EMPTY, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
+import { Button, EMPTY, HOVER_REVEAL, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
 import { isAxiosError } from 'axios';
 import { apiErrorMessage } from '../../apiError';
 import { useReorder, useWageCatalog } from '../../hooks';
@@ -226,7 +226,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
                       size="sm"
                       aria-label={`${str(row.name)} 지우기`}
                       tone="danger"
-                      className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      className={HOVER_REVEAL}
                       onClick={() => removeRow(row)}
                     >
                       <Trash2 size={12} />

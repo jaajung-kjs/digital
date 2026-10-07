@@ -88,11 +88,15 @@
 ```tsx
 <div className="group flex items-center ...">
   <span className="min-w-0 flex-1 truncate">{name}</span>
-  <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+  <span className={cn('flex shrink-0 items-center gap-0.5', HOVER_REVEAL)}>
     <IconButton size="sm" aria-label="이름 변경">…</IconButton>
   </span>
 </div>
 ```
+
+**드러내는 클래스는 `HOVER_REVEAL` 하나다**(`components/ui/hoverReveal.ts`) — 마우스(`group-hover`)·키보드(`group-focus-within`·`focus-visible`)·**터치**(`[@media(hover:none)]` 에서는 늘 보임) 세 길을 함께 연다. 손으로 `opacity-0 group-hover:opacity-100` 만 적으면 태블릿에서는 그 단추가 영영 투명하다 — 선번장의 「잇기」·연결 지우개가 그랬다. 손으로 적지 않는다(`ListItemRow`·`TreePanel`·현황·선번장·측정 이력·품목 표가 이것을 쓴다).
+
+**손잡이는 제 자리를 갖는다 — 이름 위에 겹쳐 띄우지 않는다.** 칸이 좁다고 지우개를 `absolute` 로 이름 끝에 얹으면 터치에서는(늘 보이므로) 이름 끝을 영영 가린다. 이름은 `min-w-0 flex-1 truncate`, 손잡이는 `shrink-0` 꼬리 자리.
 
 `hidden → group-hover:flex` 로 하면 **호버 순간 요소가 행에 끼어들어 폭·높이가 바뀌고**,
 그 바람에 커서가 다른 요소 위로 가면서 호버가 껐다 켜졌다를 반복한다(목록이 떤다).
@@ -343,7 +347,7 @@
 `Badge`, `Button`, `IconButton`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailGrid`,
 `ItemCard`, `ListRow`, `PanelHeader`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
 `Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `cn`, `controlSize`,
-`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`.
+`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`, `HOVER_REVEAL`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -518,6 +522,24 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 ### 표 본문 칸 → `Td` (줄맞춤은 열이 정한다 · §1.7-i3)
 
+### 표 폭을 다 쓰는 머리 칸 → `Th bare`
+`Th` 는 내용을 말줄임 감싸개에 넣는다 — 그 감싸개는 `overflow: hidden` 이라 안의 `sticky` 가 갇힌다. 칸 안에서 제 배치를 갖는 것(묶음 머리줄의 오른쪽 끝 단추)은 `bare` 로 감싸개를 벗기고, 잘림은 내용이 맡는다(`min-w-0 truncate`). 손으로 쓰지 말고 아래 `TableGroupHead` 를 쓴다.
+
+### 묶음 표의 머리줄 → `TableGroupHead` · `TableGroupHeadButton`
+묶음마다 표를 세우는 판(선번장 블록 · 차단기 대장)의 `thead` 첫 줄. 제목(굵게, 잘리지 않음) · 메타(흐리게, 넘치면 말줄임) · 오른쪽 끝 단추(`sticky right-0` — 표가 가로로 굴러도 판 오른쪽에 남는다).
+```tsx
+<thead className="sticky top-0 z-sticky bg-surface-2">
+  <TableGroupHead
+    colSpan={COLS}
+    title={<><TableGroupHeadButton variant="link" onClick={openEquipment}>OFD</TableGroupHeadButton> · <TableGroupHeadButton onClick={focus}>슬롯 2 · 어댑터 1–24</TableGroupHeadButton> ↔ 춘천S/S</>}
+    metas={[lineName, length, cable]}
+    actions={<Button variant="secondary" size="xs">편집</Button>}
+  />
+  <tr>{/* 열 머리 */}</tr>
+</thead>
+```
+`TableGroupHeadButton variant="link"` 은 **다른 곳으로 가는** 이름(밑줄·강조색 — 선번장 단자 이름 → 그 설비 상세), `plain` 은 제자리에서 그 묶음을 고르는 글자다.
+
 ### 표의 열은 어휘·선언에서 나온다 — 화면이 키를 알지 않는다
 품목을 사용자가 정의하는 제품이므로 **화면 코드가 품목 키·상태 값을 직접 적으면 곧 어긋난다**. 라벨을 바꾸면 머리글만 옛 이름으로 남고, 품목을 지우면 `—` 만 늘어선 죽은 열이 되고, 새 품목은 아무리 넣어도 안 나온다.
 
@@ -544,6 +566,8 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 **단위는 칸 안 오른쪽에 붙인다(`suffix`)** — 상자 **바깥**에 별개 글자로 두면 단위가 어느 칸의 것인지 눈으로 이어야 하고, 칸이 여럿 쌓인 폼에서는 값과 단위가 서로 다른 줄에서 만난다. 값과 단위는 한 덩어리다(Ant `addonAfter`, Fluent suffix). 표에서는 `Th` 의 `unit` 이 같은 일을 한다. 폼 안에서 `<span className="text-xs text-content-faint">원/m</span>` 을 값 옆에 손으로 붙이지 않는다.
 
 **뜻이 있는 빈 칸은 그 뜻을 `placeholder` 로 말한다.** 자료가 3-상태(`null`·`0`·`N`)면 화면도 3-상태여야 한다 — 빈 상자와 `0` 이 든 상자는 거의 같아 보이는데 뜻은 정반대고, 0 을 지워 `null` 로 되돌릴 수 있는지조차 알 수 없었다. 무엇을 뜻하는지는 **선언이 정한다** — 화면이 품목 이름으로 갈라 적지 않는다.
+
+**붉은 칸은 고칠 때도 붉다.** `invalid` 의 테두리는 초점이 들어와도 파랗게 바뀌지 않는다(`focus:border-danger`) — 고치려고 누르는 순간 경고가 사라지면 무엇을 고치던 중인지 잊는다. 표 칸(`InlineEditCell validate`)도 같다: 받을 수 없는 값이면 칸이 붉게 **열린 채 남고** 까닭은 `title` 에 선다 — 말없이 원래 값으로 돌아가지 않는다(설비 상세의 슬롯 수).
 
 **저장을 막는 칸은 `<Input invalid>`** — 붉은 테두리와 `aria-invalid` 를 함께 건다. 문구는 부르는 쪽이 말한다(`DetailRow` 의 `issue`, 저장 바의 `issueCount`). 표처럼 라벨 옆에 문구를 놓을 자리가 없는 곳에서는 이 테두리가 유일한 길잡이라, 「입력 오류 N건」만 띄우고 어느 칸인지 안 짚는 화면을 만들지 않는다. 테두리를 `className="border-danger"` 로 직접 그리지 않는다 — `cn` 은 tailwind-merge 가 아니라 기본 `border-line` 과 충돌한다.
 

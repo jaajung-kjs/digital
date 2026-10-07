@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { newestFirst, type Side } from '@twin/core';
 import {
-  Button, DateInput, EMPTY, ErrorStrip, IconButton, Input, ListHeading, Modal, TABLE_ROW, TableCard, Td, Th, formatDate, useConfirm,
+  Button, DateInput, EMPTY, ErrorStrip, HOVER_REVEAL, IconButton, Input, ListHeading, Modal, TABLE_ROW, TableCard, Td, Th, formatDate, useConfirm,
 } from '../../../components/ui';
 import { deleteLeafRow } from '../../model/store/deleteActions';
 import { effectiveRows } from '../../model/store/effective';
@@ -91,7 +91,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
                 {MEASURE_COLS.map((c) => <Td key={c.key} align="right">{num(m[c.key])}</Td>)}
                 <Td className="truncate" title={m.measuredBy ?? undefined}>{m.measuredBy ?? EMPTY}</Td>
                 <Td align="right">
-                  <span className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+                  <span className={HOVER_REVEAL}>
                     <IconButton size="sm" tone="danger" aria-label="측정 지우기" title="측정 지우기" onClick={() => void remove(m)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </IconButton>
