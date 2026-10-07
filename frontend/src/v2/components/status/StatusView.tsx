@@ -192,7 +192,8 @@ export function StatusView({
         </div>
       }
       actions={
-        <div className="flex items-center gap-1.5">
+        /* 줄 수 있어야 검색 칸이 준다 — 감싸개가 제 폭을 고집하면 `TableSearch` 의 `min-w-0` 이 듣지 않는다. */
+        <div className="flex min-w-0 items-center gap-1.5">
           {onAddRack && <Button variant="secondary" size="sm" onClick={onAddRack}>랙 추가</Button>}
           {onAddEquipment && <Button variant="secondary" size="sm" onClick={() => onAddEquipment(selectedRackId ?? undefined)}>설비 추가</Button>}
           <TableSearch

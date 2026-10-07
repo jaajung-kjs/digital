@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { LinkEndRef, SheetBlock } from '@twin/core';
 import { Button, EmptyState, ErrorStrip, OverflowShade, Select, TableSearch, ViewCard, scrollBoxToTop, useConfirm, useOverflowShade } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
@@ -109,16 +109,14 @@ export function LineSheetView({
   const shownRows = shown.reduce((n, b) => n + b.rows.length, 0);
 
   /* 초점 블록이 바뀔 때만 화면 안으로(주소로 들어온 경우 포함). */
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const shade = useOverflowShade();
   const focusKey = focus ? blockKey(focus) : null;
   useEffect(() => {
     if (!focusKey) return;
     /* 세로로만 — 가로로 넘친 판을 옆으로 밀지 않는다. */
-    scrollBoxToTop(bodyRef.current, bodyRef.current?.querySelector<HTMLElement>('[data-testid="sheet-block"][aria-current="true"]') ?? null);
-  }, [focusKey]);
-
-  /* 판이 가로로 넘쳐 오른쪽이 가려져 있는가 — 상세 패널이 서서 좁아졌을 때(§1.7-e). */
-  const shade = useOverflowShade(bodyRef);
+    const body = shade.body.current;
+    scrollBoxToTop(body, body?.querySelector<HTMLElement>('[data-testid="sheet-block"][aria-current="true"]') ?? null);
+  }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* 측정 입력은 거르기 전 블록(코어 전부)으로 — 검색이 줄을 좁혀도 입력 표는 1..N 이다. */
   const measuringBlock = measuring ? blocks.find((b) => blockKey(b) === blockKey(measuring)) ?? null : null;
@@ -136,7 +134,7 @@ export function LineSheetView({
     <div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1">
       <ViewCard
         body="scroll"
-        bodyRef={bodyRef}
+        bodyRef={shade.bodyRef}
         tools={
           <div className="w-40 shrink-0">
             <Select size="sm" aria-label="접속 설비" value={activeTerminal} onChange={(e) => setTerminal(e.currentTarget.value)}>
@@ -146,7 +144,8 @@ export function LineSheetView({
           </div>
         }
         actions={
-          <div className="flex items-center gap-1.5">
+          /* 줄 수 있어야 검색 칸이 준다 — 감싸개가 제 폭을 고집하면 `TableSearch` 의 `min-w-0` 이 듣지 않는다. */
+          <div className="flex min-w-0 items-center gap-1.5">
             {addLine}
             <TableSearch
               aria-label="선번장 검색" className="w-72" placeholder="상대국 · 선로명 · 접속 · 회선 내역 · 비고 검색"

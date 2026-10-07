@@ -377,7 +377,7 @@
 `Badge`, `Button`, `IconButton`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailGrid`,
 `ItemCard`, `ListRow`, `PanelHeader`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
 `Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `TreeRow`, `cn`, `controlSize`,
-`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`, `HOVER_REVEAL`, `useOverflowShade`·`OverflowShade`·`scrollBoxToTop`.
+`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`·`TableSubHead`, `HOVER_REVEAL`, `useOverflowShade`·`OverflowShade`·`scrollBoxToTop`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -450,8 +450,8 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 `<ListRow onClick={…}>{name}</ListRow>` — `onClick` 이 없으면 읽기 전용 줄. 직접 `<button className>` 이나 `<p className>` 로 줄을 만들지 않는다. 라벨과 값이 짝이면 `DetailRow` 다.
 
-- **목록 안 갈래의 머리**(잇기 상자의 「설비」·「차단기」·「코어」, 연결 탭의 「입력 전원」·「부하」) → `ListHeading`. 카드 절 제목(`DetailCardHeader`)이 아니다 — 한 목록 안의 묶음 라벨이다. 그 갈래 전체에 대한 손짓 하나는 `action` 으로 머리 오른쪽 끝에 둔다(연결 탭 「입력 전원」의 「전원 계통에서 보기」 — `Button variant="ghost" size="xs"`, 늘 보임).
-- **다른 판으로 건너가는 길**(설비 상세 → 선번장 블록 · 전원 계통 블록)은 **기록을 남긴다**(`openBlock`·`openSupply`) — 뒤로 가면 떠나 온 화면으로 돌아온다. 카드 머리의 길은 `actions` 의 `Button variant="secondary" size="sm"`(차단기 카드 「전원 계통에서 보기」).
+- **목록 안 갈래의 머리**(잇기 상자의 「설비」·「차단기」·「코어」, 연결 탭의 「입력 전원」·「부하」) → `ListHeading`. 카드 절 제목(`DetailCardHeader`)이 아니다 — 한 목록 안의 묶음 라벨이다. 그 갈래 전체에 대한 손짓 하나는 `action` 으로 머리 오른쪽 끝에 둔다(연결 탭 「입력 전원」의 「차단기 대장에서 보기」 — `Button variant="ghost" size="xs"`, 늘 보임).
+- **다른 판으로 건너가는 길**(설비 상세 → 선번장 블록 · 전원 계통 블록)은 **기록을 남긴다**(`openBlock`·`openSupply`) — 뒤로 가면 떠나 온 화면으로 돌아온다. 카드 머리의 길은 `actions` 의 `Button variant="secondary" size="sm"`(차단기 카드 「차단기 대장에서 보기」).
 - **값이 여럿인 줄 + 호버 손잡이** → `ListItemRow`. `actions` 는 §1.7 대로 자리를 차지한 채 투명도만 바뀐다.
   - **좁은 패널(364px)에서는 두 줄**(`meta`): 첫 줄 = 그 줄만의 것(연결 목록의 **상대 끝 이름**, 진하게), 둘째 줄 = 나머지(`이쪽: 차단기 3 · F-CV · 12 m`, `text-xs`). 없는 값은 「없음」이라 적지 않고 건너뛴다. 고정 폭 칸 넷을 한 줄에 늘어세우면 늘어나야 할 칸 하나가 **0px 로 눌려 사라진다** — 연결 목록의 상대 끝이 실제로 그랬다(이쪽 128 + 케이블 83 + 길이 56 + 손잡이 + 틈 = 패널 폭 전부).
   - 넓은 자리에서만 칸을 가로로 늘어세운다(`meta` 없이). 칸 폭·잘림은 부르는 쪽이 정한다(`truncate` 에는 `min-w-0`).
@@ -571,6 +571,10 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 ```
 `TableGroupHeadButton variant="link"` 은 **다른 곳으로 가는** 이름(밑줄·강조색 — 선번장 접속 설비 이름 → 그 설비 상세), `plain` 은 제자리에서 그 묶음을 고르는 글자다.
 
+- **메타가 그 묶음의 뜻인 판**(차단기 대장의 입력 전원)은 `wrapMetas` — 넘치면 말줄임 대신 머리 안에서 다음 줄로 내린다(1280 + 상세 레일에서도 어디서 받는지가 다 읽힌다). 메타는 글자 또는 `{ text, faint, title }` — 거른 보기 밖의 것은 지우지 않고 `faint`(한 단 더 흐리게, title 「현재 보기 밖의 입력」)로 둔다. 거르기로 머리의 정보가 사라지면 그 묶음이 무엇인지를 잃는다.
+- **묶음 안의 소묶음**(다모선 분전반의 「교류 모선 · 입력: 소내전원반 차단기 4」)은 `tbody` 안의 `TableSubHead` — 열 머리 글씨(`text-xs`·흐림)에 이름만 본문색. 묶음 머리줄보다 한 단 가볍다. 비는 소묶음(거르기·검색)은 머리도 두지 않는다.
+- 머리의 수는 좁혔을 때(거르기·검색) 「차단기 12 / 22」, 안 좁혔을 때는 전체만.
+
 ### 표의 열은 어휘·선언에서 나온다 — 화면이 키를 알지 않는다
 품목을 사용자가 정의하는 제품이므로 **화면 코드가 품목 키·상태 값을 직접 적으면 곧 어긋난다**. 라벨을 바꾸면 머리글만 옛 이름으로 남고, 품목을 지우면 `—` 만 늘어선 죽은 열이 되고, 새 품목은 아무리 넣어도 안 나온다.
 
@@ -585,10 +589,11 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 ### 넓은 표가 판을 가로로 넘칠 때 → `useOverflowShade` · `OverflowShade`
 상세 레일이 서서 판이 좁아지면 묶음 표(선번장·차단기 대장)는 짓눌리지 않고 가로로 구른다(§1.7-e 예외). 가려진 오른쪽 가장자리에 그늘을 세워 「열이 더 있다」를 말한다 — 판마다 손으로 재지 않는다.
 ```tsx
-const shade = useOverflowShade(bodyRef); // ViewCard 의 bodyRef
-<div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1"><ViewCard bodyRef={bodyRef} …/><OverflowShade top={shade.top} /></div>
+const shade = useOverflowShade();
+<div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1"><ViewCard bodyRef={shade.bodyRef} …/><OverflowShade top={shade.top} /></div>
 ```
-블록 초점으로 굴릴 때는 `scrollBoxToTop(bodyRef.current, el)` — **세로로만** 굴린다. `scrollIntoView` 는 가로로 넘친 판까지 옆으로 밀어 보던 열을 옮긴다.
+`shade.bodyRef` 는 **콜백 ref** 다 — 보기를 바꿔 본문 요소가 바뀌면(전원 계통 계통도 → 대장) 새 요소에 다시 붙는다. ref 객체를 넘겨 의존성으로 두면 처음 요소만 지켜보아 그늘이 서지 않는다. 지금 요소는 `shade.body.current`.
+블록 초점으로 굴릴 때는 `scrollBoxToTop(shade.body.current, el)` — **세로로만** 굴린다. `scrollIntoView` 는 가로로 넘친 판까지 옆으로 밀어 보던 열을 옮긴다.
 
 ### 표 위 검색 상자 → `TableSearch`
 `src/components/ui/TableSearch.tsx` — 현황·선번장·계통이 같은 검색 헤더를 쓴다. 상자와 `N / M건` 표시를 맡고, **무엇으로 거를지는 호출부**가 정한다(열 구성이 표마다 다르다). 검색 중 결과가 비면 빈 상태 문구도 검색어를 되짚어 준다 — "검색이 잘못됐나" 와 "원래 없다" 가 구분되지 않으면 같은 검색을 반복하게 된다. 상자 폭은 `className`(배치용, 기본 `w-64`)으로만 줄인다 — 현황처럼 머리 띠가 한 줄에 다 들어가야 하는 좁은 판(1280px)에서만. 그 폭은 **기준**이다 — 상세 레일이 서서 띠가 좁아지면 검색 칸이 먼저 준다(`ViewCard` 오른쪽 자리와 `TableSearch` 가 `min-w-0`). 건수와 단추는 줄지 않는다(`Button` 은 `whitespace-nowrap` — 좁아진 띠에서 「모두 접기」가 한 글자씩 세로로 섰다).
@@ -976,7 +981,7 @@ const KINDS = [
 떠 있는 메뉴(`OverflowMenu`)는 **포털로 띄운다**(`MenuPopup`) — 스크롤 상자 안에서 잘리지 않게. 바깥 눌림 판정에 메뉴 자신의 참조를 함께 넘겨야 한다(안 그러면 메뉴를 누르는 것이 「바깥」이 되어 항목이 눌리기 전에 닫힌다).
 
 ### 트리 한 줄(들여쓰기 · 셰브런 · 28px) → `TreeRow`
-조직 트리(`TreePanel`)와 전원 계통도가 **같은 줄 모양**을 쓴다 — 들여쓰기는 층마다 `TREE_INDENT`(16px = 셰브런 12 + 틈 4, 자식의 셰브런이 부모 이름 첫 글자 아래에 선다), 셰브런 자리는 잎에서도 비워 두고, 높이·호버·선택색은 `SELECTABLE`·`SELECTED`. `role="treeitem"`·`aria-level`·`aria-selected`·`aria-expanded` 를 함께 단다(고른 줄 스크롤이 `aria-selected` 를 찾는다). 무엇을 담을지와 누르면 무슨 일인지는 부르는 쪽이 정한다 — 판(머리줄·검색·만들기)까지 필요하면 `TreePanel`, 줄만 필요하면(머리 띠에 검색이 이미 있는 판) `TreeRow`. 줄 아래에 붙는 것은 `treeIndent(depth)` 로 맞춘다.
+조직 트리(`TreePanel`)와 전원 계통도가 **같은 줄 모양**을 쓴다 — **들여쓰기는 층마다 16px**(`TREE_INDENT` = 셰브런 12 + 틈 4, 자식의 셰브런이 부모 이름 첫 글자 아래에 선다 — 조직 트리도 계통도도 같은 값이다. 판마다 손으로 `pl-*` 를 적지 않는다), 셰브런 자리는 잎에서도 비워 두고, 높이·호버·선택색은 `SELECTABLE`·`SELECTED`. `role="treeitem"`·`aria-level`·`aria-selected`·`aria-expanded` 를 함께 단다(고른 줄 스크롤이 `aria-selected` 를 찾는다). 무엇을 담을지와 누르면 무슨 일인지는 부르는 쪽이 정한다 — 판(머리줄·검색·만들기)까지 필요하면 `TreePanel`, 줄만 필요하면(머리 띠에 검색이 이미 있는 판) `TreeRow`. 줄 아래에 붙는 것은 `treeIndent(depth)` 로 맞춘다.
 
 ### 정해진 값은 **고르게** 한다 — 다만 목록은 **사실만큼만**
 현장 값이 사실상 정해진 칸(전압·차단기 용량·전선 규격)은 선택지를 선언하고 화면이 목록을 낸다(`InlineEditCell options`). 손으로 치게 두면 같은 값이 「AC220V」·「AC 220V」·「220v」로 갈려 세지도 거르지도 못한다.

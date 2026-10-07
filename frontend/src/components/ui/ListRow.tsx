@@ -29,7 +29,7 @@ export function ListRow({ children, onClick, className, trailing, ...aria }: { c
 /**
  * 목록 안 묶음의 머리 한 줄(「설비」·「차단기」·「코어」) — 줄들 위에 작은 라벨로 선다.
  * 카드의 절 제목(`DetailCardHeader`)이 아니라 **한 목록 안의 갈래**다.
- * `action` — 그 갈래 전체에 대한 손짓 하나(연결 탭 「입력 전원」의 「전원 계통에서 보기」). 오른쪽 끝, 늘 보인다.
+ * `action` — 그 갈래 전체에 대한 손짓 하나(연결 탭 「입력 전원」의 「차단기 대장에서 보기」). 오른쪽 끝, 늘 보인다.
  */
 export function ListHeading({ children, action }: { children: ReactNode; action?: ReactNode }) {
   if (action === undefined) return <div className="px-1 pt-1 text-xs text-content-muted">{children}</div>;
