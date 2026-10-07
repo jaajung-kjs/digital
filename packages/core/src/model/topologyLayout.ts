@@ -47,6 +47,10 @@ export function ringRadius(n: number): number {
   return NODE_GAP / (2 * Math.sin(Math.PI / n));
 }
 
+/**
+ * 마디 좌표. 간선 차례·방향은 그림에 들어가지 않는다(이웃 목록을 정렬한다). **마디 차례는 들어간다** —
+ * 덩어리를 놓는 차례와 고리의 첫 마디가 마디 차례를 따르므로, 같은 그림을 원하면 호출자가 마디를 정렬해 넘긴다.
+ */
 export function computeLayout(
   nodes: readonly LayoutNode[], edges: readonly LayoutEdge[],
 ): Map<string, Point> {

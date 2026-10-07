@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { LinkEndRef } from './types.js';
 import type { Side } from './vocab.js';
 import {
-  opticalPaths, pathBundles, redundancyWarnings, rings, traceFromCore,
+  opticalPaths, pathBundles, redundancyWarnings, reversePath, rings, traceFromCore,
   type NetworkInput, type OpticalPath,
 } from './opticalPaths.js';
 
@@ -112,16 +112,39 @@ describe('traceFromCore — 중계경로 추적', () => {
     expect(p.complete).toBe(true);
   });
 
-  it('사슬 가운데 어느 코어의 어느 끝에서 시작해도 같은 경로(같은 id·같은 방향)', () => {
+  /* 방향은 물은 코어 끝에서 바라본 대로 — 그 끝에 물린 쪽이 start, 먼 쪽이 end. id 는 방향 무관. */
+  it('같은 사슬을 양쪽 끝에서 물으면 홉이 뒤집히고 id 는 같다', () => {
+    const fromNorth = traceFromCore(net(RTU), { lineId: 'FL2', coreNo: 9, side: 'A' });
+    const fromCheorwon = traceFromCore(net(RTU), { lineId: 'HW-CW', coreNo: 37, side: 'B' });
+    expect(fromCheorwon.id).toBe(fromNorth.id);
+    expect(fromCheorwon.start?.equipmentId).toBe('RTU-철원');
+    expect(fromCheorwon.end?.equipmentId).toBe('RTU-북춘천');
+    expect(hopsOf(fromCheorwon)).toEqual(['HW-CW:37 B→A', 'HC-HW:1 B→A', 'CH-HC:20 A→B', 'FL2:9 B→A']);
+    expect(fromCheorwon.patches).toEqual(['p-화천', 'p-화천HP', 'p-춘천HP']);
+    expect(fromCheorwon).toEqual(reversePath(fromNorth));
+  });
+
+  it('사슬 가운데 코어에서 물어도 — at.side 쪽이 start', () => {
     const base = traceFromCore(net(RTU), { lineId: 'FL2', coreNo: 9, side: 'A' });
-    for (const at of [
-      { lineId: 'CH-HC', coreNo: 20, side: 'A' as const },
-      { lineId: 'CH-HC', coreNo: 20, side: 'B' as const },
-      { lineId: 'HW-CW', coreNo: 37, side: 'B' as const },
-      { lineId: 'FL2', coreNo: 9, side: 'B' as const },
-    ]) {
-      expect(traceFromCore(net(RTU), at)).toEqual(base);
-    }
+    /* CH-HC:20 의 B 끝(춘천HP)은 북춘천 쪽으로 패치돼 있다 → 북춘천이 start */
+    expect(traceFromCore(net(RTU), { lineId: 'CH-HC', coreNo: 20, side: 'B' })).toEqual(base);
+    /* 반대 끝(화천HP)에서 물으면 철원이 start */
+    expect(traceFromCore(net(RTU), { lineId: 'CH-HC', coreNo: 20, side: 'A' })).toEqual(reversePath(base));
+    /* 같은 코어라도 먼 끝에서 물으면 뒤집힌다 */
+    expect(traceFromCore(net(RTU), { lineId: 'FL2', coreNo: 9, side: 'B' })).toEqual(reversePath(base));
+  });
+
+  it('reversePath — 끝·홉(from/to)·패치를 뒤집고 id 는 그대로, 두 번이면 제자리', () => {
+    const p = traceFromCore(net(RTU), { lineId: 'FL2', coreNo: 9, side: 'A' });
+    const r = reversePath(p);
+    expect(r.id).toBe(p.id);
+    expect(r.start).toEqual(p.end);
+    expect(r.end).toEqual(p.start);
+    expect(hopsOf(r)).toEqual(['HW-CW:37 B→A', 'HC-HW:1 B→A', 'CH-HC:20 A→B', 'FL2:9 B→A']);
+    expect(r.patches).toEqual([...p.patches].reverse());
+    expect(r.role).toBe(p.role);
+    expect(r.complete).toBe(p.complete);
+    expect(reversePath(r)).toEqual(p);
   });
 
   it('빈 코어 끝이면 경로 미완결 — 끝이 null', () => {
@@ -192,7 +215,7 @@ describe('traceFromCore — 중계경로 추적', () => {
         { id: 'p-mcr2', a: core('MCR', 3, 'B'), b: core('CH-HC', 20, 'B') },
       ],
     };
-    const p = traceFromCore(net(fx), { lineId: 'MCR', coreNo: 3, side: 'B' });
+    const p = traceFromCore(net(fx), { lineId: 'MCR', coreNo: 3, side: 'A' });
     expect(hopsOf(p)).toEqual(['FL2:9 A→B', 'MCR:3 A→B', 'CH-HC:20 B→A', 'HC-HW:1 A→B', 'HW-CW:37 A→B']);
     expect(p.patches).toEqual(['p-mcr1', 'p-mcr2', 'p-화천HP', 'p-화천']);
     expect(p.complete).toBe(true);
@@ -245,6 +268,18 @@ describe('opticalPaths — 설비 끝에서 출발하는 모든 사슬', () => {
     const ps = opticalPaths(net(RTU));
     expect(ps).toHaveLength(1);
     expect(ps[0]).toEqual(traceFromCore(net(RTU), { lineId: 'HW-CW', coreNo: 37, side: 'A' }));
+  });
+
+  /* 정규 방향에서 빈 끝은 언제나 end 쪽 — 콜레이터가 기호를 글자 앞에 놓아도. */
+  it('미완결 사슬은 설비 끝이 start, 빈 끝이 end', () => {
+    for (const drop of ['k-end', 'k-start']) {
+      const fx: Fx = { ...RTU, links: RTU.links.filter((l) => l.id !== drop) };
+      const [p] = opticalPaths(net(fx));
+      expect(p!.complete).toBe(false);
+      expect(p!.start).not.toBeNull();
+      expect(p!.end).toBeNull();
+      expect(p!.id).toBe(traceFromCore(net(fx), { lineId: 'FL2', coreNo: 9, side: 'B' }).id);
+    }
   });
 
   it('빈 끝으로 끝나는 사슬도 담는다(미완결)', () => {

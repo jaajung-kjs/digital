@@ -100,10 +100,15 @@ function follow(ix: Index, from: { lineId: string; no: number; side: Side }, vis
   }
 }
 
-const endKey = (e: PathEnd | null) => (e ? `${e.equipmentId}#${e.port ?? ''}` : '~');
+const endKey = (e: PathEnd) => `${e.equipmentId}#${e.port ?? ''}`;
 const hopKey = (h: PathHop) => `${h.lineId}:${h.coreNo}:${h.from}${h.to}`;
+/** 끝 비교 — 빈 끝(null)은 **명시적으로** 뒤. (문자 표지로 두면 콜레이터가 기호를 글자 앞에 놓는다.) */
+const cmpEnd = (a: PathEnd | null, b: PathEnd | null) =>
+  a === null ? (b === null ? 0 : 1) : b === null ? -1 : cmp(endKey(a), endKey(b));
 
-function reversed(p: Omit<OpticalPath, 'id'>): Omit<OpticalPath, 'id'> {
+type Body = Omit<OpticalPath, 'id'>;
+
+function reversedBody<T extends Body>(p: T): T {
   return {
     ...p,
     start: p.end,
@@ -113,20 +118,38 @@ function reversed(p: Omit<OpticalPath, 'id'>): Omit<OpticalPath, 'id'> {
   };
 }
 
-/**
- * 방향을 못 박는다 — 끝 키가 앞서는 쪽이 start(빈 끝은 뒤로), 끝이 같으면 홉 열이 앞서는 쪽.
- * 그래서 사슬의 어느 코어 어느 끝에서 추적해도 같은 경로(같은 id·같은 방향)가 나온다.
- */
-function canonical(p: Omit<OpticalPath, 'id'>): OpticalPath {
-  const r = reversed(p);
-  const sig = (x: Omit<OpticalPath, 'id'>) => [endKey(x.start), endKey(x.end), x.hops.map(hopKey).join(',')];
-  const [a, b] = [sig(p), sig(r)];
-  const order = cmp(a[0]!, b[0]!) || cmp(a[1]!, b[1]!) || cmp(a[2]!, b[2]!);
-  const pick = order <= 0 ? p : r;
-  const s = sig(pick);
-  return { id: `path:${s[0]}|${s[2]}|${s[1]}`, ...pick };
+/** 같은 경로를 반대 방향으로 — 끝·홉(from/to 포함)·패치 순서를 뒤집는다. id 는 방향과 무관하므로 그대로. */
+export function reversePath(p: OpticalPath): OpticalPath {
+  return reversedBody(p);
 }
 
+/**
+ * 정규 방향 — start 끝이 앞서는 쪽(빈 끝은 뒤), 같으면 end 끝, 그래도 같으면 홉 열이 앞서는 쪽.
+ * `opticalPaths` 의 방향이고, id 는 언제나 이 방향으로 만든다(그래서 어느 쪽에서 추적해도 같은 id).
+ */
+function isCanonical(p: Body): boolean {
+  const r = reversedBody(p);
+  const hops = (x: Body) => x.hops.map(hopKey).join(',');
+  return (cmpEnd(p.start, r.start) || cmpEnd(p.end, r.end) || cmp(hops(p), hops(r))) <= 0;
+}
+
+function pathId(p: Body): string {
+  const c = isCanonical(p) ? p : reversedBody(p);
+  const k = (e: PathEnd | null) => (e ? endKey(e) : '~');
+  return `path:${k(c.start)}|${c.hops.map(hopKey).join(',')}|${k(c.end)}`;
+}
+
+function canonical(p: OpticalPath): OpticalPath {
+  return isCanonical(p) ? p : reversePath(p);
+}
+
+/**
+ * 추적 — **물은 코어 끝에서 바라본 방향**으로 돌려준다.
+ * - `start` = `at.side` 끝에 걸린 연결 쪽으로 거슬러 가서 닿은 끝(이 국 끝에 물린 설비, 패치면 그 너머)
+ * - 홉은 그 끝에서 출발해 물은 코어를 `at.side` → 반대 끝으로 지나 먼 끝으로 간다
+ * - `end` = 반대 끝 너머로 따라가 닿은 끝
+ * id 만은 방향과 무관하다(정규 방향으로 만든다).
+ */
 function trace(ix: Index, at: { lineId: string; coreNo: number; side: Side }): OpticalPath {
   const visited = new Set([coreId(at.lineId, at.coreNo)]);
   const first: PathHop = { lineId: at.lineId, coreNo: at.coreNo, from: at.side, to: flip(at.side) };
@@ -141,22 +164,23 @@ function trace(ix: Index, at: { lineId: string; coreNo: number; side: Side }): O
   const roles = new Set(hops.map((h) => ix.role.get(coreId(h.lineId, h.coreNo)) ?? null));
   const only = roles.size === 1 ? [...roles][0]! : null;
   const cyclic = fwd.cyclic || back.cyclic;
-  return canonical({
+  const body: Body = {
     start: back.end,
     end: fwd.end,
     hops,
     patches: [...[...back.patches].reverse(), ...fwd.patches],
     role: only === 'main' || only === 'backup' ? only : null,
     complete: back.end !== null && fwd.end !== null && !cyclic,
-  });
+  };
+  return { id: pathId(body), ...body };
 }
 
-/** 한 코어(그 끝)에서 양방향으로 추적한 중계경로. */
+/** 한 코어 끝에서 양방향으로 추적한 중계경로 — 방향은 그 끝에서 바라본 대로(`trace` 참고), id 는 방향 무관. */
 export function traceFromCore(net: NetworkInput, at: { lineId: string; coreNo: number; side: Side }): OpticalPath {
   return trace(index(net), at);
 }
 
-/** 설비(·차단기) 끝 ↔ 코어 끝 연결마다 출발한 모든 사슬 — 같은 사슬은 하나로, id 순. */
+/** 설비(·차단기) 끝 ↔ 코어 끝 연결마다 출발한 모든 사슬 — 같은 사슬은 하나로, 정규 방향(빈 끝은 end 쪽), id 순. */
 export function opticalPaths(net: NetworkInput): OpticalPath[] {
   const ix = index(net);
   const out = new Map<string, OpticalPath>();
@@ -165,7 +189,7 @@ export function opticalPaths(net: NetworkInput): OpticalPath[] {
       if (self.kind !== 'core' || other.kind === 'core') continue;
       /* 같은 사슬은 어느 끝에서 추적해도 같은 id 다 — 건너뛰지 않고 모두 추적해 id 로 합친다
          (어긋난 자료에서도 결과가 입력 차례에 매이지 않게). */
-      const p = trace(ix, { lineId: self.lineId, coreNo: self.no, side: self.side });
+      const p = canonical(trace(ix, { lineId: self.lineId, coreNo: self.no, side: self.side }));
       out.set(p.id, p);
     }
   }
@@ -221,7 +245,11 @@ export function rings(bundles: PathBundle[]): { id: string; equipmentIds: string
     .sort((x, y) => cmp(x.id, y.id));
 }
 
-/** 같은 설비 쌍의 주 묶음과 예비 묶음이 광선로를 하나라도 함께 지나면 — 물리 이중화가 아니다. */
+/**
+ * 같은 설비 쌍의 주 묶음과 예비 묶음이 광선로를 하나라도 함께 지나면 — 물리 이중화가 아니다.
+ * 같은 국 안 광선로(두 끝 국이 같은 것, 예: 춘천HP MCR실)도 똑같이 센다 — 스펙은 「같은 광선로를 지나면」이고
+ * 국 안 선로라도 한 케이블이 끊기면 주·예비가 함께 끊긴다.
+ */
 export function redundancyWarnings(bundles: PathBundle[]): { a: string; b: string; sharedLineIds: string[]; mainBundle: string; backupBundle: string }[] {
   const sorted = [...bundles].sort((x, y) => cmp(x.id, y.id));
   const out: { a: string; b: string; sharedLineIds: string[]; mainBundle: string; backupBundle: string }[] = [];
