@@ -2,10 +2,13 @@ import { useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Side } from '@twin/core';
 
-/** 작업 공간이 보여 줄 수 있는 판 — 계통은 ④ 에서 돌아온다. */
-export type ViewMode = '현황' | '선번장' | '평면도';
+/** 작업 공간이 보여 줄 수 있는 판. */
+export type ViewMode = '현황' | '선번장' | '전원 계통' | '평면도';
 
-export const VIEW_MODES: readonly ViewMode[] = ['현황', '선번장', '평면도'];
+export const VIEW_MODES: readonly ViewMode[] = ['현황', '선번장', '전원 계통', '평면도'];
+
+/** 전원 계통 안의 보기 — 차단기 대장(`ledger`) · 계통도(`tree`). */
+export type PowerView = 'ledger' | 'tree';
 
 /** 선번장 블록 하나 — 광선로와 그 국 쪽 끝. */
 export interface BlockFocus { lineId: string; side: Side }
@@ -20,6 +23,7 @@ const isView = (v: string | null): v is ViewMode => v != null && (VIEW_MODES as 
  *
  *     /n/<조직·국 id>?view=평면도&eq=<설비>&rack=<랙>
  *     /n/<국 id>?view=선번장&line=<광선로>&side=<A|B>
+ *     /n/<국 id>?view=전원 계통&power=<ledger|tree>&supply=<공급 설비>
  *
  * 북마크·공유·새로고침 복원·뒤로가기가 모두 이 한 곳에서 선다. 케이블을 잇는 중이라거나
  * 추적 결과 같은 한 번짜리 명령은 담지 않는다 — 링크를 연 사람이 영문 모를 도구가 켜진
@@ -121,6 +125,33 @@ export function useWorkspaceRoute() {
     [setParams],
   );
 
+  /** 전원 계통의 보기 전환 — 판 바꾸기와 같이 기록을 남기지 않는다. 기본(대장)은 주소에 적지 않는다. */
+  const setPowerView = useCallback(
+    (next: PowerView) => {
+      setParams((prev) => {
+        const p = new URLSearchParams(prev);
+        if (next === 'ledger') p.delete('power'); else p.set('power', next);
+        return p;
+      }, { replace: true });
+    },
+    [setParams],
+  );
+
+  /**
+   * 차단기 대장의 블록 하나를 고른다 — 그 공급 설비를 상세로 열고(`eq`) 블록 초점(`supply`)을 **한 번의 주소 쓰기**로.
+   * null 이면 블록 초점만 놓는다.
+   */
+  const selectSupply = useCallback(
+    (id: string | null) => {
+      setParams((prev) => {
+        const p = new URLSearchParams(prev);
+        if (id) { p.set('supply', id); p.set('eq', id); p.delete('rack'); } else p.delete('supply');
+        return p;
+      }, { replace: true });
+    },
+    [setParams],
+  );
+
   const eqId = params.get('eq');
   const rackId = params.get('rack');
   const lineParam = params.get('line');
@@ -130,9 +161,15 @@ export function useWorkspaceRoute() {
     [lineParam, sideParam],
   );
 
+  const power: PowerView = params.get('power') === 'tree' ? 'tree' : 'ledger';
+  const supply = params.get('supply');
+
   /* 같은 객체로 유지한다 — 의존성에 넣은 콜백·캔버스가 매 렌더 다시 만들어지지 않게. */
   return useMemo(
-    () => ({ nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment }),
-    [nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment],
+    () => ({
+      nodeId, view, eqId, rackId, block, power, supply,
+      selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment, setPowerView, selectSupply,
+    }),
+    [nodeId, view, eqId, rackId, block, power, supply, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment, setPowerView, selectSupply],
   );
 }

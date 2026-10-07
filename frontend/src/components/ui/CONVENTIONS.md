@@ -568,6 +568,7 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
   <tr>{/* 열 머리 */}</tr>
 </thead>
 ```
+메타 하나가 눈길을 끌어야 하는 사실이면(차단기 대장의 「입력 전원 미확인」) `{ text, tone: 'warning' }` 로 준다 — 손으로 칸을 짜지 않는다.
 `TableGroupHeadButton variant="link"` 은 **다른 곳으로 가는** 이름(밑줄·강조색 — 선번장 접속 설비 이름 → 그 설비 상세), `plain` 은 제자리에서 그 묶음을 고르는 글자다.
 
 ### 표의 열은 어휘·선언에서 나온다 — 화면이 키를 알지 않는다

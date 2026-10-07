@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CIRCUIT_CURRENTS, SWITCH_STATES, type CircuitCurrent, type SwitchState } from '@twin/core';
 import { Button, SELECTED, TABLE_ROW, TableCard, Td, Th, cn } from '../../../components/ui';
 import { effectiveCircuits, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Circuit } from '../../model/types';
-import { InlineEditCell } from '../InlineEditCell';
+import { CircuitCell, type CircuitField } from './CircuitCell';
 import { ConnectDialog } from './ConnectDialog';
 import { circuitLink, endLabel } from './endpoints';
 
 const WIDTHS = [5, 22, 8, 9, 8, 6, 8, 12, 22];
-
-type TextField = 'label' | 'voltage' | 'capacity' | 'phase' | 'purpose';
 
 /**
  * 설비의 차단기 1..N 표 — **차단기 편집 창(`BreakerEditor`) 안에서만** 쓴다(좁은 패널에 9열 표를 두면 글자가
@@ -31,26 +28,8 @@ export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: str
     bodyRef.current?.querySelector<HTMLElement>('[aria-current="true"]')?.scrollIntoView?.({ block: 'nearest' });
   }, [focusNo]);
 
-  const set = (no: number, patch: Partial<Circuit>) => workingCopyStore.getState().updateCircuit(equipmentId, no, patch);
-  const text = (c: Circuit, field: TextField, label: string) => (
-    <InlineEditCell
-      value={c[field] ?? ''} label={label}
-      onCommit={(raw) => { const next = raw.trim() || null; if (next !== c[field]) set(c.no, { [field]: next }); }}
-    />
-  );
-  /* 갈래·개폐는 닫힌 어휘 — 칸에는 말(교류·투입)이, 변경안에는 값(AC·on)이 들어간다. */
-  const current = (c: Circuit) => (
-    <InlineEditCell
-      value={c.current ?? ''} label="교류/직류" choices={CIRCUIT_CURRENTS}
-      onCommit={(v) => { const next = (v || null) as CircuitCurrent | null; if (next !== c.current) set(c.no, { current: next }); }}
-    />
-  );
-  const switchCell = (c: Circuit) => (
-    <InlineEditCell
-      value={c.switch ?? ''} label="개폐" choices={SWITCH_STATES}
-      onCommit={(v) => { const next = (v || null) as SwitchState | null; if (next !== c.switch) set(c.no, { switch: next }); }}
-    />
-  );
+  const set = (no: number) => (patch: Partial<Circuit>) => workingCopyStore.getState().updateCircuit(equipmentId, no, patch);
+  const cell = (c: Circuit, field: CircuitField) => <CircuitCell circuit={c} field={field} onSet={set(c.no)} />;
 
   return (
     <>
@@ -64,13 +43,13 @@ export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: str
           {rows.map((c) => (
             <tr key={c.no} data-testid={`circuit-row-${c.no}`} aria-current={c.no === focusNo ? 'true' : undefined} className={cn(TABLE_ROW, c.no === focusNo && SELECTED)}>
               <Td><span data-testid="circuit-no">{c.no}</span></Td>
-              <Td>{text(c, 'label', '표기')}</Td>
-              <Td>{current(c)}</Td>
-              <Td>{text(c, 'voltage', '전압')}</Td>
-              <Td>{text(c, 'capacity', '용량')}</Td>
-              <Td>{text(c, 'phase', '상')}</Td>
-              <Td>{switchCell(c)}</Td>
-              <Td>{text(c, 'purpose', '용도')}</Td>
+              <Td>{cell(c, 'label')}</Td>
+              <Td>{cell(c, 'current')}</Td>
+              <Td>{cell(c, 'voltage')}</Td>
+              <Td>{cell(c, 'capacity')}</Td>
+              <Td>{cell(c, 'phase')}</Td>
+              <Td>{cell(c, 'switch')}</Td>
+              <Td>{cell(c, 'purpose')}</Td>
               <Td>
                 {(() => {
                   const hit = circuitLink(links, equipmentId, c.no);

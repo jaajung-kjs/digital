@@ -19,8 +19,11 @@ export function TableGroupHead({
   colSpan: number;
   /** 굵은 제목 — 글자든 `TableGroupHeadButton` 이든. 여럿이면 그대로 늘어놓는다. */
   title: ReactNode;
-  /** 흐린 메타(선로명·길이·케이블) — 빈 것은 건너뛴다. 넘치면 말줄임(전문은 title). */
-  metas?: readonly (string | null | undefined)[];
+  /**
+   * 흐린 메타(선로명·길이·케이블) — 빈 것은 건너뛴다. 넘치면 말줄임(전문은 title).
+   * 눈길을 끌어야 하는 사실(「입력 전원 미확인」)은 `{ text, tone: 'warning' }` — 흐리지 않고 경고 색이다.
+   */
+  metas?: readonly (string | { text: string; tone: 'warning' } | null | undefined)[];
   /** 오른쪽 끝 단추 — 표 줄 안이므로 `size="xs"`. */
   actions?: ReactNode;
   /** 칸 테두리 같은 꾸밈(고정 머리의 바닥 그림자 등). */
@@ -32,9 +35,14 @@ export function TableGroupHead({
       <Th colSpan={colSpan} bare className={className}>
         <span data-testid={rest['data-testid']} className="flex min-w-0 items-center gap-3">
           <span className="flex shrink-0 items-center gap-1.5 text-sm font-semibold text-content">{title}</span>
-          {metas.filter((m): m is string => !!m).map((m, i) => (
-            <span key={i} className="min-w-0 truncate font-normal text-content-muted" title={m}>{m}</span>
-          ))}
+          {metas.filter((m) => !!m).map((m, i) => {
+            const meta = typeof m === 'string' ? { text: m, tone: null } : m!;
+            return (
+              <span key={i} className={cn('min-w-0 truncate font-normal', meta.tone === 'warning' ? 'text-warning' : 'text-content-muted')} title={meta.text}>
+                {meta.text}
+              </span>
+            );
+          })}
           {actions && (
             <span className="sticky right-0 ml-auto flex shrink-0 items-center gap-1 bg-surface-2 pl-2">{actions}</span>
           )}

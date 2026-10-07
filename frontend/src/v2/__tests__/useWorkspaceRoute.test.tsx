@@ -29,8 +29,8 @@ describe('useWorkspaceRoute', () => {
     expect(at('/n/sub-1?view=설비 현황').result.current.view).toBe('현황');
   });
 
-  it('선번장 — 판 차례는 현황 · 선번장 · 평면도, 블록 초점은 line·side 가 쥔다', () => {
-    expect(VIEW_MODES).toEqual(['현황', '선번장', '평면도']);
+  it('선번장 — 판 차례는 현황 · 선번장 · 전원 계통 · 평면도, 블록 초점은 line·side 가 쥔다', () => {
+    expect(VIEW_MODES).toEqual(['현황', '선번장', '전원 계통', '평면도']);
     const { result } = at('/n/sub-1?view=선번장&line=L1&side=B');
     expect(result.current).toMatchObject({ view: '선번장', block: { lineId: 'L1', side: 'B' } });
     act(() => result.current.focusBlock(null));
@@ -71,5 +71,17 @@ describe('useWorkspaceRoute', () => {
     expect(result.current).toMatchObject({ eqId: null, rackId: 'r1' });
     act(() => result.current.selectEquipment('e2'));
     expect(result.current).toMatchObject({ eqId: 'e2', rackId: null });
+  });
+
+  it('전원 계통 — 보기는 power(기본 대장), 블록은 supply 이고 고르면 그 설비도 상세로(eq)', () => {
+    const { result } = at('/n/sub-1?view=전원 계통&rack=r1');
+    expect(result.current).toMatchObject({ view: '전원 계통', power: 'ledger', supply: null });
+    act(() => result.current.setPowerView('tree'));
+    expect(result.current.power).toBe('tree');
+    act(() => result.current.selectSupply('d1'));
+    expect(result.current).toMatchObject({ supply: 'd1', eqId: 'd1', rackId: null, power: 'tree' });
+    act(() => result.current.selectSupply(null));
+    expect(result.current).toMatchObject({ supply: null, eqId: 'd1' });
+    expect(at('/n/sub-1?view=전원 계통&power=zzz').result.current.power).toBe('ledger');
   });
 });

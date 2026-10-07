@@ -20,10 +20,13 @@ import { EquipmentDetail } from '../components/equipment/EquipmentDetail';
 import { RackDetail } from '../components/equipment/RackDetail';
 import { RackPlanView } from '../components/plan/RackPlanView';
 import { LineSheetView } from '../components/lines/LineSheetView';
+import { PowerView } from '../components/power/PowerView';
 import { EquipmentPlaceholder } from './workspace/EquipmentPlaceholder';
 
 const VIEW_TABS: readonly TabItem<ViewMode>[] = VIEW_MODES.map((v) => ({ key: v, label: v }));
 const NO_ROWS: StatusRow[] = [];
+/** 넓은 표가 판의 주인인 판 — 상세 레일은 고른 것이 있을 때만 선다. */
+const WIDE_TABLE_VIEWS: ReadonlySet<ViewMode> = new Set<ViewMode>(['선번장', '전원 계통']);
 
 /**
  * 작업 공간 — 조직 트리에서 국을 고르면 **그 국을 들를 뿐**이다(`ensureLoaded`). 확인 상자도 버리기도
@@ -122,7 +125,7 @@ export default function V2WorkspacePage() {
         </CollapsibleRail>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
           {selected == null ? (
-            <EmptyState title="선택된 조직/변전소가 없습니다" description="왼쪽에서 변전소를 선택하면 현황·선번장·평면도를 조회할 수 있습니다." />
+            <EmptyState title="선택된 조직/변전소가 없습니다" description="왼쪽에서 변전소를 선택하면 현황·선번장·전원 계통·평면도를 조회할 수 있습니다." />
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               <PageHeader
@@ -162,6 +165,16 @@ export default function V2WorkspacePage() {
                         onFocus={route.focusBlock}
                         onOpenEquipment={route.openEquipment}
                       />
+                    ) : substationId && route.view === '전원 계통' ? (
+                      <PowerView
+                        substationId={substationId}
+                        view={route.power}
+                        onView={route.setPowerView}
+                        focus={route.supply}
+                        selectedEquipmentId={route.eqId}
+                        onSelectSupply={route.selectSupply}
+                        onSelectEquipment={route.selectEquipment}
+                      />
                     ) : (
                       <StatusView
                         rows={rows}
@@ -176,9 +189,9 @@ export default function V2WorkspacePage() {
                         onOpenElsewhere={nodeScope ? (r) => navigate(`/n/${r.substationId}?eq=${r.id}`) : undefined}
                       />
                     )}
-                    {/* 선번장은 12열 표가 우선이다 — 1280 에서 레일까지 세우면 표가 가로로 넘친다. 그래서 고른 것이
+                    {/* 선번장·전원 계통은 12열 표가 우선이다 — 1280 에서 레일까지 세우면 표가 가로로 넘친다. 그래서 고른 것이
                         있을 때만 상세가 선다(다른 판은 레일이 늘 있다, §1.7-e). */}
-                    {substationId && (route.view !== '선번장' || route.eqId || route.rackId) && (
+                    {substationId && (!WIDE_TABLE_VIEWS.has(route.view) || route.eqId || route.rackId) && (
                       <aside className="flex h-full w-[364px] shrink-0 flex-col">
                         {route.eqId ? (
                           <EquipmentDetail key={route.eqId} equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} onOpenBlock={route.openBlock} />
