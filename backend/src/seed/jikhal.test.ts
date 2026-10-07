@@ -147,27 +147,36 @@ describe('buildJikhalPayload — 코어 용도·상태·비고(OFD 선번장)', 
   const seg = OPGW.findIndex((s) => s.a === 'guchuncheon' && s.aSlot === 2 && s.b === 'bukchuncheon' && s.bSlot === 1);
   const core = (no: number) => updates.find((u) => u.lineId === lines[seg]!.id && u.no === no)?.patch;
 
-  it('코어 3 — 두 시트가 다르면 A 끝((구)춘천 No.27) 값, 북춘천 값은 비고에 덧붙인다', () => {
-    expect(core(3)).toEqual({
-      status: 'ok', purpose: '소형광 · PTP(춘천-북춘천) EAST', note: '(북춘천S/S 시트: 소형광 · PTP(춘천-북춘천) WEST)',
-    });
+  const blank = { aPurpose: null, aNote: null, bPurpose: null, bNote: null };
+
+  it('코어 3 — 용도는 끝별: (구)춘천 끝(A, No.27)은 EAST, 북춘천 끝(B)은 WEST', () => {
+    expect(core(3)).toEqual({ ...blank, status: 'ok', aPurpose: '소형광 · PTP(춘천-북춘천) EAST', bPurpose: '소형광 · PTP(춘천-북춘천) WEST' });
   });
 
-  it('코어 1 — 회선수용내역의 「단선(융착) …」 은 상태 broken, 원문은 비고로', () => {
+  it('코어 1 — 「단선(융착) …」 은 공유 상태 broken, 원문은 각 끝 비고로', () => {
     expect(core(1)).toEqual({
-      status: 'broken', purpose: null,
-      note: '단선(융착) / 북춘천변전소 OFD 내 융착으로 인한 단선 / (구)kepcit 10G · (북춘천S/S 시트: 단선(융착) / 춘천계1,2-춘천HP계 11,12)',
+      ...blank, status: 'broken',
+      aNote: '단선(융착) / 북춘천변전소 OFD 내 융착으로 인한 단선 / (구)kepcit 10G',
+      bNote: '단선(융착) / 춘천계1,2-춘천HP계 11,12',
     });
   });
 
-  it('코어 21~24 — 북춘천 판 1 비고 「실제 21~24코어는 사용불가」 가 범위 전부를 사용불가로', () => {
+  it('코어 21~24 — 북춘천 판 1 비고 「실제 21~24코어는 사용불가」: 상태는 공유 unusable, 비고는 북춘천 끝에만', () => {
     for (const no of [21, 22, 23, 24]) {
-      expect(core(no)).toEqual({ status: 'unusable', purpose: null, note: '실제 21~24코어는 사용불가. 그 아래 FDF의 3~6코어만 사용 가능' });
+      expect(core(no)).toEqual({ ...blank, status: 'unusable', bNote: '실제 21~24코어는 사용불가. 그 아래 FDF의 3~6코어만 사용 가능' });
     }
   });
 
-  it('코어 17 — 공백만 다른 용도는 같은 값으로 본다(A 값), B 의 비고는 A 에 비고가 없으면 그대로', () => {
-    expect(core(17)).toEqual({ status: 'ok', purpose: '차세대KepCIT · 차세대KepCIT 강원#1링 (화천B/O-본부)', note: '라벨링 필요' });
+  it('코어 17 — 끝마다 제 시트 글 그대로(공백 차이도 보존), 비고도 그 끝에만', () => {
+    expect(core(17)).toEqual({
+      ...blank, status: 'ok',
+      aPurpose: '차세대KepCIT · 차세대KepCIT 강원#1링 (화천B/O-본부)',
+      bPurpose: '차세대KepCIT · 차세대KepCIT 강원#1링(화천B/O-본부)', bNote: '라벨링 필요',
+    });
+  });
+
+  it('비고에 다른 국 시트 덧붙임이 없다', () => {
+    for (const u of updates) for (const n of [u.patch.aNote, u.patch.bNote]) expect(n ?? '').not.toMatch(/시트:/);
   });
 
   it('값이 없는 코어는 updates 에 없다, 있는 코어는 선로 코어 수 안이다', () => {

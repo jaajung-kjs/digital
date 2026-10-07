@@ -5,12 +5,12 @@
  * 들어간다. 페이로드를 짓는 부분은 순수 함수라 DB 없이 시험한다.
  */
 import { randomUUID } from 'node:crypto';
-import { CORE_STATUSES, SEED_PICKS, type InvEnd, type StationInventory } from '@twin/core';
+import { SEED_PICKS, type InvEnd, type StationInventory } from '@twin/core';
 import { commitChanges } from '../v2/commit/service.js';
 import type { CommitPayload } from '../v2/commit/schema.js';
 import { nextDb } from '../v2/db.js';
 import { OPGW, STATIONS, seatedPlates, type StationKey } from './jikhalGangwon.js';
-import { PLATE_CORES, type PlateCore } from './jikhalGangwonCores.js';
+import { PLATE_CORES } from './jikhalGangwonCores.js';
 import { PLATE_LINES, type PlateLine } from './jikhalGangwonLines.js';
 
 const FLOOR = '3층';
@@ -42,34 +42,25 @@ function measurementsOf(line: PlateLine | undefined, lineId: string, side: 'A' |
 }
 
 type CoreUpdates = NonNullable<NonNullable<CommitPayload['cores']>['updates']>;
-const STATUS_LABEL: Record<PlateCore['status'], string> = Object.fromEntries(CORE_STATUSES.map((s) => [s.value, s.label])) as Record<PlateCore['status'], string>;
-const STATION_NAME = new Map<StationKey, string>(STATIONS.map((s) => [s.key, s.name]));
-const same = (x: string, y: string) => x.replace(/\s+/g, '') === y.replace(/\s+/g, '');
 
 /**
- * 한 광선로의 코어 값 — 두 끝 판(A·B 국 시트)의 선번장 값을 합친다. 코어 행은 공유라 값은 하나다:
- * 칸마다 **A 끝 값이 우선**, A 가 비었으면(상태 정상·용도/비고 없음) B 값. 둘 다 적혔는데 다르면
- * (공백만 다른 것은 같다) B 값을 비고 끝에 `(<B국> 시트: …)` 로 덧붙인다.
+ * 한 광선로의 코어 값 — 용도·비고는 **끝별**이다: A 끝 국 시트의 값은 aPurpose·aNote, B 끝 국 시트의
+ * 값은 bPurpose·bNote(현장 선번장은 국마다 제 쪽에서 적는다 — Tx/Rx·EAST/WEST 가 끝마다 다르다).
+ * 상태는 공유라 한 쪽이라도 단선·사용불가면 그것(둘 다 정상이 아니면 A 쪽). 까닭 글은 이미 그 끝의
+ * 비고에 있다(추출 규칙: 상태 원문은 비고 앞에).
  */
 function coreUpdatesOf(seg: (typeof OPGW)[number], lineId: string): CoreUpdates {
   const byNo = (key: StationKey, slot: number) => new Map((PLATE_CORES[key]?.[slot] ?? []).map((c) => [c.no, c]));
   const as = byNo(seg.a, seg.aSlot);
   const bs = byNo(seg.b, seg.bSlot);
-  const bName = STATION_NAME.get(seg.b)!;
   return [...new Set([...as.keys(), ...bs.keys()])].sort((x, y) => x - y).map((no) => {
     const a = as.get(no);
     const b = bs.get(no);
     const status = a && a.status !== 'ok' ? a.status : b?.status ?? 'ok';
-    const purpose = a?.purpose ?? b?.purpose ?? null;
-    const note = a?.note ?? b?.note ?? null;
-    const differs: string[] = [];
-    if (a && b) {
-      if (a.status !== 'ok' && b.status !== 'ok' && a.status !== b.status) differs.push(STATUS_LABEL[b.status]);
-      if (a.purpose && b.purpose && !same(a.purpose, b.purpose)) differs.push(b.purpose);
-      if (a.note && b.note && !same(a.note, b.note)) differs.push(b.note);
-    }
-    const notes = [note, differs.length > 0 ? `(${bName} 시트: ${differs.join(' · ')})` : null].filter((x): x is string => x != null);
-    return { lineId, no, patch: { status, purpose, note: notes.length > 0 ? notes.join(' · ') : null } };
+    return {
+      lineId, no,
+      patch: { status, aPurpose: a?.purpose ?? null, aNote: a?.note ?? null, bPurpose: b?.purpose ?? null, bNote: b?.note ?? null },
+    };
   });
 }
 

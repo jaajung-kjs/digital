@@ -28,7 +28,7 @@ type RecordKind = 'maintenance' | 'inspections' | 'photos';
 const LINK_FIELDS = ['cableTypeId', 'lengthM', 'spec', 'note', 'pathPoints'] as const;
 const LINE_FIELDS = ['cableTypeId', 'coreCount', 'name', 'lengthKm', 'segments'] as const;
 const CIRCUIT_FIELDS = ['label', 'current', 'voltage', 'capacity', 'phase', 'switch', 'purpose'] as const satisfies readonly (keyof Circuit & keyof CircuitPatch)[];
-const CORE_FIELDS = ['status', 'role', 'purpose', 'note'] as const satisfies readonly (keyof Core & keyof CorePatch)[];
+const CORE_FIELDS = ['status', 'role', 'aPurpose', 'aNote', 'bPurpose', 'bNote'] as const satisfies readonly (keyof Core & keyof CorePatch)[];
 
 function ops<T, C, P extends object>(o: Overlay<T>, toCreate: (r: T) => C, toPatch: (p: Partial<T>) => P): CommitOps<C, P> | undefined {
   const creates = Object.values(o.creates).map(toCreate);

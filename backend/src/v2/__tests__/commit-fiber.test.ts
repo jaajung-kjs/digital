@@ -59,7 +59,7 @@ describe('PUT /commit — 광선로·코어·측정·연결', () => {
     await commit({
       fiberLines: { creates: [{ id: lineId, cableTypeId: m.fiberCableId, coreCount: 12,
         a: { substationId: org.s1, equipmentId: site.s1.ofd, panel: 3 }, b: { substationId: org.s2, equipmentId: site.s2.ofd, panel: 6 } }] },
-      cores: { updates: [{ lineId, no: 5, patch: { role: 'main', purpose: 'PTP 시험 WEST' } }] },
+      cores: { updates: [{ lineId, no: 5, patch: { role: 'main', aPurpose: 'PTP 시험 WEST' } }] },
       links: { creates: [
         { id: randomUUID(), substationId: org.s1, cableTypeId: m.commCableId, a: { kind: 'core', lineId, no: 5, side: 'A' }, b: { kind: 'equipment', equipmentId: site.s1.dev, label: 'C1 WEST Tx' } },
         { id: randomUUID(), substationId: org.s2, cableTypeId: m.commCableId, a: { kind: 'core', lineId, no: 5, side: 'B' }, b: { kind: 'equipment', equipmentId: site.s2.dev, label: 'C2 EAST Rx' } },
@@ -67,6 +67,7 @@ describe('PUT /commit — 광선로·코어·측정·연결', () => {
     }).expect(200);
     const core = await nextDb.core.findUniqueOrThrow({ where: { lineId_no: { lineId, no: 5 } }, include: { linkEnds: true } });
     expect(core.role).toBe('main');
+    expect([core.aPurpose, core.bPurpose]).toEqual(['PTP 시험 WEST', null]);
     expect(core.linkEnds.map((e) => e.coreSide).sort()).toEqual(['A', 'B']);
   });
 

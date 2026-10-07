@@ -86,7 +86,7 @@ describe('buildCommitPayload', () => {
   it('지운 광선로의 코어 값 고치기·측정은 싣지 않는다', () => {
     const st = store.getState();
     st.applyOverlays((o) => ({ ...o, fiberLines: { ...o.fiberLines, deletes: ['L1'] } }));
-    st.updateCore('L1', 1, { note: 'x' });
+    st.updateCore('L1', 1, { aNote: 'x' });
     store.setState((s) => ({ saved: { ...s.saved, fiberLines: [LINE] } }));
     store.getState().create('coreMeasurements', { id: 'cm1', lineId: 'L1', coreNo: 1, measuredOn: '2026-10-01', side: 'A', loss1310: null, dist1310: null, loss1550: null, dist1550: null, measuredBy: null, updatedAt: '' } as never);
     const p = buildCommitPayload(store.getState()) as { cores?: unknown; coreMeasurements?: unknown };

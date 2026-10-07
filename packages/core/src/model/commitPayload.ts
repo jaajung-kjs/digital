@@ -62,7 +62,11 @@ export interface FiberLinePatch {
   a?: LineEndInput; b?: LineEndInput;
 }
 
-export interface CorePatch { status?: CoreStatus; role?: Opt<CoreRole>; purpose?: Opt<string>; note?: Opt<string> }
+/** 상태·주/예비는 공유, 용도·비고는 끝별(A·B). */
+export interface CorePatch {
+  status?: CoreStatus; role?: Opt<CoreRole>;
+  aPurpose?: Opt<string>; aNote?: Opt<string>; bPurpose?: Opt<string>; bNote?: Opt<string>;
+}
 export interface CoreUpdate { lineId: string; no: number; patch: CorePatch }
 
 export interface MeasurementPatch {

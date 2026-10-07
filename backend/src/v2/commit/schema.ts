@@ -84,7 +84,7 @@ const fiberLinePatch = z.object({
 /* ── 코어 — 자연 키. ── */
 const coreUpdate = z.object({
   lineId: id, no: z.number().int().min(1),
-  patch: z.object({ status: values(CORE_STATUSES).optional(), role: values(CORE_ROLES).nullable().optional(), purpose: text, note: text }),
+  patch: z.object({ status: values(CORE_STATUSES).optional(), role: values(CORE_ROLES).nullable().optional(), aPurpose: text, aNote: text, bPurpose: text, bNote: text }),
 });
 
 /* ── 측정 ── */

@@ -30,7 +30,7 @@ export function effectiveCircuits(s: S, equipmentId: string): Circuit[] {
   return create.map((no) => ({ ...(savedRows.get(no) ?? blankCircuit(equipmentId, no)), ...s.overlays.circuits[circuitKey(equipmentId, no)] }));
 }
 
-const blankCore = (lineId: string, no: number): Core => ({ lineId, no, status: DEFAULT_CORE_STATUS, role: null, purpose: null, note: null, updatedAt: '' });
+const blankCore = (lineId: string, no: number): Core => ({ lineId, no, status: DEFAULT_CORE_STATUS, role: null, aPurpose: null, aNote: null, bPurpose: null, bNote: null, updatedAt: '' });
 
 export function effectiveCores(s: S, lineId: string): Core[] {
   const line = effectiveRows(s, 'fiberLines').find((l) => l.id === lineId);

@@ -38,7 +38,8 @@ export interface CoreMeasurement {
 
 export interface Core {
   lineId: string; no: number; status: CoreStatus; role: CoreRole | null;
-  purpose: string | null; note: string | null; updatedAt: string;
+  /** 용도·비고는 끝별(A·B) — 상태·주/예비는 공유. */
+  aPurpose: string | null; aNote: string | null; bPurpose: string | null; bNote: string | null; updatedAt: string;
 }
 
 export interface FiberLine {

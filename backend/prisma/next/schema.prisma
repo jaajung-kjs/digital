@@ -258,8 +258,11 @@ model Core {
   no           Int
   status       String            @default("ok")
   role         String?
-  purpose      String?
-  note         String?
+  /// 용도·비고는 끝별 — 현장 선번장은 국마다 제 쪽에서 적는다(Tx/Rx·EAST/WEST 가 끝마다 다르다).
+  aPurpose     String?
+  aNote        String?
+  bPurpose     String?
+  bNote        String?
   measurements CoreMeasurement[]
   linkEnds     LinkEnd[]
   updatedAt    DateTime          @updatedAt
