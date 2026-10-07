@@ -46,14 +46,17 @@ interface LinkIn { id: string; substationId: string; cableTypeId: string | null;
 /** 이름 자연 순서 — 한 번 만들어 모든 비교가 함께 쓴다. */
 const NAME_ORDER = new Intl.Collator('ko', { numeric: true });
 
-export function powerTree(input: {
+export interface PowerInput {
   substationId: string;
   equipment: EquipmentIn[];
   circuits: CircuitIn[];
   links: LinkIn[];
   filter: CurrentFilter;
   nameOf: (equipmentId: string) => string;
-}): { roots: PowerNode[]; unfed: string[] } {
+}
+
+/** 트리와 대장이 함께 쓰는 판정 — 공급 설비·차단기 행·끝 → 연결·입력 전원. */
+function derive(input: PowerInput) {
   const { substationId, equipment, circuits, links, filter, nameOf } = input;
 
   const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -105,41 +108,57 @@ export function powerTree(input: {
   }
   const feeds = (id: string) => feedsOf.get(id) ?? [];
 
+  /** 이 보기에서 보이는 차단기 행과 그 부하·연결 — 아래 가지(child·repeat·cycle)는 부르는 쪽이 정한다. */
+  const breakersOf = (e: EquipmentIn): PowerBreaker[] => rowsOf(e).filter((c) => passes(c.current)).map((c) => {
+    const hit = byEnd.get(endRefKey({ kind: 'circuit', equipmentId: e.id, no: c.no }));
+    const other = hit?.other ?? null;
+    const load: PowerBreaker['load'] = other === null
+      ? null
+      : other.kind === 'equipment'
+        ? { kind: 'equipment', equipmentId: other.equipmentId, port: other.label ?? null }
+        : { kind: 'other', ref: other };
+    return {
+      no: c.no, label: c.label, current: c.current, voltage: c.voltage, capacity: c.capacity,
+      phase: c.phase, switch: c.switch, purpose: c.purpose,
+      linkId: hit?.link.id ?? null,
+      load,
+      cableTypeId: hit?.link.cableTypeId ?? null, lengthM: hit?.link.lengthM ?? null,
+      child: null, repeat: false, cycle: false,
+    };
+  });
+
+  const ordered = [...supply.keys()].sort(byName);
+  return { filter, supply, ordered, feeds, visibleBreaker, breakersOf };
+}
+
+/**
+ * 차단기 대장 — **공급 설비마다 한 번씩**, 이름 자연 순서. 트리와 같은 판정(입력 전원·차단기·부하)이되
+ * 아래로 내려가지 않는다(child 없음) — 이중 입력·순환의 설비도 제 블록 하나로 꼭 한 번 선다.
+ * 거르기는 차단기 행에만 걸고, 보일 차단기가 없는 설비도 그대로 돌려준다(빈 블록을 숨길지는 보는 쪽이 정한다).
+ */
+export function powerLedger(input: PowerInput): PowerNode[] {
+  const { supply, ordered, feeds, breakersOf } = derive(input);
+  return ordered.map((id) => ({ equipmentId: id, feeds: feeds(id), breakers: breakersOf(supply.get(id)!) }));
+}
+
+export function powerTree(input: PowerInput): { roots: PowerNode[]; unfed: string[] } {
+  const { filter, supply, ordered, feeds, visibleBreaker, breakersOf } = derive(input);
+
   const expanded = new Set<string>();
   const build = (e: EquipmentIn, path: Set<string>): PowerNode => {
     expanded.add(e.id);
     path.add(e.id);
-    const breakers: PowerBreaker[] = rowsOf(e).filter((c) => passes(c.current)).map((c) => {
-      const hit = byEnd.get(endRefKey({ kind: 'circuit', equipmentId: e.id, no: c.no }));
-      const other = hit?.other ?? null;
-      const load: PowerBreaker['load'] = other === null
-        ? null
-        : other.kind === 'equipment'
-          ? { kind: 'equipment', equipmentId: other.equipmentId, port: other.label ?? null }
-          : { kind: 'other', ref: other };
-      let child: PowerNode | null = null;
-      let repeat = false;
-      let cycle = false;
-      const sub = load?.kind === 'equipment' ? supply.get(load.equipmentId) : undefined;
-      if (sub) {
-        if (path.has(sub.id)) cycle = true;
-        else if (expanded.has(sub.id)) repeat = true;
-        else child = build(sub, path);
-      }
-      return {
-        no: c.no, label: c.label, current: c.current, voltage: c.voltage, capacity: c.capacity,
-        phase: c.phase, switch: c.switch, purpose: c.purpose,
-        linkId: hit?.link.id ?? null,
-        load,
-        cableTypeId: hit?.link.cableTypeId ?? null, lengthM: hit?.link.lengthM ?? null,
-        child, repeat, cycle,
-      };
+    const breakers = breakersOf(e).map((b) => {
+      const sub = b.load?.kind === 'equipment' ? supply.get(b.load.equipmentId) : undefined;
+      if (!sub) return b;
+      if (path.has(sub.id)) return { ...b, cycle: true };
+      if (expanded.has(sub.id)) return { ...b, repeat: true };
+      return { ...b, child: build(sub, path) };
     });
     path.delete(e.id);
     return { equipmentId: e.id, feeds: feeds(e.id), breakers };
   };
 
-  const ordered = [...supply.keys()].sort(byName);
   // 뿌리 = 이 보기에서 보이는 이 국 차단기로부터 받는 입력 전원이 없는 공급 설비.
   // (거르기 'all' 이면 스펙 그대로 「입력 없음 + 모두 국 밖/알 수 없음」. 직류 보기에서 교류로만 받는 충전기는 뿌리가 된다.)
   const rootIds = ordered.filter((id) => !feeds(id).some((f) => visibleBreaker(f.equipmentId, f.circuitNo)));

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { powerTree, type PowerNode, type CurrentFilter } from './powerTree.js';
+import { powerLedger, powerTree, type PowerNode, type CurrentFilter } from './powerTree.js';
 import type { LinkEndRef } from './types.js';
 
 const S = 'S1';
@@ -224,5 +224,43 @@ describe('powerTree', () => {
     expect(r.unfed).toEqual(['A']);
     expect(r.roots[0]!.feeds).toEqual([]);
     expect(br(r.roots[0]!, 1)).toMatchObject({ load: { kind: 'equipment', equipmentId: 'A', port: null }, cycle: true, repeat: false, child: null });
+  });
+});
+
+describe('powerLedger', () => {
+  const ledger = (equipment: Eq[], circuits: Ci[], links: Li[], filter: CurrentFilter = 'all') => {
+    const names = new Map(equipment.map((e) => [e.id, e.name]));
+    return powerLedger({ substationId: S, equipment, circuits, links, filter, nameOf: (id) => names.get(id) ?? id });
+  };
+
+  it('공급 설비마다 한 번, 이름 순 — 아래로 내려가지 않고 입력 전원·부하·케이블은 트리와 같다', () => {
+    const { equipment, circuits, links } = fixture();
+    const r = ledger(equipment, circuits, links);
+    expect(r.map((n) => n.equipmentId)).toEqual(['panel', 'dist', 'ups']) // ko 정렬 — 한글이 라틴보다 앞;
+    const dist = r.find((n) => n.equipmentId === 'dist')!;
+    expect(dist.feeds).toEqual([{ equipmentId: 'panel', circuitNo: 4, linkId: 'k1' }]);
+    expect(dist.breakers.map((b) => b.no)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(br(dist, 2)).toMatchObject({ load: { kind: 'equipment', equipmentId: 'ups', port: null }, child: null, repeat: false, cycle: false });
+    expect(br(dist, 7).load).toBeNull();
+    expect(br(r.find((n) => n.equipmentId === 'panel')!, 4)).toMatchObject({ cableTypeId: 'ct', lengthM: 12 });
+  });
+
+  it('순환·이중 입력의 설비도 꼭 한 번씩 선다', () => {
+    const equipment = [eq('a', 1, 'A'), eq('b', 1, 'B'), eq('c', 2, 'C'), eq('d', 1, 'D')];
+    const links = [
+      lk('k1', C('a', 1), E('b')), lk('k2', C('b', 1), E('a')),
+      lk('k3', C('c', 1), E('d')), lk('k4', C('c', 2), E('d', 'AC2')),
+    ];
+    const r = ledger(equipment, [], links);
+    expect(r.map((n) => n.equipmentId)).toEqual(['a', 'b', 'c', 'd']);
+    expect(r.find((n) => n.equipmentId === 'd')!.feeds.map((f) => f.circuitNo)).toEqual([1, 2]);
+  });
+
+  it('거르기는 차단기 행에만 — 보일 차단기가 없는 설비도 빈 블록으로 남는다', () => {
+    const { equipment, circuits, links } = fixture();
+    const r = ledger(equipment, circuits, links, 'DC');
+    expect(r.map((n) => n.equipmentId)).toEqual(['panel', 'dist', 'ups']) // ko 정렬 — 한글이 라틴보다 앞;
+    expect(r.find((n) => n.equipmentId === 'dist')!.breakers.map((b) => b.no)).toEqual([3]);
+    expect(r.find((n) => n.equipmentId === 'panel')!.breakers).toEqual([]);
   });
 });
