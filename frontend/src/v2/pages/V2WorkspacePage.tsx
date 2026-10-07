@@ -19,6 +19,7 @@ import { AddRackDialog } from '../components/equipment/AddRackDialog';
 import { EquipmentDetail } from '../components/equipment/EquipmentDetail';
 import { RackDetail } from '../components/equipment/RackDetail';
 import { RackPlanView } from '../components/plan/RackPlanView';
+import { LineSheetView } from '../components/lines/LineSheetView';
 import { EquipmentPlaceholder } from './workspace/EquipmentPlaceholder';
 
 const VIEW_TABS: readonly TabItem<ViewMode>[] = VIEW_MODES.map((v) => ({ key: v, label: v }));
@@ -112,7 +113,7 @@ export default function V2WorkspacePage() {
         </aside>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
           {selected == null ? (
-            <EmptyState title="선택된 조직/변전소가 없습니다" description="왼쪽에서 변전소를 고르면 현황·평면도를 볼 수 있습니다." />
+            <EmptyState title="선택된 조직/변전소가 없습니다" description="왼쪽에서 변전소를 고르면 현황·선번장·평면도를 볼 수 있습니다." />
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               <PageHeader
@@ -143,6 +144,14 @@ export default function V2WorkspacePage() {
                   <div {...viewTabs.panel} className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-4">
                     {substationId && route.view === '평면도' ? (
                       <RackPlanView substationId={substationId} selectedRackId={route.rackId} onSelectRack={route.selectRack} railTarget={railEl} />
+                    ) : substationId && route.view === '선번장' ? (
+                      <LineSheetView
+                        substationId={substationId}
+                        selectedEquipmentId={route.eqId}
+                        onSelectEquipment={route.selectEquipment}
+                        focus={route.block}
+                        onFocus={route.focusBlock}
+                      />
                     ) : (
                       <StatusView
                         rows={rows}
@@ -157,7 +166,9 @@ export default function V2WorkspacePage() {
                         onOpenElsewhere={nodeScope ? (r) => navigate(`/n/${r.substationId}?eq=${r.id}`) : undefined}
                       />
                     )}
-                    {substationId && (
+                    {/* 선번장은 12열 표가 우선이다 — 1280 에서 레일까지 세우면 표가 가로로 넘친다. 그래서 고른 것이
+                        있을 때만 상세가 선다(다른 판은 레일이 늘 있다, §1.7-e). */}
+                    {substationId && (route.view !== '선번장' || route.eqId || route.rackId) && (
                       <aside className="flex h-full w-[364px] shrink-0 flex-col">
                         {route.eqId ? (
                           <EquipmentDetail equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} />

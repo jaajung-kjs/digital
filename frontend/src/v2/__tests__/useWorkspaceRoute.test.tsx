@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { useWorkspaceRoute } from '../useWorkspaceRoute';
+import { useWorkspaceRoute, VIEW_MODES } from '../useWorkspaceRoute';
 
 const at = (path: string) =>
   renderHook(() => useWorkspaceRoute(), {
@@ -24,9 +24,20 @@ describe('useWorkspaceRoute', () => {
   it('없거나 모르는 판 이름은 첫 판으로 — 주소는 남이 손으로 고칠 수 있다', () => {
     expect(at('/n/sub-1').result.current.view).toBe('현황');
     expect(at('/n/sub-1?view=없는판').result.current.view).toBe('현황');
-    expect(at('/n/sub-1?view=선번장').result.current.view).toBe('현황');
+    expect(at('/n/sub-1?view=계통').result.current.view).toBe('현황');
     expect(at('/n/sub-1?view=설비 대장').result.current.view).toBe('현황');
     expect(at('/n/sub-1?view=설비 현황').result.current.view).toBe('현황');
+  });
+
+  it('선번장 — 판 차례는 현황 · 선번장 · 평면도, 블록 초점은 line·side 가 쥔다', () => {
+    expect(VIEW_MODES).toEqual(['현황', '선번장', '평면도']);
+    const { result } = at('/n/sub-1?view=선번장&line=L1&side=B');
+    expect(result.current).toMatchObject({ view: '선번장', block: { lineId: 'L1', side: 'B' } });
+    act(() => result.current.focusBlock(null));
+    expect(result.current.block).toBeNull();
+    act(() => result.current.focusBlock({ lineId: 'L2', side: 'A' }));
+    expect(result.current.block).toEqual({ lineId: 'L2', side: 'A' });
+    expect(at('/n/sub-1?line=L1&side=C').result.current.block).toBeNull();
   });
 
   it('설비·랙을 고르고 놓는다', () => {

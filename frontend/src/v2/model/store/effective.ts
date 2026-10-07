@@ -61,7 +61,7 @@ const linkRow = (l: Link) => ({ id: l.id, substationId: l.substationId, cableTyp
  * 못해 거짓 흠이 난다(먼 국에서 두 선로 코어를 잇는 점퍼가 실제로 그랬다).
  * 들른 국의 것은 그 국 행이 정답이라 쓰지 않고(겹치지 않게), 이미 지우기로 한 것은 뺀다.
  */
-function outsideLinks(s: S): Link[] {
+export function outsideLinks(s: S): Link[] {
   const near = new Set(effectiveRows(s, 'links').map((l) => l.id));
   const gone = new Set(s.overlays.links.deletes);
   return s.saved.farLinks.filter((l) => !(l.substationId in s.saved.substations) && !near.has(l.id) && !gone.has(l.id));
