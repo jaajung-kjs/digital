@@ -29,7 +29,8 @@ export function PathTraceDialog({ substationId, at, onClose }: PathTraceDialogPr
   const org = useV2OrgTree();
   const hqId = useMemo(() => {
     if (!org.data) return null;
-    return ancestorPath(flattenTree(org.data), substationId).find((n) => n.kind === 'hq')?.id ?? null;
+    /* 트리에 본부가 없으면(국이 트리 밖·자료 어긋남) 그 국 범위로 — 영영 「불러오는 중」에 머물지 않게. */
+    return ancestorPath(flattenTree(org.data), substationId).find((n) => n.kind === 'hq')?.id ?? substationId;
   }, [org.data, substationId]);
   const net = useNetwork(hqId);
   const saved = useWorkingCopy((s) => s.saved);
@@ -46,13 +47,13 @@ export function PathTraceDialog({ substationId, at, onClose }: PathTraceDialogPr
   return (
     <Modal open onClose={onClose} title={title} size="lg" footer={<Button variant="secondary" onClick={onClose}>닫기</Button>}>
       {failed ? (
-        <PageState error="중계경로를 불러오지 못했습니다" action={<Button variant="secondary" size="sm" onClick={() => void net.refetch()}>다시 시도</Button>} />
+        <PageState error="중계경로를 불러오지 못했습니다" action={<Button variant="secondary" size="sm" onClick={() => { void org.refetch(); void net.refetch(); }}>다시 시도</Button>} />
       ) : !view || !path ? (
         <PageState />
       ) : (
         <div className="space-y-3">
           <div className="flex min-w-0 items-center gap-2">
-            <span data-testid="path-summary" className="min-w-0 flex-1 break-all text-sm font-medium tabular-nums">{pathSummary(view, path)}</span>
+            <span data-testid="path-summary" className="min-w-0 flex-1 break-words text-sm font-medium tabular-nums">{pathSummary(view, path).split('-').flatMap((part, i) => (i === 0 ? [part] : ['-', <wbr key={i} />, part]))}</span>
             {/* 코어의 주/예비 값 — 사슬의 코어가 모두 같을 때만(core 가 정한다). 사용자 권한 role 이 아니다. */}
             {path.role === 'main' && <Badge status="info">주회선</Badge>}
             {path.role === 'backup' && <Badge status="neutral">예비회선</Badge>}
@@ -95,7 +96,7 @@ function StepRow({ step: s, go }: { step: Step; go: (b: BlockAt) => void }) {
       return (
         <ChainStep tone="warning" data-testid="path-step" data-kind="broken">
           경로 미완결 — 연결이 없습니다{dot}
-          <ChainLink className="text-content" onClick={() => go(s.at)}>{s.station} · 코어 {s.coreNo}</ChainLink>
+          <ChainLink tone="primary" onClick={() => go(s.at)}>{s.station} · 코어 {s.coreNo}</ChainLink>
         </ChainStep>
       );
   }

@@ -109,4 +109,24 @@ describe('useWorkspaceRoute', () => {
     act(() => result.current.nav(-1));
     expect(result.current.route).toMatchObject({ power: 'tree', supply: null, eqId: null, rackId: 'r1' });
   });
+
+  it('중계경로에서 다른 국·같은 국 블록으로(openBlockAt) — 둘 다 기록을 한 칸씩 쌓고, 뒤로 가면 한 칸씩 돌아온다', () => {
+    const { result } = renderHook(() => ({ route: useWorkspaceRoute(), nav: useNavigate() }), {
+      wrapper: ({ children }) => (
+        <MemoryRouter initialEntries={['/n/sub-1?view=선번장&line=L1&side=A']}>
+          <Routes><Route path="/n/:nodeId" element={children} /></Routes>
+        </MemoryRouter>
+      ),
+    });
+    /* 같은 국 — 주소만 바뀐다. */
+    act(() => result.current.route.openBlockAt('sub-1', { lineId: 'L2', side: 'B' }));
+    expect(result.current.route).toMatchObject({ nodeId: 'sub-1', view: '선번장', block: { lineId: 'L2', side: 'B' } });
+    /* 다른 국 — 그 국 주소로 건너간다. */
+    act(() => result.current.route.openBlockAt('sub-2', { lineId: 'L3', side: 'A' }));
+    expect(result.current.route).toMatchObject({ nodeId: 'sub-2', view: '선번장', block: { lineId: 'L3', side: 'A' } });
+    act(() => result.current.nav(-1));
+    expect(result.current.route).toMatchObject({ nodeId: 'sub-1', block: { lineId: 'L2', side: 'B' } });
+    act(() => result.current.nav(-1));
+    expect(result.current.route).toMatchObject({ nodeId: 'sub-1', block: { lineId: 'L1', side: 'A' } });
+  });
 });

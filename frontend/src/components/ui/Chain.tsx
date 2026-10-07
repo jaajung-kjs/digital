@@ -40,10 +40,21 @@ export function ChainStep({ tone = 'node', className, children, ...rest }: HTMLA
   );
 }
 
-/** 사슬 안의 **다른 곳으로 가는** 글자(국 이름·코어 → 그 국 선번장). 쉴 때는 글자, 손을 얹으면 밑줄. */
-export function ChainLink({ className, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { children: ReactNode }) {
+/**
+ * 사슬 안의 **다른 곳으로 가는** 글자(국 이름·코어 → 그 국 선번장). 쉴 때도 눌리는 것임이 보여야 한다(§1.7-i2) —
+ * 기본은 옅은 점선 밑줄, 손을 얹으면 강조색 실선. `tone="primary"` 는 끊긴 자리의 길처럼 **가야 할 곳**을 강조색으로.
+ */
+export function ChainLink({ className, children, tone = 'default', ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { children: ReactNode; tone?: 'default' | 'primary' }) {
   return (
-    <button type="button" className={cn('focus-ring rounded text-left hover:text-primary hover:underline underline-offset-2', className)} {...rest}>
+    <button
+      type="button"
+      className={cn(
+        'focus-ring rounded text-left underline underline-offset-2 hover:text-primary hover:decoration-solid',
+        tone === 'primary' ? 'text-primary decoration-primary/40' : 'decoration-dotted decoration-line-strong',
+        className,
+      )}
+      {...rest}
+    >
       {children}
     </button>
   );

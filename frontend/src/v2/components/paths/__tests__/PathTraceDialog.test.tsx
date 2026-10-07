@@ -9,10 +9,13 @@ import { PathTraceDialog } from '../PathTraceDialog';
 import { LINKS, linkRow, loadSubstations, ORG, serverNetwork } from './fixture';
 
 let server: Network = serverNetwork();
+/* 범위 데이터를 받는 노드 — 기본은 본부. */
+let scopeId = 'HQ';
+let org = ORG;
 vi.mock('../../../model/networkApi', () => ({
-  useNetwork: (id: string | null) => ({ data: id === 'HQ' ? server : undefined, isError: false, refetch: vi.fn() }),
+  useNetwork: (id: string | null) => ({ data: id === scopeId ? server : undefined, isError: false, refetch: vi.fn() }),
 }));
-vi.mock('../../../hooks', () => ({ useV2OrgTree: () => ({ data: ORG, isError: false }) }));
+vi.mock('../../../hooks', () => ({ useV2OrgTree: () => ({ data: org, isError: false, refetch: vi.fn() }) }));
 vi.mock('../../../model/hooks', () => ({ useCatalog: () => ({ data: { categories: [], rackTypes: [], equipmentTypes: [], media: [], cableTypes: [] } }) }));
 
 const AT = { lineId: 'L1', coreNo: 9, side: 'A' as const };
@@ -35,6 +38,8 @@ const dialog = () => screen.getByRole('dialog');
 const steps = () => within(dialog()).getAllByTestId('path-step');
 
 beforeEach(() => {
+  scopeId = 'HQ';
+  org = ORG;
   server = serverNetwork();
   loadSubstations(['BC']);
 });
@@ -69,6 +74,13 @@ describe('중계경로 추적 창', () => {
     fireEvent.click(within(last).getByRole('button', { name: '화천S/S · 코어 1' }));
     expect(screen.getByTestId('where')).toHaveTextContent('/n/HC?view=선번장&line=L3&side=A');
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('조직 트리에 이 국의 본부가 없으면 그 국 범위로 — 「불러오는 중」에 머물지 않는다', () => {
+    org = { headquarters: [] };
+    scopeId = 'BC';
+    renderDialog();
+    expect(screen.getByTestId('path-summary')).toHaveTextContent('북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원');
   });
 
   it('저장 전에 등록한 패치가 추적에 든다', () => {

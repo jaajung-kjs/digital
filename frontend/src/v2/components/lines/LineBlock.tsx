@@ -173,7 +173,6 @@ export function LineBlock({
                         {nearEq
                           ? <button type="button" className={cn('min-w-0 flex-1 truncate text-left hover:text-primary hover:underline', nearEq === selectedEquipmentId && 'font-medium text-primary')} title={near} onClick={() => onSelectEquipment(nearEq)}>{near}</button>
                           : <span className="min-w-0 flex-1 truncate" title={near}>{near}</span>}
-                        {trace}
                         <IconButton
                           size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제"
                           className={cn('shrink-0', HOVER_REVEAL)}
@@ -186,7 +185,6 @@ export function LineBlock({
                       <>
                         {/* 빈 칸은 대국 칸과 같은 「—」 — 빈 모양은 하나다. */}
                         <span className="min-w-0 flex-1 text-content-faint">{EMPTY}</span>
-                        {trace}
                         <span className={cn('shrink-0', HOVER_REVEAL)}>
                           <Button variant="secondary" size="xs" onClick={() => onConnect({ kind: 'core', lineId: block.lineId, no: r.no, side: block.side })}>연결</Button>
                         </span>
@@ -194,7 +192,14 @@ export function LineBlock({
                     )}
                   </span>
                 </Td>
-                <Td data-col="far" className={cn('truncate', far == null ? 'text-content-faint' : !bad && 'text-content-muted')} title={far ?? undefined}>{far ?? EMPTY}</Td>
+                {/* 중계경로는 「저 너머로 따라간다」 — 대국 접속 칸의 꼬리 자리(이 칸에는 제 손잡이가 없다). 자국 칸에 두면
+                    그 자리만큼 자국 이름이 줄어든다. */}
+                <Td data-col="far">
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className={cn('min-w-0 flex-1 truncate', far == null ? 'text-content-faint' : !bad && 'text-content-muted')} title={far ?? undefined}>{far ?? EMPTY}</span>
+                    {trace}
+                  </span>
+                </Td>
                 <Td data-col="status">
                   <InlineEditCell
                     value={r.status} label="상태" choices={CORE_STATUSES} required

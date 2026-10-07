@@ -106,12 +106,15 @@ describe('선번장', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent('기준 코어: 154kV 춘천-북춘천 T/L 코어 2');
   });
 
-  it('대국 연결 — 들르지 않은 국의 이름도 보이고, 칸에 단추가 없다(Review Focus 4)', () => {
+  it('대국 연결 — 들르지 않은 국의 이름도 보이고, 칸에는 고치는 단추가 없다 — 「중계경로」만(Review Focus 4)', () => {
     renderSheet();
     const far = cell(rowOf('L1', 1), 'far');
     expect(far).toHaveTextContent('춘천 광단말 RX');
-    expect(within(far).queryByRole('button')).toBeNull();
+    expect(within(far).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['코어 1 중계경로']);
+    /* 연결이 없는 코어는 추적할 사슬이 없다 — 단추도 없다. */
     expect(within(cell(rowOf('L1', 2), 'far')).queryByRole('button')).toBeNull();
+    /* 자국 접속 칸은 제 손잡이(연결 삭제)만. */
+    expect(within(cell(rowOf('L1', 1), 'near')).queryByRole('button', { name: /중계경로/ })).toBeNull();
   });
 
   it('단자 미지정 블록은 맨 뒤에 선다(Review Focus 2)', () => {

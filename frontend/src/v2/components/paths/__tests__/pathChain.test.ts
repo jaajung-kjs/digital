@@ -86,3 +86,44 @@ describe('저장 전 변경을 겹친다(effectiveNetwork)', () => {
     expect(pathTitle(v, p, AT)).toBe('중계경로 — OFD 슬롯 2 · 코어 9');
   });
 });
+
+describe('저장 전 광선로·연결 변경(effectiveNetwork)', () => {
+  it('새로 등록한 광선로와 그 패치가 사슬에 든다(서버에는 아직 없다)', () => {
+    loadSubstations(['BC']);
+    const s = store.getState();
+    /* 북춘천에서 끝나던 사슬을 뒤로 늘린다 — RTU 를 떼고 새 광선로 L9(가평 → 북춘천) 코어 5 에 패치. */
+    s.create('fiberLines', {
+      id: 'L9', name: '새 선로', lengthKm: null, cableTypeId: 'opgw', coreCount: 12, segments: [],
+      aSubstationId: 'GP', aEquipmentId: null, aPanel: null, aStartNo: 1,
+      bSubstationId: 'BC', bEquipmentId: 'ofd-bc', bPanel: 4, bStartNo: 1,
+      aSubstationName: '가평S/S', bSubstationName: '북춘천S/S', updatedAt: '',
+    });
+    deleteRows({ links: ['k1'] });
+    s.create('links', { ...linkRow(LINKS[0]!), id: 'p9', a: { kind: 'core', lineId: 'L9', no: 5, side: 'B' }, updatedAt: '' });
+    const { v, p } = trace();
+    expect(p.hops.map((h) => `${h.lineId}:${h.coreNo}`)).toEqual(['L9:5', 'L1:9', 'L2:20', 'L3:1', 'L4:37']);
+    expect(pathSummary(v, p)).toBe('가평-(5)-북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원');
+    expect(p.start).toBeNull();
+    expect(pathSteps(v, p)[0]).toMatchObject({ kind: 'broken', station: '가평S/S', at: { substationId: 'GP', lineId: 'L9', side: 'A' } });
+  });
+
+  it('들른 국에 닿은 광선로를 삭제하면 서버에 있어도 빠진다 — 그 선의 코어도, 그 선에 닿은 연결도', () => {
+    loadSubstations(['BC']);
+    deleteRows({ fiberLines: ['L1'] });
+    const v = view();
+    expect(v.input.lines.map((l) => l.id)).not.toContain('L1');
+    expect(v.input.cores.some((c) => c.lineId === 'L1')).toBe(false);
+    expect(v.input.links.map((l) => l.id)).not.toContain('k1');
+  });
+
+  it('연결 끝을 바꾸면(저장 전) 바뀐 끝으로 추적한다', () => {
+    loadSubstations(['BC']);
+    /* k1 의 코어 끝을 L1 코어 9 → 코어 10 으로. 코어 9 의 자국 끝은 비고, 코어 10 은 RTU 에서 시작한다. */
+    store.getState().update('links', 'k1', { b: { kind: 'core', lineId: 'L1', no: 10, side: 'A' } });
+    const { p } = trace();
+    expect(p.start).toBeNull();
+    const v = view();
+    const p10 = traceFromCore(v.input, { lineId: 'L1', coreNo: 10, side: 'A' });
+    expect(p10.start).toMatchObject({ equipmentId: 'rtu-bc', port: 'FX-TX:1' });
+  });
+});
