@@ -80,6 +80,26 @@ export function useWorkspaceRoute() {
     [setParams],
   );
 
+  /**
+   * 선번장의 그 블록으로 — 판과 초점을 **한 번의 주소 쓰기**로 바꾼다(둘로 나누면 앞의 쓰기가 뒤에 덮인다).
+   * 고른 설비·랙은 놓는다 — 선번장은 12열 표가 우선이라(상세가 서면 1280·1440 모두 측정 열이 판 밖으로 밀린다)
+   * 블록을 읽으러 간 사람에게 표 전체를 준다. 초점 블록은 테두리로 남는다.
+   */
+  const openBlock = useCallback(
+    (next: BlockFocus) => {
+      setParams((prev) => {
+        const p = new URLSearchParams(prev);
+        p.set('view', '선번장');
+        p.set('line', next.lineId);
+        p.set('side', next.side);
+        p.delete('eq');
+        p.delete('rack');
+        return p;
+      }, { replace: true });
+    },
+    [setParams],
+  );
+
   const eqId = params.get('eq');
   const rackId = params.get('rack');
   const lineParam = params.get('line');
@@ -91,7 +111,7 @@ export function useWorkspaceRoute() {
 
   /* 같은 객체로 유지한다 — 의존성에 넣은 콜백·캔버스가 매 렌더 다시 만들어지지 않게. */
   return useMemo(
-    () => ({ nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock }),
-    [nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock],
+    () => ({ nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock }),
+    [nodeId, view, eqId, rackId, block, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock],
   );
 }

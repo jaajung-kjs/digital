@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { login } from './helpers';
+import { login, openStation } from './helpers';
 
 /**
  * 화면 스크린샷 — ②-b 정리 뒤 모든 화면을 두 폭(1280×800 · 1440×900)으로 찍어 `test-results/screens/` 에 남긴다.
@@ -9,11 +9,11 @@ import { login } from './helpers';
  * (도구줄 한 줄, 화면 글자 금지어)은 여기서도 함께 본다.
  */
 
-const STATION_URL = '/n/12ed9894-1a1c-401e-be70-9ffd527d9d32'; // 강원본부 › 직할 › (구)춘천S/S
 const STATION = '(구)춘천S/S';
 const PANEL = '통신용 분전반'; // 차단기 22 · 연결 여럿
 const RACK = 'ICT관제소 서버랙'; // 설비 여럿이 든 랙
 const OUT = 'test-results/screens';
+const SHEET_STATION = '북춘천S/S';
 
 const VIEWPORTS = [
   { width: 1280, height: 800 },
@@ -45,8 +45,8 @@ for (const vp of VIEWPORTS) {
 
     test('현황 · 상세 · 평면도', async ({ page }) => {
       await login(page);
-      await page.goto(STATION_URL);
-      await expect(page.getByRole('heading', { level: 1, name: STATION })).toBeVisible();
+      // 국 id 는 재시드마다 바뀐다 — 주소를 외우지 않고 트리로 연다(강원본부 › 직할).
+      await openStation(page, '강원본부', '직할', STATION);
 
       // 현황 — 품목별
       await expect(main(page).getByRole('radio', { name: '품목별' })).toBeChecked();
@@ -119,6 +119,55 @@ for (const vp of VIEWPORTS) {
       await shot(page, '10-floor-plan');
 
       // 변경안이 없어야 한다 — 읽기만 했다
+      await expect(page.getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+    });
+
+    test('선번장 · 상세 패널 광선로 슬롯', async ({ page }) => {
+      await login(page);
+      await openStation(page, '강원본부', '직할', SHEET_STATION);
+      await main(page).getByRole('tab', { name: '선번장' }).click();
+      const blocks = main(page).getByTestId('sheet-block');
+      await expect(blocks.first()).toBeVisible();
+
+      // 선번장 — 조직 트리 펼침
+      await expect(blocks).toHaveCount(3);
+      await noForbiddenWords(page, '선번장');
+      await shot(page, '20-sheet-tree-open');
+
+      // 선번장 — 조직 트리 접음(넓은 표를 읽는 자리). 12열이 판 안에 든다 — 가로 그늘 없음
+      await page.getByRole('button', { name: '조직 접기' }).click();
+      await expect(page.getByRole('button', { name: '조직 펼치기' })).toBeVisible();
+      await expect(page.getByTestId('sheet-clip-shade')).toHaveCount(0);
+      await page.mouse.move(0, 0);
+      await shot(page, '21-sheet-tree-collapsed');
+
+      // 상세 패널 — 현황에서 OFD 를 열면 「광선로 슬롯」 카드
+      await page.getByRole('button', { name: '조직 펼치기' }).click();
+      await main(page).getByRole('tab', { name: '현황' }).click();
+      await main(page).getByRole('radio', { name: '랙별' }).click();
+      await main(page).getByRole('row').filter({ hasText: /^OFD/ }).last().click();
+      await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue('OFD');
+      const slots = detail(page).getByText('광선로 슬롯').locator('xpath=../..');
+      await expect(slots.getByRole('button', { name: /^슬롯 \d+ · / })).toHaveCount(3);
+      await page.mouse.move(0, 0);
+      await noForbiddenWords(page, '상세 광선로 슬롯');
+      await shot(page, '22-panels-card');
+
+      // 슬롯 수 고치는 중 — 상자가 카드 머리에 선다. Esc 로 물린다(아무것도 바꾸지 않는다)
+      await slots.getByRole('button', { name: '슬롯 수 고치기' }).click();
+      await expect(slots.getByLabel('슬롯 수', { exact: true })).toBeFocused();
+      await shot(page, '23-panel-count-edit');
+      await page.keyboard.press('Escape');
+
+      // 슬롯 줄 → 선번장의 그 블록(상세는 닫혀 표 전체가 선다)
+      await slots.getByRole('button', { name: /^슬롯 3 · / }).click();
+      await expect(blocks.and(page.locator('[aria-current="true"]'))).toBeInViewport();
+      await expect(detail(page)).toHaveCount(0);
+      await expect(page.getByTestId('sheet-clip-shade')).toHaveCount(0);
+      await page.mouse.move(0, 0);
+      await noForbiddenWords(page, '선번장 + 상세');
+      await shot(page, '24-sheet-from-slot');
+
       await expect(page.getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
     });
 

@@ -240,6 +240,43 @@ describe('설비 상세', () => {
     expect(screen.getByText('빈 슬롯 3')).toBeInTheDocument();
     expect(screen.queryByText(/판/)).toBeNull();
   });
+
+  const fiber = { cableTypeId: 'f', coreCount: 24, name: null, lengthKm: null, segments: [], bSubstationId: 'S2', bEquipmentId: null, bPanel: null, bStartNo: 1, aSubstationName: '(구)춘천', bSubstationName: '화천', updatedAt: '' };
+
+  it('슬롯 줄을 누르면 선번장의 그 블록(광선로·이쪽 끝)으로 간다', () => {
+    store.getState().create('fiberLines', { ...fiber, id: 'L', aSubstationId: 'S1', aEquipmentId: 'p', aPanel: 2, aStartNo: 1 });
+    const onOpenBlock = vi.fn();
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} onOpenBlock={onOpenBlock} />);
+    fireEvent.click(screen.getByRole('button', { name: '슬롯 2 · (구)춘천–화천 · 24심' }));
+    expect(onOpenBlock).toHaveBeenCalledWith({ lineId: 'L', side: 'A' });
+  });
+
+  it('슬롯 수는 카드 머리에서 고친다 — 수는 panelCount, 비우면 null, 범위 밖·소수는 받지 않는다', () => {
+    store.getState().create('fiberLines', { ...fiber, id: 'L', aSubstationId: 'S1', aEquipmentId: 'p', aPanel: 2, aStartNo: 1 });
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    const edit = (v: string) => {
+      fireEvent.click(screen.getByRole('button', { name: '슬롯 수 고치기' }));
+      const box = screen.getByLabelText('슬롯 수');
+      fireEvent.change(box, { target: { value: v } });
+      fireEvent.blur(box);
+    };
+    const count = () => store.getState().overlays.equipment.creates.p!.panelCount;
+    edit('6');
+    expect(count()).toBe(6);
+    expect(screen.getByText('빈 슬롯 5')).toBeInTheDocument();
+    edit('2.5');
+    expect(count()).toBe(6);
+    edit('999');
+    expect(count()).toBe(6);
+    edit('');
+    expect(count()).toBeNull();
+    expect(screen.queryByText(/빈 슬롯/)).toBeNull();
+  });
+
+  it('광선로 끝도 슬롯 수도 없는 설비에는 슬롯 카드가 없다', () => {
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    expect(screen.queryByText('광선로 슬롯')).toBeNull();
+  });
 });
 
 describe('설비 상세 — 연결 목록', () => {

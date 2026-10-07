@@ -40,6 +40,12 @@ describe('useWorkspaceRoute', () => {
     expect(at('/n/sub-1?line=L1&side=C').result.current.block).toBeNull();
   });
 
+  it('슬롯에서 블록 열기 — 판·line·side 를 한 번에 쓰고, 고른 설비는 놓는다(12열 표가 우선)', () => {
+    const { result } = at('/n/sub-1?view=현황&eq=e1');
+    act(() => result.current.openBlock({ lineId: 'L3', side: 'A' }));
+    expect(result.current).toMatchObject({ view: '선번장', block: { lineId: 'L3', side: 'A' }, eqId: null, rackId: null });
+  });
+
   it('설비·랙을 고르고 놓는다', () => {
     const { result } = at('/n/sub-1?rack=r1');
     act(() => result.current.selectEquipment('e1'));

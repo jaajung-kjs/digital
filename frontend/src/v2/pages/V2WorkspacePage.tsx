@@ -180,7 +180,7 @@ export default function V2WorkspacePage() {
                     {substationId && (route.view !== '선번장' || route.eqId || route.rackId) && (
                       <aside className="flex h-full w-[364px] shrink-0 flex-col">
                         {route.eqId ? (
-                          <EquipmentDetail equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} />
+                          <EquipmentDetail equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} onOpenBlock={route.openBlock} />
                         ) : route.rackId ? (
                           <RackDetail
                             rackId={route.rackId}

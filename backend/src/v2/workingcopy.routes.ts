@@ -39,7 +39,7 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
         where: { OR: [{ aSubstationId: id }, { bSubstationId: id }] },
         include: {
           aSubstation: { select: { name: true } }, bSubstation: { select: { name: true } },
-          cores: { orderBy: { no: 'asc' }, include: { measurements: { orderBy: [{ measuredOn: 'desc' }, { createdAt: 'desc' }] } } },
+          cores: { orderBy: { no: 'asc' }, include: { measurements: { orderBy: [{ measuredOn: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }] } } },
         },
         orderBy: { createdAt: 'asc' },
       }),

@@ -12,12 +12,17 @@ import { CircuitCard } from './CircuitCard';
 import { EquipmentInfoCard } from './EquipmentInfoCard';
 import { LinkList } from './LinkList';
 import { PanelsCard } from './PanelsCard';
+import type { BlockFocus } from '../../useWorkspaceRoute';
 
 type Tab = '정보' | '연결' | '점검·고장' | '사진';
 const TABS: readonly TabItem<Tab>[] = (['정보', '연결', '점검·고장', '사진'] as const).map((k) => ({ key: k, label: k }));
 
 /** 설비 상세 — 정보 · 연결 · 점검·고장 · 사진.  */
-export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipmentId: string; onClose: () => void; onDeleted: () => void }) {
+export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock }: {
+  equipmentId: string; onClose: () => void; onDeleted: () => void;
+  /** 슬롯 줄 → 선번장의 그 블록(주소). 없으면 줄은 읽기만 한다. */
+  onOpenBlock?: (focus: BlockFocus) => void;
+}) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
@@ -65,7 +70,7 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted }: { equipment
             <>
               <EquipmentInfoCard eq={eq} catalog={catalog} onDelete={remove} />
               <CircuitCard equipmentId={equipmentId} onEdit={(at) => setBreakers({ at })} onAdd={addBreaker} />
-              <PanelsCard equipmentId={equipmentId} panelCount={eq.panelCount} />
+              <PanelsCard equipmentId={equipmentId} panelCount={eq.panelCount} onOpenBlock={onOpenBlock} />
             </>
           )}
           {tab === '연결' && <LinkList equipmentId={equipmentId} substationId={eq.substationId} />}
