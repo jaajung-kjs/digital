@@ -112,6 +112,19 @@ export function useWorkspaceRoute() {
   );
 
   /**
+   * **다른 국**의 선번장 블록으로 — 중계경로가 지나는 국·코어를 누를 때. 같은 국이면 `openBlock` 과 같고,
+   * 다른 국이면 그 국 주소로 건너간다(설비·랙 선택은 딸려 가지 않는다). 둘 다 기록을 남긴다.
+   */
+  const openBlockAt = useCallback(
+    (substationId: string, next: BlockFocus) => {
+      if (substationId === nodeId) { openBlock(next); return; }
+      const p = new URLSearchParams({ view: '선번장', line: next.lineId, side: next.side });
+      navigate(`/n/${substationId}?${p.toString()}`);
+    },
+    [nodeId, openBlock, navigate],
+  );
+
+  /**
    * 그 설비의 상세로 — 현황 판에서 그 설비를 고른다(상세 레일이 선다). 선번장 블록 머리의 단자 이름이 부른다.
    * 블록 초점은 놓고, `openBlock` 처럼 **기록을 남긴다** — 뒤로 가면 보던 블록으로 돌아온다.
    */
@@ -195,8 +208,8 @@ export function useWorkspaceRoute() {
   return useMemo(
     () => ({
       nodeId, view, eqId, rackId, block, power, supply,
-      selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment, setPowerView, selectSupply, openSupply,
+      selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openBlockAt, openEquipment, setPowerView, selectSupply, openSupply,
     }),
-    [nodeId, view, eqId, rackId, block, power, supply, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment, setPowerView, selectSupply, openSupply],
+    [nodeId, view, eqId, rackId, block, power, supply, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openBlockAt, openEquipment, setPowerView, selectSupply, openSupply],
   );
 }

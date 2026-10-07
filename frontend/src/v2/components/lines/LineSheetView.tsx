@@ -13,6 +13,7 @@ import { LineBlock, type BlockHead } from './LineBlock';
 import { CoreHistoryDialog } from './CoreHistoryDialog';
 import { LineDialog } from './LineDialog';
 import { MeasureBatchDialog } from './MeasureBatchDialog';
+import { PathTraceDialog } from '../paths/PathTraceDialog';
 import { blockWhere, sheetBlocks } from './sheetSelectors';
 
 /** 단자 거르개 — '' = 전체, 이것 = 단자 미지정, 그 밖은 단자 설비 id. */
@@ -52,6 +53,8 @@ export function LineSheetView({
   /* 블록 「측정 입력」 · 코어 번호 → 측정 이력. */
   const [measuring, setMeasuring] = useState<BlockFocus | null>(null);
   const [history, setHistory] = useState<(BlockFocus & { no: number }) | null>(null);
+  /* 코어 → 중계경로 추적. */
+  const [tracing, setTracing] = useState<{ lineId: string; coreNo: number; side: BlockFocus['side'] } | null>(null);
   const { confirm, confirmDialog } = useConfirm();
 
   const s = useMemo(() => ({ saved, overlays }), [saved, overlays]);
@@ -180,6 +183,7 @@ export function LineSheetView({
                   onEdit={() => setDialog({ edit: f })}
                   onOpenCore={(no) => setHistory({ ...f, no })}
                   onOpenEquipment={onOpenEquipment}
+                  onTrace={(no) => setTracing({ lineId: b.lineId, coreNo: no, side: b.side })}
                 />
               );
             })}
@@ -200,6 +204,7 @@ export function LineSheetView({
           <MeasureBatchDialog block={measuringBlock} onClose={() => setMeasuring(null)} />
         )}
         {history && <CoreHistoryDialog lineId={history.lineId} no={history.no} side={history.side} onClose={() => setHistory(null)} />}
+        {tracing && <PathTraceDialog substationId={substationId} at={tracing} onClose={() => setTracing(null)} />}
         {confirmDialog}
       </ViewCard>
       <OverflowShade top={shade.top} />

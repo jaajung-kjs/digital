@@ -65,3 +65,4 @@ export type { CollapsibleRailProps } from './CollapsibleRail';
 export { HOVER_REVEAL } from './hoverReveal';
 export { TableGroupHead, TableGroupHeadButton, TableSubHead, type TableGroupMeta } from './TableGroupHead';
 export { OverflowShade, scrollBoxToTop, useOverflowShade } from './OverflowShade';
+export { Chain, ChainLink, ChainStep, type ChainStepTone } from './Chain';

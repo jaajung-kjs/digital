@@ -377,7 +377,7 @@
 `Badge`, `Button`, `IconButton`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailGrid`,
 `ItemCard`, `ListRow`, `PanelHeader`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
 `Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `TreeRow`, `cn`, `controlSize`,
-`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`·`TableSubHead`, `HOVER_REVEAL`, `useOverflowShade`·`OverflowShade`·`scrollBoxToTop`.
+`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`·`TableSubHead`, `HOVER_REVEAL`, `useOverflowShade`·`OverflowShade`·`scrollBoxToTop`, `Chain`·`ChainStep`·`ChainLink`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -536,6 +536,9 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 `src/components/ui/Badge.tsx` (`status`: success·warning·danger·info·neutral). `DetailCardHeader` 의 `badgeStatus` 가 이걸 씀.
 
 **표의 한 열로 되풀이되는 상태는 `Badge` 가 아니라 `StatusDot`.** 색 채운 알약은 하나일 때는 좋지만 17행이 전부 초록 알약이 되면 색이 아무것도 말해 주지 않고, 정작 고장 한 줄이 묻힌다. `StatusDot` 은 평상시(정상·예비)를 조용히 두고 눈길을 끌 톤(경고·고장)만 글자까지 색을 준다. 무엇이 "눈길을 끌 상태" 인지는 **상태 어휘가 선언한 톤**에서 나온다 — 화면 코드가 `normal`·`fault` 같은 상태 값 이름을 알지 않는다. 단독 강조(패널 머리말·안내 띠)는 그대로 `Badge`.
+
+### 차례대로 이어지는 것(중계경로) → `Chain` · `ChainStep` · `ChainLink`
+`src/components/ui/Chain.tsx` — 위에서 아래로 흐르는 **세로 사슬**. 왼쪽 선 하나에 마디(`tone="node"` — 국·설비·코어 끝)는 점을 찍고(`text-sm`), 마디 사이를 잇는 것(`tone="link"` — 광선로·중계 패치)은 점 없이 `text-xs` 흐린 메타, 끊긴 자리는 `tone="warning"`. 사슬 안에서 **다른 곳으로 가는 글자**(국 이름·코어 → 그 국 선번장)는 `ChainLink`. 사슬을 표나 카드 더미로 다시 짜지 않는다(중계경로 추적 창이 쓴다).
 
 ### 켜짐/꺼짐이 곧 값인 자리 → `Toggle`
 `src/components/ui/Toggle.tsx` — 차단기의 개폐처럼 **지금 어느 쪽인가**가 값 자체인 자리. 체크박스는 "고를 것인가" 를 묻고 스위치는 "지금 어느 쪽인가" 를 보여 준다. 글자는 스위치 **옆에만** 두고 트랙 안에 넣지 않는다(넣으면 `text-xs` 밑으로 내려가야 한다 → §1 위반).

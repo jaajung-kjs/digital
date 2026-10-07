@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { Route, Trash2 } from 'lucide-react';
 import { CORE_ROLES, CORE_STATUSES, DEFAULT_CORE_STATUS, type CoreRole, type CoreStatus, type LinkEndRef, type SheetBlock, type SheetRow } from '@twin/core';
 import {
   Button, EMPTY, HOVER_REVEAL, IconButton, StatusDot, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, Td, Th, cn, formatDate,
@@ -57,6 +57,8 @@ export interface LineBlockProps {
   onOpenCore: (no: number) => void;
   /** 머리의 단자 이름 → 그 설비 상세(현황). 슬롯에서 선번장으로 온 길을 되돌아가는 문이기도 하다. */
   onOpenEquipment: (equipmentId: string) => void;
+  /** 코어 → 중계경로 추적(이 블록의 끝에서). */
+  onTrace: (no: number) => void;
 }
 
 /** 자국 연결 칸에서 누를 설비 — 설비·차단기 끝이면 그 설비, 코어 끝(점퍼)이면 없음. */
@@ -69,7 +71,7 @@ const equipmentOf = (ref: LinkEndRef): string | null => (ref.kind === 'core' ? n
  * 함께 남는다(고정 머리글, §1.7-b).
  */
 export function LineBlock({
-  block, head, focused, selectedEquipmentId, label, onSelectEquipment, onConnect, onUnlink, onUpdateCore, onFocus, onMeasure, onEdit, onOpenCore, onOpenEquipment,
+  block, head, focused, selectedEquipmentId, label, onSelectEquipment, onConnect, onUnlink, onUpdateCore, onFocus, onMeasure, onEdit, onOpenCore, onOpenEquipment, onTrace,
 }: LineBlockProps) {
   const purposeField = block.side === 'A' ? 'aPurpose' : 'bPurpose';
   const noteField = block.side === 'A' ? 'aNote' : 'bNote';
@@ -143,6 +145,16 @@ export function LineBlock({
             const nearEq = r.near ? equipmentOf(r.near) : null;
             const far = r.far ? label(r.far) : null;
             const m = r.latest;
+            /* 중계경로 — 이 코어에 어느 끝이든 연결이 있을 때만(빈 코어는 추적할 사슬이 없다). */
+            const trace = (r.near != null || r.far != null) && (
+              <IconButton
+                size="sm" aria-label={`코어 ${r.no} 중계경로`} title="중계경로"
+                className={cn('shrink-0', HOVER_REVEAL)}
+                onClick={() => onTrace(r.no)}
+              >
+                <Route className="h-3.5 w-3.5" />
+              </IconButton>
+            );
             /* 거리는 1550 이 있으면 그것, 없으면 1310 — 물러선 값은 그렇다고 적는다(같은 칸에 다른 파장이 말없이 섞이지 않게). */
             const dist = m ? (m.dist1550 ?? m.dist1310) : null;
             const distFrom1310 = m != null && m.dist1550 == null && m.dist1310 != null;
@@ -161,6 +173,7 @@ export function LineBlock({
                         {nearEq
                           ? <button type="button" className={cn('min-w-0 flex-1 truncate text-left hover:text-primary hover:underline', nearEq === selectedEquipmentId && 'font-medium text-primary')} title={near} onClick={() => onSelectEquipment(nearEq)}>{near}</button>
                           : <span className="min-w-0 flex-1 truncate" title={near}>{near}</span>}
+                        {trace}
                         <IconButton
                           size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제"
                           className={cn('shrink-0', HOVER_REVEAL)}
@@ -173,6 +186,7 @@ export function LineBlock({
                       <>
                         {/* 빈 칸은 대국 칸과 같은 「—」 — 빈 모양은 하나다. */}
                         <span className="min-w-0 flex-1 text-content-faint">{EMPTY}</span>
+                        {trace}
                         <span className={cn('shrink-0', HOVER_REVEAL)}>
                           <Button variant="secondary" size="xs" onClick={() => onConnect({ kind: 'core', lineId: block.lineId, no: r.no, side: block.side })}>연결</Button>
                         </span>

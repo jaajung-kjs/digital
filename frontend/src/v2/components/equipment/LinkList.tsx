@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Route, Trash2 } from 'lucide-react';
 import { Button, CommitInput, isComposing, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListHeading, ListItemRow } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Link } from '../../model/types';
+import { PathTraceDialog } from '../paths/PathTraceDialog';
 import { ConnectDialog } from './ConnectDialog';
 import { endLabel, linksOfEquipment, nearLabel, sidesOf } from './endpoints';
 
@@ -31,6 +32,8 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
   const [error, setError] = useState<string | null>(null);
   /** 표기를 고치는 중인 연결. */
   const [editing, setEditing] = useState<string | null>(null);
+  /** 중계경로를 추적하는 코어 끝 — 연결의 코어 쪽 끝. */
+  const [tracing, setTracing] = useState<{ lineId: string; coreNo: number; side: 'A' | 'B' } | null>(null);
   const s = { saved, overlays };
   const links = useMemo(() => linksOfEquipment({ saved, overlays }, equipmentId), [saved, overlays, equipmentId]);
   const hasBreakers = useMemo(
@@ -79,6 +82,7 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
         </div>
       )}
       <ConnectDialog substationId={substationId} from={{ kind: 'equipment', equipmentId }} open={open} onClose={() => setOpen(false)} onCreated={() => setError(null)} />
+      {tracing && <PathTraceDialog substationId={substationId} at={tracing} onClose={() => setTracing(null)} />}
     </DetailCard>
   );
 
@@ -88,6 +92,8 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
     const here = nearLabel(nearRef);
     const meta = [here, cableName(l.cableTypeId), l.lengthM != null ? `${l.lengthM} m` : null].filter(Boolean).join(' · ');
     const farText = endLabel(s, far);
+    /* 코어 끝이 있는 연결(광선로 코어에 물린 것)만 중계경로가 있다 — 그 코어 끝에서 추적한다. */
+    const core = far.kind === 'core' ? far : null;
     return (
       <ListItemRow
         key={l.id}
@@ -101,6 +107,11 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
         ) : <span data-testid="link-near" title={meta}>{meta}</span>}
         actions={(
           <>
+            {core && (
+              <IconButton size="sm" aria-label="중계경로" title="중계경로" onClick={() => setTracing({ lineId: core.lineId, coreNo: core.no, side: core.side })}>
+                <Route className="h-3.5 w-3.5" />
+              </IconButton>
+            )}
             {nearRef.kind === 'equipment' && (
               <IconButton size="sm" aria-label="포트 수정" title="포트 수정" onClick={() => setEditing(l.id)}><Pencil className="h-3.5 w-3.5" /></IconButton>
             )}
