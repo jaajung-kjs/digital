@@ -75,9 +75,9 @@ describe('전원 계통 — 계통도', () => {
     expect(within(row('r:panel/4/1')).getByText('고장')).toBeInTheDocument(); // 정상이 아니면 상태
   });
 
-  it('입력 전원이 없는 뿌리는 흐린 「입력 전원 미등록」(경고 아님)', () => {
+  it('입력 전원이 없는 뿌리는 흐린 「입력 전원 미지정」(경고 아님)', () => {
     renderTree();
-    const meta = within(row('r:panel')).getByText('입력 전원 미등록');
+    const meta = within(row('r:panel')).getByText('입력 전원 미지정');
     expect(meta).toHaveClass('text-content-muted');
     expect(meta).not.toHaveClass('text-warning');
   });
@@ -88,13 +88,13 @@ describe('전원 계통 — 계통도', () => {
     expect(within(row('r:panel/1')).getByText('예비')).toBeInTheDocument();
   });
 
-  it('이중 입력 — 두 번째 자리는 이름 + 「위에 표시됨」, 누르면 처음 펼친 줄로(접힌 조상은 편다)', () => {
+  it('이중 입력 — 두 번째 자리는 이름 + 「상단 참조」, 누르면 처음 펼친 줄로(접힌 조상은 편다) · 선택도 그 줄로', () => {
     const s = store.getState();
     s.create('equipment', eq('ups', 'UPS', 1));
     s.create('links', link('k3', cb('ups', 1), to('dist')));
     renderTree();
     const anchor = items().find((r) => r.dataset.anchor === 'dist')!;
-    const again = items().filter((r) => within(r).queryByRole('button', { name: '위에 표시됨' }));
+    const again = items().filter((r) => within(r).queryByRole('button', { name: /상단 참조/ }));
     expect(again).toHaveLength(1);
     expect(again[0]).toHaveTextContent('통신용 분전반');
     expect(again[0]!.dataset.key).not.toBe(anchor.dataset.key);
@@ -102,30 +102,71 @@ describe('전원 계통 — 계통도', () => {
     const parentKey = anchor.dataset.key!.split('/').slice(0, -1).join('/');
     fireEvent.click(within(row(parentKey)).getByRole('button', { name: /접기$/ }));
     expect(items().some((r) => r.dataset.anchor === 'dist')).toBe(false);
-    fireEvent.click(within(again[0]!).getByRole('button', { name: '위에 표시됨' }));
+    const go = within(again[0]!).getByRole('button', { name: /상단 참조/ });
+    expect(go).toHaveAccessibleName('상단 참조 — 해당 설비 행으로 이동');
+    fireEvent.click(go);
     const back = items().find((r) => r.dataset.anchor === 'dist')!;
     expect(back).toBeInTheDocument();
     expect(document.activeElement).toBe(back);
+    // 표시는 한 곳 — 데려간 줄만 선택된다
+    expect(screen.getByTestId('loc')).toHaveTextContent('eq=dist');
+    expect(items().filter((r) => r.getAttribute('aria-selected') === 'true')).toEqual([back]);
   });
 
-  it('위 단계 설비로 되먹이는 공급(분전반 → 충전기 → 분전반)은 흐린 「상위 설비로 공급」으로 멈추고, 누르면 그 설비 줄로', () => {
+  it('충전기 직류 → 분전반은 순환이 아니라 그 분전반의 직류 모선 — 교류 모선 아래 충전기 밑에 직류 차단기가 선다', () => {
     const s = store.getState();
     s.update('equipment', 'chg', { circuitCount: 1 });
     s.updateCircuit('chg', 1, { current: 'DC' });
+    s.updateCircuit('dist', 3, { current: 'AC' });
     s.create('links', link('k4', cb('chg', 1), to('dist', 'DC IN')));
     renderTree();
-    const loop = row('r:panel/4/1/1');
+    expect(keys()).toEqual([
+      'r:panel', 'r:panel/1', 'r:panel/2', 'r:panel/3', 'r:panel/4',
+      'r:panel/4/1', 'r:panel/4/1/1', 'r:panel/4/1/1/2', 'r:panel/4/3',
+    ]);
+    expect(within(row('r:panel/4')).getByTestId('tree-bus')).toHaveTextContent('교류 모선');
+    const back = row('r:panel/4/1/1');
+    expect(within(back).getByTestId('tree-bus')).toHaveTextContent('직류 모선');
+    expect(within(back).queryByText('상위 설비 공급')).toBeNull();
+    expect(back).toHaveAttribute('data-bus', 'DC');
+    expect(row('r:panel/4/1/1/2')).toHaveTextContent('차단기 2 · 직류');
+  });
+
+  it('같은 갈래로 위 단계 모선에 되돌아가면(UPS 교류 → 분전반 교류) 흐린 「상위 설비 공급」으로 멈추고, 누르면 그 모선 줄로', () => {
+    const s = store.getState();
+    s.create('equipment', eq('ups', 'UPS', 1));
+    s.updateCircuit('ups', 1, { current: 'AC' });
+    s.updateCircuit('dist', 3, { current: 'AC' });
+    s.create('links', link('k3', cb('dist', 3), to('ups')));
+    s.create('links', link('k4', cb('ups', 1), to('dist')));
+    renderTree();
+    const loop = row('r:panel/4/3/1');
     expect(loop).toHaveTextContent('통신용 분전반');
-    const badge = within(loop).getByText('상위 설비로 공급');
+    const badge = within(loop).getByText('상위 설비 공급');
     expect(badge).toHaveClass('text-content-muted');
     expect(badge).not.toHaveClass('text-warning');
-    const go = within(loop).getByRole('button', { name: /상위 설비로 공급/ });
-    expect(go).toHaveAttribute('title', '위 단계 설비로 되먹이는 공급 — 분전반의 직류·UPS 모선 등');
-    expect(loop.getAttribute('title')).toContain('상위 설비로 공급');
+    const go = within(loop).getByRole('button', { name: '상위 설비 공급 — 해당 설비 행으로 이동' });
+    expect(go).toHaveAttribute('title', '상위 설비의 모선으로 다시 공급되는 계통(분전반의 UPS 모선 등)');
+    expect(loop.getAttribute('title')).toContain('상위 설비 공급');
     expect(loop.getAttribute('title')).not.toContain('순환');
-    expect(keys().filter((k) => k!.startsWith('r:panel/4/1/1/'))).toEqual([]);
+    expect(keys().filter((k) => k!.startsWith('r:panel/4/3/1/'))).toEqual([]);
     fireEvent.click(go);
     expect(document.activeElement).toBe(row('r:panel/4'));
+    expect(items().filter((r) => r.getAttribute('aria-selected') === 'true').map((r) => r.dataset.key)).toEqual(['r:panel/4']);
+  });
+
+  it('품목이 설비 이름과 같으면 품목을 적지 않는다', () => {
+    store.getState().update('equipment', 'chg', { name: '분전반', typeId: 'tp' });
+    renderTree();
+    expect(within(row('r:panel/4')).getAllByText('분전반')).toHaveLength(1); // 「통신용 분전반」의 품목
+    expect(within(row('r:panel/4/1')).getAllByText('분전반')).toHaveLength(1); // 이름만
+  });
+
+  it('검색 건수는 차단기 줄만 센다 — 대장과 같은 것', () => {
+    renderTree();
+    fireEvent.change(screen.getByRole('textbox', { name: '전원 계통 검색' }), { target: { value: '분전반' } });
+    // 맞는 줄: 「소내전원반」 설비 줄(이름에 분전반 없음 — 0) + 차단기 4(부하 통신용 분전반) = 차단기 1, 전체 차단기 7
+    expect(screen.getByText('1 / 7건')).toBeInTheDocument();
   });
 
   it('예비 줄을 누르면 그 차단기를 가진 설비를 고르되 불은 누른 줄에만 — 다른 줄로 화면을 굴리지 않는다', () => {

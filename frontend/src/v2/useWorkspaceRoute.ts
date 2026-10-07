@@ -50,6 +50,9 @@ export function useWorkspaceRoute() {
       setParams((prev) => {
         const p = new URLSearchParams(prev);
         p.set('view', next);
+        /* 전원 계통의 보기(power)·블록 초점(supply)은 그 판의 것 — 다른 판으로 가면 주소에 남기지 않는다
+           (돌아오면 대장에서, 초점 없이 연다. 남겨 두면 다른 판 주소에 쓰이지 않는 값이 붙어 다닌다). */
+        if (next !== '전원 계통') { p.delete('power'); p.delete('supply'); }
         return p;
       }, { replace: true });
     },

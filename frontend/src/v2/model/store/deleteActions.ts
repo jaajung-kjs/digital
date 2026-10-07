@@ -1,5 +1,5 @@
 import { MAX_CIRCUITS, circuitKey, coreKey, expandDeletes, validateState, type DeleteRequest } from '@twin/core';
-import type { FiberLine } from '../types';
+import type { Circuit, FiberLine } from '../types';
 import { stageDelete, stageUpdate, type Overlay } from '../../store/overlay';
 import { effectiveRows, outsideLinks, toModelState } from './effective';
 import { workingCopyStore, type RowKind } from './workingCopy';
@@ -84,8 +84,11 @@ export function removeLastCircuit(equipmentId: string): { blocked: string | null
  * 그때 저장된 값(saved 행)이나 고치던 값(오버레이)이 되살아나면 안 된다. 그래서 수를 늘리는 일과
  * n 번 값을 비우는 일을 **한 번의 set** 으로 싣는다 — 되돌리기 한 번에 함께 물러난다.
  * 저장된 n 번 행이 있으면 모든 칸을 null 로 덮고, 없으면 남은 오버레이만 걷는다(빈 패치를 싣지 않는다).
+ *
+ * `initial` 을 주면 새 줄을 그 값으로 시작한다(교류/직류로 거른 대장에서 더하면 그 갈래 — 그래야 거르기에 걸려 사라지지 않는다).
+ * 이것도 같은 한 번의 set 이다.
  */
-export function addCircuit(equipmentId: string): number | null {
+export function addCircuit(equipmentId: string, initial: Partial<Circuit> = {}): number | null {
   const s = workingCopyStore.getState();
   const eq = effectiveRows(s, 'equipment').find((e) => e.id === equipmentId);
   if (!eq || eq.circuitCount >= MAX_CIRCUITS) return null;
@@ -94,9 +97,11 @@ export function addCircuit(equipmentId: string): number | null {
   const hasSaved = s.saved.circuits.some((c) => c.equipmentId === equipmentId && c.no === no);
   s.applyOverlays((o) => {
     const { [k]: _old, ...rest } = o.circuits;
+    const blank = { label: null, current: null, voltage: null, capacity: null, phase: null, switch: null, purpose: null };
+    const given = Object.keys(initial).length > 0;
     const circuits = hasSaved
-      ? { ...rest, [k]: { label: null, current: null, voltage: null, capacity: null, phase: null, switch: null, purpose: null } }
-      : rest;
+      ? { ...rest, [k]: { ...blank, ...initial } }
+      : given ? { ...rest, [k]: { ...initial } } : rest;
     return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no }, savedEquipment(equipmentId)), circuits };
   });
   return no;

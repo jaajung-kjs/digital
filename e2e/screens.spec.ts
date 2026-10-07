@@ -225,12 +225,12 @@ for (const vp of VIEWPORTS) {
       await shot(page, '34-power-tree-dc');
       await main(page).getByRole('combobox', { name: '교류/직류' }).selectOption({ label: '전체' });
 
-      // 상세에서 전원 계통으로 — 현황에서 분전반을 열고 차단기 카드 머리의 「전원 계통에서 보기」
+      // 상세에서 전원 계통으로 — 현황에서 분전반을 열고 차단기 카드 머리의 「차단기 대장에서 보기」
       await main(page).getByRole('tab', { name: '현황' }).click();
       await main(page).getByRole('radio', { name: '랙별' }).click();
       await main(page).getByRole('row').filter({ hasText: PANEL }).last().click();
       await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
-      await detail(page).getByRole('button', { name: '전원 계통에서 보기' }).click();
+      await detail(page).getByRole('button', { name: '차단기 대장에서 보기' }).click();
       await expect(main(page).getByRole('radio', { name: '차단기 대장' })).toBeChecked();
       await expect(blocks.and(page.locator('[aria-current="true"]')).getByTestId('ledger-block-head')).toBeInViewport();
       await settle(page);

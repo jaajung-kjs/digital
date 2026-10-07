@@ -259,6 +259,16 @@ describe('제자리로 돌아온 고치기는 걷힌다', () => {
     expect(store.getState().dirtyCount()).toBe(2);
   });
 
+  it('차단기 추가에 처음 값을 주면 그 값으로 서고 — 되돌리기 한 번에 수와 값이 함께 물러난다', async () => {
+    await store.getState().ensureLoaded('S1');
+    store.temporal.getState().clear();
+    expect(addCircuit('pnl', { current: 'DC' })).toBe(3);
+    expect(effectiveCircuits(store.getState(), 'pnl').find((c) => c.no === 3)).toMatchObject({ current: 'DC', label: null });
+    store.temporal.getState().undo();
+    expect(effectiveRows(store.getState(), 'equipment').find((e) => e.id === 'pnl')?.circuitCount).toBe(2);
+    expect(store.getState().overlays.circuits).toEqual({});
+  });
+
   it('다른 칸은 남기고 제자리로 돌아온 칸만 걷는다', async () => {
     await store.getState().ensureLoaded('S1');
     store.getState().update('equipment', 'ote', { note: '메모', name: '바꿈' });

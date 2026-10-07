@@ -1,6 +1,7 @@
+import { Fragment } from 'react';
 import { MAX_CIRCUITS, type LinkEndRef, type PowerBreaker, type PowerNode } from '@twin/core';
 import {
-  Button, EMPTY, HOVER_REVEAL, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, Td, Th, cn,
+  Button, EMPTY, HOVER_REVEAL, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, TableSubHead, Td, Th, cn, type TableGroupMeta,
 } from '../../../components/ui';
 import type { Circuit } from '../../model/types';
 import { CircuitCell, type CircuitField } from '../equipment/CircuitCell';
@@ -20,13 +21,20 @@ export interface LedgerHead {
   name: string;
   /** 차단기 수(거르기 전 전체). */
   count: number;
-  /** 입력 전원 메타 — 갈래별 「교류 입력: …」·「직류 입력: …」·「입력 전원: …」, 없으면 「입력 전원 미등록」. 보는 쪽이 짓는다. */
-  feeds: string[];
+  /**
+   * 입력 전원 메타 — 갈래별 「교류 입력: …」·「직류 입력: …」·「입력 전원: …」, 없으면 「입력 전원 미지정」. 보는 쪽이 짓는다.
+   * 거른 보기에서도 모두 서고, 보기 밖 갈래는 흐리다(`faint`).
+   */
+  feeds: TableGroupMeta[];
+  /** 모선(`PowerBus.key`)마다 소묶음 머리 — 이름(「교류 모선」)과 곁말(「입력: 소내전원반 차단기 4」). 모선이 하나면 쓰지 않는다. */
+  buses: ReadonlyMap<string, { name: string; meta: string }>;
 }
 
 export interface PowerLedgerProps {
   blocks: readonly PowerNode[];
   heads: ReadonlyMap<string, LedgerHead>;
+  /** 교류/직류 거르기나 검색으로 줄을 좁혔다 — 머리의 차단기 수를 「보이는 수 / 전체」로 적는다. */
+  narrowed?: boolean;
   /** 블록 초점(`supply`). */
   focusId: string | null;
   /** 상세 패널에 열린 설비 — 그 설비를 부하로 둔 칸을 칠한다. */
@@ -49,19 +57,46 @@ const FIELDS_BEFORE_LOAD: readonly CircuitField[] = ['label', 'current', 'voltag
 
 /**
  * 차단기 대장 — **공급 설비 하나 = 블록 하나**(현장 분전반 시트 한 장). 머리 = 설비 이름 · 차단기 수 / 입력 전원 / 「차단기 추가」.
+ * 교류·직류를 함께 받는 설비(다모선 분전반)는 차단기를 모선으로 묶어 소묶음 머리 「교류 모선 · 입력: …」 아래에 둔다
+ * (거르기·검색으로 비는 모선은 머리도 두지 않는다). 모선이 하나면 오늘과 같은 한 묶음이다.
  * 블록·차단기·부하·입력 전원은 core `powerLedger` 가 정하고 여기는 그릴 뿐이다. 칸 편집은 편집 창(`CircuitTable`)과
  * **같은 칸**(`CircuitCell`)이다. 마지막 차단기 삭제는 상세 패널 편집 창 한 곳에만 있다(같은 일에 문은 하나).
  */
 export function PowerLedger({
-  blocks, heads, focusId, selectedEquipmentId, label, nameOf, cableName,
+  blocks, heads, narrowed = false, focusId, selectedEquipmentId, label, nameOf, cableName,
   onSelectSupply, onSelectEquipment, onConnect, onAddCircuit, onUpdateCircuit,
 }: PowerLedgerProps) {
   return (
-    <div className="space-y-4">
+    /* 보이는 판 폭을 머리줄에 알린다 — 블록은 판보다 넓어 가로로 구를 수 있다(`TableGroupHead wrapMetas`). */
+    <div className="space-y-4 [container-type:inline-size]">
       {blocks.map((n) => {
         const head = heads.get(n.equipmentId)!;
         const focused = focusId === n.equipmentId;
         const set = (no: number) => (patch: Partial<Circuit>) => onUpdateCircuit(n.equipmentId, no, patch);
+        const row = (b: PowerBreaker) => (
+          <tr key={b.no} data-testid={`ledger-row-${b.no}`} tabIndex={-1} className={cn(TABLE_ROW, 'group')}>
+            <Td align="right" data-col="no">{b.no}</Td>
+            {FIELDS_BEFORE_LOAD.map((f) => (
+              <Td key={f} data-col={f}><CircuitCell circuit={b} field={f} onSet={set(b.no)} /></Td>
+            ))}
+            <Td data-col="load">
+              <LoadCell
+                breaker={b} label={label} nameOf={nameOf} selectedEquipmentId={selectedEquipmentId}
+                onSelectEquipment={onSelectEquipment}
+                onConnect={() => onConnect({ kind: 'circuit', equipmentId: n.equipmentId, no: b.no })}
+              />
+            </Td>
+            <Td data-col="port" className="truncate" title={b.load?.kind === 'equipment' ? b.load.port ?? undefined : undefined}>
+              {b.load?.kind === 'equipment' && b.load.port ? b.load.port : <span className="text-content-faint">{EMPTY}</span>}
+            </Td>
+            {(() => {
+              const cable = b.cableTypeId ? cableName(b.cableTypeId) : null;
+              return <Td data-col="cable" className="truncate" title={cable ?? undefined}>{cable ?? <span className="text-content-faint">{EMPTY}</span>}</Td>;
+            })()}
+            <Td align="right" data-col="length">{b.lengthM != null ? b.lengthM : <span className="text-content-faint">{EMPTY}</span>}</Td>
+            <Td data-col="purpose"><CircuitCell circuit={b} field="purpose" onSet={set(b.no)} /></Td>
+          </tr>
+        );
         return (
           <section
             key={n.equipmentId}
@@ -78,10 +113,11 @@ export function PowerLedger({
                   title={(
                     <>
                       <TableGroupHeadButton title={`${head.name} 상세 보기`} onClick={() => onSelectSupply(n.equipmentId)}>{head.name}</TableGroupHeadButton>
-                      <span className="font-normal text-content-muted">· 차단기 {head.count}</span>
+                      <span className="font-normal text-content-muted">· 차단기 {narrowed ? `${n.breakers.length} / ${head.count}` : head.count}</span>
                     </>
                   )}
                   metas={head.feeds}
+                  wrapMetas
                   actions={(
                     <Button variant="secondary" size="xs" disabled={head.count >= MAX_CIRCUITS} onClick={() => onAddCircuit(n.equipmentId)}>차단기 추가</Button>
                   )}
@@ -102,30 +138,17 @@ export function PowerLedger({
                 </tr>
               </thead>
               <tbody>
-                {n.breakers.map((b) => (
-                  <tr key={b.no} data-testid={`ledger-row-${b.no}`} className={cn(TABLE_ROW, 'group')}>
-                    <Td align="right" data-col="no">{b.no}</Td>
-                    {FIELDS_BEFORE_LOAD.map((f) => (
-                      <Td key={f} data-col={f}><CircuitCell circuit={b} field={f} onSet={set(b.no)} /></Td>
-                    ))}
-                    <Td data-col="load">
-                      <LoadCell
-                        breaker={b} label={label} nameOf={nameOf} selectedEquipmentId={selectedEquipmentId}
-                        onSelectEquipment={onSelectEquipment}
-                        onConnect={() => onConnect({ kind: 'circuit', equipmentId: n.equipmentId, no: b.no })}
+                {n.multiBus
+                  ? n.buses.filter((bus) => bus.breakers.length > 0).map((bus) => (
+                    <Fragment key={bus.key}>
+                      <TableSubHead
+                        colSpan={COLS} data-testid="ledger-bus-head"
+                        name={head.buses.get(bus.key)?.name ?? ''} meta={head.buses.get(bus.key)?.meta}
                       />
-                    </Td>
-                    <Td data-col="port" className="truncate" title={b.load?.kind === 'equipment' ? b.load.port ?? undefined : undefined}>
-                      {b.load?.kind === 'equipment' && b.load.port ? b.load.port : <span className="text-content-faint">{EMPTY}</span>}
-                    </Td>
-                    {(() => {
-                      const cable = b.cableTypeId ? cableName(b.cableTypeId) : null;
-                      return <Td data-col="cable" className="truncate" title={cable ?? undefined}>{cable ?? <span className="text-content-faint">{EMPTY}</span>}</Td>;
-                    })()}
-                    <Td align="right" data-col="length">{b.lengthM != null ? b.lengthM : <span className="text-content-faint">{EMPTY}</span>}</Td>
-                    <Td data-col="purpose"><CircuitCell circuit={b} field="purpose" onSet={set(b.no)} /></Td>
-                  </tr>
-                ))}
+                      {bus.breakers.map(row)}
+                    </Fragment>
+                  ))
+                  : n.breakers.map(row)}
               </tbody>
             </TableCard>
           </section>

@@ -80,7 +80,8 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await sweepLeftovers(page);
   expect(await changeCount(page)).toBe(0);
 
-  // 2. 분전반 블록 머리 — 차단기 22, 입력 전원은 소내전원반 차단기 4(교류). 충전기·UPS 출력이 되먹이는 것도 갈래별로 선다
+  // 2. 분전반 블록 머리 — 차단기 22, 입력 전원은 소내전원반 차단기 4(교류). 충전기·UPS 출력에서 받는 입력도 갈래별로 선다.
+  //    교류·직류를 함께 받으니 차단기는 모선으로 묶인다 — 교류 모선(1–12) · 직류 모선(13–22)
   const panel = blockOf(page, PANEL);
   await expect(panel).toHaveCount(1);
   const panelId = (await panel.getAttribute('data-equipment'))!;
@@ -88,6 +89,10 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await expect(head).toContainText(`${PANEL}· 차단기 22`);
   await expect(head).toContainText('교류 입력: 소내전원반 차단기 4');
   await expect(head).toContainText('직류 입력: 충전기 #2 차단기 1');
+  const busHeads = panel.getByTestId('ledger-bus-head');
+  await expect(busHeads).toHaveCount(2);
+  await expect(busHeads.nth(0)).toContainText('교류 모선 · 입력: 소내전원반 차단기 4');
+  await expect(busHeads.nth(1)).toHaveText('직류 모선 · 입력: 충전기 #2 차단기 1');
   //    시드 부하 — 차단기 1 → 충전기 #2, 20(직류) → PIA. 7 은 예비
   await expect(cell(panel, 1, 'load')).toHaveText('충전기 #2');
   await expect(cell(panel, 20, 'load')).toHaveText('PIA');
@@ -119,19 +124,28 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   // 5. 계통도 — 그 부하가 분전반 아래(소내전원반 → 차단기 4 → 통신용 분전반 → 차단기 7 → PoE 스위치)
   await main(page).getByRole('radio', { name: '계통도' }).click();
   await expect(page).toHaveURL(/[?&]power=tree/);
-  const panelRow = main(page).locator(`[data-testid="tree-breaker"][data-anchor="${panelId}"]`);
+  const panelRow = main(page).locator(`[data-testid="tree-breaker"][data-anchor="${panelId}"][data-bus="AC"]`);
   await expect(panelRow).toHaveCount(1);
   await expect(panelRow).toContainText(`차단기 4 · A.C L18`);
   await expect(panelRow).toContainText(PANEL);
+  await expect(panelRow.getByTestId('tree-bus')).toHaveText('교류 모선');
   const panelKey = (await panelRow.getAttribute('data-key'))!;
   const panelLevel = Number(await panelRow.getAttribute('aria-level'));
   const loadRow = treeRows(page).filter({ hasText: `차단기 ${SPARE_NO} · SPARE · 30A · 교류` }).filter({ hasText: LOAD });
   await expect(loadRow).toHaveCount(1);
   await expect(loadRow).toHaveAttribute('data-key', `${panelKey}/${SPARE_NO}`);
   await expect(loadRow).toHaveAttribute('aria-level', String(panelLevel + 1));
-  //    입력 전원 미등록 · 상위 설비로 공급 — 흐린 말(경고 아님)
-  await expect(main(page).getByTestId('tree-equipment').filter({ hasText: '소내전원반' })).toContainText('입력 전원 미등록');
-  await expect(treeRows(page).filter({ hasText: '차단기 1 · SID-125 1 · 직류' }).getByText('상위 설비로 공급')).toBeVisible();
+  //    입력 전원 미지정 — 흐린 말(경고 아님)
+  await expect(main(page).getByTestId('tree-equipment').filter({ hasText: '소내전원반' })).toContainText('입력 전원 미지정');
+  //    충전기 #2 직류 차단기 1 → 분전반 직류 모선(순환이 아니다) — 그 아래에 직류 부하(PIA)
+  const dcBus = treeRows(page).filter({ hasText: '차단기 1 · SID-125 1 · 직류' });
+  await expect(dcBus.getByTestId('tree-bus')).toHaveText('직류 모선');
+  await expect(dcBus.getByText('상위 설비 공급')).toHaveCount(0);
+  await expect(dcBus).toHaveAttribute('data-bus', 'DC');
+  const dcKey = (await dcBus.getAttribute('data-key'))!;
+  await expect(treeRows(page).filter({ hasText: '차단기 20 · PIA' })).toHaveAttribute('data-key', `${dcKey}/20`);
+  //    UPS 교류 출력 → 분전반 교류 모선 — 같은 갈래 되먹임은 흐린 「상위 설비 공급」
+  await expect(treeRows(page).filter({ hasText: '소형 UPS 1' }).getByText('상위 설비 공급')).toBeVisible();
 
   // 6. 교류/직류 거르기 — 직류면 PoE(교류) 줄이 빠지고 PIA(직류)가 서며, 교류면 그 반대
   const filter = main(page).getByRole('combobox', { name: '교류/직류' });
@@ -146,13 +160,13 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await expect(loadRow).toHaveCount(1);
   await expect(piaRow).toHaveCount(1);
 
-  // 7. 상세 패널에서 전원 계통으로 — 현황에서 분전반을 열고 차단기 카드 머리의 「전원 계통에서 보기」
+  // 7. 상세 패널에서 전원 계통으로 — 현황에서 분전반을 열고 차단기 카드 머리의 「차단기 대장에서 보기」
   await main(page).getByRole('tab', { name: '현황' }).click();
   await main(page).getByRole('radio', { name: '랙별' }).click();
   await main(page).getByRole('row').filter({ hasText: PANEL }).last().click();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
   const breakerCard = detail(page).getByText(/^차단기 22$/).locator('xpath=../..');
-  await breakerCard.getByRole('button', { name: '전원 계통에서 보기' }).click();
+  await breakerCard.getByRole('button', { name: '차단기 대장에서 보기' }).click();
   const focused = blocks(page).and(page.locator('[aria-current="true"]'));
   const landed = async () => {
     await expect(main(page).getByRole('tab', { name: '전원 계통' })).toHaveAttribute('aria-selected', 'true');
@@ -162,7 +176,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
     await expect(focused.getByTestId('ledger-block-head')).toBeInViewport();
     await expect(detail(page).getByText(PANEL, { exact: true }).first()).toBeVisible(); // 상세는 그대로 선다(보던 탭 그대로)
     //    이미 그 블록을 보고 있으면 길을 두지 않는다
-    await expect(detail(page).getByRole('button', { name: '전원 계통에서 보기' })).toHaveCount(0);
+    await expect(detail(page).getByRole('button', { name: '차단기 대장에서 보기' })).toHaveCount(0);
   };
   await landed();
   //    뒤로 가기는 떠나 온 현황 상세로
@@ -174,8 +188,8 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await detail(page).getByRole('tab', { name: '연결' }).click();
   const feeds = detail(page).getByRole('region', { name: '입력 전원' });
   await expect(feeds.getByTestId('link-far').filter({ hasText: '소내전원반 차단기 4' })).toHaveCount(1);
-  await expect(detail(page).getByRole('region', { name: '부하' }).getByRole('button', { name: '전원 계통에서 보기' })).toHaveCount(0);
-  await feeds.getByRole('button', { name: '전원 계통에서 보기' }).click();
+  await expect(detail(page).getByRole('region', { name: '부하' }).getByRole('button', { name: '차단기 대장에서 보기' })).toHaveCount(0);
+  await feeds.getByRole('button', { name: '차단기 대장에서 보기' }).click();
   await landed();
   await page.goBack();
   await expect(main(page).getByRole('tab', { name: '현황' })).toHaveAttribute('aria-selected', 'true');

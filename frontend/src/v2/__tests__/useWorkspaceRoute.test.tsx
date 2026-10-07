@@ -88,6 +88,14 @@ describe('useWorkspaceRoute', () => {
     expect(at('/n/sub-1?view=전원 계통&power=zzz').result.current.power).toBe('ledger');
   });
 
+  it('전원 계통을 떠나면 그 판의 보기(power)·블록 초점(supply)은 주소에서 걷힌다 — 고른 설비는 그대로', () => {
+    const { result } = at('/n/sub-1?view=전원 계통&power=tree&supply=d1&eq=d1');
+    act(() => result.current.setView('현황'));
+    expect(result.current).toMatchObject({ view: '현황', power: 'ledger', supply: null, eqId: 'd1' });
+    act(() => result.current.setView('전원 계통'));
+    expect(result.current).toMatchObject({ power: 'ledger', supply: null });
+  });
+
   it('상세에서 전원 계통으로 — 판·대장·블록·설비를 한 번에 쓰고 기록을 남긴다(뒤로 가면 떠나 온 화면)', () => {
     const { result } = renderHook(() => ({ route: useWorkspaceRoute(), nav: useNavigate() }), {
       wrapper: ({ children }) => (

@@ -21,7 +21,7 @@ import { endLabel, linksOfEquipment, nearLabel, sidesOf } from './endpoints';
  */
 export function LinkList({ equipmentId, substationId, onOpenPower }: {
   equipmentId: string; substationId: string;
-  /** 「입력 전원」 묶음 머리의 「전원 계통에서 보기」 — 차단기 대장의 이 설비 블록으로(기록을 남긴다). */
+  /** 「입력 전원」 묶음 머리의 「차단기 대장에서 보기」 — 차단기 대장의 이 설비 블록으로(기록을 남긴다). */
   onOpenPower?: () => void;
 }) {
   const catalog = useCatalog().data;
@@ -69,7 +69,7 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
           {groups.map((g) => (
             <section key={g.title ?? 'all'} aria-label={g.title ?? undefined}>
               {g.title && (
-                <ListHeading action={g.power && onOpenPower ? <Button variant="ghost" size="xs" onClick={onOpenPower}>전원 계통에서 보기</Button> : undefined}>
+                <ListHeading action={g.power && onOpenPower ? <Button variant="ghost" size="xs" onClick={onOpenPower}>차단기 대장에서 보기</Button> : undefined}>
                   {g.title}
                 </ListHeading>
               )}
