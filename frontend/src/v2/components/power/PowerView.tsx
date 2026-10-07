@@ -173,7 +173,7 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
         )}
         actions={(
           <TableSearch
-            aria-label="전원 계통 검색" className={isTree ? 'w-60' : 'w-72'} placeholder="설비 · 차단기 표기 · 부하 · 용도 검색"
+            aria-label="전원 계통 검색" className="w-72" placeholder="설비 · 차단기 표기 · 부하 · 용도 검색"
             value={query} onChange={setQuery} shown={isTree ? treeShown.matched : shownRows} total={isTree ? tree.length : total}
           />
         )}

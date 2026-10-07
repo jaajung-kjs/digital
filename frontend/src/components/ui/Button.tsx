@@ -55,7 +55,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type ?? 'button'}
       disabled={disabled}
       className={cn(
-        'press-btn focus-ring inline-flex items-center gap-1.5 rounded font-medium',
+        /* 글자는 쪼개지지 않는다 — 좁아진 띠에서 「모두 접기」가 모/두/접/기 세로로 섰다. */
+        'press-btn focus-ring inline-flex items-center gap-1.5 whitespace-nowrap rounded font-medium',
         (tone === 'danger' && dangerToneClasses[variant]) || variantClasses[variant],
         sizeClasses[size],
         /* 비활성은 **색을 죽인다** — 반투명으로만 두면 흰 글자 대비가 2.73:1 로 떨어지면서도

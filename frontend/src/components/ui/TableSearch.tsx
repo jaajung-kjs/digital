@@ -1,3 +1,4 @@
+import { cn } from './cn';
 import { Input } from './Input';
 
 export interface TableSearchProps {
@@ -37,14 +38,15 @@ export function TableSearch({ value, onChange, placeholder, shown, total, classN
   const filtering = value.trim().length > 0;
   const label = `${shown} / ${total}건`;
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       {/* 건수는 입력칸 **앞**에 선다 — 머리 띠의 오른쪽 끝은 `ml-auto` 로 밀려 있어서,
           건수를 뒤에 두면 글자를 치는 순간 그것이 나타나며 입력칸이 왼쪽으로 튄다.
           줄바꿈되지 않게: 좁은 칸에서 "48" / "건" 으로 갈라져 두 줄이 됐다. */}
       {count === 'before' && filtering && (
-        <span className="whitespace-nowrap text-xs text-content-muted">{label}</span>
+        <span className="shrink-0 whitespace-nowrap text-xs text-content-muted">{label}</span>
       )}
-      <div className={className ?? 'w-64'}>
+      {/* 폭은 기준일 뿐 — 띠가 좁으면 칸이 준다(`min-w-0`). 건수·단추는 줄지 않는다. */}
+      <div className={cn('min-w-0', className ?? 'w-64')}>
         <Input
           size="sm"
           aria-label={rest['aria-label']}

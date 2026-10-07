@@ -78,7 +78,9 @@ export function ViewCard({
           )}
           {tools}
           {actions != null && (
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">{actions}</div>
+            /* 줄 수 있다(`min-w-0`) — 상세 레일이 서서 띠가 좁아지면 검색 칸이 먼저 준다(`TableSearch`). 단추는 글자가
+               쪼개지지 않으므로(`Button` nowrap) 제 폭을 지킨다. 그래서 띠가 카드 밖으로 넘치지 않는다. */
+            <div className="ml-auto flex min-w-0 items-center gap-1.5">{actions}</div>
           )}
         </div>
       )}

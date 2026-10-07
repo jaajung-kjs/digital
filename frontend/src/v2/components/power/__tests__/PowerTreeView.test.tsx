@@ -108,7 +108,7 @@ describe('전원 계통 — 계통도', () => {
     expect(document.activeElement).toBe(back);
   });
 
-  it('순환(분전반 → 충전기 → 분전반)은 그 자리에 경고 「순환」으로 멈춘다', () => {
+  it('위 단계 설비로 되먹이는 공급(분전반 → 충전기 → 분전반)은 흐린 「상위 설비로 공급」으로 멈추고, 누르면 그 설비 줄로', () => {
     const s = store.getState();
     s.update('equipment', 'chg', { circuitCount: 1 });
     s.updateCircuit('chg', 1, { current: 'DC' });
@@ -116,8 +116,56 @@ describe('전원 계통 — 계통도', () => {
     renderTree();
     const loop = row('r:panel/4/1/1');
     expect(loop).toHaveTextContent('통신용 분전반');
-    expect(within(loop).getByText('순환')).toHaveClass('text-warning');
+    const badge = within(loop).getByText('상위 설비로 공급');
+    expect(badge).toHaveClass('text-content-muted');
+    expect(badge).not.toHaveClass('text-warning');
+    const go = within(loop).getByRole('button', { name: /상위 설비로 공급/ });
+    expect(go).toHaveAttribute('title', '위 단계 설비로 되먹이는 공급 — 분전반의 직류·UPS 모선 등');
+    expect(loop.getAttribute('title')).toContain('상위 설비로 공급');
+    expect(loop.getAttribute('title')).not.toContain('순환');
     expect(keys().filter((k) => k!.startsWith('r:panel/4/1/1/'))).toEqual([]);
+    fireEvent.click(go);
+    expect(document.activeElement).toBe(row('r:panel/4'));
+  });
+
+  it('예비 줄을 누르면 그 차단기를 가진 설비를 고르되 불은 누른 줄에만 — 다른 줄로 화면을 굴리지 않는다', () => {
+    const spy = vi.fn();
+    const orig = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = spy;
+    try {
+      renderTree();
+      fireEvent.click(row('r:panel/4/3'));
+      expect(screen.getByTestId('loc')).toHaveTextContent('eq=dist');
+      expect(items().filter((r) => r.getAttribute('aria-selected') === 'true').map((r) => r.dataset.key)).toEqual(['r:panel/4/3']);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = orig;
+    }
+  });
+
+  it('밖(주소)에서 고른 설비는 그 설비 줄에 불이 들어온다', () => {
+    renderTree('&eq=dist');
+    expect(items().filter((r) => r.getAttribute('aria-selected') === 'true').map((r) => r.dataset.key)).toEqual(['r:panel/4']);
+  });
+
+  it('검색 중에는 자식이 걸러진 줄에 셰브런을 세우지 않는다', () => {
+    renderTree();
+    fireEvent.change(screen.getByRole('textbox', { name: '전원 계통 검색' }), { target: { value: '충전기' } });
+    expect(row('r:panel/4/1')).not.toHaveAttribute('aria-expanded');
+    expect(row('r:panel/4')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('화살표 — → 열린 가지는 첫 자식으로, ← 잎은 부모로, ← 열린 가지는 접는다', () => {
+    renderTree();
+    row('r:panel/4').focus();
+    fireEvent.keyDown(row('r:panel/4'), { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(row('r:panel/4/1'));
+    fireEvent.keyDown(row('r:panel/4/1'), { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(row('r:panel/4'));
+    fireEvent.keyDown(row('r:panel/4'), { key: 'ArrowLeft' });
+    expect(row('r:panel/4')).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.keyDown(row('r:panel/4'), { key: 'ArrowRight' });
+    expect(row('r:panel/4')).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('교류/직류 거르기 — 직류 보기에서는 교류로 받는 분전반이 뿌리, 보일 차단기 없는 뿌리는 숨긴다', () => {
