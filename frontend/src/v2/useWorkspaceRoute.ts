@@ -3,9 +3,20 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Side } from '@twin/core';
 
 /** 작업 공간이 보여 줄 수 있는 판. */
-export type ViewMode = '현황' | '선번장' | '전원 계통' | '평면도';
+export type ViewMode = '현황' | '선번장' | '전원 계통' | '평면도' | '광 계통도';
 
+/** 국의 판. */
 export const VIEW_MODES: readonly ViewMode[] = ['현황', '선번장', '전원 계통', '평면도'];
+/** 지사·본부의 판 — 범위 현황과 광 계통도. */
+export const NODE_VIEW_MODES: readonly ViewMode[] = ['현황', '광 계통도'];
+
+/**
+ * 그 노드에서 열 수 있는 판 — 국에 「광 계통도」, 지사·본부에 「선번장」 같은 주소가 오면 현황으로
+ * (주소는 국과 지사를 오가며 손으로 고칠 수 있다).
+ */
+export function viewFor(view: ViewMode, isSubstation: boolean): ViewMode {
+  return (isSubstation ? VIEW_MODES : NODE_VIEW_MODES).includes(view) ? view : '현황';
+}
 
 /** 전원 계통 안의 보기 — 차단기 대장(`ledger`) · 계통도(`tree`). */
 export type PowerView = 'ledger' | 'tree';
@@ -16,7 +27,7 @@ export interface BlockFocus { lineId: string; side: Side }
 /** 예전 주소를 받아 준다 — 북마크가 첫 탭으로 떨어지지 않게(이름만 바뀌었다). */
 const RENAMED: Record<string, ViewMode> = { '설비 대장': '현황', '설비 현황': '현황' };
 
-const isView = (v: string | null): v is ViewMode => v != null && (VIEW_MODES as readonly string[]).includes(v);
+const isView = (v: string | null): v is ViewMode => v != null && ([...VIEW_MODES, ...NODE_VIEW_MODES] as readonly string[]).includes(v);
 
 /**
  * **보고 있는 자리는 주소가 안다**:
@@ -24,6 +35,7 @@ const isView = (v: string | null): v is ViewMode => v != null && (VIEW_MODES as 
  *     /n/<조직·국 id>?view=평면도&eq=<설비>&rack=<랙>
  *     /n/<국 id>?view=선번장&line=<광선로>&side=<A|B>
  *     /n/<국 id>?view=전원 계통&power=<ledger|tree>&supply=<공급 설비>
+ *     /n/<지사·본부 id>?view=광 계통도
  *
  * 북마크·공유·새로고침 복원·뒤로가기가 모두 이 한 곳에서 선다. 케이블을 잇는 중이라거나
  * 추적 결과 같은 한 번짜리 명령은 담지 않는다 — 링크를 연 사람이 영문 모를 도구가 켜진

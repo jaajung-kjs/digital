@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
-import { useWorkspaceRoute, VIEW_MODES } from '../useWorkspaceRoute';
+import { NODE_VIEW_MODES, useWorkspaceRoute, viewFor, VIEW_MODES } from '../useWorkspaceRoute';
 
 const at = (path: string) =>
   renderHook(() => useWorkspaceRoute(), {
@@ -27,6 +27,15 @@ describe('useWorkspaceRoute', () => {
     expect(at('/n/sub-1?view=계통').result.current.view).toBe('현황');
     expect(at('/n/sub-1?view=설비 대장').result.current.view).toBe('현황');
     expect(at('/n/sub-1?view=설비 현황').result.current.view).toBe('현황');
+  });
+
+  it('지사·본부의 판은 현황 · 광 계통도 — 그 노드에 없는 판은 현황으로', () => {
+    expect(NODE_VIEW_MODES).toEqual(['현황', '광 계통도']);
+    expect(at('/n/br-1?view=광 계통도').result.current.view).toBe('광 계통도');
+    expect(viewFor('광 계통도', false)).toBe('광 계통도');
+    expect(viewFor('광 계통도', true)).toBe('현황');
+    expect(viewFor('선번장', false)).toBe('현황');
+    expect(viewFor('선번장', true)).toBe('선번장');
   });
 
   it('선번장 — 판 차례는 현황 · 선번장 · 전원 계통 · 평면도, 블록 초점은 line·side 가 쥔다', () => {

@@ -13,7 +13,7 @@ import { useCommit } from '../model/store/useCommit';
 import { useWorkingCopy, workingCopyStore } from '../model/store/workingCopy';
 import { ancestorPath, flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useUnsavedMark } from '../useUnsavedMark';
-import { useWorkspaceRoute, VIEW_MODES, type ViewMode } from '../useWorkspaceRoute';
+import { NODE_VIEW_MODES, useWorkspaceRoute, viewFor, VIEW_MODES, type ViewMode } from '../useWorkspaceRoute';
 import { AddEquipmentDialog } from '../components/equipment/AddEquipmentDialog';
 import { AddRackDialog } from '../components/equipment/AddRackDialog';
 import { EquipmentDetail } from '../components/equipment/EquipmentDetail';
@@ -21,9 +21,12 @@ import { RackDetail } from '../components/equipment/RackDetail';
 import { RackPlanView } from '../components/plan/RackPlanView';
 import { LineSheetView } from '../components/lines/LineSheetView';
 import { PowerView } from '../components/power/PowerView';
+import { OpticalMapView } from '../components/paths/OpticalMapView';
 import { EquipmentPlaceholder } from './workspace/EquipmentPlaceholder';
 
 const VIEW_TABS: readonly TabItem<ViewMode>[] = VIEW_MODES.map((v) => ({ key: v, label: v }));
+/** 지사·본부 — 범위 현황과 광 계통도. */
+const NODE_VIEW_TABS: readonly TabItem<ViewMode>[] = NODE_VIEW_MODES.map((v) => ({ key: v, label: v }));
 const NO_ROWS: StatusRow[] = [];
 /** 넓은 표가 판의 주인인 판 — 상세 레일은 고른 것이 있을 때만 선다. */
 const WIDE_TABLE_VIEWS: ReadonlySet<ViewMode> = new Set<ViewMode>(['선번장', '전원 계통']);
@@ -47,6 +50,8 @@ export default function V2WorkspacePage() {
   const orgPath = useMemo(() => (orgTree ? ancestorPath(flattenTree(orgTree), selected?.id ?? null) : []), [orgTree, selected]);
   const substationId = selected?.kind === 'substation' ? selected.id : null;
   const nodeScope = selected != null && substationId == null;
+  /* 그 노드에 없는 판이 주소에 오면 현황으로(국의 「광 계통도」, 지사의 「선번장」). */
+  const view = viewFor(route.view, substationId != null);
 
   /* 국을 고르면 들를 뿐 — 이미 들렀으면 아무 일도 없다. */
   useEffect(() => {
@@ -83,7 +88,7 @@ export default function V2WorkspacePage() {
 
   /* 저장 안 한 변경이 있으면 셸이 다른 메뉴로 넘어가는 것을 막는다 — 국 사이 이동은 대상이 아니다. */
   useUnsavedMark(dirty, () => workingCopyStore.getState().revert());
-  const viewTabs = useTabs(route.view);
+  const viewTabs = useTabs(view);
   /** 추가 대화상자 — 랙이면 'rack', 설비면 그 기본 랙(없으면 빈 문자열). */
   const [adding, setAdding] = useState<{ kind: 'rack' } | { kind: 'equipment'; rackId?: string } | null>(null);
   const closeAdding = () => setAdding(null);
@@ -101,8 +106,10 @@ export default function V2WorkspacePage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [route]);
 
-  const waiting = (substationId != null && (!loadedHere || !catalog.data)) || (nodeScope && nodeEquipment.isLoading);
-  const nodeError = nodeScope && nodeEquipment.isError ? '현황을 불러오지 못했습니다' : null;
+  /* 지사·본부의 범위 현황은 현황 판의 것 — 광 계통도는 제 자료를 따로 기다린다. */
+  const nodeStatus = nodeScope && view === '현황';
+  const waiting = (substationId != null && (!loadedHere || !catalog.data)) || (nodeStatus && nodeEquipment.isLoading);
+  const nodeError = nodeStatus && nodeEquipment.isError ? '현황을 불러오지 못했습니다' : null;
   const retryLoad = () => { if (substationId) void workingCopyStore.getState().ensureLoaded(substationId); };
 
   return (
@@ -111,7 +118,7 @@ export default function V2WorkspacePage() {
         {/* 조직 트리는 접힌다 — 넓은 표(선번장)를 1280 에서 읽을 자리. 접는 것은 사람이 정하고 이 브라우저가 기억한다.
             평면도에서는 펼친 채 잠근다 — 트리 아래 레일(railEl)에 배경 도면 농도·레이어 도구가 산다. */}
         <CollapsibleRail
-          storageKey="twin.orgTree.collapsed" title="조직" locked={substationId != null && route.view === '평면도'}
+          storageKey="twin.orgTree.collapsed" title="조직" locked={substationId != null && view === '평면도'}
           className="w-64 border-r border-line bg-sidebar" data-testid="v2-org-tree"
         >
           {(collapse) => (
@@ -133,11 +140,9 @@ export default function V2WorkspacePage() {
                 path={orgPath.length > 1 ? <span data-testid="v2-selected">{orgPath.slice(0, -1).map((n) => n.name).join(' › ')}</span> : undefined}
                 actions={<SaveBar onCommit={commit.commit} isCommitting={commit.isCommitting} substationNames={touched} issue={commit.issues[0]?.message ?? null} />}
               />
-              {substationId && (
-                <div className="flex h-8 shrink-0 items-end bg-surface-2 px-4">
-                  <Tabs {...viewTabs.list} items={VIEW_TABS} onChange={route.setView} className="w-full" />
-                </div>
-              )}
+              <div className="flex h-8 shrink-0 items-end bg-surface-2 px-4">
+                <Tabs {...viewTabs.list} items={substationId ? VIEW_TABS : NODE_VIEW_TABS} onChange={route.setView} className="w-full" />
+              </div>
               {commit.error && (
                 <div className="shrink-0 px-4 pt-4">
                   <ErrorStrip message={commit.error} onDismiss={commit.clearError} />
@@ -154,9 +159,11 @@ export default function V2WorkspacePage() {
                    변경안을 비울 때 사라지므로, 처음부터 받지 않는다. */
                 <BusyOverlay busy={commit.isCommitting} label="저장 중…">
                   <div {...viewTabs.panel} className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-4">
-                    {substationId && route.view === '평면도' ? (
+                    {nodeScope && view === '광 계통도' ? (
+                      <OpticalMapView nodeId={selected.id} onOpenStation={route.selectNode} onOpenLine={route.openBlockAt} />
+                    ) : substationId && view === '평면도' ? (
                       <RackPlanView substationId={substationId} selectedRackId={route.rackId} onSelectRack={route.selectRack} railTarget={railEl} />
-                    ) : substationId && route.view === '선번장' ? (
+                    ) : substationId && view === '선번장' ? (
                       <LineSheetView
                         substationId={substationId}
                         selectedEquipmentId={route.eqId}
@@ -165,7 +172,7 @@ export default function V2WorkspacePage() {
                         onFocus={route.focusBlock}
                         onOpenEquipment={route.openEquipment}
                       />
-                    ) : substationId && route.view === '전원 계통' ? (
+                    ) : substationId && view === '전원 계통' ? (
                       <PowerView
                         substationId={substationId}
                         view={route.power}
@@ -191,12 +198,12 @@ export default function V2WorkspacePage() {
                     )}
                     {/* 선번장·전원 계통은 12열 표가 우선이다 — 1280 에서 레일까지 세우면 표가 가로로 넘친다. 그래서 고른 것이
                         있을 때만 상세가 선다(다른 판은 레일이 늘 있다, §1.7-e). */}
-                    {substationId && (!WIDE_TABLE_VIEWS.has(route.view) || route.eqId || route.rackId) && (
+                    {substationId && (!WIDE_TABLE_VIEWS.has(view) || route.eqId || route.rackId) && (
                       <aside className="flex h-full w-[364px] shrink-0 flex-col">
                         {route.eqId ? (
                           <EquipmentDetail key={route.eqId} equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} onOpenBlock={route.openBlock}
                             /* 이미 그 블록을 보고 있으면 길을 두지 않는다(같은 자리로 건너가는 단추). */
-                            onOpenPower={route.view === '전원 계통' && route.power === 'ledger' && route.supply === route.eqId ? undefined : route.openSupply}
+                            onOpenPower={view === '전원 계통' && route.power === 'ledger' && route.supply === route.eqId ? undefined : route.openSupply}
                           />
                         ) : route.rackId ? (
                           <RackDetail

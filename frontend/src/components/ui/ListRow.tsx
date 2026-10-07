@@ -13,14 +13,22 @@ type Aria = Pick<HTMLAttributes<HTMLElement>, 'aria-disabled' | 'aria-selected' 
 /**
  * `trailing` 을 주면 **탐색 목록 줄**이 된다 — 이름은 왼쪽, 오른쪽 끝에 개수 같은 부가값(`tabular-nums`)이 서고
  * 줄은 트리 행과 같은 높이다(품목 관리의 왼쪽 목록).
+ *
+ * `meta` 를 주면 **누를 수 있는 두 줄 줄**이 된다 — 첫 줄 `children`, 둘째 줄 `meta`(`text-xs` 흐리게).
+ * 좁은 패널에서 값이 여럿인 줄을 고르는 목록(광 계통도의 회선 — 양끝 국 / 설비 · 광선로 수)이 쓴다.
  */
-export function ListRow({ children, onClick, className, trailing, ...aria }: { children: ReactNode; onClick?: () => void; className?: string; trailing?: ReactNode } & Aria) {
-  const base = trailing !== undefined
+export function ListRow({ children, onClick, className, trailing, meta, ...aria }: { children: ReactNode; onClick?: () => void; className?: string; trailing?: ReactNode; meta?: ReactNode } & Aria) {
+  const flex = trailing !== undefined || meta !== undefined;
+  const base = flex
     /* 줄 높이는 두 꼴 모두 28px(`py-1` + 20) — 트리 행·표 줄(`TABLE_ROW` h-7)과 같은 밀도. 카드 여백은 목록 전체가 한 번 받는다. */
     ? 'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm text-content'
     : 'block w-full truncate rounded px-1 py-1 text-left text-sm text-content';
-  const body = trailing !== undefined
-    ? (<><span className="min-w-0 flex-1 truncate">{children}</span><span className="shrink-0 text-xs tabular-nums text-content-muted">{trailing}</span></>)
+  const name = meta !== undefined
+    /* 두 줄 — 첫 줄은 그 줄만의 것, 둘째 줄은 흐린 메타(`ListItemRow meta` 와 같은 위계). 둘 다 넘치면 말줄임. */
+    ? (<span className="min-w-0 flex-1"><span className="block truncate">{children}</span><span className="block truncate text-xs text-content-muted">{meta}</span></span>)
+    : <span className="min-w-0 flex-1 truncate">{children}</span>;
+  const body = flex
+    ? (<>{name}{trailing !== undefined && <span className="shrink-0 text-xs tabular-nums text-content-muted">{trailing}</span>}</>)
     : children;
   if (!onClick) return <div className={cn(base, className)} {...aria}>{body}</div>;
   return <button type="button" className={cn(base, SELECTABLE, className)} onClick={onClick} {...aria}>{body}</button>;
