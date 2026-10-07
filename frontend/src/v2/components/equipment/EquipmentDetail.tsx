@@ -11,7 +11,7 @@ import { BreakerEditor } from './BreakerEditor';
 import { CircuitCard } from './CircuitCard';
 import { EquipmentInfoCard } from './EquipmentInfoCard';
 import { LinkList } from './LinkList';
-import { PanelsCard } from './PanelsCard';
+import { PanelsCard, useSlotEnds } from './PanelsCard';
 import type { BlockFocus } from '../../useWorkspaceRoute';
 
 type Tab = '정보' | '연결' | '점검·고장' | '사진';
@@ -32,6 +32,12 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock }
   const { confirm, confirmDialog } = useConfirm();
   /** 차단기 편집 창 — 열려 있으면 `at` 이 표시할 줄(없으면 표만). */
   const [breakers, setBreakers] = useState<{ at: number | null } | null>(null);
+  /** 슬롯 수 칸이 열려 있는가 — 「슬롯 수」 단추로 열었거나 카드 안에서 고치는 중. 그동안은 값을 비워도 카드가 남는다. */
+  const [slotEditing, setSlotEditing] = useState(false);
+  const slotEnds = useSlotEnds(equipmentId);
+
+  /* 슬롯 카드는 데이터가 있을 때만 선다(차단기와 같은 어법) — 품목으로 가르지 않는다. */
+  const hasSlots = slotEnds.length > 0 || eq?.panelCount != null;
 
   if (!eq) return <ViewCard><EmptyState title="고른 설비가 없습니다" /></ViewCard>;
 
@@ -58,6 +64,10 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock }
           {/* 차단기가 하나도 없을 때만 — 있으면 차단기 카드 머리에 「추가」가 선다. 항목 하나짜리 `⋯` 는 두지 않는다
               (아이콘만으로는 무엇이 들었는지 모르고, 한 겹 안에 숨길 만큼 드문 일도 아니다). */}
           {eq.circuitCount === 0 && <Button variant="ghost" size="xs" onClick={addBreaker}>차단기 추가</Button>}
+          {/* 슬롯도 같다 — 광선로 끝도 슬롯 수도 없으면 카드 대신 이 단추. 누르면 슬롯 카드가 슬롯 수 칸을 연 채로 선다. */}
+          {!hasSlots && !slotEditing && (
+            <Button variant="ghost" size="xs" onClick={() => { setTab('정보'); setSlotEditing(true); }}>슬롯 수</Button>
+          )}
           <Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>
         </>
       )}
@@ -70,7 +80,12 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock }
             <>
               <EquipmentInfoCard eq={eq} catalog={catalog} onDelete={remove} />
               <CircuitCard equipmentId={equipmentId} onEdit={(at) => setBreakers({ at })} onAdd={addBreaker} />
-              <PanelsCard equipmentId={equipmentId} panelCount={eq.panelCount} onOpenBlock={onOpenBlock} />
+              {(hasSlots || slotEditing) && (
+                <PanelsCard
+                  equipmentId={equipmentId} panelCount={eq.panelCount} onOpenBlock={onOpenBlock}
+                  editCount={slotEditing} onEditingChange={setSlotEditing}
+                />
+              )}
             </>
           )}
           {tab === '연결' && <LinkList equipmentId={equipmentId} substationId={eq.substationId} />}

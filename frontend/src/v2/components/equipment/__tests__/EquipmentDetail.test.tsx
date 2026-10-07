@@ -251,26 +251,75 @@ describe('설비 상세', () => {
     expect(onOpenBlock).toHaveBeenCalledWith({ lineId: 'L', side: 'A' });
   });
 
-  it('슬롯 수는 카드 머리에서 고친다 — 수는 panelCount, 비우면 null, 범위 밖·소수는 받지 않는다', () => {
+  it('슬롯 수는 카드 머리에서 고친다 — 수는 panelCount, 비우면 null, 범위 밖·소수는 칸이 붉게 열린 채 까닭을 말한다', () => {
     store.getState().create('fiberLines', { ...fiber, id: 'L', aSubstationId: 'S1', aEquipmentId: 'p', aPanel: 2, aStartNo: 1 });
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
-    const edit = (v: string) => {
-      fireEvent.click(screen.getByRole('button', { name: '슬롯 수 고치기' }));
+    const type = (v: string) => {
       const box = screen.getByLabelText('슬롯 수');
       fireEvent.change(box, { target: { value: v } });
       fireEvent.blur(box);
+      return box;
     };
     const count = () => store.getState().overlays.equipment.creates.p!.panelCount;
-    edit('6');
+    fireEvent.click(screen.getByRole('button', { name: '슬롯 수 고치기' }));
+    type('6');
     expect(count()).toBe(6);
     expect(screen.getByText('빈 슬롯 5')).toBeInTheDocument();
-    edit('2.5');
-    expect(count()).toBe(6);
-    edit('999');
-    expect(count()).toBe(6);
-    edit('');
+    fireEvent.click(screen.getByRole('button', { name: '슬롯 수 고치기' }));
+    for (const bad of ['2.5', '999']) {
+      const box = type(bad);
+      expect(count()).toBe(6);
+      /* 말없이 되돌아가지 않는다 — 칸이 남아 붉고, 까닭이 title 에 선다. */
+      expect(box).toBeInTheDocument();
+      expect(box).toHaveAttribute('aria-invalid', 'true');
+      expect(box).toHaveAttribute('title', '슬롯 수는 0–200 사이의 정수입니다');
+    }
+    type('');
     expect(count()).toBeNull();
     expect(screen.queryByText(/빈 슬롯/)).toBeNull();
+  });
+
+  it('빈 슬롯은 1..슬롯 수 안에서 쓰인 슬롯만 빼고, 슬롯 수를 넘는 슬롯은 경고로 짚는다(막지 않는다)', () => {
+    store.getState().update('equipment', 'p', { panelCount: 4 });
+    store.getState().create('fiberLines', { ...fiber, id: 'L1', aSubstationId: 'S1', aEquipmentId: 'p', aPanel: 2, aStartNo: 1 });
+    store.getState().create('fiberLines', { ...fiber, id: 'L2', aSubstationId: 'S1', aEquipmentId: 'p', aPanel: 6, aStartNo: 1 });
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    expect(screen.getByText('빈 슬롯 3')).toBeInTheDocument();
+    expect(screen.getByText('슬롯 6 이 슬롯 수(4)보다 큽니다')).toBeInTheDocument();
+  });
+
+  it('슬롯 줄은 슬롯 → 시작 번호 순이다(선번장 블록 차례와 같다)', () => {
+    store.getState().create('fiberLines', { ...fiber, id: 'L1', name: '나', aSubstationId: 'S1', aEquipmentId: 'p', aPanel: 1, aStartNo: 25 });
+    store.getState().create('fiberLines', { ...fiber, id: 'L2', name: '가', aSubstationId: 'S1', aEquipmentId: 'p', aPanel: 1, aStartNo: 1 });
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    const rows = screen.getAllByText(/^슬롯 1 · /).map((b) => b.textContent);
+    expect(rows).toEqual(['슬롯 1 · 가 · 24심', '슬롯 1 · 나 · 24심']);
+  });
+
+  it('새 OFD(광선로 끝도 슬롯 수도 없음) — 머리줄 「슬롯 수」 단추가 카드를 슬롯 수 칸을 연 채로 세우고, 고치는 중에는 비워도 카드가 남는다', () => {
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    expect(screen.queryByText('광선로 슬롯')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '슬롯 수' }));
+    expect(screen.getByText('광선로 슬롯')).toBeInTheDocument();
+    /* 단추는 카드가 선 동안 사라진다 — 같은 일을 하는 자리가 둘이 아니게. */
+    expect(screen.queryByRole('button', { name: '슬롯 수' })).toBeNull();
+    const box = screen.getByLabelText('슬롯 수');
+    expect(box).toHaveFocus();
+    fireEvent.change(box, { target: { value: '12' } });
+    fireEvent.change(box, { target: { value: '' } });
+    expect(screen.getByText('광선로 슬롯')).toBeInTheDocument();
+    fireEvent.change(box, { target: { value: '12' } });
+    fireEvent.blur(box);
+    expect(store.getState().overlays.equipment.creates.p!.panelCount).toBe(12);
+    expect(screen.getByText('빈 슬롯 12')).toBeInTheDocument();
+  });
+
+  it('「슬롯 수」로 열었다가 비운 채 물리면(Esc) 카드가 걷히고 단추가 돌아온다', () => {
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '슬롯 수' }));
+    fireEvent.keyDown(screen.getByLabelText('슬롯 수'), { key: 'Escape' });
+    expect(screen.queryByText('광선로 슬롯')).toBeNull();
+    expect(screen.getByRole('button', { name: '슬롯 수' })).toBeInTheDocument();
   });
 
   it('광선로 끝도 슬롯 수도 없는 설비에는 슬롯 카드가 없다', () => {
