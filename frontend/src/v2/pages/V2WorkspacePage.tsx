@@ -72,7 +72,12 @@ export default function V2WorkspacePage() {
   }, [substationId, catalog.data?.rackTypes, saved, overlays]);
 
   const touched = useMemo(
-    () => workingCopyStore.getState().touchedSubstations().map((id) => saved.substations[id]?.name ?? id),
+    () => {
+      /* 들르지 않은 상대 국(코어 값·측정이 닿은 광선로의 끝)은 광선로가 싣고 온 국 이름으로 — id 를 그대로 띄우지 않는다. */
+      const lineNames = new Map<string, string>();
+      for (const l of effectiveRows({ saved, overlays }, 'fiberLines')) { lineNames.set(l.aSubstationId, l.aSubstationName); lineNames.set(l.bSubstationId, l.bSubstationName); }
+      return workingCopyStore.getState().touchedSubstations().map((id) => saved.substations[id]?.name ?? lineNames.get(id) ?? id);
+    },
     // 변경안이 바뀔 때마다 다시 센다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [saved, overlays],

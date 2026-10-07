@@ -41,10 +41,11 @@ export interface LineBlockProps {
   onUnlink: (linkId: string, target: string) => void;
   onUpdateCore: (no: number, patch: Partial<Core>) => void;
   onFocus: () => void;
-  /** 측정 입력(Task 5) · 코어 측정 이력(Task 5) — 주지 않으면 단추가 잠긴다. */
+  /** 블록 측정 입력 — 주지 않으면 단추가 잠긴다. */
   onMeasure?: () => void;
   /** 광선로 편집(추가와 같은 상자). */
   onEdit: () => void;
+  /** 코어 번호 → 측정 이력 — 주지 않으면 번호는 글자로만 선다. */
   onOpenCore?: (no: number) => void;
 }
 

@@ -38,8 +38,8 @@ export function deleteRows(req: DeleteRequest): { blocked: { id: string; reason:
   return { blocked: [] };
 }
 
-/** 딸려 가는 것이 없는 행 — 기록·사진, 그리고 층(랙이 놓인 층은 화면이 먼저 막는다). */
-export type LeafRowKind = Extract<RowKind, 'floors' | 'maintenance' | 'inspections' | 'photos'>;
+/** 딸려 가는 것이 없는 행 — 기록·사진·코어 측정, 그리고 층(랙이 놓인 층은 화면이 먼저 막는다). */
+export type LeafRowKind = Extract<RowKind, 'floors' | 'maintenance' | 'inspections' | 'photos' | 'coreMeasurements'>;
 
 /**
  * 한 행만 지운다 — **지우는 문은 이 파일 하나다**(`deleteRows` 와 같은 자리). 화면이 스토어의

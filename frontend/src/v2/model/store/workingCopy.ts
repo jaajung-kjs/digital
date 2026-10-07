@@ -122,6 +122,8 @@ export interface WorkingCopyState {
   /** 처음 상태로 — 시험·로그아웃용. */
   reset: () => void;
   create: <K extends RowKind>(kind: K, row: RowOf[K]) => void;
+  /** 여러 행을 **한 번의 set** 으로 — 되돌리기 한 번에 함께 물러난다(블록 일괄 측정 입력). */
+  createMany: <K extends RowKind>(kind: K, rows: RowOf[K][]) => void;
   update: <K extends RowKind>(kind: K, id: string, patch: Partial<RowOf[K]>) => void;
   /** 한 행만 지운다 — 함께 가야 할 것은 `deleteRows` 가 펼친다. 화면은 `deleteRows` 를 쓴다. */
   remove: <K extends RowKind>(kind: K, id: string) => void;
@@ -190,6 +192,9 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       },
 
       create: (kind, row) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageCreate(s.overlays[kind] as Overlay<typeof row>, (row as { id: string }).id, row) } })),
+      createMany: (kind, rows) => set((s) => ({
+        overlays: { ...s.overlays, [kind]: rows.reduce((o, row) => stageCreate(o, (row as { id: string }).id, row), s.overlays[kind] as Overlay<(typeof rows)[number]>) },
+      })),
       update: (kind, id, patch) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageUpdate(s.overlays[kind] as Overlay<unknown>, id, patch as Partial<unknown>, savedRow(s.saved, kind, id)) } })),
       remove: (kind, id) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageDelete(s.overlays[kind] as Overlay<unknown>, id) } })),
       updateCircuit: (equipmentId, no, patch) => set((s) => {

@@ -38,6 +38,15 @@ describe('model/api', () => {
     expect(wc.fiberLines[0]!.cores[0]!.measurements[0]!.measuredOn).toBe('2024-09-25');
   });
 
+  it('코어 측정은 넣은 차례(오래된 것 먼저)로 싣는다 — 서버는 최근 먼저 준다', () => {
+    const wc = normalizeWorkingcopy({
+      substation: { id: 's', name: 'S' }, floors: [], racks: [], equipment: [], links: [], farLinks: [], refEquipment: [],
+      fiberLines: [{ id: 'l', cores: [{ lineId: 'l', no: 1, measurements: [{ id: 'new', measuredOn: '2026-03-01' }, { id: 'old', measuredOn: '2026-01-01' }] }] }],
+      maintenanceLogs: [], inspectionLogs: [], photos: [],
+    } as never);
+    expect(wc.fiberLines[0]!.cores[0]!.measurements.map((m) => m.id)).toEqual(['old', 'new']);
+  });
+
   it('fetchWorkingcopy 는 국 워킹카피를 읽어 접어 준다', async () => {
     get.mockResolvedValue({ data: { substation: { id: 's' }, floors: [], racks: [], equipment: [], links: [], farLinks: [], refEquipment: [], fiberLines: [], maintenanceLogs: [], inspectionLogs: [], photos: [] } });
     const wc = await fetchWorkingcopy('s');

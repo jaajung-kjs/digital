@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lineSheet } from './lineSheet.js';
+import { lineSheet, newestFirst } from './lineSheet.js';
 import type { LinkEndRef } from './types.js';
 
 const line = (o: Record<string, unknown> = {}) => ({
@@ -59,6 +59,16 @@ describe('lineSheet', () => {
     expect(r.latest!.loss1310).toBe(3);
     expect(r.measurementCount).toBe(4);
     expect(lineSheet({ ...base, lines: [line()], measurements })[0]!.rows[1]!.latest).toBeNull();
+  });
+  it('(f2) 같은 날짜면 나중에 넣은 것이 최근 — 같은 날 다시 잰 값이 곧바로 선다', () => {
+    const measurements = [m({ measuredOn: '2026-03-01', loss1310: 1 }), m({ measuredOn: '2026-03-01', loss1310: 2 }), m({ measuredOn: '2026-01-01', loss1310: 0 })];
+    expect(lineSheet({ ...base, lines: [line()], measurements })[0]!.rows[0]!.latest!.loss1310).toBe(2);
+  });
+  it('(f3) newestFirst — 날짜 내림차순, 날짜 없음은 맨 뒤, 같은 날짜는 나중 것 먼저', () => {
+    const r = newestFirst([
+      { id: 'a', measuredOn: '2026-01-01' }, { id: 'n', measuredOn: null }, { id: 'b', measuredOn: '2026-03-01' }, { id: 'c', measuredOn: '2026-03-01' },
+    ]);
+    expect(r.map((x) => x.id)).toEqual(['c', 'b', 'a', 'n']);
   });
   it('(g) 코어 행이 없으면 기본 행 coreCount 개', () => {
     const r = lineSheet({ ...base, lines: [line({ coreCount: 4 })] })[0]!.rows;

@@ -32,6 +32,28 @@ export interface SheetBlock {
   rows: SheetRow[];
 }
 
+/**
+ * 측정을 **최근 먼저** — 측정일 내림차순, 날짜 없는 것은 맨 뒤(가장 오래된 것), 같은 날짜면 **나중에 온 것이 먼저**.
+ *
+ * 입력 차례는 넣은 차례다(워킹카피가 서버의 측정을 오래된 것부터 싣고, 새로 넣은 것은 그 뒤에 붙는다) —
+ * 그래서 같은 날 다시 잰 값을 넣으면 그 값이 곧바로 「최근」이 된다. 선번장의 최근 측정 칸과 측정 이력이 이 한 줄을 함께 쓴다.
+ */
+export function newestFirst<T extends { measuredOn: string | null }>(ms: readonly T[]): T[] {
+  return ms
+    .map((m, i) => ({ m, i }))
+    .sort((x, y) => {
+      const a = x.m.measuredOn;
+      const b = y.m.measuredOn;
+      if (a !== b) {
+        if (a === null) return 1;
+        if (b === null) return -1;
+        return a < b ? 1 : -1;
+      }
+      return y.i - x.i;
+    })
+    .map(({ m }) => m);
+}
+
 interface LineIn {
   id: string; cableTypeId: string; coreCount: number; name: string | null; lengthKm: number | null;
   aSubstationId: string; aEquipmentId: string | null; aPanel: number | null; aStartNo: number;
@@ -96,12 +118,7 @@ export function lineSheet(input: {
         const nearHit = byEnd.get(endRefKey({ kind: 'core', lineId: line.id, no: c.no, side }));
         const farHit = byEnd.get(endRefKey({ kind: 'core', lineId: line.id, no: c.no, side: peerSide }));
         const ms = measByCore.get(`${line.id}:${c.no}`) ?? [];
-        let latest: MeasIn | null = null;
-        for (const m of ms) {
-          if (m.side !== side) continue;
-          // 날짜 null 은 가장 오래된 것 — 같은 날짜면 먼저 온 것을 유지.
-          if (!latest || (m.measuredOn !== null && (latest.measuredOn === null || m.measuredOn > latest.measuredOn))) latest = m;
-        }
+        const latest = newestFirst(ms.filter((m) => m.side === side))[0] ?? null;
         return {
           no: c.no,
           jack: mine.start + c.no - 1,

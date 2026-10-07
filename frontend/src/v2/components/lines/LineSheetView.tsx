@@ -10,7 +10,9 @@ import type { BlockFocus } from '../../useWorkspaceRoute';
 import { ConnectDialog } from '../equipment/ConnectDialog';
 import { endLabel } from '../equipment/endpoints';
 import { LineBlock, type BlockHead } from './LineBlock';
+import { CoreHistoryDialog } from './CoreHistoryDialog';
 import { LineDialog } from './LineDialog';
+import { MeasureBatchDialog } from './MeasureBatchDialog';
 import { lineOf, peerSubstationName, sheetBlocks } from './sheetSelectors';
 
 /** 단자 거르개 — '' = 전체, 이것 = 단자 미지정, 그 밖은 단자 설비 id. */
@@ -22,10 +24,6 @@ export interface LineSheetViewProps {
   onSelectEquipment: (id: string | null) => void;
   focus: BlockFocus | null;
   onFocus: (focus: BlockFocus | null) => void;
-  /** 블록 「측정 입력」(Task 5). */
-  onMeasure?: (focus: BlockFocus) => void;
-  /** 코어 번호 → 측정 이력(Task 5). */
-  onOpenCore?: (focus: BlockFocus, no: number) => void;
 }
 
 const blockKey = (b: { lineId: string; side: string }) => `${b.lineId}:${b.side}`;
@@ -38,7 +36,7 @@ const blockKey = (b: { lineId: string; side: string }) => `${b.lineId}:${b.side}
  * 남의 국 것이라 읽기만 한다(그 국을 들르면 그 국 선번장에서 고친다).
  */
 export function LineSheetView({
-  substationId, selectedEquipmentId, onSelectEquipment, focus, onFocus, onMeasure, onOpenCore,
+  substationId, selectedEquipmentId, onSelectEquipment, focus, onFocus,
 }: LineSheetViewProps) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
@@ -49,6 +47,9 @@ export function LineSheetView({
   const [error, setError] = useState<string | null>(null);
   /* 광선로 추가·편집 상자 — 추가면 edit 없음, 편집이면 그 블록. */
   const [dialog, setDialog] = useState<{ edit?: BlockFocus } | null>(null);
+  /* 블록 「측정 입력」 · 코어 번호 → 측정 이력. */
+  const [measuring, setMeasuring] = useState<BlockFocus | null>(null);
+  const [history, setHistory] = useState<(BlockFocus & { no: number }) | null>(null);
   const { confirm, confirmDialog } = useConfirm();
 
   const s = useMemo(() => ({ saved, overlays }), [saved, overlays]);
@@ -136,6 +137,9 @@ export function LineSheetView({
     return () => { box.removeEventListener('scroll', check); ro?.disconnect(); };
   }, []);
 
+  /* 측정 입력은 거르기 전 블록(코어 전부)으로 — 검색이 줄을 좁혀도 입력 표는 1..N 이다. */
+  const measuringBlock = measuring ? blocks.find((b) => blockKey(b) === blockKey(measuring)) ?? null : null;
+
   const label = (ref: LinkEndRef) => endLabel(s, ref);
   const updateCore = (lineId: string) => (no: number, patch: Partial<Core>) => workingCopyStore.getState().updateCore(lineId, no, patch);
   async function unlink(linkId: string, target: string) {
@@ -190,9 +194,9 @@ export function LineSheetView({
                   onUnlink={(id, target) => void unlink(id, target)}
                   onUpdateCore={updateCore(b.lineId)}
                   onFocus={() => onFocus(f)}
-                  onMeasure={onMeasure ? () => onMeasure(f) : undefined}
+                  onMeasure={() => setMeasuring(f)}
                   onEdit={() => setDialog({ edit: f })}
-                  onOpenCore={onOpenCore ? (no) => onOpenCore(f, no) : undefined}
+                  onOpenCore={(no) => setHistory({ ...f, no })}
                 />
               );
             })}
@@ -209,6 +213,14 @@ export function LineSheetView({
             onDone={(f) => { setDialog(null); onFocus(f); }}
           />
         )}
+        {measuringBlock && (
+          <MeasureBatchDialog
+            block={measuringBlock}
+            title={`${heads.get(blockKey(measuringBlock))?.title ?? ''} ↔ ${heads.get(blockKey(measuringBlock))?.peer ?? ''}`}
+            onClose={() => setMeasuring(null)}
+          />
+        )}
+        {history && <CoreHistoryDialog lineId={history.lineId} no={history.no} side={history.side} onClose={() => setHistory(null)} />}
         {confirmDialog}
       </ViewCard>
       {shadeTop != null && (
