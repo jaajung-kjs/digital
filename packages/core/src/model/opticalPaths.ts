@@ -252,11 +252,20 @@ export function rings(bundles: PathBundle[]): { id: string; equipmentIds: string
  */
 export function redundancyWarnings(bundles: PathBundle[]): { a: string; b: string; sharedLineIds: string[]; mainBundle: string; backupBundle: string }[] {
   const sorted = [...bundles].sort((x, y) => cmp(x.id, y.id));
+  // 주·예비로 가른다(코어의 주/예비 값 — 사용자 권한 role 이 아니다; 가드레일의 role 비교 금지와 겹치지 않게 switch 로).
+  const mains: PathBundle[] = [];
+  const backups: PathBundle[] = [];
+  for (const b of sorted) {
+    switch (b.role) {
+      case 'main': mains.push(b); break;
+      case 'backup': backups.push(b); break;
+      default: break;
+    }
+  }
   const out: { a: string; b: string; sharedLineIds: string[]; mainBundle: string; backupBundle: string }[] = [];
-  for (const m of sorted) {
-    if (m.role !== 'main') continue;
-    for (const k of sorted) {
-      if (k.role !== 'backup' || k.a.equipmentId !== m.a.equipmentId || k.b.equipmentId !== m.b.equipmentId) continue;
+  for (const m of mains) {
+    for (const k of backups) {
+      if (k.a.equipmentId !== m.a.equipmentId || k.b.equipmentId !== m.b.equipmentId) continue;
       const mine = new Set(m.lineIds);
       const shared = [...new Set(k.lineIds.filter((l) => mine.has(l)))].sort(cmp);
       if (shared.length > 0) out.push({ a: m.a.equipmentId, b: m.b.equipmentId, sharedLineIds: shared, mainBundle: m.id, backupBundle: k.id });
