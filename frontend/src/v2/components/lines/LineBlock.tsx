@@ -12,7 +12,7 @@ import { InlineEditCell } from '../InlineEditCell';
  * 비고는 단선 코어의 사정(「3번 단선 — 접속함 확인 요망」)을 적는 자리라 가장 좁으면 안 된다 — 폭은 대국(상대 끝,
  * 참고로 읽는 칸)에서 덜어 온다. 거리 칸은 1310 으로 물러선 값에 「(1310)」이 붙어도 들게 둔다.
  */
-const WIDTHS = ['40px', '52px', 30, 23, '88px', '64px', 27, 20, '60px', '60px', '96px', '96px'] as const;
+const WIDTHS = ['40px', '52px', 30, 23, '88px', '64px', 27, 20, '60px', '60px', '100px', '96px'] as const;
 const COLS = WIDTHS.length;
 /**
  * 고정 머리 칸의 바닥선은 **테두리가 아니라 그림자**다 — 겹친 테두리(collapse)는 표가 제자리에 그리므로
@@ -87,7 +87,7 @@ export function LineBlock({
       aria-current={focused ? 'true' : undefined}
       /* 표가 우선이다 — 상세 패널이 서서 판이 좁아져도 열을 짓누르지 않고(수가 옆 칸으로 넘친다) 판이
          가로로 구른다. 1280 에서 패널이 닫혀 있으면 이 폭이 판 안에 든다. */
-      className={cn('min-w-[976px] scroll-mt-4', focused && 'outline outline-2 outline-primary')}
+      className={cn('min-w-[940px] scroll-mt-4', focused && 'outline outline-2 outline-primary')}
     >
       <TableCard widths={WIDTHS}>
         <thead className="sticky top-0 z-sticky bg-surface-2">
