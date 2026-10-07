@@ -105,8 +105,12 @@ export default function V2WorkspacePage() {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
-        {/* 조직 트리는 접힌다 — 넓은 표(선번장)를 1280 에서 읽을 자리. 접는 것은 사람이 정하고 이 브라우저가 기억한다. */}
-        <CollapsibleRail storageKey="twin.orgTree.collapsed" title="조직" className="w-64 border-r border-line bg-sidebar" data-testid="v2-org-tree">
+        {/* 조직 트리는 접힌다 — 넓은 표(선번장)를 1280 에서 읽을 자리. 접는 것은 사람이 정하고 이 브라우저가 기억한다.
+            평면도에서는 펼친 채 잠근다 — 트리 아래 레일(railEl)에 배경 도면 농도·레이어 도구가 산다. */}
+        <CollapsibleRail
+          storageKey="twin.orgTree.collapsed" title="조직" locked={substationId != null && route.view === '평면도'}
+          className="w-64 border-r border-line bg-sidebar" data-testid="v2-org-tree"
+        >
           {(collapse) => (
             <>
               <div className="min-h-0 flex-1">

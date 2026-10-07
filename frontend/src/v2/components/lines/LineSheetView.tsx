@@ -118,11 +118,17 @@ export function LineSheetView({
   }, [focusKey]);
 
   /* 판이 가로로 넘쳐 오른쪽이 가려져 있는가 — 상세 패널이 서서 좁아졌을 때. 가려진 쪽 가장자리에 그늘을 세운다. */
-  const [clippedRight, setClippedRight] = useState(false);
+  /* 그늘의 윗변은 머리 띠 높이를 외워 두지 않고 **스크롤 상자의 자리**에서 잰다(띠 높이가 바뀌어도 따라간다). */
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [shadeTop, setShadeTop] = useState<number | null>(null);
   useEffect(() => {
     const box = bodyRef.current?.parentElement;
     if (!box) return;
-    const check = () => setClippedRight(box.scrollLeft + box.clientWidth < box.scrollWidth - 1);
+    const check = () => {
+      const clipped = box.scrollLeft + box.clientWidth < box.scrollWidth - 1;
+      const frame = frameRef.current?.getBoundingClientRect().top ?? 0;
+      setShadeTop(clipped ? Math.round(box.getBoundingClientRect().top - frame) : null);
+    };
     check();
     box.addEventListener('scroll', check, { passive: true });
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check);
@@ -141,7 +147,7 @@ export function LineSheetView({
   const addLine = <Button variant="secondary" size="sm" disabled={!onAddLine} onClick={onAddLine}>광선로 추가</Button>;
 
   return (
-    <div className="relative flex min-h-0 min-w-0 flex-1">
+    <div ref={frameRef} className="relative flex min-h-0 min-w-0 flex-1">
       <ViewCard
         body="scroll"
         bodyRef={bodyRef}
@@ -198,8 +204,12 @@ export function LineSheetView({
         )}
         {confirmDialog}
       </ViewCard>
-      {clippedRight && (
-        <div aria-hidden data-testid="sheet-clip-shade" className="pointer-events-none absolute bottom-px right-px top-8 w-4 bg-gradient-to-l from-content/15 to-transparent" />
+      {shadeTop != null && (
+        <div
+          aria-hidden data-testid="sheet-clip-shade"
+          className="pointer-events-none absolute bottom-px right-px w-4 bg-gradient-to-l from-content/15 to-transparent"
+          style={{ top: shadeTop }}
+        />
       )}
     </div>
   );

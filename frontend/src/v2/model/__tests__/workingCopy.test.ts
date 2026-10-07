@@ -131,6 +131,22 @@ describe('공사 단위 워킹카피', () => {
     expect(validateState(toModelState(store.getState(), cables)).map((i) => i.code)).toEqual(['LINE_END_EQUIPMENT']);
   });
 
+  it('참조 광선로(refLines)는 국을 들를 때마다 id 로 합친다 — 옛 응답(필드 없음)은 빈 것', async () => {
+    wcOf.S1.refLines = [{ id: 'LX', name: null, aSubstationName: '춘천HP', bSubstationName: '화천' }];
+    wcOf.S2.refLines = [
+      { id: 'LX', name: '고친이름', aSubstationName: '춘천HP', bSubstationName: '화천' },
+      { id: 'LY', name: 'Y선로', aSubstationName: '화천', bSubstationName: '양구' },
+    ];
+    await store.getState().ensureLoaded('S1');
+    expect(store.getState().saved.refLines).toEqual(wcOf.S1.refLines);
+    await store.getState().ensureLoaded('S2');
+    expect(store.getState().saved.refLines.map((l) => [l.id, l.name])).toEqual([['LX', '고친이름'], ['LY', 'Y선로']]);
+    delete wcOf.S1.refLines;
+    store.getState().reset();
+    await store.getState().ensureLoaded('S1');
+    expect(store.getState().saved.refLines).toEqual([]);
+  });
+
   it('되돌리기(undo)는 오버레이만 되돌린다', async () => {
     await store.getState().ensureLoaded('S1');
     store.getState().update('equipment', 'ote', { note: 'x' });

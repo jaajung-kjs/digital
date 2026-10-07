@@ -8,7 +8,7 @@ const app = makeApp();
 const admin = { Authorization: authHeader('admin') };
 let m: TestMaster;
 let org: Awaited<ReturnType<typeof makeOrg>>;
-const ids = { r1: randomUUID(), r2: randomUUID(), pnl: randomUUID(), dev1: randomUUID(), dev2: randomUUID(), line: randomUUID(), line2: randomUUID() };
+const ids = { r1: randomUUID(), r2: randomUUID(), pnl: randomUUID(), dev1: randomUUID(), dev2: randomUUID(), line: randomUUID(), line2: randomUUID(), line3: randomUUID() };
 
 beforeAll(async () => {
   await sweepTestFixtures();
@@ -27,7 +27,9 @@ beforeAll(async () => {
     fiberLines: { creates: [{ id: ids.line, cableTypeId: m.fiberCableId, coreCount: 4, name: '시험T/L',
       a: { substationId: org.s1 }, b: { substationId: org.s2, equipmentId: ids.dev2, panel: 1 } },
     /* 상대 국 안 광선로 — s1 응답에는 없고, 상대 국 점퍼 끝으로만 닿는다. */
-    { id: ids.line2, cableTypeId: m.fiberCableId, coreCount: 2, name: null, a: { substationId: org.s2 }, b: { substationId: org.s2 } }] },
+    { id: ids.line2, cableTypeId: m.fiberCableId, coreCount: 2, name: null, a: { substationId: org.s2 }, b: { substationId: org.s2 } },
+    /* 아무 연결도 안 닿은 상대 국 안 광선로 — 이 국 연결만 가리키는 경로를 시험한다. */
+    { id: ids.line3, cableTypeId: m.fiberCableId, coreCount: 2, name: '남의선로', a: { substationId: org.s2 }, b: { substationId: org.s2 } }] },
     links: { creates: [
       { id: randomUUID(), substationId: org.s1, cableTypeId: m.powerCableId, a: { kind: 'circuit', equipmentId: ids.pnl, no: 1 }, b: { kind: 'equipment', equipmentId: ids.dev1 } },
       { id: randomUUID(), substationId: org.s1, cableTypeId: m.commCableId, a: { kind: 'core', lineId: ids.line, no: 1, side: 'A' }, b: { kind: 'equipment', equipmentId: ids.dev1, label: 'WEST' } },
@@ -65,6 +67,22 @@ describe('GET /substations/:id/workingcopy', () => {
     const wc = (await request(app).get(`/api/v2/substations/${org.s1}/workingcopy`).set(admin).expect(200)).body;
     expect(wc.fiberLines.map((l: { id: string }) => l.id)).toEqual([ids.line]);
     expect(wc.refLines).toEqual([{ id: ids.line2, name: null, aSubstationName: 't3-wc-S2', bSubstationName: 't3-wc-S2' }]);
+  });
+
+  it('이 국 연결이 남의 광선로 코어를 가리켜도 refLines 에 싣는다(검증을 거치지 않은 옛 행)', async () => {
+    /* 커밋 검증은 이 국 쪽 코어 끝만 받는다 — 그 밖의 행(옛 데이터)이 있어도 이름은 잃지 않게, DB 에 바로 넣는다. */
+    const id = randomUUID();
+    await nextDb.link.create({ data: { id, substationId: org.s1, ends: { create: [
+      { end: 'A', equipmentId: ids.dev1 },
+      { end: 'B', coreLineId: ids.line3, coreNo: 1, coreSide: 'A' },
+    ] } } });
+    try {
+      const wc = (await request(app).get(`/api/v2/substations/${org.s1}/workingcopy`).set(admin).expect(200)).body;
+      expect(wc.links.some((l: { id: string }) => l.id === id)).toBe(true);
+      expect(wc.refLines.find((l: { id: string }) => l.id === ids.line3)).toMatchObject({ name: '남의선로', aSubstationName: 't3-wc-S2' });
+    } finally {
+      await nextDb.link.delete({ where: { id } });
+    }
   });
 
   it('같은 광선로가 상대 국 응답에도 실린다(같은 id)', async () => {

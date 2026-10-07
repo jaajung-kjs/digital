@@ -168,11 +168,20 @@ describe('선번장', () => {
     expect(store.getState().overlays.cores[coreKey('L4', 1)]).toEqual({ aPurpose: 'A쪽', bPurpose: 'B쪽' });
   });
 
-  it('상대 국을 들러 같은 연결이 그 국 연결과 먼 연결 양쪽에 있어도 대국 칸에는 한 번', () => {
-    const fk = store.getState().saved.farLinks[0]!;
-    store.setState({ saved: { ...store.getState().saved, substations: { ...store.getState().saved.substations, S2: { id: 'S2', name: '춘천S/S' } }, links: [fk] } });
+  it('상대 국을 들렀으면 그 국 연결이 정답 — 먼 연결에 남은 옛 사본(같은 id)은 쓰지 않는다', () => {
+    /* 들른 S2 의 연결 fk 는 코어 1 에 물려 있다. 먼 연결에는 같은 id 의 옛 사본이 코어 2 를 가리킨 채 남아 있다 —
+       그 사본을 함께 넣으면 코어 2 대국 칸에 「춘천 광단말 OLD」가 선다. */
+    const saved = store.getState().saved;
+    const stale = link('fk', 'S2', { kind: 'core', lineId: 'L1', no: 2, side: 'B' }, { kind: 'equipment', equipmentId: 'farLt', label: 'OLD' });
+    store.setState({ saved: { ...saved,
+      substations: { ...saved.substations, S2: { id: 'S2', name: '춘천S/S' } },
+      links: [saved.farLinks[0]!],
+      farLinks: [stale],
+    } });
     renderSheet();
     expect(cell(rowOf('L1', 1), 'far').textContent).toBe('춘천 광단말 RX');
+    expect(cell(rowOf('L1', 2), 'far').textContent).toBe('—');
+    expect(screen.queryByText(/OLD/)).toBeNull();
   });
 
   it('대국 끝이 남의 광선로 코어면 그 선로 이름으로 — 이름이 없으면 「A국–B국」, 모르면 「광선로」', () => {
