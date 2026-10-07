@@ -13,3 +13,5 @@ export * from './model/commitPayload.js';
 export * from './seed/jikhalInventory.js';
 export * from './model/lineSheet.js';
 export * from './model/powerTree.js';
+export * from './model/topologyLayout.js';
+export * from './model/opticalPaths.js';
