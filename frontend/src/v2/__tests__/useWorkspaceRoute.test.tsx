@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { useWorkspaceRoute, VIEW_MODES } from '../useWorkspaceRoute';
 
 const at = (path: string) =>
@@ -86,5 +86,19 @@ describe('useWorkspaceRoute', () => {
     act(() => result.current.selectEquipment('x'));
     expect(result.current).toMatchObject({ supply: null, eqId: 'x' });
     expect(at('/n/sub-1?view=전원 계통&power=zzz').result.current.power).toBe('ledger');
+  });
+
+  it('상세에서 전원 계통으로 — 판·대장·블록·설비를 한 번에 쓰고 기록을 남긴다(뒤로 가면 떠나 온 화면)', () => {
+    const { result } = renderHook(() => ({ route: useWorkspaceRoute(), nav: useNavigate() }), {
+      wrapper: ({ children }) => (
+        <MemoryRouter initialEntries={['/n/sub-1?view=전원 계통&power=tree&rack=r1&line=L1&side=A']}>
+          <Routes><Route path="/n/:nodeId" element={children} /></Routes>
+        </MemoryRouter>
+      ),
+    });
+    act(() => result.current.route.openSupply('d1'));
+    expect(result.current.route).toMatchObject({ view: '전원 계통', power: 'ledger', supply: 'd1', eqId: 'd1', rackId: null, block: null });
+    act(() => result.current.nav(-1));
+    expect(result.current.route).toMatchObject({ power: 'tree', supply: null, eqId: null, rackId: 'r1' });
   });
 });

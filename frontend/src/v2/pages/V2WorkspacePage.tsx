@@ -194,7 +194,10 @@ export default function V2WorkspacePage() {
                     {substationId && (!WIDE_TABLE_VIEWS.has(route.view) || route.eqId || route.rackId) && (
                       <aside className="flex h-full w-[364px] shrink-0 flex-col">
                         {route.eqId ? (
-                          <EquipmentDetail key={route.eqId} equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} onOpenBlock={route.openBlock} />
+                          <EquipmentDetail key={route.eqId} equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} onOpenBlock={route.openBlock}
+                            /* 이미 그 블록을 보고 있으면 길을 두지 않는다(같은 자리로 건너가는 단추). */
+                            onOpenPower={route.view === '전원 계통' && route.power === 'ledger' && route.supply === route.eqId ? undefined : route.openSupply}
+                          />
                         ) : route.rackId ? (
                           <RackDetail
                             key={route.rackId}

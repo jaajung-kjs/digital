@@ -18,10 +18,12 @@ type Tab = '정보' | '연결' | '점검·고장' | '사진';
 const TABS: readonly TabItem<Tab>[] = (['정보', '연결', '점검·고장', '사진'] as const).map((k) => ({ key: k, label: k }));
 
 /** 설비 상세 — 정보 · 연결 · 점검·고장 · 사진.  */
-export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock }: {
+export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, onOpenPower }: {
   equipmentId: string; onClose: () => void; onDeleted: () => void;
   /** 슬롯 줄 → 선번장의 그 블록(주소). 없으면 줄은 읽기만 한다. */
   onOpenBlock?: (focus: BlockFocus) => void;
+  /** 차단기 카드·연결 탭 「입력 전원」 → 전원 계통 차단기 대장의 이 설비 블록(주소). 없으면 그 길을 두지 않는다. */
+  onOpenPower?: (equipmentId: string) => void;
 }) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
@@ -79,7 +81,7 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock }
           {tab === '정보' && (
             <>
               <EquipmentInfoCard eq={eq} catalog={catalog} onDelete={remove} />
-              <CircuitCard equipmentId={equipmentId} onEdit={(at) => setBreakers({ at })} onAdd={addBreaker} />
+              <CircuitCard equipmentId={equipmentId} onEdit={(at) => setBreakers({ at })} onAdd={addBreaker} onOpenPower={onOpenPower && (() => onOpenPower(equipmentId))} />
               {(hasSlots || slotEditing) && (
                 <PanelsCard
                   equipmentId={equipmentId} panelCount={eq.panelCount} onOpenBlock={onOpenBlock}
@@ -88,7 +90,7 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock }
               )}
             </>
           )}
-          {tab === '연결' && <LinkList equipmentId={equipmentId} substationId={eq.substationId} />}
+          {tab === '연결' && <LinkList equipmentId={equipmentId} substationId={eq.substationId} onOpenPower={onOpenPower && (() => onOpenPower(equipmentId))} />}
           {tab === '점검·고장' && (
             <>
               <RecordsTab equipmentId={equipmentId} kind="inspections" dateField="inspectedAt" extraField="result" dateLabel="점검일" extraLabel="결과" sectionTitle="점검" emptyMessage="점검 기록이 없습니다" />

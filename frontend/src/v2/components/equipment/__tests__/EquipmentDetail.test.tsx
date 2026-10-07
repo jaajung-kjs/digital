@@ -454,3 +454,28 @@ describe('설비 상세 — 연결 탭 갈래', () => {
     expect(screen.queryByText('부하', { selector: 'div' })).toBeNull();
   });
 });
+
+/* 상세 패널에서 전원 계통으로 — 차단기 카드 머리와 연결 탭 「입력 전원」 묶음 머리에 같은 길. */
+describe('설비 상세 — 전원 계통에서 보기', () => {
+  it('차단기 카드 머리의 「전원 계통에서 보기」는 이 설비 id 로 부른다 — 길을 주지 않으면 단추도 없다', () => {
+    const onOpenPower = vi.fn();
+    const { unmount } = render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} onOpenPower={onOpenPower} />);
+    fireEvent.click(within(breakerCard()).getByRole('button', { name: '전원 계통에서 보기' }));
+    expect(onOpenPower).toHaveBeenCalledWith('p');
+    unmount();
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: '전원 계통에서 보기' })).toBeNull();
+  });
+
+  it('연결 탭 — 「입력 전원」 묶음 머리에만 같은 길이 선다(「부하」 머리에는 없다)', () => {
+    const s = store.getState();
+    s.create('equipment', { ...eqBase, id: 'src', name: '정류기', circuitCount: 0 });
+    s.create('links', { id: 'kf', substationId: 'S1', cableTypeId: null, lengthM: null, spec: null, note: null, pathPoints: [], a: { kind: 'equipment', equipmentId: 'src' }, b: { kind: 'equipment', equipmentId: 'p' }, updatedAt: '' });
+    const onOpenPower = vi.fn();
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} onOpenPower={onOpenPower} />);
+    fireEvent.click(screen.getByRole('tab', { name: '연결' }));
+    expect(within(screen.getByRole('region', { name: '부하' })).queryByRole('button', { name: '전원 계통에서 보기' })).toBeNull();
+    fireEvent.click(within(screen.getByRole('region', { name: '입력 전원' })).getByRole('button', { name: '전원 계통에서 보기' }));
+    expect(onOpenPower).toHaveBeenCalledWith('p');
+  });
+});

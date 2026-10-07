@@ -29,6 +29,8 @@ const FORBIDDEN = [/회로/, /안의 설비/, /종류/, /자산/, /(^|[\s·(])�
   /(?<![가-힣])본 설비/, /상대 단자/, /단자/, /(?<![가-힣])자국 ?측(?![정면])/, /(?<![가-힣])대국 ?측(?![정면])/];
 
 const main = (page: Page) => page.getByTestId('v2-main');
+/** 찍기 전 — 손을 치우고 호버·선택색 전환(150ms)이 끝나기를 기다린다. */
+const settle = async (page: Page) => { await page.mouse.move(0, 0); await page.waitForTimeout(300); };
 const detail = (page: Page) => main(page).getByRole('complementary');
 
 async function noForbiddenWords(page: Page, where: string) {
@@ -175,6 +177,65 @@ for (const vp of VIEWPORTS) {
       await page.mouse.move(0, 0);
       await noForbiddenWords(page, '선번장 + 상세');
       await shot(page, '24-sheet-from-slot');
+
+      await expect(page.getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+    });
+
+    test('전원 계통 · 상세에서 전원 계통으로', async ({ page }) => {
+      await login(page);
+      await openStation(page, '강원본부', '직할', STATION);
+      await main(page).getByRole('tab', { name: '전원 계통' }).click();
+      const blocks = main(page).getByTestId('ledger-block');
+      await expect(blocks.first()).toBeVisible();
+
+      // 차단기 대장 — 고른 것이 없으면 상세 레일이 없다(표가 우선)
+      await expect(main(page).getByRole('radio', { name: '차단기 대장' })).toBeChecked();
+      await expect(detail(page)).toHaveCount(0);
+      await settle(page);
+      await noForbiddenWords(page, '차단기 대장');
+      await shot(page, '30-power-ledger');
+
+      // 블록 머리의 설비 이름 → 그 설비 상세 + 블록 초점(판은 가로로 구르고 그늘이 선다)
+      const panel = blocks.filter({ has: page.getByTestId('ledger-block-head').getByRole('button', { name: PANEL, exact: true }) });
+      await panel.getByTestId('ledger-block-head').getByRole('button', { name: PANEL, exact: true }).click();
+      await expect(panel).toHaveAttribute('aria-current', 'true');
+      await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
+      await settle(page);
+      await noForbiddenWords(page, '차단기 대장 + 상세');
+      await shot(page, '31-power-ledger-detail');
+
+      // 계통도 — 상세가 선 채로
+      await main(page).getByRole('radio', { name: '계통도' }).click();
+      const tree = main(page).getByRole('tree', { name: '계통도' });
+      await expect(tree.getByTestId('tree-equipment').first()).toBeVisible();
+      await settle(page);
+      await noForbiddenWords(page, '계통도 + 상세');
+      await shot(page, '32-power-tree-detail');
+
+      // 계통도 — 상세를 닫고 판 전체, 직류만
+      await detail(page).getByRole('button', { name: '닫기', exact: true }).click();
+      await expect(detail(page)).toHaveCount(0);
+      await expect(tree.locator('[aria-selected="true"]')).toHaveCount(0);
+      await settle(page);
+      await shot(page, '33-power-tree');
+      await main(page).getByRole('combobox', { name: '교류/직류' }).selectOption({ label: '직류' });
+      await expect(tree.getByTestId('tree-breaker').filter({ hasText: '· 교류' })).toHaveCount(0);
+      await settle(page);
+      await noForbiddenWords(page, '계통도 직류');
+      await shot(page, '34-power-tree-dc');
+      await main(page).getByRole('combobox', { name: '교류/직류' }).selectOption({ label: '전체' });
+
+      // 상세에서 전원 계통으로 — 현황에서 분전반을 열고 차단기 카드 머리의 「전원 계통에서 보기」
+      await main(page).getByRole('tab', { name: '현황' }).click();
+      await main(page).getByRole('radio', { name: '랙별' }).click();
+      await main(page).getByRole('row').filter({ hasText: PANEL }).last().click();
+      await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
+      await detail(page).getByRole('button', { name: '전원 계통에서 보기' }).click();
+      await expect(main(page).getByRole('radio', { name: '차단기 대장' })).toBeChecked();
+      await expect(blocks.and(page.locator('[aria-current="true"]')).getByTestId('ledger-block-head')).toBeInViewport();
+      await settle(page);
+      await noForbiddenWords(page, '상세 → 차단기 대장');
+      await shot(page, '35-power-from-detail');
 
       await expect(page.getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
     });

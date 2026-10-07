@@ -154,6 +154,28 @@ export function useWorkspaceRoute() {
     [setParams],
   );
 
+  /**
+   * 전원 계통 차단기 대장의 그 설비 블록으로 — 상세 패널(차단기 카드·연결 탭 「입력 전원」)이 부른다.
+   * 판·보기(대장)·블록 초점·설비 선택을 **한 번의 주소 쓰기**로 바꾸고, `openBlock` 처럼 **기록을 남긴다** —
+   * 뒤로 가면 떠나 온 화면으로 돌아온다. 상세는 그대로 선다(`eq` 유지 — `selectSupply` 와 같은 꼴).
+   */
+  const openSupply = useCallback(
+    (id: string) => {
+      setParams((prev) => {
+        const p = new URLSearchParams(prev);
+        p.set('view', '전원 계통');
+        p.delete('power');
+        p.set('supply', id);
+        p.set('eq', id);
+        p.delete('rack');
+        p.delete('line');
+        p.delete('side');
+        return p;
+      });
+    },
+    [setParams],
+  );
+
   const eqId = params.get('eq');
   const rackId = params.get('rack');
   const lineParam = params.get('line');
@@ -170,8 +192,8 @@ export function useWorkspaceRoute() {
   return useMemo(
     () => ({
       nodeId, view, eqId, rackId, block, power, supply,
-      selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment, setPowerView, selectSupply,
+      selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment, setPowerView, selectSupply, openSupply,
     }),
-    [nodeId, view, eqId, rackId, block, power, supply, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment, setPowerView, selectSupply],
+    [nodeId, view, eqId, rackId, block, power, supply, selectNode, setView, selectEquipment, selectRack, focusBlock, openBlock, openEquipment, setPowerView, selectSupply, openSupply],
   );
 }

@@ -450,7 +450,8 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 `<ListRow onClick={…}>{name}</ListRow>` — `onClick` 이 없으면 읽기 전용 줄. 직접 `<button className>` 이나 `<p className>` 로 줄을 만들지 않는다. 라벨과 값이 짝이면 `DetailRow` 다.
 
-- **목록 안 갈래의 머리**(잇기 상자의 「설비」·「차단기」·「코어」, 연결 탭의 「전원 받는 곳」·「부하」) → `ListHeading`. 카드 절 제목(`DetailCardHeader`)이 아니다 — 한 목록 안의 묶음 라벨이다.
+- **목록 안 갈래의 머리**(잇기 상자의 「설비」·「차단기」·「코어」, 연결 탭의 「입력 전원」·「부하」) → `ListHeading`. 카드 절 제목(`DetailCardHeader`)이 아니다 — 한 목록 안의 묶음 라벨이다. 그 갈래 전체에 대한 손짓 하나는 `action` 으로 머리 오른쪽 끝에 둔다(연결 탭 「입력 전원」의 「전원 계통에서 보기」 — `Button variant="ghost" size="xs"`, 늘 보임).
+- **다른 판으로 건너가는 길**(설비 상세 → 선번장 블록 · 전원 계통 블록)은 **기록을 남긴다**(`openBlock`·`openSupply`) — 뒤로 가면 떠나 온 화면으로 돌아온다. 카드 머리의 길은 `actions` 의 `Button variant="secondary" size="sm"`(차단기 카드 「전원 계통에서 보기」).
 - **값이 여럿인 줄 + 호버 손잡이** → `ListItemRow`. `actions` 는 §1.7 대로 자리를 차지한 채 투명도만 바뀐다.
   - **좁은 패널(364px)에서는 두 줄**(`meta`): 첫 줄 = 그 줄만의 것(연결 목록의 **상대 끝 이름**, 진하게), 둘째 줄 = 나머지(`이쪽: 차단기 3 · F-CV · 12 m`, `text-xs`). 없는 값은 「없음」이라 적지 않고 건너뛴다. 고정 폭 칸 넷을 한 줄에 늘어세우면 늘어나야 할 칸 하나가 **0px 로 눌려 사라진다** — 연결 목록의 상대 끝이 실제로 그랬다(이쪽 128 + 케이블 83 + 길이 56 + 손잡이 + 틈 = 패널 폭 전부).
   - 넓은 자리에서만 칸을 가로로 늘어세운다(`meta` 없이). 칸 폭·잘림은 부르는 쪽이 정한다(`truncate` 에는 `min-w-0`).

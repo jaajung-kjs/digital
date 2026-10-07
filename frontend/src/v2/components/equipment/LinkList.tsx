@@ -10,7 +10,7 @@ import { ConnectDialog } from './ConnectDialog';
 import { endLabel, linksOfEquipment, nearLabel, sidesOf } from './endpoints';
 
 /**
- * 설비의 연결 탭 — 이 설비(와 그 차단기)에 닿은 연결 목록과 「잇기」.
+ * 설비의 연결 탭 — 이 설비(와 그 차단기)에 닿은 연결 목록과 「연결」.
  *
  * 한 건 = 두 줄: 첫 줄 **상대 끝 이름**(이 줄만의 것이라 진하게), 둘째 줄 `이쪽: 차단기 3 · 케이블 · 12 m`.
  * 이쪽 설비 이름은 패널 머리에 이미 있으니 다시 적지 않는다. 없는 값(표기·케이블·길이)은 건너뛴다.
@@ -19,7 +19,11 @@ import { endLabel, linksOfEquipment, nearLabel, sidesOf } from './endpoints';
  * 둘째 줄을 읽어야 안다. 둘 다 있으면 갈래로 나눈다: 「전원 받는 곳」 = 이쪽 끝이 설비 자신인 연결,
  * 「부하」 = 이쪽 끝이 그 설비의 차단기인 연결. 한쪽뿐이면 나누지 않는다(머리 하나는 아무것도 가르지 않는다).
  */
-export function LinkList({ equipmentId, substationId }: { equipmentId: string; substationId: string }) {
+export function LinkList({ equipmentId, substationId, onOpenPower }: {
+  equipmentId: string; substationId: string;
+  /** 「입력 전원」 묶음 머리의 「전원 계통에서 보기」 — 차단기 대장의 이 설비 블록으로(기록을 남긴다). */
+  onOpenPower?: () => void;
+}) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
@@ -37,8 +41,8 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
     const feed = links.filter((l) => l[sidesOf(l, equipmentId).near].kind === 'equipment');
     const loads = links.filter((l) => l[sidesOf(l, equipmentId).near].kind === 'circuit');
     return hasBreakers && feed.length > 0 && loads.length > 0
-      ? [{ title: '입력 전원', links: feed }, { title: '부하', links: loads }]
-      : [{ title: null, links }];
+      ? [{ title: '입력 전원', links: feed, power: true }, { title: '부하', links: loads, power: false }]
+      : [{ title: null, links, power: false }];
   }, [links, hasBreakers, equipmentId]);
   const cableName = (id: string | null) => (id ? catalog?.cableTypes.find((c) => c.id === id)?.name ?? null : null);
 
@@ -64,7 +68,11 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
         <div>
           {groups.map((g) => (
             <section key={g.title ?? 'all'} aria-label={g.title ?? undefined}>
-              {g.title && <ListHeading>{g.title}</ListHeading>}
+              {g.title && (
+                <ListHeading action={g.power && onOpenPower ? <Button variant="ghost" size="xs" onClick={onOpenPower}>전원 계통에서 보기</Button> : undefined}>
+                  {g.title}
+                </ListHeading>
+              )}
               {g.links.map((l) => row(l))}
             </section>
           ))}
