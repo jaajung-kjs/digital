@@ -149,7 +149,7 @@ function asCommitError(e: unknown): unknown {
   }
   if (isPrismaError(e, 'P2025')) return new HttpError(422, 'INVALID_TARGET', '수정 또는 삭제할 대상이 없습니다');
   if (e instanceof Prisma.PrismaClientUnknownRequestError && /check constraint/i.test(e.message)) {
-    return new HttpError(422, 'INVALID_STATE', '연결 단자 형식이 올바르지 않습니다');
+    return new HttpError(422, 'INVALID_STATE', '연결 대상 형식이 올바르지 않습니다');
   }
   return e;
 }

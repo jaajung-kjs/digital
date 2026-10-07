@@ -62,7 +62,7 @@ export function LineSheetView({
     const seen = new Map<string, string>();
     for (const b of blocks) {
       const key = b.equipmentId ?? UNASSIGNED;
-      if (!seen.has(key)) seen.set(key, b.equipmentId ? (equipmentName(s, b.equipmentId) ?? '—') : '단자 미지정');
+      if (!seen.has(key)) seen.set(key, b.equipmentId ? (equipmentName(s, b.equipmentId) ?? '—') : '접속 설비 미지정');
     }
     return [...seen];
   }, [blocks, s]);
@@ -155,7 +155,7 @@ export function LineSheetView({
         bodyRef={bodyRef}
         tools={
           <div className="w-40 shrink-0">
-            <Select size="sm" aria-label="단자" value={activeTerminal} onChange={(e) => setTerminal(e.currentTarget.value)}>
+            <Select size="sm" aria-label="접속 설비" value={activeTerminal} onChange={(e) => setTerminal(e.currentTarget.value)}>
               <option value="">전체</option>
               {terminals.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
             </Select>
@@ -165,7 +165,7 @@ export function LineSheetView({
           <div className="flex items-center gap-1.5">
             {addLine}
             <TableSearch
-              aria-label="선번장 검색" className="w-56" placeholder="상대국 · 선로명 · 연결 · 용도 · 비고 검색"
+              aria-label="선번장 검색" className="w-72" placeholder="상대국 · 선로명 · 접속 · 회선 내역 · 비고 검색"
               value={query} onChange={setQuery} shown={shownRows} total={totalRows}
             />
           </div>

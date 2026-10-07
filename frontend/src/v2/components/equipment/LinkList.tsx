@@ -37,7 +37,7 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
     const feed = links.filter((l) => l[sidesOf(l, equipmentId).near].kind === 'equipment');
     const loads = links.filter((l) => l[sidesOf(l, equipmentId).near].kind === 'circuit');
     return hasBreakers && feed.length > 0 && loads.length > 0
-      ? [{ title: '전원 공급원', links: feed }, { title: '부하', links: loads }]
+      ? [{ title: '입력 전원', links: feed }, { title: '부하', links: loads }]
       : [{ title: null, links }];
   }, [links, hasBreakers, equipmentId]);
   const cableName = (id: string | null) => (id ? catalog?.cableTypes.find((c) => c.id === id)?.name ?? null : null);
@@ -78,14 +78,14 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
     const { near, far } = sidesOf(l, equipmentId);
     const nearRef = l[near];
     const here = nearLabel(nearRef);
-    const meta = [here && `단자: ${here}`, cableName(l.cableTypeId), l.lengthM != null ? `${l.lengthM} m` : null].filter(Boolean).join(' · ');
+    const meta = [here, cableName(l.cableTypeId), l.lengthM != null ? `${l.lengthM} m` : null].filter(Boolean).join(' · ');
     const farText = endLabel(s, far);
     return (
       <ListItemRow
         key={l.id}
         meta={editing === l.id && nearRef.kind === 'equipment' ? (
           <CommitInput
-            size="sm" autoFocus aria-label="본 설비 단자 표기" placeholder="단자 표기(예 AC IN)" value={nearRef.label ?? ''}
+            size="sm" autoFocus aria-label="포트" placeholder="포트(예 AC IN)" value={nearRef.label ?? ''}
             onCommit={(v) => relabel(l, near, v)}
             onBlur={() => setEditing(null)}
             onKeyDown={(e) => { if (e.key === 'Escape' && !isComposing(e)) setEditing(null); }}
@@ -94,7 +94,7 @@ export function LinkList({ equipmentId, substationId }: { equipmentId: string; s
         actions={(
           <>
             {nearRef.kind === 'equipment' && (
-              <IconButton size="sm" aria-label="단자 표기 수정" title="본 설비 단자 표기 수정" onClick={() => setEditing(l.id)}><Pencil className="h-3.5 w-3.5" /></IconButton>
+              <IconButton size="sm" aria-label="포트 수정" title="포트 수정" onClick={() => setEditing(l.id)}><Pencil className="h-3.5 w-3.5" /></IconButton>
             )}
             <IconButton size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제" onClick={() => remove(l.id)}><Trash2 className="h-3.5 w-3.5" /></IconButton>
           </>

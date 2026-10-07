@@ -337,7 +337,7 @@ describe('설비 상세 — 연결 목록', () => {
     fireEvent.click(screen.getByRole('tab', { name: /연결/ }));
     const [row] = linkRows();
     expect(within(row!).getByTestId('link-far')).toHaveTextContent(/^부하$/);
-    expect(within(row!).getByTestId('link-near')).toHaveTextContent(/^단자: 차단기 2$/);
+    expect(within(row!).getByTestId('link-near')).toHaveTextContent(/^차단기 2$/);
   });
 
   it('부하에서 보면 첫 줄이 분전반 차단기, 표기가 없으면 「이쪽」을 건너뛴다 — 케이블·길이만', () => {
@@ -354,18 +354,18 @@ describe('설비 상세 — 연결 목록', () => {
   it('설비 끝의 표기는 줄에서 고친다 — 차단기 끝에는 표기 고치기가 없다', () => {
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: /연결/ }));
-    fireEvent.click(screen.getByRole('button', { name: '단자 표기 수정' }));
-    const input = screen.getByRole('textbox', { name: '본 설비 단자 표기' });
+    fireEvent.click(screen.getByRole('button', { name: '포트 수정' }));
+    const input = screen.getByRole('textbox', { name: '포트' });
     fireEvent.change(input, { target: { value: 'AC IN' } });
     fireEvent.blur(input);
     expect(store.getState().overlays.links.creates.k!.b).toEqual({ kind: 'equipment', equipmentId: 'l', label: 'AC IN' });
-    expect(within(linkRows()[0]!).getByTestId('link-near')).toHaveTextContent(/^단자: AC IN$/);
+    expect(within(linkRows()[0]!).getByTestId('link-near')).toHaveTextContent(/^AC IN$/);
   });
 
   it('분전반(차단기 끝) 줄에는 표기 고치기가 없다', () => {
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: /연결/ }));
-    expect(screen.queryByRole('button', { name: '단자 표기 수정' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '포트 수정' })).toBeNull();
   });
 
   it('연결이 없으면 빈 안내, 지우면 오버레이에서 사라진다', () => {
@@ -440,7 +440,7 @@ describe('설비 상세 — 연결 탭 갈래', () => {
     s.create('links', { id: 'kf', substationId: 'S1', cableTypeId: null, lengthM: null, spec: null, note: null, pathPoints: [], a: { kind: 'equipment', equipmentId: 'src' }, b: { kind: 'equipment', equipmentId: 'p' }, updatedAt: '' });
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: '연결' }));
-    const feed = screen.getByRole('region', { name: '전원 공급원' });
+    const feed = screen.getByRole('region', { name: '입력 전원' });
     const loads = screen.getByRole('region', { name: '부하' });
     expect(within(feed).getAllByTestId('link-far').map((e) => e.textContent)).toEqual([expect.stringContaining('정류기')]);
     expect(within(loads).getAllByTestId('link-far').map((e) => e.textContent)).toEqual([expect.stringContaining('부하')]);
@@ -450,7 +450,7 @@ describe('설비 상세 — 연결 탭 갈래', () => {
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: '연결' }));
     expect(screen.getAllByTestId('link-far')).toHaveLength(1);
-    expect(screen.queryByText('전원 공급원')).toBeNull();
+    expect(screen.queryByText('입력 전원')).toBeNull();
     expect(screen.queryByText('부하', { selector: 'div' })).toBeNull();
   });
 });

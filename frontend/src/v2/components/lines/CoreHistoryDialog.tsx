@@ -76,7 +76,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
   const group = (sd: Side) => {
     const rows = of(sd);
     /* 국 이름에 괄호가 든다(「(구)춘천S/S」) — 괄호로 감싸면 「상대 끝((구)춘천S/S)」로 겹쳐 읽힌다. */
-    const label = `${sd === side ? '자국 측' : '대국 측'} · ${subName(sd)}`;
+    const label = `${sd === side ? '자국' : '대국'} · ${subName(sd)}`;
     return (
       <section aria-label={label} data-testid={`history-${sd === side ? 'near' : 'far'}`} className="space-y-1">
         <ListHeading>{label} · {rows.length}건</ListHeading>
@@ -111,7 +111,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
         {group(side)}
         {group(other(side))}
         <section aria-label="측정 추가" className="space-y-1">
-          <ListHeading>측정 추가 — 자국 측 · {subName(side)}</ListHeading>
+          <ListHeading>측정 추가 — 자국 · {subName(side)}</ListHeading>
           <TableCard widths={WIDTHS}>
             <thead>{head}</thead>
             <tbody>

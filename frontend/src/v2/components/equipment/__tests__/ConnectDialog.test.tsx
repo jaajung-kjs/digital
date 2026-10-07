@@ -35,7 +35,7 @@ describe('잇기 대화상자', () => {
     render(<ConnectDialog substationId="S1" from={{ kind: 'equipment', equipmentId: 'o' }} open onClose={vi.fn()} onCreated={vi.fn()} />);
     fireEvent.click(screen.getAllByText('송광치')[0]!);
     expect(screen.getByRole('button', { name: '연결' })).toBeDisabled();
-    expect(screen.getByText('연결의 양쪽 단자가 같습니다')).toBeInTheDocument();
+    expect(screen.getByText('연결의 양쪽 대상이 같습니다')).toBeInTheDocument();
   });
 
   it('쓰인 차단기 끝은 고를 수 없다', () => {

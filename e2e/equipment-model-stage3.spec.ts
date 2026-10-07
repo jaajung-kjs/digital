@@ -103,7 +103,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   //    코어 3 용도 — 북춘천 끝의 값(WEST). (구)춘천 끝은 EAST 라 상대 끝 용도로만(title) 선다
   const first = blocks(page).nth(0);
   await expect(cell(first, 3, 'purpose')).toHaveText('소형광 · PTP(춘천-북춘천) WEST');
-  await expect(cell(first, 3, 'purpose')).toHaveAttribute('title', /대국 측 용도: 소형광 · PTP\(춘천-북춘천\) EAST/);
+  await expect(cell(first, 3, 'purpose')).toHaveAttribute('title', /대국 회선 내역: 소형광 · PTP\(춘천-북춘천\) EAST/);
   await expect(cell(first, 1, 'status')).toHaveText('단선');
   await expect(cell(first, 21, 'status')).toHaveText('사용불가');
   //    대국 연결은 읽기 전용 — 잇기·지우기 단추가 없다
@@ -115,10 +115,10 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await row(slot3, 11).hover();
   await cell(slot3, 11, 'near').getByRole('button', { name: '연결', exact: true }).click();
   let dialog = page.getByRole('dialog', { name: '연결 추가' });
-  await expect(dialog).toContainText(`자국 측 코어: ${SLOT3_LINE} 코어 11`);
-  await dialog.getByRole('textbox', { name: '상대 단자 검색' }).fill('L2 스위치');
+  await expect(dialog).toContainText(`기준 코어: ${SLOT3_LINE} 코어 11`);
+  await dialog.getByRole('textbox', { name: '접속 설비 검색' }).fill('L2 스위치');
   await dialog.getByRole('button', { name: 'L2 스위치', exact: true }).click();
-  await dialog.getByRole('textbox', { name: '상대 단자 표기' }).fill(`${PREFIX}-FX`);
+  await dialog.getByRole('textbox', { name: '상대 포트' }).fill(`${PREFIX}-FX`);
   await dialog.getByRole('combobox', { name: '케이블 품목' }).selectOption({ label: '광점퍼코드' });
   await dialog.getByRole('button', { name: '연결', exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -159,8 +159,8 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await dialog.getByRole('combobox', { name: '케이블 품목' }).selectOption({ label: 'OPGW(광복합가공지선)' });
   await dialog.getByRole('textbox', { name: '코어 수' }).fill('12');
   await dialog.getByRole('textbox', { name: '선로명' }).fill(LINE_NAME);
-  await dialog.getByRole('combobox', { name: '자국 측 단자 설비' }).selectOption({ label: 'OFD' });
-  await dialog.getByRole('textbox', { name: '자국 측 슬롯' }).fill('9');
+  await dialog.getByRole('combobox', { name: '자국 접속 설비' }).selectOption({ label: 'OFD' });
+  await dialog.getByRole('textbox', { name: '자국 슬롯' }).fill('9');
   await dialog.getByRole('button', { name: '추가', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const added = blocks(page).filter({ hasText: LINE_NAME });
@@ -177,7 +177,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   const peerBlock = blocks(page).filter({ hasText: LINE_NAME });
   await expect(peerBlock).toHaveCount(1);
   await expect(peerBlock).toHaveAttribute('data-side', 'B');
-  await expect(peerBlock.getByTestId('sheet-block-head')).toContainText('단자 미지정');
+  await expect(peerBlock.getByTestId('sheet-block-head')).toContainText('접속 설비 미지정');
   await expect(peerBlock.getByTestId('sheet-block-head')).toContainText(`↔ ${STATION}`);
   await expect(peerBlock.locator('tbody tr')).toHaveCount(12);
 

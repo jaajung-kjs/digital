@@ -135,7 +135,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await detail(page).getByRole('tab', { name: '연결' }).click();
   await detail(page).getByRole('button', { name: '연결', exact: true }).click();
   dialog = page.getByRole('dialog', { name: '연결 추가' });
-  await dialog.getByRole('textbox', { name: '상대 단자 검색' }).fill('분전반');
+  await dialog.getByRole('textbox', { name: '접속 설비 검색' }).fill('분전반');
   const breaker2 = dialog.getByRole('button', { name: `${PANEL} 차단기 2`, exact: true });
   await breaker2.click();
   await expect(breaker2).toHaveAttribute('aria-selected', 'true');

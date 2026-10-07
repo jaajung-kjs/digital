@@ -68,7 +68,7 @@ export function validateState(state: ModelState): ModelIssue[] {
   for (const link of state.links) {
     for (const ref of [link.a, link.b]) {
       if (!endValid(link, ref)) {
-        issues.push({ code: 'LINK_END_INVALID', message: '연결 단자가 이 변전소의 설비·차단기·코어가 아닙니다', ids: [link.id] });
+        issues.push({ code: 'LINK_END_INVALID', message: '연결 대상이 이 변전소의 설비·차단기·코어가 아닙니다', ids: [link.id] });
       }
       if (ref.kind !== 'equipment') {
         const k = endRefKey(ref);
@@ -77,7 +77,7 @@ export function validateState(state: ModelState): ModelIssue[] {
     }
     // ⑧ 두 끝이 같은 대상.
     if (endRefKey(link.a) === endRefKey(link.b)) {
-      issues.push({ code: 'LINK_SELF', message: '연결의 양쪽 단자가 같습니다', ids: [link.id] });
+      issues.push({ code: 'LINK_SELF', message: '연결의 양쪽 대상이 같습니다', ids: [link.id] });
     }
     // ⑥ 국 내 연결의 매체.
     if (link.cableTypeId !== null && !isLinkMedium(mediumOf.get(link.cableTypeId) ?? '')) {
@@ -101,7 +101,7 @@ export function validateState(state: ModelState): ModelIssue[] {
       if (eqId === null) continue;
       const e = eqById.get(eqId) ?? outsideById.get(eqId);
       if (!e || e.substationId !== subId) {
-        issues.push({ code: 'LINE_END_EQUIPMENT', message: '광선로 종단의 단자 설비가 해당 종단 변전소에 없습니다', ids: [l.id] });
+        issues.push({ code: 'LINE_END_EQUIPMENT', message: '광선로 종단의 접속 설비가 해당 종단 변전소에 없습니다', ids: [l.id] });
       }
     }
   }

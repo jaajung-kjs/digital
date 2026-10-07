@@ -46,7 +46,7 @@ export function blockWhere(s: S, b: SheetBlock): { where: string; terminal: stri
   const place = b.equipmentId
     ? [b.panel != null ? `슬롯 ${b.panel}` : null, `어댑터 ${b.startNo}–${b.startNo + b.coreCount - 1}`].filter(Boolean).join(' · ')
     : null;
-  const where = terminal != null ? `${terminal} · ${place}` : '단자 미지정';
+  const where = terminal != null ? `${terminal} · ${place}` : '접속 설비 미지정';
   const line = lineOf(s, b.lineId);
   return { where, terminal, place, peer: (line ? peerSubstationName(line, b.side) : '') || '—' };
 }

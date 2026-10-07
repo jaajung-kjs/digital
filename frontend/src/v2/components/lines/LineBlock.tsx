@@ -123,11 +123,11 @@ export function LineBlock({
           <tr>
             <Th className={HEAD} align="right">코어</Th>
             <Th className={HEAD} align="right">어댑터</Th>
-            <Th className={HEAD}>자국 연결</Th>
-            <Th className={HEAD}>대국 연결</Th>
+            <Th className={HEAD}>자국 접속</Th>
+            <Th className={HEAD}>대국 접속</Th>
             <Th className={HEAD}>상태</Th>
             <Th className={HEAD}>주/예비</Th>
-            <Th className={HEAD}>용도</Th>
+            <Th className={HEAD}>회선 내역</Th>
             <Th className={HEAD}>비고</Th>
             {/* 단위는 머리글 아랫줄(§1.7-g) — 수 칸 폭에 「1310 dB」가 한 줄로 들지 않는다. */}
             <Th className={HEAD} align="right" unit="dB" title="1310 nm 손실">1310</Th>
@@ -197,10 +197,10 @@ export function LineBlock({
                 </Td>
                 {(() => {
                   /* 상대 끝 용도는 참고일 뿐 — 칸의 title 에만 선다(고치는 것은 이 끝의 용도). */
-                  const peer = r.peerPurpose ? `대국 측 용도: ${r.peerPurpose}` : undefined;
+                  const peer = r.peerPurpose ? `대국 회선 내역: ${r.peerPurpose}` : undefined;
                   return (
                     <Td data-col="purpose" title={peer}>
-                      {text(r, purposeField, r.purpose, '용도', bad, [r.purpose, peer].filter(Boolean).join('\n') || undefined)}
+                      {text(r, purposeField, r.purpose, '회선 내역', bad, [r.purpose, peer].filter(Boolean).join('\n') || undefined)}
                     </Td>
                   );
                 })()}

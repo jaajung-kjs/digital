@@ -174,20 +174,20 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
   }
 
   const endCard = (side: 'near' | 'far', sid: string, e: EndDraft, set: (e: EndDraft) => void, issues: ReturnType<typeof endIssues>) => {
-    const who = side === 'near' ? '자국 측' : '대국 측';
+    const who = side === 'near' ? '자국' : '대국';
     const waiting = side === 'far' && peerLoading;
     const failed = side === 'far' ? peerError : null;
     const retry = () => void workingCopyStore.getState().ensureLoaded(sid);
     const list = sid && !waiting ? equipmentOf(sid, e.equipmentId) : [];
     return (
       <DetailCard>
-        <DetailCardHeader title={`${who} 단자${sid ? ` · ${nameOf(sid)}` : ''}`} />
-        <DetailRow label="단자 설비">
+        <DetailCardHeader title={`${who}${sid ? ` · ${nameOf(sid)}` : ''}`} />
+        <DetailRow label="접속 설비">
           <Select
-            size="sm" aria-label={`${who} 단자 설비`} value={waiting ? '' : e.equipmentId} disabled={!sid || waiting || !!failed}
+            size="sm" aria-label={`${who} 접속 설비`} value={waiting ? '' : e.equipmentId} disabled={!sid || waiting || !!failed}
             onChange={(ev) => set({ ...e, equipmentId: ev.currentTarget.value })}
           >
-            {waiting ? <option value="">불러오는 중…</option> : <option value="">{sid ? '단자 미지정' : '상대국을 먼저 선택하세요'}</option>}
+            {waiting ? <option value="">불러오는 중…</option> : <option value="">{sid ? '접속 설비 미지정' : '상대국을 먼저 선택하세요'}</option>}
             {list.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </Select>
           {failed && (

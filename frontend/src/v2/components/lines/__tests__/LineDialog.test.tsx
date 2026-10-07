@@ -102,9 +102,9 @@ describe('광선로 추가', () => {
     set('코어 수', '12');
     set('선로명', '새 선로');
     set('긍장', '3.5');
-    set('자국 측 단자 설비', 'ofd');
-    set('자국 측 슬롯', '4');
-    set('대국 측 단자 설비', 'cofd');
+    set('자국 접속 설비', 'ofd');
+    set('자국 슬롯', '4');
+    set('대국 접속 설비', 'cofd');
     expect(add()).toBeEnabled();
     fireEvent.click(add());
 
@@ -143,13 +143,13 @@ describe('광선로 추가', () => {
     renderSheet();
     fireEvent.click(screen.getByRole('button', { name: '광선로 추가' }));
     fireEvent.click(within(dialog()).getByRole('button', { name: /^춘천S\/S/ }));
-    set('대국 측 단자 설비', 'cofd');
-    set('대국 측 시작번호', '7');
-    expect(field('대국 측 단자 설비')).toHaveValue('cofd');
+    set('대국 접속 설비', 'cofd');
+    set('대국 시작번호', '7');
+    expect(field('대국 접속 설비')).toHaveValue('cofd');
     fireEvent.click(within(dialog()).getByRole('button', { name: /^북춘천S\/S/ }));
-    expect(field('대국 측 단자 설비')).toHaveValue('');
-    expect(within(field('대국 측 단자 설비')).queryByRole('option', { name: '춘천 OFD' })).toBeNull();
-    expect(field('대국 측 시작번호')).toHaveValue('1');
+    expect(field('대국 접속 설비')).toHaveValue('');
+    expect(within(field('대국 접속 설비')).queryByRole('option', { name: '춘천 OFD' })).toBeNull();
+    expect(field('대국 시작번호')).toHaveValue('1');
     set('케이블 품목', 'opgw');
     set('코어 수', '2');
     set('선로명', '바꾼 선로');
@@ -170,8 +170,8 @@ describe('광선로 추가', () => {
     fireEvent.click(screen.getByRole('button', { name: '광선로 추가' }));
     fireEvent.click(within(dialog()).getByRole('button', { name: /^화천S\/S/ }));
     expect(ensure).toHaveBeenCalledWith('S3');
-    expect(field('대국 측 단자 설비')).toBeDisabled();
-    expect(within(field('대국 측 단자 설비')).getByRole('option', { name: '불러오는 중…' })).toBeInTheDocument();
+    expect(field('대국 접속 설비')).toBeDisabled();
+    expect(within(field('대국 접속 설비')).getByRole('option', { name: '불러오는 중…' })).toBeInTheDocument();
     /* 비워 둬도 추가할 수 있다. */
     set('케이블 품목', 'opgw');
     set('코어 수', '6');
@@ -193,14 +193,14 @@ describe('광선로 편집', () => {
     openEdit('L1');
     expect(field('코어 수')).toHaveValue('4');
     expect(field('선로명')).toHaveValue('154kV 춘천-북춘천 T/L');
-    expect(field('자국 측 단자 설비')).toHaveValue('ofd');
-    expect(field('자국 측 슬롯')).toHaveValue('2');
-    expect(field('자국 측 시작번호')).toHaveValue('25');
+    expect(field('자국 접속 설비')).toHaveValue('ofd');
+    expect(field('자국 슬롯')).toHaveValue('2');
+    expect(field('자국 시작번호')).toHaveValue('25');
     /* 끝의 국은 만든 뒤 바꾸지 않는다 — 고르는 목록이 없고 그 까닭을 적는다. */
     expect(within(dialog()).queryByRole('button', { name: /^화천S\/S/ })).toBeNull();
     expect(within(dialog()).getByText('상대국은 변경할 수 없습니다 — 변경하려면 삭제 후 다시 추가하세요')).toBeInTheDocument();
-    set('자국 측 슬롯', '3');
-    set('자국 측 시작번호', '13');
+    set('자국 슬롯', '3');
+    set('자국 시작번호', '13');
     fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
     expect(within(blockOf('L1')).getByTestId('sheet-block-head')).toHaveTextContent('OFD · 슬롯 3 · 어댑터 13–16');
     expect(lines().find((l) => l.id === 'L1')).toMatchObject({ aPanel: 3, aStartNo: 13 });
@@ -209,11 +209,11 @@ describe('광선로 편집', () => {
   it('이 국이 B 끝인 블록은 이쪽 = B 로 보이고 B 로 되돌려 저장한다', () => {
     renderSheet();
     openEdit('L2');
-    expect(field('자국 측 단자 설비')).toHaveValue('');
-    expect(field('대국 측 단자 설비')).toHaveValue('cofd');
-    expect(field('대국 측 슬롯')).toHaveValue('1');
-    set('자국 측 단자 설비', 'ofd');
-    set('자국 측 슬롯', '5');
+    expect(field('자국 접속 설비')).toHaveValue('');
+    expect(field('대국 접속 설비')).toHaveValue('cofd');
+    expect(field('대국 슬롯')).toHaveValue('1');
+    set('자국 접속 설비', 'ofd');
+    set('자국 슬롯', '5');
     fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
     expect(lines().find((l) => l.id === 'L2')).toMatchObject({ bEquipmentId: 'ofd', bPanel: 5, aEquipmentId: 'cofd', aPanel: 1 });
   });

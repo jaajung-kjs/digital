@@ -63,8 +63,8 @@ describe('코어 측정 이력', () => {
     expect(dialog()).toHaveTextContent('코어 5 — 154kV 춘천-북춘천 T/L');
     const near = screen.getByTestId('history-near');
     const far = screen.getByTestId('history-far');
-    expect(near).toHaveTextContent('자국 측 · 북춘천S/S');
-    expect(far).toHaveTextContent('대국 측 · 춘천S/S');
+    expect(near).toHaveTextContent('자국 · 북춘천S/S');
+    expect(far).toHaveTextContent('대국 · 춘천S/S');
     expect(within(near).getAllByTestId('history-row').map((r) => r.textContent)).toEqual([
       expect.stringContaining('2025-05-02'), expect.stringContaining('2024-01-10'),
     ]);
