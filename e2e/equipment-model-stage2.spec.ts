@@ -211,13 +211,13 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   //     교류가 아닌 첫 차단기를 고쳐 저장하고, 원래 값으로 되돌려 다시 저장한다(다시 돌릴 수 있게).
   await openEquipment(page, PANEL);
   editor = await openBreakers(page);
-  const currents = editor.getByRole('button', { name: '전류 수정' });
+  const currents = editor.getByRole('button', { name: '교류/직류 수정' });
   const texts = await currents.allInnerTexts();
   const idx = texts.findIndex((t) => t.trim() !== '교류');
   expect(idx).toBeGreaterThanOrEqual(0);
   const original = texts[idx]!.trim();
   await currents.nth(idx).click();
-  await editor.getByRole('combobox', { name: '전류' }).selectOption({ label: '교류' });
+  await editor.getByRole('combobox', { name: '교류/직류' }).selectOption({ label: '교류' });
   await expect(currents.nth(idx)).toHaveText('교류');
   expect(await changeCount(page)).toBe(1);
   await editor.getByRole('button', { name: '완료' }).click();
@@ -225,9 +225,9 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await page.reload();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
   editor = await openBreakers(page);
-  await expect(editor.getByRole('button', { name: '전류 수정' }).nth(idx)).toHaveText('교류');
-  await editor.getByRole('button', { name: '전류 수정' }).nth(idx).click();
-  await editor.getByRole('combobox', { name: '전류' }).selectOption({ label: original });
+  await expect(editor.getByRole('button', { name: '교류/직류 수정' }).nth(idx)).toHaveText('교류');
+  await editor.getByRole('button', { name: '교류/직류 수정' }).nth(idx).click();
+  await editor.getByRole('combobox', { name: '교류/직류' }).selectOption({ label: original });
   await editor.getByRole('button', { name: '완료' }).click();
   await save(page);
 

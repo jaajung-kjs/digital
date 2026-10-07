@@ -82,7 +82,7 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
       footer={<><Button variant="secondary" onClick={onClose}>취소</Button><Button disabled={!ok} onClick={submit}>연결</Button></>}
     >
       <div className="space-y-2">
-        <p className="text-xs text-content-muted">{`본 설비 단자: ${endLabel({ saved, overlays }, from)}`}</p>
+        <p className="text-xs text-content-muted">{`${from.kind === 'core' ? '자국 측 코어' : '본 설비 단자'}: ${endLabel({ saved, overlays }, from)}`}</p>
         {/* 단선·사용불가 코어에 잇는 것은 막지 않는다(우회 결선·기록 정리일 수 있다) — 알고 하게 할 뿐이다. */}
         {fromCoreBad && <MessageStrip tone="warning">{`이 코어는 ${fromCoreBad} 상태입니다`}</MessageStrip>}
         <TableSearch aria-label="상대 단자 검색" className="w-full" count="inside" placeholder="설비 · 차단기 · 코어 검색" value={query} onChange={setQuery} shown={shown.length} total={options.length} />
@@ -109,10 +109,10 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
           <Input size="sm" numeric aria-label="길이(m)" value={length} onChange={(e) => setLength(e.currentTarget.value)} />
         </DetailRow>
         {from.kind === 'equipment' && (
-          <DetailRow label="본 설비 단자 표기"><Input size="sm" aria-label="본 설비 단자 표기" value={fromLabel} onChange={(e) => setFromLabel(e.currentTarget.value)} /></DetailRow>
+          <DetailRow label="단자 표기"><Input size="sm" aria-label="본 설비 단자 표기" value={fromLabel} onChange={(e) => setFromLabel(e.currentTarget.value)} /></DetailRow>
         )}
         {pick?.kind === 'equipment' && (
-          <DetailRow label="상대 단자 표기"><Input size="sm" aria-label="상대 단자 표기" value={toLabel} onChange={(e) => setToLabel(e.currentTarget.value)} /></DetailRow>
+          <DetailRow label="상대 표기"><Input size="sm" aria-label="상대 단자 표기" value={toLabel} onChange={(e) => setToLabel(e.currentTarget.value)} /></DetailRow>
         )}
         <ErrorStrip message={issue ?? (lengthOk ? null : '길이는 0 이상의 숫자여야 합니다')} />
       </div>

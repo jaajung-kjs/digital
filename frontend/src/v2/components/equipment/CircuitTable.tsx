@@ -41,7 +41,7 @@ export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: str
   /* 갈래·개폐는 닫힌 어휘 — 칸에는 말(교류·투입)이, 변경안에는 값(AC·on)이 들어간다. */
   const current = (c: Circuit) => (
     <InlineEditCell
-      value={c.current ?? ''} label="전류" choices={CIRCUIT_CURRENTS}
+      value={c.current ?? ''} label="교류/직류" choices={CIRCUIT_CURRENTS}
       onCommit={(v) => { const next = (v || null) as CircuitCurrent | null; if (next !== c.current) set(c.no, { current: next }); }}
     />
   );
@@ -57,7 +57,7 @@ export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: str
       <TableCard widths={WIDTHS}>
         <thead>
           <tr>
-            <Th>번호</Th><Th>표기</Th><Th>전류</Th><Th>전압</Th><Th>용량</Th><Th>상</Th><Th>개폐</Th><Th>용도</Th><Th>연결(부하)</Th>
+            <Th>번호</Th><Th>표기</Th><Th>교류/직류</Th><Th>전압</Th><Th>용량</Th><Th>상</Th><Th>개폐</Th><Th>용도</Th><Th>연결(부하)</Th>
           </tr>
         </thead>
         <tbody ref={bodyRef}>

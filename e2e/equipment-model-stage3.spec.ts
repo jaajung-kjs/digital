@@ -115,7 +115,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await row(slot3, 11).hover();
   await cell(slot3, 11, 'near').getByRole('button', { name: '연결', exact: true }).click();
   let dialog = page.getByRole('dialog', { name: '연결 추가' });
-  await expect(dialog).toContainText(`본 설비 단자: ${SLOT3_LINE} 코어 11`);
+  await expect(dialog).toContainText(`자국 측 코어: ${SLOT3_LINE} 코어 11`);
   await dialog.getByRole('textbox', { name: '상대 단자 검색' }).fill('L2 스위치');
   await dialog.getByRole('button', { name: 'L2 스위치', exact: true }).click();
   await dialog.getByRole('textbox', { name: '상대 단자 표기' }).fill(`${PREFIX}-FX`);

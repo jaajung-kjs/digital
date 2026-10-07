@@ -64,7 +64,7 @@ describe('설비 상세 — 차단기', () => {
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(breakerRows()[1]!);
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['번호', '표기', '전류', '전압', '용량', '상', '개폐', '용도', '연결(부하)']);
+    expect(within(dialog).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['번호', '표기', '교류/직류', '전압', '용량', '상', '개폐', '용도', '연결(부하)']);
     expect(within(dialog).getByTestId('circuit-row-2')).toHaveAttribute('aria-current', 'true');
     expect(within(dialog).getByTestId('circuit-row-1')).not.toHaveAttribute('aria-current');
   });
@@ -84,13 +84,13 @@ describe('설비 상세 — 차단기', () => {
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     openEditor();
     expect(screen.getAllByRole('button', { name: '개폐 수정' })[1]).toHaveTextContent('투입');
-    fireEvent.click(screen.getAllByRole('button', { name: '전류 수정' })[0]!);
-    const select = screen.getByRole('combobox', { name: '전류' });
+    fireEvent.click(screen.getAllByRole('button', { name: '교류/직류 수정' })[0]!);
+    const select = screen.getByRole('combobox', { name: '교류/직류' });
     expect([...(select as HTMLSelectElement).options].map((o) => o.textContent)).not.toContain('직접 입력…');
     fireEvent.change(select, { target: { value: 'AC' } });
     expect(store.getState().overlays.circuits['circuit:p:1']?.current).toBe('AC');
     expect(buildCommitPayload(store.getState()).circuits?.updates).toContainEqual({ equipmentId: 'p', no: 1, patch: { current: 'AC' } });
-    expect(screen.getAllByRole('button', { name: '전류 수정' })[0]).toHaveTextContent('교류');
+    expect(screen.getAllByRole('button', { name: '교류/직류 수정' })[0]).toHaveTextContent('교류');
   });
 
   it('편집 창의 연결 칸 — 이은 차단기는 부하 이름, 비면 잇기', () => {

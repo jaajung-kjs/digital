@@ -103,7 +103,7 @@ describe('선번장', () => {
   it('빈 자국 칸에는 호버 「잇기」 — 누르면 이 코어 끝에서 잇기 상자가 열린다', () => {
     renderSheet();
     fireEvent.click(within(cell(rowOf('L1', 2), 'near')).getByRole('button', { name: '연결' }));
-    expect(screen.getByRole('dialog')).toHaveTextContent('본 설비 단자: 154kV 춘천-북춘천 T/L 코어 2');
+    expect(screen.getByRole('dialog')).toHaveTextContent('자국 측 코어: 154kV 춘천-북춘천 T/L 코어 2');
   });
 
   it('대국 연결 — 들르지 않은 국의 이름도 보이고, 칸에 단추가 없다(Review Focus 4)', () => {
