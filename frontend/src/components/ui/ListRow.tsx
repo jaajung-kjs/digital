@@ -24,8 +24,7 @@ export function ListRow({ children, onClick, className, trailing, meta, ...aria 
     ? 'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm text-content'
     : 'block w-full truncate rounded px-1 py-1 text-left text-sm text-content';
   const name = meta !== undefined
-    /* 두 줄 — 첫 줄은 그 줄만의 것, 둘째 줄은 흐린 메타(`ListItemRow meta` 와 같은 위계). 둘 다 넘치면 말줄임. */
-    ? (<span className="min-w-0 flex-1"><span className="block truncate">{children}</span><span className="block truncate text-xs text-content-muted">{meta}</span></span>)
+    ? <TwoLine meta={meta}>{children}</TwoLine>
     : <span className="min-w-0 flex-1 truncate">{children}</span>;
   const body = flex
     ? (<>{name}{trailing !== undefined && <span className="shrink-0 text-xs tabular-nums text-content-muted">{trailing}</span>}</>)
@@ -62,17 +61,25 @@ export function ListHeading({ children, action }: { children: ReactNode; action?
 export function ListItemRow({ children, meta, actions }: { children: ReactNode; meta?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="group flex items-center gap-2 border-b border-line py-1 text-sm text-content">
-      {meta !== undefined ? (
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">{children}</div>
-          <div className="truncate text-xs text-content-muted">{meta}</div>
-        </div>
-      ) : children}
+      {meta !== undefined ? <TwoLine meta={meta}>{children}</TwoLine> : children}
       {actions && (
         <span className={cn('flex shrink-0 items-center gap-0.5', HOVER_REVEAL)}>
           {actions}
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * 두 줄 줄의 안쪽 — 첫 줄 = 그 줄만의 것(진하게), 둘째 줄 = 흐린 메타(`text-xs`). 둘 다 넘치면 말줄임.
+ * `ListRow meta`(누르는 줄)와 `ListItemRow meta`(손잡이 줄)가 같은 위계로 읽히게 한 곳에서 짓는다.
+ */
+function TwoLine({ children, meta }: { children: ReactNode; meta: ReactNode }) {
+  return (
+    <span className="min-w-0 flex-1">
+      <span className="block truncate font-medium">{children}</span>
+      <span className="block truncate text-xs text-content-muted">{meta}</span>
+    </span>
   );
 }

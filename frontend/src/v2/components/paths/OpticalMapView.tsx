@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import type { PathBundle } from '@twin/core';
-import { Button, EmptyState, IconButton, PageState, StatusBar, StatusItem, TableSearch, ViewCard } from '../../../components/ui';
+import { Button, EmptyState, IconButton, PageState, StatusBar, StatusItem, ViewCard } from '../../../components/ui';
 import { useNetwork } from '../../model/networkApi';
 import { useWorkingCopy } from '../../model/store/workingCopy';
 import { effectiveNetwork } from './networkSelectors';
 import { OpticalMap, useMapViewport } from './OpticalMap';
 import { buildOpticalMap, overlayFor, type MapLine } from './opticalMapModel';
-import { filterBundles, PathPanel, ROLE_LABEL, roleKey, warningKey } from './PathPanel';
+import { PathPanel, ROLE_LABEL, roleKey, warningKey } from './PathPanel';
 
 export interface OpticalMapViewProps {
   /** 지사·본부 노드 — 범위. */
@@ -26,7 +26,7 @@ const toggle = <T,>(set: ReadonlySet<T>, v: T): Set<T> => {
 const NONE = { bundles: new Set<string>(), rings: new Set<string>(), warnings: new Set<string>() };
 
 /**
- * 광 계통도 — 지사·본부 범위의 국과 광선로, 그 위에 고른 회선의 중계경로(주회선 실선 · 예비회선 점선 · 구분 없음 회색).
+ * 광 계통도 — 지사·본부 범위의 국과 광선로, 그 위에 고른 회선의 중계경로(주회선 실선 · 예비회선 점선 · 주/예비 미지정 옅은 강조색).
  * 오른쪽은 이중화 경고 · 링 · 회선(`PathPanel`). 범위 데이터 위에 **저장 전 변경**을 겹친다(`effectiveNetwork`).
  *
  * 고른 회선은 보는 방식이라 주소에 담지 않는다(§3.3) — 판(`?view=광 계통도`)만 주소가 쥔다.
@@ -101,7 +101,6 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
       <ViewCard
         body="fill"
         tools={<span className="text-xs text-content-muted">회선을 선택하면 지나는 광선로가 표시됩니다</span>}
-        actions={<TableSearch value={query} onChange={setQuery} placeholder="회선 검색(설비 · 국)" aria-label="회선 검색" shown={filterBundles(view, model, query).length} total={model.bundles.length} count="inside" className="w-56" />}
         status={status}
       >
         <OpticalMap
@@ -120,6 +119,7 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
           view={view}
           model={model}
           query={query}
+          onQuery={setQuery}
           picked={picked}
           onBundle={(id) => setPicked((p) => ({ ...p, bundles: toggle(p.bundles, id) }))}
           onRing={(r) => setPicked((p) => ({ ...p, rings: toggle(p.rings, r.id) }))}
@@ -138,7 +138,7 @@ function LegendLine({ role }: { role: PathBundle['role'] }) {
     <span className="flex items-center gap-1.5">
       <svg width="22" height="6" aria-hidden>
         <line x1="1" y1="3" x2="21" y2="3" strokeWidth={3}
-          className={role === null ? 'stroke-content-muted' : 'stroke-primary'}
+          className={role === null ? 'stroke-primary/60' : 'stroke-primary'}
           strokeDasharray={role === 'backup' ? '6 3' : undefined}
         />
       </svg>

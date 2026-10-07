@@ -11,7 +11,7 @@ import { curvePath } from '../OpticalMap';
  *   e1(S1) ─ L12 코어 1·2 주 ─ e2(S2)   e1 ─ L12 코어 3·4 예비 ─ e2   ← 같은 광선로 = 이중화 경고
  *   e2 ─ L23 ─ e3(S3)   e1 ─ L13 ─ e3   ← e1·e2·e3 링
  *   e3 ─ L34 ─ e4(S4, 범위 밖)
- * 실데이터(직할)는 주/예비 값이 아직 없어 모두 「구분 없음」이므로 실선·점선·경고는 이 자료로 시험한다.
+ * 실데이터(직할)는 주/예비 값이 아직 없어 모두 「주/예비 미지정」이므로 실선·점선·경고는 이 자료로 시험한다.
  */
 const SUBS: [string, string, boolean][] = [['S1', '가국S/S', true], ['S2', '나국S/S', true], ['S3', '다국S/S', true], ['S4', '라국S/S', false]];
 const nl = (id: string, name: string, a: string, b: string): NetworkLine => ({
@@ -77,13 +77,15 @@ beforeEach(() => {
 describe('광 계통도', () => {
   it('마디 = 국 넷, 간선 = 광선로 다섯 — 범위 밖 국은 흐리게', () => {
     renderMap();
-    expect(document.querySelectorAll('[data-station]')).toHaveLength(4);
+    const map = screen.getByRole('group', { name: '광 계통도' });
+    expect(within(map).getAllByRole('button', { name: /현황 보기$/ })).toHaveLength(4);
+    expect(within(map).getAllByRole('button', { name: /선번장에서 보기$/ })).toHaveLength(5);
     expect(screen.getAllByTestId('map-line')).toHaveLength(5);
     expect(document.querySelector('[data-station="S4"]')).toHaveAttribute('data-in-scope', 'false');
     expect(document.querySelector('[data-station="S4"]')).toHaveClass('opacity-50');
     expect(document.querySelector('[data-station="S1"]')).toHaveAttribute('data-in-scope', 'true');
-    /* 범례는 있는 것만 — 주회선 · 예비회선 · 구분 없음 · 범위 밖 국. */
-    expect(screen.getByTestId('map-legend')).toHaveTextContent(/주회선.*예비회선.*구분 없음.*범위 밖 국/);
+    /* 범례는 있는 것만 — 주회선 · 예비회선 · 주/예비 미지정 · 범위 밖 국. */
+    expect(screen.getByTestId('map-legend')).toHaveTextContent(/주회선.*예비회선.*주\/예비 미지정.*범위 밖 국/);
     expect(overlays()).toEqual([]);
   });
 
@@ -132,17 +134,40 @@ describe('광 계통도', () => {
     expect(within(screen.getByTestId('bundle-list')).getAllByRole('button')).toHaveLength(1);
   });
 
+  it('Tab 차례는 국(이름 순) 다음 광선로(이름 순)', () => {
+    renderMap();
+    const names = within(screen.getByRole('group', { name: '광 계통도' })).getAllByRole('button').map((b) => b.getAttribute('aria-label'));
+    expect(names).toEqual([
+      '가국S/S 현황 보기', '나국S/S 현황 보기', '다국S/S 현황 보기', '라국S/S (범위 밖) 현황 보기',
+      '가나1T/L 선번장에서 보기', '가나2T/L 선번장에서 보기', '가다T/L 선번장에서 보기', '나다T/L 선번장에서 보기', '다라T/L 선번장에서 보기',
+    ]);
+  });
+
+  it('주/예비가 하나도 지정되지 않으면 이중화 경고는 판정할 수 없다고 말한다 — 0 을 「이상 없음」으로 보이지 않는다', () => {
+    for (const k of Object.keys(ROLES)) delete ROLES[k];
+    try {
+      server = network();
+      renderMap();
+      const list = screen.getByTestId('warning-list');
+      expect(list).toHaveTextContent('주/예비가 지정된 회선이 없어 판정할 수 없습니다');
+      expect(list).toHaveTextContent('선번장 코어에 주/예비를 지정하면 나타납니다');
+      expect(within(screen.getByTestId('bundle-list')).getAllByRole('button')[0]).toHaveTextContent('주/예비 미지정');
+    } finally {
+      Object.assign(ROLES, { 'L12:1': 'main', 'L12:2': 'main', 'L12:3': 'backup', 'L12:4': 'backup' });
+    }
+  });
+
   it('국을 누르면 그 국 현황, 광선로를 누르면 범위 안 끝 국의 선번장 블록', () => {
     renderMap();
-    fireEvent.keyDown(document.querySelector('[data-station="S2"]')!, { key: 'Enter' });
-    fireEvent.keyDown(document.querySelector('[data-line="L34"]')!, { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('button', { name: '나국S/S 현황 보기' }), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('button', { name: '다라T/L 선번장에서 보기' }), { key: 'Enter' });
     expect(opened).toEqual(['station:S2', 'line:S3:L34:A']);
   });
 
   it('누르기와 끌기는 한 손짓 — 문턱을 못 넘고 떼면 누르기, 넘으면 옮기기만', () => {
     renderMap();
     const box = screen.getByTestId('optical-map');
-    const node = document.querySelector('[data-station="S1"] circle')!;
+    const node = document.querySelector('[data-station-hit="S1"]')!;
     fireEvent.pointerDown(node, { pointerId: 1, button: 0, clientX: 10, clientY: 10 });
     fireEvent.pointerUp(box, { pointerId: 1, clientX: 11, clientY: 10 });
     expect(opened).toEqual(['station:S1']);
@@ -150,6 +175,12 @@ describe('광 계통도', () => {
     fireEvent.pointerMove(box, { pointerId: 2, clientX: 60, clientY: 40 });
     fireEvent.pointerUp(box, { pointerId: 2, clientX: 60, clientY: 40 });
     expect(opened).toEqual(['station:S1']);
+    /* 끝 신호를 못 받은 손짓은 다음 누름이 갈음한다 — 판이 막히지 않는다. */
+    fireEvent.pointerDown(node, { pointerId: 3, button: 0, clientX: 10, clientY: 10 });
+    const s2 = document.querySelector('[data-station-hit="S2"]')!;
+    fireEvent.pointerDown(s2, { pointerId: 4, button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(box, { pointerId: 4, clientX: 10, clientY: 10 });
+    expect(opened).toEqual(['station:S1', 'station:S2']);
   });
 
   it('광선로가 없으면 빈 상태 한 줄', () => {

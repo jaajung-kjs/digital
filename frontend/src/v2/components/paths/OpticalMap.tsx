@@ -23,6 +23,7 @@ type Role = PathBundle['role'];
 const LANE_GAP = 16;
 /** 한 광선로를 고른 회선 여럿이 지나면 그 겹침끼리 벌리는 폭. */
 const OVERLAY_GAP = 5;
+const NAME = new Intl.Collator('ko', { numeric: true });
 /** 맞출 때 국 하나가 차지한다고 보는 자리(배치 좌표) — 이름 글자까지 판 안에 들게. */
 const NODE_BOX = { w: 150, h: 56 };
 
@@ -114,13 +115,16 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
   /* 손짓 — 값 하나, 주인 하나(§1.7-t). */
   const gesture = useRef<Gesture | null>(null);
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || gesture.current) return;
-    const hit = (e.target as Element).closest?.('[data-station],[data-line]');
-    const target = hit?.getAttribute('data-station') != null
-      ? { kind: 'station' as const, id: hit.getAttribute('data-station')! }
+    /* 다른 손가락(주 포인터 아님)은 손짓을 건드리지 않는다. 주 포인터의 새 누름은 남은 손짓을 갈음한다 —
+       끝 신호(up·캡처 분실)를 못 받은 손짓이 판을 영영 막지 않게. */
+    if (e.button !== 0 || (gesture.current && e.isPrimary === false)) return;
+    const hit = (e.target as Element).closest?.('[data-station-hit],[data-station],[data-line]');
+    const station = hit?.getAttribute('data-station-hit') ?? hit?.getAttribute('data-station');
+    const target = station != null
+      ? { kind: 'station' as const, id: station }
       : hit?.getAttribute('data-line') != null ? { kind: 'line' as const, id: hit.getAttribute('data-line')! } : null;
     gesture.current = { pointerId: e.pointerId, start: { x: e.clientX, y: e.clientY }, startPan: { x: viewport.panX, y: viewport.panY }, moved: false, target };
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 못 붙잡으면 up 이 안 올 수 있다 — lostpointercapture 가 접는다 */ }
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 못 붙잡아도 손짓은 둔다 — up 이 안 오면 다음 누름이 갈음한다 */ }
   };
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const g = gesture.current;
@@ -167,23 +171,16 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
       onPointerCancel={fold}
       onLostPointerCapture={fold}
     >
-      <svg className="absolute inset-0 h-full w-full" role="img" aria-label="광 계통도">
+      {/* `group` — 안의 국·광선로 단추가 보조 기술에 드러나야 한다(`img` 는 자식을 감춘다). */}
+      <svg className="absolute inset-0 h-full w-full" role="group" aria-label="광 계통도">
         {/* 고른 이중화 경고가 함께 지나는 광선로 — 맨 아래 넓은 띠. */}
         {curves.filter((c) => warned.has(c.line.id)).map(({ line, a, b }) => (
           <path key={`w-${line.id}`} d={curvePath(line, a, b, 0)} data-warned={line.id} className="fill-none stroke-lamp-warning opacity-50" strokeWidth={12} strokeLinecap="round" />
         ))}
-        {curves.map(({ line, a, b }) => {
-          const d = curvePath(line, a, b, 0);
-          const t = { kind: 'line' as const, id: line.id };
-          return (
-            <g key={line.id} data-line={line.id} className="group cursor-pointer" role="button" tabIndex={0} aria-label={`${line.name} 선번장에서 보기`} onKeyDown={onKey(t)}>
-              <title>{`${line.name} — 선번장에서 보기`}</title>
-              <path d={d} className="fill-none stroke-transparent" strokeWidth={14} />
-              <path d={d} data-testid="map-line" className="fill-none stroke-line-strong group-hover:stroke-content-muted group-focus-visible:stroke-primary" strokeWidth={1.5} />
-            </g>
-          );
-        })}
-        {/* 고른 회선 — 주회선 실선 · 예비회선 점선 · 구분 없음 회색. 한 광선로를 여럿이 지나면 나란히 벌린다. */}
+        {curves.map(({ line, a, b }) => (
+          <path key={line.id} d={curvePath(line, a, b, 0)} data-testid="map-line" className="pointer-events-none fill-none stroke-line-strong" strokeWidth={1.5} />
+        ))}
+        {/* 고른 회선 — 주회선 실선 · 예비회선 점선 · 주/예비 미지정은 옅은 강조색. 한 광선로를 여럿이 지나면 나란히 벌린다. */}
         {curves.flatMap(({ line, a, b }) => {
           const roles = [...new Set(overlay.get(line.id) ?? [])];
           return roles.map((role, i) => (
@@ -192,17 +189,34 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
               d={curvePath(line, a, b, (i - (roles.length - 1) / 2) * OVERLAY_GAP)}
               data-overlay={line.id}
               data-role={role ?? 'none'}
-              className={cn('pointer-events-none fill-none', role === null ? 'stroke-content-muted' : 'stroke-primary')}
-              strokeWidth={3}
+              className={cn('pointer-events-none fill-none', role === null ? 'stroke-primary/60' : 'stroke-primary')}
+              strokeWidth={role === null ? 4 : 3}
               strokeDasharray={role === 'backup' ? '8 5' : undefined}
               strokeLinecap={role === 'backup' ? 'butt' : 'round'}
             />
           ));
         })}
+        {/* Tab 차례 — 국 먼저(이름 순), 그다음 광선로(이름 순). DOM 차례가 곧 Tab 차례다. */}
         {model.stations.map((st) => {
           const p = at(st.id);
           if (!p) return null;
           return <StationMark key={st.id} station={st} at={p} lit={touched.has(st.id)} onKeyDown={onKey({ kind: 'station', id: st.id })} />;
+        })}
+        {[...curves].sort((x, y) => NAME.compare(x.line.name, y.line.name)).map(({ line, a, b }) => {
+          const d = curvePath(line, a, b, 0);
+          return (
+            <g key={`h-${line.id}`} data-line={line.id} className="group cursor-pointer outline-none" role="button" tabIndex={0} aria-label={`${line.name} 선번장에서 보기`} onKeyDown={onKey({ kind: 'line', id: line.id })}>
+              <title>{`${line.name} — 선번장에서 보기`}</title>
+              <path d={d} className="fill-none stroke-transparent" strokeWidth={14} />
+              <path d={d} className="pointer-events-none fill-none stroke-transparent group-hover:stroke-content-muted" strokeWidth={1.5} />
+              <path d={d} className="pointer-events-none fill-none stroke-transparent group-focus-visible:stroke-primary" strokeWidth={5} />
+            </g>
+          );
+        })}
+        {/* 국 누름 자리 — 광선로 누름 띠보다 위에 둔다(광선로 끝이 국을 덮지 않게). 초점은 위 국 단추가 받는다. */}
+        {model.stations.map((st) => {
+          const p = at(st.id);
+          return p ? <circle key={`hit-${st.id}`} data-station-hit={st.id} cx={p.x} cy={p.y} r={14} className="cursor-pointer fill-transparent" aria-hidden /> : null;
         })}
       </svg>
     </div>
@@ -214,17 +228,16 @@ function StationMark({ station: st, at: p, lit, onKeyDown }: { station: MapStati
     <g
       data-station={st.id}
       data-in-scope={st.inScope}
-      className={cn('group cursor-pointer', !st.inScope && 'opacity-50')}
+      className={cn('group cursor-pointer outline-none', !st.inScope && 'opacity-50')}
       role="button"
       tabIndex={0}
       aria-label={`${st.name}${st.inScope ? '' : ' (범위 밖)'} 현황 보기`}
       onKeyDown={onKeyDown}
     >
       <title>{`${st.name}${st.inScope ? '' : ' — 범위 밖'} · 현황 보기`}</title>
-      <circle cx={p.x} cy={p.y} r={14} className="fill-transparent" />
       <circle
         cx={p.x} cy={p.y} r={6}
-        className={cn('fill-surface group-hover:fill-surface-2', lit ? 'stroke-primary' : 'stroke-content', 'group-focus-visible:stroke-primary')}
+        className={cn('fill-surface group-hover:fill-surface-2 group-focus-visible:stroke-primary group-focus-visible:[stroke-width:4px]', lit ? 'stroke-primary' : 'stroke-content')}
         strokeWidth={lit ? 3 : 2}
         strokeDasharray={st.inScope ? undefined : '3 2'}
       />

@@ -80,7 +80,7 @@ export function equipmentLabel(view: NetworkView, end: { equipmentId: string; su
 
 /**
  * 겹쳐 그릴 것 — 고른 회선(묶음)이 지나는 광선로마다 그 회선들의 주/예비.
- * 같은 광선로를 고른 회선 여럿이 지나면 그 수만큼 겹친다(주회선 실선 · 예비회선 점선 · 구분 없음 회색).
+ * 같은 광선로를 고른 회선 여럿이 지나면 그 수만큼 겹친다(주회선 실선 · 예비회선 점선 · 주/예비 미지정 옅은 강조색).
  */
 export function overlayFor(bundles: readonly PathBundle[], picked: ReadonlySet<string>): Map<string, PathBundle['role'][]> {
   const out = new Map<string, PathBundle['role'][]>();
