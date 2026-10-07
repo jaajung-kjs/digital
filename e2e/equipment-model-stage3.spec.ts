@@ -21,17 +21,22 @@ const SLOT3_LINE = '154kV 북춘천화천HP T/L';
 const main = (page: Page) => page.getByTestId('v2-main');
 const detail = (page: Page) => main(page).getByRole('complementary');
 const saveButton = (page: Page) => page.getByRole('button', { name: '저장', exact: true });
+/**
+ * 저장 바의 변경 건수 — 바가 없으면 0. 세는 사이에 바가 사라지거나 바뀌어도(저장 직후·변경안이 0 건이 될 때) 기다리다 멈추지 않는다
+ * (`count` 와 `innerText` 사이의 틈에서 요소가 사라지면 innerText 가 끝까지 기다렸다). `expect.poll` 로 감싸 다시 잰다.
+ */
 const changeCount = async (page: Page) => {
-  if ((await page.getByText(/^변경 \d+건 · /).count()) === 0) return 0;
-  const text = await page.getByText(/^변경 \d+건 · /).innerText();
-  return Number(/변경 (\d+)건/.exec(text)![1]);
+  const bar = page.getByText(/^변경 \d+건 · /);
+  if ((await bar.count()) === 0) return 0;
+  const text = await bar.first().textContent({ timeout: 1_000 }).catch(() => null);
+  const m = text ? /변경 (\d+)건/.exec(text) : null;
+  return m ? Number(m[1]) : 0;
 };
 
 async function save(page: Page) {
   await expect(page.getByRole('alert')).toHaveCount(0);
-  const n = await changeCount(page);
   await saveButton(page).click();
-  await expect(page.getByRole('status').filter({ hasText: `변경 ${n}건을 저장했습니다` })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: /변경 \d+건을 저장했습니다/ })).toBeVisible();
   await expect(saveButton(page)).toHaveCount(0);
 }
 
@@ -50,6 +55,8 @@ async function dropE2EMeasurements(page: Page, block: Locator, no: number) {
   await row(block, no).getByRole('button', { name: `코어 ${no} 측정 이력` }).click();
   const dialog = page.getByRole('dialog', { name: new RegExp(`^코어 ${no} — `) });
   await expect(dialog).toBeVisible();
+  // 이력 표가 그려진 뒤에 센다 — 열리는 순간에 세면 0 으로 읽고 지우지 않은 채 닫는다.
+  await expect(dialog.getByTestId('history-near').getByRole('row').first()).toBeVisible();
   const mine = dialog.getByTestId('history-near').getByRole('row').filter({ hasText: PREFIX });
   for (let guard = 0; guard < 10 && (await mine.count()) > 0; guard++) {
     await mine.first().getByRole('button', { name: '측정 삭제' }).click();
@@ -72,6 +79,8 @@ async function sweepLeftovers(page: Page) {
     await expect(dialog).toHaveCount(0);
   }
   const slot3 = blockOf(page, SLOT3_LINE);
+  // 블록의 행이 그려진 뒤에 읽는다.
+  await expect(row(slot3, 12)).toBeVisible();
   for (const no of [11, 12]) {
     const near = cell(slot3, no, 'near');
     if ((await near.innerText()).includes(PREFIX)) {
@@ -169,6 +178,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await expect(added.getByTestId('sheet-block-head')).toContainText('OFD · 슬롯 9 · 어댑터 1–12');
   await expect(added.getByTestId('sheet-block-head')).toContainText(`↔ ${PEER}`);
   await expect(added.locator('tbody tr')).toHaveCount(12);
+  await expect.poll(() => changeCount(page)).toBe(1);
   await save(page);
 
   // 6. 상대 국을 열면 그 국 선번장에 같은 선로 — 대국 쪽(B) 블록, 단자 미지정, 12심

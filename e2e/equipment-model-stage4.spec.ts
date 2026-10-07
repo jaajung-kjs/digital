@@ -80,7 +80,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await sweepLeftovers(page);
   expect(await changeCount(page)).toBe(0);
 
-  // 2. 분전반 블록 머리 — 차단기 22, 입력 전원은 소내전원반 차단기 4(교류). 충전기·UPS 출력에서 받는 입력도 갈래별로 선다.
+  // 2. 분전반 블록 머리 — 차단기 22, 입력 전원은 소내전원반 차단기 4(교류). 충전기·UPS 출력에서 받는 입력도 교류/직류별로 선다.
   //    교류·직류를 함께 받으니 차단기는 모선으로 묶인다 — 교류 모선(1–12) · 직류 모선(13–22)
   const panel = blockOf(page, PANEL);
   await expect(panel).toHaveCount(1);
@@ -144,7 +144,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await expect(dcBus).toHaveAttribute('data-bus', 'DC');
   const dcKey = (await dcBus.getAttribute('data-key'))!;
   await expect(treeRows(page).filter({ hasText: '차단기 20 · PIA' })).toHaveAttribute('data-key', `${dcKey}/20`);
-  //    UPS 교류 출력 → 분전반 교류 모선 — 같은 갈래 되먹임은 흐린 「상위 설비 공급」
+  //    UPS 교류 출력 → 분전반 교류 모선 — 같은 교류 모선으로 다시 공급되는 계통은 흐린 「상위 설비 공급」
   await expect(treeRows(page).filter({ hasText: '소형 UPS 1' }).getByText('상위 설비 공급')).toBeVisible();
 
   // 6. 교류/직류 거르기 — 직류면 PoE(교류) 줄이 빠지고 PIA(직류)가 서며, 교류면 그 반대
