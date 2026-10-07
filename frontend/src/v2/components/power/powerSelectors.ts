@@ -20,10 +20,13 @@ function powerInput(s: S, substationId: string, filter: CurrentFilter): PowerInp
   };
 }
 
-/** 모선 이름 — 「교류 모선」·「직류 모선」, 갈래가 없으면 「모선」. */
+/** 교류/직류를 적지 않은 차단기 묶음의 이름(모선이 여럿인 설비에서). */
+export const UNSPECIFIED_BUS = '교류/직류 미지정';
+
+/** 모선 이름 — 「교류 모선」·「직류 모선」, 교류/직류를 적지 않은 묶음은 「교류/직류 미지정」. */
 export function busName(current: string | null): string {
   const word = CIRCUIT_CURRENTS.find((c) => c.value === current)?.label;
-  return word ? `${word} 모선` : '모선';
+  return word ? `${word} 모선` : UNSPECIFIED_BUS;
 }
 
 /** 차단기 대장 — 공급 설비마다 한 블록(이름 자연 순서). */
@@ -33,16 +36,18 @@ export function ledgerBlocks(s: S, substationId: string, filter: CurrentFilter):
 
 
 /**
- * 계통도의 한 줄 — core `powerTree` 를 위에서 아래로 펼친 것. 줄 종류는 둘이다:
+ * 계통도의 한 줄 — core `powerTree` 를 위에서 아래로 펼친 것. 줄 종류는 셋이다:
  * - `equipment` — 뿌리(입력 전원이 이 보기 안에 없는 공급 설비의 모선).
- * - `breaker` — 「차단기 n · 표기 · 용량 · 갈래 → 부하」. 부하가 차단기를 가진 설비면 그 차단기들이 이 줄의 자식이다.
+ * - `breaker` — 「차단기 n · 표기 · 용량 · 교류/직류 → 부하」. 부하가 차단기를 가진 설비면 그 차단기들이 이 줄의 자식이다.
+ * - `group` — 모선이 여럿인 설비의 「교류/직류 미지정」 묶음 머리. 그 설비를 처음 펼친 모선의 차단기들 뒤, 같은 층에 서고
+ *   교류/직류를 적지 않은 차단기가 그 아래에 선다(따로 뿌리로 세우지 않는다 — 입력이 없을 뿐 그 분전반의 차단기다).
  */
 export interface PowerTreeRow {
   /** 뿌리부터의 길(`r:<설비>[@모선]/<차단기 번호>/…`) — 같은 설비가 두 곳에 서도(이중 입력) 줄마다 다르고, 다시 그려도 그대로다. */
   key: string;
   parentKey: string | null;
   depth: number;
-  kind: 'equipment' | 'breaker';
+  kind: 'equipment' | 'breaker' | 'group';
   /** 뿌리면 그 설비, 차단기 줄이면 그 차단기를 가진 공급 설비. */
   equipmentId: string;
   breaker: PowerBreaker | null;
@@ -76,10 +81,22 @@ export function treeRows(s: S, substationId: string, filter: CurrentFilter, load
     return busName(n.buses.find((x) => x.key === b.loadBus)?.current ?? null);
   };
   const walk = (node: PowerNode, parentKey: string, depth: number) => {
-    for (const b of node.breakers) {
+    node.buses.forEach((bus, i) => {
+      if (i === 0) { breakers(node.equipmentId, bus.breakers, parentKey, depth); return; }
+      const key = `${parentKey}/~${bus.key}`;
+      out.push({
+        key, parentKey, depth, kind: 'group', equipmentId: node.equipmentId, breaker: null,
+        target: null, targetBus: null, busLabel: busName(bus.current),
+        branch: bus.breakers.length > 0, anchor: false, text: '',
+      });
+      breakers(node.equipmentId, bus.breakers, key, depth + 1);
+    });
+  };
+  function breakers(owner: string, list: readonly PowerBreaker[], parentKey: string, depth: number) {
+    for (const b of list) {
       const key = `${parentKey}/${b.no}`;
       out.push({
-        key, parentKey, depth, kind: 'breaker', equipmentId: node.equipmentId, breaker: b,
+        key, parentKey, depth, kind: 'breaker', equipmentId: owner, breaker: b,
         target: b.load?.kind === 'equipment' ? b.load.equipmentId : null,
         targetBus: b.loadBus,
         busLabel: busLabelOf(b),
@@ -89,7 +106,7 @@ export function treeRows(s: S, substationId: string, filter: CurrentFilter, load
       });
       if (b.child) walk(b.child, key, depth + 1);
     }
-  };
+  }
   for (const r of roots) {
     const bus = r.buses[0]?.key ?? '*';
     const key = r.multiBus ? `r:${r.equipmentId}@${bus}` : `r:${r.equipmentId}`;

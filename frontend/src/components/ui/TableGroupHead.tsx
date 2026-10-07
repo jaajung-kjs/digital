@@ -72,7 +72,8 @@ export function TableGroupHead({
 
 /**
  * 묶음 안의 **소묶음 머리줄** — `tbody` 안에서 표 폭을 다 쓰는 한 칸, 묶음 머리줄(`TableGroupHead`)보다 한 단 가볍게
- * (열 머리 글씨 크기·흐림, 이름만 본문색). 차단기 대장의 「교류 모선 · 입력: 소내전원반 차단기 4」.
+ * (열 머리 글씨 크기·흐림, 이름만 본문색). 차단기 대장의 「교류 모선 · 입력: 소내전원반 차단기 4」·「교류/직류 미지정」.
+ * 표가 판보다 넓을 수 있는 판은 감싸는 쪽에 `[container-type:inline-size]` 를 단다(`TableGroupHead wrapMetas` 와 같다).
  */
 export function TableSubHead({ colSpan, name, meta, 'data-testid': testId }: {
   colSpan: number;
@@ -85,8 +86,9 @@ export function TableSubHead({ colSpan, name, meta, 'data-testid': testId }: {
   const full = meta ? `${name} · ${meta}` : name;
   return (
     <tr data-testid={testId}>
-      <Th colSpan={colSpan} bare className="font-medium">
-        <span className="block min-w-0 truncate" title={full}>
+      <Th colSpan={colSpan} bare scope="rowgroup" className="font-medium">
+        {/* 가로로 굴려도 판 안에 남는다 — `TableGroupHead wrapMetas` 와 같은 꼴(보이는 판 폭 `100cqw`, `sticky left-0`). */}
+        <span className="sticky left-0 block min-w-0 max-w-[calc(100cqw-1.5rem)] truncate" title={full}>
           <span className="text-content">{name}</span>
           {meta && <span> · {meta}</span>}
         </span>

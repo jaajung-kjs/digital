@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { MAX_CIRCUITS, type LinkEndRef, type PowerBreaker, type PowerNode } from '@twin/core';
 import {
   Button, EMPTY, HOVER_REVEAL, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, TableSubHead, Td, Th, cn, type TableGroupMeta,
@@ -22,12 +21,12 @@ export interface LedgerHead {
   /** 차단기 수(거르기 전 전체). */
   count: number;
   /**
-   * 입력 전원 메타 — 갈래별 「교류 입력: …」·「직류 입력: …」·「입력 전원: …」, 없으면 「입력 전원 미지정」. 보는 쪽이 짓는다.
-   * 거른 보기에서도 모두 서고, 보기 밖 갈래는 흐리다(`faint`).
+   * 입력 전원 메타 — 교류/직류별 「교류 입력: …」·「직류 입력: …」·「입력 전원: …」, 없으면 「입력 전원 미지정」. 보는 쪽이 짓는다.
+   * 거른 보기에서도 모두 서고, 보기 밖 교류/직류는 흐리다(`faint`).
    */
   feeds: TableGroupMeta[];
   /** 모선(`PowerBus.key`)마다 소묶음 머리 — 이름(「교류 모선」)과 곁말(「입력: 소내전원반 차단기 4」). 모선이 하나면 쓰지 않는다. */
-  buses: ReadonlyMap<string, { name: string; meta: string }>;
+  buses: ReadonlyMap<string, { name: string; meta?: string }>;
 }
 
 export interface PowerLedgerProps {
@@ -138,16 +137,16 @@ export function PowerLedger({
                 </tr>
               </thead>
               <tbody>
+                {/* 한 줄로 펴서 줄 키(차단기 번호)를 고정한다 — 교류/직류를 바꿔 행이 다른 모선으로 옮겨도 같은 행이
+                    다시 쓰여(편집 칸이 새로 서지 않아) 초점을 잃지 않는다. */}
                 {n.multiBus
-                  ? n.buses.filter((bus) => bus.breakers.length > 0).map((bus) => (
-                    <Fragment key={bus.key}>
-                      <TableSubHead
-                        colSpan={COLS} data-testid="ledger-bus-head"
-                        name={head.buses.get(bus.key)?.name ?? ''} meta={head.buses.get(bus.key)?.meta}
-                      />
-                      {bus.breakers.map(row)}
-                    </Fragment>
-                  ))
+                  ? n.buses.filter((bus) => bus.breakers.length > 0).flatMap((bus) => [
+                    <TableSubHead
+                      key={`bus:${bus.key}`} colSpan={COLS} data-testid="ledger-bus-head"
+                      name={head.buses.get(bus.key)?.name ?? ''} meta={head.buses.get(bus.key)?.meta}
+                    />,
+                    ...bus.breakers.map(row),
+                  ])
                   : n.breakers.map(row)}
               </tbody>
             </TableCard>

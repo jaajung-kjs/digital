@@ -18,7 +18,7 @@ import { PowerTreeView, type TreeEquipmentInfo } from './PowerTreeView';
 
 const STATUS = new Map(EQUIPMENT_STATUSES.map((st) => [st.value as string, st]));
 
-/** 입력 전원 하나를 받는 차단기의 갈래. */
+/** 입력 전원 하나를 받는 차단기의 교류/직류. */
 const feedCurrent = (s: S, f: PowerFeed) => effectiveCircuits(s, f.equipmentId).find((c) => c.no === f.circuitNo)?.current ?? null;
 const feedName = (s: S, f: PowerFeed) => endLabel(s, { kind: 'circuit', equipmentId: f.equipmentId, no: f.circuitNo });
 
@@ -26,9 +26,9 @@ const feedName = (s: S, f: PowerFeed) => endLabel(s, { kind: 'circuit', equipmen
 export const OUTSIDE_VIEW = '현재 보기 밖의 입력';
 
 /**
- * 입력 전원 메타 — 받는 차단기의 갈래로 묶는다: 「교류 입력: …」·「직류 입력: …」, 갈래가 비면 「입력 전원: …」.
+ * 입력 전원 메타 — 받는 차단기의 교류/직류로 묶는다: 「교류 입력: …」·「직류 입력: …」, 교류/직류가 비면 「입력 전원: …」.
  * **거르기와 무관하게 모두** 적는다(거른 보기에서 입력 줄이 사라지면 어디서 받는지를 잃는다) — 교류/직류 보기에서
- * 다른 갈래의 입력은 한 단 흐리게(title 「현재 보기 밖의 입력」). 입력 연결이 하나도 없으면 「입력 전원 미지정」
+ * 다른 교류/직류의 입력은 한 단 흐리게(title 「현재 보기 밖의 입력」). 입력 연결이 하나도 없으면 「입력 전원 미지정」
  * (흐림 — 국의 최상위 전원처럼 모델 밖에서 받는 설비는 늘 그렇다, 경고가 아니다).
  */
 function feedMetas(s: S, n: PowerNode, f: CurrentFilter): TableGroupMeta[] {
@@ -52,9 +52,13 @@ function feedMetas(s: S, n: PowerNode, f: CurrentFilter): TableGroupMeta[] {
     });
 }
 
-/** 모선 소묶음 머리의 곁말 — 「입력: 소내전원반 차단기 4 · UPS 차단기 1」, 없으면 「입력 전원 미지정」. */
-function busFeedText(s: S, bus: PowerBus): string {
-  return bus.feeds.length === 0 ? '입력 전원 미지정' : `입력: ${bus.feeds.map((f) => feedName(s, f)).join(' · ')}`;
+/**
+ * 모선 소묶음 머리의 곁말 — 「입력: 소내전원반 차단기 4 · UPS 차단기 1」, 없으면 「입력 전원 미지정」.
+ * 「교류/직류 미지정」 묶음은 입력이 없는 것이 당연하므로(받는 모선을 모른다) 곁말을 달지 않는다.
+ */
+function busFeedText(s: S, bus: PowerBus): string | undefined {
+  if (bus.feeds.length === 0) return bus.current == null ? undefined : '입력 전원 미지정';
+  return `입력: ${bus.feeds.map((f) => feedName(s, f)).join(' · ')}`;
 }
 
 type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
@@ -153,9 +157,12 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
     return m;
   }, [s, substationId, catalog]);
   const info = (id: string): TreeEquipmentInfo => equipmentInfo.get(id) ?? { name: equipmentName(s, id) ?? EMPTY, type: null, status: null };
-  const rootMeta = (id: string) => {
+  /** 뿌리 줄의 입력 전원 — 모선이 여럿인 설비는 그 모선으로 들어오는 것만(설비 전체의 교류·직류 입력을 다 적지 않는다). */
+  const rootMeta = (id: string, bus: string | null) => {
     const n = all.find((x) => x.equipmentId === id);
-    return n ? feedMetas(s, n, 'all').map((m) => m.text) : [];
+    if (!n) return [];
+    const own = n.multiBus ? n.buses.find((b) => b.key === bus) : undefined;
+    return feedMetas(s, own ? { ...n, feeds: own.feeds } : n, 'all').map((m) => m.text);
   };
   const isTree = view === 'tree';
 
@@ -167,7 +174,7 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
    */
   const localFocus = useRef<string | null>(null);
   useEffect(() => {
-    if (!focus) return;
+    if (!focus) { localFocus.current = null; return; }
     if (localFocus.current === focus) { localFocus.current = null; return; }
     localFocus.current = null;
     /* 세로로만 — 레일이 서서 가로로 넘친 판을 옆으로 밀지 않는다. */
@@ -177,7 +184,7 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
   const selectSupplyHere = (id: string) => { localFocus.current = id; onSelectSupply(id); };
 
   /**
-   * 「차단기 추가」 — 거른 보기에서는 그 갈래로 만든다(갈래 없는 새 줄은 거르기에 걸려 보이지 않는다). 검색 중이면 검색을 비운다
+   * 「차단기 추가」 — 거른 보기에서는 그 교류/직류로 만든다(교류/직류 없는 새 줄은 거르기에 걸려 보이지 않는다). 검색 중이면 검색을 비운다
    * (새 줄은 빈 줄이라 어떤 검색에도 걸리지 않는다). 그린 뒤 새 줄을 화면 안으로 옮기고 초점을 준다.
    */
   const [added, setAdded] = useState<{ equipmentId: string; no: number } | null>(null);

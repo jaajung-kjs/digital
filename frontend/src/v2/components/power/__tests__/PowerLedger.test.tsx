@@ -71,7 +71,7 @@ describe('전원 계통 — 차단기 대장', () => {
     expect(screen.getByRole('radio', { name: '차단기 대장' })).toBeChecked();
   });
 
-  it('블록 = 차단기가 있는 설비, 이름 순 — 머리에 차단기 수와 갈래별 입력 전원(없으면 흐린 「입력 전원 미지정」)', () => {
+  it('블록 = 차단기가 있는 설비, 이름 순 — 머리에 차단기 수와 교류/직류별 입력 전원(없으면 흐린 「입력 전원 미지정」)', () => {
     renderPower();
     expect(blocks().map((b) => b.dataset.equipment)).toEqual(['panel', 'dist']);
     const distHead = within(blockOf('dist')).getByTestId('ledger-block-head');
@@ -84,7 +84,7 @@ describe('전원 계통 — 차단기 대장', () => {
     expect(unfed).not.toHaveClass('text-warning');
   });
 
-  it('입력 전원은 받는 차단기의 갈래로 묶고, 교류/직류 보기에서도 모두 — 보기 밖 갈래는 흐리게', () => {
+  it('입력 전원은 받는 차단기의 교류/직류로 묶고, 교류/직류 보기에서도 모두 — 보기 밖 교류/직류는 흐리게', () => {
     const s = store.getState();
     s.update('equipment', 'chg', { circuitCount: 1 });
     s.create('links', link('k3', { kind: 'circuit', equipmentId: 'chg', no: 1 }, { kind: 'equipment', equipmentId: 'dist', label: 'DC IN' }));
@@ -121,6 +121,25 @@ describe('전원 계통 — 차단기 대장', () => {
     // 직류 보기 — 빈 교류 모선은 머리도 두지 않는다
     fireEvent.change(screen.getByRole('combobox', { name: '교류/직류' }), { target: { value: 'DC' } });
     expect(within(blockOf('dist')).getAllByTestId('ledger-bus-head').map((x) => x.textContent)).toEqual(['직류 모선 · 입력: 충전기 차단기 1']);
+  });
+
+  it('다모선 분전반에 「차단기 추가」(전체 보기) — 새 행은 마지막 「교류/직류 미지정」 묶음, 교류/직류를 정하면 그 모선으로 옮기되 같은 행', () => {
+    const s = store.getState();
+    s.update('equipment', 'chg', { circuitCount: 1 });
+    s.updateCircuit('chg', 1, { current: 'DC' });
+    s.updateCircuit('dist', 3, { current: 'DC' });
+    s.create('links', link('k3', { kind: 'circuit', equipmentId: 'chg', no: 1 }, { kind: 'equipment', equipmentId: 'dist', label: 'DC IN' }));
+    renderPower();
+    fireEvent.click(within(blockOf('dist')).getByRole('button', { name: '차단기 추가' }));
+    const order = () => [...blockOf('dist').querySelectorAll('tbody tr')].map((r) => (r as HTMLElement).dataset.testid);
+    expect(within(blockOf('dist')).getAllByTestId('ledger-bus-head').map((x) => x.textContent)).toEqual([
+      '교류 모선 · 입력: 소내전원반 차단기 4', '직류 모선 · 입력: 충전기 차단기 1', '교류/직류 미지정',
+    ]);
+    expect(order()).toEqual(['ledger-bus-head', 'ledger-row-1', 'ledger-bus-head', 'ledger-row-2', 'ledger-row-3', 'ledger-bus-head', 'ledger-row-4']);
+    const before = rowOf('dist', 4);
+    act(() => store.getState().updateCircuit('dist', 4, { current: 'DC' }));
+    expect(order()).toEqual(['ledger-bus-head', 'ledger-row-1', 'ledger-bus-head', 'ledger-row-2', 'ledger-row-3', 'ledger-row-4']);
+    expect(rowOf('dist', 4)).toBe(before); // 다른 모선으로 옮겨도 같은 행(편집 칸이 새로 서지 않는다)
   });
 
   it('거르기·검색 중 머리의 차단기 수는 「보이는 수 / 전체」, 안 거르면 전체만', () => {
@@ -235,7 +254,7 @@ describe('전원 계통 — 차단기 대장', () => {
     expect(within(blockOf('dist')).getAllByTestId(/^ledger-row-/)).toHaveLength(3);
   });
 
-  it('거른 보기에서 「차단기 추가」 — 그 갈래로 만들어 보이고, 검색은 비우고, 새 줄에 초점', () => {
+  it('거른 보기에서 「차단기 추가」 — 그 교류/직류로 만들어 보이고, 검색은 비우고, 새 줄에 초점', () => {
     renderPower();
     fireEvent.change(screen.getByRole('combobox', { name: '교류/직류' }), { target: { value: 'DC' } });
     fireEvent.change(screen.getByRole('textbox', { name: '전원 계통 검색' }), { target: { value: '통신용' } });
@@ -245,7 +264,7 @@ describe('전원 계통 — 차단기 대장', () => {
     expect(cell(added, 'current')).toHaveTextContent('직류');
     expect(document.activeElement).toBe(added);
     expect(store.getState().overlays.circuits['circuit:dist:4']).toMatchObject({ current: 'DC' });
-    // 되돌리기 한 번에 수와 갈래가 함께 물러난다
+    // 되돌리기 한 번에 수와 교류/직류가 함께 물러난다
     act(() => store.temporal.getState().undo());
     expect(store.getState().overlays.circuits['circuit:dist:4']).toBeUndefined();
     expect(within(blockOf('dist')).queryByTestId('ledger-row-4')).toBeNull();

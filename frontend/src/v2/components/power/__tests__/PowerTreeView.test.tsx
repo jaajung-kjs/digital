@@ -132,7 +132,22 @@ describe('전원 계통 — 계통도', () => {
     expect(row('r:panel/4/1/1/2')).toHaveTextContent('차단기 2 · 직류');
   });
 
-  it('같은 갈래로 위 단계 모선에 되돌아가면(UPS 교류 → 분전반 교류) 흐린 「상위 설비 공급」으로 멈추고, 누르면 그 모선 줄로', () => {
+  it('다모선 분전반의 교류/직류 미지정 차단기는 따로 뿌리가 아니라 처음 펼친 모선 자리의 마지막 묶음', () => {
+    const s = store.getState();
+    s.update('equipment', 'chg', { circuitCount: 1 });
+    s.updateCircuit('chg', 1, { current: 'DC' });
+    s.create('links', link('k4', cb('chg', 1), to('dist', 'DC IN')));
+    renderTree(); // dist 3 은 교류/직류 미지정
+    expect(keys()).toEqual([
+      'r:panel', 'r:panel/1', 'r:panel/2', 'r:panel/3', 'r:panel/4',
+      'r:panel/4/1', 'r:panel/4/1/1', 'r:panel/4/1/1/2', 'r:panel/4/~-', 'r:panel/4/~-/3',
+    ]);
+    expect(items().filter((r) => r.getAttribute('aria-level') === '1')).toHaveLength(1);
+    expect(row('r:panel/4/~-')).toHaveTextContent('교류/직류 미지정');
+    expect(row('r:panel/4/~-')).toHaveAttribute('aria-level', '3');
+  });
+
+  it('같은 교류/직류로 위 단계 모선에 되돌아가면(UPS 교류 → 분전반 교류) 흐린 「상위 설비 공급」으로 멈추고, 누르면 그 모선 줄로', () => {
     const s = store.getState();
     s.create('equipment', eq('ups', 'UPS', 1));
     s.updateCircuit('ups', 1, { current: 'AC' });

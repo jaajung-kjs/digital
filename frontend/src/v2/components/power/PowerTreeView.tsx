@@ -28,8 +28,8 @@ export interface PowerTreeViewProps {
   selectedEquipmentId: string | null;
   onSelectEquipment: (equipmentId: string | null) => void;
   info: (equipmentId: string) => TreeEquipmentInfo;
-  /** 뿌리 설비 줄의 입력 전원 메타 — 없으면 「입력 전원 미지정」(흐림, 경고 아님). */
-  rootMeta: (equipmentId: string) => string[];
+  /** 뿌리 설비 줄의 입력 전원 메타 — 모선이 여럿이면 그 모선의 입력만, 없으면 「입력 전원 미지정」(흐림, 경고 아님). */
+  rootMeta: (equipmentId: string, bus: string | null) => string[];
   /** 부하가 설비 끝이 아닐 때(차단기·코어)의 이름. */
   otherLoad: (b: PowerBreaker) => string;
 }
@@ -48,11 +48,11 @@ export const FEEDBACK_TITLE = '상위 설비의 모선으로 다시 공급되는
  * core `powerTree` 이고, 줄로 펴는 일은 `treeRows`, 여기는 그 줄을 그린다.
  *
  * - **설비 줄**(뿌리): 이름(굵게) · 품목(흐림, 이름과 같으면 생략) · 모선(여럿일 때) · 정상이 아니면 상태 · 입력 전원 메타(없으면 흐린 「입력 전원 미지정」).
- * - **차단기 줄**: 「차단기 3 · 표기 · 용량 · 갈래 →」 + 부하. 부하 설비가 차단기를 가지면 그 차단기들이 이 줄 아래에 선다
+ * - **차단기 줄**: 「차단기 3 · 표기 · 용량 · 교류/직류 →」 + 부하. 부하 설비가 차단기를 가지면 그 차단기들이 이 줄 아래에 선다
  *   (부하 설비 줄을 따로 두면 깊이가 두 배가 되어 6단이 1280 에서 잘린다 — 「→」 뒤가 곧 그 설비 줄이다).
  *   교류·직류를 함께 받는 설비(다모선 분전반)는 들어간 모선만 펼치고 이름 뒤에 「교류 모선」·「직류 모선」을 적는다 —
  *   충전기 직류 차단기 아래의 분전반은 그 직류 모선이다.
- *   부하가 없으면 「예비」(흐림), 그 (설비, 모선)을 이미 위에서 펼쳤으면 이름 + 「상단 참조」, 같은 갈래로 위 단계 모선에 되돌아가면
+ *   부하가 없으면 「예비」(흐림), 그 (설비, 모선)을 이미 위에서 펼쳤으면 이름 + 「상단 참조」, 같은 교류/직류로 위 단계 모선에 되돌아가면
  *   (core 의 `cycle` — UPS 교류 출력이 분전반 교류 모선으로) 흐린 배지 「상위 설비 공급」. 둘 다 누르면 그 모선을 펼친 줄로 데려가고
  *   선택도 그 줄로 옮긴다(표시는 한 곳).
  * - 줄을 누르면 그 줄의 설비를 고른다(뿌리 = 그 설비, 차단기 줄 = 부하 설비, 부하가 설비가 아니면 그 차단기를 가진 설비).
@@ -182,20 +182,22 @@ export function PowerTreeView({
       aria-label="계통도"
     >
       {shown.map((r) => {
-        const title = r.kind === 'equipment' ? info(r.equipmentId).name : `${breakerText(r.breaker!)} → ${loadTitle(r.breaker!)}`;
+        const title = r.kind === 'equipment' ? info(r.equipmentId).name
+          : r.kind === 'group' ? `${info(r.equipmentId).name} ${r.busLabel ?? ''}`
+            : `${breakerText(r.breaker!)} → ${loadTitle(r.breaker!)}`;
         const branch = branchOf(r);
         return (
           <TreeRow
             key={r.key}
             data-key={r.key}
-            data-testid={r.kind === 'equipment' ? 'tree-equipment' : 'tree-breaker'}
+            data-testid={r.kind === 'equipment' ? 'tree-equipment' : r.kind === 'group' ? 'tree-group' : 'tree-breaker'}
             data-anchor={r.anchor && r.target ? r.target : undefined}
             data-bus={r.anchor && r.target ? r.targetBus ?? undefined : undefined}
             depth={r.depth}
             branch={branch}
             collapsed={isCollapsed(r)}
             onToggle={() => setRowCollapsed(r.key, !isCollapsed(r))}
-            toggleLabel={r.kind === 'equipment' ? info(r.equipmentId).name : `${info(r.equipmentId).name} 차단기 ${r.breaker!.no}`}
+            toggleLabel={r.kind === 'breaker' ? `${info(r.equipmentId).name} 차단기 ${r.breaker!.no}` : title}
             selected={isSelected(r)}
             tabIndex={tabKey === r.key ? 0 : -1}
             title={title}
@@ -207,8 +209,10 @@ export function PowerTreeView({
             onKeyDown={onKey(r)}
           >
             {r.kind === 'equipment'
-              ? <EquipmentLabel info={info(r.equipmentId)} strong bus={r.busLabel} meta={rootMeta(r.equipmentId)} />
-              : (
+              ? <EquipmentLabel info={info(r.equipmentId)} strong bus={r.busLabel} meta={rootMeta(r.equipmentId, r.targetBus)} />
+              : r.kind === 'group'
+                ? <span className="min-w-0 flex-1 truncate text-xs text-content-muted">{r.busLabel}</span>
+                : (
                 <>
                   <span className="min-w-0 max-w-[50%] shrink-0 truncate">{breakerText(r.breaker!)}</span>
                   <span aria-hidden className="shrink-0 text-content-faint">→</span>
