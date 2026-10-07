@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BusyOverlay, Button, EmptyState, ErrorStrip, isCancelKey, PageHeader, PageState, Tabs, useTabs, type TabItem } from '../../components/ui';
+import { BusyOverlay, Button, CollapsibleRail, EmptyState, ErrorStrip, isCancelKey, PageHeader, PageState, Tabs, useTabs, type TabItem } from '../../components/ui';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { SaveBar } from '../components/SaveBar';
@@ -105,12 +105,17 @@ export default function V2WorkspacePage() {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-sidebar" data-testid="v2-org-tree">
-          <div className="min-h-0 flex-1">
-            <OrgTreePanel selectedId={selected?.id ?? null} onSelect={(n) => route.selectNode(n?.id ?? null)} />
-          </div>
-          <div ref={setRailEl} className="shrink-0 empty:hidden" />
-        </aside>
+        {/* 조직 트리는 접힌다 — 넓은 표(선번장)를 1280 에서 읽을 자리. 접는 것은 사람이 정하고 이 브라우저가 기억한다. */}
+        <CollapsibleRail storageKey="twin.orgTree.collapsed" title="조직" className="w-64 border-r border-line bg-sidebar" data-testid="v2-org-tree">
+          {(collapse) => (
+            <>
+              <div className="min-h-0 flex-1">
+                <OrgTreePanel selectedId={selected?.id ?? null} onSelect={(n) => route.selectNode(n?.id ?? null)} headerActions={collapse} />
+              </div>
+              <div ref={setRailEl} className="shrink-0 empty:hidden" />
+            </>
+          )}
+        </CollapsibleRail>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
           {selected == null ? (
             <EmptyState title="선택된 조직/변전소가 없습니다" description="왼쪽에서 변전소를 고르면 현황·선번장·평면도를 볼 수 있습니다." />

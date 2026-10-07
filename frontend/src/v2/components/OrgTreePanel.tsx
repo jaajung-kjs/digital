@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { TreePanel, useConfirm, type TreeKind, type TreeNode } from '../../components/ui';
 import { type OrgKind } from '../api';
 import { apiErrorMessage } from '../apiError';
@@ -34,7 +34,7 @@ const PARENT_FIELD: Record<TreeOrgKind, string> = {
   substations: 'branchId',
 };
 
-export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node: FlatOrgNode | null) => void }) {
+export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node: FlatOrgNode | null) => void; headerActions?: ReactNode }) {
   const { confirm, confirmDialog } = useConfirm();
   const { data: tree } = useV2OrgTree();
   const { createOrgNode: createMut, renameOrgNode: renameMut, deleteOrgNode: deleteMut } = useOrgMutations();
@@ -66,6 +66,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
     <div className="flex h-full flex-col">
       <TreePanel
         title="조직"
+        headerActions={props.headerActions}
         kinds={KINDS}
         nodes={treeNodes}
         selectedId={props.selectedId}

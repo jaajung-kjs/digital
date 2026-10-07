@@ -89,6 +89,8 @@ export interface TreeKind {
 export interface TreePanelProps {
   /** 머리줄에 적히는 이름 — 「조직」·「설비 품목」. */
   title: string;
+  /** 머리줄 오른쪽 끝 — 레일 「접기」 단추 같은 것(`CollapsibleRail`). */
+  headerActions?: ReactNode;
   nodes: TreeNode[];
   selectedId: string | null;
   /**
@@ -150,6 +152,7 @@ export interface TreePanelProps {
  */
 export function TreePanel({
   title,
+  headerActions,
   nodes,
   selectedId,
   onSelect,
@@ -457,6 +460,7 @@ export function TreePanel({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-3">
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-content-muted">{title}</span>
+        {headerActions}
       </div>
 
       {/* 검색은 **모든 트리에 있다.** 예전에는 「항목이 스무 개를 넘는 트리에만」이라는

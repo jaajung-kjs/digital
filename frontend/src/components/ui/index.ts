@@ -58,3 +58,5 @@ export { ListHeading, ListItemRow, ListRow } from './ListRow';
 export { BusyOverlay } from './BusyOverlay';
 export { CommitInput } from './CommitInput';
 export type { CommitInputProps } from './CommitInput';
+export { CollapsibleRail } from './CollapsibleRail';
+export type { CollapsibleRailProps } from './CollapsibleRail';
