@@ -68,10 +68,10 @@ export function LaborTypeSelect({
         ))}
       </Select>
       {empty && (
-        <span className="text-xs text-content-faint">상단의 「기준정보」 에서 노임단가를 먼저 올리세요</span>
+        <span className="text-xs text-content-faint">상단 「기준정보」에서 노임단가를 먼저 업로드하세요</span>
       )}
       {unknown && !empty && (
-        <span className="text-xs text-warning">지금 기준({wage.effective})에 없는 직종입니다</span>
+        <span className="text-xs text-warning">현재 기준({wage.effective})에 없는 직종입니다</span>
       )}
 
     </div>

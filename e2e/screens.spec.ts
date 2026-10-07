@@ -157,7 +157,7 @@ for (const vp of VIEWPORTS) {
       await shot(page, '22-panels-card');
 
       // 슬롯 수 고치는 중 — 상자가 카드 머리에 선다. Esc 로 물린다(아무것도 바꾸지 않는다)
-      await slots.getByRole('button', { name: '슬롯 수 고치기' }).click();
+      await slots.getByRole('button', { name: '슬롯 수 수정' }).click();
       await expect(slots.getByLabel('슬롯 수', { exact: true })).toBeFocused();
       await shot(page, '23-panel-count-edit');
       await page.keyboard.press('Escape');
@@ -185,7 +185,7 @@ for (const vp of VIEWPORTS) {
       }
 
       await page.goto('/standards');
-      for (const [i, tab] of (['노임단가', '제비율', '올린 기록'] as const).entries()) {
+      for (const [i, tab] of (['노임단가', '제비율', '등록 이력'] as const).entries()) {
         await page.getByRole('tab', { name: tab }).click();
         await expect(page.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
         await page.waitForTimeout(300);

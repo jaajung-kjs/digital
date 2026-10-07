@@ -11,7 +11,7 @@ export type MeasureKey = (typeof MEASURE_COLS)[number]['key'];
 export type MeasureDraft = Record<MeasureKey, string>;
 export const BLANK_DRAFT: MeasureDraft = { loss1310: '', dist1310: '', loss1550: '', dist1550: '' };
 
-export const NOT_A_NUMBER = '숫자만 넣으세요';
+export const NOT_A_NUMBER = '숫자만 입력하세요';
 
 /** 받는 수의 꼴 — 부호 하나 + 십진 소수만. `Number()` 는 `1e3`·`0x10`·`Infinity` 까지 수로 읽는다. */
 const PLAIN_DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)$/;
@@ -38,10 +38,10 @@ export function today(): string {
 /** 측정일 칸 — 비었거나 날짜가 아니면 까닭. */
 export function dateIssue(raw: string): string | null {
   const t = raw.trim();
-  if (t === '') return '측정일을 넣으세요';
+  if (t === '') return '측정일을 입력하세요';
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
   const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
-  if (!m || !d || d.getMonth() !== Number(m[2]) - 1 || d.getDate() !== Number(m[3])) return '측정일은 2026-10-07 꼴로 넣으세요';
+  if (!m || !d || d.getMonth() !== Number(m[2]) - 1 || d.getDate() !== Number(m[3])) return '측정일은 2026-10-07 형식으로 입력하세요';
   return null;
 }
 

@@ -142,7 +142,7 @@ export function LineSheetView({
   const label = (ref: LinkEndRef) => endLabel(s, ref);
   const updateCore = (lineId: string) => (no: number, patch: Partial<Core>) => workingCopyStore.getState().updateCore(lineId, no, patch);
   async function unlink(linkId: string, target: string) {
-    if (!(await confirm({ title: '연결 지우기', target, message: '이 코어 끝의 연결을 지웁니다.', confirmLabel: '지우기', danger: true }))) return;
+    if (!(await confirm({ title: '연결 삭제', target, message: '이 코어의 연결을 삭제합니다.', confirmLabel: '삭제', danger: true }))) return;
     setError(deleteRows({ links: [linkId] }).blocked[0]?.reason ?? null);
   }
 
@@ -173,9 +173,9 @@ export function LineSheetView({
       >
         {error && <div className="mb-3"><ErrorStrip message={error} onDismiss={() => setError(null)} /></div>}
         {blocks.length === 0 ? (
-          <EmptyState title="이 국에 닿은 광선로가 없습니다" description="「광선로 추가」로 상대국과 코어 수를 정하세요" action={addLine} />
+          <EmptyState title="이 변전소에 수용된 광선로가 없습니다" description="「광선로 추가」로 상대국과 코어 수를 지정하세요" action={addLine} />
         ) : shown.length === 0 ? (
-          <EmptyState title={query.trim() ? `'${query.trim()}' 와 맞는 코어가 없습니다` : '조건과 맞는 코어가 없습니다'} />
+          <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 코어가 없습니다` : '조건에 해당하는 코어가 없습니다'} />
         ) : (
           <div className="space-y-4">
             {shown.map((b) => {

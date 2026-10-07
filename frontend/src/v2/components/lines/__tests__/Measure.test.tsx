@@ -63,8 +63,8 @@ describe('코어 측정 이력', () => {
     expect(dialog()).toHaveTextContent('코어 5 — 154kV 춘천-북춘천 T/L');
     const near = screen.getByTestId('history-near');
     const far = screen.getByTestId('history-far');
-    expect(near).toHaveTextContent('이쪽 끝 · 북춘천S/S');
-    expect(far).toHaveTextContent('상대 끝 · 춘천S/S');
+    expect(near).toHaveTextContent('자국 측 · 북춘천S/S');
+    expect(far).toHaveTextContent('대국 측 · 춘천S/S');
     expect(within(near).getAllByTestId('history-row').map((r) => r.textContent)).toEqual([
       expect.stringContaining('2025-05-02'), expect.stringContaining('2024-01-10'),
     ]);
@@ -78,9 +78,9 @@ describe('코어 측정 이력', () => {
     renderSheet();
     open();
     const near = screen.getByTestId('history-near');
-    fireEvent.click(within(within(near).getAllByTestId('history-row')[0]!).getByRole('button', { name: '측정 지우기' }));
+    fireEvent.click(within(within(near).getAllByTestId('history-row')[0]!).getByRole('button', { name: '측정 삭제' }));
     const ask = await screen.findByRole('alertdialog');
-    fireEvent.click(within(ask).getByRole('button', { name: '지우기' }));
+    fireEvent.click(within(ask).getByRole('button', { name: '삭제' }));
     await waitFor(() => expect(within(screen.getByTestId('history-near')).getAllByTestId('history-row')).toHaveLength(1));
     expect(measurements().some((m) => m.id === 'a-new')).toBe(false);
     expect(cell(row(5), 'measuredOn')).toHaveTextContent('2024-01-10');
@@ -105,7 +105,7 @@ describe('코어 측정 이력', () => {
     const box = within(add).getByRole('textbox', { name: '1550 nm 손실' });
     fireEvent.change(box, { target: { value: 'abc' } });
     expect(box).toHaveAttribute('aria-invalid', 'true');
-    expect(add).toHaveTextContent('숫자만 넣으세요');
+    expect(add).toHaveTextContent('숫자만 입력하세요');
     expect(within(add).getByRole('button', { name: '추가' })).toBeDisabled();
   });
 });
@@ -133,7 +133,7 @@ describe('블록 일괄 측정 입력', () => {
     fireEvent.change(box(3, '1310 nm 거리'), { target: { value: '1' } });
     fireEvent.change(box(3, '1310 nm 거리'), { target: { value: '' } });
     const before = measurements().length;
-    fireEvent.click(within(dialog()).getByRole('button', { name: '넣기' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: '등록' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     const added = measurements().filter((m) => m.measuredOn === '2026-10-01');
     expect(added).toHaveLength(3);
@@ -153,7 +153,7 @@ describe('블록 일괄 측정 입력', () => {
     open();
     fireEvent.change(within(dialog()).getByRole('textbox', { name: '측정일' }), { target: { value: '2025-05-02' } });
     fireEvent.change(box(5, '1310 nm 손실'), { target: { value: '-7.5' } });
-    fireEvent.click(within(dialog()).getByRole('button', { name: '넣기' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: '등록' }));
     expect(cell(row(5), 'loss1310')).toHaveTextContent('-7.5');
   });
 
@@ -164,8 +164,8 @@ describe('블록 일괄 측정 입력', () => {
     fireEvent.change(box(2, '1310 nm 손실'), { target: { value: 'abc' } });
     expect(box(2, '1310 nm 손실')).toHaveAttribute('aria-invalid', 'true');
     expect(box(1, '1310 nm 손실')).not.toHaveAttribute('aria-invalid');
-    expect(dialog()).toHaveTextContent('숫자만 넣으세요 — 코어 2');
-    expect(within(dialog()).getByRole('button', { name: '넣기' })).toBeDisabled();
+    expect(dialog()).toHaveTextContent('숫자만 입력하세요 — 코어 2');
+    expect(within(dialog()).getByRole('button', { name: '등록' })).toBeDisabled();
   });
 
   it('제목은 블록에서 — 단자 · 슬롯 · 어댑터 ↔ 상대국', () => {
@@ -178,11 +178,11 @@ describe('블록 일괄 측정 입력', () => {
     renderSheet();
     open();
     fireEvent.change(box(1, '1310 nm 손실'), { target: { value: '-3' } });
-    expect(dialog()).toHaveTextContent('1줄을 넣습니다');
+    expect(dialog()).toHaveTextContent('1건을 등록합니다');
     fireEvent.change(box(2, '1310 nm 손실'), { target: { value: '1e3' } });
     expect(box(2, '1310 nm 손실')).toHaveAttribute('aria-invalid', 'true');
-    expect(dialog()).toHaveTextContent('고칠 칸이 있습니다');
-    expect(dialog()).not.toHaveTextContent('줄을 넣습니다');
+    expect(dialog()).toHaveTextContent('입력 오류가 있습니다');
+    expect(dialog()).not.toHaveTextContent('건을 등록합니다');
     fireEvent.change(box(2, '1310 nm 손실'), { target: { value: '+.5' } });
     expect(box(2, '1310 nm 손실')).not.toHaveAttribute('aria-invalid');
   });
@@ -195,13 +195,13 @@ describe('블록 일괄 측정 입력', () => {
     fireEvent.change(box(2, '1310 nm 손실'), { target: { value: '-4' } });
     fireEvent.click(within(dialog()).getByRole('button', { name: '취소' }));
     let ask = await screen.findByRole('alertdialog');
-    expect(ask).toHaveTextContent('입력한 2줄을 버릴까요?');
+    expect(ask).toHaveTextContent('입력한 2건을 취소하시겠습니까?');
     fireEvent.click(within(ask).getByRole('button', { name: '취소' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(box(1, '1310 nm 손실')).toHaveValue('-3');
     fireEvent.keyDown(window, { key: 'Escape' });
     ask = await screen.findByRole('alertdialog');
-    fireEvent.click(within(ask).getByRole('button', { name: '버리기' }));
+    fireEvent.click(within(ask).getByRole('button', { name: '입력 취소' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(measurements()).toHaveLength(before);
   });
@@ -217,11 +217,11 @@ describe('블록 일괄 측정 입력', () => {
   it('다 빈 표·빈 측정일이면 넣기가 잠긴다', () => {
     renderSheet();
     open();
-    expect(within(dialog()).getByRole('button', { name: '넣기' })).toBeDisabled();
+    expect(within(dialog()).getByRole('button', { name: '등록' })).toBeDisabled();
     fireEvent.change(box(1, '1310 nm 손실'), { target: { value: '-3' } });
-    expect(within(dialog()).getByRole('button', { name: '넣기' })).toBeEnabled();
+    expect(within(dialog()).getByRole('button', { name: '등록' })).toBeEnabled();
     fireEvent.change(within(dialog()).getByRole('textbox', { name: '측정일' }), { target: { value: '' } });
-    expect(within(dialog()).getByRole('button', { name: '넣기' })).toBeDisabled();
+    expect(within(dialog()).getByRole('button', { name: '등록' })).toBeDisabled();
   });
 
   it('Enter 는 아래 칸으로, 한글 조합 중의 Enter 는 옮기지 않는다', () => {

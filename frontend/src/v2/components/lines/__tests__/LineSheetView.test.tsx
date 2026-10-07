@@ -102,8 +102,8 @@ describe('선번장', () => {
 
   it('빈 자국 칸에는 호버 「잇기」 — 누르면 이 코어 끝에서 잇기 상자가 열린다', () => {
     renderSheet();
-    fireEvent.click(within(cell(rowOf('L1', 2), 'near')).getByRole('button', { name: '잇기' }));
-    expect(screen.getByRole('dialog')).toHaveTextContent('이쪽 끝 154kV 춘천-북춘천 T/L 코어 2');
+    fireEvent.click(within(cell(rowOf('L1', 2), 'near')).getByRole('button', { name: '연결' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('본 설비 단자: 154kV 춘천-북춘천 T/L 코어 2');
   });
 
   it('대국 연결 — 들르지 않은 국의 이름도 보이고, 칸에 단추가 없다(Review Focus 4)', () => {
@@ -123,7 +123,7 @@ describe('선번장', () => {
   it('상태를 고치면 updateCore 로 변경안에 실리고, 정상이 아니면 점 + 이름', () => {
     renderSheet();
     const st = cell(rowOf('L1', 2), 'status');
-    fireEvent.click(within(st).getByRole('button', { name: '상태 고치기' }));
+    fireEvent.click(within(st).getByRole('button', { name: '상태 수정' }));
     fireEvent.change(within(cell(rowOf('L1', 2), 'status')).getByRole('combobox'), { target: { value: 'broken' } });
     expect(store.getState().overlays.cores[coreKey('L1', 2)]).toMatchObject({ status: 'broken' });
     expect(cell(rowOf('L1', 2), 'status')).toHaveTextContent('단선');
@@ -131,7 +131,7 @@ describe('선번장', () => {
 
   it('용도는 그 블록 끝의 필드만 고친다 — B 끝 블록이면 bPurpose', () => {
     renderSheet();
-    fireEvent.click(within(cell(rowOf('L2', 1), 'purpose')).getByRole('button', { name: '용도 고치기' }));
+    fireEvent.click(within(cell(rowOf('L2', 1), 'purpose')).getByRole('button', { name: '용도 수정' }));
     const input = within(cell(rowOf('L2', 1), 'purpose')).getByRole('textbox');
     fireEvent.change(input, { target: { value: '보호계전' } });
     fireEvent.blur(input);
@@ -141,7 +141,7 @@ describe('선번장', () => {
   it('상대 끝 용도는 용도 칸의 참고(title)일 뿐이다', () => {
     store.getState().updateCore('L1', 4, { bPurpose: '춘천쪽 용도' });
     renderSheet();
-    expect(cell(rowOf('L1', 4), 'purpose')).toHaveAttribute('title', '상대 끝 용도: 춘천쪽 용도');
+    expect(cell(rowOf('L1', 4), 'purpose')).toHaveAttribute('title', '대국 측 용도: 춘천쪽 용도');
   });
 
   it('단자 Select 로 거른다 — 블록이 있는 단자만 선택지에 선다', () => {
@@ -154,8 +154,8 @@ describe('선번장', () => {
 
   it('연결 지우기 — 묻고 나서 지운다', async () => {
     renderSheet();
-    fireEvent.click(within(cell(rowOf('L1', 1), 'near')).getByRole('button', { name: '연결 지우기' }));
-    fireEvent.click(await screen.findByRole('button', { name: '지우기' }));
+    fireEvent.click(within(cell(rowOf('L1', 1), 'near')).getByRole('button', { name: '연결 삭제' }));
+    fireEvent.click(await screen.findByRole('button', { name: '삭제' }));
     await waitFor(() => expect(store.getState().overlays.links.creates.k1).toBeUndefined());
   });
 
@@ -165,7 +165,7 @@ describe('선번장', () => {
     expect(blocks().filter((b) => b.dataset.line === 'L4').map((b) => b.dataset.side)).toEqual(['A', 'B']);
     const edit = (side: 'A' | 'B', value: string) => {
       const blk = blocks().find((b) => b.dataset.line === 'L4' && b.dataset.side === side)!;
-      fireEvent.click(within(within(blk).getByTestId('sheet-row-1').querySelector<HTMLElement>('[data-col="purpose"]')!).getByRole('button', { name: '용도 고치기' }));
+      fireEvent.click(within(within(blk).getByTestId('sheet-row-1').querySelector<HTMLElement>('[data-col="purpose"]')!).getByRole('button', { name: '용도 수정' }));
       const input = within(blk).getByRole('textbox');
       fireEvent.change(input, { target: { value } });
       fireEvent.blur(input);
@@ -213,7 +213,7 @@ describe('선번장', () => {
 
   it('상태 목록에는 「—」가 없다 — 상태는 비울 수 없다', () => {
     renderSheet();
-    fireEvent.click(within(cell(rowOf('L1', 2), 'status')).getByRole('button', { name: '상태 고치기' }));
+    fireEvent.click(within(cell(rowOf('L1', 2), 'status')).getByRole('button', { name: '상태 수정' }));
     const pick = within(cell(rowOf('L1', 2), 'status')).getByRole('combobox') as HTMLSelectElement;
     expect([...pick.options].map((o) => o.textContent)).toEqual(['정상', '단선', '사용불가']);
   });
@@ -266,7 +266,7 @@ describe('선번장', () => {
   it('검색에 걸린 것이 없으면 검색어를 되짚는다', () => {
     renderSheet();
     fireEvent.change(screen.getByRole('textbox', { name: '선번장 검색' }), { target: { value: '없는말' } });
-    expect(screen.getByText("'없는말' 와 맞는 코어가 없습니다")).toBeInTheDocument();
+    expect(screen.getByText("'없는말'에 해당하는 코어가 없습니다")).toBeInTheDocument();
   });
 
   it('빈 자국·대국 칸은 같은 「—」 — 자국 칸의 잇기는 따로 선다', () => {
@@ -275,12 +275,12 @@ describe('선번장', () => {
     const far = cell(rowOf('L1', 2), 'far');
     expect(far).toHaveTextContent(/^—$/);
     expect(near).toHaveTextContent('—');
-    expect(within(near).getByRole('button', { name: '잇기' })).toBeInTheDocument();
+    expect(within(near).getByRole('button', { name: '연결' })).toBeInTheDocument();
   });
 
   it('지우개·잇기는 이름 위에 겹치지 않고 제 자리, 호버 없는 기기에서도 보인다(HOVER_REVEAL)', () => {
     renderSheet();
-    const trash = within(cell(rowOf('L1', 1), 'near')).getByRole('button', { name: '연결 지우기' });
+    const trash = within(cell(rowOf('L1', 1), 'near')).getByRole('button', { name: '연결 삭제' });
     expect(trash.className).toContain('[@media(hover:none)]:opacity-100');
     expect(trash.className).not.toContain('absolute');
   });
@@ -297,7 +297,7 @@ describe('선번장', () => {
   it('광선로가 없으면 빈 상태가 다음 할 일을 말한다', () => {
     store.getState().reset();
     renderSheet();
-    expect(screen.getByText('이 국에 닿은 광선로가 없습니다')).toBeInTheDocument();
-    expect(screen.getByText('「광선로 추가」로 상대국과 코어 수를 정하세요')).toBeInTheDocument();
+    expect(screen.getByText('이 변전소에 수용된 광선로가 없습니다')).toBeInTheDocument();
+    expect(screen.getByText('「광선로 추가」로 상대국과 코어 수를 지정하세요')).toBeInTheDocument();
   });
 });

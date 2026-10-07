@@ -36,14 +36,14 @@ export function BreakerEditor({ equipmentId, equipmentName, count, open, focusNo
           <Button variant="secondary" disabled={count >= MAX_CIRCUITS} onClick={() => { setBlocked(null); onAdd(); }}>차단기 추가</Button>
           {/* 지우는 것이 **몇 번**인지 이름에 적는다 — 「마지막」은 표를 끝까지 굴려 봐야 안다. 되돌릴 수 있어 묻지 않는다. */}
           <Button
-            variant="secondary" tone="danger" disabled={count === 0} title="⌘Z 로 되돌릴 수 있습니다"
+            variant="secondary" tone="danger" disabled={count === 0} title="⌘Z로 실행 취소할 수 있습니다"
             onClick={() => setBlocked(removeLastCircuit(equipmentId).blocked)}
           >
-            {count > 0 ? `차단기 ${count} 지우기` : '차단기 지우기'}
+            {count > 0 ? `차단기 ${count} 삭제` : '차단기 삭제'}
           </Button>
           <ErrorStrip className="min-w-0 flex-1" message={blocked} onDismiss={() => setBlocked(null)} />
           {/* 이 창은 워킹카피에 싣기만 한다 — 「완료」를 저장으로 믿고 떠나지 않게 서버로 가는 문을 짚는다(§「저장」). */}
-          <span className="ml-auto shrink-0 self-center text-xs text-content-muted">고친 내용은 위 「저장」을 눌러야 저장됩니다</span>
+          <span className="ml-auto shrink-0 self-center text-xs text-content-muted">수정한 내용은 상단 「저장」을 눌러야 반영됩니다</span>
           <Button variant="secondary" onClick={onClose}>완료</Button>
         </>
       )}

@@ -71,7 +71,7 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
   if (dirty === 0 && !canRedo) return null;
 
   async function handleRevert() {
-    if (!(await confirm({ title: '변경 되돌리기', target: null, message: `저장하지 않은 변경 ${dirty}건이 모두 사라집니다.`, confirmLabel: '되돌리기', danger: true }))) return;
+    if (!(await confirm({ title: '변경 취소', target: null, message: `저장하지 않은 변경 ${dirty}건이 모두 취소됩니다.`, confirmLabel: '변경 취소', danger: true }))) return;
     workingCopyStore.getState().revert();
   }
 
@@ -86,7 +86,7 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
         title={`실행 취소 (${MOD}Z)`}
         size="sm"
         disabled={!canUndo || isCommitting}
-        disabledReason={isCommitting ? '저장 중입니다' : '되돌릴 것이 없습니다'}
+        disabledReason={isCommitting ? '저장 중입니다' : '실행 취소할 항목이 없습니다'}
         onClick={() => workingCopyStore.temporal.getState().undo()}
       >
         <Undo2 size={14} />
@@ -96,7 +96,7 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
         title={`다시 실행 (⇧${MOD}Z)`}
         size="sm"
         disabled={!canRedo || isCommitting}
-        disabledReason={isCommitting ? '저장 중입니다' : '다시 실행할 것이 없습니다'}
+        disabledReason={isCommitting ? '저장 중입니다' : '다시 실행할 항목이 없습니다'}
         onClick={() => workingCopyStore.temporal.getState().redo()}
       >
         <Redo2 size={14} />
@@ -106,7 +106,7 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
       {dirty > 0 && (
         <>
           <Button variant="secondary" size="sm" disabled={isCommitting} onClick={() => void handleRevert()}>
-            되돌리기
+            변경 취소
           </Button>
           <Button size="sm" disabled={isCommitting || issue != null} onClick={onCommit}>
             {isCommitting ? '저장 중…' : '저장'}

@@ -15,7 +15,7 @@ type View = 'wage' | 'overhead' | 'history';
 const TABS = [
   { key: 'wage' as const, label: '노임단가' },
   { key: 'overhead' as const, label: '제비율' },
-  { key: 'history' as const, label: '올린 기록' },
+  { key: 'history' as const, label: '등록 이력' },
 ];
 
 export default function V2StandardsPage() {

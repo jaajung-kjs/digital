@@ -59,8 +59,8 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
   }
 
   async function remove(m: CoreMeasurement) {
-    const when = m.measuredOn ? formatDate(m.measuredOn) : '날짜 없는';
-    if (!(await confirm({ title: '측정 지우기', target: `코어 ${no} · ${when} 측정`, message: '이 측정을 지웁니다.', confirmLabel: '지우기', danger: true }))) return;
+    const when = m.measuredOn ? formatDate(m.measuredOn) : '날짜 미상';
+    if (!(await confirm({ title: '측정 삭제', target: `코어 ${no} · ${when} 측정`, message: '이 측정 기록을 삭제합니다.', confirmLabel: '삭제', danger: true }))) return;
     deleteLeafRow('coreMeasurements', m.id);
   }
 
@@ -69,14 +69,14 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
       <Th>측정일</Th>
       {MEASURE_COLS.map((c) => <Th key={c.key} align="right" unit={c.unit} title={c.title}>{c.name}</Th>)}
       <Th>측정자</Th>
-      <Th><span className="sr-only">손잡이</span></Th>
+      <Th><span className="sr-only">동작</span></Th>
     </tr>
   );
 
   const group = (sd: Side) => {
     const rows = of(sd);
     /* 국 이름에 괄호가 든다(「(구)춘천S/S」) — 괄호로 감싸면 「상대 끝((구)춘천S/S)」로 겹쳐 읽힌다. */
-    const label = `${sd === side ? '이쪽 끝' : '상대 끝'} · ${subName(sd)}`;
+    const label = `${sd === side ? '자국 측' : '대국 측'} · ${subName(sd)}`;
     return (
       <section aria-label={label} data-testid={`history-${sd === side ? 'near' : 'far'}`} className="space-y-1">
         <ListHeading>{label} · {rows.length}건</ListHeading>
@@ -92,7 +92,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
                 <Td className="truncate" title={m.measuredBy ?? undefined}>{m.measuredBy ?? EMPTY}</Td>
                 <Td align="right">
                   <span className={HOVER_REVEAL}>
-                    <IconButton size="sm" tone="danger" aria-label="측정 지우기" title="측정 지우기" onClick={() => void remove(m)}>
+                    <IconButton size="sm" tone="danger" aria-label="측정 삭제" title="측정 삭제" onClick={() => void remove(m)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </IconButton>
                   </span>
@@ -111,7 +111,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
         {group(side)}
         {group(other(side))}
         <section aria-label="측정 추가" className="space-y-1">
-          <ListHeading>측정 추가 — 이쪽 끝 · {subName(side)}</ListHeading>
+          <ListHeading>측정 추가 — 자국 측 · {subName(side)}</ListHeading>
           <TableCard widths={WIDTHS}>
             <thead>{head}</thead>
             <tbody>

@@ -67,7 +67,7 @@ export function removeLastCircuit(equipmentId: string): { blocked: string | null
   const dangling = (m: typeof now) => validateState(m).filter((i) => i.code === 'LINK_END_INVALID').flatMap((i) => i.ids);
   const before = new Set(dangling(now));
   if (dangling(next).some((id) => !before.has(id))) {
-    return { blocked: `차단기 ${no} 에 연결이 있어 지울 수 없습니다 — 연결을 먼저 지우세요` };
+    return { blocked: `차단기 ${no}에 연결이 있어 삭제할 수 없습니다 — 연결을 먼저 삭제하세요` };
   }
   /* 수를 줄이는 일과 그 번호에 고쳐 두던 값을 걷는 일을 **한 번의 set** 으로 — 남겨 두면 보이지 않는
      차단기의 값이 변경 1건으로 남는다(되돌리기 한 번에 함께 돌아온다). */
@@ -143,7 +143,7 @@ export function lineShrinkBlock(lineId: string, count: number): string | null {
   }
   for (const m of effectiveRows(s, 'coreMeasurements')) if (m.lineId === lineId && m.coreNo > count) used.add(m.coreNo);
   if (used.size === 0) return null;
-  return `코어 ${coreRuns([...used])} 에 연결·측정이 있어 줄일 수 없습니다`;
+  return `코어 ${coreRuns([...used])}에 연결·측정이 있어 코어 수를 줄일 수 없습니다`;
 }
 
 /**

@@ -64,7 +64,7 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
                `change` 가 돌아오므로 늘 마운트해 둔다. */
             onSelect: () => inputRef.current?.click(),
             disabled: busy || floorId == null,
-            disabledReason: floorId == null ? '층을 먼저 고르세요' : '읽는 중입니다',
+            disabledReason: floorId == null ? '층을 먼저 선택하세요' : '읽는 중입니다',
           },
           ...(hasBackground
             ? [{ label: '배경 제거', danger: true, onSelect: () => stage(null), disabled: busy }]

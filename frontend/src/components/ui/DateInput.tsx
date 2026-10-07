@@ -57,7 +57,7 @@ export function DateInput({
         <>
           <button
             type="button"
-            aria-label="달력에서 고르기"
+            aria-label="달력에서 선택"
             disabled={disabled}
             className="shrink-0 rounded p-1 text-content-faint transition-colors hover:text-content disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => {

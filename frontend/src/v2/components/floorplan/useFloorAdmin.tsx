@@ -43,7 +43,7 @@ export function useFloorAdmin(args: {
   /** 이 층을 못 지우는 이유 — 없으면 `null`. */
   const blockedReason = (floorId: string): string | null => {
     const onScreen = load(floorId);
-    return onScreen > 0 ? `이 층에 놓인 랙이 ${onScreen}개 있어 지울 수 없습니다` : null;
+    return onScreen > 0 ? `이 층에 배치된 랙이 ${onScreen}개 있어 삭제할 수 없습니다` : null;
   };
 
   /** 이름이 겹치면 `false` — 그 자리에서 말하고 상자를 닫지 않는다. */
@@ -75,7 +75,7 @@ export function useFloorAdmin(args: {
     const ok = await confirm({
       title: '층 삭제',
       target: name,
-      message: '이 층의 도면과 배경이 함께 사라집니다.',
+      message: '이 층의 도면과 배경이 함께 삭제됩니다.',
       confirmLabel: '삭제',
       danger: true,
     });

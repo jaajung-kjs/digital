@@ -18,7 +18,7 @@
 export const unsavedPrompt = (dirty: number) => ({
   title: '저장하지 않은 변경',
   target: null,
-  message: `변경 ${dirty}건이 사라집니다. 이동할까요?`,
+  message: `변경 ${dirty}건이 취소됩니다. 이동하시겠습니까?`,
   confirmLabel: '이동',
   danger: true,
 });

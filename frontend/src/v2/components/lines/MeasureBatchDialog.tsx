@@ -51,7 +51,7 @@ export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) 
   const filled = useMemo(() => block.rows.filter((r) => drafts[r.no] && !isBlankDraft(drafts[r.no]!)), [block.rows, drafts]);
   /* 친 것이 있으면 닫기 전에 묻는다(Esc · ✕ · 취소) — 스무 줄을 친 뒤 Esc 한 번에 날아가지 않게. */
   async function requestClose() {
-    if (filled.length > 0 && !(await confirm({ title: '측정 입력 닫기', target: null, message: `입력한 ${filled.length}줄을 버릴까요?`, confirmLabel: '버리기', danger: true }))) return;
+    if (filled.length > 0 && !(await confirm({ title: '측정 입력 닫기', target: null, message: `입력한 ${filled.length}건을 취소하시겠습니까?`, confirmLabel: '입력 취소', danger: true }))) return;
     onClose();
   }
   const bad = useMemo(() => block.rows.filter((r) => drafts[r.no] && draftHasBad(drafts[r.no]!)).map((r) => r.no), [block.rows, drafts]);
@@ -81,11 +81,11 @@ export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) 
         <>
           <span className="mr-auto text-xs text-content-muted">
             {bad.length > 0
-              ? '고칠 칸이 있습니다'
-              : filled.length > 0 ? `${filled.length}줄을 넣습니다 — 빈 줄은 넣지 않습니다` : '잰 코어의 칸만 채우세요 — 빈 줄은 넣지 않습니다'}
+              ? '입력 오류가 있습니다'
+              : filled.length > 0 ? `${filled.length}건을 등록합니다 — 빈 행은 등록하지 않습니다` : '측정한 코어만 입력하세요 — 빈 행은 등록하지 않습니다'}
           </span>
           <Button variant="secondary" onClick={() => void requestClose()}>취소</Button>
-          <Button disabled={!ok} onClick={submit}>넣기</Button>
+          <Button disabled={!ok} onClick={submit}>등록</Button>
         </>
       }
     >
@@ -105,7 +105,7 @@ export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) 
                 <Th align="right">코어</Th>
                 <Th align="right">어댑터</Th>
                 {MEASURE_COLS.map((c) => <Th key={c.key} align="right" unit={c.unit} title={c.title}>{c.name}</Th>)}
-                <Th>지금 최근 측정</Th>
+                <Th>최근 측정</Th>
               </tr>
             </thead>
             <tbody>

@@ -85,7 +85,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
     if (next === null && col.key === 'sortOrder') return; // 순서는 비울 수 없다
     if (next === (row[col.key] ?? null) || (col.kind !== 'number' && next === str(row[col.key]))) return;
     setError(null);
-    patch.mutateAsync({ kind, id: str(row.id), patch: { [col.key]: next } }).catch((e) => fail(str(row.id), e, '고치지 못했습니다'));
+    patch.mutateAsync({ kind, id: str(row.id), patch: { [col.key]: next } }).catch((e) => fail(str(row.id), e, '수정하지 못했습니다'));
   }
 
   /** 줄을 k 번째(1..n)로 옮긴다 — 목록 전체의 새 차례를 보낸다. 범위 밖은 끝으로 붙인다. */
@@ -98,7 +98,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
     const ids = rows.filter((r) => r !== row).map((r) => str(r.id));
     ids.splice(to, 0, str(row.id));
     setError(null);
-    reorder.mutateAsync({ kind, ids }).catch((e) => fail(str(row.id), e, '순서를 바꾸지 못했습니다'));
+    reorder.mutateAsync({ kind, ids }).catch((e) => fail(str(row.id), e, '순서를 변경하지 못했습니다'));
   }
 
   /** 추가는 **분명한 손짓**(Enter·추가 단추)으로만 한다 — 선택 칸은 blur 만으로는 끝났는지 알 수 없다. */
@@ -108,7 +108,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
     for (const c of cols) {
       const v = parse(c, draft[c.key]);
       if (c.required && (v === undefined || v === null)) {
-        setError({ id: 'new', message: `${c.label} 칸을 채우세요` });
+        setError({ id: 'new', message: `${c.label} 항목을 입력하세요` });
         return;
       }
       if (v !== undefined) body[c.key] = v;
@@ -128,9 +128,9 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
 
   async function removeRow(row: Row) {
     const name = str(row.name);
-    if (!(await confirm({ title: `${title} 지우기`, target: name, message: '지우면 되돌릴 수 없습니다.', confirmLabel: '지우기', danger: true }))) return;
+    if (!(await confirm({ title: `${title} 삭제`, target: name, message: '삭제하면 복구할 수 없습니다.', confirmLabel: '삭제', danger: true }))) return;
     setError(null);
-    remove.mutateAsync({ kind, id: str(row.id) }).catch((e) => fail(str(row.id), e, '지우지 못했습니다'));
+    remove.mutateAsync({ kind, id: str(row.id) }).catch((e) => fail(str(row.id), e, '삭제하지 못했습니다'));
   }
 
   function draftCell(c: Column) {
@@ -224,7 +224,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
                   <Td align="right">
                     <IconButton
                       size="sm"
-                      aria-label={`${str(row.name)} 지우기`}
+                      aria-label={`${str(row.name)} 삭제`}
                       tone="danger"
                       className={HOVER_REVEAL}
                       onClick={() => removeRow(row)}
@@ -270,7 +270,7 @@ function LaborCell({ value, onChange, ariaLabel }: { value: string | null; onCha
     return (
       <button
         type="button"
-        aria-label={`${ariaLabel} 고치기`}
+        aria-label={`${ariaLabel} 수정`}
         className={readCellClass(!!value)}
         title={(value && wage.nameOf(value)) || undefined}
         onClick={() => setEditing(true)}

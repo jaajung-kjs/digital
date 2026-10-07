@@ -52,9 +52,9 @@ async function dropE2EMeasurements(page: Page, block: Locator, no: number) {
   await expect(dialog).toBeVisible();
   const mine = dialog.getByTestId('history-near').getByRole('row').filter({ hasText: PREFIX });
   for (let guard = 0; guard < 10 && (await mine.count()) > 0; guard++) {
-    await mine.first().getByRole('button', { name: '측정 지우기' }).click();
-    const confirm = page.getByRole('alertdialog', { name: '측정 지우기' });
-    await confirm.getByRole('button', { name: '지우기' }).click();
+    await mine.first().getByRole('button', { name: '측정 삭제' }).click();
+    const confirm = page.getByRole('alertdialog', { name: '측정 삭제' });
+    await confirm.getByRole('button', { name: '삭제' }).click();
     await expect(confirm).toHaveCount(0);
   }
   await dialog.getByRole('button', { name: '닫기', exact: true }).last().click();
@@ -67,8 +67,8 @@ async function sweepLeftovers(page: Page) {
   for (let guard = 0; guard < 5 && (await leftover.count()) > 0; guard++) {
     await leftover.first().getByRole('button', { name: '편집' }).click();
     const dialog = page.getByRole('dialog', { name: '광선로 편집' });
-    await dialog.getByRole('button', { name: '광선로 지우기' }).click();
-    await page.getByRole('alertdialog', { name: '광선로 지우기' }).getByRole('button', { name: '지우기' }).click();
+    await dialog.getByRole('button', { name: '광선로 삭제' }).click();
+    await page.getByRole('alertdialog', { name: '광선로 삭제' }).getByRole('button', { name: '삭제' }).click();
     await expect(dialog).toHaveCount(0);
   }
   const slot3 = blockOf(page, SLOT3_LINE);
@@ -76,8 +76,8 @@ async function sweepLeftovers(page: Page) {
     const near = cell(slot3, no, 'near');
     if ((await near.innerText()).includes(PREFIX)) {
       await row(slot3, no).hover();
-      await near.getByRole('button', { name: '연결 지우기' }).click();
-      await page.getByRole('alertdialog', { name: '연결 지우기' }).getByRole('button', { name: '지우기' }).click();
+      await near.getByRole('button', { name: '연결 삭제' }).click();
+      await page.getByRole('alertdialog', { name: '연결 삭제' }).getByRole('button', { name: '삭제' }).click();
     }
     if ((await cell(slot3, no, 'measuredOn').innerText()).trim() !== '—') await dropE2EMeasurements(page, slot3, no);
   }
@@ -103,7 +103,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   //    코어 3 용도 — 북춘천 끝의 값(WEST). (구)춘천 끝은 EAST 라 상대 끝 용도로만(title) 선다
   const first = blocks(page).nth(0);
   await expect(cell(first, 3, 'purpose')).toHaveText('소형광 · PTP(춘천-북춘천) WEST');
-  await expect(cell(first, 3, 'purpose')).toHaveAttribute('title', /상대 끝 용도: 소형광 · PTP\(춘천-북춘천\) EAST/);
+  await expect(cell(first, 3, 'purpose')).toHaveAttribute('title', /대국 측 용도: 소형광 · PTP\(춘천-북춘천\) EAST/);
   await expect(cell(first, 1, 'status')).toHaveText('단선');
   await expect(cell(first, 21, 'status')).toHaveText('사용불가');
   //    대국 연결은 읽기 전용 — 잇기·지우기 단추가 없다
@@ -113,14 +113,14 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   const slot3 = blockOf(page, SLOT3_LINE);
   await expect(cell(slot3, 11, 'near')).not.toContainText(PREFIX);
   await row(slot3, 11).hover();
-  await cell(slot3, 11, 'near').getByRole('button', { name: '잇기' }).click();
-  let dialog = page.getByRole('dialog', { name: '잇기' });
-  await expect(dialog).toContainText(`이쪽 끝 ${SLOT3_LINE} 코어 11`);
-  await dialog.getByRole('textbox', { name: '반대쪽 끝 검색' }).fill('L2 스위치');
+  await cell(slot3, 11, 'near').getByRole('button', { name: '연결', exact: true }).click();
+  let dialog = page.getByRole('dialog', { name: '연결 추가' });
+  await expect(dialog).toContainText(`본 설비 단자: ${SLOT3_LINE} 코어 11`);
+  await dialog.getByRole('textbox', { name: '상대 단자 검색' }).fill('L2 스위치');
   await dialog.getByRole('button', { name: 'L2 스위치', exact: true }).click();
-  await dialog.getByRole('textbox', { name: '반대쪽 표기' }).fill(`${PREFIX}-FX`);
+  await dialog.getByRole('textbox', { name: '상대 단자 표기' }).fill(`${PREFIX}-FX`);
   await dialog.getByRole('combobox', { name: '케이블 품목' }).selectOption({ label: '광점퍼코드' });
-  await dialog.getByRole('button', { name: '잇기', exact: true }).click();
+  await dialog.getByRole('button', { name: '연결', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(cell(slot3, 11, 'near')).toHaveText(`L2 스위치 ${PREFIX}-FX`);
   await expect.poll(() => changeCount(page)).toBe(1);
@@ -139,7 +139,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await dialog.getByLabel('코어 11 1550 nm 거리').fill('8.35');
   await dialog.getByLabel('코어 12 1310 nm 손실').fill('-2.61');
   await dialog.getByLabel('코어 12 1310 nm 거리').fill('8.34');
-  await dialog.getByRole('button', { name: '넣기' }).click();
+  await dialog.getByRole('button', { name: '등록' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(cell(slot3, 11, 'loss1310')).toHaveText('-2.5');
   await expect(cell(slot3, 11, 'loss1550')).toHaveText('-1.75');
@@ -159,8 +159,8 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await dialog.getByRole('combobox', { name: '케이블 품목' }).selectOption({ label: 'OPGW(광복합가공지선)' });
   await dialog.getByRole('textbox', { name: '코어 수' }).fill('12');
   await dialog.getByRole('textbox', { name: '선로명' }).fill(LINE_NAME);
-  await dialog.getByRole('combobox', { name: '이쪽 단자 설비' }).selectOption({ label: 'OFD' });
-  await dialog.getByRole('textbox', { name: '이쪽 슬롯' }).fill('9');
+  await dialog.getByRole('combobox', { name: '자국 측 단자 설비' }).selectOption({ label: 'OFD' });
+  await dialog.getByRole('textbox', { name: '자국 측 슬롯' }).fill('9');
   await dialog.getByRole('button', { name: '추가', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const added = blocks(page).filter({ hasText: LINE_NAME });
@@ -184,10 +184,10 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   // 7. 지우고 저장 — 상대 국에서 지워도 한 선로다(북춘천에서도 사라진다)
   await peerBlock.getByRole('button', { name: '편집' }).click();
   dialog = page.getByRole('dialog', { name: '광선로 편집' });
-  await dialog.getByRole('button', { name: '광선로 지우기' }).click();
-  const ask = page.getByRole('alertdialog', { name: '광선로 지우기' });
+  await dialog.getByRole('button', { name: '광선로 삭제' }).click();
+  const ask = page.getByRole('alertdialog', { name: '광선로 삭제' });
   await expect(ask).toContainText('코어 12');
-  await ask.getByRole('button', { name: '지우기' }).click();
+  await ask.getByRole('button', { name: '삭제' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(blocks(page).filter({ hasText: LINE_NAME })).toHaveCount(0);
   await save(page);
@@ -204,7 +204,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await expect(slots.getByRole('button', { name: /^슬롯 \d+ · / })).toHaveCount(3);
   //    슬롯 수 — 카드 머리에서 고치면 「빈 슬롯」이 따라온다. 실행 취소로 물린다(저장하지 않는다)
   const before = await changeCount(page);
-  const countButton = slots.getByRole('button', { name: '슬롯 수 고치기' });
+  const countButton = slots.getByRole('button', { name: '슬롯 수 수정' });
   const original = Number((await countButton.innerText()).trim()) || 3; // 시드 OFD 는 8, 비었으면(—) 3 에서
   const next = original + 1;
   await countButton.click();
@@ -244,13 +244,13 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   // 9. 정리 — 코어 11 연결·코어 11·12 측정을 걷고 저장
   const sheet3 = blockOf(page, SLOT3_LINE);
   await row(sheet3, 11).hover();
-  await cell(sheet3, 11, 'near').getByRole('button', { name: '연결 지우기' }).click();
-  await page.getByRole('alertdialog', { name: '연결 지우기' }).getByRole('button', { name: '지우기' }).click();
+  await cell(sheet3, 11, 'near').getByRole('button', { name: '연결 삭제' }).click();
+  await page.getByRole('alertdialog', { name: '연결 삭제' }).getByRole('button', { name: '삭제' }).click();
   await dropE2EMeasurements(page, sheet3, 11);
   await dropE2EMeasurements(page, sheet3, 12);
   await expect(cell(sheet3, 11, 'measuredOn')).toHaveText('—');
   await expect(cell(sheet3, 12, 'measuredOn')).toHaveText('—');
   await expect.poll(() => changeCount(page)).toBe(3);
   await save(page);
-  await expect(cell(sheet3, 11, 'near').getByRole('button', { name: '잇기' })).toBeAttached();
+  await expect(cell(sheet3, 11, 'near').getByRole('button', { name: '연결', exact: true })).toBeAttached();
 });

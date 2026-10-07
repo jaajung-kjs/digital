@@ -8,7 +8,7 @@ import { EquipmentTypeOptions } from './TypeOptions';
 
 const MADE_ON = /^\d{4}-(0[1-9]|1[0-2])$/;
 /** 연-월 꼴이 아니면 한 줄 안내 — 비었으면 말하지 않는다. */
-const madeOnHint = (v: string | null) => (v && !MADE_ON.test(v) ? '연-월(예 2008-05)로 적으면 정렬·집계가 맞습니다' : undefined);
+const madeOnHint = (v: string | null) => (v && !MADE_ON.test(v) ? '연-월(예 2008-05) 형식으로 입력해야 정렬·집계에 반영됩니다' : undefined);
 
 type TextKey = 'model' | 'maker' | 'serial' | 'manager' | 'note';
 const TEXTS: { key: TextKey; label: string }[] = [

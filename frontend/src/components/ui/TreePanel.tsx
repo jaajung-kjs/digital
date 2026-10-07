@@ -386,7 +386,7 @@ export function TreePanel({
     const out: ReactNode[] = [];
     if (child?.create) {
       out.push(
-        <IconButton key="add" size="sm" aria-label={`${n.text} 안에 새 ${child.label}`} onClick={() => startCreate(n)}>
+        <IconButton key="add" size="sm" aria-label={`${n.text} 하위 ${child.label} 추가`} onClick={() => startCreate(n)}>
           <Plus size={12} />
         </IconButton>,
       );
@@ -396,7 +396,7 @@ export function TreePanel({
         <IconButton
           key="rename"
           size="sm"
-          aria-label={`${n.text} 이름 바꾸기`}
+          aria-label={`${n.text} 이름 변경`}
           onClick={() => {
             setCreating(null);
             setFailed(null);

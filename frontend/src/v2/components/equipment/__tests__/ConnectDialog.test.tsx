@@ -25,7 +25,7 @@ describe('잇기 대화상자', () => {
     expect([...cable.options].map((o) => o.textContent)).not.toContain('OPGW');
     fireEvent.change(cable, { target: { value: 'fcv' } });
     fireEvent.change(screen.getByLabelText('길이(m)'), { target: { value: '12' } });
-    fireEvent.click(screen.getByRole('button', { name: '잇기' }));
+    fireEvent.click(screen.getByRole('button', { name: '연결' }));
     const link = Object.values(store.getState().overlays.links.creates)[0]!;
     expect(link).toMatchObject({ substationId: 'S1', cableTypeId: 'fcv', lengthM: 12, a: { kind: 'circuit', equipmentId: 'p', no: 1 }, b: { kind: 'equipment', equipmentId: 'o' } });
     expect(onCreated).toHaveBeenCalledWith(link.id);
@@ -34,8 +34,8 @@ describe('잇기 대화상자', () => {
   it('자기 자신은 고를 수 없다(LINK_SELF 미리 보기)', () => {
     render(<ConnectDialog substationId="S1" from={{ kind: 'equipment', equipmentId: 'o' }} open onClose={vi.fn()} onCreated={vi.fn()} />);
     fireEvent.click(screen.getAllByText('송광치')[0]!);
-    expect(screen.getByRole('button', { name: '잇기' })).toBeDisabled();
-    expect(screen.getByText('연결의 두 끝이 같습니다')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '연결' })).toBeDisabled();
+    expect(screen.getByText('연결의 양쪽 단자가 같습니다')).toBeInTheDocument();
   });
 
   it('쓰인 차단기 끝은 고를 수 없다', () => {
@@ -46,7 +46,7 @@ describe('잇기 대화상자', () => {
     expect(taken).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(taken);
     expect(taken).not.toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('button', { name: '잇기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '연결' })).toBeDisabled();
     fireEvent.click(screen.getByText('분전반'));
     expect(screen.getByText('분전반')).toHaveAttribute('aria-selected', 'true');
   });

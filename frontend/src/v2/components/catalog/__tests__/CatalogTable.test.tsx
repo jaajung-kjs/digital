@@ -11,7 +11,7 @@ beforeEach(() => {
   create.mockResolvedValue({});
   patch.mockResolvedValue({});
   reorder.mockResolvedValue(undefined);
-  remove.mockRejectedValue(Object.assign(new Error('x'), { isAxiosError: true, response: { status: 409, data: { error: 'TYPE_IN_USE', message: '설비 3대가 이 설비 품목을 쓰고 있어 지울 수 없습니다' } } }));
+  remove.mockRejectedValue(Object.assign(new Error('x'), { isAxiosError: true, response: { status: 409, data: { error: 'TYPE_IN_USE', message: '설비 3대가 이 설비 품목을 사용 중이어서 삭제할 수 없습니다' } } }));
 });
 vi.mock('../../../model/api', () => ({ createCatalogRow: (...a: unknown[]) => create(...a), patchCatalogRow: (...a: unknown[]) => patch(...a), deleteCatalogRow: (...a: unknown[]) => remove(...a), fetchCatalog: vi.fn(), fetchNodeEquipment: vi.fn(), putOrder: vi.fn() }));
 
@@ -43,9 +43,9 @@ describe('CatalogTable', () => {
 
   it('쓰이는 품목을 지우면 서버 문구를 보인다', async () => {
     wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[{ id: 'r1', key: 'R', name: '19인치', sortOrder: 1 }]} columns={columns} newRow={() => ({})} />);
-    fireEvent.click(screen.getByRole('button', { name: '19인치 지우기' }));
-    fireEvent.click(await screen.findByRole('button', { name: '지우기' }));
-    expect(await screen.findByText(/설비 3대가 이 설비 품목을 쓰고 있어/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '19인치 삭제' }));
+    fireEvent.click(await screen.findByRole('button', { name: '삭제' }));
+    expect(await screen.findByText(/설비 3대가 이 설비 품목을 사용 중이어서/)).toBeInTheDocument();
   });
 
   it('추가 행에 이름을 적고 Enter 하면 접두 맞는 키가 자동으로 실려 create 한다', async () => {
@@ -125,13 +125,13 @@ describe('CatalogTable', () => {
   it('필수 칸이 비면 어느 칸인지 알린다', () => {
     draftRack(); open();
     fireEvent.keyDown(screen.getByLabelText('이름'), { key: 'Enter' });
-    expect(screen.getByText('이름 칸을 채우세요')).toBeInTheDocument();
+    expect(screen.getByText('이름 항목을 입력하세요')).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
   });
 
   it('지우기는 먼저 묻고, 취소하면 부르지 않는다', async () => {
     wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[{ id: 'r1', key: 'R', name: '19인치', sortOrder: 1 }]} columns={columns} newRow={() => ({})} />);
-    fireEvent.click(screen.getByRole('button', { name: '19인치 지우기' }));
+    fireEvent.click(screen.getByRole('button', { name: '19인치 삭제' }));
     fireEvent.click(await screen.findByRole('button', { name: '취소' }));
     await new Promise((r) => setTimeout(r, 20));
     expect(remove).not.toHaveBeenCalled();
@@ -159,9 +159,9 @@ describe('CatalogTable', () => {
   it('순서 칸은 1..n 차례를 보이고, k 를 적으면 그 줄을 k 번째로 옮겨 전체 차례를 보낸다', async () => {
     const rows = [{ id: 'a', name: '가', sortOrder: 2 }, { id: 'c', name: '다', sortOrder: 31 }, { id: 'b', name: '나', sortOrder: 20 }];
     wrap(<CatalogTable kind="categories" title="분야" rows={rows} columns={columns} newRow={() => ({ sortOrder: 32 })} />);
-    expect(screen.getAllByRole('button', { name: / 순서 고치기$/ }).map((b) => b.textContent)).toEqual(['1', '2', '3']);
-    expect(screen.getAllByRole('button', { name: / 순서 고치기$/ }).map((b) => b.getAttribute('aria-label'))).toEqual(['가 순서 고치기', '나 순서 고치기', '다 순서 고치기']);
-    fireEvent.click(screen.getByRole('button', { name: '다 순서 고치기' }));
+    expect(screen.getAllByRole('button', { name: / 순서 수정$/ }).map((b) => b.textContent)).toEqual(['1', '2', '3']);
+    expect(screen.getAllByRole('button', { name: / 순서 수정$/ }).map((b) => b.getAttribute('aria-label'))).toEqual(['가 순서 수정', '나 순서 수정', '다 순서 수정']);
+    fireEvent.click(screen.getByRole('button', { name: '다 순서 수정' }));
     const input = screen.getByDisplayValue('3');
     fireEvent.change(input, { target: { value: '1' } });
     fireEvent.keyDown(input, { key: 'Enter' });

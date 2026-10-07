@@ -122,7 +122,7 @@ export default function V2WorkspacePage() {
         </CollapsibleRail>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
           {selected == null ? (
-            <EmptyState title="선택된 조직/변전소가 없습니다" description="왼쪽에서 변전소를 고르면 현황·선번장·평면도를 볼 수 있습니다." />
+            <EmptyState title="선택된 조직/변전소가 없습니다" description="왼쪽에서 변전소를 선택하면 현황·선번장·평면도를 조회할 수 있습니다." />
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               <PageHeader

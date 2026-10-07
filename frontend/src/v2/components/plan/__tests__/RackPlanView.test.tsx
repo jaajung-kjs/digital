@@ -73,7 +73,7 @@ describe('RackPlanView', () => {
   it('놓을 랙이 없으면 캔버스 안내가 「현황에서 랙을 먼저 추가」 로 바뀐다', () => {
     store.getState().create('floors', floor);
     view();
-    expect(screen.getByText('놓을 랙이 없습니다 — 현황에서 랙을 먼저 추가하세요')).toBeInTheDocument();
+    expect(screen.getByText('배치할 랙이 없습니다 — 현황에서 랙을 먼저 추가하세요')).toBeInTheDocument();
     expect(screen.queryByText(/위 「배치」/)).toBeNull();
   });
 
@@ -81,14 +81,14 @@ describe('RackPlanView', () => {
     store.getState().create('floors', floor);
     store.getState().create('racks', waitingRack);
     view();
-    expect(screen.getByText('아직 놓인 랙이 없습니다 — 위 「배치」에서 랙을 골라 그려 놓으세요')).toBeInTheDocument();
+    expect(screen.getByText('배치된 랙이 없습니다 — 상단 「배치」에서 랙을 선택하여 배치하세요')).toBeInTheDocument();
   });
 
   it('놓인 랙이 있으면 안내가 없다', () => {
     store.getState().create('floors', floor);
     store.getState().create('racks', placedRack);
     view();
-    expect(screen.queryByText(/아직 놓인 랙이 없습니다/)).toBeNull();
+    expect(screen.queryByText(/배치된 랙이 없습니다 — /)).toBeNull();
   });
 
   it('층 탭의 메뉴 단추는 글자로 「층 관리」 라 읽힌다', () => {
@@ -120,7 +120,7 @@ describe('RackPlanView', () => {
     store.getState().create('floors', floor);
     store.getState().create('racks', placedRack);
     view();
-    expect(screen.getByText('모든 랙이 놓였습니다')).toBeInTheDocument();
+    expect(screen.getByText('모든 랙이 배치되었습니다')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '배치' })).toBeNull();
   });
 
@@ -171,10 +171,10 @@ describe('RackPlanView', () => {
     store.getState().create('racks', placedRack);
     render(<RackPlanView substationId="S1" selectedRackId="R1" onSelectRack={() => {}} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /정면 돌리기/ }));
+    fireEvent.click(screen.getByRole('button', { name: /정면 회전/ }));
     expect(rackR1().facing).toBe('왼쪽');
 
-    fireEvent.click(screen.getByRole('button', { name: '도면에서 빼기' }));
+    fireEvent.click(screen.getByRole('button', { name: '배치 해제' }));
     expect(rackR1()).toMatchObject({ floorId: null, x: null, y: null, width: null, height: null });
     expect(screen.getByRole('combobox', { name: '배치할 랙' })).toHaveValue('R1');
   });

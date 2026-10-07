@@ -146,7 +146,7 @@ export function StatusView({
           {onOpenElsewhere && (
             <IconButton
               size="sm"
-              aria-label={`${r.name} 이 있는 국에서 열기`}
+              aria-label={`${r.name} 소속 변전소에서 열기`}
               className={cn('shrink-0', HOVER_REVEAL)}
               onClick={(e) => { e.stopPropagation(); onOpenElsewhere(r); }}
             >
@@ -168,7 +168,7 @@ export function StatusView({
   const empty = (
     <tr>
       <Td colSpan={COLS}>
-        {filtering ? <EmptyState title={query.trim() ? `'${query.trim()}' 와 맞는 설비가 없습니다` : '조건과 맞는 설비가 없습니다'} /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」로 놓으세요.' : undefined} />}
+        {filtering ? <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 설비가 없습니다` : '조건에 해당하는 설비가 없습니다'} /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」로 등록하세요.' : undefined} />}
       </Td>
     </tr>
   );
@@ -223,7 +223,7 @@ export function StatusView({
                       setCollapsed(new Set(summary.groups.map((g) => g.categoryName)));
                     }}
                   >
-                    {allCollapsed ? '모두 펴기' : '모두 접기'}
+                    {allCollapsed ? '모두 펼치기' : '모두 접기'}
                   </button>
                 )}
               </span>

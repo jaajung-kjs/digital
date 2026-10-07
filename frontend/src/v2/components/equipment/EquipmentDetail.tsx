@@ -39,12 +39,12 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock }
   /* 슬롯 카드는 데이터가 있을 때만 선다(차단기와 같은 어법) — 품목으로 가르지 않는다. */
   const hasSlots = slotEnds.length > 0 || eq?.panelCount != null;
 
-  if (!eq) return <ViewCard><EmptyState title="고른 설비가 없습니다" /></ViewCard>;
+  if (!eq) return <ViewCard><EmptyState title="선택된 설비가 없습니다" /></ViewCard>;
 
   async function remove() {
     const s = workingCopyStore.getState();
     const links = expandDeletes(toModelState(s, catalog?.cableTypes), { equipment: [equipmentId] }).links.length;
-    const message = links > 0 ? `이 설비와 닿은 연결 ${links}건이 함께 지워집니다.` : '저장 전에는 되돌릴 수 있습니다.';
+    const message = links > 0 ? `이 설비의 연결 ${links}건이 함께 삭제됩니다.` : '저장 전에는 실행 취소할 수 있습니다.';
     if (!(await confirm({ title: '설비 삭제', target: eq!.name, message, confirmLabel: '삭제', danger: true }))) return;
     deleteRows({ equipment: [equipmentId] });
     onDeleted();

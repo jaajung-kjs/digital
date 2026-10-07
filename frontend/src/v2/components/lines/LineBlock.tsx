@@ -162,7 +162,7 @@ export function LineBlock({
                           ? <button type="button" className={cn('min-w-0 flex-1 truncate text-left hover:text-primary hover:underline', nearEq === selectedEquipmentId && 'font-medium text-primary')} title={near} onClick={() => onSelectEquipment(nearEq)}>{near}</button>
                           : <span className="min-w-0 flex-1 truncate" title={near}>{near}</span>}
                         <IconButton
-                          size="sm" tone="danger" aria-label="연결 지우기" title="연결 지우기"
+                          size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제"
                           className={cn('shrink-0', HOVER_REVEAL)}
                           onClick={() => onUnlink(r.nearLinkId!, near)}
                         >
@@ -174,7 +174,7 @@ export function LineBlock({
                         {/* 빈 칸은 대국 칸과 같은 「—」 — 빈 모양은 하나다. */}
                         <span className="min-w-0 flex-1 text-content-faint">{EMPTY}</span>
                         <span className={cn('shrink-0', HOVER_REVEAL)}>
-                          <Button variant="secondary" size="xs" onClick={() => onConnect({ kind: 'core', lineId: block.lineId, no: r.no, side: block.side })}>잇기</Button>
+                          <Button variant="secondary" size="xs" onClick={() => onConnect({ kind: 'core', lineId: block.lineId, no: r.no, side: block.side })}>연결</Button>
                         </span>
                       </>
                     )}
@@ -197,7 +197,7 @@ export function LineBlock({
                 </Td>
                 {(() => {
                   /* 상대 끝 용도는 참고일 뿐 — 칸의 title 에만 선다(고치는 것은 이 끝의 용도). */
-                  const peer = r.peerPurpose ? `상대 끝 용도: ${r.peerPurpose}` : undefined;
+                  const peer = r.peerPurpose ? `대국 측 용도: ${r.peerPurpose}` : undefined;
                   return (
                     <Td data-col="purpose" title={peer}>
                       {text(r, purposeField, r.purpose, '용도', bad, [r.purpose, peer].filter(Boolean).join('\n') || undefined)}
@@ -207,7 +207,7 @@ export function LineBlock({
                 <Td data-col="note">{text(r, noteField, r.note, '비고', bad)}</Td>
                 <Td align="right" data-col="loss1310">{num(m?.loss1310 ?? null)}</Td>
                 <Td align="right" data-col="loss1550">{num(m?.loss1550 ?? null)}</Td>
-                <Td align="right" data-col="dist" title={distFrom1310 ? '1550 측정이 없어 1310 거리' : undefined}>
+                <Td align="right" data-col="dist" title={distFrom1310 ? '1550 측정값이 없어 1310 거리 표시' : undefined}>
                   {num(dist)}
                   {distFrom1310 && <span className="ml-1 text-xs text-content-faint">(1310)</span>}
                 </Td>

@@ -50,7 +50,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
     const ok = await confirm({
       title: '조직 삭제',
       target: node.text,
-      message: '하위 항목이 있으면 서버가 거부합니다.',
+      message: '하위 항목이 있으면 삭제할 수 없습니다.',
       confirmLabel: '삭제',
       danger: true,
     });
@@ -81,13 +81,13 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
           return createMut
             .mutateAsync({ kind, body: { name: name!, ...(field && parentId ? { [field]: parentId } : {}) } })
             .then(() => undefined)
-            .catch((err: unknown) => { throw new Error(apiErrorMessage(err, '만들지 못했습니다')); });
+            .catch((err: unknown) => { throw new Error(apiErrorMessage(err, '추가하지 못했습니다')); });
         }}
         onRename={(node, name) =>
           renameMut
             .mutateAsync({ kind: KINDS[node.depth]!.key, id: node.id, name })
             .then(() => undefined)
-            .catch((err: unknown) => { throw new Error(apiErrorMessage(err, '이름을 바꾸지 못했습니다')); })
+            .catch((err: unknown) => { throw new Error(apiErrorMessage(err, '이름을 변경하지 못했습니다')); })
         }
         onRemove={(node) => void remove(node)}
         /* 끌어서 순서를 바꾼다 — 화면이 본 순서를 그대로 번호로 적는다. */

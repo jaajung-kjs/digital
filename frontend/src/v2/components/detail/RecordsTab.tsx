@@ -157,7 +157,7 @@ export function RecordsTab({
     const label = [formatDate(fieldOf(record, dateField)), record.content]
       .filter(Boolean)
       .join(' · ');
-    if (!(await confirm({ title: '기록 삭제', target: label, message: '저장 전에는 되돌릴 수 있습니다.', confirmLabel: '삭제', danger: true }))) return;
+    if (!(await confirm({ title: '기록 삭제', target: label, message: '저장 전에는 실행 취소할 수 있습니다.', confirmLabel: '삭제', danger: true }))) return;
     stageDelete(record.id);
     if (editState?.id === record.id) setEditState(null);
   }

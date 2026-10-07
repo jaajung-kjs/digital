@@ -111,7 +111,7 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
   const count = positiveInt(coreCount);
   const countIssue = count === null || Number.isNaN(count) || count > MAX_CORES ? `코어 수는 1–${MAX_CORES} 사이의 정수입니다` : null;
   const lengthKm = length.trim() === '' ? null : Number(length);
-  const lengthIssue = lengthKm !== null && !(Number.isFinite(lengthKm) && lengthKm >= 0) ? '긍장은 0 이상의 수입니다' : null;
+  const lengthIssue = lengthKm !== null && !(Number.isFinite(lengthKm) && lengthKm >= 0) ? '긍장은 0 이상의 숫자입니다' : null;
   const endIssues = (e: EndDraft) => ({
     panel: Number.isNaN(positiveInt(e.panel)) ? '슬롯은 1 이상의 정수입니다' : null,
     startNo: positiveInt(e.startNo) === null || Number.isNaN(positiveInt(e.startNo)) ? '시작번호는 1 이상의 정수입니다' : null,
@@ -161,10 +161,10 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
     if (!line) return;
     const n = lineDeleteSummary(line.id);
     const ask = await confirm({
-      title: '광선로 지우기',
+      title: '광선로 삭제',
       target: line.name ?? `${line.aSubstationName} ↔ ${line.bSubstationName}`,
-      message: `함께 지워집니다 — 코어 ${n.cores} · 측정 ${n.measurements} · 연결 ${n.links}`,
-      confirmLabel: '지우기',
+      message: `함께 삭제됩니다 — 코어 ${n.cores} · 측정 ${n.measurements} · 연결 ${n.links}`,
+      confirmLabel: '삭제',
       danger: true,
     });
     if (!ask) return;
@@ -174,20 +174,20 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
   }
 
   const endCard = (side: 'near' | 'far', sid: string, e: EndDraft, set: (e: EndDraft) => void, issues: ReturnType<typeof endIssues>) => {
-    const who = side === 'near' ? '이쪽' : '상대';
+    const who = side === 'near' ? '자국 측' : '대국 측';
     const waiting = side === 'far' && peerLoading;
     const failed = side === 'far' ? peerError : null;
     const retry = () => void workingCopyStore.getState().ensureLoaded(sid);
     const list = sid && !waiting ? equipmentOf(sid, e.equipmentId) : [];
     return (
       <DetailCard>
-        <DetailCardHeader title={`${who} 끝${sid ? ` · ${nameOf(sid)}` : ''}`} />
+        <DetailCardHeader title={`${who} 단자${sid ? ` · ${nameOf(sid)}` : ''}`} />
         <DetailRow label="단자 설비">
           <Select
             size="sm" aria-label={`${who} 단자 설비`} value={waiting ? '' : e.equipmentId} disabled={!sid || waiting || !!failed}
             onChange={(ev) => set({ ...e, equipmentId: ev.currentTarget.value })}
           >
-            {waiting ? <option value="">불러오는 중…</option> : <option value="">{sid ? '단자 미지정' : '상대국을 먼저 고르세요'}</option>}
+            {waiting ? <option value="">불러오는 중…</option> : <option value="">{sid ? '단자 미지정' : '상대국을 먼저 선택하세요'}</option>}
             {list.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </Select>
           {failed && (
@@ -214,7 +214,7 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
       open onClose={onClose} size="lg" title={line ? '광선로 편집' : '광선로 추가'}
       footer={
         <>
-          {line && <Button variant="secondary" tone="danger" className="mr-auto" onClick={() => void remove()}>광선로 지우기</Button>}
+          {line && <Button variant="secondary" tone="danger" className="mr-auto" onClick={() => void remove()}>광선로 삭제</Button>}
           <Button variant="secondary" onClick={onClose}>취소</Button>
           <Button disabled={!ok} onClick={submit}>{line ? '확인' : '추가'}</Button>
         </>
@@ -225,25 +225,25 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
         <DetailCard>
           <DetailCardHeader title="광선로" />
           {line ? (
-            <DetailRow label="상대국" hint="끝의 국은 바꿀 수 없습니다 — 바꾸려면 지우고 다시 추가하세요">
-              {nameOf(peerId) + (peerId === nearSid ? ' (같은 국 안)' : '')}
+            <DetailRow label="상대국" hint="상대국은 변경할 수 없습니다 — 변경하려면 삭제 후 다시 추가하세요">
+              {nameOf(peerId) + (peerId === nearSid ? ' (동일 변전소 내)' : '')}
             </DetailRow>
           ) : (
             <DetailRow label="상대국" required align="start" wide>
               <div className="space-y-1 py-1">
-                <TableSearch aria-label="상대국 검색" className="w-full" count="inside" placeholder="국 · 본부 · 지사 검색" value={query} onChange={setQuery} shown={shownSubs.length} total={substations.length} />
+                <TableSearch aria-label="상대국 검색" className="w-full" count="inside" placeholder="변전소 · 본부 · 지사 검색" value={query} onChange={setQuery} shown={shownSubs.length} total={substations.length} />
                 <InsetBox className="max-h-40 overflow-y-auto p-1">
                   {shownSubs.map((x) => (
                     <ListRow
                       key={x.id} aria-current={x.id === peerId ? 'true' : undefined} className={x.id === peerId ? SELECTED : undefined}
-                      trailing={x.id === substationId ? '같은 국 안' : x.where}
+                      trailing={x.id === substationId ? '동일 변전소 내' : x.where}
                       /* 국을 바꾸면 상대 끝 칸은 처음부터 — 앞 국의 단자 설비가 새 국 끝에 남으면 남의 국 설비를 가리킨다. */
                       onClick={() => { if (x.id !== peerId) { setPeerId(x.id); setFarEnd(BLANK_END); } }}
                     >
                       {x.name}
                     </ListRow>
                   ))}
-                  {shownSubs.length === 0 && <ListRow>찾는 국이 없습니다</ListRow>}
+                  {shownSubs.length === 0 && <ListRow>검색 결과가 없습니다</ListRow>}
                 </InsetBox>
               </div>
             </DetailRow>

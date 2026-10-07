@@ -63,7 +63,7 @@ describe('PhotoCard', () => {
     render(<PhotoCard equipmentId="a-1" />);
 
     /* 설명도 **누를 때** 상자가 된다 — 표 칸과 같은 어법(`InlineEditCell`). */
-    fireEvent.click(screen.getByRole('button', { name: '설명 고치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '설명 수정' }));
     const captionInput = screen.getByRole('textbox') as HTMLInputElement;
     fireEvent.change(captionInput, { target: { value: '정면 사진' } });
     fireEvent.blur(captionInput);

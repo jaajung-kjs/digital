@@ -23,7 +23,7 @@ describe('랙 추가', () => {
     render(<AddRackDialog substationId="S1" open onClose={vi.fn()} onCreated={onCreated} />);
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: 'UPS#1' } });
     fireEvent.change(screen.getByLabelText('랙 품목'), { target: { value: 'rt' } });
-    fireEvent.click(screen.getByLabelText('같은 이름의 설비 함께 만들기'));
+    fireEvent.click(screen.getByLabelText('같은 이름의 설비 함께 등록'));
     fireEvent.change(screen.getByLabelText('설비 품목'), { target: { value: 'et' } });
     fireEvent.click(screen.getByRole('button', { name: '추가' }));
     const o = store.getState().overlays;

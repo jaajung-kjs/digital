@@ -323,7 +323,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
       <div className="flex min-h-0 flex-1 flex-col">
         <EmptyState
           title="이 변전소에는 층이 없습니다"
-          description="층을 만들면 그 위에 랙을 놓을 수 있습니다."
+          description="층을 추가하면 랙을 배치할 수 있습니다."
           action={<Button size="sm" onClick={startAdd}>층 추가</Button>}
         />
         {floorPrompt}
@@ -344,23 +344,23 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
               {waiting.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </Select>
           </div>
-          {isArmed && <span className="text-xs text-content-muted">끌어서 자리 지정 · Esc 취소</span>}
+          {isArmed && <span className="text-xs text-content-muted">드래그하여 위치 지정 · Esc 취소</span>}
         </>
       ) : (
-        <span className="text-xs text-content-muted">모든 랙이 놓였습니다</span>
+        <span className="text-xs text-content-muted">모든 랙이 배치되었습니다</span>
       )}
       {selectedPlaced && (
         <>
           <span className="mx-1 h-4 w-px bg-line" aria-hidden />
           <IconButton
             size="sm"
-            aria-label={`정면 돌리기 (지금 ${selectedPlaced.facing ?? '없음'})`}
-            title={`정면 돌리기 — 지금 ${selectedPlaced.facing ?? '없음'}`}
+            aria-label={`정면 회전 (현재 ${selectedPlaced.facing ?? '없음'})`}
+            title={`정면 회전 — 현재 ${selectedPlaced.facing ?? '없음'}`}
             onClick={rotateFacing}
           >
             <RotateCw size={15} />
           </IconButton>
-          <Button size="sm" variant="ghost" onClick={takeOff}>도면에서 빼기</Button>
+          <Button size="sm" variant="ghost" onClick={takeOff}>배치 해제</Button>
         </>
       )}
     </div>
@@ -383,7 +383,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
         </IconButton>
         <button
           type="button"
-          title="놓인 랙에 맞추기"
+          title="배치된 랙에 맞추기"
           className="min-w-12 px-1 text-xs tabular-nums text-content hover:bg-surface-3"
           onClick={refit}
         >
@@ -418,8 +418,8 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="text-center text-xs text-content-faint">
                 {waiting.length > 0
-                  ? '아직 놓인 랙이 없습니다 — 위 「배치」에서 랙을 골라 그려 놓으세요'
-                  : '놓을 랙이 없습니다 — 현황에서 랙을 먼저 추가하세요'}
+                  ? '배치된 랙이 없습니다 — 상단 「배치」에서 랙을 선택하여 배치하세요'
+                  : '배치할 랙이 없습니다 — 현황에서 랙을 먼저 추가하세요'}
               </span>
             </div>
           )}

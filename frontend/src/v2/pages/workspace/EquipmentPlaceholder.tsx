@@ -9,7 +9,7 @@ export function EquipmentPlaceholder({ row }: { row: StatusRow | null }) {
   if (!row) {
     return (
       <ViewCard>
-        <EmptyState title="고른 설비가 없습니다" description="표나 도면에서 하나를 누르세요." />
+        <EmptyState title="선택된 설비가 없습니다" description="표 또는 도면에서 설비를 선택하세요." />
       </ViewCard>
     );
   }

@@ -101,7 +101,7 @@ export function InlineEditCell({
     return (
       <button
         type="button"
-        aria-label={`${label} 고치기`}
+        aria-label={`${label} 수정`}
         /* 줄맞춤은 **열이 정한다**(`Td align`) — 여기서 정하면 값이 있는 줄과 대시만 있는
            줄이 한 열에서 서로 다른 자리에 선다. 물려받기만 한다. */
         className={readCellClass(!!value, muted, wrap, type === 'number')}

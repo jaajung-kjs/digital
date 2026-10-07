@@ -50,8 +50,8 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
         nodes={[row({ id: 'hq', text: '강원본부' }), row({ id: 'br', text: '직할', depth: 1 })]} />,
     );
 
-    expect(screen.getByRole('button', { name: '강원본부 안에 새 전력지사' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '직할 안에 새 변전소' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '강원본부 하위 전력지사 추가' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '직할 하위 변전소 추가' })).toBeTruthy();
   });
 
   it('맨 아래 층에는 `+` 가 없다 — 그 안에 설 것이 없다', () => {
@@ -60,8 +60,8 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
         nodes={[row({ id: 'ss', text: '춘천S/S', depth: 2 })]} />,
     );
 
-    expect(screen.queryByRole('button', { name: /춘천S\/S 안에/ })).toBeNull();
-    expect(screen.getByRole('button', { name: '춘천S/S 이름 바꾸기' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /춘천S\/S 하위/ })).toBeNull();
+    expect(screen.getByRole('button', { name: '춘천S/S 이름 변경' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '춘천S/S 삭제' })).toBeTruthy();
   });
 
@@ -72,7 +72,7 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
         nodes={[row({ id: 'hq', text: '강원본부' })]} />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '강원본부 안에 새 전력지사' }));
+    fireEvent.click(screen.getByRole('button', { name: '강원본부 하위 전력지사 추가' }));
 
     const field = screen.getByLabelText('새 전력지사 이름') as HTMLInputElement;
     /* 그대로 Enter 해도 쓸 수 있는 이름이어야 한다(탐색기의 「untitled folder」). */
@@ -127,7 +127,7 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
         nodes={[row({ id: 'hq', text: '강원본부' })]} />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 바꾸기' }));
+    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 변경' }));
     const field = screen.getByLabelText('강원본부 이름');
     fireEvent.change(field, { target: { value: '중부본부' } });
     fireEvent.blur(field);
@@ -142,7 +142,7 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
         nodes={[row({ id: 'c1', text: '통신' })]} />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '통신 안에 새 장비 품목' }));
+    fireEvent.click(screen.getByRole('button', { name: '통신 하위 장비 품목 추가' }));
 
     expect(onCreate).toHaveBeenCalledWith({ level: 1, parentId: 'c1' });
     expect(screen.queryByLabelText('새 장비 품목 이름')).toBeNull();
@@ -155,11 +155,11 @@ describe('TreePanel — 무엇이 만들어지는지는 누른 자리가 정한�
         nodes={[row({ id: 'hq', text: '강원본부' })]} />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 바꾸기' }));
+    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 변경' }));
     fireEvent.keyDown(screen.getByLabelText('강원본부 이름'), { key: 'Enter' });
     expect(onRename).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 바꾸기' }));
+    fireEvent.click(screen.getByRole('button', { name: '강원본부 이름 변경' }));
     const field = screen.getByLabelText('강원본부 이름');
     fireEvent.change(field, { target: { value: '중부본부' } });
     fireEvent.keyDown(field, { key: 'Enter' });

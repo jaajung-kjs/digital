@@ -62,7 +62,7 @@ export function AddRackDialog({ substationId, open, onClose, onCreated }: Props)
             <RackTypeOptions types={catalog?.rackTypes ?? []} />
           </Select>
         </DetailRow>
-        <Toggle size="sm" aria-label="같은 이름의 설비 함께 만들기" label="같은 이름의 설비 함께 만들기" checked={withEquipment} onChange={setWithEquipment} />
+        <Toggle size="sm" aria-label="같은 이름의 설비 함께 등록" label="같은 이름의 설비 함께 등록" checked={withEquipment} onChange={setWithEquipment} />
         {withEquipment && (
           <DetailRow label="설비 품목">
             <Select size="sm" value={typeId} onChange={(e) => setTypeId(e.currentTarget.value)}>

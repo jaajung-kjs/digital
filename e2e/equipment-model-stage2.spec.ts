@@ -100,9 +100,9 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await editor.getByRole('button', { name: '차단기 추가' }).click();
   await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers + 1);
   await expect(editor.getByTestId(`circuit-row-${breakers + 1}`)).toHaveAttribute('aria-current', 'true');
-  await editor.getByRole('button', { name: `차단기 ${breakers + 1} 지우기` }).click();
+  await editor.getByRole('button', { name: `차단기 ${breakers + 1} 삭제` }).click();
   await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers);
-  await expect(editor.getByText('고친 내용은 위 「저장」을 눌러야 저장됩니다')).toBeVisible();
+  await expect(editor.getByText('수정한 내용은 상단 「저장」을 눌러야 반영됩니다')).toBeVisible();
   await editor.getByRole('button', { name: '완료' }).click();
   await expect(editor).toHaveCount(0);
   expect(await changeCount(page)).toBe(0);
@@ -133,14 +133,14 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
 
   // 5. 잇기 — 분전반 차단기 2, F-CV. 연결 목록은 두 줄: 상대 끝(진하게) · 케이블
   await detail(page).getByRole('tab', { name: '연결' }).click();
-  await detail(page).getByRole('button', { name: '잇기' }).click();
-  dialog = page.getByRole('dialog', { name: '잇기' });
-  await dialog.getByRole('textbox', { name: '반대쪽 끝 검색' }).fill('분전반');
+  await detail(page).getByRole('button', { name: '연결', exact: true }).click();
+  dialog = page.getByRole('dialog', { name: '연결 추가' });
+  await dialog.getByRole('textbox', { name: '상대 단자 검색' }).fill('분전반');
   const breaker2 = dialog.getByRole('button', { name: `${PANEL} 차단기 2`, exact: true });
   await breaker2.click();
   await expect(breaker2).toHaveAttribute('aria-selected', 'true');
   await dialog.getByRole('combobox', { name: '케이블 품목' }).selectOption({ label: 'F-CV 전력케이블' });
-  await dialog.getByRole('button', { name: '잇기', exact: true }).click();
+  await dialog.getByRole('button', { name: '연결', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const links = detail(page).getByRole('tabpanel', { name: '연결' });
   await expect(links.getByTestId('link-far')).toHaveText(`${PANEL} 차단기 2`);
@@ -167,7 +167,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await page.mouse.move(box.x + 140, box.y + 120, { steps: 10 });
   await page.mouse.up();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue('E2E랙');
-  await expect(detail(page).getByText('배치 안 됨')).toHaveCount(0);
+  await expect(detail(page).getByText('미배치')).toHaveCount(0);
   await expect(main(page).getByRole('combobox', { name: '배치할 랙' }).getByRole('option', { name: 'E2E랙' })).toHaveCount(0);
 
   // 8. 저장 → 새로고침 → 남아 있다
@@ -193,7 +193,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   //    분전반 차단기 2 는 다시 비었다 — 편집 창의 연결 칸에 「잇기」가 돌아온다
   await openEquipment(page, PANEL);
   editor = await openBreakers(page);
-  await expect(editor.getByTestId('circuit-row-2').getByRole('button', { name: '잇기' })).toBeVisible();
+  await expect(editor.getByTestId('circuit-row-2').getByRole('button', { name: '연결', exact: true })).toBeVisible();
   await editor.getByRole('button', { name: '완료' }).click();
 
   // 정리 — 빈 E2E랙도 지워 다시 돌릴 수 있게
@@ -211,13 +211,13 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   //     교류가 아닌 첫 차단기를 고쳐 저장하고, 원래 값으로 되돌려 다시 저장한다(다시 돌릴 수 있게).
   await openEquipment(page, PANEL);
   editor = await openBreakers(page);
-  const currents = editor.getByRole('button', { name: '갈래 고치기' });
+  const currents = editor.getByRole('button', { name: '전류 수정' });
   const texts = await currents.allInnerTexts();
   const idx = texts.findIndex((t) => t.trim() !== '교류');
   expect(idx).toBeGreaterThanOrEqual(0);
   const original = texts[idx]!.trim();
   await currents.nth(idx).click();
-  await editor.getByRole('combobox', { name: '갈래' }).selectOption({ label: '교류' });
+  await editor.getByRole('combobox', { name: '전류' }).selectOption({ label: '교류' });
   await expect(currents.nth(idx)).toHaveText('교류');
   expect(await changeCount(page)).toBe(1);
   await editor.getByRole('button', { name: '완료' }).click();
@@ -225,9 +225,9 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await page.reload();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
   editor = await openBreakers(page);
-  await expect(editor.getByRole('button', { name: '갈래 고치기' }).nth(idx)).toHaveText('교류');
-  await editor.getByRole('button', { name: '갈래 고치기' }).nth(idx).click();
-  await editor.getByRole('combobox', { name: '갈래' }).selectOption({ label: original });
+  await expect(editor.getByRole('button', { name: '전류 수정' }).nth(idx)).toHaveText('교류');
+  await editor.getByRole('button', { name: '전류 수정' }).nth(idx).click();
+  await editor.getByRole('combobox', { name: '전류' }).selectOption({ label: original });
   await editor.getByRole('button', { name: '완료' }).click();
   await save(page);
 
@@ -245,5 +245,5 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
 
   // 12. 기준정보 — 노임단가 · 제비율 · 올린 기록 탭
   await nav.getByRole('button', { name: '기준정보' }).click();
-  await expect(page.getByRole('tab')).toHaveText(['노임단가', '제비율', '올린 기록']);
+  await expect(page.getByRole('tab')).toHaveText(['노임단가', '제비율', '등록 이력']);
 });

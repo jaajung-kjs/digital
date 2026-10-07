@@ -66,7 +66,7 @@ export function WageRatesView({ onError }: { onError: (m: string) => void }) {
         title="노임단가"
         accept=".hwp"
         badge={wage?.latestDate ?? null}
-        hint="건설업 임금실태조사 보고서(.hwp)를 올리면 직종 어휘와 노임단가가 채워집니다."
+        hint="건설업 임금실태조사 보고서(.hwp)를 업로드하면 직종과 노임단가가 등록됩니다."
         summary={wage && <>직종 {wage.rows.length}개</>}
         onPreview={previewWageStandard}
         onCommit={uploadWageStandard}
@@ -79,13 +79,13 @@ export function WageRatesView({ onError }: { onError: (m: string) => void }) {
                 {p.rows.length}개 · 기준일 {p.dates.join(' · ')}
               </span>
             </DetailRow>
-            <DetailRow label="채울 값">
-              <span className="text-sm text-content tabular-nums">{p.cellCount}칸</span>
+            <DetailRow label="반영할 값">
+              <span className="text-sm text-content tabular-nums">{p.cellCount}건</span>
             </DetailRow>
             {p.promote.length > 0 && (
               <DetailRow label="정리" align="start">
                 <span className="text-sm text-content">
-                  이름으로 적혀 있던 직종 {p.promote.length}건이 코드로 바뀝니다 —{' '}
+                  이름으로 등록된 직종 {p.promote.length}건이 코드로 변환됩니다 —{' '}
                   {p.promote.map((x) => `${x.from}(${x.count})`).join(', ')}
                 </span>
               </DetailRow>
@@ -118,7 +118,7 @@ export function OverheadRatesView({ onError }: { onError: (m: string) => void })
         title="제비율"
         accept=".xlsx"
         badge={overhead?.effective ?? null}
-        hint="조달청 「간접공사비 적용기준」(.xlsx)을 올리면 간접노무비·경비·일반관리비·이윤이 채워집니다."
+        hint="조달청 「간접공사비 적용기준」(.xlsx)을 업로드하면 간접노무비·경비·일반관리비·이윤이 등록됩니다."
         summary={overhead && <>{overhead.kind}</>}
         onPreview={previewOverheadStandard}
         onCommit={uploadOverheadStandard}
@@ -264,7 +264,7 @@ function StandardCard<P extends { sourceName: string; effective: string }>({
       {preview && (
         <DetailCard>
           <DetailCardHeader
-            title={`${title} — 이 파일로 등록할까요?`}
+            title={`${title} — 이 파일로 등록하시겠습니까?`}
             badge={preview.data.effective}
             badgeStatus="info"
             actions={
@@ -293,16 +293,16 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
   const KIND_LABEL: Record<string, string> = { wage: '노임단가', overhead: '제비율' };
   return (
     <DetailCard>
-      <DetailCardHeader title="올린 기록" badge={String(rows.length)} badgeStatus="neutral" />
+      <DetailCardHeader title="등록 이력" badge={String(rows.length)} badgeStatus="neutral" />
       {/* 두 기준정보가 적용되는 단위가 다르다 — 상태 칸이 왜 다른지 여기서 한 번 말한다. */}
       <p className="text-xs text-content-faint">
-        제비율은 <b className="font-medium">올린 기록</b> 하나를 골라 적용합니다. 노임단가는 올린 값이 회차별로 쌓이고, 직종마다
-        가장 최근 값이 쓰입니다 — 고를 것이 없습니다.
+        제비율은 <b className="font-medium">등록 이력</b> 중 하나를 선택하여 적용합니다. 노임단가는 등록한 값이 회차별로 누적되며, 직종별로
+        가장 최근 값이 적용됩니다 — 별도로 선택하지 않습니다.
       </p>
       {rows.length === 0 ? (
         <EmptyState
-          title="올린 기준정보가 없습니다"
-          description="노임단가·제비율 탭의 「파일 선택」으로 올리세요."
+          title="등록된 기준정보가 없습니다"
+          description="노임단가·제비율 탭의 「파일 선택」으로 업로드하세요."
           className="py-6"
         />
       ) : (
@@ -311,7 +311,7 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
             <tr>
               <Th>파일</Th>
               <Th>적용시기</Th>
-              <Th>올린이</Th>
+              <Th>등록자</Th>
               <Th>상태</Th>
               <Th align="right">동작</Th>
             </tr>

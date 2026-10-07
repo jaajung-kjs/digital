@@ -28,7 +28,7 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
   const [blocked, setBlocked] = useState<string | null>(null);
   const { confirm, confirmDialog } = useConfirm();
 
-  if (!rack) return <ViewCard><EmptyState title="고른 랙이 없습니다" /></ViewCard>;
+  if (!rack) return <ViewCard><EmptyState title="선택된 랙이 없습니다" /></ViewCard>;
   const patch = (p: Partial<typeof rack>) => workingCopyStore.getState().update('racks', rackId, p);
 
   async function remove() {
@@ -36,13 +36,13 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
     const plan = expandDeletes(toModelState(workingCopyStore.getState(), catalog?.cableTypes), { racks: [rackId] });
     if (plan.blocked.length > 0) { setBlocked(plan.blocked.map((x) => x.reason).join(' / ')); return; }
     setBlocked(null);
-    if (!(await confirm({ title: '랙 삭제', target: rack!.name, message: '저장 전에는 되돌릴 수 있습니다.', confirmLabel: '삭제', danger: true }))) return;
+    if (!(await confirm({ title: '랙 삭제', target: rack!.name, message: '저장 전에는 실행 취소할 수 있습니다.', confirmLabel: '삭제', danger: true }))) return;
     const { blocked: b } = deleteRows({ racks: [rackId] });
     if (b.length > 0) { setBlocked(b.map((x) => x.reason).join(' / ')); return; }
     onDeleted();
   }
 
-  const place = rack.floorId == null ? '배치 안 됨' : `${saved.floors.find((f) => f.id === rack.floorId)?.name ?? '—'} (${rack.x ?? EMPTY}, ${rack.y ?? EMPTY})`;
+  const place = rack.floorId == null ? '미배치' : `${saved.floors.find((f) => f.id === rack.floorId)?.name ?? '—'} (${rack.x ?? EMPTY}, ${rack.y ?? EMPTY})`;
   return (
     <ViewCard title={rack.name} actions={<Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>} body="scroll">
       <div className="space-y-3">

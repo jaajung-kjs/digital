@@ -25,7 +25,7 @@ describe('SaveBar', () => {
     workingCopyStore.getState().update('racks', 'r1', { name: 'R2' } as never);
     render(<SaveBar onCommit={() => {}} isCommitting substationNames={[]} issue={null} />);
     expect(screen.getByRole('button', { name: '실행 취소 — 저장 중입니다' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '되돌리기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '변경 취소' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '저장 중…' })).toBeDisabled();
     fireEvent.keyDown(window, { key: 'z', metaKey: true });
     expect(workingCopyStore.getState().overlays.racks.creates.r1!.name).toBe('R2');
