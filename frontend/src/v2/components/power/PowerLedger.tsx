@@ -6,11 +6,11 @@ import type { Circuit } from '../../model/types';
 import { CircuitCell, type CircuitField } from '../equipment/CircuitCell';
 
 /**
- * 차단기 · 표기 · 교류/직류 · 전압 · 용량 · 상 · 개폐 · 부하 · 포트 · 전원케이블 · 길이 · 용도 — 현장 분전반 시트 차례.
- * 내용 폭이 정해진 열은 px, 글이 들쭉날쭉한 열(표기·부하·전원케이블·용도)은 남은 폭을 24 : 28 : 18 : 30 으로 나눈다 —
- * 1280 에서 부하·용도가 먼저 읽혀야 한다.
+ * 차단기 · 표기 · 교류/직류 · 전압 · 용량(값이 「50A」 같은 글이라 머리에 단위를 달지 않는다) · 상 · 개폐 · 부하 · 포트 · 전원케이블 · 길이 · 용도 — 현장 분전반 시트 차례.
+ * 내용 폭이 정해진 열은 px, 글이 들쭉날쭉한 열(표기·부하·전원케이블·용도)은 남은 폭을 28 : 28 : 24 : 20 으로 나눈다 —
+ * 1280(레일 닫힘)에서 「통합단말(PTP) AC」·「F-CV 전력케이블」이 다 읽혀야 한다. 빈 칸이 잦은 수 칸은 좁게 둔다.
  */
-const WIDTHS = ['60px', 24, '68px', '60px', '64px', '48px', '56px', 28, '64px', 18, '56px', 30] as const;
+const WIDTHS = ['56px', 28, '64px', '52px', '56px', '44px', '48px', 28, '64px', 24, '52px', 20] as const;
 const COLS = WIDTHS.length;
 /** 고정 머리의 바닥선은 그림자다(선번장 블록과 같은 까닭 — 겹친 테두리는 sticky 를 따라오지 않는다). */
 const HEAD = 'border-b-0 shadow-[inset_0_-1px_0_rgb(var(--border-2-rgb))]';
@@ -20,7 +20,7 @@ export interface LedgerHead {
   name: string;
   /** 차단기 수(거르기 전 전체). */
   count: number;
-  /** 입력 전원 — 「소내전원반 차단기 4」 여럿이면 차례대로. 비면 「입력 전원 미확인」. */
+  /** 입력 전원 메타 — 갈래별 「교류 입력: …」·「직류 입력: …」·「입력 전원: …」, 없으면 「입력 전원 미등록」. 보는 쪽이 짓는다. */
   feeds: string[];
 }
 
@@ -69,7 +69,7 @@ export function PowerLedger({
             aria-label={head.name}
             aria-current={focused ? 'true' : undefined}
             /* 표가 우선이다 — 상세 패널이 서서 판이 좁아지면 열을 짓누르지 않고 판이 가로로 구른다. */
-            className={cn('min-w-[880px] scroll-mt-4', focused && 'outline outline-2 outline-primary')}
+            className={cn('min-w-[840px] scroll-mt-4', focused && 'outline outline-2 outline-primary')}
           >
             <TableCard widths={WIDTHS}>
               <thead className="sticky top-0 z-sticky bg-surface-2">
@@ -81,7 +81,7 @@ export function PowerLedger({
                       <span className="font-normal text-content-muted">· 차단기 {head.count}</span>
                     </>
                   )}
-                  metas={[head.feeds.length > 0 ? `입력 전원: ${head.feeds.join(' · ')}` : { text: '입력 전원 미확인', tone: 'warning' }]}
+                  metas={head.feeds}
                   actions={(
                     <Button variant="secondary" size="xs" disabled={head.count >= MAX_CIRCUITS} onClick={() => onAddCircuit(n.equipmentId)}>차단기 추가</Button>
                   )}
@@ -90,8 +90,8 @@ export function PowerLedger({
                   <Th className={HEAD} align="right">차단기</Th>
                   <Th className={HEAD}>표기</Th>
                   <Th className={HEAD}>교류/직류</Th>
-                  <Th className={HEAD} unit="V">전압</Th>
-                  <Th className={HEAD} unit="A">용량</Th>
+                  <Th className={HEAD}>전압</Th>
+                  <Th className={HEAD}>용량</Th>
                   <Th className={HEAD}>상</Th>
                   <Th className={HEAD}>개폐</Th>
                   <Th className={HEAD}>부하</Th>

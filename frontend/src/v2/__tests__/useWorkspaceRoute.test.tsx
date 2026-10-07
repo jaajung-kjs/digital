@@ -82,6 +82,9 @@ describe('useWorkspaceRoute', () => {
     expect(result.current).toMatchObject({ supply: 'd1', eqId: 'd1', rackId: null, power: 'tree' });
     act(() => result.current.selectSupply(null));
     expect(result.current).toMatchObject({ supply: null, eqId: 'd1' });
+    act(() => result.current.selectSupply('d1'));
+    act(() => result.current.selectEquipment('x'));
+    expect(result.current).toMatchObject({ supply: null, eqId: 'x' });
     expect(at('/n/sub-1?view=전원 계통&power=zzz').result.current.power).toBe('ledger');
   });
 });

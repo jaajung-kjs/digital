@@ -154,7 +154,7 @@ describe('powerTree', () => {
     expect(dc.unfed).toEqual(['ac']);
   });
 
-  it('입력 전원 미확인·국 밖 입력·차단기끼리 연결', () => {
+  it('입력 전원 미등록·국 밖 입력·차단기끼리 연결', () => {
     const equipment = [
       eq('a', 2, '가반'),
       eq('b', 1, '나반'),
@@ -236,7 +236,7 @@ describe('powerLedger', () => {
   it('공급 설비마다 한 번, 이름 순 — 아래로 내려가지 않고 입력 전원·부하·케이블은 트리와 같다', () => {
     const { equipment, circuits, links } = fixture();
     const r = ledger(equipment, circuits, links);
-    expect(r.map((n) => n.equipmentId)).toEqual(['panel', 'dist', 'ups']) // ko 정렬 — 한글이 라틴보다 앞;
+    expect(r.map((n) => n.equipmentId)).toEqual(['panel', 'dist', 'ups']); // ko 정렬 — 한글이 라틴보다 앞
     const dist = r.find((n) => n.equipmentId === 'dist')!;
     expect(dist.feeds).toEqual([{ equipmentId: 'panel', circuitNo: 4, linkId: 'k1' }]);
     expect(dist.breakers.map((b) => b.no)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
@@ -259,7 +259,7 @@ describe('powerLedger', () => {
   it('거르기는 차단기 행에만 — 보일 차단기가 없는 설비도 빈 블록으로 남는다', () => {
     const { equipment, circuits, links } = fixture();
     const r = ledger(equipment, circuits, links, 'DC');
-    expect(r.map((n) => n.equipmentId)).toEqual(['panel', 'dist', 'ups']) // ko 정렬 — 한글이 라틴보다 앞;
+    expect(r.map((n) => n.equipmentId)).toEqual(['panel', 'dist', 'ups']); // ko 정렬 — 한글이 라틴보다 앞
     expect(r.find((n) => n.equipmentId === 'dist')!.breakers.map((b) => b.no)).toEqual([3]);
     expect(r.find((n) => n.equipmentId === 'panel')!.breakers).toEqual([]);
   });

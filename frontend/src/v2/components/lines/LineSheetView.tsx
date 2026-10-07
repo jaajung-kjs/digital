@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LinkEndRef, SheetBlock } from '@twin/core';
-import { Button, EmptyState, ErrorStrip, Select, TableSearch, ViewCard, useConfirm } from '../../../components/ui';
+import { Button, EmptyState, ErrorStrip, OverflowShade, Select, TableSearch, ViewCard, scrollBoxToTop, useConfirm, useOverflowShade } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
 import { equipmentName } from '../../model/store/effective';
@@ -113,28 +113,12 @@ export function LineSheetView({
   const focusKey = focus ? blockKey(focus) : null;
   useEffect(() => {
     if (!focusKey) return;
-    bodyRef.current?.querySelector<HTMLElement>('[data-testid="sheet-block"][aria-current="true"]')?.scrollIntoView?.({ block: 'start' });
+    /* 세로로만 — 가로로 넘친 판을 옆으로 밀지 않는다. */
+    scrollBoxToTop(bodyRef.current, bodyRef.current?.querySelector<HTMLElement>('[data-testid="sheet-block"][aria-current="true"]') ?? null);
   }, [focusKey]);
 
-  /* 판이 가로로 넘쳐 오른쪽이 가려져 있는가 — 상세 패널이 서서 좁아졌을 때. 가려진 쪽 가장자리에 그늘을 세운다. */
-  /* 그늘의 윗변은 머리 띠 높이를 외워 두지 않고 **스크롤 상자의 자리**에서 잰다(띠 높이가 바뀌어도 따라간다). */
-  const frameRef = useRef<HTMLDivElement>(null);
-  const [shadeTop, setShadeTop] = useState<number | null>(null);
-  useEffect(() => {
-    const box = bodyRef.current?.parentElement;
-    if (!box) return;
-    const check = () => {
-      const clipped = box.scrollLeft + box.clientWidth < box.scrollWidth - 1;
-      const frame = frameRef.current?.getBoundingClientRect().top ?? 0;
-      setShadeTop(clipped ? Math.round(box.getBoundingClientRect().top - frame) : null);
-    };
-    check();
-    box.addEventListener('scroll', check, { passive: true });
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check);
-    ro?.observe(box);
-    if (bodyRef.current) ro?.observe(bodyRef.current);
-    return () => { box.removeEventListener('scroll', check); ro?.disconnect(); };
-  }, []);
+  /* 판이 가로로 넘쳐 오른쪽이 가려져 있는가 — 상세 패널이 서서 좁아졌을 때(§1.7-e). */
+  const shade = useOverflowShade(bodyRef);
 
   /* 측정 입력은 거르기 전 블록(코어 전부)으로 — 검색이 줄을 좁혀도 입력 표는 1..N 이다. */
   const measuringBlock = measuring ? blocks.find((b) => blockKey(b) === blockKey(measuring)) ?? null : null;
@@ -149,7 +133,7 @@ export function LineSheetView({
   const addLine = <Button variant="secondary" size="sm" onClick={() => setDialog({})}>광선로 추가</Button>;
 
   return (
-    <div ref={frameRef} className="relative flex min-h-0 min-w-0 flex-1">
+    <div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1">
       <ViewCard
         body="scroll"
         bodyRef={bodyRef}
@@ -219,13 +203,7 @@ export function LineSheetView({
         {history && <CoreHistoryDialog lineId={history.lineId} no={history.no} side={history.side} onClose={() => setHistory(null)} />}
         {confirmDialog}
       </ViewCard>
-      {shadeTop != null && (
-        <div
-          aria-hidden data-testid="sheet-clip-shade"
-          className="pointer-events-none absolute bottom-px right-px w-4 bg-gradient-to-l from-content/15 to-transparent"
-          style={{ top: shadeTop }}
-        />
-      )}
+      <OverflowShade top={shade.top} />
     </div>
   );
 }

@@ -64,6 +64,8 @@ export function useWorkspaceRoute() {
         else p.delete(key);
         /* 설비와 랙은 하나만 고른다 — 새로 고르면 다른 쪽은 놓는다(한 번의 주소 쓰기). */
         if (value) p.delete(key === 'eq' ? 'rack' : 'eq');
+        /* 차단기 대장의 블록 초점은 그 블록을 고른 순간의 것 — 다른 것을 고르면 놓는다(옛 블록 테두리가 남지 않게). */
+        p.delete('supply');
         return p;
       }, { replace: true });
     },

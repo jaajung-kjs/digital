@@ -290,7 +290,7 @@
 
 상세 패널은 고른 것이 있을 때만 생기는 열이 아니라 **못 박힌 레일**이다(384px). 예전에는 고른 것이 있을 때만 열이 생겨, 표에서 한 줄 누를 때마다 표가 그만큼 좁아졌다 폈다 했다 — 이 앱에서 하는 일이 대부분 「골라서 본다」라 여닫이가 잦은데, 그때마다 열 너비가 다시 잡히고 눈이 따라간 자리가 어긋난다. 검사기 레일을 고정해 두는 것은 Figma·VS Code·Photoshop 이 같다.
 
-**예외 — 선번장.** 12열 코어 표가 판의 주인이라, 1280 에서 레일까지 세우면 이름 열이 읽히지 않는다. 선번장에서는 **고른 것이 있을 때만** 상세가 서고(자국 접속의 설비를 누르면 열린다), 그때 표는 짓눌리지 않고 가로로 구른다(블록 `min-w`) — 묶음 머리줄의 단추는 `sticky right-0` 으로 판 오른쪽에 남고, 넘친 쪽 가장자리에 옅은 그늘이 선다. 표가 우선이다.
+**예외 — 선번장·전원 계통.** 12열 코어 표·차단기 대장이 판의 주인이라, 1280 에서 레일까지 세우면 이름 열이 읽히지 않는다. 이 두 판에서는 **고른 것이 있을 때만** 상세가 서고(접속 설비·공급 설비를 누르면 열린다), 그때 표는 짓눌리지 않고 가로로 구른다(블록 `min-w`) — 묶음 머리줄의 단추는 `sticky right-0` 으로 판 오른쪽에 남고, 넘친 쪽 가장자리에 옅은 그늘이 선다(`useOverflowShade` + `OverflowShade`). 표가 우선이다.
 
 **자리는 화면이 정하고 내용은 패널이 채운다.** 패널이 제 폭·테두리를 들고 있으면 비었을 때 그 자리가 통째로 사라진다. 비었을 때는 같은 폭 안에 `EmptyState` 를 세운다.
 
@@ -377,7 +377,7 @@
 `Badge`, `Button`, `IconButton`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailGrid`,
 `ItemCard`, `ListRow`, `PanelHeader`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
 `Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `cn`, `controlSize`,
-`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`, `HOVER_REVEAL`.
+`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`, `HOVER_REVEAL`, `useOverflowShade`·`OverflowShade`·`scrollBoxToTop`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -568,7 +568,6 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
   <tr>{/* 열 머리 */}</tr>
 </thead>
 ```
-메타 하나가 눈길을 끌어야 하는 사실이면(차단기 대장의 「입력 전원 미확인」) `{ text, tone: 'warning' }` 로 준다 — 손으로 칸을 짜지 않는다.
 `TableGroupHeadButton variant="link"` 은 **다른 곳으로 가는** 이름(밑줄·강조색 — 선번장 접속 설비 이름 → 그 설비 상세), `plain` 은 제자리에서 그 묶음을 고르는 글자다.
 
 ### 표의 열은 어휘·선언에서 나온다 — 화면이 키를 알지 않는다
@@ -581,6 +580,14 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 랙 품목·설비 품목·케이블 품목이 같은 다섯 칸을 쓴다(`LaborSpec` — 노무유형·자재단가·신설·철거·이설 공량, 케이블은 m당). 칸이 늘거나 줄면 그 선언 하나만 고친다 — 품목 표와 설계서가 함께 따라온다.
 
 - **null = 안 적었다, 0 = 품이 안 든다.** 둘을 구별해야 하므로 nullable 이다. 빈 칸은 화면에서도 빈 칸으로 남는다 — 0 을 채워 넣지 않는다.
+
+### 넓은 표가 판을 가로로 넘칠 때 → `useOverflowShade` · `OverflowShade`
+상세 레일이 서서 판이 좁아지면 묶음 표(선번장·차단기 대장)는 짓눌리지 않고 가로로 구른다(§1.7-e 예외). 가려진 오른쪽 가장자리에 그늘을 세워 「열이 더 있다」를 말한다 — 판마다 손으로 재지 않는다.
+```tsx
+const shade = useOverflowShade(bodyRef); // ViewCard 의 bodyRef
+<div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1"><ViewCard bodyRef={bodyRef} …/><OverflowShade top={shade.top} /></div>
+```
+블록 초점으로 굴릴 때는 `scrollBoxToTop(bodyRef.current, el)` — **세로로만** 굴린다. `scrollIntoView` 는 가로로 넘친 판까지 옆으로 밀어 보던 열을 옮긴다.
 
 ### 표 위 검색 상자 → `TableSearch`
 `src/components/ui/TableSearch.tsx` — 현황·선번장·계통이 같은 검색 헤더를 쓴다. 상자와 `N / M건` 표시를 맡고, **무엇으로 거를지는 호출부**가 정한다(열 구성이 표마다 다르다). 검색 중 결과가 비면 빈 상태 문구도 검색어를 되짚어 준다 — "검색이 잘못됐나" 와 "원래 없다" 가 구분되지 않으면 같은 검색을 반복하게 된다. 상자 폭은 `className`(배치용, 기본 `w-64`)으로만 줄인다 — 현황처럼 머리 띠가 한 줄에 다 들어가야 하는 좁은 판(1280px)에서만.

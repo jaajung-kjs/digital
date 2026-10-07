@@ -62,3 +62,4 @@ export { CollapsibleRail } from './CollapsibleRail';
 export type { CollapsibleRailProps } from './CollapsibleRail';
 export { HOVER_REVEAL } from './hoverReveal';
 export { TableGroupHead, TableGroupHeadButton } from './TableGroupHead';
+export { OverflowShade, scrollBoxToTop, useOverflowShade } from './OverflowShade';

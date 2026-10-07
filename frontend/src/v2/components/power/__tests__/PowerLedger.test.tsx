@@ -71,15 +71,35 @@ describe('전원 계통 — 차단기 대장', () => {
     expect(screen.getByRole('radio', { name: '차단기 대장' })).toBeChecked();
   });
 
-  it('블록 = 차단기가 있는 설비, 이름 순 — 머리에 차단기 수와 입력 전원(없으면 「입력 전원 미확인」)', () => {
+  it('블록 = 차단기가 있는 설비, 이름 순 — 머리에 차단기 수와 갈래별 입력 전원(없으면 흐린 「입력 전원 미등록」)', () => {
     renderPower();
     expect(blocks().map((b) => b.dataset.equipment)).toEqual(['panel', 'dist']);
     const distHead = within(blockOf('dist')).getByTestId('ledger-block-head');
     expect(distHead).toHaveTextContent('통신용 분전반');
     expect(distHead).toHaveTextContent('차단기 3');
-    expect(distHead).toHaveTextContent('입력 전원: 소내전원반 차단기 4');
+    expect(distHead).toHaveTextContent('교류 입력: 소내전원반 차단기 4');
     const panelHead = within(blockOf('panel')).getByTestId('ledger-block-head');
-    expect(within(panelHead).getByText('입력 전원 미확인')).toHaveClass('text-warning');
+    const unfed = within(panelHead).getByText('입력 전원 미등록');
+    expect(unfed).toHaveClass('text-content-muted');
+    expect(unfed).not.toHaveClass('text-warning');
+  });
+
+  it('입력 전원은 받는 차단기의 갈래로 묶고, 교류/직류 보기에서는 그 갈래만', () => {
+    const s = store.getState();
+    s.update('equipment', 'chg', { circuitCount: 1 });
+    s.create('links', link('k3', { kind: 'circuit', equipmentId: 'chg', no: 1 }, { kind: 'equipment', equipmentId: 'dist', label: 'DC IN' }));
+    s.create('equipment', eq('ups', 'UPS', 1));
+    s.create('links', link('k4', { kind: 'circuit', equipmentId: 'ups', no: 1 }, { kind: 'equipment', equipmentId: 'dist' }));
+    s.updateCircuit('chg', 1, { current: 'DC' });
+    renderPower();
+    const head = () => within(blockOf('dist')).getByTestId('ledger-block-head');
+    expect(head()).toHaveTextContent('교류 입력: 소내전원반 차단기 4');
+    expect(head()).toHaveTextContent('직류 입력: 충전기 차단기 1');
+    expect(head()).toHaveTextContent('입력 전원: UPS 차단기 1');
+    fireEvent.change(screen.getByRole('combobox', { name: '교류/직류' }), { target: { value: 'DC' } });
+    expect(head()).toHaveTextContent('직류 입력: 충전기 차단기 1');
+    expect(head()).not.toHaveTextContent('교류 입력');
+    expect(head()).not.toHaveTextContent('UPS 차단기 1');
   });
 
   it('부하 · 포트 · 전원케이블 · 길이는 그 연결의 값', () => {
@@ -103,6 +123,14 @@ describe('전원 계통 — 차단기 대장', () => {
     renderPower();
     fireEvent.click(within(cell(rowOf('dist', 1), 'load')).getByRole('button', { name: '충전기' }));
     expect(screen.getByTestId('loc')).toHaveTextContent('eq=chg');
+  });
+
+  it('블록을 고른 뒤 다른 설비를 고르면 블록 초점(supply)은 놓는다', () => {
+    renderPower('/n/S1?view=전원 계통&supply=dist&eq=dist');
+    expect(blockOf('dist')).toHaveAttribute('aria-current', 'true');
+    fireEvent.click(within(cell(rowOf('dist', 1), 'load')).getByRole('button', { name: '충전기' }));
+    expect(screen.getByTestId('loc')).not.toHaveTextContent('supply=');
+    expect(blockOf('dist')).not.toHaveAttribute('aria-current');
   });
 
   it('머리의 설비 이름을 누르면 그 설비를 고르고 블록에 초점(supply)', () => {
