@@ -145,7 +145,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await expect(cell(slot3, 11, 'loss1550')).toHaveText('-1.75');
   await expect(cell(slot3, 11, 'dist')).toHaveText('8.35'); // 1550 거리가 있으면 그것
   await expect(cell(slot3, 12, 'loss1310')).toHaveText('-2.61');
-  await expect(cell(slot3, 12, 'dist')).toHaveText('8.34'); // 없으면 1310 거리
+  await expect(cell(slot3, 12, 'dist')).toHaveText('8.34(1310)'); // 1550 이 없으면 1310 거리 — 물러섰다고 적는다
   await expect(cell(slot3, 11, 'measuredOn')).not.toHaveText('—');
   await expect(cell(slot3, 13, 'measuredOn')).toHaveText('—'); // 빈 줄은 측정이 없다
   await expect.poll(() => changeCount(page)).toBe(2);
@@ -228,6 +228,17 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await expect(focused).toBeInViewport();
   await expect(detail(page)).toHaveCount(0);
   await expect(page).not.toHaveURL(/[?&]eq=/);
+  //    되돌아가는 길 둘 — 뒤로 가기는 떠나 온 OFD 상세로, 블록 머리의 단자 이름도 그 설비 상세로(현황)
+  await page.goBack();
+  await expect(main(page).getByRole('tab', { name: '현황' })).toHaveAttribute('aria-selected', 'true');
+  await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue('OFD');
+  await page.goForward();
+  await expect(focused.getByTestId('sheet-block-head')).toContainText(SLOT3_LINE);
+  await focused.getByTestId('sheet-block-head').getByRole('button', { name: 'OFD', exact: true }).click();
+  await expect(main(page).getByRole('tab', { name: '현황' })).toHaveAttribute('aria-selected', 'true');
+  await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue('OFD');
+  await page.goBack();
+  await expect(main(page).getByRole('tab', { name: '선번장' })).toHaveAttribute('aria-selected', 'true');
 
 
   // 9. 정리 — 코어 11 연결·코어 11·12 측정을 걷고 저장
