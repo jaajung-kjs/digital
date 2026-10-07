@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { endRefKey, isLinkMedium, validateState, type LinkEndRef } from '@twin/core';
-import { Button, DetailRow, ErrorStrip, InsetBox, Input, ListHeading, ListRow, Modal, SELECTED, Select, TableSearch } from '../../../components/ui';
+import { CORE_STATUSES, DEFAULT_CORE_STATUS, endRefKey, isLinkMedium, validateState, type LinkEndRef } from '@twin/core';
+import { Button, DetailRow, ErrorStrip, InsetBox, Input, ListHeading, ListRow, MessageStrip, Modal, SELECTED, Select, TableSearch } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
-import { toModelState } from '../../model/store/effective';
+import { effectiveCores, toModelState } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Link } from '../../model/types';
 import { newId } from '../../newId';
@@ -25,6 +25,13 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
   const [fromLabel, setFromLabel] = useState('');
   const [toLabel, setToLabel] = useState('');
   const draftId = useRef(newId());
+  /** 이쪽 끝이 정상이 아닌 코어면 그 상태의 말(단선·사용불가) — 막지 않고 알린다. */
+  const fromCoreBad = useMemo(() => {
+    if (from.kind !== 'core') return null;
+    const status = effectiveCores({ saved, overlays }, from.lineId).find((c) => c.no === from.no)?.status;
+    if (!status || status === DEFAULT_CORE_STATUS) return null;
+    return CORE_STATUSES.find((c) => c.value === status)?.label ?? status;
+  }, [from, saved, overlays]);
   useEffect(() => {
     if (open) return;
     setQuery(''); setPick(null); setCableTypeId(''); setLength(''); setFromLabel(''); setToLabel('');
@@ -76,6 +83,8 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
     >
       <div className="space-y-2">
         <p className="text-xs text-content-muted">{`이쪽 끝 ${endLabel({ saved, overlays }, from)}`}</p>
+        {/* 단선·사용불가 코어에 잇는 것은 막지 않는다(우회 결선·기록 정리일 수 있다) — 알고 하게 할 뿐이다. */}
+        {fromCoreBad && <MessageStrip tone="warning">{`이 코어는 ${fromCoreBad} 상태입니다`}</MessageStrip>}
         <TableSearch aria-label="반대쪽 끝 검색" className="w-full" count="inside" placeholder="설비 · 차단기 · 코어 검색" value={query} onChange={setQuery} shown={shown.length} total={options.length} />
         <InsetBox className="max-h-56 overflow-y-auto p-1">
           {GROUPS.map((g) => {

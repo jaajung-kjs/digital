@@ -50,4 +50,18 @@ describe('잇기 대화상자', () => {
     fireEvent.click(screen.getByText('분전반'));
     expect(screen.getByText('분전반')).toHaveAttribute('aria-selected', 'true');
   });
+
+  it('이쪽 끝이 단선·사용불가 코어면 알리기만 한다 — 정상이면 아무 말도 없다', () => {
+    store.getState().create('fiberLines', {
+      id: 'L', cableTypeId: 'opgw', coreCount: 2, name: '광선로', lengthKm: null, segments: [],
+      aSubstationId: 'S1', aEquipmentId: null, aPanel: null, aStartNo: 1, bSubstationId: 'S2', bEquipmentId: null, bPanel: null, bStartNo: 1,
+      aSubstationName: '북춘천', bSubstationName: '춘천', updatedAt: '',
+    });
+    store.getState().updateCore('L', 1, { status: 'broken' });
+    const { unmount } = render(<ConnectDialog substationId="S1" from={{ kind: 'core', lineId: 'L', no: 1, side: 'A' }} open onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect(screen.getByText('이 코어는 단선 상태입니다')).toBeInTheDocument();
+    unmount();
+    render(<ConnectDialog substationId="S1" from={{ kind: 'core', lineId: 'L', no: 2, side: 'A' }} open onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect(screen.queryByText(/이 코어는/)).toBeNull();
+  });
 });
