@@ -266,3 +266,60 @@ describe('제자리로 돌아온 고치기는 걷힌다', () => {
     expect(store.getState().overlays.equipment.updates).toEqual({ ote: { note: '메모' } });
   });
 });
+
+describe('코어 고치기 — 제자리로 돌아오면 걷히고, 저장에 안 실릴 것은 세지 않는다', () => {
+  const lineWith = () => ({
+    id: 'L', cableTypeId: 'opgw', coreCount: 2, name: null, lengthKm: null, segments: [],
+    aSubstationId: 'S1', aEquipmentId: null, aPanel: null, aStartNo: 1,
+    bSubstationId: 'S2', bEquipmentId: null, bPanel: null, bStartNo: 1,
+    aSubstationName: '북춘천', bSubstationName: '춘천HP', updatedAt: 'l1',
+    cores: [{ lineId: 'L', no: 1, status: 'ok', role: 'main', aPurpose: 'PTP', aNote: null, bPurpose: null, bNote: null, updatedAt: 'c1', measurements: [] }],
+  });
+
+  it('저장된 값으로 되돌린 칸은 걷히고, 다 걷히면 그 코어의 고치기가 사라진다(변경 0건)', async () => {
+    wcOf.S1.fiberLines = [lineWith()] as never;
+    await store.getState().ensureLoaded('S1');
+    const s = store.getState();
+    s.updateCore('L', 1, { aPurpose: '바꿈', aNote: '메모' });
+    expect(store.getState().dirtyCount()).toBe(1);
+    s.updateCore('L', 1, { aPurpose: 'PTP' });
+    expect(store.getState().overlays.cores).toEqual({ 'core:L:1': { aNote: '메모' } });
+    s.updateCore('L', 1, { aNote: null });
+    expect(store.getState().overlays.cores).toEqual({});
+    expect(store.getState().dirtyCount()).toBe(0);
+  });
+
+  it('저장된 행이 없는 코어는 빈 코어가 기준 — 상태를 바꿨다 정상으로 돌리면 걷힌다', async () => {
+    wcOf.S1.fiberLines = [lineWith()] as never;
+    await store.getState().ensureLoaded('S1');
+    store.getState().updateCore('L', 2, { status: 'broken' });
+    expect(store.getState().dirtyCount()).toBe(1);
+    store.getState().updateCore('L', 2, { status: 'ok' });
+    expect(store.getState().dirtyCount()).toBe(0);
+  });
+
+  it('지우기로 한 광선로의 코어 고치기는 세지 않는다 — 되돌리면 다시 센다', async () => {
+    wcOf.S1.fiberLines = [lineWith()] as never;
+    await store.getState().ensureLoaded('S1');
+    store.temporal.getState().clear();
+    store.getState().updateCore('L', 1, { aNote: '메모' });
+    expect(store.getState().dirtyCount()).toBe(1);
+    expect(deleteRows({ fiberLines: ['L'] })).toEqual({ blocked: [] });
+    /* 광선로 지우기 1건만 — 사라질 코어 값은 저장에 실리지 않으므로 세지 않는다. */
+    expect(store.getState().dirtyCount()).toBe(1);
+    expect(buildCommitPayload(store.getState()).cores).toBeUndefined();
+    store.temporal.getState().undo();
+    expect(store.getState().dirtyCount()).toBe(1);
+    expect(store.getState().overlays.cores['core:L:1']).toEqual({ aNote: '메모' });
+  });
+
+  it('지우기로 한 설비의 차단기 고치기도 세지 않는다', async () => {
+    await store.getState().ensureLoaded('S1');
+    store.getState().updateCircuit('pnl', 2, { label: 'CB2' });
+    expect(store.getState().dirtyCount()).toBe(1);
+    deleteRows({ equipment: ['pnl'] });
+    const o = store.getState().overlays;
+    /* 설비 지우기 + 그 차단기에 닿은 연결 지우기 — 차단기 값은 세지 않는다. */
+    expect(store.getState().dirtyCount()).toBe(o.equipment.deletes.length + o.links.deletes.length);
+  });
+});

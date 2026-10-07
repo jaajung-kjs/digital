@@ -1,10 +1,11 @@
-import { circuitKey, coreKey } from '@twin/core';
+import { DEFAULT_CORE_STATUS, circuitKey, coreKey } from '@twin/core';
 import { temporal } from 'zundo';
 import { createStore, useStore } from 'zustand';
 import { shallow } from 'zustand/shallow';
 import { apiErrorMessage } from '../../apiError';
 import { emptyOverlay, overlayDirtyCount, stageCreate, stageDelete, stageUpdate, type Overlay } from '../../store/overlay';
 import { fetchWorkingcopy } from '../api';
+import { effectiveRows } from './effective';
 import type {
   Circuit, Core, CoreMeasurement, EquipmentPhoto, Equipment, FiberLine, Floor, InspectionLog, Link,
   MaintenanceLog, Rack, RefEquipment, RefLine, Workingcopy,
@@ -206,19 +207,35 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       })),
       update: (kind, id, patch) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageUpdate(s.overlays[kind] as Overlay<unknown>, id, patch as Partial<unknown>, savedRow(s.saved, kind, id)) } })),
       remove: (kind, id) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageDelete(s.overlays[kind] as Overlay<unknown>, id) } })),
+      /* 차단기는 저장값으로 접지 않는다 — 「차단기 추가」가 저장된 옛 번호를 빈 값으로 덮어 두므로(`addCircuit`),
+         저장값과 같다고 칸을 걷으면 덮어 둔 빈 값이 벗겨져 옛 값이 되살아난다. */
       updateCircuit: (equipmentId, no, patch) => set((s) => {
         const k = circuitKey(equipmentId, no);
         return { overlays: { ...s.overlays, circuits: { ...s.overlays.circuits, [k]: { ...s.overlays.circuits[k], ...patch } } } };
       }),
+      /* 저장된 값으로 돌아온 칸은 걷는다(`stageUpdate` 와 같은 어법) — 다 걷히면 그 코어의 고치기가 사라진다.
+         저장된 행이 없는 코어(늘린 번호·새 광선로)는 빈 코어가 기준이다. */
       updateCore: (lineId, no, patch) => set((s) => {
         const k = coreKey(lineId, no);
-        return { overlays: { ...s.overlays, cores: { ...s.overlays.cores, [k]: { ...s.overlays.cores[k], ...patch } } } };
+        const base: Partial<Core> = s.saved.cores.find((c) => c.lineId === lineId && c.no === no)
+          ?? { status: DEFAULT_CORE_STATUS, role: null, aPurpose: null, aNote: null, bPurpose: null, bNote: null };
+        const merged: Partial<Core> = { ...s.overlays.cores[k], ...patch };
+        for (const f of Object.keys(merged) as (keyof Core)[]) if (Object.is(merged[f], base[f])) delete merged[f];
+        const { [k]: _old, ...rest } = s.overlays.cores;
+        return { overlays: { ...s.overlays, cores: Object.keys(merged).length > 0 ? { ...rest, [k]: merged } : rest } };
       }),
 
+      /* 저장에 실리지 않을 고치기는 세지 않는다 — 지우기로 한 광선로·설비(또는 줄여서 사라진 번호)의 코어·차단기 값.
+         되돌리기로 그 광선로가 돌아오면 값도 함께 돌아오므로 오버레이에서 걷지는 않는다(`commitPayload` 와 같은 거르기). */
       dirtyCount: () => {
-        const o = get().overlays;
+        const s = get();
+        const o = s.overlays;
+        const lineCount = new Map(effectiveRows(s, 'fiberLines').map((l) => [l.id, l.coreCount]));
+        const eqCount = new Map(effectiveRows(s, 'equipment').map((e) => [e.id, e.circuitCount]));
+        const live = (keys: string[], count: Map<string, number>) =>
+          keys.filter((k) => { const [, id, no] = k.split(':'); return Number(no) <= (count.get(id!) ?? 0); }).length;
         return ROW_KINDS.reduce((n, k) => n + overlayDirtyCount(o[k] as Overlay<unknown>), 0)
-          + Object.keys(o.circuits).length + Object.keys(o.cores).length;
+          + live(Object.keys(o.circuits), eqCount) + live(Object.keys(o.cores), lineCount);
       },
 
       touchedSubstations: () => {
