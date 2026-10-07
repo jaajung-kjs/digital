@@ -145,7 +145,7 @@ for (const vp of VIEWPORTS) {
       // 선번장 — 조직 트리 접음(넓은 표를 읽는 자리). 12열이 판 안에 든다 — 가로 그늘 없음
       await page.getByRole('button', { name: '조직 접기' }).click();
       await expect(page.getByRole('button', { name: '조직 펼치기' })).toBeVisible();
-      await expect(page.getByTestId('sheet-clip-shade')).toHaveCount(0);
+      await expect(page.getByTestId('overflow-shade')).toHaveCount(0);
       await page.mouse.move(0, 0);
       await shot(page, '21-sheet-tree-collapsed');
 
@@ -171,7 +171,7 @@ for (const vp of VIEWPORTS) {
       await slots.getByRole('button', { name: /^슬롯 3 · / }).click();
       await expect(blocks.and(page.locator('[aria-current="true"]'))).toBeInViewport();
       await expect(detail(page)).toHaveCount(0);
-      await expect(page.getByTestId('sheet-clip-shade')).toHaveCount(0);
+      await expect(page.getByTestId('overflow-shade')).toHaveCount(0);
       await page.mouse.move(0, 0);
       await noForbiddenWords(page, '선번장 + 상세');
       await shot(page, '24-sheet-from-slot');
