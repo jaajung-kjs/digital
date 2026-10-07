@@ -34,8 +34,9 @@ async function noForbiddenWords(page: Page, where: string) {
 /** 현황 도구줄(머리 띠)이 한 줄인가 — 줄이 넘치면 높이가 한 줄 높이를 넘는다. */
 async function toolbarIsOneLine(page: Page) {
   const bar = main(page).getByRole('radiogroup', { name: '현황 보기' }).locator('xpath=../..');
-  const box = (await bar.boundingBox())!;
-  expect(box.height, '현황 도구줄 높이').toBeLessThanOrEqual(44);
+  await page.evaluate(() => document.fonts.ready);
+  // 글꼴·배치가 자리를 잡을 때까지 다시 잰다 — 한 번 재고 끝내면 막 그려지던 높이를 읽는다.
+  await expect.poll(async () => (await bar.boundingBox())?.height ?? Infinity, { message: '현황 도구줄 높이' }).toBeLessThanOrEqual(44);
 }
 
 for (const vp of VIEWPORTS) {
@@ -103,6 +104,7 @@ for (const vp of VIEWPORTS) {
       await noForbiddenWords(page, '설비 추가');
       await shot(page, '08-add-equipment');
       await add.getByRole('button', { name: '취소' }).click();
+      await expect(add).toHaveCount(0);
 
       // 랙 추가
       await main(page).getByRole('button', { name: '랙 추가' }).click();
@@ -110,6 +112,7 @@ for (const vp of VIEWPORTS) {
       await expect(addRack).toBeVisible();
       await shot(page, '09-add-rack');
       await addRack.getByRole('button', { name: '취소' }).click();
+      await expect(addRack).toHaveCount(0);
 
       // 평면도
       await main(page).getByRole('tab', { name: '평면도' }).click();
