@@ -10,6 +10,7 @@ import type { BlockFocus } from '../../useWorkspaceRoute';
 import { ConnectDialog } from '../equipment/ConnectDialog';
 import { endLabel } from '../equipment/endpoints';
 import { LineBlock, type BlockHead } from './LineBlock';
+import { LineDialog } from './LineDialog';
 import { lineOf, peerSubstationName, sheetBlocks } from './sheetSelectors';
 
 /** 단자 거르개 — '' = 전체, 이것 = 단자 미지정, 그 밖은 단자 설비 id. */
@@ -21,10 +22,6 @@ export interface LineSheetViewProps {
   onSelectEquipment: (id: string | null) => void;
   focus: BlockFocus | null;
   onFocus: (focus: BlockFocus | null) => void;
-  /** 「광선로 추가」(Task 4) — 주지 않으면 단추가 잠긴다. */
-  onAddLine?: () => void;
-  /** 블록 「편집」(Task 4). */
-  onEditLine?: (focus: BlockFocus) => void;
   /** 블록 「측정 입력」(Task 5). */
   onMeasure?: (focus: BlockFocus) => void;
   /** 코어 번호 → 측정 이력(Task 5). */
@@ -41,7 +38,7 @@ const blockKey = (b: { lineId: string; side: string }) => `${b.lineId}:${b.side}
  * 남의 국 것이라 읽기만 한다(그 국을 들르면 그 국 선번장에서 고친다).
  */
 export function LineSheetView({
-  substationId, selectedEquipmentId, onSelectEquipment, focus, onFocus, onAddLine, onEditLine, onMeasure, onOpenCore,
+  substationId, selectedEquipmentId, onSelectEquipment, focus, onFocus, onMeasure, onOpenCore,
 }: LineSheetViewProps) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
@@ -50,6 +47,8 @@ export function LineSheetView({
   const [query, setQuery] = useState('');
   const [connectFrom, setConnectFrom] = useState<LinkEndRef | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /* 광선로 추가·편집 상자 — 추가면 edit 없음, 편집이면 그 블록. */
+  const [dialog, setDialog] = useState<{ edit?: BlockFocus } | null>(null);
   const { confirm, confirmDialog } = useConfirm();
 
   const s = useMemo(() => ({ saved, overlays }), [saved, overlays]);
@@ -144,7 +143,7 @@ export function LineSheetView({
     setError(deleteRows({ links: [linkId] }).blocked[0]?.reason ?? null);
   }
 
-  const addLine = <Button variant="secondary" size="sm" disabled={!onAddLine} onClick={onAddLine}>광선로 추가</Button>;
+  const addLine = <Button variant="secondary" size="sm" onClick={() => setDialog({})}>광선로 추가</Button>;
 
   return (
     <div ref={frameRef} className="relative flex min-h-0 min-w-0 flex-1">
@@ -171,7 +170,7 @@ export function LineSheetView({
       >
         {error && <div className="mb-3"><ErrorStrip message={error} onDismiss={() => setError(null)} /></div>}
         {blocks.length === 0 ? (
-          <EmptyState title="이 국에 닿은 광선로가 없습니다" description="「광선로 추가」로 상대국과 코어 수를 정하세요" action={onAddLine ? addLine : undefined} />
+          <EmptyState title="이 국에 닿은 광선로가 없습니다" description="「광선로 추가」로 상대국과 코어 수를 정하세요" action={addLine} />
         ) : shown.length === 0 ? (
           <EmptyState title="조건과 맞는 코어가 없습니다" />
         ) : (
@@ -192,7 +191,7 @@ export function LineSheetView({
                   onUpdateCore={updateCore(b.lineId)}
                   onFocus={() => onFocus(f)}
                   onMeasure={onMeasure ? () => onMeasure(f) : undefined}
-                  onEdit={onEditLine ? () => onEditLine(f) : undefined}
+                  onEdit={() => setDialog({ edit: f })}
                   onOpenCore={onOpenCore ? (no) => onOpenCore(f, no) : undefined}
                 />
               );
@@ -201,6 +200,14 @@ export function LineSheetView({
         )}
         {connectFrom && (
           <ConnectDialog substationId={substationId} from={connectFrom} open onClose={() => setConnectFrom(null)} onCreated={() => setError(null)} />
+        )}
+        {dialog && (
+          <LineDialog
+            substationId={substationId} edit={dialog.edit}
+            onClose={() => setDialog(null)}
+            /* 닫으면 그 블록으로 — 초점은 주소가 쥔다(`line`·`side`), 지웠으면 놓는다. */
+            onDone={(f) => { setDialog(null); onFocus(f); }}
+          />
         )}
         {confirmDialog}
       </ViewCard>

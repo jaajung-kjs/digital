@@ -1,6 +1,7 @@
-import { MAX_CIRCUITS, circuitKey, expandDeletes, validateState, type DeleteRequest } from '@twin/core';
+import { MAX_CIRCUITS, circuitKey, coreKey, expandDeletes, validateState, type DeleteRequest } from '@twin/core';
+import type { FiberLine } from '../types';
 import { stageDelete, stageUpdate, type Overlay } from '../../store/overlay';
-import { effectiveRows, toModelState } from './effective';
+import { effectiveRows, outsideLinks, toModelState } from './effective';
 import { workingCopyStore, type RowKind } from './workingCopy';
 
 /**
@@ -103,4 +104,68 @@ export function addCircuit(equipmentId: string): number | null {
 
 function savedEquipment(id: string) {
   return workingCopyStore.getState().saved.equipment.find((e) => e.id === id);
+}
+
+/**
+ * 광선로를 지우면 함께 가는 것 — 확인 문구의 수(코어 · 측정 · 연결). 연결은 `expandDeletes` 가 펼친 그대로
+ * (양 끝 국 모두, 들르지 않은 국의 먼 연결 포함)이고, 코어·측정은 그 선로의 effective 행이다.
+ */
+export function lineDeleteSummary(lineId: string): { cores: number; measurements: number; links: number } {
+  const s = workingCopyStore.getState();
+  const line = effectiveRows(s, 'fiberLines').find((l) => l.id === lineId);
+  const plan = expandDeletes(toModelState(s), { fiberLines: [lineId] });
+  return {
+    cores: line?.coreCount ?? 0,
+    measurements: effectiveRows(s, 'coreMeasurements').filter((m) => m.lineId === lineId).length,
+    links: plan.links.length,
+  };
+}
+
+/**
+ * 코어 수를 `count` 로 줄이면 잘려 나갈 코어 중 **연결·측정이 있는 것** — 없으면 null, 있으면 까닭.
+ *
+ * 연결은 core `validateState` 가 판정한다: 줄인 상태에서 **새로** 「끝이 없는 연결」이 생기면 그 끝의 코어가
+ * 잘린다(차단기 지우기와 같은 어법). 판정은 들르지 않은 국의 먼 연결을 보지 않으므로 그것은 끝 번호로 더하고,
+ * 측정은 판정 입력에 없으므로 코어 번호로 본다 — 서버(`syncCores`)도 같은 둘을 세어 거절한다.
+ */
+export function lineShrinkBlock(lineId: string, count: number): string | null {
+  const s = workingCopyStore.getState();
+  const line = effectiveRows(s, 'fiberLines').find((l) => l.id === lineId);
+  if (!line || count >= line.coreCount) return null;
+  const now = toModelState(s);
+  const next = { ...now, fiberLines: now.fiberLines.map((l) => (l.id === lineId ? { ...l, coreCount: count } : l)) };
+  const dangling = (m: typeof now) => validateState(m).filter((i) => i.code === 'LINK_END_INVALID').flatMap((i) => i.ids);
+  const before = new Set(dangling(now));
+  const cut = new Set(dangling(next).filter((id) => !before.has(id)));
+  const used = new Set<number>();
+  for (const l of [...effectiveRows(s, 'links').filter((x) => cut.has(x.id)), ...outsideLinks(s)]) {
+    for (const ref of [l.a, l.b]) if (ref.kind === 'core' && ref.lineId === lineId && ref.no > count) used.add(ref.no);
+  }
+  for (const m of effectiveRows(s, 'coreMeasurements')) if (m.lineId === lineId && m.coreNo > count) used.add(m.coreNo);
+  if (used.size === 0) return null;
+  const nos = [...used].sort((a, b) => a - b);
+  const lo = nos[0]!;
+  const hi = nos[nos.length - 1]!;
+  return `코어 ${lo === hi ? lo : `${lo}–${hi}`} 에 연결·측정이 있어 줄일 수 없습니다`;
+}
+
+/**
+ * 광선로 고치기 — 코어 수를 줄이면 먼저 `lineShrinkBlock` 으로 묻고, 막히면 **아무것도 바꾸지 않고** 까닭을 돌려준다.
+ * 줄이는 일과 잘린 코어에 고쳐 두던 값을 걷는 일은 **한 번의 set**(되돌리기 한 번에 함께 돌아온다) —
+ * 남겨 두면 보이지 않는 코어의 값이 변경 1건으로 남는다.
+ */
+export function updateFiberLine(lineId: string, patch: Partial<FiberLine>): { blocked: string | null } {
+  const s = workingCopyStore.getState();
+  const line = effectiveRows(s, 'fiberLines').find((l) => l.id === lineId);
+  if (!line) return { blocked: null };
+  const count = patch.coreCount ?? line.coreCount;
+  const blocked = lineShrinkBlock(lineId, count);
+  if (blocked) return { blocked };
+  const base = s.saved.fiberLines.find((l) => l.id === lineId);
+  const gone = new Set(Array.from({ length: Math.max(0, line.coreCount - count) }, (_, i) => coreKey(lineId, count + 1 + i)));
+  s.applyOverlays((o) => {
+    const cores = Object.fromEntries(Object.entries(o.cores).filter(([k]) => !gone.has(k)));
+    return { ...o, fiberLines: stageUpdate(o.fiberLines, lineId, patch, base), cores };
+  });
+  return { blocked: null };
 }

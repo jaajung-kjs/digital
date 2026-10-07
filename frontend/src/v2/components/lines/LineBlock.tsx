@@ -41,9 +41,10 @@ export interface LineBlockProps {
   onUnlink: (linkId: string, target: string) => void;
   onUpdateCore: (no: number, patch: Partial<Core>) => void;
   onFocus: () => void;
-  /** 측정 입력(Task 5) · 편집(Task 4) · 코어 측정 이력(Task 5) — 주지 않으면 단추가 잠긴다. */
+  /** 측정 입력(Task 5) · 코어 측정 이력(Task 5) — 주지 않으면 단추가 잠긴다. */
   onMeasure?: () => void;
-  onEdit?: () => void;
+  /** 광선로 편집(추가와 같은 상자). */
+  onEdit: () => void;
   onOpenCore?: (no: number) => void;
 }
 
@@ -92,7 +93,7 @@ export function LineBlock({
                 ))}
                 <span className="sticky right-0 ml-auto flex shrink-0 items-center gap-1 bg-surface-2 pl-2">
                   <Button variant="secondary" size="xs" disabled={!onMeasure} onClick={onMeasure}>측정 입력</Button>
-                  <Button variant="secondary" size="xs" disabled={!onEdit} onClick={onEdit}>편집</Button>
+                  <Button variant="secondary" size="xs" onClick={onEdit}>편집</Button>
                 </span>
               </span>
             </Th>
