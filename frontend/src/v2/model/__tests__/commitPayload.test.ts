@@ -94,6 +94,20 @@ describe('buildCommitPayload', () => {
     expect(p.coreMeasurements).toBeUndefined();
   });
 
+  it('측정 만들기에는 넣은 차례(stagedSeq)가 단조 증가로 찍히지만 페이로드에는 서버 칸만 간다', () => {
+    store.setState((s) => ({ saved: { ...s.saved, fiberLines: [LINE] } }));
+    const row = (id: string) => ({ id, lineId: 'L1', coreNo: 1, measuredOn: '2026-10-01', side: 'A' as const, loss1310: -1, dist1310: null, loss1550: null, dist1550: null, measuredBy: null, updatedAt: '' });
+    store.getState().create('coreMeasurements', row('m1'));
+    store.getState().createMany('coreMeasurements', [row('m2'), row('m3')]);
+    const c = store.getState().overlays.coreMeasurements.creates;
+    expect(c.m1!.stagedSeq! < c.m2!.stagedSeq! && c.m2!.stagedSeq! < c.m3!.stagedSeq!).toBe(true);
+    const p = buildCommitPayload(store.getState()) as { coreMeasurements?: { creates: object[] } };
+    expect(p.coreMeasurements!.creates).toHaveLength(3);
+    for (const sent of p.coreMeasurements!.creates) {
+      expect(Object.keys(sent).sort()).toEqual(['coreNo', 'dist1310', 'dist1550', 'id', 'lineId', 'loss1310', 'loss1550', 'measuredBy', 'measuredOn', 'side']);
+    }
+  });
+
   it('deleteRows 가 지운 광선로의 저장 안 된 측정 만들기를 걷는다', () => {
     store.setState((s) => ({ saved: { ...s.saved, fiberLines: [LINE] } }));
     store.getState().create('coreMeasurements', { id: 'cm1', lineId: 'L1', coreNo: 1, measuredOn: '2026-10-01', side: 'A', loss1310: null, dist1310: null, loss1550: null, dist1550: null, measuredBy: null, updatedAt: '' } as never);

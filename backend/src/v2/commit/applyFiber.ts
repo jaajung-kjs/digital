@@ -61,9 +61,12 @@ export async function applyFiberWrites(tx: Tx, p: CommitPayload): Promise<void> 
       throw new HttpError(422, 'INVALID_TARGET', `없는 코어입니다: ${coreKey(u.lineId, u.no)}`);
     }
   }
-  for (const c of p.coreMeasurements?.creates ?? []) {
+  /* 넣은 차례를 데이터로 남긴다 — 한 트랜잭션의 `now()` 는 한 값이라 같은 커밋의 측정이 같은 createdAt 을 갖고,
+     그러면 같은 날짜 둘 중 무엇이 「최근」인지(core `newestFirst`)가 읽을 때마다 바뀔 수 있다. 1ms 씩 올려 찍는다. */
+  const base = Date.now();
+  for (const [i, c] of (p.coreMeasurements?.creates ?? []).entries()) {
     const { measuredOn, ...rest } = c;
-    await tx.coreMeasurement.create({ data: { ...rest, measuredOn: dateOrNull(measuredOn) ?? null } });
+    await tx.coreMeasurement.create({ data: { ...rest, measuredOn: dateOrNull(measuredOn) ?? null, createdAt: new Date(base + i) } });
   }
   for (const u of p.coreMeasurements?.updates ?? []) {
     const { measuredOn, ...rest } = u.patch;

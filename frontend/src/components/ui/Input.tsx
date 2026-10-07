@@ -57,11 +57,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           'w-full border rounded text-content',
           // 표 셀은 표의 배경 위에 그대로 앉는다 — §controlSize.
           size === 'cell' ? 'bg-transparent' : 'bg-surface',
-          invalid ? 'border-danger' : 'border-line',
+          /* 저장을 막는 칸은 고치는 동안에도 붉다 — 포커스 색이 경고를 덮지 않게. */
+          invalid ? 'border-danger focus:border-danger focus-ring-input-danger' : 'border-line focus:border-primary focus-ring-input',
           controlSizeClasses[size],
           numericClass,
           'placeholder:text-content-faint',
-          'transition-colors focus:outline-none focus:border-primary focus-ring-input',
+          'transition-colors focus:outline-none',
           disabled && 'opacity-50 cursor-not-allowed',
           className,
         )}
@@ -78,9 +79,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       className={cn(
         'flex w-full items-center gap-1 rounded border',
         size === 'cell' ? 'bg-transparent' : 'bg-surface',
-        invalid ? 'border-danger' : 'border-line',
+        invalid ? 'border-danger focus-within:border-danger focus-ring-input-box-danger' : 'border-line focus-within:border-primary focus-ring-input-box',
         controlSizeClasses[size],
-        'transition-colors focus-within:border-primary focus-ring-input-box',
+        'transition-colors',
         disabled && 'cursor-not-allowed opacity-50',
         className,
       )}

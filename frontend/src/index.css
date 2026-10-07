@@ -140,6 +140,16 @@ body {
     outline: 2px solid transparent;
     box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 0.2);
   }
+  /* 포커스 링(저장을 막는 인풋) — 고치려고 들어간 순간에도 **붉은 채로** 남는다. 파란 테두리로 바뀌면
+     「무엇이 틀렸는지」가 정작 그 칸을 고치는 동안 사라진다. */
+  .focus-ring-input-danger:focus {
+    outline: 2px solid transparent;
+    box-shadow: 0 0 0 3px rgb(var(--danger-rgb) / 0.2);
+  }
+  .focus-ring-input-box-danger:focus-within {
+    outline: 2px solid transparent;
+    box-shadow: 0 0 0 3px rgb(var(--danger-rgb) / 0.2);
+  }
   /* 수 칸의 **스피너를 걷는다**.
      화살표는 늘 자리를 잡아 두고(값이 짧아도 6px, 길면 20px 넘게) 그만큼 값을 밀어낸다 —
      선번장 「길이(m)」 칸이 그래서 `8400` 의 끝자리부터 잘렸다. 길이·손실은 화살표로 한 칸씩

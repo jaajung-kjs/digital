@@ -13,7 +13,7 @@ import { LineBlock, type BlockHead } from './LineBlock';
 import { CoreHistoryDialog } from './CoreHistoryDialog';
 import { LineDialog } from './LineDialog';
 import { MeasureBatchDialog } from './MeasureBatchDialog';
-import { lineOf, peerSubstationName, sheetBlocks } from './sheetSelectors';
+import { blockWhere, sheetBlocks } from './sheetSelectors';
 
 /** 단자 거르개 — '' = 전체, 이것 = 단자 미지정, 그 밖은 단자 설비 id. */
 const UNASSIGNED = '__unassigned__';
@@ -71,18 +71,11 @@ export function LineSheetView({
     const cableName = (id: string) => catalog?.cableTypes.find((c) => c.id === id)?.name.replace(/\s*\(.*\)\s*$/, '') ?? null;
     const m = new Map<string, BlockHead>();
     for (const b of blocks) {
-      const line = lineOf(s, b.lineId);
-      const where = b.equipmentId
-        ? [
-            equipmentName(s, b.equipmentId) ?? '—',
-            b.panel != null ? `슬롯 ${b.panel}` : null,
-            `어댑터 ${b.startNo}–${b.startNo + b.coreCount - 1}`,
-          ].filter(Boolean).join(' · ')
-        : '단자 미지정';
+      const { where, peer } = blockWhere(s, b);
       const cable = cableName(b.cableTypeId);
       m.set(blockKey(b), {
         title: where,
-        peer: line ? peerSubstationName(line, b.side) : '—',
+        peer,
         lineName: b.name,
         length: b.lengthKm != null ? `${b.lengthKm} km` : null,
         cable: cable ? `${cable} ${b.coreCount}심` : `${b.coreCount}심`,
@@ -214,11 +207,7 @@ export function LineSheetView({
           />
         )}
         {measuringBlock && (
-          <MeasureBatchDialog
-            block={measuringBlock}
-            title={`${heads.get(blockKey(measuringBlock))?.title ?? ''} ↔ ${heads.get(blockKey(measuringBlock))?.peer ?? ''}`}
-            onClose={() => setMeasuring(null)}
-          />
+          <MeasureBatchDialog block={measuringBlock} onClose={() => setMeasuring(null)} />
         )}
         {history && <CoreHistoryDialog lineId={history.lineId} no={history.no} side={history.side} onClose={() => setHistory(null)} />}
         {confirmDialog}

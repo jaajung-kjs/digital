@@ -110,6 +110,20 @@ describe('PUT /commit — 광선로·코어·측정·연결', () => {
     expect(await nextDb.coreMeasurement.count({ where: { lineId, coreNo: 1 } })).toBe(3);
   });
 
+  it('한 커밋의 같은 날짜 측정 둘은 넣은 차례대로 서로 다른 createdAt 을 갖는다 — 「최근」이 데이터로 정해진다', async () => {
+    const lineId = await makeLine(4);
+    const first = randomUUID(); const second = randomUUID();
+    await commit({
+      coreMeasurements: { creates: [
+        { id: first, lineId, coreNo: 2, side: 'A', measuredOn: '2026-10-01', loss1310: -1 },
+        { id: second, lineId, coreNo: 2, side: 'A', measuredOn: '2026-10-01', loss1310: -2 },
+      ] },
+    }).expect(200);
+    const a = await nextDb.coreMeasurement.findUniqueOrThrow({ where: { id: first } });
+    const b = await nextDb.coreMeasurement.findUniqueOrThrow({ where: { id: second } });
+    expect(b.createdAt.getTime()).toBeGreaterThan(a.createdAt.getTime());
+  });
+
   it('코어 수를 줄였는데 잘릴 코어에 측정이 있으면 422 ROWS_IN_USE', async () => {
     const lineId = await makeLine(4);
     await commit({ coreMeasurements: { creates: [{ id: randomUUID(), lineId, coreNo: 4, side: 'A', loss1310: -1 }] } }).expect(200);

@@ -1,9 +1,10 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import type { SheetBlock } from '@twin/core';
 import {
-  Button, DateInput, DetailCard, DetailRow, EMPTY, ErrorStrip, Input, Modal, TABLE_ROW, TableCard, Td, Th, formatDate, isCommitKey,
+  Button, DateInput, DetailCard, DetailRow, EMPTY, ErrorStrip, Input, Modal, TABLE_ROW, TableCard, Td, Th, formatDate, isCommitKey, useConfirm,
 } from '../../../components/ui';
-import { workingCopyStore } from '../../model/store/workingCopy';
+import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
+import { blockWhere } from './sheetSelectors';
 import { newId } from '../../newId';
 import { coreRuns } from '../../model/store/deleteActions';
 import {
@@ -19,8 +20,6 @@ function latestText(m: SheetBlock['rows'][number]['latest']): string {
 
 export interface MeasureBatchDialogProps {
   block: SheetBlock;
-  /** 블록 머리 — 단자 · 슬롯 · 어댑터 범위 ↔ 상대국. */
-  title: string;
   onClose: () => void;
 }
 
@@ -35,7 +34,12 @@ const WIDTHS = ['56px', '64px', '104px', '104px', '104px', '104px', 100] as cons
  * 채우면 된다. 수가 아닌 칸은 그 칸이 붉고 아래에 까닭이 서며 `넣기` 가 잠긴다. 손실은 음수 그대로 받는다.
  * `넣기` = 채운 줄마다 측정 한 건(이 블록의 끝), 한 번의 되돌리기로 함께 물러난다.
  */
-export function MeasureBatchDialog({ block, title, onClose }: MeasureBatchDialogProps) {
+export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) {
+  const saved = useWorkingCopy((s) => s.saved);
+  const overlays = useWorkingCopy((s) => s.overlays);
+  /* 제목은 블록에서 짓는다 — 부르는 쪽 머리가 비어도 「측정 입력 — ↔ 」로 무너지지 않게. */
+  const { where, peer } = useMemo(() => blockWhere({ saved, overlays }, block), [saved, overlays, block]);
+  const { confirm, confirmDialog } = useConfirm();
   const [measuredOn, setMeasuredOn] = useState(today);
   const [measuredBy, setMeasuredBy] = useState('');
   /* 고친 줄만 든다 — 나머지는 빈 줄. */
@@ -45,6 +49,11 @@ export function MeasureBatchDialog({ block, title, onClose }: MeasureBatchDialog
   const set = (no: number, key: MeasureKey, v: string) => setDrafts((d) => ({ ...d, [no]: { ...(d[no] ?? BLANK_DRAFT), [key]: v } }));
 
   const filled = useMemo(() => block.rows.filter((r) => drafts[r.no] && !isBlankDraft(drafts[r.no]!)), [block.rows, drafts]);
+  /* 친 것이 있으면 닫기 전에 묻는다(Esc · ✕ · 취소) — 스무 줄을 친 뒤 Esc 한 번에 날아가지 않게. */
+  async function requestClose() {
+    if (filled.length > 0 && !(await confirm({ title: '측정 입력 닫기', target: null, message: `입력한 ${filled.length}줄을 버릴까요?`, confirmLabel: '버리기', danger: true }))) return;
+    onClose();
+  }
   const bad = useMemo(() => block.rows.filter((r) => drafts[r.no] && draftHasBad(drafts[r.no]!)).map((r) => r.no), [block.rows, drafts]);
   const dateBad = dateIssue(measuredOn);
   const ok = !dateBad && bad.length === 0 && filled.length > 0;
@@ -67,13 +76,15 @@ export function MeasureBatchDialog({ block, title, onClose }: MeasureBatchDialog
 
   return (
     <Modal
-      open onClose={onClose} size="xl" title={`측정 입력 — ${title}`}
+      open onClose={() => void requestClose()} size="xl" title={`측정 입력 — ${where} ↔ ${peer}`}
       footer={
         <>
           <span className="mr-auto text-xs text-content-muted">
-            {filled.length > 0 ? `${filled.length}줄을 넣습니다 — 빈 줄은 넣지 않습니다` : '잰 코어의 칸만 채우세요 — 빈 줄은 넣지 않습니다'}
+            {bad.length > 0
+              ? '고칠 칸이 있습니다'
+              : filled.length > 0 ? `${filled.length}줄을 넣습니다 — 빈 줄은 넣지 않습니다` : '잰 코어의 칸만 채우세요 — 빈 줄은 넣지 않습니다'}
           </span>
-          <Button variant="secondary" onClick={onClose}>취소</Button>
+          <Button variant="secondary" onClick={() => void requestClose()}>취소</Button>
           <Button disabled={!ok} onClick={submit}>넣기</Button>
         </>
       }
@@ -127,6 +138,7 @@ export function MeasureBatchDialog({ block, title, onClose }: MeasureBatchDialog
         </div>
         <ErrorStrip message={bad.length > 0 ? `${NOT_A_NUMBER} — 코어 ${coreRuns(bad)}` : null} />
       </div>
+      {confirmDialog}
     </Modal>
   );
 }

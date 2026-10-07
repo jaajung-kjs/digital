@@ -35,3 +35,15 @@ export function lineOf(s: S, lineId: string): FiberLine | undefined {
 export function peerSubstationName(line: FiberLine, side: 'A' | 'B'): string {
   return side === 'A' ? line.bSubstationName : line.aSubstationName;
 }
+
+/**
+ * 블록이 어디인가 — `OFD · 슬롯 2 · 어댑터 25–48`(단자가 비면 「단자 미지정」)와 상대 국 이름.
+ * 선번장 머리와 측정 입력 제목이 같은 말을 쓰도록 한 곳에서 짓는다. 설비·광선로를 못 찾아도 빈 글자가 아니라 「—」다.
+ */
+export function blockWhere(s: S, b: SheetBlock): { where: string; peer: string } {
+  const where = b.equipmentId
+    ? [equipmentName(s, b.equipmentId) ?? '—', b.panel != null ? `슬롯 ${b.panel}` : null, `어댑터 ${b.startNo}–${b.startNo + b.coreCount - 1}`].filter(Boolean).join(' · ')
+    : '단자 미지정';
+  const line = lineOf(s, b.lineId);
+  return { where, peer: (line ? peerSubstationName(line, b.side) : '') || '—' };
+}

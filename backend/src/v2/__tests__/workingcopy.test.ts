@@ -54,6 +54,8 @@ describe('GET /substations/:id/workingcopy', () => {
     expect(line.bSubstationName).toBe('t3-wc-S2');
     expect(line.cores).toHaveLength(4);
     expect(line.cores[1].measurements[0].loss1310).toBe(-6.4);
+    /* 같은 날짜 측정의 「최근」은 넣은 시각으로 가린다 — 화면이 쓰도록 createdAt 을 싣는다. */
+    expect(typeof line.cores[1].measurements[0].createdAt).toBe('string');
   });
 
   it('상대 국 끝의 연결과 그 설비 이름을 참조로 싣는다 — 선번장의 「대국 연결」', async () => {

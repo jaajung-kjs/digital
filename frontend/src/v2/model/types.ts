@@ -34,6 +34,10 @@ export interface CoreMeasurement {
   id: string; lineId: string; coreNo: number; measuredOn: string | null; side: Side;
   loss1310: number | null; dist1310: number | null; loss1550: number | null; dist1550: number | null;
   measuredBy: string | null; updatedAt: string;
+  /** 서버가 넣은 시각 — 같은 날짜 측정의 「최근」을 가린다(core `newestFirst`). 아직 저장 안 한 측정에는 없다. */
+  createdAt?: string;
+  /** 아직 저장 안 한 측정의 넣은 차례 — 워킹카피가 찍는다. 서버로 보내지 않는다(`commitPayload` 칸 목록에 없다). */
+  stagedSeq?: number;
 }
 
 export interface Core {

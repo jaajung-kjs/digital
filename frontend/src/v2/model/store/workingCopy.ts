@@ -134,6 +134,15 @@ export interface WorkingCopyState {
   touchedSubstations: () => string[];
 }
 
+/**
+ * 아직 저장 안 한 측정에 **넣은 차례**를 찍는다 — 같은 날짜 측정의 「최근」을 배열 차례가 아니라 데이터로 가리려고(core `newestFirst`).
+ * 세션 동안 단조 증가한다(되돌리기·다시 하기로 줄었다 늘어도 이미 찍힌 값은 그대로다). 서버로는 가지 않는다.
+ */
+let stagedSeq = 0;
+function stamped<K extends RowKind>(kind: K, row: RowOf[K]): RowOf[K] {
+  return kind === 'coreMeasurements' ? { ...row, stagedSeq: ++stagedSeq } : row;
+}
+
 export const workingCopyStore = createStore<WorkingCopyState>()(
   temporal(
     (set, get) => ({
@@ -191,9 +200,9 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
         workingCopyStore.temporal.getState().clear();
       },
 
-      create: (kind, row) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageCreate(s.overlays[kind] as Overlay<typeof row>, (row as { id: string }).id, row) } })),
+      create: (kind, row) => get().createMany(kind, [row]),
       createMany: (kind, rows) => set((s) => ({
-        overlays: { ...s.overlays, [kind]: rows.reduce((o, row) => stageCreate(o, (row as { id: string }).id, row), s.overlays[kind] as Overlay<(typeof rows)[number]>) },
+        overlays: { ...s.overlays, [kind]: rows.map((r) => stamped(kind, r)).reduce((o, row) => stageCreate(o, (row as { id: string }).id, row), s.overlays[kind] as Overlay<(typeof rows)[number]>) },
       })),
       update: (kind, id, patch) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageUpdate(s.overlays[kind] as Overlay<unknown>, id, patch as Partial<unknown>, savedRow(s.saved, kind, id)) } })),
       remove: (kind, id) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageDelete(s.overlays[kind] as Overlay<unknown>, id) } })),

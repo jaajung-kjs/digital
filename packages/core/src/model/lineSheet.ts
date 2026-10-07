@@ -32,26 +32,36 @@ export interface SheetBlock {
   rows: SheetRow[];
 }
 
+/** 측정의 차례를 가리는 칸 — 저장된 측정은 서버가 찍은 `createdAt`, 아직 저장 안 한 측정은 워킹카피가 찍은 `stagedSeq`. */
+export interface MeasureOrder {
+  measuredOn: string | null;
+  /** 서버가 넣은 시각(ISO). 없으면 아직 저장 안 한 측정이다. */
+  createdAt?: string | null;
+  /** 아직 저장 안 한 측정끼리의 넣은 차례 — 워킹카피가 단조 증가로 찍는다(서버로 보내지 않는다). */
+  stagedSeq?: number;
+}
+
 /**
- * 측정을 **최근 먼저** — 측정일 내림차순, 날짜 없는 것은 맨 뒤(가장 오래된 것), 같은 날짜면 **나중에 온 것이 먼저**.
- *
- * 입력 차례는 넣은 차례다(워킹카피가 서버의 측정을 오래된 것부터 싣고, 새로 넣은 것은 그 뒤에 붙는다) —
- * 그래서 같은 날 다시 잰 값을 넣으면 그 값이 곧바로 「최근」이 된다. 선번장의 최근 측정 칸과 측정 이력이 이 한 줄을 함께 쓴다.
+ * 측정을 **최근 먼저** — 측정일 내림차순(날짜 없는 것은 맨 뒤 = 가장 오래된 것). 같은 날짜면 **나중에 넣은 것이 먼저**이고,
+ * 그 「나중」은 배열 차례가 아니라 데이터로 정한다:
+ * 아직 저장 안 한 측정(`createdAt` 없음)이 저장된 어느 것보다 나중이고, 저장된 것끼리는 `createdAt`, 저장 안 한 것끼리는 `stagedSeq`.
+ * 선번장의 최근 측정 칸과 측정 이력이 이 한 줄을 함께 쓴다 — 같은 날 다시 잰 값을 넣으면 곧바로, 그리고 저장한 뒤에도 그 값이 「최근」이다.
  */
-export function newestFirst<T extends { measuredOn: string | null }>(ms: readonly T[]): T[] {
-  return ms
-    .map((m, i) => ({ m, i }))
-    .sort((x, y) => {
-      const a = x.m.measuredOn;
-      const b = y.m.measuredOn;
-      if (a !== b) {
-        if (a === null) return 1;
-        if (b === null) return -1;
-        return a < b ? 1 : -1;
-      }
-      return y.i - x.i;
-    })
-    .map(({ m }) => m);
+export function newestFirst<T extends MeasureOrder>(ms: readonly T[]): T[] {
+  return [...ms].sort((x, y) => {
+    const a = x.measuredOn;
+    const b = y.measuredOn;
+    if (a !== b) {
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return a < b ? 1 : -1;
+    }
+    const xs = x.createdAt == null;
+    const ys = y.createdAt == null;
+    if (xs !== ys) return xs ? -1 : 1;
+    if (!xs) return Date.parse(y.createdAt!) - Date.parse(x.createdAt!);
+    return (y.stagedSeq ?? 0) - (x.stagedSeq ?? 0);
+  });
 }
 
 interface LineIn {
@@ -63,7 +73,7 @@ interface CoreIn {
   lineId: string; no: number; status: string; role: string | null;
   aPurpose: string | null; aNote: string | null; bPurpose: string | null; bNote: string | null;
 }
-interface MeasIn extends SheetMeasurement { lineId: string; coreNo: number; side: LineSide }
+interface MeasIn extends SheetMeasurement, MeasureOrder { lineId: string; coreNo: number; side: LineSide }
 
 export function lineSheet(input: {
   substationId: string;

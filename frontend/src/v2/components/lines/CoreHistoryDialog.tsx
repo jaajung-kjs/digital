@@ -91,7 +91,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
                 {MEASURE_COLS.map((c) => <Td key={c.key} align="right">{num(m[c.key])}</Td>)}
                 <Td className="truncate" title={m.measuredBy ?? undefined}>{m.measuredBy ?? EMPTY}</Td>
                 <Td align="right">
-                  <span className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <span className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
                     <IconButton size="sm" tone="danger" aria-label="측정 지우기" title="측정 지우기" onClick={() => void remove(m)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </IconButton>

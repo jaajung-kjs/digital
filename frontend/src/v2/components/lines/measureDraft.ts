@@ -13,14 +13,16 @@ export const BLANK_DRAFT: MeasureDraft = { loss1310: '', dist1310: '', loss1550:
 
 export const NOT_A_NUMBER = '숫자만 넣으세요';
 
+/** 받는 수의 꼴 — 부호 하나 + 십진 소수만. `Number()` 는 `1e3`·`0x10`·`Infinity` 까지 수로 읽는다. */
+const PLAIN_DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)$/;
+
 /**
  * 칸 글자 → 수. 비었으면 null, 수가 아니면 NaN. **부호는 바꾸지 않는다** — 엑셀처럼 손실은 음수 그대로 받는다.
  */
 export function parseMeasure(raw: string): number | null {
   const t = raw.trim();
   if (t === '') return null;
-  const n = Number(t);
-  return Number.isFinite(n) ? n : Number.NaN;
+  return PLAIN_DECIMAL.test(t) ? Number(t) : Number.NaN;
 }
 
 export const isBadCell = (raw: string) => Number.isNaN(parseMeasure(raw));

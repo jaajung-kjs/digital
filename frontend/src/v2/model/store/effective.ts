@@ -86,3 +86,18 @@ export function toModelState(s: S & { saved: WorkingCopyState['saved'] }, cableT
       .map((e) => ({ id: e.id, substationId: e.substationId })),
   };
 }
+
+/**
+ * 국 이름 — 들른 국은 그 국 행, 들르지 않은 국은 **광선로가 싣고 온 끝 국 이름**(저장된 것은 지우기로 한 것까지, 새로 만든 것까지).
+ * 저장 바가 「변경이 닿은 국」을 적을 때 id 를 그대로 띄우지 않게 — 측정·코어 값·광선로 지우기는 들르지 않은 상대 국을 건드린다.
+ * 그래도 모르면 null(부르는 쪽이 정한다).
+ */
+export function substationName(s: S, id: string): string | null {
+  const own = s.saved.substations[id]?.name;
+  if (own) return own;
+  for (const l of [...s.saved.fiberLines, ...Object.values(s.overlays.fiberLines.creates)]) {
+    if (l.aSubstationId === id) return l.aSubstationName;
+    if (l.bSubstationId === id) return l.bSubstationName;
+  }
+  return null;
+}

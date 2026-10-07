@@ -168,6 +168,52 @@ describe('블록 일괄 측정 입력', () => {
     expect(within(dialog()).getByRole('button', { name: '넣기' })).toBeDisabled();
   });
 
+  it('제목은 블록에서 — 단자 · 슬롯 · 어댑터 ↔ 상대국', () => {
+    renderSheet();
+    open();
+    expect(within(dialog()).getByRole('heading', { level: 2 })).toHaveTextContent('측정 입력 — OFD · 슬롯 1 · 어댑터 1–6 ↔ 춘천S/S');
+  });
+
+  it('고칠 칸이 있으면 바닥 글이 줄 수 대신 「고칠 칸이 있습니다」, 1e3·0x10 같은 꼴도 수가 아니다', () => {
+    renderSheet();
+    open();
+    fireEvent.change(box(1, '1310 nm 손실'), { target: { value: '-3' } });
+    expect(dialog()).toHaveTextContent('1줄을 넣습니다');
+    fireEvent.change(box(2, '1310 nm 손실'), { target: { value: '1e3' } });
+    expect(box(2, '1310 nm 손실')).toHaveAttribute('aria-invalid', 'true');
+    expect(dialog()).toHaveTextContent('고칠 칸이 있습니다');
+    expect(dialog()).not.toHaveTextContent('줄을 넣습니다');
+    fireEvent.change(box(2, '1310 nm 손실'), { target: { value: '+.5' } });
+    expect(box(2, '1310 nm 손실')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('친 줄이 있으면 닫기 전에 묻는다 — 물리면 남고, 버리면 아무것도 만들지 않고 닫힌다', async () => {
+    renderSheet();
+    open();
+    const before = measurements().length;
+    fireEvent.change(box(1, '1310 nm 손실'), { target: { value: '-3' } });
+    fireEvent.change(box(2, '1310 nm 손실'), { target: { value: '-4' } });
+    fireEvent.click(within(dialog()).getByRole('button', { name: '취소' }));
+    let ask = await screen.findByRole('alertdialog');
+    expect(ask).toHaveTextContent('입력한 2줄을 버릴까요?');
+    fireEvent.click(within(ask).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(box(1, '1310 nm 손실')).toHaveValue('-3');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    ask = await screen.findByRole('alertdialog');
+    fireEvent.click(within(ask).getByRole('button', { name: '버리기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(measurements()).toHaveLength(before);
+  });
+
+  it('빈 채로는 묻지 않고 닫힌다', () => {
+    renderSheet();
+    open();
+    fireEvent.click(within(dialog()).getByRole('button', { name: '취소' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
   it('다 빈 표·빈 측정일이면 넣기가 잠긴다', () => {
     renderSheet();
     open();

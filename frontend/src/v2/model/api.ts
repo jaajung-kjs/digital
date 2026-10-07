@@ -11,9 +11,6 @@ function dateOnly(v: string | null | undefined): string | null {
 /**
  * 서버가 준 워킹카피의 날짜를 **한 번** 접는다 — 저장이 `YYYY-MM-DD` 만 받으므로,
  * 읽은 그대로 다시 보내도 맞게. 화면 어디서도 다시 자르지 않는다.
- *
- * 코어 측정은 **넣은 차례(오래된 것 먼저)**로 싣는다 — 서버는 최근 먼저 준다. 새로 넣은 측정은 워킹카피 끝에
- * 붙으므로 차례가 하나로 이어져, core `newestFirst` 의 「같은 날짜면 나중 것이 최근」이 저장 전후로 같다.
  */
 export function normalizeWorkingcopy(raw: Workingcopy): Workingcopy {
   return {
@@ -21,7 +18,7 @@ export function normalizeWorkingcopy(raw: Workingcopy): Workingcopy {
     equipment: raw.equipment.map((e) => ({ ...e, installDate: dateOnly(e.installDate) })),
     fiberLines: raw.fiberLines.map((l) => ({
       ...l,
-      cores: l.cores.map((c) => ({ ...c, measurements: c.measurements.map((m) => ({ ...m, measuredOn: dateOnly(m.measuredOn) })).reverse() })),
+      cores: l.cores.map((c) => ({ ...c, measurements: c.measurements.map((m) => ({ ...m, measuredOn: dateOnly(m.measuredOn) })) })),
     })),
   };
 }
