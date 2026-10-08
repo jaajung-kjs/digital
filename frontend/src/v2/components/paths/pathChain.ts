@@ -1,4 +1,4 @@
-import type { OpticalPath, PathEnd, PathHop, Side } from '@twin/core';
+import { fiberLineName, type OpticalPath, type PathEnd, type PathHop, type Side } from '@twin/core';
 import type { NetworkView } from './networkSelectors';
 
 /** 선번장 블록 하나 — 그 국에서 연다. */
@@ -79,7 +79,7 @@ function corePlace(v: NetworkView, lineId: string, side: Side, coreNo: number): 
 function lineText(v: NetworkView, lineId: string): string {
   const l = v.line(lineId);
   if (!l) return '—';
-  const name = l.name ?? `${v.substationName(l.aSubstationId)} ↔ ${v.substationName(l.bSubstationId)}`;
+  const name = fiberLineName(l.name, v.substationName(l.aSubstationId), v.substationName(l.bSubstationId));
   return l.lengthKm != null ? `${name} (${l.lengthKm} km)` : name;
 }
 

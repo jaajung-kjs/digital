@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { MAX_PANELS, type Side } from '@twin/core';
+import { MAX_PANELS, fiberLineName, type Side } from '@twin/core';
 import { DetailCard, DetailCardHeader, ListRow, MessageStrip } from '../../../components/ui';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -33,7 +33,7 @@ export function useSlotEnds(equipmentId: string): SlotEnd[] {
     const lines = effectiveRows({ saved, overlays }, 'fiberLines');
     return lines.flatMap((l) => {
       const out: SlotEnd[] = [];
-      const label = `${l.name ?? `${l.aSubstationName}–${l.bSubstationName}`} · ${l.coreCount}심`;
+      const label = `${fiberLineName(l.name, l.aSubstationName, l.bSubstationName)} · ${l.coreCount}심`;
       if (l.aEquipmentId === equipmentId) out.push({ lineId: l.id, side: 'A', slot: l.aPanel, startNo: l.aStartNo, label });
       if (l.bEquipmentId === equipmentId) out.push({ lineId: l.id, side: 'B', slot: l.bPanel, startNo: l.bStartNo, label });
       return out;

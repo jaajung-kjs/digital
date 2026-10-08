@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MAX_CORES, compareName, isLineMedium, type Side } from '@twin/core';
+import { MAX_CORES, compareName, fiberLineName, isLineMedium, type Side } from '@twin/core';
 import {
   Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, ErrorStrip, InsetBox, Input, IssueReveal, ListRow, Modal, SELECTED, Select, TableSearch, useConfirm,
 } from '../../../components/ui';
@@ -162,7 +162,7 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
     const n = lineDeleteSummary(line.id);
     const ask = await confirm({
       title: '광선로 삭제',
-      target: line.name ?? `${line.aSubstationName} ↔ ${line.bSubstationName}`,
+      target: fiberLineName(line.name, line.aSubstationName, line.bSubstationName),
       message: `함께 삭제됩니다 — 코어 ${n.cores} · 측정 ${n.measurements} · 연결 ${n.links}`,
       confirmLabel: '삭제',
       danger: true,

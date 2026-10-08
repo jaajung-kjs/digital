@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { newestFirst, type Side } from '@twin/core';
+import { fiberLineName, newestFirst, type Side } from '@twin/core';
 import {
   Button, DateInput, EMPTY, ErrorStrip, HOVER_REVEAL, IconButton, Input, ListHeading, Modal, TABLE_ROW, TableCard, Td, Th, formatDate, useConfirm,
 } from '../../../components/ui';
@@ -42,7 +42,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
   const ms = useMemo(() => effectiveRows(s, 'coreMeasurements').filter((m) => m.lineId === lineId && m.coreNo === no), [s, lineId, no]);
   const of = (sd: Side) => newestFirst(ms.filter((m) => m.side === sd));
   const subName = (sd: Side) => (line ? (sd === 'A' ? line.aSubstationName : line.bSubstationName) : '');
-  const lineTitle = line ? (line.name ?? `${line.aSubstationName} ↔ ${line.bSubstationName}`) : '';
+  const lineTitle = line ? fiberLineName(line.name, line.aSubstationName, line.bSubstationName) : '';
 
   /* ── 측정 추가(이쪽 끝 한 줄) ── */
   const [measuredOn, setMeasuredOn] = useState(today);

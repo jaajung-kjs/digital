@@ -1,5 +1,5 @@
 import {
-  compareName, computeLayout, opticalPaths, pathBundles, redundancyWarnings, reversePath, rings,
+  compareName, computeLayout, fiberLineName, opticalPaths, pathBundles, redundancyWarnings, reversePath, rings,
   type LayoutPoint, type OpticalPath, type PathBundle, type PathEnd,
 } from '@twin/core';
 import type { Network } from '../../model/networkApi';
@@ -141,11 +141,11 @@ export function buildOpticalMap(view: NetworkView, server: Network | undefined):
   };
 }
 
-/** 광선로 이름 — 없으면 양끝 국. */
+/** 광선로 이름 — 없으면 양끝 국(core `fiberLineName`). */
 export function lineName(view: NetworkView, id: string): string {
   const l = view.line(id);
   if (!l) return id;
-  return l.name ?? `${view.substationName(l.aSubstationId)} ↔ ${view.substationName(l.bSubstationId)}`;
+  return fiberLineName(l.name, view.substationName(l.aSubstationId), view.substationName(l.bSubstationId));
 }
 
 /** 설비 이름 앞에 국 줄임 — `북춘천 송변전광단말장치`(같은 이름의 설비가 국마다 있다). */

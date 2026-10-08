@@ -6,6 +6,14 @@ import { compareName } from './order.js';
 
 /** 선번장 파생 — 국 끝마다 블록 하나, 코어 행은 1..N. 순수 함수(저장 없음). */
 export type LineSide = Side;
+/**
+ * 광선로의 화면 이름 — 선로명, 없으면 양끝 국 「A국–B국」(en dash).
+ * 상세·선번장·광 계통도·중계경로·설계서가 모두 이 이름을 쓴다(예전에는 「A ↔ B」·「A–B」로 화면마다 갈렸다).
+ */
+export function fiberLineName(name: string | null | undefined, aSubstationName: string, bSubstationName: string): string {
+  return name ?? `${aSubstationName}–${bSubstationName}`;
+}
+
 export interface SheetMeasurement { measuredOn: string | null; loss1310: number | null; dist1310: number | null; loss1550: number | null; dist1550: number | null }
 export interface SheetRow {
   no: number;

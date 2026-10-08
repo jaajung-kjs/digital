@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lineSheet, newestFirst } from './lineSheet.js';
+import { fiberLineName, lineSheet, newestFirst } from './lineSheet.js';
 import type { LinkEndRef } from './types.js';
 
 const line = (o: Record<string, unknown> = {}) => ({
@@ -136,5 +136,12 @@ describe('lineSheet', () => {
     const cores = [{ lineId: 'L1', no: 1, status: 'ok', role: null, aPurpose: 'A쪽', aNote: 'a', bPurpose: null, bNote: 'b' }];
     const r = lineSheet({ ...base, substationId: 'Y', cores, lines: [line({ coreCount: 1 })] })[0]!.rows[0]!;
     expect(r).toMatchObject({ purpose: null, note: 'b', peerPurpose: 'A쪽' });
+  });
+});
+
+describe('fiberLineName — 광선로의 화면 이름', () => {
+  it('선로명이 있으면 선로명, 없으면 「A국–B국」', () => {
+    expect(fiberLineName('154kV 춘천수력T/L', '북춘천S/S', '춘천H/P')).toBe('154kV 춘천수력T/L');
+    expect(fiberLineName(null, '북춘천S/S', '춘천H/P')).toBe('북춘천S/S–춘천H/P');
   });
 });

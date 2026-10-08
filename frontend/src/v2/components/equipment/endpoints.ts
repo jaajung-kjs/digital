@@ -1,4 +1,4 @@
-import { endRefKey, sameEndRef, type LinkEndRef } from '@twin/core';
+import { endRefKey, fiberLineName, sameEndRef, type LinkEndRef } from '@twin/core';
 import { bySubstation, effectiveCircuits, effectiveRows, equipmentName, linesTouching } from '../../model/store/effective';
 import type { WorkingCopyState } from '../../model/store/workingCopy';
 import type { Link } from '../../model/types';
@@ -12,7 +12,7 @@ export interface EndpointOption { ref: LinkEndRef; label: string; group: '설비
  */
 const lineName = (s: S, lineId: string) => {
   const l = effectiveRows(s, 'fiberLines').find((x) => x.id === lineId) ?? s.saved.refLines.find((x) => x.id === lineId);
-  return l ? (l.name ?? `${l.aSubstationName}–${l.bSubstationName}`) : '광선로';
+  return l ? fiberLineName(l.name, l.aSubstationName, l.bSubstationName) : '광선로';
 };
 
 /** 끝 이름 — 「분전반 차단기 3」「송광치 AC IN」「북춘천–춘천HP 코어 5」(모델의 회로 = 화면의 차단기). */

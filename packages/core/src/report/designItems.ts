@@ -1,6 +1,7 @@
 import type { LaborSpec } from '../catalog/laborSpec.js';
 import { cableReportItem, unitReportItem, type ReportItem, type ReportKind, type UnitReportKind } from './computeReport.js';
 import { compareName } from '../model/order.js';
+import { fiberLineName } from '../model/lineSheet.js';
 
 /**
  * 설계서 산출 내역 — 변경안 **전/후의 최종 차이**에서 줄을 만든다. 순수 함수(저장 없음).
@@ -185,7 +186,7 @@ export function designItems(input: DesignInput): DesignItem[] {
   for (const l of links.removed) push(GROUP.link, l.id, cableItem('cable-remove', l.label, l.cableTypeId, l.lengthM), [l.substationId]);
 
   /* 광선로 — 두 국에 걸친다. 길이 = 긍장 km × 1000. */
-  const lineName = (l: DLine) => l.name ?? `${substationName(l.aSubstationId)}–${substationName(l.bSubstationId)}`;
+  const lineName = (l: DLine) => fiberLineName(l.name, substationName(l.aSubstationId), substationName(l.bSubstationId));
   const lineM = (l: DLine) => (l.lengthKm === null ? null : l.lengthKm * 1000);
   const lines = diff(before.fiberLines, after.fiberLines);
   for (const l of lines.added) push(GROUP.line, l.id, cableItem('cable-install', lineName(l), l.cableTypeId, lineM(l)), [l.aSubstationId, l.bSubstationId]);
