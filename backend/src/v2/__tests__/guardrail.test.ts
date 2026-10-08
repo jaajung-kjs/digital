@@ -181,6 +181,7 @@ describe('v2 가드레일 §6-4 — overlay effective-merge overlay.ts 한 곳 �
    *   - frontend/src/v2/store/overlay.ts               : mergeEffective 및 stage* 단일 구현 원본
    *   - frontend/src/v2/model/store/workingCopy.ts     : 오버레이 상태를 정의하는 스토어 (경계 소유자)
    *   - frontend/src/v2/model/store/commitPayload.ts   : 커밋 페이로드 직렬화 (creates/updates/deletes 전송 경계)
+   *   - frontend/src/v2/model/store/rebaseDrop.ts      : 충돌 뒤 오버레이에서 손질을 키 단위로 걷는 스토어 경계(workingCopy.rebase 의 몸통)
    *
    * 구조분해 검출(가드레일 갭 분석 2a번): `const { creates, updates, deletes } = o;`
    * 는 기존 dot 전제 정규식(`\.creates\b` 등) 3개 모두를 피해간다. 아래
@@ -204,6 +205,7 @@ describe('v2 가드레일 §6-4 — overlay effective-merge overlay.ts 한 곳 �
       'frontend/src/v2/store/overlay.ts',
       'frontend/src/v2/model/store/workingCopy.ts',
       'frontend/src/v2/model/store/commitPayload.ts',
+      'frontend/src/v2/model/store/rebaseDrop.ts',
     ]);
 
     const files = srcFiles(frontendSrc, ['.ts', '.tsx']);
