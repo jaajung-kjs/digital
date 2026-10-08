@@ -2,6 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from './cn';
 import { HOVER_REVEAL } from './hoverReveal';
 import { SELECTABLE } from './selection';
+import { TABLE_ROW, Td } from './Table';
 
 /**
  * 카드 안 목록의 한 줄 — 이름 하나를 읽고, `onClick` 을 주면 누를 수 있다(랙 안의 설비 목록).
@@ -91,7 +92,7 @@ function TwoLine({ children, meta }: { children: ReactNode; meta: ReactNode }) {
  */
 export function EmptyRow({ children, colSpan }: { children: ReactNode; colSpan?: number }) {
   if (colSpan != null) {
-    return <tr className="h-7"><td colSpan={colSpan} className="px-2 text-sm text-content-faint">{children}</td></tr>;
+    return <tr className={TABLE_ROW}><Td colSpan={colSpan} className="text-content-faint">{children}</Td></tr>;
   }
   return <p className="px-1 py-1 text-sm text-content-faint" data-empty-row>{children}</p>;
 }
