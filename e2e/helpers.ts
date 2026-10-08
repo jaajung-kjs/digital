@@ -30,6 +30,8 @@ export async function openStation(page: Page, hq: string, branch: string, statio
 export async function openBranch(page: Page, hq: string, branch: string) {
   const tree = page.getByRole('tree', { name: '조직' });
   const items = tree.getByRole('treeitem');
+  /* 트리가 다 서기 전에 읽으면 본부가 없다고 나온다 — 그 본부 줄이 설 때까지 기다린다. */
+  await expect(tree.locator(`[role="treeitem"][aria-level="1"]`).filter({ hasText: new RegExp(`^${hq.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}`) }).first()).toBeVisible();
   const labels = await items.evaluateAll((els) => els.map((e) => `${e.getAttribute('aria-level')}:${e.textContent ?? ''}`));
   const hqIdx = labels.findIndex((l) => l.startsWith(`1:${hq}`));
   expect(hqIdx, `본부 ${hq}`).toBeGreaterThanOrEqual(0);

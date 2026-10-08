@@ -139,6 +139,8 @@ test('⑥ 설계서 — 두 국에 걸친 광선로 신설 + 양 끝 점퍼가 �
     await expect(line.locator('td').nth(4)).toHaveText('2,500'); // 수량
     await expect(line.locator('td').nth(5)).toHaveText('m');
     await expect(itemRows(page, '광선로', groups.nth(1))).toHaveCount(1); // 대표 국(A 끝 북춘천)에만
+    // B 끝 (구)춘천 묶음에는 수량 없이 어디에 실렸는지만
+    await expect(groups.nth(0).getByTestId('design-ref')).toHaveText(`광선로 ${LINE_NAME} · ${NORTH} 묶음에 포함`);
 
     const jumpers = itemRows(page, '케이블');
     await expect(jumpers).toHaveCount(2);
@@ -158,11 +160,16 @@ test('⑥ 설계서 — 두 국에 걸친 광선로 신설 + 양 끝 점퍼가 �
     await page.mouse.move(0, 0);
     await page.screenshot({ path: `${SHOTS}/t4-design-${vp.width}.png` });
 
-    // 인쇄본 — A4 PDF 한 장(1440 에서만)
+    // 인쇄본 — A4 PDF 한 장(1440 에서만). 「인쇄」 단추가 <html> 에 인쇄 표시를 단다(브라우저 인쇄 상자는 막는다)
     if (vp.width === 1440) {
+      await page.evaluate(() => { window.print = () => {}; });
+      await design(page).getByRole('button', { name: '인쇄' }).click();
+      await expect(page.locator('html')).toHaveClass(/design-printing/);
       await page.emulateMedia({ media: 'print' });
       await page.pdf({ path: `${SHOTS}/t4-print.pdf`, format: 'A4', preferCSSPageSize: true });
       await page.emulateMedia({ media: 'screen' });
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+      await expect(page.locator('html')).not.toHaveClass(/design-printing/);
     }
     await design(page).getByRole('button', { name: '닫기' }).last().click();
     await expect(design(page)).toHaveCount(0);
