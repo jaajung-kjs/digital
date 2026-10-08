@@ -1,4 +1,5 @@
 import { circuitKey, type LinkEndRef } from '@twin/core';
+import { isStagedChange as touched, type Overlay } from '../../store/overlay';
 import type { WorkingCopyState } from './workingCopy';
 
 type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
@@ -11,17 +12,16 @@ type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
 export function equipmentPending(s: S, equipmentId: string): { pending: boolean; isNew: boolean } {
   const o = s.overlays;
   const isNew = equipmentId in o.equipment.creates;
-  const touched = (id: string, ov: { updates: Record<string, unknown>; deletes: string[] }) => id in ov.updates || ov.deletes.includes(id);
   const prefix = circuitKey(equipmentId, 0).slice(0, -1);
   const endOn = (e: LinkEndRef) => (e.kind === 'equipment' || e.kind === 'circuit') && e.equipmentId === equipmentId;
 
   const pending = isNew
-    || touched(equipmentId, o.equipment)
+    || touched(o.equipment, equipmentId)
     || Object.keys(o.circuits).some((k) => k.startsWith(prefix))
     || Object.values(o.links.creates).some((l) => endOn(l.a) || endOn(l.b))
-    || s.saved.links.some((l) => (endOn(l.a) || endOn(l.b)) && touched(l.id, o.links))
+    || s.saved.links.some((l) => (endOn(l.a) || endOn(l.b)) && touched(o.links, l.id))
     || (['maintenance', 'inspections', 'photos'] as const).some((k) =>
       Object.values(o[k].creates).some((r) => r.equipmentId === equipmentId)
-      || (s.saved[k] as { id: string; equipmentId: string }[]).some((r) => r.equipmentId === equipmentId && touched(r.id, o[k])));
+      || (s.saved[k] as { id: string; equipmentId: string }[]).some((r) => r.equipmentId === equipmentId && touched(o[k] as Overlay<unknown>, r.id)));
   return { pending, isNew };
 }

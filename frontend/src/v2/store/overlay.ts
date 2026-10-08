@@ -8,6 +8,11 @@ export function emptyOverlay<T>(): Overlay<T> {
   return { creates: {}, updates: {}, deletes: [] };
 }
 
+/** 저장된 행 `id` 에 고치기나 지우기가 실려 있는가(만들기는 `o.creates` 로 본다). */
+export function isStagedChange<T>(o: Overlay<T>, id: string): boolean {
+  return id in o.updates || o.deletes.includes(id);
+}
+
 export function stageCreate<T>(o: Overlay<T>, id: string, item: T): Overlay<T> {
   return { ...o, creates: { ...o.creates, [id]: item } };
 }
