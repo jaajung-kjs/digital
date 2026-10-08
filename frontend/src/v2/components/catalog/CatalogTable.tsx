@@ -20,6 +20,7 @@ import { useCatalogMutations } from '../../model/hooks';
 import type { CatalogKind } from '../../model/types';
 import { InlineEditCell, readCellClass } from '../InlineEditCell';
 import { LaborTypeSelect } from '../admin/LaborTypeSelect';
+import { EditOnly, useCanEdit } from '../../useCanEdit';
 
 export interface Column {
   key: string;
@@ -28,6 +29,8 @@ export interface Column {
   options?: { value: string; label: string }[];
   required?: boolean;
   width?: string;
+  /** 단위 — 머리글 아랫줄에 선다(`Th unit`, §1.7-g). 열 이름에 「(원/m)」로 붙이지 않는다. */
+  unit?: string;
 }
 
 type Row = Record<string, unknown>;
@@ -203,16 +206,22 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 p-4">
       <div className="flex shrink-0 items-center justify-between">
-        <h2 className="text-sm font-semibold text-content">{title}</h2>
-        <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => { setError(null); setDraft(newRow()); }} disabled={draft != null}>
-          추가
-        </Button>
+        <h2 className="text-sm font-semibold text-content">
+          {title}
+          {/* 이 화면은 변경안을 거치지 않는다 — 설비 현황의 「저장」과 다르다는 것을 한 줄로 말한다(M19). */}
+          <EditOnly><span className="ml-2 text-xs font-normal text-content-muted">수정하면 즉시 반영됩니다</span></EditOnly>
+        </h2>
+        <EditOnly>
+          <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => { setError(null); setDraft(newRow()); }} disabled={draft != null}>
+            추가
+          </Button>
+        </EditOnly>
       </div>
       <div className="min-h-0 flex-1">
         <TableCard fill widths={widths}>
           <thead className="sticky top-0 z-sticky">
             <tr>
-              {cols.map((c) => <Th key={c.key} align={alignOf(c)}>{c.label}</Th>)}
+              {cols.map((c) => <Th key={c.key} align={alignOf(c)} unit={c.unit}>{c.label}</Th>)}
               <Th>{' '}</Th>
             </tr>
           </thead>
@@ -222,15 +231,17 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
                 <tr className={`group ${TABLE_ROW}`}>
                   {cols.map((c) => <Td key={c.key} align={alignOf(c)} className="truncate">{readCell(row, c, i + 1)}</Td>)}
                   <Td align="right">
-                    <IconButton
-                      size="sm"
-                      aria-label={`${str(row.name)} 삭제`}
-                      tone="danger"
-                      className={HOVER_REVEAL}
-                      onClick={() => removeRow(row)}
-                    >
-                      <Trash2 size={12} />
-                    </IconButton>
+                    <EditOnly>
+                      <IconButton
+                        size="sm"
+                        aria-label={`${str(row.name)} 삭제`}
+                        tone="danger"
+                        className={HOVER_REVEAL}
+                        onClick={() => removeRow(row)}
+                      >
+                        <Trash2 size={12} />
+                      </IconButton>
+                    </EditOnly>
                   </Td>
                 </tr>
                 {error?.id === str(row.id) && (
@@ -266,6 +277,10 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
 function LaborCell({ value, onChange, ariaLabel }: { value: string | null; onChange: (code: string | null) => void; ariaLabel: string }) {
   const [editing, setEditing] = useState(false);
   const wage = useWageCatalog();
+  /* 조회 사용자에게는 읽는 줄만(`InlineEditCell` 과 같다). */
+  if (!useCanEdit()) {
+    return <span className={readCellClass(!!value)} title={(value && wage.nameOf(value)) || undefined}>{value ? wage.nameOf(value) : EMPTY}</span>;
+  }
   if (!editing) {
     return (
       <button

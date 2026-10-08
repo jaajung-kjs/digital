@@ -3,6 +3,7 @@ import { MAX_CIRCUITS } from '@twin/core';
 import { Button, ErrorStrip, Modal } from '../../../components/ui';
 import { removeLastCircuit } from '../../model/store/deleteActions';
 import { CircuitTable } from './CircuitTable';
+import { EditOnly, useCanEdit } from '../../useCanEdit';
 
 interface Props {
   equipmentId: string;
@@ -24,6 +25,7 @@ interface Props {
  */
 export function BreakerEditor({ equipmentId, equipmentName, count, open, focusNo, onAdd, onClose }: Props) {
   const [blocked, setBlocked] = useState<string | null>(null);
+  const canEdit = useCanEdit();
   /* 닫히면 까닭도 걷는다 — 다시 열었을 때 지난 일이 남아 있으면 지금 막힌 것처럼 읽힌다. */
   useEffect(() => { if (!open) setBlocked(null); }, [open]);
 
@@ -33,6 +35,7 @@ export function BreakerEditor({ equipmentId, equipmentName, count, open, focusNo
       /* 더하기·지우기는 바닥 띠에 — 표가 길어도(스무 줄) 굴리지 않고 닿는다. 까닭도 그 옆에 뜬다. */
       footer={(
         <>
+          <EditOnly>
           <Button variant="secondary" disabled={count >= MAX_CIRCUITS} onClick={() => { setBlocked(null); onAdd(); }}>차단기 추가</Button>
           {/* 지우는 것이 **몇 번**인지 이름에 적는다 — 「마지막」은 표를 끝까지 굴려 봐야 안다. 되돌릴 수 있어 묻지 않는다. */}
           <Button
@@ -44,7 +47,8 @@ export function BreakerEditor({ equipmentId, equipmentName, count, open, focusNo
           <ErrorStrip className="min-w-0 flex-1" message={blocked} onDismiss={() => setBlocked(null)} />
           {/* 이 창은 워킹카피에 싣기만 한다 — 「완료」를 저장으로 믿고 떠나지 않게 서버로 가는 문을 짚는다(§「저장」). */}
           <span className="ml-auto shrink-0 self-center text-xs text-content-muted">수정한 내용은 상단 「저장」을 눌러야 반영됩니다</span>
-          <Button variant="secondary" onClick={onClose}>완료</Button>
+          </EditOnly>
+          <Button variant="secondary" className={canEdit ? undefined : 'ml-auto'} onClick={onClose}>{canEdit ? '완료' : '닫기'}</Button>
         </>
       )}
     >

@@ -5,6 +5,7 @@ import {
 } from '../../../components/ui';
 import type { Core } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
+import { EditOnly } from '../../useCanEdit';
 
 /**
  * 코어 · 어댑터 · 자국 연결 · 대국 연결 · 상태 · 주/예비 · 용도 · 비고 · 1310 · 1550 · 거리 · 측정일.
@@ -116,10 +117,10 @@ export function LineBlock({
             )}
             metas={[head.lineName, head.length, head.cable]}
             actions={(
-              <>
+              <EditOnly>
                 <Button variant="secondary" size="xs" onClick={onMeasure}>측정 입력</Button>
                 <Button variant="secondary" size="xs" onClick={onEdit}>편집</Button>
-              </>
+              </EditOnly>
             )}
           />
           <tr>
@@ -173,21 +174,25 @@ export function LineBlock({
                         {nearEq
                           ? <button type="button" className={cn('min-w-0 flex-1 truncate text-left hover:text-primary hover:underline', nearEq === selectedEquipmentId && 'font-medium text-primary')} title={near} onClick={() => onSelectEquipment(nearEq)}>{near}</button>
                           : <span className="min-w-0 flex-1 truncate" title={near}>{near}</span>}
-                        <IconButton
-                          size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제"
-                          className={cn('shrink-0', HOVER_REVEAL)}
-                          onClick={() => onUnlink(r.nearLinkId!, near)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </IconButton>
+                        <EditOnly>
+                          <IconButton
+                            size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제"
+                            className={cn('shrink-0', HOVER_REVEAL)}
+                            onClick={() => onUnlink(r.nearLinkId!, near)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </IconButton>
+                        </EditOnly>
                       </>
                     ) : (
                       <>
                         {/* 빈 칸은 대국 칸과 같은 「—」 — 빈 모양은 하나다. */}
                         <span className="min-w-0 flex-1 text-content-faint">{EMPTY}</span>
-                        <span className={cn('shrink-0', HOVER_REVEAL)}>
-                          <Button variant="secondary" size="xs" onClick={() => onConnect({ kind: 'core', lineId: block.lineId, no: r.no, side: block.side })}>연결</Button>
-                        </span>
+                        <EditOnly>
+                          <span className={cn('shrink-0', HOVER_REVEAL)}>
+                            <Button variant="secondary" size="xs" onClick={() => onConnect({ kind: 'core', lineId: block.lineId, no: r.no, side: block.side })}>연결</Button>
+                          </span>
+                        </EditOnly>
                       </>
                     )}
                   </span>

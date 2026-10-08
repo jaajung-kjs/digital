@@ -106,8 +106,8 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
             {cables.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </DetailRow>
-        <DetailRow label="길이(m)">
-          <Input size="sm" numeric aria-label="길이(m)" value={length} onChange={(e) => setLength(e.currentTarget.value)} />
+        <DetailRow label="길이">
+          <Input size="sm" numeric suffix="m" aria-label="길이" value={length} onChange={(e) => setLength(e.currentTarget.value)} />
         </DetailRow>
         {from.kind === 'equipment' && (
           <DetailRow label="포트"><Input size="sm" aria-label="포트" value={fromLabel} onChange={(e) => setFromLabel(e.currentTarget.value)} /></DetailRow>

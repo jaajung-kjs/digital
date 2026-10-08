@@ -5,7 +5,7 @@
  * 브라우저가 들고 있다가 저장할 때 함께 간다(`pendingPhotos` + `putCommit`).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { workingCopyStore as store } from '../model/store/workingCopy';
 import { PhotoCard } from '../components/detail/PhotoCard';
 import { pendingPhotoFiles, pendingPhotoUrl } from '../store/pendingPhotos';
@@ -49,13 +49,15 @@ describe('PhotoCard', () => {
     expect(pendingPhotoUrl(id)).toBeTruthy();
   });
 
-  it('삭제 버튼 → overlays.photos.deletes 에 id 적재', () => {
+  it('삭제 버튼 → overlays.photos.deletes 에 id 적재', async () => {
     setStore([photo('ph-1', 'a-1')]);
     render(<PhotoCard equipmentId="a-1" />);
 
     fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
+    /* 묻는다 — 기록 삭제와 같은 확인. */
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '삭제' }));
 
-    expect(store.getState().overlays.photos.deletes).toEqual(['ph-1']);
+    await waitFor(() => expect(store.getState().overlays.photos.deletes).toEqual(['ph-1']));
   });
 
   it('캡션 입력 blur → overlays.photos.updates 에 caption 반영', () => {
@@ -88,8 +90,9 @@ describe('PhotoCard', () => {
     expect(pendingPhotoFiles().size).toBe(1);
 
     fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '삭제' }));
 
-    expect(pendingPhotoFiles().size).toBe(0);
+    await waitFor(() => expect(pendingPhotoFiles().size).toBe(0));
   });
 
 });

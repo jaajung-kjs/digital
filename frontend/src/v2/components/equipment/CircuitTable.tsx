@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, SELECTED, TABLE_ROW, TableCard, Td, Th, cn } from '../../../components/ui';
+import { Button, EMPTY, SELECTED, TABLE_ROW, TableCard, Td, Th, cn } from '../../../components/ui';
 import { effectiveCircuits, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Circuit } from '../../model/types';
 import { CircuitCell, type CircuitField } from './CircuitCell';
 import { ConnectDialog } from './ConnectDialog';
 import { circuitLink, endLabel } from './endpoints';
+import { useCanEdit } from '../../useCanEdit';
 
 const WIDTHS = [5, 22, 8, 9, 8, 6, 8, 12, 22];
 
@@ -17,6 +18,7 @@ export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: str
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
   const rows = useMemo(() => effectiveCircuits({ saved, overlays }, equipmentId), [saved, overlays, equipmentId]);
+  const canEdit = useCanEdit();
 
   const links = useMemo(() => effectiveRows({ saved, overlays }, 'links'), [saved, overlays]);
   const substationId = useMemo(() => effectiveRows({ saved, overlays }, 'equipment').find((e) => e.id === equipmentId)?.substationId ?? null, [saved, overlays, equipmentId]);
@@ -55,7 +57,7 @@ export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: str
                   const hit = circuitLink(links, equipmentId, c.no);
                   return hit
                     ? <span className="block truncate text-sm">{endLabel({ saved, overlays }, hit.far)}</span>
-                    : <Button variant="secondary" size="xs" onClick={() => setConnectNo(c.no)}>연결</Button>;
+                    : canEdit ? <Button variant="secondary" size="xs" onClick={() => setConnectNo(c.no)}>연결</Button> : <span className="text-sm text-content-faint">{EMPTY}</span>;
                 })()}
               </Td>
             </tr>

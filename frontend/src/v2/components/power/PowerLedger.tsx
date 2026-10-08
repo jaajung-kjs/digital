@@ -4,6 +4,7 @@ import {
 } from '../../../components/ui';
 import type { Circuit } from '../../model/types';
 import { CircuitCell, type CircuitField } from '../equipment/CircuitCell';
+import { EditOnly } from '../../useCanEdit';
 
 /**
  * 차단기 · 표기 · 교류/직류 · 전압 · 용량(값이 「50A」 같은 글이라 머리에 단위를 달지 않는다) · 상 · 개폐 · 부하 · 포트 · 전원케이블 · 길이 · 용도 — 현장 분전반 시트 차례.
@@ -118,7 +119,9 @@ export function PowerLedger({
                   metas={head.feeds}
                   wrapMetas
                   actions={(
-                    <Button variant="secondary" size="xs" disabled={head.count >= MAX_CIRCUITS} onClick={() => onAddCircuit(n.equipmentId)}>차단기 추가</Button>
+                    <EditOnly>
+                      <Button variant="secondary" size="xs" disabled={head.count >= MAX_CIRCUITS} onClick={() => onAddCircuit(n.equipmentId)}>차단기 추가</Button>
+                    </EditOnly>
                   )}
                 />
                 <tr>
@@ -174,9 +177,11 @@ function LoadCell({ breaker, label, nameOf, selectedEquipmentId, onSelectEquipme
     return (
       <span className="flex min-w-0 items-center gap-1">
         <span className="min-w-0 flex-1 truncate text-content-faint">예비</span>
-        <span className={cn('shrink-0', HOVER_REVEAL)}>
-          <Button variant="secondary" size="xs" onClick={onConnect}>연결</Button>
-        </span>
+        <EditOnly>
+          <span className={cn('shrink-0', HOVER_REVEAL)}>
+            <Button variant="secondary" size="xs" onClick={onConnect}>연결</Button>
+          </span>
+        </EditOnly>
       </span>
     );
   }

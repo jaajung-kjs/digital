@@ -42,6 +42,8 @@ export interface PlanGestureArgs {
   setViewport: Dispatch<SetStateAction<Viewport>>;
   /** 그 자리의 랙(맨 위). */
   hitAt: (world: Pt) => PlacedRect | null;
+  /** 랙을 옮길 수 있나 — 아니면(조회 사용자) 누르면 고르기만 한다. */
+  movable: () => boolean;
   /** 손잡이가 달린 랙(고른 놓인 랙) — 없으면 `null`. */
   resizable: () => PlacedRect | null;
   /** 지금 배치 도구가 겨눈 것 — 꺼져 있으면 `null`. */
@@ -160,6 +162,7 @@ export function usePlanGesture(args: PlanGestureArgs) {
       setPreview({ id: g.rackId, ...g.rect });
       a.current.onChange();
     } else {
+      if (!a.current.movable()) return;
       if (!g.session.moved && !isThresholdMet(g.session, world)) return;
       g.session.moved = true;
       g.at = dragDelta(g.session, world, snapped);

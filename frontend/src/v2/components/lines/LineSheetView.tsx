@@ -15,6 +15,8 @@ import { LineDialog } from './LineDialog';
 import { MeasureBatchDialog } from './MeasureBatchDialog';
 import { PathTraceDialog } from '../paths/PathTraceDialog';
 import { blockWhere, sheetBlocks } from './sheetSelectors';
+import { useCanEdit } from '../../useCanEdit';
+import { deleteConfirm } from '../deleteConfirm';
 
 /** 단자 거르개 — '' = 전체, 이것 = 단자 미지정, 그 밖은 단자 설비 id. */
 const UNASSIGNED = '__unassigned__';
@@ -56,6 +58,7 @@ export function LineSheetView({
   /* 코어 → 중계경로 추적. */
   const [tracing, setTracing] = useState<{ lineId: string; coreNo: number; side: BlockFocus['side'] } | null>(null);
   const { confirm, confirmDialog } = useConfirm();
+  const canEdit = useCanEdit();
 
   const s = useMemo(() => ({ saved, overlays }), [saved, overlays]);
   const blocks = useMemo(() => sheetBlocks(s, substationId), [s, substationId]);
@@ -127,11 +130,11 @@ export function LineSheetView({
   const label = (ref: LinkEndRef) => endLabel(s, ref);
   const updateCore = (lineId: string) => (no: number, patch: Partial<Core>) => workingCopyStore.getState().updateCore(lineId, no, patch);
   async function unlink(linkId: string, target: string) {
-    if (!(await confirm({ title: '연결 삭제', target, message: '이 코어의 연결을 삭제합니다.', confirmLabel: '삭제', danger: true }))) return;
+    if (!(await confirm(deleteConfirm('연결', target)))) return;
     setError(deleteRows({ links: [linkId] }).blocked[0]?.reason ?? null);
   }
 
-  const addLine = <Button variant="secondary" size="sm" onClick={() => setDialog({})}>광선로 추가</Button>;
+  const addLine = canEdit ? <Button variant="secondary" size="sm" onClick={() => setDialog({})}>광선로 추가</Button> : null;
 
   return (
     <div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1">
@@ -159,7 +162,7 @@ export function LineSheetView({
       >
         {error && <div className="mb-3"><ErrorStrip message={error} onDismiss={() => setError(null)} /></div>}
         {blocks.length === 0 ? (
-          <EmptyState title="이 변전소에 수용된 광선로가 없습니다" description="「광선로 추가」로 상대국과 코어 수를 지정하세요" action={addLine} />
+          <EmptyState title="이 변전소에 수용된 광선로가 없습니다" description={canEdit ? '「광선로 추가」로 상대국과 코어 수를 지정하세요' : undefined} action={addLine ?? undefined} />
         ) : shown.length === 0 ? (
           <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 코어가 없습니다` : '조건에 해당하는 코어가 없습니다'} />
         ) : (

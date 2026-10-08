@@ -5,6 +5,7 @@ import { effectiveCircuits, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy } from '../../model/store/workingCopy';
 import type { Circuit } from '../../model/types';
 import { circuitLink, endLabel } from './endpoints';
+import { EditOnly } from '../../useCanEdit';
 
 const wordOf = (vocab: readonly { value: string; label: string }[], v: string | null) => (v ? vocab.find((x) => x.value === v)?.label ?? v : null);
 
@@ -38,8 +39,10 @@ export function CircuitCard({ equipmentId, onEdit, onAdd, onOpenPower }: {
         actions={(
           <>
             {onOpenPower && <Button variant="secondary" size="sm" onClick={onOpenPower}>차단기 대장에서 보기</Button>}
-            <Button variant="secondary" size="sm" onClick={() => onEdit(null)}>편집</Button>
-            <Button variant="secondary" size="sm" disabled={rows.length >= MAX_CIRCUITS} onClick={onAdd}>추가</Button>
+            <EditOnly>
+              <Button variant="secondary" size="sm" onClick={() => onEdit(null)}>편집</Button>
+              <Button variant="secondary" size="sm" disabled={rows.length >= MAX_CIRCUITS} onClick={onAdd}>추가</Button>
+            </EditOnly>
           </>
         )}
       />

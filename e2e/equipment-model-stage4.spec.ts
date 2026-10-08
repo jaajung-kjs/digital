@@ -109,7 +109,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await dialog.getByRole('button', { name: LOAD, exact: true }).click();
   await dialog.getByRole('textbox', { name: '상대 포트' }).fill(PORT);
   await dialog.getByRole('combobox', { name: '케이블 품목' }).selectOption({ label: 'F-CV 전력케이블' });
-  await dialog.getByRole('textbox', { name: '길이(m)' }).fill('5');
+  await dialog.getByRole('textbox', { name: '길이' }).fill('5');
   await dialog.getByRole('button', { name: '연결', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect.poll(() => changeCount(page)).toBe(1);

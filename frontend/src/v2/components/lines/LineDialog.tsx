@@ -12,6 +12,7 @@ import type { FiberLine } from '../../model/types';
 import { newId } from '../../newId';
 import { flattenTree } from '../../orgTreeSelectors';
 import type { BlockFocus } from '../../useWorkspaceRoute';
+import { alsoDeleted, deleteConfirm } from '../deleteConfirm';
 
 export interface LineDialogProps {
   substationId: string;
@@ -160,13 +161,8 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
   async function remove() {
     if (!line) return;
     const n = lineDeleteSummary(line.id);
-    const ask = await confirm({
-      title: '광선로 삭제',
-      target: fiberLineName(line.name, line.aSubstationName, line.bSubstationName),
-      message: `함께 삭제됩니다 — 코어 ${n.cores} · 측정 ${n.measurements} · 연결 ${n.links}`,
-      confirmLabel: '삭제',
-      danger: true,
-    });
+    const also = alsoDeleted([['코어', n.cores], ['측정', n.measurements], ['연결', n.links]]);
+    const ask = await confirm(deleteConfirm('광선로', fiberLineName(line.name, line.aSubstationName, line.bSubstationName), also ? [also] : []));
     if (!ask) return;
     const blocked = deleteRows({ fiberLines: [line.id] }).blocked[0]?.reason ?? null;
     setRemoveError(blocked);

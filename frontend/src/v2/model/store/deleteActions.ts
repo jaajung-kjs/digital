@@ -193,3 +193,30 @@ export function updateFiberLine(lineId: string, patch: Partial<FiberLine>): { bl
   });
   return { blocked: null };
 }
+
+/**
+ * 설비를 지우면 함께 가는 것 — 확인 문구의 수(`expandDeletes` 가 펼친 그대로). 차단기는 그 설비의 수, 연결은 펼친 연결,
+ * 기록·사진은 effective 행(저장된 것은 서버가 함께 지운다), 광선로는 **접속 설비가 해제되는** 끝 — 상대 국 이름과 함께.
+ */
+export function equipmentDeleteSummary(equipmentId: string): {
+  circuits: number; links: number; inspections: number; maintenance: number; photos: number;
+  /** 접속 설비가 해제되는 광선로 — 상대(대국) 국 이름. */
+  lineEnds: { lineId: string; farSubstation: string }[];
+} {
+  const s = workingCopyStore.getState();
+  const plan = expandDeletes(toModelState(s), { equipment: [equipmentId] });
+  const eq = effectiveRows(s, 'equipment').find((e) => e.id === equipmentId);
+  const lines = new Map(effectiveRows(s, 'fiberLines').map((l) => [l.id, l]));
+  const count = (k: 'inspections' | 'maintenance' | 'photos') => effectiveRows(s, k).filter((r) => r.equipmentId === equipmentId).length;
+  return {
+    circuits: eq?.circuitCount ?? 0,
+    links: plan.links.length,
+    inspections: count('inspections'),
+    maintenance: count('maintenance'),
+    photos: count('photos'),
+    lineEnds: plan.lineEndClears.map((c) => {
+      const l = lines.get(c.lineId);
+      return { lineId: c.lineId, farSubstation: (c.side === 'A' ? l?.bSubstationName : l?.aSubstationName) ?? '' };
+    }),
+  };
+}

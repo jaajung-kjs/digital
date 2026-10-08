@@ -17,6 +17,7 @@ vi.mock('../../model/api', () => ({
 }));
 
 import V2CatalogPage from '../V2CatalogPage';
+import { asViewer } from '../../../tests/asRole';
 
 function Where() { return <div data-testid="loc">{useLocation().search}</div>; }
 const renderAt = (url: string) =>
@@ -48,5 +49,16 @@ describe('V2CatalogPage', () => {
   it('주소의 kind 로 바로 선다', async () => {
     renderAt('/catalog?kind=rack');
     expect(await screen.findByText('19인치')).toBeInTheDocument();
+  });
+});
+
+describe('V2CatalogPage — 조회 사용자', () => {
+  asViewer();
+  it('추가·삭제가 없고 칸은 누를 수 없다(읽는 줄만)', async () => {
+    renderAt('/catalog?kind=equipment');
+    expect(await screen.findByText('OFD')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '추가' })).toBeNull();
+    expect(screen.queryAllByRole('button', { name: /삭제$|수정$/ })).toEqual([]);
+    expect(screen.queryByText('수정하면 즉시 반영됩니다')).toBeNull();
   });
 });

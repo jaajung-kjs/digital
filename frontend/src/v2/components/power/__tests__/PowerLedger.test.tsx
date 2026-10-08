@@ -6,6 +6,7 @@ import type { Equipment, Link } from '../../../model/types';
 import { useWorkspaceRoute, VIEW_MODES } from '../../../useWorkspaceRoute';
 import { CircuitCard } from '../../equipment/CircuitCard';
 import { PowerView } from '../PowerView';
+import { asViewer } from '../../../../tests/asRole';
 
 vi.mock('../../../model/hooks', () => ({
   useCatalog: () => ({ data: { categories: [], rackTypes: [], equipmentTypes: [], media: [], cableTypes: [{ id: 'fcv', key: 'a', name: 'F-CV 2.5sq', medium: 'power', sortOrder: 1 }] } }),
@@ -268,5 +269,18 @@ describe('전원 계통 — 차단기 대장', () => {
     act(() => store.temporal.getState().undo());
     expect(store.getState().overlays.circuits['circuit:dist:4']).toBeUndefined();
     expect(within(blockOf('dist')).queryByTestId('ledger-row-4')).toBeNull();
+  });
+});
+
+describe('조회 사용자 — 차단기 대장은 읽기만', () => {
+  asViewer();
+  it('차단기 추가·연결·편집·추가가 없고, 칸은 누를 수 없다', () => {
+    renderPower();
+    expect(blocks().length).toBeGreaterThan(0);
+    for (const name of ['차단기 추가', '연결', '편집', '추가']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+    expect(screen.queryAllByRole('button', { name: /수정$/ })).toEqual([]);
+    expect(screen.getAllByText('MCCB1').length).toBeGreaterThan(0);
   });
 });

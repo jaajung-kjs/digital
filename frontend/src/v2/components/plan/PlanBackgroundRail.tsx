@@ -18,8 +18,8 @@ export function PlanBackgroundRail({
   onToggle: (name: string) => void;
   onShowAll: () => void;
   opacity: number;
-  /** 손을 뗄 때 한 번 불린다. */
-  onOpacity: (v: number) => void;
+  /** 손을 뗄 때 한 번 불린다. 없으면(조회 사용자) 농도는 읽기만 한다. */
+  onOpacity?: (v: number) => void;
 }) {
   /* 도면이 실제로 그리는 레이어만 — 선언만 있고 아무것도 안 그리는 것이 흔하다(`DEFPOINTS`). */
   const layers = useMemo(() => {
@@ -35,7 +35,7 @@ export function PlanBackgroundRail({
   if (!target || !drawing) return null;
   const shown = draft ?? opacity;
   const commit = () => {
-    if (draft != null && draft !== opacity) onOpacity(draft);
+    if (draft != null && draft !== opacity) onOpacity?.(draft);
     setDraft(null);
   };
   const offCount = layers.filter((l) => hidden.has(l.name)).length;
@@ -56,6 +56,7 @@ export function PlanBackgroundRail({
           step={5}
           value={Math.round(shown * 100)}
           aria-label="배경 농도"
+          disabled={!onOpacity}
           className="min-w-0 flex-1"
           onChange={(e) => setDraft(Number(e.currentTarget.value) / 100)}
           onPointerUp={commit}

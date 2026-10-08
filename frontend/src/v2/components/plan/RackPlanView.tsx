@@ -23,7 +23,7 @@ import { useCatalog } from '../../model/hooks';
 import { bySubstation, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Floor } from '../../model/types';
-import { isAdminRole, useV2AuthStore } from '../../store/authStore';
+import { useCanEdit } from '../../useCanEdit';
 import { Button, EmptyState, IconButton, Select, StatusBar, StatusItem, Tabs, useConfirm, useTabs, ViewCard, formatNumber } from '../../../components/ui';
 import { AssetResizeHandles } from '../floorplan/AssetResizeHandles';
 import { BackgroundImportControls } from '../floorplan/BackgroundImportControls';
@@ -60,7 +60,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
-  const isAdmin = useV2AuthStore((s) => isAdminRole(s.user?.role));
+  const canEdit = useCanEdit();
 
   const floors = useMemo(
     () => bySubstation(effectiveRows({ saved, overlays }, 'floors'), substationId).sort((a, b) => a.sortOrder - b.sortOrder),
@@ -125,6 +125,8 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
   }
   const latest = useRef<Latest>({ viewport, floor: activeFloor, placed, links, selectedRackId, hiddenLayers });
   latest.current = { viewport, floor: activeFloor, placed, links, selectedRackId, hiddenLayers };
+  const canEditRef = useRef(canEdit);
+  canEditRef.current = canEdit;
   const viewportRef = useRef(viewport);
   viewportRef.current = viewport;
 
@@ -133,7 +135,8 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
     viewportRef,
     setViewport,
     hitAt: (w) => findAssetAt(w.x, w.y, latest.current.placed),
-    resizable: () => latest.current.placed.find((r) => r.id === latest.current.selectedRackId) ?? null,
+    movable: () => canEditRef.current,
+    resizable: () => (canEditRef.current ? latest.current.placed.find((r) => r.id === latest.current.selectedRackId) ?? null : null),
     armed: () => (isArmed && activeFloorId ? { rackId: placeRackId, floorId: activeFloorId } : null),
     onDraw: (rackId, floorId, rect) => {
       update('racks', rackId, { floorId, ...rect, facing: nextFacing(null) });
@@ -314,7 +317,10 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
   const handleRect = selectedPlaced && preview?.id === selectedPlaced.id ? { ...selectedPlaced, ...preview } : selectedPlaced;
 
   const floorTabs = useTabs(activeFloorId ?? '');
-  const { tabItems, startAdd, floorPrompt } = useFloorAdmin({ substationId, floors, racks, confirm, onCreated: setPickedFloorId });
+  const floorAdmin = useFloorAdmin({ substationId, floors, racks, confirm, onCreated: setPickedFloorId });
+  const { startAdd, floorPrompt } = floorAdmin;
+  /* 층 이름 바꾸기·삭제는 탭이 곧 손잡이다 — 조회 사용자에게는 이름만. */
+  const tabItems = canEdit ? floorAdmin.tabItems : floorAdmin.tabItems.map(({ key, label }) => ({ key, label }));
 
   if (floors.length === 0) {
     return (
@@ -322,7 +328,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
         <EmptyState
           title="이 변전소에는 층이 없습니다"
           description="층을 추가하면 랙을 배치할 수 있습니다."
-          action={<Button size="sm" onClick={startAdd}>층 추가</Button>}
+          action={canEdit ? <Button size="sm" onClick={startAdd}>층 추가</Button> : undefined}
         />
         {floorPrompt}
         {confirmDialog}
@@ -367,9 +373,11 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
   const status = (
     <StatusBar className="pl-0">
       <Tabs {...floorTabs.list} edge="bottom" menuText="층 관리" items={tabItems} onChange={setPickedFloorId} className="h-full border-t-0" />
-      <IconButton aria-label="층 추가" size="sm" onClick={startAdd}>
-        <Plus size={14} />
-      </IconButton>
+      {canEdit && (
+        <IconButton aria-label="층 추가" size="sm" onClick={startAdd}>
+          <Plus size={14} />
+        </IconButton>
+      )}
       <span className="mx-2 h-4 w-px bg-line" aria-hidden />
       <StatusItem label="좌표"><span ref={coordRef}>—</span></StatusItem>
       <StatusItem label="스냅">{SNAP_GRID * 10} mm</StatusItem>
@@ -397,8 +405,8 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
   return (
     <ViewCard
       body="fill"
-      tools={tools}
-      actions={isAdmin ? <BackgroundImportControls floorId={activeFloorId} hasBackground={activeFloor?.backgroundDrawing != null} /> : undefined}
+      tools={canEdit ? tools : undefined}
+      actions={canEdit ? <BackgroundImportControls floorId={activeFloorId} hasBackground={activeFloor?.backgroundDrawing != null} /> : undefined}
       status={status}
     >
       {floorPrompt}
@@ -411,7 +419,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
             style={{ cursor: isArmed ? 'crosshair' : undefined }}
             data-testid="rackplan-canvas"
           />
-          {handleRect && <AssetResizeHandles viewport={viewport} rect={handleRect} />}
+          {handleRect && canEdit && <AssetResizeHandles viewport={viewport} rect={handleRect} />}
           {placed.length === 0 && !isArmed && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="text-center text-xs text-content-faint">
@@ -434,7 +442,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
         })}
         onShowAll={() => setHiddenLayers(new Set())}
         opacity={activeFloor?.backgroundOpacity ?? 0.5}
-        onOpacity={(v) => { if (activeFloorId) update('floors', activeFloorId, { backgroundOpacity: v }); }}
+        onOpacity={canEdit ? (v) => { if (activeFloorId) update('floors', activeFloorId, { backgroundOpacity: v }); } : undefined}
       />
       {confirmDialog}
     </ViewCard>

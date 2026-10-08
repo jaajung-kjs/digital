@@ -5,6 +5,7 @@ import { buildCommitPayload } from '../../../model/store/commitPayload';
 import { workingCopyStore as store } from '../../../model/store/workingCopy';
 import { EquipmentDetail } from '../EquipmentDetail';
 import { RackDetail } from '../RackDetail';
+import { asViewer } from '../../../../tests/asRole';
 
 vi.mock('../../../model/hooks', () => ({
   useCatalog: () => ({ data: { categories: [], rackTypes: [], equipmentTypes: [], media: [], cableTypes: [{ id: 'fcv', key: 'a', name: 'F-CV', medium: 'power', sortOrder: 1 }] } }),
@@ -224,11 +225,28 @@ describe('설비 상세', () => {
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={onDeleted} />);
     fireEvent.click(screen.getByRole('button', { name: '삭제' }));
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText(/연결 1건이 함께 삭제됩니다/)).toBeInTheDocument();
+    expect(dialog).toHaveTextContent('함께 삭제됩니다 — 연결 1. 저장 전에는 실행 취소할 수 있습니다.');
     fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
     expect(store.getState().overlays.equipment.creates.l).toBeUndefined();
     expect(store.getState().overlays.links.creates.k).toBeUndefined();
+  });
+
+  it('삭제 확인은 펼침 전부를 적는다 — 차단기·연결·기록·사진, 그리고 대국별 광선로 접속 해제(OFD 하나에 광선로 셋)', async () => {
+    const s = store.getState();
+    s.create('equipment', { ...eqBase, id: 'ofd', name: 'OFD', circuitCount: 0, panelCount: 4 });
+    const line = (id: string, far: string) => ({ id, cableTypeId: 'f', coreCount: 24, name: null, lengthKm: null, segments: [], aSubstationId: 'S1', aEquipmentId: 'ofd', aPanel: 1, aStartNo: 1, bSubstationId: far, bEquipmentId: null, bPanel: null, bStartNo: 1, aSubstationName: '북춘천', bSubstationName: far === 'S2' ? '(구)춘천' : '춘천H/P', updatedAt: '' });
+    s.create('fiberLines', line('L1', 'S2'));
+    s.create('fiberLines', line('L2', 'S2'));
+    s.create('fiberLines', line('L3', 'S3'));
+    s.create('inspections', { id: 'i1', equipmentId: 'ofd', inspectedAt: '2026-10-01T09:00', content: '점검', result: null, updatedAt: '' });
+    s.create('photos', { id: 'ph', equipmentId: 'ofd', filePath: '', caption: null, updatedAt: '' });
+    render(<EquipmentDetail equipmentId="ofd" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('함께 삭제됩니다 — 점검 기록 1 · 사진 1.');
+    expect(dialog).toHaveTextContent('광선로 3개의 접속 설비가 해제됩니다 — 대국 (구)춘천 2 · 춘천H/P 1.');
+    expect(dialog).toHaveTextContent('저장 전에는 실행 취소할 수 있습니다.');
   });
 
   it('슬롯 카드 — 이 설비를 단자로 가리키는 광선로가 「슬롯 n · 선로 · n심」, 남은 수는 「빈 슬롯」', () => {
@@ -299,10 +317,10 @@ describe('설비 상세', () => {
   it('새 OFD(광선로 끝도 슬롯 수도 없음) — 머리줄 「슬롯 수」 단추가 카드를 슬롯 수 칸을 연 채로 세우고, 고치는 중에는 비워도 카드가 남는다', () => {
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     expect(screen.queryByText('광선로 슬롯')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '슬롯 수' }));
+    fireEvent.click(screen.getByRole('button', { name: '슬롯 수 지정' }));
     expect(screen.getByText('광선로 슬롯')).toBeInTheDocument();
     /* 단추는 카드가 선 동안 사라진다 — 같은 일을 하는 자리가 둘이 아니게. */
-    expect(screen.queryByRole('button', { name: '슬롯 수' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '슬롯 수 지정' })).toBeNull();
     const box = screen.getByLabelText('슬롯 수');
     expect(box).toHaveFocus();
     fireEvent.change(box, { target: { value: '12' } });
@@ -316,10 +334,10 @@ describe('설비 상세', () => {
 
   it('「슬롯 수」로 열었다가 비운 채 물리면(Esc) 카드가 걷히고 단추가 돌아온다', () => {
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: '슬롯 수' }));
+    fireEvent.click(screen.getByRole('button', { name: '슬롯 수 지정' }));
     fireEvent.keyDown(screen.getByLabelText('슬롯 수'), { key: 'Escape' });
     expect(screen.queryByText('광선로 슬롯')).toBeNull();
-    expect(screen.getByRole('button', { name: '슬롯 수' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '슬롯 수 지정' })).toBeInTheDocument();
   });
 
   it('광선로 끝도 슬롯 수도 없는 설비에는 슬롯 카드가 없다', () => {
@@ -368,11 +386,16 @@ describe('설비 상세 — 연결 목록', () => {
     expect(screen.queryByRole('button', { name: '포트 수정' })).toBeNull();
   });
 
-  it('연결이 없으면 빈 안내, 지우면 오버레이에서 사라진다', () => {
+  it('연결이 없으면 빈 안내, 지우면 — 확인 뒤 — 오버레이에서 사라진다', async () => {
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: /연결/ }));
     fireEvent.click(screen.getByRole('button', { name: '연결 삭제' }));
-    expect(screen.getByText('등록된 연결이 없습니다')).toBeInTheDocument();
+    /* 묻는다 — 선번장의 「연결 삭제」와 같은 확인(상대 끝 이름이 대상). */
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('연결 삭제');
+    expect(dialog).toHaveTextContent('분전반 P1');
+    fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
+    expect(await screen.findByText('등록된 연결이 없습니다')).toBeInTheDocument();
   });
 });
 
@@ -477,5 +500,40 @@ describe('설비 상세 — 차단기 대장에서 보기', () => {
     expect(within(screen.getByRole('region', { name: '부하' })).queryByRole('button', { name: '차단기 대장에서 보기' })).toBeNull();
     fireEvent.click(within(screen.getByRole('region', { name: '입력 전원' })).getByRole('button', { name: '차단기 대장에서 보기' }));
     expect(onOpenPower).toHaveBeenCalledWith('p');
+  });
+});
+
+describe('조회 사용자 — 설비·랙 상세는 읽기만', () => {
+  asViewer();
+  it('설비 상세: 삭제·차단기 추가·편집·추가가 없고 정보 칸은 글로 선다', () => {
+    store.getState().update('equipment', 'p', { model: 'MX-1' });
+    render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    for (const name of ['삭제', '차단기 추가', '편집', '추가', '슬롯 수 지정']) expect(screen.queryByRole('button', { name })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.getAllByText('분전반 P1', { selector: 'span' }).length).toBeGreaterThan(0);
+    expect(screen.getByText('MX-1')).toBeInTheDocument();
+    /* 닫기는 남는다. */
+    expect(screen.getByRole('button', { name: '닫기' })).toBeInTheDocument();
+  });
+
+  it('설비 상세 탭들: 연결·포트 수정·연결 삭제, 기록 추가·수정·삭제, 사진 추가·삭제가 없다', () => {
+    store.getState().create('inspections', { id: 'i1', equipmentId: 'l', inspectedAt: '2026-10-01T09:00', content: '점검', result: null, updatedAt: '' });
+    store.getState().create('photos', { id: 'ph', equipmentId: 'l', filePath: '', caption: '명판', updatedAt: '' });
+    render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    fireEvent.click(screen.getByRole('tab', { name: /연결/ }));
+    for (const name of ['연결', '포트 수정', '연결 삭제']) expect(screen.queryByRole('button', { name })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: /점검/ }));
+    for (const name of ['추가', '수정', '삭제']) expect(screen.queryByRole('button', { name })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: /사진/ }));
+    for (const name of ['추가', '사진 삭제', '설명 수정']) expect(screen.queryByRole('button', { name })).toBeNull();
+    expect(screen.getByText('명판', { selector: 'span' })).toBeInTheDocument();
+  });
+
+  it('랙 상세: 삭제·설비 추가가 없고 이름은 글로 선다', () => {
+    render(<RackDetail rackId="r1" onClose={vi.fn()} onSelectEquipment={vi.fn()} onDeleted={vi.fn()} onAddEquipment={vi.fn()} />);
+    for (const name of ['삭제', '설비 추가']) expect(screen.queryByRole('button', { name })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getAllByText('분전반함', { selector: 'span' }).length).toBeGreaterThan(0);
   });
 });

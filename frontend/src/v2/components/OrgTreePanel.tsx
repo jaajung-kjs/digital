@@ -4,6 +4,8 @@ import { type OrgKind } from '../api';
 import { apiErrorMessage } from '../apiError';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useReorder, useV2OrgTree } from '../hooks';
+import { useWorkingCopy } from '../model/store/workingCopy';
+import { useCanEdit } from '../useCanEdit';
 
 /**
  * 이 트리가 다루는 것 — **트리에 보이는 것만**.
@@ -27,6 +29,12 @@ const KINDS = [
   { key: 'substations', label: '변전소', create: 'inline', rename: true, remove: true },
 ] as const satisfies ReadonlyArray<TreeKind & { key: TreeOrgKind }>;
 
+/** 조회 사용자의 트리 — 같은 층이되 만들기·이름 변경·삭제 손잡이가 없다. */
+const READ_KINDS = KINDS.map((k) => ({ ...k, create: undefined, rename: false, remove: false })) satisfies ReadonlyArray<TreeKind>;
+
+/** 저장 안 한 변경이 닿은 변전소는 지울 수 없다 — 지우면 그 변경안이 갈 곳을 잃어 이후 저장이 모두 실패한다. */
+const STAGED_BLOCK = '저장하지 않은 변경이 있는 변전소는 삭제할 수 없습니다 — 먼저 저장하거나 변경 취소하세요';
+
 /** 이 층의 것이 매달리는 곳 — 본부는 매달릴 곳이 없다. */
 const PARENT_FIELD: Record<TreeOrgKind, string> = {
   headquarters: '',
@@ -39,6 +47,9 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
   const { data: tree } = useV2OrgTree();
   const { createOrgNode: createMut, renameOrgNode: renameMut, deleteOrgNode: deleteMut } = useOrgMutations();
   const reorderMut = useReorder();
+  const canEdit = useCanEdit();
+  /* 문자열로 고른다 — 배열을 고르면 매번 새 값이라 스토어 구독이 끝없이 다시 그린다. */
+  const touchedKey = useWorkingCopy((s) => s.touchedSubstations().sort().join(','));
 
   const nodes = tree ? flattenTree(tree) : [];
 
@@ -58,8 +69,11 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
   }
 
   const treeNodes = useMemo<TreeNode[]>(
-    () => nodes.map((n) => ({ id: n.id, label: n.name, text: n.name, depth: n.depth })),
-    [nodes],
+    () => {
+      const touched = new Set(touchedKey ? touchedKey.split(',') : []);
+      return nodes.map((n) => ({ id: n.id, label: n.name, text: n.name, depth: n.depth, removeBlocked: touched.has(n.id) ? STAGED_BLOCK : undefined }));
+    },
+    [nodes, touchedKey],
   );
 
   return (
@@ -67,12 +81,13 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
       <TreePanel
         title="조직"
         headerActions={props.headerActions}
-        kinds={KINDS}
+        kinds={canEdit ? KINDS : READ_KINDS}
         nodes={treeNodes}
         selectedId={props.selectedId}
+        /* 고른 변전소를 다시 눌러도 놓지 않는다 — 놓으면 작업 공간이 통째로 빈다(가지는 접고 펴기만 한다). */
         onSelect={(t) => {
           const n = t ? nodes.find((x) => x.id === t.id) : null;
-          props.onSelect(n ?? null);
+          if (n) props.onSelect(n);
         }}
         /* 실패는 **치던 자리**에서 말한다 — 던지면 트리가 그 줄을 붙잡아 둔다. */
         onCreate={({ level, parentId, name }) => {
@@ -91,7 +106,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
         }
         onRemove={(node) => void remove(node)}
         /* 끌어서 순서를 바꾼다 — 화면이 본 순서를 그대로 번호로 적는다. */
-        onReorder={({ node, order }) => reorderMut.mutateAsync({ kind: KINDS[node.depth]!.key, ids: order }).then(() => undefined)}
+        onReorder={canEdit ? ({ node, order }) => reorderMut.mutateAsync({ kind: KINDS[node.depth]!.key, ids: order }).then(() => undefined) : undefined}
       />
       {confirmDialog}
     </div>

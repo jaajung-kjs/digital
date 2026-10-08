@@ -24,6 +24,7 @@ import { PowerView } from '../components/power/PowerView';
 import { OpticalMapView } from '../components/paths/OpticalMapView';
 import { EquipmentPlaceholder } from './workspace/EquipmentPlaceholder';
 import { useLiveSelection } from './workspace/useLiveSelection';
+import { useCanEdit } from '../useCanEdit';
 
 const VIEW_TABS: readonly TabItem<ViewMode>[] = VIEW_MODES.map((v) => ({ key: v, label: v }));
 /** 지사·본부 — 범위 현황과 광 계통도. */
@@ -43,6 +44,7 @@ export default function V2WorkspacePage() {
   const { data: orgTree } = useV2OrgTree();
   const catalog = useCatalog();
   const commit = useCommit();
+  const canEdit = useCanEdit();
 
   const selected: FlatOrgNode | null = useMemo(() => {
     if (route.nodeId == null || !orgTree) return null;
@@ -142,7 +144,8 @@ export default function V2WorkspacePage() {
               <PageHeader
                 title={selected.name}
                 path={orgPath.length > 1 ? <span data-testid="v2-selected">{orgPath.slice(0, -1).map((n) => n.name).join(' › ')}</span> : undefined}
-                actions={<SaveBar onCommit={commit.commit} isCommitting={commit.isCommitting} substationNames={touched} issue={commit.issues[0]?.message ?? null} />}
+                /* 조회 사용자에게는 저장 손잡이가 없다 — 고칠 길이 없으니 저장할 것도 없다(`useCanEdit`). */
+                actions={canEdit && <SaveBar onCommit={commit.commit} isCommitting={commit.isCommitting} substationNames={touched} issue={commit.issues[0]?.message ?? null} />}
               />
               <div className="flex h-8 shrink-0 items-end bg-surface-2 px-4">
                 <Tabs {...viewTabs.list} items={substationId ? VIEW_TABS : NODE_VIEW_TABS} onChange={route.setView} className="w-full" />
@@ -195,8 +198,8 @@ export default function V2WorkspacePage() {
                         selectedRackId={rackId}
                         onSelectRack={route.selectRack}
                         nodeScope={nodeScope}
-                        onAddRack={substationId ? () => setAdding({ kind: 'rack' }) : undefined}
-                        onAddEquipment={substationId ? (rackId) => setAdding({ kind: 'equipment', rackId }) : undefined}
+                        onAddRack={substationId && canEdit ? () => setAdding({ kind: 'rack' }) : undefined}
+                        onAddEquipment={substationId && canEdit ? (rackId) => setAdding({ kind: 'equipment', rackId }) : undefined}
                         onOpenElsewhere={nodeScope ? (r) => navigate(`/n/${r.substationId}?eq=${r.id}`) : undefined}
                       />
                     )}

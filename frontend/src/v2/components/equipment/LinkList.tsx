@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Pencil, Route, Trash2 } from 'lucide-react';
-import { Button, CommitInput, isComposing, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListHeading, ListItemRow } from '../../../components/ui';
+import { Button, CommitInput, isComposing, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListHeading, ListItemRow, useConfirm } from '../../../components/ui';
+import { EditOnly } from '../../useCanEdit';
+import { deleteConfirm } from '../deleteConfirm';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
 import { effectiveRows } from '../../model/store/effective';
@@ -30,6 +32,7 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
   const overlays = useWorkingCopy((s) => s.overlays);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
   /** 표기를 고치는 중인 연결. */
   const [editing, setEditing] = useState<string | null>(null);
   /** 중계경로를 추적하는 코어 끝 — 연결의 코어 쪽 끝. */
@@ -56,14 +59,17 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
     if (label === (ref.label ?? null)) return;
     workingCopyStore.getState().update('links', l.id, { [side]: { ...ref, label } });
   }
-  function remove(id: string) {
-    const r = deleteRows({ links: [id] });
+  /* 묻는다 — 상대 끝은 다른 설비라 그 설비 상세(또는 선번장)에서도 사라진다(선번장의 「연결 삭제」와 같은 확인). */
+  async function remove(l: Link) {
+    const { far } = sidesOf(l, equipmentId);
+    if (!(await confirm(deleteConfirm('연결', endLabel(s, far))))) return;
+    const r = deleteRows({ links: [l.id] });
     setError(r.blocked[0]?.reason ?? null);
   }
 
   return (
     <DetailCard>
-      <DetailCardHeader title="연결" actions={<Button variant="secondary" size="sm" onClick={() => setOpen(true)}>연결</Button>} />
+      <DetailCardHeader title="연결" actions={<EditOnly><Button variant="secondary" size="sm" onClick={() => setOpen(true)}>연결</Button></EditOnly>} />
       <ErrorStrip message={error} onDismiss={() => setError(null)} />
       {links.length === 0 && <EmptyState title="등록된 연결이 없습니다" />}
       {/* 줄들은 한 자식으로 묶는다 — 카드는 자식마다 여백을 주므로, 따로 두면 줄 사이가 벌어진다(CONVENTIONS §3 「카드 안 목록 줄」). */}
@@ -82,6 +88,7 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
         </div>
       )}
       <ConnectDialog substationId={substationId} from={{ kind: 'equipment', equipmentId }} open={open} onClose={() => setOpen(false)} onCreated={() => setError(null)} />
+      {confirmDialog}
       {tracing && <PathTraceDialog substationId={substationId} at={tracing} onClose={() => setTracing(null)} />}
     </DetailCard>
   );
@@ -112,10 +119,12 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
                 <Route className="h-3.5 w-3.5" />
               </IconButton>
             )}
-            {nearRef.kind === 'equipment' && (
-              <IconButton size="sm" aria-label="포트 수정" title="포트 수정" onClick={() => setEditing(l.id)}><Pencil className="h-3.5 w-3.5" /></IconButton>
-            )}
-            <IconButton size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제" onClick={() => remove(l.id)}><Trash2 className="h-3.5 w-3.5" /></IconButton>
+            <EditOnly>
+              {nearRef.kind === 'equipment' && (
+                <IconButton size="sm" aria-label="포트 수정" title="포트 수정" onClick={() => setEditing(l.id)}><Pencil className="h-3.5 w-3.5" /></IconButton>
+              )}
+              <IconButton size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제" onClick={() => void remove(l)}><Trash2 className="h-3.5 w-3.5" /></IconButton>
+            </EditOnly>
           </>
         )}
       >

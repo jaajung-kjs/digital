@@ -53,7 +53,7 @@ const placedRack = { ...waitingRack, id: 'R1', name: '통신랙 1', floorId: 'F1
 
 beforeEach(() => {
   store.getState().reset();
-  useV2AuthStore.setState({ user: { id: 'u1', username: 'u', role: 'viewer' }, isAuthenticated: true } as never);
+  useV2AuthStore.setState({ user: { id: 'u1', username: 'u', role: 'admin' }, isAuthenticated: true } as never);
 });
 
 const view = () => render(<RackPlanView substationId="S1" selectedRackId={null} onSelectRack={() => {}} />);
@@ -135,6 +135,29 @@ describe('RackPlanView', () => {
     up(60, 60);
     expect(store.getState().overlays.racks.creates.R3!.floorId).toBeNull();
     expect(screen.getByRole('button', { name: '배치' })).not.toHaveClass('bg-primary');
+  });
+
+  it('조회 사용자에게는 배치·층 추가·크기 손잡이도 없고 — 랙을 끌어도 옮겨지지 않는다(누르면 고르기만)', () => {
+    useV2AuthStore.setState({ user: { id: 'u1', username: 'u', role: 'viewer' } } as never);
+    store.getState().create('floors', floor);
+    store.getState().create('racks', placedRack);
+    store.getState().create('racks', waitingRack);
+    const onSelectRack = vi.fn();
+    const { rerender } = render(<RackPlanView substationId="S1" selectedRackId={null} onSelectRack={onSelectRack} />);
+    expect(screen.queryByRole('button', { name: '도면' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '배치' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '층 추가' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '층 관리' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '배치 해제' })).toBeNull();
+    expect(document.querySelector('[data-handle]')).toBeNull();
+    const before = { ...rackR1() };
+    down(120, 120); move(150, 140); move(170, 160); up(170, 160);
+    expect(rackR1()).toEqual(before);
+    expect(onSelectRack).toHaveBeenLastCalledWith('R1');
+    /* 고른 뒤에도 크기 손잡이·정면 회전은 서지 않는다. */
+    rerender(<RackPlanView substationId="S1" selectedRackId="R1" onSelectRack={onSelectRack} />);
+    expect(document.querySelector('[data-handle]')).toBeNull();
+    expect(screen.queryByRole('button', { name: /정면 회전/ })).toBeNull();
   });
 
   it('놓인 랙을 누르면 고르고, 끌면 손을 뗄 때 한 번 옮긴다', () => {
@@ -253,6 +276,7 @@ describe('RackPlanView — 배경 도면', () => {
   };
 
   it('비관리자에게는 배경 도면 메뉴가 없다', () => {
+    useV2AuthStore.setState({ user: { id: 'u1', username: 'u', role: 'viewer' } } as never);
     view();
     expect(screen.queryByRole('button', { name: '도면' })).toBeNull();
   });

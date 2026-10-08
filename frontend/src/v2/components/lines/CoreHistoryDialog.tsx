@@ -9,6 +9,8 @@ import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { CoreMeasurement } from '../../model/types';
 import { newId } from '../../newId';
+import { EditOnly, useCanEdit } from '../../useCanEdit';
+import { UNDO_HINT } from '../deleteConfirm';
 import { lineOf } from './sheetSelectors';
 import {
   BLANK_DRAFT, MEASURE_COLS, NOT_A_NUMBER, dateIssue, draftHasBad, isBadCell, isBlankDraft, measurementOf, today, type MeasureDraft,
@@ -38,6 +40,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
   const s = useMemo(() => ({ saved, overlays }), [saved, overlays]);
   const line = lineOf(s, lineId);
   const { confirm, confirmDialog } = useConfirm();
+  const canEdit = useCanEdit();
 
   const ms = useMemo(() => effectiveRows(s, 'coreMeasurements').filter((m) => m.lineId === lineId && m.coreNo === no), [s, lineId, no]);
   const of = (sd: Side) => newestFirst(ms.filter((m) => m.side === sd));
@@ -60,7 +63,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
 
   async function remove(m: CoreMeasurement) {
     const when = m.measuredOn ? formatDate(m.measuredOn) : '날짜 미상';
-    if (!(await confirm({ title: '측정 삭제', target: `코어 ${no} · ${when} 측정`, message: '이 측정 기록을 삭제합니다.', confirmLabel: '삭제', danger: true }))) return;
+    if (!(await confirm({ title: '측정 삭제', target: `코어 ${no} · ${when} 측정`, message: UNDO_HINT, confirmLabel: '삭제', danger: true }))) return;
     deleteLeafRow('coreMeasurements', m.id);
   }
 
@@ -84,18 +87,20 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
           <thead>{head}</thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr className={TABLE_ROW}><Td colSpan={WIDTHS.length} className="text-content-muted">측정이 없습니다</Td></tr>
+              <tr className={TABLE_ROW}><Td colSpan={WIDTHS.length} className="text-content-muted">등록된 측정이 없습니다</Td></tr>
             ) : rows.map((m) => (
               <tr key={m.id} data-testid="history-row" className={`${TABLE_ROW} group`}>
                 <Td className="whitespace-nowrap tabular-nums">{m.measuredOn ? formatDate(m.measuredOn) : EMPTY}</Td>
                 {MEASURE_COLS.map((c) => <Td key={c.key} align="right">{num(m[c.key])}</Td>)}
                 <Td className="truncate" title={m.measuredBy ?? undefined}>{m.measuredBy ?? EMPTY}</Td>
                 <Td align="right">
-                  <span className={HOVER_REVEAL}>
-                    <IconButton size="sm" tone="danger" aria-label="측정 삭제" title="측정 삭제" onClick={() => void remove(m)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </IconButton>
-                  </span>
+                  <EditOnly>
+                    <span className={HOVER_REVEAL}>
+                      <IconButton size="sm" tone="danger" aria-label="측정 삭제" title="측정 삭제" onClick={() => void remove(m)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </IconButton>
+                    </span>
+                  </EditOnly>
                 </Td>
               </tr>
             ))}
@@ -110,7 +115,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
       <div className="space-y-4">
         {group(side)}
         {group(other(side))}
-        <section aria-label="측정 추가" className="space-y-1">
+        {canEdit && <section aria-label="측정 추가" className="space-y-1">
           <ListHeading>측정 추가 — 자국 · {subName(side)}</ListHeading>
           <TableCard widths={WIDTHS}>
             <thead>{head}</thead>
@@ -134,7 +139,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
             </tbody>
           </TableCard>
           <ErrorStrip message={bad ? NOT_A_NUMBER : dateBad && measuredOn.trim() !== '' ? dateBad : null} />
-        </section>
+        </section>}
       </div>
       {confirmDialog}
     </Modal>

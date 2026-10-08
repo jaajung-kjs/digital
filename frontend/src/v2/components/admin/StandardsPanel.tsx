@@ -29,6 +29,7 @@ import { DURATION_BANDS, SANAN_BANDS, SIZE_BANDS } from '@twin/core';
 import { useStandards, useWageRates } from '../../hooks';
 import { useCatalog } from '../../model/hooks';
 import type { Standard } from '../../model/types';
+import { EditOnly, useCanEdit } from '../../useCanEdit';
 
 /** 파일 · 적용시기 · 올린이 · 상태. 합이 100(`TableCard`). */
 /* 상태와 동작은 **다른 열**이다 — 한 칸에 섞으면 같은 열에 배지·맨글자·단추가 뒤섞인다. */
@@ -226,10 +227,12 @@ function StandardCard<P extends { sourceName: string; effective: string }>({
           badge={badge ?? '없음'}
           badgeStatus={badge ? 'success' : 'warning'}
           actions={
-            <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>
-              <Upload size={14} />
-              파일 선택
-            </Button>
+            <EditOnly>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>
+                <Upload size={14} />
+                파일 선택
+              </Button>
+            </EditOnly>
           }
         />
         <input
@@ -280,6 +283,7 @@ function StandardCard<P extends { sourceName: string; effective: string }>({
 /** 올린 기록 — 새 판을 올려도 이전 판은 남고, 되돌릴 수 있다. */
 function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: string) => void }) {
   const KIND_LABEL: Record<string, string> = { wage: '노임단가', overhead: '제비율' };
+  const canEdit = useCanEdit();
   return (
     <DetailCard>
       <DetailCardHeader title="등록 이력" badge={String(rows.length)} badgeStatus="neutral" />
@@ -330,7 +334,7 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
                 </Td>
                 {/* 「적용」은 **제비율에만** 있다 — 눌러도 안 바뀌는 버튼을 두지 않는다. */}
                 <Td align="right">
-                  {row.kind === 'overhead' && !row.active && (
+                  {row.kind === 'overhead' && !row.active && canEdit && (
                     <button
                       type="button"
                       className={cn('rounded px-2 py-0.5 text-xs text-primary', SELECTABLE)}

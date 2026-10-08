@@ -13,6 +13,7 @@
  */
 import { useState } from 'react';
 import { DateInput, EMPTY, Input, Select, cn, SELECTABLE, formatDate, isCommitKey } from '../../components/ui';
+import { useCanEdit } from '../useCanEdit';
 
 interface InlineEditCellProps {
   value: string;
@@ -95,6 +96,19 @@ export function InlineEditCell({
   const [issue, setIssue] = useState<string | null>(null);
   /** 목록을 두고도 손으로 치는 중인가 — 「직접 입력」을 고른 뒤. */
   const [freeform, setFreeform] = useState(false);
+  /* 조회 사용자에게는 **읽는 줄만** — 누를 것이 없다(서버가 어차피 거절한다). */
+  const canEdit = useCanEdit();
+
+  if (!canEdit) {
+    const shown = value
+      ? <>{format ? format(value) : choices ? (choices.find((c) => c.value === value)?.label ?? value) : type === 'date' ? formatDate(value) : value}{unit && <span className="ml-0.5 text-content-faint">{unit}</span>}</>
+      : EMPTY;
+    return (
+      <span className={readCellClass(!!value, muted, wrap, type === 'number')} title={title ?? (value && !wrap && !choices && type === 'text' ? value : undefined)}>
+        {shown}
+      </span>
+    );
+  }
 
   if (!editing) {
     /* 빈 칸도 **누를 수 있어야** 한다 — 처음 값을 적는 자리가 바로 여기다. */

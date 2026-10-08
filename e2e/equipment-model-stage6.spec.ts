@@ -66,7 +66,7 @@ async function jumper(page: Page, block: Locator, equipment: string, lengthM: st
   await dialog.getByRole('textbox', { name: '접속 설비 검색' }).fill(equipment);
   await dialog.getByRole('button', { name: equipment, exact: true }).click();
   await dialog.getByRole('combobox', { name: '케이블 품목' }).selectOption({ label: '광점퍼코드' });
-  await dialog.getByRole('textbox', { name: '길이(m)' }).fill(lengthM);
+  await dialog.getByRole('textbox', { name: '길이' }).fill(lengthM);
   await dialog.getByRole('button', { name: '연결', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(cell(block, 1, 'near')).toContainText(equipment);

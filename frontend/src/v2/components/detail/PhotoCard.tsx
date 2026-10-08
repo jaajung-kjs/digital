@@ -10,7 +10,9 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { DetailCardHeader, Button, DetailCard, IconButton, Modal } from '../../../components/ui';
+import { DetailCardHeader, Button, DetailCard, IconButton, Modal, useConfirm } from '../../../components/ui';
+import { EditOnly, useCanEdit } from '../../useCanEdit';
+import { deleteConfirm } from '../deleteConfirm';
 import { photoUrl } from '../../api';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -42,6 +44,8 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
   );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canEdit = useCanEdit();
+  const { confirm, confirmDialog } = useConfirm();
   const [enlargedId, setEnlargedId] = useState<string | null>(null);
   const enlarged = enlargedId != null ? photos.find((p) => p.id === enlargedId) ?? null : null;
 
@@ -69,9 +73,11 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
     workingCopyStore.getState().update('photos', photo.id, { caption: nextCaption });
   }
 
-  function handleDelete(id: string) {
-    deleteLeafRow('photos', id);
-    if (enlargedId === id) setEnlargedId(null);
+  /* 묻는다 — 지운 사진은 판에서 사라지고 다시 볼 길이 없다(기록 삭제와 같은 확인). */
+  async function handleDelete(p: EquipmentPhoto) {
+    if (!(await confirm(deleteConfirm('사진', p.caption ?? '설비 사진')))) return;
+    deleteLeafRow('photos', p.id);
+    if (enlargedId === p.id) setEnlargedId(null);
   }
 
   return (
@@ -85,9 +91,11 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
         actions={
           /* 같은 패널의 점검·고장이력과 **같은 동작**이다(목록에 한 줄을 더한다) —
              한 동작에 한 단어. 「업로드」는 그 일을 하는 **방법**이지 하려는 일이 아니다. */
-          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-            추가
-          </Button>
+          canEdit ? (
+            <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+              추가
+            </Button>
+          ) : undefined
         }
       />
       <input
@@ -129,9 +137,11 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
                 <div className="min-w-0 flex-1">
                   <InlineEditCell value={p.caption ?? ''} onCommit={(v) => handleCaptionCommit(p, v)} label="설명" wrap />
                 </div>
-                <IconButton aria-label="사진 삭제" onClick={() => handleDelete(p.id)}>
-                  <Trash2 size={14} />
-                </IconButton>
+                <EditOnly>
+                  <IconButton aria-label="사진 삭제" onClick={() => void handleDelete(p)}>
+                    <Trash2 size={14} />
+                  </IconButton>
+                </EditOnly>
               </div>
             </div>
           ))}
@@ -149,6 +159,7 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
           />
         </Modal>
       )}
+      {confirmDialog}
     </DetailCard>
   );
 }

@@ -5,7 +5,9 @@ import { expandDeletes } from '@twin/core';
 import { deleteRows } from '../../model/store/deleteActions';
 import { effectiveRows, toModelState } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
+import { EditOnly, Editable } from '../../useCanEdit';
 import { RackTypeOptions } from './TypeOptions';
+import { deleteConfirm } from '../deleteConfirm';
 
 interface Props {
   rackId: string;
@@ -36,7 +38,7 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
     const plan = expandDeletes(toModelState(workingCopyStore.getState(), catalog?.cableTypes), { racks: [rackId] });
     if (plan.blocked.length > 0) { setBlocked(plan.blocked.map((x) => x.reason).join(' / ')); return; }
     setBlocked(null);
-    if (!(await confirm({ title: '랙 삭제', target: rack!.name, message: '저장 전에는 실행 취소할 수 있습니다.', confirmLabel: '삭제', danger: true }))) return;
+    if (!(await confirm(deleteConfirm('랙', rack!.name)))) return;
     const { blocked: b } = deleteRows({ racks: [rackId] });
     if (b.length > 0) { setBlocked(b.map((x) => x.reason).join(' / ')); return; }
     onDeleted();
@@ -47,18 +49,20 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
     <ViewCard title={rack.name} actions={<Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>} body="scroll">
       <div className="space-y-3">
         <DetailCard>
-          <DetailCardHeader title="랙 정보" actions={<Button variant="secondary" size="sm" onClick={remove}>삭제</Button>} />
-          <DetailRow label="이름"><CommitInput size="sm" aria-label="이름" required value={rack.name} onCommit={(v) => patch({ name: v })} /></DetailRow>
+          <DetailCardHeader title="랙 정보" actions={<EditOnly><Button variant="secondary" size="sm" onClick={remove}>삭제</Button></EditOnly>} />
+          <DetailRow label="이름"><Editable value={rack.name}><CommitInput size="sm" aria-label="이름" required value={rack.name} onCommit={(v) => patch({ name: v })} /></Editable></DetailRow>
           <DetailRow label="랙 품목">
-            <Select size="sm" value={rack.rackTypeId} onChange={(e) => patch({ rackTypeId: e.currentTarget.value })}>
-              <RackTypeOptions types={catalog?.rackTypes ?? []} />
-            </Select>
+            <Editable value={catalog?.rackTypes.find((t) => t.id === rack.rackTypeId)?.name}>
+              <Select size="sm" value={rack.rackTypeId} onChange={(e) => patch({ rackTypeId: e.currentTarget.value })}>
+                <RackTypeOptions types={catalog?.rackTypes ?? []} />
+              </Select>
+            </Editable>
           </DetailRow>
           <DetailRow label="배치">{place}</DetailRow>
           <ErrorStrip message={blocked} onDismiss={() => setBlocked(null)} />
         </DetailCard>
         <DetailCard>
-          <DetailCardHeader title={`실장 설비 ${inside.length}`} actions={<Button variant="secondary" size="sm" onClick={() => onAddEquipment(rackId)}>설비 추가</Button>} />
+          <DetailCardHeader title={`실장 설비 ${inside.length}`} actions={<EditOnly><Button variant="secondary" size="sm" onClick={() => onAddEquipment(rackId)}>설비 추가</Button></EditOnly>} />
           {/* 줄들은 한 자식 — 카드 여백을 한 번만 받는다(차단기 요약과 같은 밀도). */}
           <div>
             {inside.length === 0 && <ListRow>실장 설비가 없습니다</ListRow>}

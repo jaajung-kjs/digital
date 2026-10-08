@@ -6,6 +6,8 @@ import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy'
 import { deleteLeafRow } from '../../model/store/deleteActions';
 import type { InspectionLog, MaintenanceLog } from '../../model/types';
 import { newId } from '../../newId';
+import { useCanEdit } from '../../useCanEdit';
+import { deleteConfirm } from '../deleteConfirm';
 
 // ── ISO 변환 헬퍼 ─────────────────────────────────────────────────────────────
 /** datetime-local 입력값(yyyy-MM-ddTHH:mm) → 로컬 시간 기준 ISO 8601 문자열 */
@@ -76,6 +78,7 @@ export function RecordsTab({
   emptyMessage,
 }: RecordsTabProps) {
   const { confirm, confirmDialog } = useConfirm();
+  const canEdit = useCanEdit();
   /* 저장본 ⊕ 변경안에서 이 설비의 것만 — 훅은 갈래를 골라 부를 수 없어 두 갈래를 다 구독한다. */
   const saved = useWorkingCopy((st) => st.saved);
   const overlays = useWorkingCopy((st) => st.overlays);
@@ -157,7 +160,7 @@ export function RecordsTab({
     const label = [formatDate(fieldOf(record, dateField)), record.content]
       .filter(Boolean)
       .join(' · ');
-    if (!(await confirm({ title: '기록 삭제', target: label, message: '저장 전에는 실행 취소할 수 있습니다.', confirmLabel: '삭제', danger: true }))) return;
+    if (!(await confirm(deleteConfirm('기록', label)))) return;
     stageDelete(record.id);
     if (editState?.id === record.id) setEditState(null);
   }
@@ -172,7 +175,7 @@ export function RecordsTab({
           머리줄이 카드 밖에 홀로 서고 단추에 아이콘이 붙어 있어 다른 화면처럼 보였다. */}
       <DetailCardHeader
         title={sectionTitle}
-        actions={
+        actions={canEdit ? (
           <Button
             variant="secondary"
             size="sm"
@@ -180,7 +183,7 @@ export function RecordsTab({
           >
             {showAdd ? '취소' : '추가'}
           </Button>
-        }
+        ) : undefined}
       />
 
       {/* 추가 폼 */}
@@ -285,8 +288,8 @@ export function RecordsTab({
               title={dateVal.slice(0, 16).replace('T', ' ')}
               badge={extraVal || undefined}
               badgeStatus="neutral"
-              onEdit={() => handleEditStart(record)}
-              onDelete={() => handleDelete(record)}
+              onEdit={canEdit ? () => handleEditStart(record) : undefined}
+              onDelete={canEdit ? () => handleDelete(record) : undefined}
             />
             <p className="text-sm text-content">{record.content}</p>
           </DetailCard>

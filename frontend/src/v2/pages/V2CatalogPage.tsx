@@ -18,10 +18,10 @@ const ORDER: Column = { key: 'sortOrder', label: '순서', kind: 'number', width
 const NAME: Column = { key: 'name', label: '이름', kind: 'text', required: true };
 const LABOR: Column[] = [
   { key: 'laborCode', label: '노무유형', kind: 'labor' },
-  { key: 'unitPrice', label: '자재단가', kind: 'number' },
-  { key: 'installManDays', label: '신설 공량', kind: 'number' },
-  { key: 'removeManDays', label: '철거 공량', kind: 'number' },
-  { key: 'relocateManDays', label: '이설 공량', kind: 'number' },
+  { key: 'unitPrice', label: '자재단가', kind: 'number', unit: '원' },
+  { key: 'installManDays', label: '신설 공량', kind: 'number', unit: '인' },
+  { key: 'removeManDays', label: '철거 공량', kind: 'number', unit: '인' },
+  { key: 'relocateManDays', label: '이설 공량', kind: 'number', unit: '인' },
 ];
 const nextOrder = (rows: readonly { sortOrder: number }[]) => rows.reduce((n, r) => Math.max(n, r.sortOrder), 0) + 1;
 
@@ -86,9 +86,9 @@ export default function V2CatalogPage() {
                 NAME,
                 { key: 'medium', label: '매체', kind: 'select', required: true, options: CABLE_MEDIA.map((m) => ({ value: m.key, label: m.name })) },
                 { key: 'laborCode', label: '노무유형', kind: 'labor' },
-                { key: 'unitPrice', label: '자재단가(원/m)', kind: 'number' },
-                { key: 'installManDays', label: '신설 공량(m당)', kind: 'number' },
-                { key: 'removeManDays', label: '철거 공량(m당)', kind: 'number' },
+                { key: 'unitPrice', label: '자재단가', kind: 'number', unit: '원/m' },
+                { key: 'installManDays', label: '신설 공량', kind: 'number', unit: '인/m' },
+                { key: 'removeManDays', label: '철거 공량', kind: 'number', unit: '인/m' },
               ]}
               newRow={() => ({ sortOrder: nextOrder(c.cableTypes), medium: CABLE_MEDIA[0].key })}
             />

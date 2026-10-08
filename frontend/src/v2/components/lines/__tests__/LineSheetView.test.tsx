@@ -6,6 +6,7 @@ import { workingCopyStore as store } from '../../../model/store/workingCopy';
 import type { Equipment, FiberLine, Link } from '../../../model/types';
 import { useWorkspaceRoute } from '../../../useWorkspaceRoute';
 import { LineSheetView } from '../LineSheetView';
+import { asViewer } from '../../../../tests/asRole';
 
 vi.mock('../../../model/hooks', () => ({
   useCatalog: () => ({ data: { categories: [], rackTypes: [], equipmentTypes: [], media: [],
@@ -302,5 +303,19 @@ describe('선번장', () => {
     renderSheet();
     expect(screen.getByText('이 변전소에 수용된 광선로가 없습니다')).toBeInTheDocument();
     expect(screen.getByText('「광선로 추가」로 상대국과 코어 수를 지정하세요')).toBeInTheDocument();
+  });
+});
+
+describe('조회 사용자 — 선번장은 읽기만', () => {
+  asViewer();
+  it('광선로 추가·측정 입력·편집·연결·연결 삭제가 없고, 회선 내역 칸은 누를 수 없다', () => {
+    renderSheet();
+    expect(blocks().length).toBeGreaterThan(0);
+    for (const name of ['광선로 추가', '측정 입력', '편집', '연결', '연결 삭제']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+    expect(screen.queryAllByRole('button', { name: /수정$/ })).toEqual([]);
+    /* 읽는 것은 그대로 — 측정 이력·중계경로는 연다. */
+    expect(screen.getAllByRole('button', { name: /측정 이력$/ }).length).toBeGreaterThan(0);
   });
 });

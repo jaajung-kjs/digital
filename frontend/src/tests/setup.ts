@@ -99,3 +99,10 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 });
+
+/* 시험은 **관리자로** 돈다 — 고치는 손잡이는 관리자에게만 선다(`useCanEdit`). 인증 스토어는 localStorage 에서
+   되살아나므로(persist) 그 자리에 관리자를 적어 둔다. 스토어 모듈을 여기서 import 하지 않는 까닭: 설정 파일이 먼저
+   불러 두면 시험 파일의 `vi.mock`(api 등)이 그 사슬에 닿지 못한다. 조회 사용자 시험은 제 손으로 역할을 바꾼다. */
+localStorage.setItem('auth-storage', JSON.stringify({
+  state: { user: { id: 'test-admin', username: 'admin', role: 'admin' }, isAuthenticated: true }, version: 0,
+}));
