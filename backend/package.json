@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --require dotenv/config src/index.ts",
     "build": "rm -rf dist && tsc && cp -R src/generated dist/generated && cp -R src/v2/background/wasm dist/v2/background/wasm",
     "start": "node dist/index.js",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",

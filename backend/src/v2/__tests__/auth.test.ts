@@ -207,7 +207,7 @@ describe('GET /api/v2/auth/me', () => {
 describe('adminOnly 미들웨어', () => {
   it('role=viewer 인 토큰으로 admin 전용 엔드포인트 → 403', async () => {
     // viewer 계정 생성
-    const viewerName = `viewer_${Date.now()}`;
+    const viewerName = `test_viewer_${Date.now()}`;
     const hash = await bcrypt.hash('pass', 10);
     await nextDb.user.create({
       data: { username: viewerName, passwordHash: hash, role: 'viewer' },

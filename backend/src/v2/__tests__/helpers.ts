@@ -28,6 +28,9 @@ const TEST_KEY_PREFIX = 'TEST_';
  * 순서는 FK 가 정한다: 연결 → 광선로 → 설비 → 랙 → 층 → 국 → 지사 → 본부, 그다음 시험 마스터.
  * ⚠ vitest `fileParallelism: false` 에 의존한다(한 파일의 스윕이 다른 파일의 살아 있는 픽스처를 지우지 않게).
  */
+/** 시험이 만드는 사용자 이름 머리 — `sweepTestFixtures` 가 지운다. */
+const TEST_USER_PREFIXES = ['test_auth_', 'test_lock_', 'test_viewer_'];
+
 export async function sweepTestFixtures(): Promise<void> {
   for (const p of TEST_PREFIXES) {
     const subs = await nextDb.substation.findMany({ where: { name: { startsWith: p } }, select: { id: true } });
@@ -44,6 +47,8 @@ export async function sweepTestFixtures(): Promise<void> {
     await nextDb.headquarters.deleteMany({ where: { name: { startsWith: p } } });
   }
   await nextDb.changeLog.deleteMany({ where: { userId: 'test-user' } });
+  /* 인증 시험이 만드는 사용자(`test_auth_*`·`test_lock_*`·`test_viewer_*`) — 남기면 운영 화면의 사용자 목록에 조회 사용자가 쌓인다. 토큰은 Cascade. */
+  await nextDb.user.deleteMany({ where: { OR: TEST_USER_PREFIXES.map((p) => ({ username: { startsWith: p } })) } });
   await nextDb.equipmentType.deleteMany({ where: { key: { startsWith: TEST_KEY_PREFIX } } });
   await nextDb.rackType.deleteMany({ where: { key: { startsWith: TEST_KEY_PREFIX } } });
   await nextDb.cableType.deleteMany({ where: { key: { startsWith: TEST_KEY_PREFIX } } });
