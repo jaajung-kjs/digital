@@ -8,15 +8,16 @@ import { MEASURE_COLS, MEASURE_GROUPS } from './measureDraft';
  */
 export function MeasureHeadRows({ lead, trail }: { lead: ReactNode; trail?: ReactNode }) {
   return (
+    /* `data-measure-head` — 화면 검사(e2e)가 「머리글은 한 줄」 단언에서 이 2단 머리만 뺀다. */
     <>
-      <tr>
+      <tr data-measure-head="">
         {lead}
         {MEASURE_GROUPS.map((g) => (
           <Th key={g.key} colSpan={2} unit={g.unit} className="!text-center">{g.name}</Th>
         ))}
         {trail}
       </tr>
-      <tr>
+      <tr data-measure-head="">
         {MEASURE_COLS.map((c) => <Th key={c.key} align="right" title={c.title}>{c.name}</Th>)}
       </tr>
     </>

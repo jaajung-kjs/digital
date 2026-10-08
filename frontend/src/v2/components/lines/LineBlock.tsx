@@ -2,40 +2,47 @@ import { useMemo } from 'react';
 import { Route, Trash2 } from 'lucide-react';
 import { CORE_ROLES, CORE_STATUSES, DEFAULT_CORE_STATUS, type CoreRole, type CoreStatus, type LinkEndRef, type SheetBlock, type SheetRow } from '@twin/core';
 import {
-  Button, EMPTY, HOVER_REVEAL, IconButton, StatusDot, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, Td, Th, cn, dbText, formatDate,
-  formatMeasure, joinParts, kmText,
+  Button, EMPTY, HOVER_REVEAL, IconButton, StatusDot, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, Td, Th, cn, formatDate,
+  formatMeasure, latestMeasureText,
   type TableColumn,
 } from '../../../components/ui';
 import type { Core } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
-import { EditOnly } from '../../useCanEdit';
+import { EditOnly, useCanEdit } from '../../useCanEdit';
 import { coreStatusTone } from '../../tones';
 
 /**
  * 코어 · 어댑터 · 자국 접속 · 대국 접속 · 상태 · 주/예비 · 회선 내역 · 비고 · 1310 손실 · 1550 손실 · 거리 · 측정일.
- * 내용 폭이 정해진 열은 px(머리글 「1310 손실(dB)」이 다 드는 폭), 이름 열(자국·대국·회선 내역·비고)은 남은 폭을 나눈다.
+ * 내용 폭이 정해진 열은 px, 글 열(자국·대국·회선 내역·비고)은 남은 폭을 30 · 30 · 30 · 10 으로 나눈다.
  *
- * 판이 좁으면(§1.7-e, 이 표는 경계가 넓다 `[1200, 700]`) 측정 넷이 **「최근 측정」** 한 열(「-6.44 / -4.42 dB · 18.7 km」)로
- * 병합되고, 더 좁으면 그마저 숨고 어댑터·주/예비·비고도 숨는다 — 숨은 값은 코어 번호 칸 title 에 남고, 코어 번호를 누르면
- * 측정 기록 창이 열린다. 블록 안에서 측정이 하나도 없으면 측정 열은 서지 않는다.
+ * **단계는 「다 드는가」로 정한다**(§1.7-e2, `minWidth`) — 글 열 셋(자국 200 · 대국 190 · 회선 내역 180)이 읽히는 폭을 먼저
+ * 지키고, 들지 않으면 낮은 순위부터 덜어 낸다. 그래서 판이 넓어질수록 글 열이 좁아지는 일이 없다:
+ *  - wide: 전 열(측정 넷 · 상태 글자 · 비고).
+ *  - mid: 측정 넷 → **「1310/1550 손실(dB)」** 한 열(「-6.435 / -4.420」, 거리·측정일은 칸 title), 상태 → **점만**, 비고 숨김.
+ *  - narrow: 그마저 숨고 주/예비·어댑터도 숨는다.
+ * 글 열은 어느 단계든 **두 줄까지** 접힌다(몇 글자로 잘리는 대신, 전문은 title).
+ * 숨은 값은 코어 번호 단추의 title·접근 이름에 남고, 코어 번호를 누르면 측정 기록 창이 열린다.
+ * 블록 안에서 측정이 하나도 없으면 측정 열은 서지 않고(채우는 곳은 측정 등록 창), 어댑터가 코어 번호와 같으면 어댑터 열도 서지 않는다.
+ * 주/예비·비고가 블록 안에서 모두 비면: 조회 사용자에게는 서지 않고, 고칠 수 있는 사람에게는 **wide 에서만** 「—」로 선다(그 자리에서 채운다).
+ * **수는 자르지 않는다** — 수 열은 제 값이 다 드는 고정 폭이고, 들지 않으면 병합되거나 숨는다.
  */
 const COLUMNS: readonly TableColumn[] = [
   { key: 'no', width: '44px' },
   { key: 'jack', width: '60px', priority: 3 },
-  { key: 'near', width: 33 },
-  { key: 'far', width: 22 },
-  { key: 'status', width: '88px' },
+  { key: 'near', width: 30, minWidth: 200 },
+  { key: 'far', width: 30, minWidth: 190 },
+  { key: 'status', width: '88px', priority: 2 },
+  { key: 'statusDot', width: '44px', merged: true },
   { key: 'role', width: '88px', priority: 3 }, // 「예비회선」이 다 드는 폭
-  { key: 'purpose', width: 28 },
-  { key: 'note', width: 17, priority: 3 },
+  { key: 'purpose', width: 30, minWidth: 180 },
+  { key: 'note', width: 10, minWidth: 100, priority: 2 },
   { key: 'loss1310', width: '104px', priority: 2 },
   { key: 'loss1550', width: '104px', priority: 2 },
   { key: 'dist', width: '96px', priority: 2 },
   { key: 'measuredOn', width: '96px', priority: 2 },
-  { key: 'latest', width: '164px', merged: true, priority: 3 },
+  { key: 'latest', width: '156px', merged: true, priority: 3 },
 ];
 const MEASURE_KEYS = new Set(['loss1310', 'loss1550', 'dist', 'measuredOn', 'latest']);
-const BREAKPOINTS = [1200, 700] as const;
 /**
  * 고정 머리 칸의 바닥선은 **테두리가 아니라 그림자**다 — 겹친 테두리(collapse)는 표가 제자리에 그리므로
  * sticky 머리를 따라오지 않고, 그 반 픽셀 틈으로 아래를 지나가는 줄의 글자 윗동이 비쳤다.
@@ -43,7 +50,6 @@ const BREAKPOINTS = [1200, 700] as const;
 const HEAD = 'border-b-0 shadow-[inset_0_-1px_0_rgb(var(--border-2-rgb))]';
 
 const statusLabel = (v: string) => CORE_STATUSES.find((c) => c.value === v)?.label ?? v;
-const num = (v: number | null) => (v == null ? EMPTY : formatMeasure(v));
 /** 수 칸 — 빈 값 「—」는 늘 흐리게(같은 표의 다른 빈 칸과 같은 색). */
 const numCell = (v: number | null) => (v == null ? <span className="text-content-faint">{EMPTY}</span> : formatMeasure(v));
 
@@ -73,11 +79,11 @@ export interface LineBlockProps {
   onUnlink: (linkId: string, target: string) => void;
   onUpdateCore: (no: number, patch: Partial<Core>) => void;
   onFocus: () => void;
-  /** 블록 측정 입력. */
+  /** 블록 측정 등록. */
   onMeasure: () => void;
-  /** 광선로 편집(추가와 같은 상자). */
+  /** 광선로 수정(추가와 같은 창). */
   onEdit: () => void;
-  /** 코어 번호 → 측정 이력. */
+  /** 코어 번호 → 측정 기록. */
   onOpenCore: (no: number) => void;
   /** 머리의 단자 이름 → 그 설비 상세(현황). 슬롯에서 선번장으로 온 길을 되돌아가는 문이기도 하다. */
   onOpenEquipment: (equipmentId: string) => void;
@@ -99,20 +105,28 @@ export function LineBlock({
 }: LineBlockProps) {
   const purposeField = block.side === 'A' ? 'aPurpose' : 'bPurpose';
   const noteField = block.side === 'A' ? 'aNote' : 'bNote';
-  const text = (r: SheetRow, field: 'aPurpose' | 'bPurpose' | 'aNote' | 'bNote', current: string | null, name: string, muted: boolean, title?: string) => (
+  const text = (r: SheetRow, field: 'aPurpose' | 'bPurpose' | 'aNote' | 'bNote', current: string | null, name: string, muted: boolean, title?: string, clamp2 = false) => (
     <InlineEditCell
-      value={current ?? ''} label={name} muted={muted} title={title}
+      value={current ?? ''} label={name} muted={muted} title={title} clamp2={clamp2}
       onCommit={(raw) => { const next = raw.trim() || null; if (next !== current) onUpdateCore(r.no, { [field]: next }); }}
     />
   );
 
-  /* 블록 안에 측정이 하나도 없으면 측정 열은 서지 않는다(읽기 전용 열 — 채우는 곳은 측정 입력 창).
-     어댑터가 코어 번호와 모두 같으면(1-1, 2-2 …) 어댑터 열도 서지 않는다 — 같은 수를 두 번 읽힐 뿐이다. */
+  /* 블록 안에 측정이 하나도 없으면 측정 열은 서지 않는다(읽기 전용 열 — 채우는 곳은 측정 등록 창).
+     어댑터가 코어 번호와 모두 같으면(1-1, 2-2 …) 어댑터 열도 서지 않는다 — 같은 수를 두 번 읽힐 뿐이다.
+     주/예비·비고가 모두 비면 조회 사용자에게는 서지 않고, 고칠 수 있는 사람에게는 wide 에서만 선다(채우는 자리). */
+  const canEdit = useCanEdit();
   const noMeasure = block.rows.every((r) => r.latest == null);
   const sameJack = block.rows.every((r) => String(r.jack) === String(r.no));
+  const noRole = block.rows.every((r) => !r.role);
+  const noNote = block.rows.every((r) => !r.note);
   const columns = useMemo(
-    () => COLUMNS.map((c) => ((noMeasure && MEASURE_KEYS.has(c.key)) || (sameJack && c.key === 'jack') ? { ...c, hidden: true } : c)),
-    [noMeasure, sameJack],
+    () => COLUMNS.map((c): TableColumn => {
+      if ((noMeasure && MEASURE_KEYS.has(c.key)) || (sameJack && c.key === 'jack')) return { ...c, hidden: true };
+      if ((noRole && c.key === 'role') || (noNote && c.key === 'note')) return canEdit ? { ...c, priority: 2 } : { ...c, hidden: true };
+      return c;
+    }),
+    [noMeasure, sameJack, noRole, noNote, canEdit],
   );
 
   return (
@@ -122,7 +136,7 @@ export function LineBlock({
       aria-current={focused ? 'true' : undefined}
       className={cn('scroll-mt-4', focused && 'outline outline-2 outline-primary')}
     >
-      <TableCard columns={columns} breakpoints={BREAKPOINTS}>
+      <TableCard columns={columns}>
         {({ shows }) => (<>
         <thead className="sticky top-0 z-sticky bg-surface-2">
           <TableGroupHead
@@ -160,6 +174,7 @@ export function LineBlock({
             <Th col="near" className={HEAD}>자국 접속</Th>
             <Th col="far" className={HEAD}>대국 접속</Th>
             <Th col="status" className={HEAD}>상태</Th>
+            <Th col="statusDot" className={HEAD}>상태</Th>
             <Th col="role" className={HEAD}>주/예비</Th>
             <Th col="purpose" className={HEAD}>회선 내역</Th>
             <Th col="note" className={HEAD}>비고</Th>
@@ -168,7 +183,7 @@ export function LineBlock({
             <Th col="loss1550" className={HEAD} align="right" unit="dB" title="1550 nm 손실">1550 손실</Th>
             <Th col="dist" className={HEAD} align="right" unit="km" title="1550 거리(없으면 1310)">거리</Th>
             <Th col="measuredOn" className={HEAD}>측정일</Th>
-            <Th col="latest" className={HEAD} align="right" title="최근 측정 — 1310 / 1550 손실 · 거리">최근 측정</Th>
+            <Th col="latest" className={HEAD} align="right" unit="dB" title="최근 측정 1310 / 1550 손실(측정일·거리는 칸의 도움말)">1310/1550 손실</Th>
           </tr>
         </thead>
         <tbody>
@@ -191,24 +206,21 @@ export function LineBlock({
             /* 거리는 1550 이 있으면 그것, 없으면 1310 — 물러선 값은 그렇다고 적는다(같은 칸에 다른 파장이 말없이 섞이지 않게). */
             const dist = m ? (m.dist1550 ?? m.dist1310) : null;
             const distFrom1310 = m != null && m.dist1550 == null && m.dist1310 != null;
-            /* 최근 측정 한 줄 — 「-6.44 / -4.42 dB · 18.7 km」(측정일은 title). */
-            /* 빈 조각은 뺀다 — 한 파장만 있으면 「1550 -4.42 dB」(어느 파장인지 적는다), 둘 다면 「-6.44 / -4.42 dB」. */
-            const loss = m == null ? null
-              : m.loss1310 != null && m.loss1550 != null ? `${num(m.loss1310)} / ${num(m.loss1550)} dB`
-              : m.loss1310 != null ? `1310 ${dbText(m.loss1310)}`
-              : m.loss1550 != null ? `1550 ${dbText(m.loss1550)}` : null;
-            const latest = (m && joinParts([loss, dist != null ? `${kmText(dist)}${distFrom1310 ? '(1310)' : ''}` : null])) ?? EMPTY;
-            /* 지금 서지 않는 칸의 값 — 코어 번호 칸 title 에 모은다. */
+            /* 최근 측정 — 병합 칸은 손실 둘만(「-6.435 / -4.420」, 수가 잘리지 않는 폭), 온 글(측정일·파장·거리)은 title. */
+            const latestFull = latestMeasureText(m, { withDate: true });
+            /* 지금 서지 않는 칸의 값 — 코어 번호 단추의 title·접근 이름에 모은다. */
             const hidden = [
-              !shows('jack') && `어댑터 ${r.jack}`,
+              !shows('jack') && !sameJack && `어댑터 ${r.jack}`,
               !shows('role') && r.role && (CORE_ROLES.find((x) => x.value === r.role)?.label ?? r.role),
               !shows('note') && r.note && `비고 ${r.note}`,
-              !shows('loss1310') && !shows('latest') && m && `최근 측정 ${latest}${m.measuredOn ? ` (${formatDate(m.measuredOn)})` : ''}`,
+              !shows('loss1310') && !shows('latest') && m && `최근 측정 ${latestFull}`,
             ].filter(Boolean).join(' · ');
+            /* 글 칸(자국·대국·회선 내역·비고)은 **두 줄까지** 접는다 — 몇 글자로 잘리는 대신(§1.7-e2). 넘치면 둘째 줄 끝 말줄임(전문은 title). */
+            const textCls = 'line-clamp-2 break-words';
             return (
               <tr key={r.no} data-testid={`sheet-row-${r.no}`} className={cn(TABLE_ROW, 'group', bad && 'text-content-faint')}>
                 <Td align="right" col="no">
-                  <button type="button" className="w-full rounded px-1 text-right hover:text-primary" title={hidden || undefined} aria-label={`코어 ${r.no} 측정 기록`} onClick={() => onOpenCore(r.no)}>{r.no}</button>
+                  <button type="button" className="w-full rounded px-1 text-right hover:text-primary" title={hidden || undefined} aria-label={`코어 ${r.no} 측정 기록`} aria-description={hidden || undefined} onClick={() => onOpenCore(r.no)}>{r.no}</button>
                 </Td>
                 <Td align="right" col="jack" className="text-content-muted">{r.jack}</Td>
                 {/* 손잡이(지우개·잇기)는 **제 자리**를 갖는다 — 이름 위에 겹쳐 띄우면 이름 끝을 가리고, 손이 닿아야만
@@ -218,8 +230,8 @@ export function LineBlock({
                     {near != null ? (
                       <>
                         {nearEq
-                          ? <button type="button" className={cn('min-w-0 flex-1 truncate text-left hover:text-primary hover:underline', nearEq === selectedEquipmentId && 'font-medium text-primary')} title={near} onClick={() => onSelectEquipment(nearEq)}>{near}</button>
-                          : <span className="min-w-0 flex-1 truncate" title={near}>{near}</span>}
+                          ? <button type="button" className={cn('min-w-0 flex-1 text-left hover:text-primary hover:underline', textCls, nearEq === selectedEquipmentId && 'font-medium text-primary')} title={near} onClick={() => onSelectEquipment(nearEq)}>{near}</button>
+                          : <span className={cn('min-w-0 flex-1', textCls)} title={near}>{near}</span>}
                         <EditOnly>
                           <IconButton
                             size="sm" tone="danger" aria-label="연결 삭제" title="연결 삭제"
@@ -247,7 +259,7 @@ export function LineBlock({
                     그 자리만큼 자국 이름이 줄어든다. */}
                 <Td col="far">
                   <span className="flex min-w-0 items-center gap-1">
-                    <span className={cn('min-w-0 flex-1 truncate', far == null ? 'text-content-faint' : !bad && 'text-content-muted')} title={far ?? undefined}>{far ?? EMPTY}</span>
+                    <span className={cn('min-w-0 flex-1', textCls, far == null ? 'text-content-faint' : !bad && 'text-content-muted')} title={far ?? undefined}>{far ?? EMPTY}</span>
                     {trace}
                   </span>
                 </Td>
@@ -256,6 +268,14 @@ export function LineBlock({
                     value={r.status} label="상태" choices={CORE_STATUSES} required
                     /* 점 칸은 한 줄 높이(h-5)에 가둔다 — 기준선에 맞추면 그 줄만 2px 부푼다(코어 줄은 눈으로 센다). */
                     format={(v) => (v === DEFAULT_CORE_STATUS ? <span className="text-content-muted">{statusLabel(v)}</span> : <span className="flex h-5 items-center"><StatusDot status={coreStatusTone(v)}>{statusLabel(v)}</StatusDot></span>)}
+                    onCommit={(v) => { if (v !== r.status) onUpdateCore(r.no, { status: v as CoreStatus }); }}
+                  />
+                </Td>
+                <Td col="statusDot">
+                  <InlineEditCell
+                    value={r.status} label="상태" choices={CORE_STATUSES} required
+                    /* 좁은 판 — 점만(글자는 title·스크린리더). 정상도 흐린 점 하나로 자리를 지킨다. */
+                    format={(v) => <StatusDot dotOnly status={v === DEFAULT_CORE_STATUS ? 'neutral' : coreStatusTone(v)}>{statusLabel(v)}</StatusDot>}
                     onCommit={(v) => { if (v !== r.status) onUpdateCore(r.no, { status: v as CoreStatus }); }}
                   />
                 </Td>
@@ -270,11 +290,11 @@ export function LineBlock({
                   const peer = r.peerPurpose ? `대국 회선 내역: ${r.peerPurpose}` : undefined;
                   return (
                     <Td col="purpose" title={peer}>
-                      {text(r, purposeField, r.purpose, '회선 내역', bad, [r.purpose, peer].filter(Boolean).join('\n') || undefined)}
+                      {text(r, purposeField, r.purpose, '회선 내역', bad, [r.purpose, peer].filter(Boolean).join('\n') || undefined, true)}
                     </Td>
                   );
                 })()}
-                <Td col="note">{text(r, noteField, r.note, '비고', bad)}</Td>
+                <Td col="note">{text(r, noteField, r.note, '비고', bad, undefined, true)}</Td>
                 <Td align="right" col="loss1310">{numCell(m?.loss1310 ?? null)}</Td>
                 <Td align="right" col="loss1550">{numCell(m?.loss1550 ?? null)}</Td>
                 <Td align="right" col="dist" title={distFrom1310 ? '1550 측정값이 없어 1310 거리 표시' : undefined}>
@@ -282,8 +302,8 @@ export function LineBlock({
                   {distFrom1310 && <span className="ml-1 text-xs text-content-faint">(1310)</span>}
                 </Td>
                 <Td col="measuredOn" className="whitespace-nowrap tabular-nums">{m?.measuredOn ? formatDate(m.measuredOn) : <span className="text-content-faint">{EMPTY}</span>}</Td>
-                <Td align="right" col="latest" className="truncate" title={m?.measuredOn ? `${latest} (${formatDate(m.measuredOn)})` : undefined}>
-                  {m ? latest : <span className="text-content-faint">{EMPTY}</span>}
+                <Td align="right" col="latest" title={m ? latestFull : undefined}>
+                  {m ? latestMeasureText(m, { withWavelength: false, withDistance: false }) : <span className="text-content-faint">{EMPTY}</span>}
                 </Td>
               </tr>
             );

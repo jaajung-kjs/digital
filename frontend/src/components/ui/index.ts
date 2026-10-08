@@ -28,7 +28,8 @@ export { DateInput } from './DateInput';
 export { TIME_PATTERN, TimeInput } from './TimeInput';
 export {
   EMPTY, dbText, formatDate, formatDateTime, formatManDays, formatManDaysFixed, formatMeasure, formatNumber, formatPercent, formatQty,
-  formatSourceDate, formatWon, joinParts, kmText, lengthText, today, unitValueText,
+  formatSourceDate, formatWon, joinParts, kmText, latestMeasureText, lengthText, percentDigits, today, unitValueText,
+  type LatestMeasure,
 } from './format';
 export { SourceDate } from './SourceDate';
 export type { InputProps } from './Input';

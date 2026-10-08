@@ -57,7 +57,8 @@ export function formatDateTime(value: string | null | undefined): string {
  * ── 수 꼴 — 종류마다 helper 하나(CONVENTIONS §1.7-i1) ─────────────────────────────────────────────
  * SI 단위는 한 칸 띄우고(12 m · 30 A · 220 V · -13.05 dB · 8.5 km), 셈 단위는 붙인다(24심 · 3대 · 2개 · 5건 · 1,234원).
  * 표 칸에는 수만 적고 단위는 머리 괄호(「길이(m)」)에 둔다 — 아래 `format*` 는 수만, `*Text` 는 단위까지 돌려준다.
- * 소수는 **꼬리 0 을 버린다**(0.500 → 0.5). 예외는 설계서의 공량 하나 — 문서 관행대로 늘 3자리(`formatManDaysFixed`).
+ * 소수는 **꼬리 0 을 버린다**(0.500 → 0.5) — 공량·수량 그리고 글 안의 율. 예외는 **자릿수가 세로로 맞아야 읽히는 값**:
+ * 측정값(손실·거리, 늘 3자리 — 「-4.420」 옆 「-4.341」), 설계서의 공량(늘 3자리, `formatManDaysFixed`), 표 안의 율(그 표의 자릿수로 고정).
  * `toLocaleString` 을 화면 코드에서 직접 부르지 않는다(로케일·자릿수가 자리마다 갈린다).
  */
 
@@ -86,24 +87,75 @@ export function lengthText(m: number): string {
   return `${formatNumber(m, 2)} m`;
 }
 
-/** 길이(km) — 「8.5 km」. */
+/** 길이(km) — 「8.500 km」. 거리는 측정값이라 늘 3자리(같은 목록의 「8.348 km」와 자릿수가 맞게). */
 export function kmText(km: number): string {
-  return `${formatNumber(km, 3)} km`;
+  return `${formatMeasure(km)} km`;
 }
 
-/** 측정값(dB·km 의 수) — 최대 3자리, 꼬리 0 제거, 천 단위 구분 없음(「-6.435」). */
+/** 측정값(dB·km 의 수) — **늘 3자리**, 천 단위 구분 없음(「-6.435」·「-4.420」). 오른쪽 맞춤 열에서 소수점이 세로로 선다. */
 export function formatMeasure(v: number): string {
-  return v.toLocaleString('ko-KR', { maximumFractionDigits: 3, useGrouping: false });
+  return v.toLocaleString('ko-KR', { minimumFractionDigits: 3, maximumFractionDigits: 3, useGrouping: false });
 }
 
-/** 손실 — 「-13.05 dB」. */
+/** 최근 측정 한 건(선번장 줄의 `latest`) — 이 꼴을 읽는 자리는 모두 `latestMeasureText` 하나로 적는다. */
+export interface LatestMeasure {
+  loss1310: number | null;
+  loss1550: number | null;
+  dist1310: number | null;
+  dist1550: number | null;
+  measuredOn: string | null;
+}
+
+/**
+ * 최근 측정을 글로 — **한 꼴**(선번장 칸·title, 측정 등록 창이 같이 쓴다). 수는 늘 3자리(`formatMeasure`).
+ *
+ * - 기본(`withWavelength`): 「1310 -6.435 dB · 1550 -4.420 dB · 18.747 km」 — 파장 이름을 적는다(머리가 말하지 않는 자리).
+ * - `withWavelength: false`: 「-6.435 / -4.420」 — 머리가 「1310/1550 손실(dB)」라고 말하는 칸. 빈 파장은 「—」로 자리를 지킨다.
+ * - `withDate`: 앞에 측정일(「2024-10-08 · …」). `withDistance: false` 면 거리를 뺀다.
+ * 거리는 1550 이 있으면 그것, 없으면 1310(그렇다고 적는다 「(1310)」).
+ */
+export function latestMeasureText(
+  m: LatestMeasure | null | undefined,
+  { withDate = false, withWavelength = true, withDistance = true }: { withDate?: boolean; withWavelength?: boolean; withDistance?: boolean } = {},
+): string {
+  if (!m) return EMPTY;
+  const dist = m.dist1550 ?? m.dist1310;
+  const distText = withDistance && dist != null ? `${kmText(dist)}${m.dist1550 == null ? '(1310)' : ''}` : null;
+  const date = withDate && m.measuredOn ? formatDate(m.measuredOn) : null;
+  if (!withWavelength) {
+    const loss = m.loss1310 == null && m.loss1550 == null ? null
+      : `${m.loss1310 != null ? formatMeasure(m.loss1310) : EMPTY} / ${m.loss1550 != null ? formatMeasure(m.loss1550) : EMPTY}`;
+    return joinParts([date, loss, distText]) ?? EMPTY;
+  }
+  return joinParts([
+    date,
+    m.loss1310 != null ? `1310 ${dbText(m.loss1310)}` : null,
+    m.loss1550 != null ? `1550 ${dbText(m.loss1550)}` : null,
+    distText,
+  ]) ?? EMPTY;
+}
+
+/** 손실 — 「-13.050 dB」. */
 export function dbText(v: number): string {
   return `${formatMeasure(v)} dB`;
 }
 
-/** 율 — 0.0321 → 「3.21%」(최대 3자리, 꼬리 0 제거). */
-export function formatPercent(rate: number): string {
-  return `${(rate * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
+/**
+ * 율 — 0.0321 → 「3.21%」. `digits` 를 주지 않으면 최대 3자리·꼬리 0 제거(글 안). **표 열**은 그 열의 자릿수
+ * (`percentDigits`)로 고정한다 — 「19%」 옆 「19.1%」면 오른쪽 맞춤 열의 소수점이 어긋난다.
+ */
+export function formatPercent(rate: number, digits?: number): string {
+  const s = (rate * 100).toFixed(digits ?? 3);
+  return `${digits == null ? s.replace(/\.?0+$/, '') : s}%`;
+}
+
+/** 율 여럿을 한 열에 세울 때의 자릿수 — 그중 가장 긴 소수 자릿수(최대 3). */
+export function percentDigits(rates: ReadonlyArray<number | null | undefined>): number {
+  return rates.reduce<number>((d, r) => {
+    if (r == null) return d;
+    const frac = (r * 100).toFixed(3).replace(/0+$/, '').split('.')[1] ?? '';
+    return Math.max(d, frac.length);
+  }, 0);
 }
 
 /**

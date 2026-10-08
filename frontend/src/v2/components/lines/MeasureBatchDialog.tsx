@@ -1,8 +1,8 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import type { SheetBlock } from '@twin/core';
 import {
-  Button, DateInput, DetailCard, DetailRow, EMPTY, ErrorStrip, Input, Modal, TABLE_ROW, TableCard, Td, Th, formatDate,
-  isCommitKey, useConfirm, dbText,
+  Button, DateInput, DetailCard, DetailRow, ErrorStrip, Input, Modal, TABLE_ROW, TableCard, Td, Th,
+  isCommitKey, useConfirm, latestMeasureText,
 } from '../../../components/ui';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import { blockWhere } from './sheetSelectors';
@@ -13,12 +13,8 @@ import {
   BLANK_DRAFT, MEASURE_COLS, NOT_A_NUMBER, dateIssue, draftHasBad, isBadCell, isBlankDraft, measurementOf, today, type MeasureDraft, type MeasureKey,
 } from './measureDraft';
 
-/** 지금 최근 측정 한 줄 — `2024-10-08 · 1310 -6.435 dB · 1550 -4.42 dB`. */
-function latestText(m: SheetBlock['rows'][number]['latest']): string {
-  if (!m) return EMPTY;
-  const parts = [m.measuredOn ? formatDate(m.measuredOn) : null, m.loss1310 != null ? `1310 ${dbText(m.loss1310)}` : null, m.loss1550 != null ? `1550 ${dbText(m.loss1550)}` : null];
-  return parts.filter(Boolean).join(' · ') || EMPTY;
-}
+/** 지금 최근 측정 한 줄 — 선번장과 같은 꼴(`latestMeasureText`): 「2024-10-08 · 1310 -6.435 dB · 1550 -4.420 dB · 18.747 km」. */
+const latestText = (m: SheetBlock['rows'][number]['latest']) => latestMeasureText(m, { withDate: true });
 
 export interface MeasureBatchDialogProps {
   block: SheetBlock;
@@ -129,7 +125,7 @@ export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) 
                         </Td>
                       );
                     })}
-                    <Td data-col="latest" className="truncate text-content-muted">{latestText(r.latest)}</Td>
+                    <Td data-col="latest" className="truncate text-content-muted" title={r.latest ? latestText(r.latest) : undefined}>{latestText(r.latest)}</Td>
                   </tr>
                 );
               })}

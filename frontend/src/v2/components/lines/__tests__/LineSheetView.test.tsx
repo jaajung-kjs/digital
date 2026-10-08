@@ -294,8 +294,8 @@ describe('선번장', () => {
     store.getState().create('coreMeasurements', { ...m, id: 'm1', coreNo: 1, measuredOn: '2025-01-01', dist1310: 12.5, dist1550: null });
     store.getState().create('coreMeasurements', { ...m, id: 'm2', coreNo: 2, measuredOn: '2025-01-01', dist1310: 12.5, dist1550: 12.6 });
     renderSheet();
-    expect(cell(rowOf('L1', 1), 'dist')).toHaveTextContent('12.5(1310)');
-    expect(cell(rowOf('L1', 2), 'dist')).toHaveTextContent(/^12\.6$/);
+    expect(cell(rowOf('L1', 1), 'dist')).toHaveTextContent('12.500(1310)');
+    expect(cell(rowOf('L1', 2), 'dist')).toHaveTextContent(/^12\.600$/);
   });
 
   it('광선로가 없으면 빈 상태가 다음 할 일을 말한다', () => {

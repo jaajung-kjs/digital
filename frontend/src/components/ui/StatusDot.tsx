@@ -33,7 +33,22 @@ const TEXT: Record<BadgeStatus, string> = {
  *
  * 단독으로 강조하는 자리(패널 머리말, 안내 띠)는 그대로 `Badge` 를 쓴다.
  */
-export function StatusDot({ status, children }: { status: BadgeStatus; children: React.ReactNode }) {
+export function StatusDot({ status, children, dotOnly = false }: {
+  status: BadgeStatus;
+  children: React.ReactNode;
+  /**
+   * **점만** 보인다 — 글자는 스크린리더와 title 로만(좁은 판의 선번장 「상태」 열, §1.7-e2). 글자가 `string` 이어야 title 이 선다.
+   */
+  dotOnly?: boolean;
+}) {
+  if (dotOnly) {
+    return (
+      <span className="inline-flex h-5 items-center" title={typeof children === 'string' ? children : undefined}>
+        <span className={cn('size-2 shrink-0 rounded-full', DOT[status])} aria-hidden />
+        <span className="sr-only">{children}</span>
+      </span>
+    );
+  }
   return (
     <span className={cn('inline-flex items-center gap-1.5 text-sm', TEXT[status])}>
       <span className={cn('size-1.5 shrink-0 rounded-full', DOT[status])} aria-hidden />

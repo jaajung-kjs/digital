@@ -45,7 +45,7 @@ export type TableTier = 'wide' | 'mid' | 'narrow';
  *   `narrow` 에서는 그마저 숨는다.
  * - `hidden` — 부르는 쪽이 숨긴다(블록 안에서 값이 모두 빈 열).
  *
- * 숨거나 병합된 값은 그 줄의 대표 칸 `title` 과 상세 레일에서 읽힌다 — 화면에서 사라지는 값은 없다.
+ * 숨거나 병합된 값은 그 줄의 **닿을 수 있는** 대표 칸(코어 번호 단추·차단기 번호)의 `title`·`aria-description` 에 모은다(§1.7-e2).
  */
 export interface TableColumn {
   key: string;
@@ -54,6 +54,12 @@ export interface TableColumn {
   priority?: 1 | 2 | 3;
   merged?: boolean;
   hidden?: boolean;
+  /**
+   * 비율 열의 **읽을 수 있는 최소 폭(px)** — 한 열이라도 주면 단계는 폭 경계(`breakpoints`)가 아니라 **「다 드는가」**로 정한다:
+   * wide → mid → narrow 차례로, 서는 열의 고정 폭 + 최소 폭의 합이 판 폭에 드는 첫 단계(§1.7-e2). 판이 넓어질수록 열이
+   * 덜 서는 일(1440 + 레일이 1280 보다 좁게 읽히던 선번장)이 없다.
+   */
+  minWidth?: number;
 }
 
 export interface TableLayout {
@@ -82,10 +88,50 @@ export function columnShows(c: TableColumn, tier: TableTier): boolean {
   return true;
 }
 
+/** 이 단계에서 서는 열이 읽히려면 필요한 폭 — 고정 폭 + 비율 열의 최소 폭. */
+export function requiredWidth(columns: readonly TableColumn[], tier: TableTier): number {
+  return columns
+    .filter((c) => columnShows(c, tier))
+    .reduce((a, c) => a + (typeof c.width === 'number' ? (c.minWidth ?? 0) : parseFloat(c.width)), 0);
+}
+
+/** 「다 드는가」로 단계를 고른다 — wide → mid → narrow 중 필요한 폭이 판 폭에 드는 첫 단계(못 재었으면 wide). */
+export function fitTier(columns: readonly TableColumn[], width: number): TableTier {
+  if (width <= 0) return 'wide';
+  if (requiredWidth(columns, 'wide') <= width) return 'wide';
+  return requiredWidth(columns, 'mid') <= width ? 'mid' : 'narrow';
+}
+
 export function tierOf(width: number, [wideMin, midMin]: readonly [number, number] = [900, 700]): TableTier {
   /* 아직 재지 못했다(jsdom·첫 그림 전) — 다 세운다. */
   if (width <= 0 || width >= wideMin) return 'wide';
   return width >= midMin ? 'mid' : 'narrow';
+}
+
+/**
+ * 서는 열의 폭(px) — 고정 열은 제 폭, 비율 열은 남은 폭을 비율로 나누되 `minWidth` 아래로 내려가지 않는다.
+ * 최소 폭의 합조차 들지 않으면 null(비율 % 로 물러난다 — 그때 글 칸은 두 줄로 접힌다).
+ */
+export function waterfill(shown: readonly TableColumn[], width: number): string[] | null {
+  const fixed = shown.reduce((a, c) => a + (typeof c.width === 'number' ? 0 : parseFloat(c.width)), 0);
+  let free = width - fixed;
+  const ratio = shown.filter((c) => typeof c.width === 'number');
+  if (ratio.reduce((a, c) => a + (c.minWidth ?? 0), 0) > free) return null;
+  const out = new Map<string, number>();
+  let rest = [...ratio];
+  /* 몫이 최소 폭보다 작은 열을 최소 폭에 묶고, 남은 폭으로 다시 나눈다 — 더 묶을 열이 없을 때까지. */
+  for (;;) {
+    const sum = rest.reduce((a, c) => a + (c.width as number), 0);
+    const pinned = rest.filter((c) => c.minWidth != null && (free * (c.width as number)) / sum < c.minWidth);
+    if (pinned.length === 0) {
+      for (const c of rest) out.set(c.key, (free * (c.width as number)) / sum);
+      break;
+    }
+    for (const c of pinned) { out.set(c.key, c.minWidth!); free -= c.minWidth!; }
+    rest = rest.filter((c) => !pinned.includes(c));
+    if (rest.length === 0) break;
+  }
+  return shown.map((c) => (typeof c.width === 'number' ? `${Math.floor(out.get(c.key) ?? 0)}px` : c.width));
 }
 
 /** 상자의 폭을 잰다 — 붙을 때 한 번(그리기 전) + 바뀔 때마다. */
@@ -144,18 +190,25 @@ export function TableCard({
   'data-testid'?: string;
 }) {
   const [ref, width] = useBoxWidth<HTMLDivElement>();
-  const tier = forcedTier ?? tierOf(width, breakpoints);
+  const tier = forcedTier ?? (columns?.some((c) => c.minWidth != null) ? fitTier(columns, width) : tierOf(width, breakpoints));
   const layout = useMemo<TableLayout>(() => {
     if (!columns) return { ...ALL, tier, colCount: widths?.length ?? 0 };
     const on = new Set(columns.filter((c) => columnShows(c, tier)).map((c) => c.key));
     return { tier, merged: tier !== 'wide', shows: (k) => on.has(k) || !columns.some((c) => c.key === k), colCount: on.size };
   }, [columns, widths, tier]);
   const cols = useMemo(() => {
-    const ws = columns ? columns.filter((c) => columnShows(c, tier)).map((c) => c.width) : widths ?? [];
+    const shown = columns ? columns.filter((c) => columnShows(c, tier)) : null;
+    const ws = shown ? shown.map((c) => c.width) : widths ?? [];
+    /* 최소 폭이 있는 비율 열 — 잰 폭으로 px 를 나눠 준다(물 채우기): 몫이 최소 폭보다 작은 열은 최소 폭을 갖고, 남은 폭을
+       나머지가 비율대로 나눈다. 그래야 「비고」 같은 작은 몫의 열이 최소 폭 아래로 눌리지 않는다. */
+    if (shown && width > 0 && shown.some((c) => c.minWidth != null)) {
+      const px = waterfill(shown, width);
+      if (px) return px;
+    }
     /* 보이는 비율 열끼리 100 을 나눈다 — 숨은 열의 몫이 빈 자리로 남지 않게. */
     const sum = ws.reduce<number>((a, w) => a + (typeof w === 'number' ? w : 0), 0);
     return ws.map((w) => (typeof w === 'number' ? `${sum > 0 ? (w / sum) * 100 : 0}%` : w));
-  }, [columns, widths, tier]);
+  }, [columns, widths, tier, width]);
 
   return (
     <div

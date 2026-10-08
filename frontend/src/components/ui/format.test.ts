@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY, dbText, formatDate, formatManDays, formatManDaysFixed, formatMeasure, formatNumber, formatPercent, formatSourceDate, formatWon,
-  joinParts, kmText, lengthText, today, unitValueText,
+  joinParts, kmText, latestMeasureText, lengthText, percentDigits, today, unitValueText,
 } from './format';
 
 describe('format', () => {
@@ -24,12 +24,16 @@ describe('format', () => {
     expect(formatManDaysFixed(1)).toBe('1.000');
     expect(formatManDaysFixed(0.5)).toBe('0.500');
     expect(lengthText(12)).toBe('12 m');
-    expect(kmText(8.5)).toBe('8.5 km');
+    expect(kmText(8.5)).toBe('8.500 km');
     expect(formatMeasure(-6.435)).toBe('-6.435');
-    expect(formatMeasure(1234.5)).toBe('1234.5');
-    expect(dbText(-13.05)).toBe('-13.05 dB');
+    expect(formatMeasure(1234.5)).toBe('1234.500');
+    expect(formatMeasure(-4.42)).toBe('-4.420');
+    expect(dbText(-13.05)).toBe('-13.050 dB');
     expect(formatPercent(0.0321)).toBe('3.21%');
     expect(formatPercent(0.1)).toBe('10%');
+    expect(formatPercent(0.19, 1)).toBe('19.0%');
+    expect(percentDigits([0.19, 0.191, null])).toBe(1);
+    expect(percentDigits([0.0321, 0.1])).toBe(2);
   });
   it('unitValueText — 분명한 수+단위만 띄운다, 저장 글은 그대로 둔다', () => {
     expect(unitValueText('50A')).toBe('50 A');
@@ -53,5 +57,20 @@ describe('format', () => {
     expect(formatSourceDate('2026-10-08')).toBe('2026-10-08');
     expect(formatSourceDate('상반기')).toBe('상반기');
     expect(formatSourceDate(null)).toBe(EMPTY);
+  });
+});
+
+describe('latestMeasureText — 최근 측정 한 꼴', () => {
+  const m = { loss1310: -6.435, loss1550: -4.42, dist1310: 18.7, dist1550: 18.747, measuredOn: '2024-10-08T00:00:00Z' };
+  it('파장 이름을 적는 꼴(창·title)', () => {
+    expect(latestMeasureText(m, { withDate: true })).toBe('2024-10-08 · 1310 -6.435 dB · 1550 -4.420 dB · 18.747 km');
+  });
+  it('머리가 파장을 말하는 칸 — 「-6.435 / -4.420」, 빈 파장은 「—」', () => {
+    expect(latestMeasureText(m, { withWavelength: false, withDistance: false })).toBe('-6.435 / -4.420');
+    expect(latestMeasureText({ ...m, loss1310: null }, { withWavelength: false, withDistance: false })).toBe('— / -4.420');
+  });
+  it('1550 거리가 없으면 1310 거리(그렇다고 적는다) · 측정이 없으면 「—」', () => {
+    expect(latestMeasureText({ ...m, dist1550: null })).toBe('1310 -6.435 dB · 1550 -4.420 dB · 18.700 km(1310)');
+    expect(latestMeasureText(null)).toBe('—');
   });
 });

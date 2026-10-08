@@ -62,6 +62,8 @@ interface InlineEditCellProps {
   format?: (value: string) => React.ReactNode;
   /** 읽는 줄을 **접는다** — 표 밖에서 여러 줄이 곧 내용인 자리(사진 설명)만. 표 칸은 한 줄 + 말줄임. */
   wrap?: boolean;
+  /** 표 칸이 좁을 때(가장 좁은 단계) 글을 **두 줄까지** 접고 넘치면 말줄임 — 몇 글자로 잘리는 대신(§1.7-e2). */
+  clamp2?: boolean;
   /** 빈 값이 없는 닫힌 어휘(코어 상태) — 목록에 「—」를 세우지 않는다. */
   required?: boolean;
   /** 읽는 줄의 title — 주지 않으면 글 칸은 값 전문(말줄임 대비). 덧붙일 참고가 있을 때 준다. */
@@ -78,17 +80,18 @@ interface InlineEditCellProps {
 }
 
 /** 읽는 줄 버튼의 모양 — 칸 종류가 달라도(노무유형 등) 평소 모습은 이 하나를 쓴다. */
-export const readCellClass = (filled: boolean, muted?: boolean, wrap?: boolean, numeric?: boolean) =>
+export const readCellClass = (filled: boolean, muted?: boolean, wrap?: boolean, numeric?: boolean, clamp2?: boolean) =>
   /* 흐림이 이긴다 — 두 색 클래스를 함께 걸면 CSS 순서가 정한다(`cn` 은 병합하지 않는다). */
   /* 한 줄로 선다 — 표 줄은 `TABLE_ROW` 한 높이라, 긴 글이 접히면 그 줄만 부푼다. 넘치면 말줄임(전문은 title).
      **수는 자르지 않는다**(§1.7-b) — 잘린 수는 틀린 수다. 넘치면 열 폭을 고친다. */
-  cn('block w-full rounded px-1 text-sm [text-align:inherit]', numeric ? 'whitespace-nowrap' : !wrap && 'truncate', muted || !filled ? 'text-content-faint' : 'text-content', SELECTABLE);
+  /* `line-clamp-2` 는 제 display(-webkit-box)를 가져야 한다 — `block` 과 함께 걸면 `block` 이 이겨 셋째 줄까지 선다. */
+  cn('w-full rounded px-1 text-sm [text-align:inherit]', numeric ? 'block whitespace-nowrap' : clamp2 ? 'line-clamp-2 break-words' : wrap ? 'block' : 'block truncate', muted || !filled ? 'text-content-faint' : 'text-content', SELECTABLE);
 
 /** 목록 끝의 「직접 입력」 — 이 값은 저장되지 않고 칸을 자유 입력으로 바꾼다. */
 const FREE_INPUT = '\u0000free';
 
 export function InlineEditCell({
-  value, onCommit, type = 'text', label, unit, options, muted, choices, format, wrap, required, title, validate, startEditing, onEditingChange,
+  value, onCommit, type = 'text', label, unit, options, muted, choices, format, wrap, clamp2, required, title, validate, startEditing, onEditingChange,
 }: InlineEditCellProps) {
   const [editing, setEditingState] = useState(!!startEditing);
   const setEditing = (next: boolean) => { setEditingState(next); onEditingChange?.(next); };
@@ -104,7 +107,7 @@ export function InlineEditCell({
       ? <>{format ? format(value) : choices ? (choices.find((c) => c.value === value)?.label ?? value) : type === 'date' ? formatDate(value) : value}{unit && <span className="ml-0.5 text-content-faint">{unit}</span>}</>
       : EMPTY;
     return (
-      <span className={readCellClass(!!value, muted, wrap, type === 'number')} title={title ?? (value && !wrap && !choices && type === 'text' ? value : undefined)}>
+      <span className={readCellClass(!!value, muted, wrap, type === 'number', clamp2)} title={title ?? (value && !wrap && !choices && type === 'text' ? value : undefined)}>
         {shown}
       </span>
     );
@@ -118,7 +121,7 @@ export function InlineEditCell({
         aria-label={`${label} 수정`}
         /* 줄맞춤은 **열이 정한다**(`Td align`) — 여기서 정하면 값이 있는 줄과 대시만 있는
            줄이 한 열에서 서로 다른 자리에 선다. 물려받기만 한다. */
-        className={readCellClass(!!value, muted, wrap, type === 'number')}
+        className={readCellClass(!!value, muted, wrap, type === 'number', clamp2)}
         title={title ?? (value && !wrap && !choices && type === 'text' ? value : undefined)}
         onClick={() => setEditing(true)}
         /* 키보드로 훑다가 바로 고치는 길 — Enter 는 버튼이 이미 누름으로 읽는다. */

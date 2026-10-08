@@ -55,7 +55,7 @@ describe('중계경로 사슬 — RTU 예비회선', () => {
     expect(steps.slice(0, 5)).toEqual([
       { kind: 'end', station: '북춘천S/S', equipment: 'RTU 광스위치', port: 'FX-TX:1', at: { substationId: 'BC', lineId: 'L1', side: 'A' } },
       { kind: 'terminal', station: '북춘천S/S', showStation: false, place: 'OFD · 슬롯 2', adapter: 9, coreNo: 9, at: { substationId: 'BC', lineId: 'L1', side: 'A' } },
-      { kind: 'line', text: '154kV 춘천수력T/L (8.5 km)' },
+      { kind: 'line', text: '154kV 춘천수력T/L (8.500 km)' },
       { kind: 'terminal', station: '춘천H/P', showStation: true, place: 'OFD · 슬롯 3', adapter: 9, coreNo: 9, at: { substationId: 'CHP', lineId: 'L1', side: 'B' } },
       { kind: 'patch' },
     ]);
