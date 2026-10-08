@@ -1,18 +1,18 @@
 import { useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import type { BackgroundDrawing } from '@twin/core';
-import { DetailCardHeader } from '../../../components/ui';
+import { DetailCardHeader, IconButton } from '../../../components/ui';
 
 /**
- * 배경 도면 정보 — **트리 아래, 도면 옆**(농도·레이어).
+ * 배경 도면 정보(농도·레이어) — **평면도 판 안**, 도면 오른쪽 위에 뜨는 도구 판(GIS 의 레이어 판).
  *
- * 자리는 페이지가 내주고(`target`) 내용은 평면도가 채운다. 평면도를 떠나면 자리가 저절로 빈다.
+ * 머리 띠의 「배경 도면」 단추가 열고 닫는다. 예전에는 조직 트리 아래 레일에 살아서 평면도에서는 트리를 접을 수
+ * 없었다(1280 에서 판이 좁은 채로 잠겼다). 판 안에 두면 트리는 다른 판과 똑같이 접힌다.
  * 농도는 자료라 워킹카피에 오르고(`onOpacity`), 레이어 끄기는 보는 방식이라 화면이 든다(§3.3).
  */
-export function PlanBackgroundRail({
-  target, drawing, hidden, onToggle, onShowAll, opacity, onOpacity,
+export function PlanBackgroundPanel({
+  drawing, hidden, onToggle, onShowAll, opacity, onOpacity, onClose,
 }: {
-  target: HTMLElement | null;
   drawing: BackgroundDrawing | null;
   hidden: ReadonlySet<string>;
   onToggle: (name: string) => void;
@@ -20,6 +20,7 @@ export function PlanBackgroundRail({
   opacity: number;
   /** 손을 뗄 때 한 번 불린다. 없으면(조회 사용자) 농도는 읽기만 한다. */
   onOpacity?: (v: number) => void;
+  onClose: () => void;
 }) {
   /* 도면이 실제로 그리는 레이어만 — 선언만 있고 아무것도 안 그리는 것이 흔하다(`DEFPOINTS`). */
   const layers = useMemo(() => {
@@ -32,7 +33,7 @@ export function PlanBackgroundRail({
   }, [drawing]);
   /* 끄는 동안은 화면만 바꾸고, **손을 뗄 때 한 번** 쓴다 — 한 칸마다 쓰면 되돌리기가 칸 수만큼 쌓인다. */
   const [draft, setDraft] = useState<number | null>(null);
-  if (!target || !drawing) return null;
+  if (!drawing) return null;
   const shown = draft ?? opacity;
   const commit = () => {
     if (draft != null && draft !== opacity) onOpacity?.(draft);
@@ -40,12 +41,20 @@ export function PlanBackgroundRail({
   };
   const offCount = layers.filter((l) => hidden.has(l.name)).length;
 
-  return createPortal(
-    <div className="flex max-h-[42vh] flex-col border-t border-line-strong text-xs">
+  return (
+    <div
+      role="region" aria-label="배경 도면"
+      className="absolute right-2 top-2 z-legend flex max-h-[calc(100%-1rem)] w-64 flex-col overflow-hidden rounded border border-line-strong bg-surface text-xs shadow-md"
+    >
       <DetailCardHeader
         title="배경 도면"
         className="shrink-0"
-        actions={<span className="min-w-0 truncate text-xs text-content-faint">{drawing.source.fileName}</span>}
+        actions={(
+          <>
+            <span className="min-w-0 truncate text-xs text-content-faint" title={drawing.source.fileName}>{drawing.source.fileName}</span>
+            <IconButton size="sm" aria-label="배경 도면 닫기" title="닫기" onClick={onClose}><X size={14} /></IconButton>
+          </>
+        )}
       />
       <div className="flex shrink-0 items-center gap-2 px-3 py-1.5">
         <span className="shrink-0 text-content-muted">농도</span>
@@ -92,7 +101,6 @@ export function PlanBackgroundRail({
           </li>
         ))}
       </ul>
-    </div>,
-    target,
+    </div>
   );
 }

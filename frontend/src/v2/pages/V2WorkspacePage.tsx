@@ -101,8 +101,6 @@ export default function V2WorkspacePage() {
   /** 추가 대화상자 — 랙이면 'rack', 설비면 그 기본 랙(없으면 빈 문자열). */
   const [adding, setAdding] = useState<{ kind: 'rack' } | { kind: 'equipment'; rackId?: string } | null>(null);
   const closeAdding = () => setAdding(null);
-  /** 트리 아래 평면도 자리 — 붙을 때 받는다(ref 콜백, §1.7-q). */
-  const [railEl, setRailEl] = useState<HTMLElement | null>(null);
 
   /* Esc 는 고른 것을 놓는다. */
   useEffect(() => {
@@ -125,18 +123,12 @@ export default function V2WorkspacePage() {
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
         {/* 조직 트리는 접힌다 — 넓은 표(선번장)를 1280 에서 읽을 자리. 접는 것은 사람이 정하고 이 브라우저가 기억한다.
-            평면도에서는 펼친 채 잠근다 — 트리 아래 레일(railEl)에 배경 도면 농도·레이어 도구가 산다. */}
-        <CollapsibleRail
-          storageKey="twin.orgTree.collapsed" title="조직" locked={substationId != null && view === '평면도'}
-          className="w-64 border-r border-line bg-sidebar" data-testid="v2-org-tree"
-        >
+            모든 판에서 같다(평면도의 배경 도면 도구는 평면도 판 안에 있다). */}
+        <CollapsibleRail storageKey="twin.orgTree.collapsed" title="조직" className="w-64 border-r border-line bg-sidebar" data-testid="v2-org-tree">
           {(collapse) => (
-            <>
-              <div className="min-h-0 flex-1">
-                <OrgTreePanel selectedId={selected?.id ?? null} onSelect={(n) => route.selectNode(n?.id ?? null)} headerActions={collapse} />
-              </div>
-              <div ref={setRailEl} className="shrink-0 empty:hidden" />
-            </>
+            <div className="min-h-0 flex-1">
+              <OrgTreePanel selectedId={selected?.id ?? null} onSelect={(n) => route.selectNode(n?.id ?? null)} headerActions={collapse} />
+            </div>
           )}
         </CollapsibleRail>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
@@ -172,7 +164,7 @@ export default function V2WorkspacePage() {
                     {nodeScope && view === '광 계통도' ? (
                       <OpticalMapView nodeId={selected.id} onOpenStation={route.selectNode} onOpenLine={route.openBlockAt} />
                     ) : substationId && view === '평면도' ? (
-                      <RackPlanView substationId={substationId} selectedRackId={rackId} onSelectRack={route.selectRack} railTarget={railEl} />
+                      <RackPlanView substationId={substationId} selectedRackId={rackId} onSelectRack={route.selectRack} />
                     ) : substationId && view === '선번장' ? (
                       <LineSheetView
                         substationId={substationId}

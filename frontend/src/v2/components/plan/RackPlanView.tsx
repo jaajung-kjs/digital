@@ -28,7 +28,7 @@ import { Button, EmptyState, IconButton, Select, StatusBar, StatusItem, Tabs, us
 import { AssetResizeHandles } from '../floorplan/AssetResizeHandles';
 import { BackgroundImportControls } from '../floorplan/BackgroundImportControls';
 import { useFloorAdmin } from '../floorplan/useFloorAdmin';
-import { PlanBackgroundRail } from './PlanBackgroundRail';
+import { PlanBackgroundPanel } from './PlanBackgroundPanel';
 import { nextFacing, placedRacks, planLinks, unplacedRacks, type PlanLink } from './planSelectors';
 import { usePlanGesture } from './usePlanGesture';
 
@@ -41,8 +41,6 @@ interface Props {
   substationId: string;
   selectedRackId: string | null;
   onSelectRack: (id: string | null) => void;
-  /** 배경 도면 농도·레이어를 펼 자리(트리 아래) — 없으면 펴지 않는다. */
-  railTarget?: HTMLElement | null;
 }
 
 /** rAF 렌더가 읽는 「지금 값」 — 매 렌더 한 번 갱신된다. */
@@ -55,7 +53,7 @@ interface Latest {
   hiddenLayers: ReadonlySet<string>;
 }
 
-export function RackPlanView({ substationId, selectedRackId, onSelectRack, railTarget = null }: Props) {
+export function RackPlanView({ substationId, selectedRackId, onSelectRack }: Props) {
   const { confirm, confirmDialog } = useConfirm();
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
@@ -118,6 +116,8 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
   const rafPending = useRef(false);
   /** 꺼 둔 배경 레이어 — 보는 방식이지 자료가 아니다. 층이 바뀌면 비운다(§3.3). */
   const [hiddenLayers, setHiddenLayers] = useState<ReadonlySet<string>>(() => new Set());
+  /** 배경 도면 판(농도·레이어)이 열려 있는가 — 보는 방식이라 저장하지 않는다. */
+  const [bgOpen, setBgOpen] = useState(false);
   const hiddenFor = useRef<string | null>(null);
   if (hiddenFor.current !== activeFloorId) {
     hiddenFor.current = activeFloorId;
@@ -328,7 +328,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
         <EmptyState
           title="이 변전소에는 층이 없습니다"
           description="층을 추가하면 랙을 배치할 수 있습니다."
-          action={canEdit ? <Button size="sm" onClick={startAdd}>층 추가</Button> : undefined}
+          action={canEdit ? <Button variant="secondary" size="sm" onClick={startAdd}>층 추가</Button> : undefined}
         />
         {floorPrompt}
         {confirmDialog}
@@ -379,9 +379,10 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
         </IconButton>
       )}
       <span className="mx-2 h-4 w-px bg-line" aria-hidden />
-      <StatusItem label="좌표"><span ref={coordRef}>—</span></StatusItem>
-      <StatusItem label="스냅">{SNAP_GRID * 10} mm</StatusItem>
-      <StatusItem label="격자">60 cm (타일)</StatusItem>
+      {/* 띠가 좁으면 좌표 → 스냅 → 격자 차례로 빠진다(§3.6 순위) — 랙 수와 배율은 남는다. */}
+      <StatusItem label="좌표" priority={4}><span ref={coordRef}>—</span></StatusItem>
+      <StatusItem label="스냅" priority={3}>{SNAP_GRID * 10} mm</StatusItem>
+      <StatusItem label="격자" priority={2}>60 cm (타일)</StatusItem>
       <StatusItem label="랙">{placed.length}</StatusItem>
       <span className="ml-auto flex items-center gap-0.5">
         <IconButton aria-label="축소" size="sm" onClick={() => zoomByButton(1 / ZOOM_STEP)}>
@@ -406,11 +407,21 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
     <ViewCard
       body="fill"
       tools={canEdit ? tools : undefined}
-      actions={canEdit ? <BackgroundImportControls floorId={activeFloorId} hasBackground={activeFloor?.backgroundDrawing != null} /> : undefined}
+      actions={(activeFloor?.backgroundDrawing || canEdit) ? (
+        <>
+          {/* 배경 도면 농도·레이어 — 판 안에 뜨는 도구 판을 열고 닫는다(조회 사용자도 레이어는 끈다). */}
+          {activeFloor?.backgroundDrawing && (
+            <Button variant="ghost" size="sm" aria-pressed={bgOpen} className={bgOpen ? 'bg-surface-3' : undefined} onClick={() => setBgOpen((v) => !v)}>
+              배경 도면
+            </Button>
+          )}
+          {canEdit && <BackgroundImportControls floorId={activeFloorId} hasBackground={activeFloor?.backgroundDrawing != null} />}
+        </>
+      ) : undefined}
       status={status}
     >
       {floorPrompt}
-      <div {...floorTabs.panel} className="flex min-h-0 min-w-0 flex-1">
+      <div {...floorTabs.panel} className="relative flex min-h-0 min-w-0 flex-1">
         {/* 손짓의 주인은 이 판 하나다 — 캔버스와 손잡이의 누름이 모두 여기로 온다(§1.7-t). */}
         <div className="relative min-h-0 min-w-0 flex-1 touch-none overflow-hidden bg-surface" {...handlers}>
           <canvas
@@ -430,20 +441,23 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
             </div>
           )}
         </div>
+        {/* 손짓의 판 **밖**(형제)에 둔다 — 안에 두면 판의 누름 처리가 이 판의 누름까지 받는다. */}
+        {bgOpen && (
+        <PlanBackgroundPanel
+          onClose={() => setBgOpen(false)}
+          drawing={activeFloor?.backgroundDrawing ?? null}
+          hidden={hiddenLayers}
+          onToggle={(name) => setHiddenLayers((prev) => {
+            const next = new Set(prev);
+            if (next.has(name)) next.delete(name); else next.add(name);
+            return next;
+          })}
+          onShowAll={() => setHiddenLayers(new Set())}
+          opacity={activeFloor?.backgroundOpacity ?? 0.5}
+          onOpacity={canEdit ? (v) => { if (activeFloorId) update('floors', activeFloorId, { backgroundOpacity: v }); } : undefined}
+        />
+        )}
       </div>
-      <PlanBackgroundRail
-        target={railTarget}
-        drawing={activeFloor?.backgroundDrawing ?? null}
-        hidden={hiddenLayers}
-        onToggle={(name) => setHiddenLayers((prev) => {
-          const next = new Set(prev);
-          if (next.has(name)) next.delete(name); else next.add(name);
-          return next;
-        })}
-        onShowAll={() => setHiddenLayers(new Set())}
-        opacity={activeFloor?.backgroundOpacity ?? 0.5}
-        onOpacity={canEdit ? (v) => { if (activeFloorId) update('floors', activeFloorId, { backgroundOpacity: v }); } : undefined}
-      />
       {confirmDialog}
     </ViewCard>
   );

@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { CollapsibleRail } from './CollapsibleRail';
 
 const KEY = 'test.rail.collapsed';
-const rail = (locked = false) => (
-  <CollapsibleRail storageKey={KEY} title="조직" className="w-64" data-testid="rail" locked={locked}>
-    {(collapse) => <div><span>조직</span>{collapse}<p>트리 내용</p><div data-testid="rail-target">평면도 도구</div></div>}
+const rail = () => (
+  <CollapsibleRail storageKey={KEY} title="조직" className="w-64" data-testid="rail">
+    {(collapse) => <div><span>조직</span>{collapse}<p>트리 내용</p></div>}
   </CollapsibleRail>
 );
-const renderRail = (locked = false) => render(rail(locked));
+const renderRail = () => render(rail());
 
 beforeEach(() => window.localStorage.clear());
 
@@ -58,19 +58,5 @@ describe('CollapsibleRail', () => {
     expect(screen.getByRole('button', { name: '조직 펼치기' })).toHaveFocus();
     fireEvent.click(screen.getByRole('button', { name: '조직 펼치기' }));
     expect(screen.getByRole('button', { name: '조직 접기' })).toHaveFocus();
-  });
-
-  it('잠긴 판(평면도)에서는 접혀 있어도 펼친 채 — 「접기」도 없고, 적어 둔 접힘은 그대로', () => {
-    window.localStorage.setItem(KEY, '1');
-    const view = renderRail(true);
-    expect(screen.getByTestId('rail')).not.toHaveAttribute('data-collapsed');
-    expect(screen.getByText('트리 내용')).toBeVisible();
-    expect(screen.getByTestId('rail-target')).toBeVisible();
-    expect(screen.queryByRole('button', { name: '조직 접기' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '조직 펼치기' })).toBeNull();
-    expect(window.localStorage.getItem(KEY)).toBe('1');
-    /* 다른 판으로 돌아가면 사람이 고른 대로 다시 접힌다. */
-    view.rerender(rail(false));
-    expect(screen.getByTestId('rail')).toHaveAttribute('data-collapsed', 'true');
   });
 });

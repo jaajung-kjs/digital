@@ -292,12 +292,13 @@ describe('RackPlanView — 배경 도면', () => {
     expect(store.getState().overlays.floors.creates.F1!.backgroundDrawing).toMatchObject({ source: { fileName: 'plan.dwg' } });
   });
 
-  it('배경 농도는 트리 아래 자리에 서고, 바꾸면 층에 쌓인다', () => {
-    const rail = document.createElement('div');
-    document.body.appendChild(rail);
+  it('배경 농도는 평면도 판 안의 「배경 도면」 판에 서고(트리를 잠그지 않는다), 바꾸면 층에 쌓인다', () => {
     act(() => store.getState().update('floors', 'F1', { backgroundDrawing: drawing('plan.dwg') }));
-    render(<RackPlanView substationId="S1" selectedRackId={null} onSelectRack={() => {}} railTarget={rail} />);
-    const slider = within(rail).getByRole('slider', { name: '배경 농도' });
+    render(<RackPlanView substationId="S1" selectedRackId={null} onSelectRack={() => {}} />);
+    expect(screen.queryByRole('region', { name: '배경 도면' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '배경 도면' }));
+    const panel = screen.getByRole('region', { name: '배경 도면' });
+    const slider = within(panel).getByRole('slider', { name: '배경 농도' });
     const before = store.temporal.getState().pastStates.length;
     fireEvent.change(slider, { target: { value: '70' } });
     fireEvent.change(slider, { target: { value: '80' } });
@@ -305,6 +306,7 @@ describe('RackPlanView — 배경 도면', () => {
     fireEvent.pointerUp(slider);
     expect(store.getState().overlays.floors.creates.F1!.backgroundOpacity).toBe(0.8);
     expect(store.temporal.getState().pastStates.length).toBe(before + 1);
-    rail.remove();
+    fireEvent.click(within(panel).getByRole('button', { name: '배경 도면 닫기' }));
+    expect(screen.queryByRole('region', { name: '배경 도면' })).toBeNull();
   });
 });
