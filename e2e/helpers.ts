@@ -78,3 +78,68 @@ export async function horizontalOverflow(page: Page): Promise<string[]> {
     return out;
   });
 }
+
+/** 선번장 글 열(자국 접속·대국 접속·회선 내역)이 읽히는 최소 폭(px) — 이보다 좁으면 몇 글자만 남는다(C1). */
+export const SHEET_TEXT_MIN = 140;
+
+/**
+ * 화면 배치 단언 한 벌(§1.7-e2·§1.7-g·§3.6) — 넘친 것을 「무엇 · 값」으로 돌려준다(없으면 빈 배열).
+ * - 가로 스크롤 없음(`horizontalOverflow`)
+ * - 선번장 글 열 폭 ≥ `SHEET_TEXT_MIN`, 글 칸은 두 줄까지
+ * - **수는 잘리지 않는다** — 오른쪽 맞춤 칸(`td.text-right`)의 내용이 칸을 넘지 않는다
+ * - 머리글은 한 줄(높이 ≤ 30) — 측정 창의 2단 머리(`tr[data-measure-head]`)만 뺀다
+ * - 상태표시줄 칸끼리 겹치지 않고, 칸 글자가 잘리지 않는다
+ */
+export async function layoutProblems(page: Page): Promise<string[]> {
+  const out = await horizontalOverflow(page);
+  out.push(...await page.evaluate((min) => {
+    const res: string[] = [];
+    const vis = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const txt = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    document.querySelectorAll<HTMLElement>('[data-testid="sheet-block"] td[data-col]').forEach((td) => {
+      const col = td.dataset.col!;
+      if (!['near', 'far', 'purpose'].includes(col) || !vis(td)) return;
+      const w = td.getBoundingClientRect().width;
+      if (w < min) res.push(`선번장 ${col} 폭 ${Math.round(w)} < ${min}`);
+      td.querySelectorAll<HTMLElement>('.line-clamp-2').forEach((c) => {
+        const lh = parseFloat(getComputedStyle(c).lineHeight) || 20;
+        if (c.getBoundingClientRect().height > lh * 2 + 2) res.push(`선번장 ${col} 세 줄 이상: ${txt(c)}`);
+      });
+    });
+    document.querySelectorAll<HTMLElement>('td.text-right').forEach((td) => {
+      if (!vis(td) || td.closest('[data-design-print]')) return;
+      if (td.scrollWidth > td.clientWidth + 1) res.push(`잘린 수 ${td.dataset.col ?? ''}: ${txt(td)} (${td.clientWidth}<${td.scrollWidth})`);
+    });
+    document.querySelectorAll<HTMLElement>('th').forEach((th) => {
+      if (!vis(th) || th.closest('tr[data-measure-head]') || th.closest('[data-design-print]')) return;
+      const h = th.getBoundingClientRect().height;
+      if (h > 30) res.push(`두 줄 머리글 ${txt(th)} (${Math.round(h)}px)`);
+    });
+    document.querySelectorAll<HTMLElement>('.status-bar').forEach((sb) => {
+      if (!vis(sb)) return;
+      const box = sb.getBoundingClientRect();
+      /* 넘쳐 가려진 것(범례가 둘째 줄로 접어 감춘 항목)은 뺀다 — 잘라 내는 조상 상자 밖에 있다. */
+      const hiddenByClip = (k: HTMLElement) => {
+        const r = k.getBoundingClientRect();
+        for (let p = k.parentElement; p && p !== sb.parentElement; p = p.parentElement) {
+          if (getComputedStyle(p).overflow === 'visible') continue;
+          const c = p.getBoundingClientRect();
+          if (r.top >= c.bottom - 1 || r.bottom <= c.top + 1) return true;
+        }
+        return false;
+      };
+      const kids = [...sb.querySelectorAll<HTMLElement>('*')].filter((k) => vis(k) && k.children.length === 0 && !!(k.textContent ?? '').trim() && !hiddenByClip(k));
+      kids.forEach((k) => { if (k.scrollWidth > k.clientWidth + 1) res.push(`상태표시줄 글자 잘림: ${txt(k)}`); });
+      for (let i = 0; i < kids.length; i++) {
+        for (let j = i + 1; j < kids.length; j++) {
+          const a = kids[i]!.getBoundingClientRect(), b = kids[j]!.getBoundingClientRect();
+          if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) res.push(`상태표시줄 겹침: ${txt(kids[i]!)} / ${txt(kids[j]!)}`);
+        }
+      }
+      /* 칸이 띠 밖(오른쪽)으로 나가 잘리지 않는다 */
+      kids.forEach((k) => { if (k.getBoundingClientRect().right > box.right + 1) res.push(`상태표시줄 밖: ${txt(k)}`); });
+    });
+    return res;
+  }, SHEET_TEXT_MIN));
+  return out;
+}

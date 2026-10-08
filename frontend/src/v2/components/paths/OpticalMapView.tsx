@@ -90,8 +90,9 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
       <StatusItem label="변전소">{model.stations.length}</StatusItem>
       <StatusItem label="광선로">{model.lines.length}</StatusItem>
       <StatusItem label="회선">{model.bundles.length}</StatusItem>
-      {/* 범례는 좁으면 잘린다(글자를 세로로 쪼개지 않는다) — 수·확대 단추가 먼저다. */}
-      <span className="flex min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap px-3" data-testid="map-legend">
+      {/* 범례는 좁으면 **항목째** 빠진다 — 한 줄 높이(h-5)에 접어 두고 넘친 항목은 둘째 줄로 내려가 가려진다(글자 중간에서
+          잘리거나 확대 단추에 붙지 않는다). 수·확대 단추가 먼저다. 오른쪽 숨(mr-3)은 확대 묶음과의 틈. */}
+      <span className="mr-3 flex h-5 min-w-0 flex-1 flex-wrap items-center gap-x-3 overflow-hidden whitespace-nowrap px-3" data-testid="map-legend">
         {duties.map((d) => <DutyLegend key={dutyAttr(d)} duty={d} />)}
         {outside && <span className="flex shrink-0 items-center gap-1.5"><svg width="12" height="12" aria-hidden className="opacity-50"><circle cx="6" cy="6" r="4" className="fill-surface stroke-content" strokeWidth={1.5} strokeDasharray="3 2" /></svg>범위 밖 변전소</span>}
       </span>
