@@ -2,13 +2,13 @@ import { CIRCUIT_CURRENTS, SWITCH_STATES } from '@twin/core';
 import type { Circuit } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
 
-/** 차단기 한 줄에서 고치는 칸 — 글 칸 다섯과 닫힌 어휘 둘(갈래·개폐). */
+/** 차단기 한 줄에서 고치는 칸 — 글 칸 다섯과 닫힌 어휘 둘(교류/직류·개폐). */
 export type CircuitField = 'label' | 'current' | 'voltage' | 'capacity' | 'phase' | 'switch' | 'purpose';
 
 const LABEL: Record<CircuitField, string> = {
   label: '표기', current: '교류/직류', voltage: '전압', capacity: '용량', phase: '상', switch: '개폐', purpose: '용도',
 };
-/* 갈래·개폐는 닫힌 어휘 — 칸에는 말(교류·투입)이, 변경안에는 값(AC·on)이 들어간다(§InlineEditCell choices). */
+/* 교류/직류·개폐는 닫힌 어휘 — 칸에는 말(교류·투입)이, 변경안에는 값(AC·on)이 들어간다(§InlineEditCell choices). */
 const CHOICES: Partial<Record<CircuitField, readonly { value: string; label: string }[]>> = {
   current: CIRCUIT_CURRENTS, switch: SWITCH_STATES,
 };

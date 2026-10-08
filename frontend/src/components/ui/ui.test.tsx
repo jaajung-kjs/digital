@@ -106,8 +106,8 @@ describe('DetailCard', () => {
   });
 
   it('헤더는 제목 + 상태 배지(Badge)를 렌더', () => {
-    render(<DetailCardHeader title="포트 3" badge="연결" badgeStatus="success" />);
-    expect(screen.getByText('포트 3')).toBeInTheDocument();
+    render(<DetailCardHeader title="차단기 3" badge="연결" badgeStatus="success" />);
+    expect(screen.getByText('차단기 3')).toBeInTheDocument();
     const badge = screen.getByText('연결');
     expect(badge).toHaveClass('text-success');
   });
@@ -165,7 +165,7 @@ describe('Modal', () => {
   });
 
   /* 뒤에 깔린 화면들도 Esc 를 「고른 것 풀기」로 듣는다. 상자를 닫는 Esc 가 거기까지 닿으면
-     상자가 닫히면서 고른 자산까지 풀려 상세 패널이 통째로 사라진다. 「떠 있는 상자가 있으면
+     상자가 닫히면서 고른 설비까지 풀려 상세 패널이 통째로 사라진다. 「떠 있는 상자가 있으면
      뒤는 듣지 않는다」로는 못 막는다 — 이 손짓 안에서 상자가 이미 지워지기 때문이다. */
   it('Esc 는 상자에서 끝난다 — 뒤에 깔린 화면까지 닿지 않는다', () => {
     const behind = vi.fn();
@@ -322,7 +322,7 @@ describe('ConfirmModal', () => {
 
 /* 탭 줄은 **하나의 정거장**이다(§1.7-k, APG Tabs) — Tab 은 한 번만 서고 안은 화살표로 옮긴다. */
 describe('Tabs', () => {
-  const items = [{ key: 'a', label: '정보' }, { key: 'b', label: '포트' }, { key: 'c', label: '연결' }] as const;
+  const items = [{ key: 'a', label: '정보' }, { key: 'b', label: '사진' }, { key: 'c', label: '연결' }] as const;
 
   function Host() {
     const [v, setV] = useState<'a' | 'b' | 'c'>('a');
@@ -424,7 +424,7 @@ describe('Tabs', () => {
    놓고 갈 데가 없다 — Tab 은 메뉴를 지나쳐 뒤 화면으로 가 버린다. */
 describe('OverflowMenu', () => {
   const items = [
-    { label: '종류 삭제', onSelect: () => {}, danger: true },
+    { label: '품목 삭제', onSelect: () => {}, danger: true },
     { label: '복제', onSelect: () => {} },
   ];
 
@@ -455,7 +455,7 @@ describe('isCancelKey', () => {
   });
 
   /* 상자가 떠 있으면 Esc 는 그 상자의 것이다. 예전에는 뒤에 깔린 화면들도 같은 키를 들어서,
-     구성 격자에서 장비 상자를 닫으면 고른 자산까지 함께 풀려 상세 패널이 사라졌다. */
+     (옛) 구성 격자에서 장비 상자를 닫으면 고른 설비까지 함께 풀려 상세 패널이 사라졌다. */
   it('대화상자가 떠 있으면 뒤에 깔린 화면은 Esc 를 듣지 않는다', () => {
     render(
       <Modal open onClose={() => {}} title="제목">

@@ -13,7 +13,7 @@ interface EmptyStateProps {
    * 것이 없습니다」처럼 같은 말을 두 번 하게 된다.
    */
   description?: ReactNode;
-  /** 시작 동작(자산 추가 등). */
+  /** 시작 동작(설비 추가 등). */
   action?: ReactNode;
   className?: string;
 }

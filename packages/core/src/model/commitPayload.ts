@@ -5,7 +5,7 @@ import type { CircuitCurrent, CoreRole, CoreStatus, EquipmentStatus, Side, Switc
  *
  * 판정(zod)은 서버(`backend/src/v2/commit/schema.ts`)에 있고, 여기는 손으로 적은 타입이다.
  * 둘이 갈라지면 서버의 타입 시험(`schema.ts` 의 양방향 대입)이 컴파일에서 깨진다 — 프론트가
- * `Record<string, unknown>` 으로 짓던 동안 회로 갈래에 「교류」를 실어 보내도 아무도 몰랐다.
+ * `Record<string, unknown>` 으로 짓던 동안 차단기 교류/직류(current)에 「교류」를 실어 보내도 아무도 몰랐다.
  */
 type Opt<T> = T | null | undefined;
 

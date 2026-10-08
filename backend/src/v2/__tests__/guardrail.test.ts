@@ -95,7 +95,7 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
   /**
    * 인증 계층 권한 게이트 예외 정책 (auth-layer exception):
    *
-   * backend/src/v2/auth.middleware.ts 와 frontend/src/v2/authStore.ts 의
+   * backend/src/v2/auth.middleware.ts 와 frontend/src/v2/store/authStore.ts 의
    * ADMIN_ROLES.includes(...) / isAdminRole(...) 패턴은 도메인 role 분기가 아니라
    * 인증 게이트 구현이므로 본 규칙의 적용 대상이 아니다.
    * 그러나 두 파일은 역할 비교를 헬퍼(ADMIN_ROLES.includes / isAdminRole)로
