@@ -24,12 +24,14 @@ import { useV2Notice } from '../../store/noticeStore';
 import { useCommit } from '../store/useCommit';
 import { workingCopyStore as store } from '../store/workingCopy';
 
+let client = new QueryClient();
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+  <QueryClientProvider client={client}>{children}</QueryClientProvider>
 );
 
 beforeEach(async () => {
   catalog = { data: undefined }; putCalls = 0; refreshFails = false; fetchCount = 0;
+  client = new QueryClient();
   useV2Notice.setState({ error: null, success: null });
   store.getState().reset();
   await store.getState().ensureLoaded('S1');
@@ -55,5 +57,14 @@ describe('useCommit', () => {
     expect(store.getState().dirtyCount()).toBe(0);
     expect(result.current.error).toBeNull();
     expect(useV2Notice.getState().error).toContain('저장했지만');
+  });
+
+  it('저장 뒤 광 계통도 범위 데이터(network)를 낡은 것으로 표시한다 — 들르지 않은 국의 저장분도 다시 읽게', async () => {
+    catalog = { data: { cableTypes: [] } };
+    client.setQueryData(['v2', 'network', 'HQ'], { substations: [] });
+    const { result } = renderHook(() => useCommit(), { wrapper });
+    expect(client.getQueryState(['v2', 'network', 'HQ'])?.isInvalidated).toBe(false);
+    await act(async () => { await result.current.commit(); });
+    expect(client.getQueryState(['v2', 'network', 'HQ'])?.isInvalidated).toBe(true);
   });
 });
