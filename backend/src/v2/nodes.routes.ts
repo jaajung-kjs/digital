@@ -57,8 +57,11 @@ const byId = <T extends { id: string }>(a: T, b: T) => (a.id < b.id ? -1 : a.id 
 
 /**
  * 범위 안 광 계통 데이터(읽기 전용) — 광선로·코어·코어 끝 연결·그 끝의 설비.
- * 범위 안 국에 닿은 광선로에서 시작해, 그 코어에 닿은 연결은 어느 국의 것이든 싣고,
- * 중계 패치(코어↔코어)로 이어지는 다른 광선로를 따라 번진다(최대 8바퀴) — 경로가 범위 경계에서 끊기지 않게.
+ *
+ * 범위 안 국에 닿은 광선로의 연결은 모두 싣는다. 그 연결이 범위 밖 광선로의 **코어**로 넘어가면(중계 패치)
+ * 그 코어 하나만 따라간다(코어 끝 전선, per core) — 범위 밖 광선로의 다른 코어에 걸린 남의 회선은 싣지 않는다.
+ * 경로가 범위 경계에서 끊기지 않게 최대 `NETWORK_MAX_ROUNDS` 바퀴까지 번지고, 그래도 따라갈 코어가 남으면
+ * `truncated: true` 와 그 코어(`truncatedCores` — 그 너머 연결을 싣지 않은 코어)를 함께 준다.
  */
 nodesRouter.get('/nodes/:id/network', async (req, res, next) => {
   try {
@@ -68,21 +71,43 @@ nodesRouter.get('/nodes/:id/network', async (req, res, next) => {
 
     const lines = new Map<string, Awaited<ReturnType<typeof nextDb.fiberLine.findMany>>[number]>();
     const links = new Map<string, LinkWithEnds>();
-    const addLines = async (where: Prisma.FiberLineWhereInput): Promise<string[]> => {
-      const rows = await nextDb.fiberLine.findMany({ where: { AND: [where, { id: { notIn: [...lines.keys()] } }] } });
-      for (const l of rows) lines.set(l.id, l);
-      return rows.map((l) => l.id);
+    const addLines = async (ids: string[]) => {
+      const want = ids.filter((id) => !lines.has(id));
+      if (want.length === 0) return;
+      for (const l of await nextDb.fiberLine.findMany({ where: { id: { in: want } } })) lines.set(l.id, l);
     };
-    let fresh = await addLines({ OR: [{ aSubstationId: { in: subs } }, { bSubstationId: { in: subs } }] });
-    for (let round = 0; round < NETWORK_MAX_ROUNDS && fresh.length > 0; round++) {
-      const rows = await nextDb.link.findMany({ where: { ends: { some: { coreLineId: { in: fresh } } } }, include: { ends: true } });
-      const reached = new Set<string>();
+    /* 연결을 실은 코어 — 범위 안 광선로는 통째로, 범위 밖은 사슬이 닿은 코어만. */
+    const visited = new Set<string>();
+    const coreKey = (lineId: string, no: number) => `${lineId}:${no}`;
+    const take = (rows: LinkWithEnds[]): Map<string, Set<number>> => {
+      const next = new Map<string, Set<number>>();
       for (const l of rows) {
         links.set(l.id, l);
-        for (const e of l.ends) if (e.coreLineId && !lines.has(e.coreLineId)) reached.add(e.coreLineId);
+        for (const e of l.ends) {
+          if (e.coreLineId == null || e.coreNo == null || visited.has(coreKey(e.coreLineId, e.coreNo))) continue;
+          next.set(e.coreLineId, (next.get(e.coreLineId) ?? new Set()).add(e.coreNo));
+        }
       }
-      fresh = reached.size > 0 ? await addLines({ id: { in: [...reached] } }) : [];
+      return next;
+    };
+
+    for (const l of await nextDb.fiberLine.findMany({ where: { OR: [{ aSubstationId: { in: subs } }, { bSubstationId: { in: subs } }] } })) lines.set(l.id, l);
+    const inScopeLineIds = [...lines.keys()];
+    for (const c of await nextDb.core.findMany({ where: { lineId: { in: inScopeLineIds } }, select: { lineId: true, no: true } })) visited.add(coreKey(c.lineId, c.no));
+    let frontier = take(await nextDb.link.findMany({ where: { ends: { some: { coreLineId: { in: inScopeLineIds } } } }, include: { ends: true } }));
+    for (let round = 1; round < NETWORK_MAX_ROUNDS && frontier.size > 0; round++) {
+      await addLines([...frontier.keys()]);
+      for (const [lineId, nos] of frontier) for (const no of nos) visited.add(coreKey(lineId, no));
+      const rows = await nextDb.link.findMany({
+        where: { ends: { some: { OR: [...frontier].map(([lineId, nos]) => ({ coreLineId: lineId, coreNo: { in: [...nos] } })) } } },
+        include: { ends: true },
+      });
+      frontier = take(rows);
     }
+    /* 상한에서 멈췄다 — 닿은 코어의 광선로는 싣되(이름·국), 그 너머 연결은 싣지 않았다고 알린다. */
+    await addLines([...frontier.keys()]);
+    const truncatedCores = [...frontier].flatMap(([lineId, nos]) => [...nos].sort((x, y) => x - y).map((no) => ({ lineId, no })))
+      .sort((x, y) => (x.lineId < y.lineId ? -1 : x.lineId > y.lineId ? 1 : x.no - y.no));
 
     const lineRows = [...lines.values()].sort(byId);
     const linkRows = [...links.values()].sort(byId).map(({ ends, ...l }) => ({
@@ -118,6 +143,8 @@ nodesRouter.get('/nodes/:id/network', async (req, res, next) => {
         bEquipmentId: l.bEquipmentId, bPanel: l.bPanel, bStartNo: l.bStartNo,
       })),
       cores, links: linkRows, equipment,
+      truncated: truncatedCores.length > 0,
+      truncatedCores,
     });
   } catch (e) {
     next(e);
