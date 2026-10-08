@@ -9,11 +9,11 @@ import { BASELINE } from './globalSetup';
 export default async function globalTeardown() {
   if (!existsSync(BASELINE)) return;
   const before = JSON.parse(readFileSync(BASELINE, 'utf8')) as Snapshot | null;
-  if (!before) return;
+  if (!before?.e2eUserId) return;
   const problems = await withDb(async (db) => {
-    const dropped = await dropE2EChangeLog(db, before.at);
-    if (dropped > 0) console.log(`[e2e 위생] 이번 실행의 변경 이력 ${dropped}건을 걷었습니다`);
-    const after = await snapshot(db);
+    const dropped = await dropE2EChangeLog(db, before.at, before.e2eUserId);
+    if (dropped > 0) console.log(`[e2e 위생] e2e 계정의 변경 이력 ${dropped}건을 걷었습니다(admin 이력 ${before.counts['changelog(admin)']}건은 그대로)`);
+    const after = await snapshot(db, before.e2eUserId);
     const diff = Object.keys(before.counts)
       .filter((k) => after.counts[k] !== before.counts[k])
       .map((k) => `${k} ${before.counts[k]} → ${after.counts[k]}`);

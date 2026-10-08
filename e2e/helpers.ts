@@ -1,15 +1,21 @@
 import { expect, type Page } from '@playwright/test';
+import { E2E_USER } from './support/dbSnapshot';
 
-/** 시드 관리자 계정 — 개발 DB 기준. */
-const ADMIN = { username: 'admin', password: 'admin123' };
-
+/**
+ * E2E 도우미.
+ *
+ * **계정** — 시험은 개발 관리자(`admin`)가 아니라 **전용 계정 `e2e`(역할 admin)** 로 로그인한다. globalSetup
+ * (`support/globalSetup.ts`)이 없으면 만들고, teardown 은 그 계정이 남긴 변경 이력만 걷는다 — 개발 DB 를 함께 쓰는
+ * 사람·에이전트가 `admin` 으로 저장한 이력은 시험이 건드리지 않는다. 비밀번호는 `E2E_PASSWORD`(기본값은 dbSnapshot).
+ * 시험 데이터 이름은 `E2E` 로 시작한다(끝에 남은 것이 있으면 teardown 이 실패한다).
+ */
 export async function login(page: Page) {
   await page.goto('/');
   // 이미 로그인돼 있으면 로그인 화면이 뜨지 않는다.
   const password = page.locator('input[type=password]');
   if (await password.count()) {
-    await page.locator('input').first().fill(ADMIN.username);
-    await password.fill(ADMIN.password);
+    await page.locator('input').first().fill(E2E_USER.username);
+    await password.fill(E2E_USER.password);
     await password.press('Enter');
   }
   await expect(page.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible();

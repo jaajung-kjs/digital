@@ -12,6 +12,10 @@ import { join } from 'node:path';
  * 그리고 이번 실행이 남긴 변경 이력(`ChangeLog`)을 걷는다 — 저장했다 지운·되돌린 흔적이 시드 설비의
  * 「변경 이력」 탭에 쌓이지 않게.
  *
+ * **시험은 전용 계정 `e2e`(역할 admin)로 돈다**(`E2E_USER`). globalSetup 이 없으면 만들고(있으면 역할·비밀번호를 맞춘다),
+ * teardown 은 **그 계정이 쓴 변경 이력만** 걷는다. 개발 관리자(`admin`)의 이력은 어떤 경우에도 건드리지 않는다 —
+ * 시험이 도는 동안 사람이나 다른 에이전트가 `admin` 으로 저장해도 그 이력은 남는다(그래서 `admin` 이력 수도 앞뒤로 단언한다).
+ *
  * DB 주소는 backend/.env 의 DATABASE_URL_NEXT(개발 DB). 없으면 검사를 건너뛴다(CI 등 DB 를 모르는 곳).
  */
 const ROOT = join(__dirname, '..', '..');
@@ -43,7 +47,24 @@ export async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T | null> {
   }
 }
 
-export interface Snapshot { at: string; counts: Record<string, number> }
+/** 시험 전용 계정 — 개발 DB 에만 있다(globalSetup 이 만든다). 로그인은 `e2e/helpers.ts login`. */
+export const E2E_USER = { username: 'e2e', password: process.env.E2E_PASSWORD ?? 'e2e-only-123' } as const;
+
+/** 전용 계정을 둔다 — 없으면 만들고, 있으면 역할(admin)·비밀번호를 맞추고 잠금을 푼다. 계정 id 를 돌려준다. */
+export async function ensureE2EUser(db: Db): Promise<string> {
+  const require = createRequire(join(ROOT, 'backend', 'package.json'));
+  const bcrypt = require('bcryptjs') as { hash: (s: string, r: number) => Promise<string> };
+  const hash = (await bcrypt.hash(E2E_USER.password, 10)).replace(/'/g, "''");
+  const rows = await db.$queryRawUnsafe<Array<{ id: string }>>(
+    `insert into "User" (id, username, "passwordHash", role, "failedLoginCount", "lockedUntil", "createdAt", "updatedAt")
+     values (gen_random_uuid()::text, '${E2E_USER.username}', '${hash}', 'admin', 0, null, now(), now())
+     on conflict (username) do update set "passwordHash" = excluded."passwordHash", role = 'admin', "failedLoginCount" = 0, "lockedUntil" = null, "updatedAt" = now()
+     returning id`,
+  );
+  return rows[0]!.id;
+}
+
+export interface Snapshot { at: string; e2eUserId: string; counts: Record<string, number> }
 
 const COUNTS: Record<string, string> = {
   floors: 'select count(*)::int as n from "Floor"',
@@ -53,6 +74,11 @@ const COUNTS: Record<string, string> = {
   links: 'select count(*)::int as n from "Link"',
   measurements: 'select count(*)::int as n from "CoreMeasurement"',
   changelog: 'select count(*)::int as n from "ChangeLog"',
+  /* 개발 관리자의 이력 — 시험이 절대 건드리지 않는다(앞뒤 같아야 한다; 시험 중 사람이 admin 으로 저장하면 어긋나 알린다). */
+  'changelog(admin)': `select count(*)::int as n from "ChangeLog" where username = 'admin'`,
+  inspections: 'select count(*)::int as n from "InspectionLog"',
+  maintenance: 'select count(*)::int as n from "MaintenanceLog"',
+  photos: 'select count(*)::int as n from "EquipmentPhoto"',
 };
 
 const LEFTOVERS: Record<string, string> = {
@@ -61,6 +87,8 @@ const LEFTOVERS: Record<string, string> = {
   'E2E 광선로': `select count(*)::int as n from "FiberLine" where name like 'E2E%'`,
   'E2E 포트 표기': `select count(*)::int as n from "LinkEnd" where label like 'E2E%'`,
   'E2E 측정': `select count(*)::int as n from "CoreMeasurement" where "measuredBy" like 'E2E%'`,
+  'E2E 점검 기록': `select count(*)::int as n from "InspectionLog" where content like 'E2E%'`,
+  'E2E 고장 기록': `select count(*)::int as n from "MaintenanceLog" where content like 'E2E%'`,
 };
 
 async function one(db: Db, q: string): Promise<number> {
@@ -68,11 +96,12 @@ async function one(db: Db, q: string): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
-export async function snapshot(db: Db): Promise<Snapshot> {
+export async function snapshot(db: Db, e2eUserId: string): Promise<Snapshot> {
   const counts: Record<string, number> = {};
   for (const [k, q] of Object.entries(COUNTS)) counts[k] = await one(db, q);
-  const [{ now }] = await db.$queryRawUnsafe<Array<{ now: Date }>>('select now()::timestamp(3) as now');
-  return { at: now.toISOString(), counts };
+  /* 시각은 timestamptz 그대로(세션 시간대와 무관한 한 순간) — 비교할 때 `at`(UTC 로 적힌 timestamp)에 시간대를 붙인다. */
+  const [{ now }] = await db.$queryRawUnsafe<Array<{ now: Date }>>('select now() as now');
+  return { at: now.toISOString(), e2eUserId, counts };
 }
 
 export async function leftovers(db: Db): Promise<string[]> {
@@ -85,14 +114,19 @@ export async function leftovers(db: Db): Promise<string[]> {
 }
 
 /**
- * 이번 실행(since 이후)이 남긴 변경 이력을 걷는다. 걷은 수를 돌려준다.
+ * 시험이 남긴 변경 이력을 걷는다. 걷은 수를 돌려준다.
  *
- * E2E 가 만든 것(이름·표기·측정자 `E2E…`)뿐 아니라 **시드 값을 고쳤다 되돌린 저장**(현황 한 바퀴의 차단기 교류/직류 왕복)도
- * 시드 설비의 「변경 이력」 탭에 쌓이므로, 실행 동안 E2E 계정(`admin`)이 남긴 이력을 모두 걷는다. 시험은 직렬이고 개발 DB 에서만
- * 돈다 — 실행하는 동안 같은 계정으로 손으로 저장한 것이 있으면 그것도 걷힌다.
+ * - 전용 계정 `e2e` 가 쓴 이력 전부 — 그 계정은 시험만 쓴다(시드 값을 고쳤다 되돌린 저장도 여기 든다).
+ * - 이번 실행 동안 쓰인, E2E 이름(`"E2E…`)이 든 이력 — 단 **`admin` 이 쓴 것은 빼고**.
+ * 개발 관리자(`admin`)의 이력은 어떤 조건으로도 걷지 않는다.
  */
-export async function dropE2EChangeLog(db: Db, since: string): Promise<number> {
+export async function dropE2EChangeLog(db: Db, since: string, e2eUserId: string): Promise<number> {
+  const at = since.replace(/'/g, '');
+  const uid = e2eUserId.replace(/'/g, '');
   return db.$executeRawUnsafe(
-    `delete from "ChangeLog" where at >= '${since.replace(/'/g, '')}'::timestamp and (username = 'admin' or summary::text like '%E2E%')`,
+    `delete from "ChangeLog" where username <> 'admin' and (
+       "userId" = '${uid}'
+       or (("at" at time zone 'UTC') >= '${at}'::timestamptz and summary::text like '%"E2E%')
+     )`,
   );
 }
