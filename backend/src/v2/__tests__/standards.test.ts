@@ -35,8 +35,11 @@ describe('기준정보 — 노임단가', () => {
   });
 
   it('viewer 는 올리지 못한다', async () => {
-    await request(app).post('/api/v2/standards/wage/preview').set(viewer).attach('file', hwp).expect(403);
-    await request(app).post('/api/v2/standards/wage').set(viewer).attach('file', hwp).expect(403);
+    /* 권한은 본문을 읽기 전에 막힌다 — 큰 파일을 보내면 서버가 403 을 먼저 내고 연결을 닫아 업로드가
+       EPIPE 로 깨질 수 있다(간헐 실패). 권한 검사에는 파일 내용이 필요 없으니 작은 조각만 보낸다. */
+    const tiny = Buffer.from('x');
+    await request(app).post('/api/v2/standards/wage/preview').set(viewer).attach('file', tiny, 'tiny.hwp').expect(403);
+    await request(app).post('/api/v2/standards/wage').set(viewer).attach('file', tiny, 'tiny.hwp').expect(403);
   });
 
   it('미리보기는 적용시기·직종과 함께 **지금 카탈로그에 미치는 영향**을 알려준다', async () => {
