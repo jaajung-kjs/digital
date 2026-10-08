@@ -11,11 +11,13 @@ const view = (without: string[] = []) => effectiveNetwork(serverNetwork(without)
 const trace = (without: string[] = []) => { const v = view(without); return { v, p: traceFromCore(v.input, AT) }; };
 
 describe('국 이름 줄임(현장 회선현황 표기)', () => {
-  it('S/S 는 떼고, 다른 끝 약어는 빗금만 뗀다, (구)·(신)은 둔다', () => {
+  it('S/S·S/Y 는 떼고, 다른 끝 약어는 빗금만 뗀다, (구)·(신)은 괄호만 뗀다 — 회선현황 「구춘천」「춘천HP」「열병합」', () => {
     expect(shortStationName('북춘천S/S')).toBe('북춘천');
     expect(shortStationName('춘천H/P')).toBe('춘천HP');
-    expect(shortStationName('열병합S/Y')).toBe('열병합SY');
-    expect(shortStationName('(구)춘천S/S')).toBe('(구)춘천');
+    expect(shortStationName('열병합S/Y')).toBe('열병합');
+    expect(shortStationName('(구)춘천S/S')).toBe('구춘천');
+    expect(shortStationName('(신)춘천S/S')).toBe('신춘천');
+    expect(shortStationName('청평P/P')).toBe('청평PP');
     expect(shortStationName('S/S')).toBe('S/S');
   });
 });
@@ -25,20 +27,36 @@ describe('중계경로 사슬 — RTU 예비회선', () => {
 
   it('요약은 현장 표기 그대로, 예비회선, 완결', () => {
     const { v, p } = trace();
-    expect(pathSummary(v, p)).toBe('북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원');
-    expect(p.role).toBe('backup');
+    /* SCADA 「회선현황」 G7 과 같은 꼴 — 국(떠나는 끝의 접속 설비:어댑터)-…-닿는 국. */
+    expect(pathSummary(v, p)).toBe('북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원');
+    expect(p.duty).toBe('backup');
     expect(p.complete).toBe(true);
     expect(pathTitle(v, p, AT)).toBe('중계경로 — RTU 광스위치 · FX-TX:1');
   });
 
-  it('세로 사슬 — 끝 설비, 슬롯·코어, 광선로(길이), 국 바뀌는 끝, 중계 패치 … 끝 설비', () => {
+  it('요약의 수는 떠나는 끝의 어댑터 번호(시작 번호 + 코어 − 1) — 코어 번호가 아니다', () => {
+    loadSubstations([]); // 들른 국 없음 — 서버 광선로(시작 번호)를 그대로 읽는다
+    const server = serverNetwork();
+    server.lines = server.lines.map((l) => (l.id === 'L1' ? { ...l, aStartNo: 25 } : l.id === 'L4' ? { ...l, bStartNo: 13 } : l));
+    const v = effectiveNetwork(server, store.getState());
+    const p = traceFromCore(v.input, AT);
+    expect(pathSummary(v, p)).toBe('북춘천(OFD:33)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:49)-철원');
+  });
+
+  it('Tx/Rx 두 경로를 함께 주면 홉마다 어댑터를 `1·2` 로', () => {
+    const { v, p } = trace();
+    const twin = { ...p, hops: p.hops.map((h) => ({ ...h, coreNo: h.coreNo + 1 })) };
+    expect(pathSummary(v, [twin, p])).toBe('북춘천(OFD:9·10)-춘천HP(OFD:20·21)-화천HP(OFD:1·2)-화천(OFD:37·38)-철원');
+  });
+
+  it('세로 사슬 — 끝 설비, 슬롯·어댑터·코어, 광선로(길이), 국 바뀌는 끝, 중계 패치 … 끝 설비', () => {
     const { v, p } = trace();
     const steps = pathSteps(v, p);
     expect(steps.slice(0, 5)).toEqual([
       { kind: 'end', station: '북춘천S/S', equipment: 'RTU 광스위치', port: 'FX-TX:1', at: { substationId: 'BC', lineId: 'L1', side: 'A' } },
-      { kind: 'terminal', station: null, place: 'OFD 슬롯 2', coreNo: 9, at: { substationId: 'BC', lineId: 'L1', side: 'A' } },
+      { kind: 'terminal', station: '북춘천S/S', showStation: false, place: 'OFD · 슬롯 2', adapter: 9, coreNo: 9, at: { substationId: 'BC', lineId: 'L1', side: 'A' } },
       { kind: 'line', text: '154kV 춘천수력T/L (8.5 km)' },
-      { kind: 'terminal', station: '춘천H/P', place: 'OFD 슬롯 3', coreNo: 9, at: { substationId: 'CHP', lineId: 'L1', side: 'B' } },
+      { kind: 'terminal', station: '춘천H/P', showStation: true, place: 'OFD · 슬롯 3', adapter: 9, coreNo: 9, at: { substationId: 'CHP', lineId: 'L1', side: 'B' } },
       { kind: 'patch' },
     ]);
     expect(steps.filter((s) => s.kind === 'patch')).toHaveLength(3);
@@ -57,7 +75,7 @@ describe('저장 전 변경을 겹친다(effectiveNetwork)', () => {
     store.getState().create('links', { ...linkRow(LINKS.find((l) => l.id === 'k4')!), id: 'new-k4', updatedAt: '' });
     const { v, p } = trace(['k4']);
     expect(p.complete).toBe(true);
-    expect(pathSummary(v, p)).toBe('북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원');
+    expect(pathSummary(v, p)).toBe('북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원');
   });
 
   it('들른 국에서 삭제한 연결은 서버에 있어도 빠진다 — 끊긴 자리가 그 코어 끝', () => {
@@ -67,14 +85,24 @@ describe('저장 전 변경을 겹친다(effectiveNetwork)', () => {
     expect(p.complete).toBe(false);
     expect(p.end).toBeNull();
     const steps = pathSteps(v, p);
-    expect(steps[steps.length - 1]).toEqual({ kind: 'broken', station: '화천S/S', coreNo: 1, at: { substationId: 'HC', lineId: 'L3', side: 'A' } });
+    expect(steps[steps.length - 1]).toEqual({ kind: 'broken', station: '화천S/S', coreNo: 1, cause: 'open', at: { substationId: 'HC', lineId: 'L3', side: 'A' } });
+  });
+
+  it('끊긴 까닭 — 서버가 깊이 상한에서 멈춘 코어면 「경로가 길어 일부만」', () => {
+    loadSubstations(['BC']);
+    const server = { ...serverNetwork(['k4']), truncated: true, truncatedCores: [{ lineId: 'L3', no: 1 }] };
+    const v = effectiveNetwork(server, store.getState());
+    const p = traceFromCore(v.input, AT);
+    const steps = pathSteps(v, p);
+    expect(steps[steps.length - 1]).toMatchObject({ kind: 'broken', cause: 'truncated' });
+    expect(v.truncated).toBe(true);
   });
 
   it('저장 전 코어 주/예비 값이 서버 값을 이긴다', () => {
     loadSubstations(['BC']);
     store.getState().updateCore('L1', 9, { role: 'main' });
     /* 한 코어만 주 — 사슬이 섞였으므로 배지 없음(null). */
-    expect(trace().p.role).toBeNull();
+    expect(trace().p.duty).toBeNull();
   });
 
   it('들르지 않은 국에서 시작이 끊기면 첫 줄이 경로 미완결 — 그 코어 끝', () => {
@@ -82,8 +110,8 @@ describe('저장 전 변경을 겹친다(effectiveNetwork)', () => {
     const v = view(['k1']);
     const p = traceFromCore(v.input, AT);
     expect(p.start).toBeNull();
-    expect(pathSteps(v, p)[0]).toEqual({ kind: 'broken', station: '북춘천S/S', coreNo: 9, at: { substationId: 'BC', lineId: 'L1', side: 'A' } });
-    expect(pathTitle(v, p, AT)).toBe('중계경로 — OFD 슬롯 2 · 코어 9');
+    expect(pathSteps(v, p)[0]).toEqual({ kind: 'broken', station: '북춘천S/S', coreNo: 9, cause: 'open', at: { substationId: 'BC', lineId: 'L1', side: 'A' } });
+    expect(pathTitle(v, p, AT)).toBe('중계경로 — OFD · 슬롯 2 · 어댑터 9 · 코어 9');
   });
 });
 
@@ -102,7 +130,7 @@ describe('저장 전 광선로·연결 변경(effectiveNetwork)', () => {
     s.create('links', { ...linkRow(LINKS[0]!), id: 'p9', a: { kind: 'core', lineId: 'L9', no: 5, side: 'B' }, updatedAt: '' });
     const { v, p } = trace();
     expect(p.hops.map((h) => `${h.lineId}:${h.coreNo}`)).toEqual(['L9:5', 'L1:9', 'L2:20', 'L3:1', 'L4:37']);
-    expect(pathSummary(v, p)).toBe('가평-(5)-북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원');
+    expect(pathSummary(v, p)).toBe('가평(5)-북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원');
     expect(p.start).toBeNull();
     expect(pathSteps(v, p)[0]).toMatchObject({ kind: 'broken', station: '가평S/S', at: { substationId: 'GP', lineId: 'L9', side: 'A' } });
   });

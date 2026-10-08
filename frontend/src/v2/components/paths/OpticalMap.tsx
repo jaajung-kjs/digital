@@ -6,7 +6,11 @@
  *
  * **손짓은 하나의 값**(§1.7-t): 끌어 옮기기와 누르기가 `gesture` 하나에 들고, 시작도 끝도 이 판이 받는다(포인터 캡처).
  * 국·광선로는 `data-station`·`data-line` 으로 자기를 알릴 뿐이다. 문턱(3px)을 넘으면 옮기기, 못 넘고 떼면 누르기.
- * 휠은 커서 아래를 붙든 채 확대(평면도와 같은 `zoomAtPoint`), 「맞추기」는 국 전체를 한눈에(최대 100%).
+ * 휠은 커서 아래를 붙든 채 확대(평면도와 같은 `zoomAtPoint`), 터치는 두 손가락 벌리기·오므리기로 확대(두 손가락 가운데를 붙든다),
+ * 「맞추기」는 국 전체를 한눈에(최대 100%).
+ *
+ * 광선로 이름표(`선로명 · n심 · km`)는 **확대했을 때**(`LABEL_ZOOM` 이상) 또는 고른 회선·경고가 지나는 광선로에만 선다 —
+ * 줄인 그림에서 모두 세우면 글자가 겹쳐 국 이름까지 가린다.
  */
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import type { PathBundle } from '@twin/core';
@@ -15,10 +19,10 @@ import { DRAG_THRESHOLD } from '../../canvas/drag';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
 import type { MapLine, MapStation, OpticalMapModel } from './opticalMapModel';
-import { roleKey } from './PathPanel';
+import { dutyAttr, dutyStroke } from './duty';
 
 type Pt = { x: number; y: number };
-type Role = PathBundle['role'];
+type Duty = PathBundle['duty'];
 
 /** 같은 국 쌍의 평행 가닥 사이 — 화면 px(줄여도 두 가닥으로 읽히게). */
 const LANE_GAP = 16;
@@ -27,6 +31,12 @@ const OVERLAY_GAP = 5;
 const NAME = new Intl.Collator('ko', { numeric: true });
 /** 맞출 때 국 하나가 차지한다고 보는 자리(배치 좌표) — 이름 글자까지 판 안에 들게. */
 const NODE_BOX = { w: 150, h: 56 };
+/** 이 배율(%) 이상이면 모든 광선로에 이름표를 세운다. */
+export const LABEL_ZOOM = 130;
+/** 이름표 양옆에 남길 선 길이(화면 px) — 국 이름(마디 아래 글자)과 겹치지 않을 만큼. */
+const LABEL_CLEAR = 48;
+/** 이름표 글자 폭 어림 — 12px 글자에서 한글 12px, 그 밖 7px. */
+const labelWidth = (t: string) => [...t].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? 12 : 7), 0);
 
 // ── 보는 자리(배율·이동) ─────────────────────────────────────────────────────
 
@@ -92,7 +102,7 @@ export interface OpticalMapProps {
   /** 판 상자(ref 콜백) — `useMapViewport().attach`. */
   boxRef: (el: HTMLDivElement | null) => void;
   /** 광선로 → 그 위를 지나는 고른 회선들의 주/예비. */
-  overlay: ReadonlyMap<string, readonly Role[]>;
+  overlay: ReadonlyMap<string, readonly Duty[]>;
   /** 고른 이중화 경고가 함께 지나는 광선로. */
   warned: ReadonlySet<string>;
   onStation: (id: string) => void;
@@ -100,6 +110,8 @@ export interface OpticalMapProps {
 }
 
 type Gesture = { pointerId: number; start: Pt; startPan: Pt; moved: boolean; target: { kind: 'station' | 'line'; id: string } | null };
+/** 두 손가락 확대 — 시작할 때의 두 점 사이 거리와 뷰포트. */
+type Pinch = { dist: number; viewport: Viewport };
 
 export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warned, onStation, onLine }: OpticalMapProps) {
   const s = viewport.zoom / 100;
@@ -113,9 +125,25 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
     else { const l = lineById.get(t.id); if (l) onLine(l); }
   };
 
-  /* 손짓 — 값 하나, 주인 하나(§1.7-t). */
+  /* 손짓 — 값 하나, 주인 하나(§1.7-t). 두 손가락이 닿으면 끌기·누르기를 접고 확대(pinch)로 바꾼다. */
   const gesture = useRef<Gesture | null>(null);
+  const touches = useRef(new Map<number, Pt>());
+  const pinch = useRef<Pinch | null>(null);
+  const span = () => {
+    const [p, q] = [...touches.current.values()];
+    return p && q ? { dist: Math.hypot(q.x - p.x, q.y - p.y), mid: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 } } : null;
+  };
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') {
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const sp = touches.current.size === 2 ? span() : null;
+      if (sp && sp.dist > 0) {
+        pinch.current = { dist: sp.dist, viewport };
+        gesture.current = null;
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 못 붙잡아도 확대는 둔다 */ }
+        return;
+      }
+    }
     /* 다른 손가락(주 포인터 아님)은 손짓을 건드리지 않는다. 주 포인터의 새 누름은 남은 손짓을 갈음한다 —
        끝 신호(up·캡처 분실)를 못 받은 손짓이 판을 영영 막지 않게. */
     if (e.button !== 0 || (gesture.current && e.isPrimary === false)) return;
@@ -128,6 +156,14 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 못 붙잡아도 손짓은 둔다 — up 이 안 오면 다음 누름이 갈음한다 */ }
   };
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (touches.current.has(e.pointerId)) touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pz = pinch.current;
+    const sp = pz ? span() : null;
+    if (pz && sp) {
+      const r = e.currentTarget.getBoundingClientRect();
+      setViewport(() => zoomAtPoint(pz.viewport, sp.dist / pz.dist, sp.mid.x - r.left, sp.mid.y - r.top));
+      return;
+    }
     const g = gesture.current;
     if (!g || g.pointerId !== e.pointerId) return;
     const dx = e.clientX - g.start.x;
@@ -136,13 +172,19 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
     g.moved = true;
     setViewport((v) => ({ ...v, panX: g.startPan.x + dx, panY: g.startPan.y + dy }));
   };
+  const endTouch = (e: ReactPointerEvent<HTMLDivElement>) => {
+    touches.current.delete(e.pointerId);
+    if (touches.current.size < 2) pinch.current = null;
+  };
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    endTouch(e);
     const g = gesture.current;
     if (!g || g.pointerId !== e.pointerId) return;
     gesture.current = null;
     if (!g.moved && g.target) activate(g.target);
   };
   const fold = (e: ReactPointerEvent<HTMLDivElement>) => {
+    endTouch(e);
     if (gesture.current?.pointerId === e.pointerId) gesture.current = null;
   };
   const onKey = (t: NonNullable<Gesture['target']>) => (e: ReactKeyboardEvent) => {
@@ -183,19 +225,36 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
         ))}
         {/* 고른 회선 — 주회선 실선 · 예비회선 점선 · 주/예비 미지정은 옅은 강조색. 한 광선로를 여럿이 지나면 나란히 벌린다. */}
         {curves.flatMap(({ line, a, b }) => {
-          const roles = [...new Set(overlay.get(line.id) ?? [])];
-          return roles.map((role, i) => (
-            <path
-              key={`o-${line.id}-${role ?? '-'}`}
-              d={curvePath(line, a, b, (i - (roles.length - 1) / 2) * OVERLAY_GAP)}
-              data-overlay={line.id}
-              data-role={role ?? 'none'}
-              className={cn('pointer-events-none fill-none', roleKey(role) === 'none' ? 'stroke-primary/60' : 'stroke-primary')}
-              strokeWidth={roleKey(role) === 'none' ? 4 : 3}
-              strokeDasharray={roleKey(role) === 'backup' ? '8 5' : undefined}
-              strokeLinecap={roleKey(role) === 'backup' ? 'butt' : 'round'}
-            />
-          ));
+          const duties = [...new Set(overlay.get(line.id) ?? [])];
+          return duties.map((duty, i) => {
+            const st = dutyStroke(duty);
+            return (
+              <path
+                key={`o-${line.id}-${dutyAttr(duty)}`}
+                d={curvePath(line, a, b, (i - (duties.length - 1) / 2) * OVERLAY_GAP)}
+                data-overlay={line.id}
+                data-duty={dutyAttr(duty)}
+                className={cn('pointer-events-none fill-none', st.className)}
+                strokeWidth={st.width}
+                strokeDasharray={st.dash}
+                strokeLinecap={st.cap}
+              />
+            );
+          });
+        })}
+        {/* 광선로 이름표 — 확대했거나 고른 회선·경고가 지나는 광선로만, 그리고 선이 이름표보다 길 때만(짧은 선에 세우면 국 이름을 덮는다). */}
+        {curves.filter(({ line }) => viewport.zoom >= LABEL_ZOOM || overlay.has(line.id) || warned.has(line.id)).flatMap(({ line, a, b }) => {
+          const text = lineLabel(line);
+          if (Math.hypot(b.x - a.x, b.y - a.y) < labelWidth(text) + LABEL_CLEAR) return [];
+          const at = labelPlace(line, a, b);
+          return [(
+            <text
+              key={`t-${line.id}`} x={at.x} y={at.y} textAnchor={at.anchor} data-line-label={line.id}
+              className="pointer-events-none fill-content-muted stroke-surface text-xs [paint-order:stroke]" strokeWidth={4} strokeLinejoin="round"
+            >
+              {text}
+            </text>
+          )];
         })}
         {/* Tab 차례 — 국 먼저(이름 순), 그다음 광선로(이름 순). DOM 차례가 곧 Tab 차례다. */}
         {model.stations.map((st) => {
@@ -251,6 +310,30 @@ function StationMark({ station: st, at: p, lit, onKeyDown }: { station: MapStati
       </text>
     </g>
   );
+}
+
+/** 광선로 이름표 — `154kV 춘천수력T/L · 24심 · 8.5 km`(이름이 ` / ` 로 여럿이면 첫 이름 + 「…」). */
+export function lineLabel(l: Pick<MapLine, 'name' | 'coreCount' | 'lengthKm'>): string {
+  const [first, ...rest] = l.name.split(' / ');
+  return [`${first}${rest.length > 0 ? '…' : ''}`, l.coreCount > 0 ? `${l.coreCount}심` : null, l.lengthKm != null ? `${l.lengthKm} km` : null]
+    .filter(Boolean).join(' · ');
+}
+
+/**
+ * 이름표 자리 — 선 가운데에서 그 가닥이 벌어진 쪽으로 조금 더 나가(평행 가닥끼리 이름표가 겹치지 않게), 선 위에
+ * 글자가 얹히지 않도록 바깥쪽에 붙인다(세로에 가까운 선은 옆, 가로에 가까운 선은 위·아래).
+ */
+function labelPlace(l: Pick<MapLine, 'a' | 'b' | 'lane' | 'lanes'>, a: Pt, b: Pt): { x: number; y: number; anchor: 'start' | 'middle' | 'end' } {
+  const [p, q] = l.a < l.b ? [a, b] : [b, a];
+  const off = (l.lane - (l.lanes - 1) / 2) * LANE_GAP;
+  const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+  const n = { x: -(q.y - p.y) / len, y: (q.x - p.x) / len };
+  /* 가닥 하나면 위(또는 오른쪽)로. */
+  const dir = off !== 0 ? Math.sign(off) : (n.y < 0 || (n.y === 0 && n.x > 0) ? 1 : -1);
+  const out = { x: n.x * dir, y: n.y * dir };
+  const m = { x: (a.x + b.x) / 2 + n.x * off + out.x * 6, y: (a.y + b.y) / 2 + n.y * off + out.y * 6 };
+  if (Math.abs(out.x) > Math.abs(out.y)) return { x: m.x + (out.x > 0 ? 2 : -2), y: m.y + 4, anchor: out.x > 0 ? 'start' : 'end' };
+  return { x: m.x, y: out.y > 0 ? m.y + 12 : m.y - 2, anchor: 'middle' };
 }
 
 /**

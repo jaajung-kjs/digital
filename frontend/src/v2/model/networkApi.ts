@@ -18,6 +18,9 @@ export interface Network {
   cores: { lineId: string; no: number; status: CoreStatus; role: CoreRole | null }[];
   links: { id: string; substationId: string; a: LinkEndRef; b: LinkEndRef }[];
   equipment: { id: string; name: string; substationId: string; typeName: string }[];
+  /** 깊이 상한에서 멈췄나 — 그러면 `truncatedCores` 너머의 연결은 싣지 않았다(경로가 길어 일부만). */
+  truncated: boolean;
+  truncatedCores: { lineId: string; no: number }[];
 }
 
 export async function fetchNetwork(nodeId: string): Promise<Network> {

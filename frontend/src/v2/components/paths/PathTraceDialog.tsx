@@ -6,9 +6,9 @@ import { useNetwork } from '../../model/networkApi';
 import { useWorkingCopy } from '../../model/store/workingCopy';
 import { ancestorPath, flattenTree } from '../../orgTreeSelectors';
 import { useWorkspaceRoute } from '../../useWorkspaceRoute';
+import { DutyBadge } from './duty';
 import { effectiveNetwork } from './networkSelectors';
-import { ROLE_LABEL, roleKey } from './PathPanel';
-import { pathSteps, pathSummary, pathTitle, type BlockAt, type ChainStep as Step } from './pathChain';
+import { BREAK_TEXT, pathSteps, pathSummary, pathTitle, type BlockAt, type ChainStep as Step } from './pathChain';
 
 export interface PathTraceDialogProps {
   /** 연 국 — 그 국의 본부가 범위다. */
@@ -55,10 +55,8 @@ export function PathTraceDialog({ substationId, at, onClose }: PathTraceDialogPr
         <div className="space-y-3">
           <div className="flex min-w-0 items-center gap-2">
             <span data-testid="path-summary" className="min-w-0 flex-1 break-words text-sm font-medium tabular-nums">{pathSummary(view, path).split('-').flatMap((part, i) => (i === 0 ? [part] : ['-', <wbr key={i} />, part]))}</span>
-            {/* 코어의 주/예비 값 — 사슬의 코어가 모두 같을 때만(core 가 정한다). 사용자 권한 role 이 아니다. */}
-            {roleKey(path.role) === 'main' && <Badge status="info">{ROLE_LABEL.main}</Badge>}
-            {roleKey(path.role) === 'backup' && <Badge status="neutral">{ROLE_LABEL.backup}</Badge>}
-            {!path.complete && <Badge status="warning">경로 미완결</Badge>}
+            {/* 회선의 주/예비 — 사슬의 코어가 모두 같을 때만 값이 선다(core 가 정한다). 회선 목록과 같은 배지. */}
+            {path.complete ? <DutyBadge duty={path.duty} /> : <Badge status="warning">경로 미완결</Badge>}
           </div>
           <Chain aria-label="중계경로">
             {pathSteps(view, path).map((s, i) => <StepRow key={i} step={s} go={go} />)}
@@ -84,9 +82,9 @@ function StepRow({ step: s, go }: { step: Step; go: (b: BlockAt) => void }) {
     case 'terminal':
       return (
         <ChainStep data-testid="path-step" data-kind="terminal">
-          {s.station && <>{station(s.station, s.at)}{dot}</>}
-          {s.place}{dot}
-          <ChainLink title={`${s.station ?? ''} 선번장 · 코어 ${s.coreNo}`.trim()} onClick={() => go(s.at)}>코어 {s.coreNo}</ChainLink>
+          {s.showStation && <>{station(s.station, s.at)}{dot}</>}
+          {s.place}{dot}어댑터 {s.adapter}{dot}
+          <ChainLink title={`${s.station} 선번장 · 코어 ${s.coreNo}`} onClick={() => go(s.at)}>코어 {s.coreNo}</ChainLink>
         </ChainStep>
       );
     case 'line':
@@ -96,7 +94,7 @@ function StepRow({ step: s, go }: { step: Step; go: (b: BlockAt) => void }) {
     case 'broken':
       return (
         <ChainStep tone="warning" data-testid="path-step" data-kind="broken">
-          경로 미완결 — 연결이 없습니다{dot}
+          경로 미완결 — {BREAK_TEXT[s.cause]}{dot}
           <ChainLink tone="primary" onClick={() => go(s.at)}>{s.station} · 코어 {s.coreNo}</ChainLink>
         </ChainStep>
       );

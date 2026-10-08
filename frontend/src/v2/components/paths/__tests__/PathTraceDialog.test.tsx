@@ -48,18 +48,20 @@ describe('중계경로 추적 창', () => {
   it('제목은 시작 설비 · 포트, 머리 요약은 현장 표기 + 예비회선 배지, 본문은 세로 사슬', () => {
     renderDialog();
     expect(dialog()).toHaveTextContent('중계경로 — RTU 광스위치 · FX-TX:1');
-    expect(screen.getByTestId('path-summary')).toHaveTextContent('북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원');
+    expect(screen.getByTestId('path-summary')).toHaveTextContent('북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원');
     expect(within(dialog()).getByText('예비회선')).toBeInTheDocument();
     expect(within(dialog()).queryByText('경로 미완결')).toBeNull();
     const text = steps().map((s) => s.textContent);
     expect(text.slice(0, 5)).toEqual([
       '북춘천S/S · RTU 광스위치 · FX-TX:1',
-      'OFD 슬롯 2 · 코어 9',
+      'OFD · 슬롯 2 · 어댑터 9 · 코어 9',
       '154kV 춘천수력T/L (8.5 km)',
-      '춘천H/P · OFD 슬롯 3 · 코어 9',
+      '춘천H/P · OFD · 슬롯 3 · 어댑터 9 · 코어 9',
       '중계 패치',
     ]);
-    expect(text).toContain('OFD 슬롯 1 · 코어 20');
+    expect(text).toContain('OFD · 슬롯 1 · 어댑터 20 · 코어 20');
+    /* 첫 끝 줄의 코어 단추 설명에도 국이 든다(국 이름은 위 줄에 있어 이 줄에는 보이지 않는다). */
+    expect(within(steps()[1]!).getByRole('button', { name: '코어 9' })).toHaveAttribute('title', '북춘천S/S 선번장 · 코어 9');
     expect(text[text.length - 1]).toBe('철원S/S · RTU');
     /* 국 이름은 굵게. */
     expect(within(steps()[0]!).getByRole('button', { name: '북춘천S/S' })).toHaveClass('font-semibold');
@@ -80,7 +82,7 @@ describe('중계경로 추적 창', () => {
     org = { headquarters: [] };
     scopeId = 'BC';
     renderDialog();
-    expect(screen.getByTestId('path-summary')).toHaveTextContent('북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원');
+    expect(screen.getByTestId('path-summary')).toHaveTextContent('북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원');
   });
 
   it('저장 전에 등록한 패치가 추적에 든다', () => {
@@ -90,6 +92,15 @@ describe('중계경로 추적 창', () => {
     renderDialog();
     expect(within(dialog()).queryByText('경로 미완결')).toBeNull();
     expect(steps()[steps().length - 1]).toHaveTextContent('철원S/S · RTU');
+  });
+
+  it('데이터 고리로 끊기면 「경로가 같은 코어로 되돌아옵니다」', () => {
+    /* 화천에서 철원 쪽 대신 화천HP 쪽(L3 코어 1 B)으로 되돌리는 패치 — 사슬이 이미 지난 코어로 돌아온다. */
+    server = { ...serverNetwork(['k4']), links: [...serverNetwork(['k4']).links.filter((l) => l.id !== 'k3'),
+      { id: 'k3', substationId: 'HHP', a: { kind: 'core', lineId: 'L2', no: 20, side: 'B' }, b: { kind: 'core', lineId: 'L3', no: 1, side: 'B' } },
+      { id: 'k9', substationId: 'HC', a: { kind: 'core', lineId: 'L3', no: 1, side: 'A' }, b: { kind: 'core', lineId: 'L2', no: 20, side: 'A' } }] };
+    renderDialog();
+    expect(within(dialog()).getByText(/경로가 같은 코어로 되돌아옵니다/)).toBeInTheDocument();
   });
 
   it('국 이름·코어를 누르면 그 국 선번장 블록으로 — 이 국이면 판만 바꾼다', () => {
@@ -119,6 +130,6 @@ describe('선번장 코어 줄에서 연다', () => {
     const row = (no: number) => screen.getByTestId(`sheet-row-${no}`);
     expect(within(row(1)).queryByRole('button', { name: '코어 1 중계경로' })).toBeNull();
     fireEvent.click(within(row(9)).getByRole('button', { name: '코어 9 중계경로' }));
-    expect(screen.getByTestId('path-summary')).toHaveTextContent('북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원');
+    expect(screen.getByTestId('path-summary')).toHaveTextContent('북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원');
   });
 });

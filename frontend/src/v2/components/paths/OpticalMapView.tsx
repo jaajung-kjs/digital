@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import type { PathBundle } from '@twin/core';
+import type { OpticalPath } from '@twin/core';
 import { Button, EmptyState, IconButton, PageState, StatusBar, StatusItem, ViewCard } from '../../../components/ui';
 import { useNetwork } from '../../model/networkApi';
 import { useWorkingCopy } from '../../model/store/workingCopy';
 import { effectiveNetwork } from './networkSelectors';
 import { OpticalMap, useMapViewport } from './OpticalMap';
+import { dutyAttr, DutyLegend, dutyOrder } from './duty';
 import { buildOpticalMap, overlayFor, type MapLine } from './opticalMapModel';
-import { PathPanel, ROLE_LABEL, roleKey, warningKey } from './PathPanel';
+import { PathPanel, warningKey } from './PathPanel';
+import { PathTraceDialog } from './PathTraceDialog';
+import { BREAK_TEXT } from './pathChain';
 
 export interface OpticalMapViewProps {
   /** 지사·본부 노드 — 범위. */
@@ -23,6 +26,8 @@ const toggle = <T,>(set: ReadonlySet<T>, v: T): Set<T> => {
   if (next.has(v)) next.delete(v); else next.add(v);
   return next;
 };
+/** 상태줄 수 칸은 줄지 않고 줄을 바꾸지 않는다 — 이 판에서만(범례가 길다). */
+const KEEP = 'shrink-0 whitespace-nowrap';
 const NONE = { bundles: new Set<string>(), rings: new Set<string>(), warnings: new Set<string>() };
 
 /**
@@ -42,6 +47,8 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
 
   const [picked, setPicked] = useState(NONE);
   const [query, setQuery] = useState('');
+  /* 경로 미완결 줄에서 연 중계경로 추적 — 끊긴 자리로 가는 길이 그 창에 있다. */
+  const [tracing, setTracing] = useState<OpticalPath | null>(null);
   /* 범위가 바뀌면 고른 것은 놓는다 — 다른 범위에 없는 회선이다. */
   const [pickedFor, setPickedFor] = useState(nodeId);
   if (pickedFor !== nodeId) { setPickedFor(nodeId); setPicked(NONE); setQuery(''); }
@@ -58,6 +65,7 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
     }
     return { bundles, warned };
   }, [model, picked]);
+  const pickedCount = picked.bundles.size + picked.rings.size + picked.warnings.size;
   const overlay = useMemo(() => overlayFor(model?.bundles ?? [], lit.bundles), [model, lit.bundles]);
 
   if (net.isError) {
@@ -75,17 +83,18 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
   };
 
   /* 범례 — 이 범위에 실제로 있는 것만(§3.4). */
-  const roles = [...new Set(model.bundles.map((b) => b.role))].sort((x, y) => order(x) - order(y));
+  const duties = [...new Set(model.bundles.map((b) => b.duty))].sort((x, y) => dutyOrder(x) - dutyOrder(y));
   const outside = model.stations.some((s) => !s.inScope);
 
   const status = (
     <StatusBar>
-      <StatusItem label="국">{model.stations.length}</StatusItem>
-      <StatusItem label="광선로">{model.lines.length}</StatusItem>
-      <StatusItem label="회선">{model.bundles.length}</StatusItem>
+      {/* 줄지 않는다 — 범례가 3개로 늘면 1280 에서 「광선/로」처럼 세로로 쪼개졌다(범례만 잘린다). */}
+      <StatusItem label="국" className={KEEP}>{model.stations.length}</StatusItem>
+      <StatusItem label="광선로" className={KEEP}>{model.lines.length}</StatusItem>
+      <StatusItem label="회선" className={KEEP}>{model.bundles.length}</StatusItem>
       {/* 범례는 좁으면 잘린다(글자를 세로로 쪼개지 않는다) — 수·확대 단추가 먼저다. */}
       <span className="flex min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap px-3" data-testid="map-legend">
-        {roles.map((r) => <LegendLine key={roleKey(r)} role={r} />)}
+        {duties.map((d) => <DutyLegend key={dutyAttr(d)} duty={d} />)}
         {outside && <span className="flex shrink-0 items-center gap-1.5"><svg width="12" height="12" aria-hidden className="opacity-50"><circle cx="6" cy="6" r="4" className="fill-surface stroke-content" strokeWidth={1.5} strokeDasharray="3 2" /></svg>범위 밖 국</span>}
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-0.5">
@@ -101,7 +110,16 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
     <>
       <ViewCard
         body="fill"
-        tools={<span className="text-xs text-content-muted">회선을 선택하면 지나는 광선로가 표시됩니다</span>}
+        tools={model.truncated
+          ? <span role="status" className="truncate text-xs text-warning">{BREAK_TEXT.truncated} — 범위 밖으로 멀리 이어지는 회선은 끝까지 그리지 않았습니다</span>
+          : <span className="truncate text-xs text-content-muted">회선을 선택하면 지나는 광선로가 표시됩니다</span>}
+        /* 고른 것을 놓는 단추는 그림의 머리 — 고른 것은 그림 위에 겹쳐 있다. */
+        actions={pickedCount > 0 ? (
+          <>
+            <span className="whitespace-nowrap text-xs text-content-muted">{pickedCount}개 선택</span>
+            <Button variant="secondary" size="xs" onClick={() => setPicked(NONE)}>선택 해제</Button>
+          </>
+        ) : undefined}
         status={status}
       >
         <OpticalMap
@@ -123,27 +141,23 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
           onQuery={setQuery}
           picked={picked}
           onBundle={(id) => setPicked((p) => ({ ...p, bundles: toggle(p.bundles, id) }))}
+          onBundles={(ids, yes) => setPicked((p) => {
+            const next = new Set(p.bundles);
+            for (const id of ids) { if (yes) next.add(id); else next.delete(id); }
+            return { ...p, bundles: next };
+          })}
+          onIncomplete={setTracing}
           onRing={(r) => setPicked((p) => ({ ...p, rings: toggle(p.rings, r.id) }))}
           onWarning={(w) => setPicked((p) => ({ ...p, warnings: toggle(p.warnings, warningKey(w)) }))}
-          onClear={() => setPicked(NONE)}
         />
       </aside>
-    </>
-  );
-}
-
-const order = (r: PathBundle['role']) => (r === 'main' ? 0 : r === 'backup' ? 1 : 2);
-
-function LegendLine({ role }: { role: PathBundle['role'] }) {
-  return (
-    <span className="flex shrink-0 items-center gap-1.5">
-      <svg width="22" height="6" aria-hidden>
-        <line x1="1" y1="3" x2="21" y2="3" strokeWidth={3}
-          className={roleKey(role) === 'none' ? 'stroke-primary/60' : 'stroke-primary'}
-          strokeDasharray={roleKey(role) === 'backup' ? '6 3' : undefined}
+      {tracing && tracing.hops[0] && (
+        <PathTraceDialog
+          substationId={(tracing.start ?? tracing.end)?.substationId ?? model.lines.find((l) => l.id === tracing.hops[0]!.lineId)?.a ?? nodeId}
+          at={{ lineId: tracing.hops[0].lineId, coreNo: tracing.hops[0].coreNo, side: tracing.hops[0].from }}
+          onClose={() => setTracing(null)}
         />
-      </svg>
-      {ROLE_LABEL[roleKey(role)]}
-    </span>
+      )}
+    </>
   );
 }

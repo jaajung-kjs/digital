@@ -11,6 +11,10 @@ export interface NetworkView {
   line: (id: string) => NetworkLine | undefined;
   substationName: (id: string) => string;
   equipmentName: (id: string) => string | null;
+  /** 서버가 깊이 상한에서 멈춰 그 너머 연결을 싣지 않은 코어인가 — 끊긴 자리의 까닭(「경로가 길어 일부만」). */
+  isTruncated: (lineId: string, no: number) => boolean;
+  /** 범위 데이터가 깊이 상한에서 잘렸나. */
+  truncated: boolean;
 }
 
 /**
@@ -56,6 +60,7 @@ export function effectiveNetwork(server: Network | undefined, s: S): NetworkView
   for (const e of effectiveRows(s, 'equipment')) eq.set(e.id, e);
 
   const serverSubs = new Map((server?.substations ?? []).map((x) => [x.id, x.name]));
+  const cut = new Set((server?.truncatedCores ?? []).map((c) => `${c.lineId}:${c.no}`));
 
   return {
     input: {
@@ -67,5 +72,7 @@ export function effectiveNetwork(server: Network | undefined, s: S): NetworkView
     line: (id) => lineById.get(id),
     substationName: (id) => substationName(s, id) ?? serverSubs.get(id) ?? '—',
     equipmentName: (id) => eq.get(id)?.name ?? null,
+    isTruncated: (lineId, no) => cut.has(`${lineId}:${no}`),
+    truncated: server?.truncated ?? false,
   };
 }

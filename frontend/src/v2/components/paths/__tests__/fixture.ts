@@ -5,7 +5,7 @@ import type { Equipment, FiberLine, Link, OrgTree } from '../../../model/types';
 
 /**
  * RTU 예비회선 — 북춘천S/S RTU 광스위치 → 춘천H/P → 화천H/P → 화천S/S → 철원S/S RTU
- * (현장 회선현황 `북춘천-(9)-춘천HP-(20)-화천HP-(1)-화천-(37)-철원`). 코어는 모두 예비.
+ * (현장 회선현황 G7 꼴 `북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원` — 이 픽스처는 화천 쪽을 코어 37 로 둔다). 코어는 모두 예비.
  */
 export const SUBS: Record<string, string> = { BC: '북춘천S/S', CHP: '춘천H/P', HHP: '화천H/P', HC: '화천S/S', CW: '철원S/S' };
 
@@ -41,6 +41,8 @@ export function serverNetwork(without: string[] = []): Network {
     cores: LINES.flatMap((l) => [9, 20, 1, 37].map((no) => ({ lineId: l.id, no, status: 'ok' as const, role: 'backup' as const }))),
     links: LINKS.filter((l) => !without.includes(l.id)),
     equipment: EQ.map(([id, name, substationId]) => ({ id, name, substationId, typeName: name })),
+    truncated: false,
+    truncatedCores: [],
   };
 }
 

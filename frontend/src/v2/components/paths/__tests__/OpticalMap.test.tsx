@@ -40,6 +40,8 @@ function network(lines = LINES): Network {
       ...via('L23', 1, 'e2', 'e3'), ...via('L13', 1, 'e1', 'e3'), ...via('L34', 1, 'e3', 'e4'),
     ],
     equipment: [['e1', 'S1'], ['e2', 'S2'], ['e3', 'S3'], ['e4', 'S4']].map(([id, s]) => ({ id: id!, name: `광단말 ${id}`, substationId: s!, typeName: '광단말' })),
+    truncated: false,
+    truncatedCores: [],
   };
 }
 
@@ -47,13 +49,26 @@ function network(lines = LINES): Network {
 if (typeof window.PointerEvent === 'undefined') {
   class PE extends MouseEvent {
     pointerId: number;
-    constructor(type: string, init: PointerEventInit = {}) { super(type, init); this.pointerId = init.pointerId ?? 0; }
+    pointerType: string;
+    isPrimary: boolean;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+      this.pointerType = init.pointerType ?? 'mouse';
+      this.isPrimary = init.isPrimary ?? true;
+    }
   }
   (window as unknown as { PointerEvent: unknown }).PointerEvent = PE;
 }
 
 vi.mock('../../../model/networkApi', () => ({
   useNetwork: () => ({ data: server, isError: false, refetch: () => {} }),
+}));
+/* 경로 미완결 줄이 여는 추적 창 — 창 자체는 PathTraceDialog 시험이 본다. 여기서는 어느 코어 끝에서 여는지만. */
+vi.mock('../PathTraceDialog', () => ({
+  PathTraceDialog: ({ substationId, at }: { substationId: string; at: { lineId: string; coreNo: number; side: string } }) => (
+    <output data-testid="trace">{`${substationId}:${at.lineId}:${at.coreNo}:${at.side}`}</output>
+  ),
 }));
 
 let opened: string[] = [];
@@ -64,7 +79,7 @@ const renderMap = () => render(
     onOpenLine={(s, b) => opened.push(`line:${s}:${b.lineId}:${b.side}`)}
   />,
 );
-const overlays = () => [...document.querySelectorAll('[data-overlay]')].map((e) => `${e.getAttribute('data-overlay')}:${e.getAttribute('data-role')}`).sort();
+const overlays = () => [...document.querySelectorAll('[data-overlay]')].map((e) => `${e.getAttribute('data-overlay')}:${e.getAttribute('data-duty')}`).sort();
 const bundleRow = (text: RegExp) => within(screen.getByTestId('bundle-list')).getAllByRole('button').find((b) => text.test(b.textContent ?? ''))!;
 
 beforeEach(() => {
@@ -93,10 +108,10 @@ describe('광 계통도', () => {
     renderMap();
     fireEvent.click(bundleRow(/주회선/));
     expect(overlays()).toEqual(['L12:main']);
-    expect(document.querySelector('[data-overlay="L12"][data-role="main"]')).not.toHaveAttribute('stroke-dasharray');
+    expect(document.querySelector('[data-overlay="L12"][data-duty="main"]')).not.toHaveAttribute('stroke-dasharray');
     fireEvent.click(bundleRow(/예비회선/));
     expect(overlays()).toEqual(['L12:backup', 'L12:main']);
-    expect(document.querySelector('[data-overlay="L12"][data-role="backup"]')).toHaveAttribute('stroke-dasharray');
+    expect(document.querySelector('[data-overlay="L12"][data-duty="backup"]')).toHaveAttribute('stroke-dasharray');
     fireEvent.click(bundleRow(/라국/));
     expect(overlays()).toEqual(['L12:backup', 'L12:main', 'L34:none']);
     /* 다시 누르면 놓는다. */
@@ -111,17 +126,18 @@ describe('광 계통도', () => {
     const rows = within(screen.getByTestId('ring-list')).getAllByRole('button');
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent('가국 광단말 e1 · 나국 광단말 e2 · 다국 광단말 e3');
-    expect(rows[0]).toHaveTextContent('회선 4');
+    expect(rows[0]).toHaveTextContent('회선 4개');
     fireEvent.click(rows[0]!);
     expect(overlays()).toEqual(['L12:backup', 'L12:main', 'L13:none', 'L23:none']);
   });
 
-  it('이중화 경고 — 설비 쌍 · 공유 광선로, 누르면 주·예비 둘 다와 공유 광선로를 강조', () => {
+  it('이중화 경고 — 설비 쌍 · 공유 광선로, 누르면 주/예비 둘 다와 공유 광선로를 강조', () => {
     renderMap();
     const rows = within(screen.getByTestId('warning-list')).getAllByRole('button');
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent('가국 광단말 e1 ↔ 나국 광단말 e2');
-    expect(rows[0]).toHaveTextContent('주·예비회선이 같은 광선로를 지납니다 — 가나1T/L');
+    expect(rows[0]).toHaveTextContent('주/예비회선이 같은 광선로를 지납니다 — 가나1T/L');
+    expect(rows[0]).toHaveTextContent('광선로 1개');
     fireEvent.click(rows[0]!);
     expect(overlays()).toEqual(['L12:backup', 'L12:main']);
     expect([...document.querySelectorAll('[data-warned]')].map((e) => e.getAttribute('data-warned'))).toEqual(['L12']);
@@ -199,5 +215,100 @@ describe('광 계통도', () => {
     expect(second).toBe('M0 0 Q50 16 100 0');
     /* 같은 가닥을 B→A 로 적어도 벌림 방향은 국 id 순이 정한다. */
     expect(curvePath({ a: 'S2', b: 'S1', lane: 0, lanes: 2 }, b, a, 0)).toBe('M100 0 Q50 -16 0 0');
+  });
+
+  it('범위 밖에서만 오가는 회선은 목록·그림에서 뺀다 — 서버가 경계 너머로 따라간 남의 회선', () => {
+    const outer = nl('L45', '라마T/L', 'S4', 'S5');
+    server = network([...LINES, outer]);
+    server.substations.push({ id: 'S5', name: '마국S/S', inScope: false });
+    server.links.push(
+      { id: 'o-a', substationId: 'S4', a: eq('e4'), b: core('L45', 1, 'A') },
+      { id: 'o-b', substationId: 'S5', a: core('L45', 1, 'B'), b: eq('e5') },
+    );
+    server.equipment.push({ id: 'e5', name: '광단말 e5', substationId: 'S5', typeName: '광단말' });
+    renderMap();
+    expect(within(screen.getByTestId('bundle-list')).getAllByRole('button')).toHaveLength(5);
+    expect(screen.queryByText(/광단말 e5/)).toBeNull();
+    expect(document.querySelector('[data-station="S5"]')).toBeNull();
+    expect(document.querySelector('[data-line="L45"]')).toBeNull();
+  });
+
+  it('보이는 방향 — 범위 안 끝이 앞(설비 id 순이 아니다), 요약도 그 방향', () => {
+    server = network();
+    server.links.push(
+      { id: 'x-a', substationId: 'S3', a: eq('e3'), b: core('L34', 2, 'A') },
+      { id: 'x-b', substationId: 'S4', a: core('L34', 2, 'B'), b: eq('a9') },
+    );
+    server.equipment.push({ id: 'a9', name: '광단말 a9', substationId: 'S4', typeName: '광단말' });
+    renderMap();
+    const row = bundleRow(/a9/);
+    expect(row).toHaveTextContent('광단말 e3 ↔ 광단말 a9 · 다국 ↔ 라국');
+    expect(row).toHaveTextContent('다국(2)-라국');
+  });
+
+  it('경로 미완결 — 고정 절에 수와 줄, 누르면 그 경로의 중계경로 추적, 링이 없으면 「완결된 회선으로는」', () => {
+    server = network();
+    /* 링을 끊는다(가다T/L 회선 제거) + 나국에서 끊긴 사슬 하나. */
+    server.links = server.links.filter((l) => !l.id.startsWith('L13-'));
+    server.links.push({ id: 'y-a', substationId: 'S2', a: eq('e2'), b: core('L23', 3, 'A') });
+    renderMap();
+    expect(screen.getByTestId('ring-list')).toHaveTextContent('완결된 회선으로는 링이 나타나지 않습니다 (경로 미완결 1)');
+    const rows = within(screen.getByTestId('incomplete-list')).getAllByRole('button');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('나국 광단말 e2');
+    expect(rows[0]).toHaveTextContent('나국(3)-다국 · 연결이 없습니다');
+    fireEvent.click(rows[0]!);
+    expect(screen.getByTestId('trace')).toHaveTextContent('S2:L23:3:A');
+    /* 접을 수 있다. */
+    fireEvent.click(screen.getByRole('button', { name: '경로 미완결 접기' }));
+    expect(screen.queryByTestId('incomplete-list')).toBeNull();
+  });
+
+  it('범위 데이터가 깊이 상한에서 잘렸으면 그림 머리에 「경로가 길어 일부만 불러왔습니다」', () => {
+    server = { ...network(), truncated: true, truncatedCores: [{ lineId: 'L34', no: 1 }] };
+    renderMap();
+    expect(screen.getByRole('status')).toHaveTextContent('경로가 길어 일부만 불러왔습니다');
+  });
+
+  it('주회선 전체 · 예비회선 전체 — 그 주/예비의 회선을 모두 고르고, 다시 누르면 놓는다', () => {
+    renderMap();
+    fireEvent.click(screen.getByRole('button', { name: '주회선 전체' }));
+    expect(overlays()).toEqual(['L12:main']);
+    expect(screen.getByRole('button', { name: '주회선 전체' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '예비회선 전체' }));
+    expect(overlays()).toEqual(['L12:backup', 'L12:main']);
+    fireEvent.click(screen.getByRole('button', { name: '주회선 전체' }));
+    expect(overlays()).toEqual(['L12:backup']);
+  });
+
+  it('회선 목록과 추적 창은 같은 주/예비 배지 — 꼬리는 배지', () => {
+    renderMap();
+    expect(bundleRow(/주회선/).querySelector('[data-duty="main"]')).not.toBeNull();
+    expect(bundleRow(/예비회선/).querySelector('[data-duty="backup"]')).not.toBeNull();
+  });
+
+  it('광선로 이름표는 확대했거나 고른 회선이 지나는 광선로만 — `선로명 · n심`', () => {
+    renderMap();
+    expect(document.querySelectorAll('[data-line-label]')).toHaveLength(0);
+    fireEvent.click(bundleRow(/주회선/));
+    const labels = [...document.querySelectorAll('[data-line-label]')];
+    expect(labels.map((l) => l.textContent)).toEqual(['가나1T/L · 24심']);
+    /* 확대하면 모두. */
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByRole('button', { name: '확대' }));
+    expect(document.querySelectorAll('[data-line-label]')).toHaveLength(5);
+  });
+
+  it('두 손가락 벌리기로 확대한다(터치)', () => {
+    renderMap();
+    const box = screen.getByTestId('optical-map');
+    const zoom = () => Number(screen.getByText(/^\d+%$/).textContent!.replace('%', ''));
+    const before = zoom();
+    fireEvent.pointerDown(box, { pointerId: 11, pointerType: 'touch', button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerDown(box, { pointerId: 12, pointerType: 'touch', button: 0, isPrimary: false, clientX: 120, clientY: 100 });
+    fireEvent.pointerMove(box, { pointerId: 12, pointerType: 'touch', clientX: 140, clientY: 100 });
+    expect(zoom()).toBe(Math.round(before * 2));
+    fireEvent.pointerUp(box, { pointerId: 12, pointerType: 'touch', clientX: 140, clientY: 100 });
+    fireEvent.pointerUp(box, { pointerId: 11, pointerType: 'touch', clientX: 100, clientY: 100 });
+    expect(opened).toEqual([]);
   });
 });
