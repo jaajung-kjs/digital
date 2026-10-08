@@ -21,7 +21,8 @@ historyRouter.use(authenticate);
 
 const DEFAULT_LIMIT = 50;
 const SCAN_BATCH = 200;
-const SCAN_BUDGET = 2000;
+/** 한 요청이 훑는 커밋 수 — 커밋마다 summary 에 before 행이 통째로 실려 있어 크다(「더 보기」 한 번의 읽기 양을 묶는다). */
+const SCAN_BUDGET = 500;
 /** 이름으로 바꿔 보여 줄 참조 칸. 지금은 없는 행이면 이 말을 적는다. */
 const GONE = '(삭제됨)';
 
@@ -45,13 +46,14 @@ historyRouter.get('/equipment/:id/changes', async (req, res, next) => {
     let exhausted = false;
     let last: { at: Date; id: string } | null = null;
     outer: while (scanned < SCAN_BUDGET) {
+      const take = Math.min(SCAN_BATCH, SCAN_BUDGET - scanned);
       const logs = await nextDb.changeLog.findMany({
         where: {
           summary: { path: ['substations'], array_contains: [eq.substationId] },
           ...(after ? { OR: [{ at: { lt: after.at } }, { at: after.at, id: { lt: after.id } }] } : {}),
         },
         orderBy: [{ at: 'desc' }, { id: 'desc' }],
-        take: Math.min(SCAN_BATCH, SCAN_BUDGET - scanned),
+        take,
       });
       for (const log of logs) {
         scanned += 1;
@@ -61,7 +63,7 @@ historyRouter.get('/equipment/:id/changes', async (req, res, next) => {
         if (items.length > 0) entries.push({ id: log.id, at: log.at.toISOString(), username: log.username, items });
         if (entries.length >= limit) break outer;
       }
-      if (logs.length < SCAN_BATCH) { exhausted = true; break; }
+      if (logs.length < take) { exhausted = true; break; }
       after = last;
     }
     /* 끝까지 읽었고 마지막 줄까지 다 썼으면 더 없다. 한 쪽이 찼으면 그 커밋 다음부터 이어 읽는다. */
