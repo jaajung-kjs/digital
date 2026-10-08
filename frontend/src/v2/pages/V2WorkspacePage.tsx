@@ -249,7 +249,7 @@ export default function V2WorkspacePage() {
         </>
       )}
       {commit.conflicts != null && commit.conflicts.length > 0 && (
-        <ConflictDialog conflicts={commit.conflicts} onClose={commit.clearConflicts} />
+        <ConflictDialog conflicts={commit.conflicts} cableTypes={commit.cableTypes} onClose={commit.clearConflicts} />
       )}
     </div>
   );

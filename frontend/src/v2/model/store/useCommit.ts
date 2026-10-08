@@ -44,13 +44,20 @@ export function useCommit() {
     if (issues.length > 0) { setError(issues[0]!.message); return; }
     setCommitting(true);
     setError(null);
+    /* 보내는 동안 다른 사용자가 들어왔으면(`claim` → `reset`) 저장 뒤 정리는 그 사람의 새 변경안에 하지 않는다. */
+    const owner = s.owner;
     try {
       await putCommit(buildCommitPayload(s), pendingPhotoFiles());
-      /* 서버에는 들어갔다 — 변경안을 먼저 비워야 다시 저장해 겹치지 않는다. */
-      s.clearOverlays();
+      if (workingCopyStore.getState().owner !== owner) return;
+      /* 서버에는 들어갔다. 변경안은 **새 기준이 들어오는 같은 set 에서** 비운다(`refresh`) — 먼저 비우면 그 틈에
+         방금 만든 설비·랙이 저장본에도 오버레이에도 없어 상세 레일의 선택이 풀린다(`useLiveSelection`).
+         다시 저장해 겹치는 일은 저장 중 잠금(`isCommitting`·`BusyOverlay`)이 막는다. */
       try {
-        await s.refresh();
+        const gone = await s.refresh();
+        if (gone.length > 0) useV2Notice.getState().showError(`삭제된 변전소를 목록에서 뺐습니다 — ${gone.join(' · ')}`);
       } catch {
+        /* 새 기준을 못 읽었다 — 보낸 변경안은 비운다(다시 보내면 겹친다). */
+        workingCopyStore.getState().clearOverlays();
         useV2Notice.getState().showError('저장했지만 새로 불러오지 못했습니다 — 새로고침(F5)하세요');
       }
       await qc.invalidateQueries({ queryKey: ['v2', 'org-tree'] });
@@ -72,7 +79,7 @@ export function useCommit() {
   }, [qc, issues, ready]);
 
   return {
-    commit, isCommitting, conflicts, issues, error, ready,
+    commit, isCommitting, conflicts, issues, error, ready, cableTypes,
     clearConflicts: useCallback(() => setConflicts(null), []),
     clearError: useCallback(() => setError(null), []),
   };

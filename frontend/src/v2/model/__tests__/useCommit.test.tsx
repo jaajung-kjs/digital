@@ -14,15 +14,26 @@ const wc: Workingcopy = {
   farLinks: [], refEquipment: [], maintenanceLogs: [], inspectionLogs: [], photos: [],
 };
 let fetchCount = 0;
+/** 새로 읽기를 붙잡아 둘 문 — 시험이 열기 전에는 응답이 오지 않는다. */
+let refreshGate: Promise<void> | null = null;
+/** 저장을 보내는 동안 일어날 일(다른 사용자 로그인 등). */
+let duringPut: (() => void) | null = null;
 vi.mock('../api', () => ({
-  fetchWorkingcopy: async () => { fetchCount += 1; if (refreshFails && fetchCount > 1) throw new Error('down'); return structuredClone(wc); },
-  putCommit: async () => { putCalls += 1; return {}; },
+  fetchWorkingcopy: async () => {
+    fetchCount += 1;
+    if (refreshFails && fetchCount > 1) throw new Error('down');
+    if (fetchCount > 1 && refreshGate) await refreshGate;
+    return structuredClone(wc);
+  },
+  putCommit: async () => { putCalls += 1; duringPut?.(); return {}; },
 }));
 vi.mock('../hooks', () => ({ useCatalog: () => catalog, CATALOG_KEY: ['c'], NODE_EQUIPMENT_KEY: ['n'], EQUIPMENT_CHANGES_KEY: ['h'] }));
 
 import { useV2Notice } from '../../store/noticeStore';
 import { useCommit } from '../store/useCommit';
 import { workingCopyStore as store } from '../store/workingCopy';
+import { effectiveRows } from '../store/effective';
+import { useLiveSelection } from '../../pages/workspace/useLiveSelection';
 
 let client = new QueryClient();
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -30,7 +41,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 beforeEach(async () => {
-  catalog = { data: undefined }; putCalls = 0; refreshFails = false; fetchCount = 0;
+  catalog = { data: undefined }; putCalls = 0; refreshFails = false; fetchCount = 0; refreshGate = null; duringPut = null;
+  wc.racks = []; wc.equipment = [];
   client = new QueryClient();
   useV2Notice.setState({ error: null, success: null });
   store.getState().reset();
@@ -74,5 +86,51 @@ describe('useCommit', () => {
     const { result } = renderHook(() => useCommit(), { wrapper });
     await act(async () => { await result.current.commit(); });
     expect(client.getQueryState(['h', 'e1'])?.isInvalidated).toBe(true);
+  });
+
+  it('새로 만든 설비를 저장해도 선택이 풀리지 않는다 — 새로 읽는 동안에도 그 행이 있다', async () => {
+    catalog = { data: { cableTypes: [] } };
+    const eq = {
+      id: 'e9', substationId: 'S1', rackId: 'r2', name: '새 설비', typeId: 'et', status: 'normal' as const, model: null, maker: null, madeOn: null,
+      serial: null, installDate: null, manager: null, note: null, circuitCount: 0, panelCount: null, updatedAt: '',
+    };
+    store.getState().create('equipment', eq);
+    const selectEquipment = vi.fn();
+    const selectRack = vi.fn();
+    const route = { eqId: 'e9', rackId: null, selectEquipment, selectRack };
+    const { result } = renderHook(() => ({ commit: useCommit(), sel: useLiveSelection(route, 'S1', true) }), { wrapper });
+    expect(result.current.sel.eqId).toBe('e9');
+    /* 서버는 저장을 받았다 — 새로 읽기는 문이 열릴 때까지 붙잡힌다. */
+    wc.racks = [{ id: 'r2', substationId: 'S1', name: '랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: 'v1' }];
+    wc.equipment = [{ ...eq, updatedAt: 'v1', circuits: [] }];
+    let open!: () => void;
+    refreshGate = new Promise((r) => { open = r; });
+    let done!: Promise<void>;
+    act(() => { done = result.current.commit.commit(); });
+    await vi.waitFor(() => expect(fetchCount).toBe(2));
+    /* 새로 읽는 틈 — 만든 설비는 아직 오버레이에 있다(먼저 비우지 않는다). */
+    expect(effectiveRows(store.getState(), 'equipment').some((e) => e.id === 'e9')).toBe(true);
+    expect(result.current.sel.eqId).toBe('e9');
+    await act(async () => { open(); await done; });
+    expect(store.getState().dirtyCount()).toBe(0);
+    expect(store.getState().saved.equipment.map((e) => e.id)).toEqual(['e9']);
+    expect(result.current.sel.eqId).toBe('e9');
+    expect(selectEquipment).not.toHaveBeenCalled();
+    expect(selectRack).not.toHaveBeenCalled();
+  });
+
+  it('보내는 동안 다른 사용자가 들어왔으면 저장 뒤 정리를 그 사람의 변경안에 하지 않는다', async () => {
+    catalog = { data: { cableTypes: [] } };
+    store.getState().claim('u1');
+    duringPut = () => {
+      store.getState().claim('u2');
+      store.getState().create('racks', { id: 'rB', substationId: 'S1', name: 'B의 랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: '' });
+    };
+    const before = fetchCount;
+    const { result } = renderHook(() => useCommit(), { wrapper });
+    await act(async () => { await result.current.commit(); });
+    expect(putCalls).toBe(1);
+    expect(fetchCount).toBe(before);
+    expect(Object.keys(store.getState().overlays.racks.creates)).toEqual(['rB']);
   });
 });
