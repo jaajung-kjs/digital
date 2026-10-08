@@ -220,6 +220,13 @@ describe('설비 상세', () => {
     expect(screen.queryByText('제작사')).toBeNull();
   });
 
+  it('상태·설비 품목·랙 고르기는 그 줄의 라벨이 이름이다 — Editable 이 라벨 연결(id)을 칸에 넘긴다', () => {
+    render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
+    expect(screen.getByRole('combobox', { name: '상태' })).toHaveValue('normal');
+    expect(screen.getByRole('combobox', { name: '설비 품목' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '랙' })).toHaveValue('r1');
+  });
+
   it('삭제는 함께 지워질 연결 수를 알리고 확인 뒤에 지운다', async () => {
     const onDeleted = vi.fn();
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={onDeleted} />);

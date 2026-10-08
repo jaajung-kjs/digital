@@ -340,7 +340,7 @@
 | 무엇 | 어떻게 |
 | --- | --- |
 | 단추·도구 묶음(추가·삭제·연결·편집·측정 입력·저장 바) | `<EditOnly>…</EditOnly>` 로 감싼다(또는 `useCanEdit()` 로 prop 을 비운다) |
-| 상세 카드의 고치는 칸(`DetailRow` 안의 `CommitInput`·`Select`) | `<Editable value={읽는 값}>칸</Editable>` — 조회 사용자에게는 글로 선다 |
+| 상세 카드의 고치는 칸(`DetailRow` 안의 `CommitInput`·`Select`) | `<Editable value={읽는 값}>칸</Editable>` — 조회 사용자에게는 글로 선다. `DetailRow` 가 붙이는 라벨 연결(`id`)은 안의 칸에 넘어간다(칸에 따로 `aria-label` 을 달 필요 없다) |
 | 표 칸(`InlineEditCell`) | 스스로 한다 — 조회 사용자에게는 누를 수 없는 읽는 줄 |
 
 읽는 길(상세 열기·측정 이력·중계경로·필터·검색)은 그대로 둔다. 시험은 관리자가 기본이고(`tests/setup.ts`), 조회 사용자 시험은 `asViewer()`(`tests/asRole.ts`).
