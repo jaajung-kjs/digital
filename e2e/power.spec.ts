@@ -133,7 +133,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await expect(panelRow.getByTestId('tree-bus')).toHaveText('교류 모선');
   const panelKey = (await panelRow.getAttribute('data-key'))!;
   const panelLevel = Number(await panelRow.getAttribute('aria-level'));
-  const loadRow = treeRows(page).filter({ hasText: `차단기 ${SPARE_NO} · SPARE · 30A · 교류` }).filter({ hasText: LOAD });
+  const loadRow = treeRows(page).filter({ hasText: `차단기 ${SPARE_NO} · SPARE · 30 A · 교류` }).filter({ hasText: LOAD });
   await expect(loadRow).toHaveCount(1);
   await expect(loadRow).toHaveAttribute('data-key', `${panelKey}/${SPARE_NO}`);
   await expect(loadRow).toHaveAttribute('aria-level', String(panelLevel + 1));
@@ -158,7 +158,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await filter.selectOption({ label: '교류' });
   await expect(loadRow).toHaveCount(1);
   await expect(piaRow).toHaveCount(0);
-  await filter.selectOption({ label: '전체' });
+  await filter.selectOption({ label: '교류/직류 전체' });
   await expect(loadRow).toHaveCount(1);
   await expect(piaRow).toHaveCount(1);
 
@@ -167,7 +167,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await main(page).getByRole('radio', { name: '랙별' }).click();
   await main(page).getByRole('row').filter({ hasText: PANEL }).last().click();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
-  const breakerCard = detail(page).getByText(/^차단기 22$/).locator('xpath=../..');
+  const breakerCard = detail(page).locator('[data-detail-head]', { hasText: /^차단기22/ }).locator('xpath=..');
   await breakerCard.getByRole('button', { name: '차단기 대장에서 보기' }).click();
   const focused = blocks(page).and(page.locator('[aria-current="true"]'));
   const landed = async () => {

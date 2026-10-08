@@ -38,10 +38,10 @@ async function openEquipment(page: Page, name: string) {
 }
 
 
-/** 차단기 편집 창을 연다 — 상세 패널 차단기 카드의 「편집」. */
+/** 차단기 편집 창을 연다 — 상세 패널 차단기 카드의 「차단기 수정」. */
 async function openBreakers(page: Page) {
   await detail(page).getByRole('tab', { name: '정보' }).click();
-  await detail(page).getByRole('button', { name: '편집', exact: true }).click();
+  await detail(page).getByRole('button', { name: '차단기 수정', exact: true }).click();
   await expect(breakerEditor(page)).toBeVisible();
   return breakerEditor(page);
 }
@@ -103,7 +103,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await editor.getByRole('button', { name: `차단기 ${breakers + 1} 삭제` }).click();
   await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers);
   await expect(editor.getByText('수정한 내용은 상단 「저장」을 눌러야 반영됩니다')).toBeVisible();
-  await editor.getByRole('button', { name: '완료' }).click();
+  await editor.getByRole('button', { name: '닫기' }).last().click();
   await expect(editor).toHaveCount(0);
   expect(await changeCount(page)).toBe(0);
   //    차단기가 있는 설비에는 정보 카드 끝 「차단기 추가」도 ⋯ 메뉴도 없다 — 더하는 길은 차단기 카드 머리의 「차단기 추가」 하나
@@ -118,7 +118,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await dialog.getByRole('button', { name: '추가' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue('E2E랙');
-  await expect(detail(page).getByText('실장 설비 0')).toBeVisible();
+  await expect(detail(page).locator('[data-detail-head]', { hasText: /^실장 설비0/ })).toBeVisible();
 
   await main(page).getByRole('button', { name: '설비 추가' }).first().click();
   dialog = page.getByRole('dialog', { name: '설비 추가' });
@@ -194,7 +194,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await openEquipment(page, PANEL);
   editor = await openBreakers(page);
   await expect(editor.getByTestId('circuit-row-2').getByRole('button', { name: '연결', exact: true })).toBeVisible();
-  await editor.getByRole('button', { name: '완료' }).click();
+  await editor.getByRole('button', { name: '닫기' }).last().click();
 
   // 정리 — 빈 E2E랙도 지워 다시 돌릴 수 있게
   await main(page).getByRole('row').filter({ hasText: 'E2E랙' }).click();
@@ -220,7 +220,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await editor.getByRole('combobox', { name: '교류/직류' }).selectOption({ label: '교류' });
   await expect(currents.nth(idx)).toHaveText('교류');
   expect(await changeCount(page)).toBe(1);
-  await editor.getByRole('button', { name: '완료' }).click();
+  await editor.getByRole('button', { name: '닫기' }).last().click();
   await save(page);
   await page.reload();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
@@ -228,7 +228,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await expect(editor.getByRole('button', { name: '교류/직류 수정' }).nth(idx)).toHaveText('교류');
   await editor.getByRole('button', { name: '교류/직류 수정' }).nth(idx).click();
   await editor.getByRole('combobox', { name: '교류/직류' }).selectOption({ label: original });
-  await editor.getByRole('button', { name: '완료' }).click();
+  await editor.getByRole('button', { name: '닫기' }).last().click();
   await save(page);
 
   // 11. 품목 관리 — 메뉴 하나, 왼쪽 목록에서 고른다. 케이블 품목 17행, 설비 품목에 L3 스위치. 키 열은 없다

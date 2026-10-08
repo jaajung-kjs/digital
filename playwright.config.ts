@@ -13,6 +13,9 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [['list']],
+  /* E2E 위생 — 앞뒤 DB 행 수가 같고 E2E 행이 없어야 한다. 이번 실행의 E2E 변경 이력은 걷는다(e2e/support/dbSnapshot.ts). */
+  globalSetup: './e2e/support/globalSetup.ts',
+  globalTeardown: './e2e/support/globalTeardown.ts',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {

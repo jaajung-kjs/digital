@@ -43,11 +43,11 @@ for (const vp of VIEWPORTS) {
       await bothTrees(page, '현황 + 상세');
 
       // 차단기 편집 창 — 대장과 같은 열 선언, 전 열
-      await detail(page).getByRole('button', { name: '편집', exact: true }).click();
+      await detail(page).getByRole('button', { name: '차단기 수정', exact: true }).click();
       const editor = page.getByRole('dialog', { name: `차단기 — ${PANEL}` });
       await expect(editor.getByRole('columnheader')).toHaveText(['차단기', '표기', '교류/직류', '전압', '용량', '상', '개폐', '부하', '포트', '전원케이블', '길이(m)', '비고']);
       expect(await horizontalOverflow(page), '차단기 편집 창').toEqual([]);
-      await editor.getByRole('button', { name: '완료' }).click();
+      await editor.getByRole('button', { name: '닫기' }).last().click();
 
       // 전원 계통 차단기 대장 — 레일 닫힘 · 열림
       await main(page).getByRole('tab', { name: '전원 계통' }).click();
@@ -85,13 +85,13 @@ for (const vp of VIEWPORTS) {
       await bothTrees(page, '선번장 + 상세');
       await detail(page).getByRole('button', { name: '닫기', exact: true }).click();
 
-      // 측정 입력 창 · 코어 측정 이력 창
-      await blocks.first().getByRole('button', { name: '측정 입력' }).click();
-      const measure = page.getByRole('dialog', { name: /^측정 입력/ });
+      // 측정 등록 창 · 코어 측정 기록 창
+      await blocks.first().getByRole('button', { name: '측정 등록' }).click();
+      const measure = page.getByRole('dialog', { name: /^측정 등록/ });
       await expect(measure).toBeVisible();
-      expect(await horizontalOverflow(page), '측정 입력 창').toEqual([]);
+      expect(await horizontalOverflow(page), '측정 등록 창').toEqual([]);
       await measure.getByRole('button', { name: '취소' }).click();
-      await blocks.first().getByRole('button', { name: /측정 이력/ }).first().click();
+      await blocks.first().getByRole('button', { name: /측정 기록/ }).first().click();
       const history = page.getByRole('dialog', { name: /^코어 / });
       await expect(history).toBeVisible();
       expect(await horizontalOverflow(page), '코어 측정 이력 창').toEqual([]);

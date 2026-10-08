@@ -49,8 +49,8 @@ async function openSheet(page: Page) {
 async function sweepLeftovers(page: Page) {
   const leftover = blocks(page).filter({ hasText: LINE_NAME });
   for (let guard = 0; guard < 5 && (await leftover.count()) > 0; guard++) {
-    await leftover.first().getByRole('button', { name: '편집' }).click();
-    const dialog = page.getByRole('dialog', { name: '광선로 편집' });
+    await leftover.first().getByRole('button', { name: '광선로 수정' }).click();
+    const dialog = page.getByRole('dialog', { name: '광선로 수정' });
     await dialog.getByRole('button', { name: '광선로 삭제' }).click();
     await page.getByRole('alertdialog', { name: '광선로 삭제' }).getByRole('button', { name: '삭제' }).click();
     await expect(dialog).toHaveCount(0);

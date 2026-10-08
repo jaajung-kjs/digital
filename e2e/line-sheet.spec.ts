@@ -52,7 +52,7 @@ async function openSheet(page: Page) {
 
 /** 코어 측정 이력 상자에서 측정자가 E2E 인 줄을 지운다 — 저장 전 변경안으로 남는다. */
 async function dropE2EMeasurements(page: Page, block: Locator, no: number) {
-  await row(block, no).getByRole('button', { name: `코어 ${no} 측정 이력` }).click();
+  await row(block, no).getByRole('button', { name: `코어 ${no} 측정 기록` }).click();
   const dialog = page.getByRole('dialog', { name: new RegExp(`^코어 ${no} — `) });
   await expect(dialog).toBeVisible();
   // 이력 표가 그려진 뒤에 센다 — 열리는 순간에 세면 0 으로 읽고 지우지 않은 채 닫는다.
@@ -72,8 +72,8 @@ async function dropE2EMeasurements(page: Page, block: Locator, no: number) {
 async function sweepLeftovers(page: Page) {
   const leftover = blocks(page).filter({ hasText: LINE_NAME });
   for (let guard = 0; guard < 5 && (await leftover.count()) > 0; guard++) {
-    await leftover.first().getByRole('button', { name: '편집' }).click();
-    const dialog = page.getByRole('dialog', { name: '광선로 편집' });
+    await leftover.first().getByRole('button', { name: '광선로 수정' }).click();
+    const dialog = page.getByRole('dialog', { name: '광선로 수정' });
     await dialog.getByRole('button', { name: '광선로 삭제' }).click();
     await page.getByRole('alertdialog', { name: '광선로 삭제' }).getByRole('button', { name: '삭제' }).click();
     await expect(dialog).toHaveCount(0);
@@ -138,8 +138,8 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await expect(cell(slot3, 11, 'near')).toHaveText(`L2 스위치 ${PREFIX}-FX`);
 
   // 4. 측정 일괄 입력 — 코어 11·12 두 줄만(빈 줄은 측정을 만들지 않는다) → 최근 측정 칸
-  await slot3.getByRole('button', { name: '측정 입력' }).click();
-  dialog = page.getByRole('dialog', { name: new RegExp('^측정 입력 — ') });
+  await slot3.getByRole('button', { name: '측정 등록' }).click();
+  dialog = page.getByRole('dialog', { name: new RegExp('^측정 등록 — ') });
   await expect(dialog).toBeVisible();
   const measuredOn = await dialog.getByRole('textbox', { name: '측정일' }).inputValue();
   expect(measuredOn).not.toBe('');
@@ -193,8 +193,8 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await expect(peerBlock.locator('tbody tr')).toHaveCount(12);
 
   // 7. 지우고 저장 — 상대 국에서 지워도 한 선로다(북춘천에서도 사라진다)
-  await peerBlock.getByRole('button', { name: '편집' }).click();
-  dialog = page.getByRole('dialog', { name: '광선로 편집' });
+  await peerBlock.getByRole('button', { name: '광선로 수정' }).click();
+  dialog = page.getByRole('dialog', { name: '광선로 수정' });
   await dialog.getByRole('button', { name: '광선로 삭제' }).click();
   const ask = page.getByRole('alertdialog', { name: '광선로 삭제' });
   await expect(ask).toContainText('코어 12');
@@ -223,7 +223,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await countBox.fill(String(next));
   await countBox.press('Enter');
   await expect(countButton).toHaveText(String(next));
-  await expect(slots.getByText(`빈 슬롯 ${next - 3}`)).toBeVisible();
+  await expect(slots.getByText(`빈 슬롯 ${next - 3}개`)).toBeVisible();
   await expect.poll(() => changeCount(page)).toBe(before + 1);
   await page.getByRole('button', { name: '실행 취소' }).click();
   await expect.poll(() => changeCount(page)).toBe(before);

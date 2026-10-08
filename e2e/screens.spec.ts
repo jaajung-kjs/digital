@@ -26,7 +26,10 @@ const FORBIDDEN = [/회로/, /안의 설비/, /종류/, /자산/, /(^|[\s·(])�
   /(?<![가-힣])잇기/, /이쪽/, /반대쪽/, /지우(?:기|면|세요|지)|지울|지웁|지워/, /고치|고친|고칠/, /넣(?:기|으|습|는|을|은|어|지)/,
   /고르(?:세요|기|면)|골라|(?<![가-힣])고른/, /(?<![가-힣])올(?:린|리세요|리면|리기|려)/, /놓(?:인|을|으세요|기|였)/, /빼기/, /(?<![가-힣])잰(?![가-힣])/,
   // 현장 문서 어휘(2차 정비) — 본 설비 · 단자 · 상대 단자 · 자국 측 · 대국 측.
-  /(?<![가-힣])본 설비/, /상대 단자/, /단자/, /(?<![가-힣])자국 ?측(?![정면])/, /(?<![가-힣])대국 ?측(?![정면])/];
+  /(?<![가-힣])본 설비/, /상대 단자/, /단자/, /(?<![가-힣])자국 ?측(?![정면])/, /(?<![가-힣])대국 ?측(?![정면])/,
+  // 4차(화면 일관성) — 편집(→수정) · 미상·선택 안 함(→「—」·미지정) · 홀로 쓴 국(→변전소) · 제품 이름 「ICT 디지털 트윈」(→ICT 설비관리시스템).
+  // 「없음」은 데이터(비고 등)에 실제로 적혀 있을 수 있어 그려진 글자에는 걸지 않는다(소스 가드레일이 맡는다).
+  /편집/, /미상/, /선택 ?안 ?함/, /(?<![가-힣])국(?:[은는이가을를의에도과와만]|으로|에서)?(?![가-힣])/, /ICT 디지털 ?트윈/];
 
 const main = (page: Page) => page.getByTestId('v2-main');
 /** 찍기 전 — 손을 치우고 호버·선택색 전환(150ms)이 끝나기를 기다린다. */
@@ -86,13 +89,13 @@ for (const vp of VIEWPORTS) {
 
       // 차단기 편집 창
       await detail(page).getByRole('tab', { name: '정보' }).click();
-      await detail(page).getByRole('button', { name: '편집', exact: true }).click();
+      await detail(page).getByRole('button', { name: '차단기 수정', exact: true }).click();
       const editor = page.getByRole('dialog', { name: `차단기 — ${PANEL}` });
       await expect(editor).toBeVisible();
       await expect(editor.getByTestId('circuit-no').first()).toBeVisible();
       await noForbiddenWords(page, '차단기 편집 창');
       await shot(page, '05-breaker-editor');
-      await editor.getByRole('button', { name: '완료' }).click();
+      await editor.getByRole('button', { name: '닫기' }).last().click();
       await expect(editor).toHaveCount(0);
 
       // 설비 머리 — 항목 하나짜리 ⋯ 메뉴는 없다(차단기가 있으면 차단기 카드의 「차단기 추가」가 그 길)
@@ -224,7 +227,7 @@ for (const vp of VIEWPORTS) {
       await settle(page);
       await noForbiddenWords(page, '계통도 직류');
       await shot(page, '34-power-tree-dc');
-      await main(page).getByRole('combobox', { name: '교류/직류' }).selectOption({ label: '전체' });
+      await main(page).getByRole('combobox', { name: '교류/직류' }).selectOption({ label: '교류/직류 전체' });
 
       // 상세에서 전원 계통으로 — 현황에서 분전반을 열고 차단기 카드 머리의 「차단기 대장에서 보기」
       await main(page).getByRole('tab', { name: '현황' }).click();
