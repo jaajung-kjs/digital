@@ -23,6 +23,7 @@ import { LineSheetView } from '../components/lines/LineSheetView';
 import { PowerView } from '../components/power/PowerView';
 import { OpticalMapView } from '../components/paths/OpticalMapView';
 import { EquipmentPlaceholder } from './workspace/EquipmentPlaceholder';
+import { useLiveSelection } from './workspace/useLiveSelection';
 
 const VIEW_TABS: readonly TabItem<ViewMode>[] = VIEW_MODES.map((v) => ({ key: v, label: v }));
 /** 지사·본부 — 범위 현황과 광 계통도. */
@@ -78,6 +79,9 @@ export default function V2WorkspacePage() {
       id: r.id, name: r.name, typeName: types.get(r.rackTypeId) ?? EMPTY,
     }));
   }, [substationId, catalog.data?.rackTypes, saved, overlays]);
+
+  /* 주소의 설비·랙이 지금 이 국에 없으면(실행 취소·변경 취소로 사라진 것) 놓는다 — `useLiveSelection`. */
+  const { eqId, rackId } = useLiveSelection(route, substationId, loadedHere);
 
   const touched = useMemo(
     () => workingCopyStore.getState().touchedSubstations().map((id) => substationName({ saved, overlays }, id) ?? id),
@@ -162,11 +166,11 @@ export default function V2WorkspacePage() {
                     {nodeScope && view === '광 계통도' ? (
                       <OpticalMapView nodeId={selected.id} onOpenStation={route.selectNode} onOpenLine={route.openBlockAt} />
                     ) : substationId && view === '평면도' ? (
-                      <RackPlanView substationId={substationId} selectedRackId={route.rackId} onSelectRack={route.selectRack} railTarget={railEl} />
+                      <RackPlanView substationId={substationId} selectedRackId={rackId} onSelectRack={route.selectRack} railTarget={railEl} />
                     ) : substationId && view === '선번장' ? (
                       <LineSheetView
                         substationId={substationId}
-                        selectedEquipmentId={route.eqId}
+                        selectedEquipmentId={eqId}
                         onSelectEquipment={route.selectEquipment}
                         focus={route.block}
                         onFocus={route.focusBlock}
@@ -178,7 +182,7 @@ export default function V2WorkspacePage() {
                         view={route.power}
                         onView={route.setPowerView}
                         focus={route.supply}
-                        selectedEquipmentId={route.eqId}
+                        selectedEquipmentId={eqId}
                         onSelectSupply={route.selectSupply}
                         onSelectEquipment={route.selectEquipment}
                       />
@@ -186,9 +190,9 @@ export default function V2WorkspacePage() {
                       <StatusView
                         rows={rows}
                         racks={racks}
-                        selectedId={route.eqId}
+                        selectedId={eqId}
                         onSelect={route.selectEquipment}
-                        selectedRackId={route.rackId}
+                        selectedRackId={rackId}
                         onSelectRack={route.selectRack}
                         nodeScope={nodeScope}
                         onAddRack={substationId ? () => setAdding({ kind: 'rack' }) : undefined}
@@ -198,17 +202,17 @@ export default function V2WorkspacePage() {
                     )}
                     {/* 선번장·전원 계통은 12열 표가 우선이다 — 1280 에서 레일까지 세우면 표가 가로로 넘친다. 그래서 고른 것이
                         있을 때만 상세가 선다(다른 판은 레일이 늘 있다, §1.7-e). */}
-                    {substationId && (!WIDE_TABLE_VIEWS.has(view) || route.eqId || route.rackId) && (
+                    {substationId && (!WIDE_TABLE_VIEWS.has(view) || eqId || rackId) && (
                       <aside className="flex h-full w-[364px] shrink-0 flex-col">
-                        {route.eqId ? (
-                          <EquipmentDetail key={route.eqId} equipmentId={route.eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} onOpenBlock={route.openBlock}
+                        {eqId ? (
+                          <EquipmentDetail key={eqId} equipmentId={eqId} onClose={() => route.selectEquipment(null)} onDeleted={() => route.selectEquipment(null)} onOpenBlock={route.openBlock}
                             /* 이미 그 블록을 보고 있으면 길을 두지 않는다(같은 자리로 건너가는 단추). */
-                            onOpenPower={view === '전원 계통' && route.power === 'ledger' && route.supply === route.eqId ? undefined : route.openSupply}
+                            onOpenPower={view === '전원 계통' && route.power === 'ledger' && route.supply === eqId ? undefined : route.openSupply}
                           />
-                        ) : route.rackId ? (
+                        ) : rackId ? (
                           <RackDetail
-                            key={route.rackId}
-                            rackId={route.rackId}
+                            key={rackId}
+                            rackId={rackId}
                             onClose={() => route.selectRack(null)}
                             onSelectEquipment={route.selectEquipment}
                             onDeleted={() => route.selectRack(null)}
