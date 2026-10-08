@@ -33,7 +33,7 @@ const KINDS = [
 const READ_KINDS = KINDS.map((k) => ({ ...k, create: undefined, rename: false, remove: false })) satisfies ReadonlyArray<TreeKind>;
 
 /** 저장 안 한 변경이 닿은 변전소는 지울 수 없다 — 지우면 그 변경안이 갈 곳을 잃어 이후 저장이 모두 실패한다. */
-const STAGED_BLOCK = '저장하지 않은 변경이 있는 변전소는 삭제할 수 없습니다 — 먼저 저장하거나 변경 취소하세요';
+const STAGED_BLOCK = '저장하지 않은 변경이 있는 변전소는 삭제할 수 없습니다 — 먼저 저장하거나 변경을 취소하세요';
 
 /** 이 층의 것이 매달리는 곳 — 본부는 매달릴 곳이 없다. */
 const PARENT_FIELD: Record<TreeOrgKind, string> = {

@@ -88,7 +88,7 @@ test('⑥ 설계서 — 두 국에 걸친 광선로 신설 + 양 끝 점퍼가 �
   await sweepLeftovers(page);
   expect(await changeCount(page)).toBe(0);
 
-  // 2. 광선로 추가 — 상대국 (구)춘천 · 광케이블 · 12심 · 긍장 2.5 km · 자국 OFD 슬롯 9
+  // 2. 광선로 추가 — 상대국 (구)춘천 · 광케이블 · 12심 · 긍장 2.5 km · 자국 OFD 슬롯 8
   await main(page).getByRole('button', { name: '광선로 추가' }).click();
   const lineDialog = page.getByRole('dialog', { name: '광선로 추가' });
   await lineDialog.getByRole('textbox', { name: '상대국 검색' }).fill('(구)춘천');
@@ -98,7 +98,7 @@ test('⑥ 설계서 — 두 국에 걸친 광선로 신설 + 양 끝 점퍼가 �
   await lineDialog.getByRole('textbox', { name: '선로명' }).fill(LINE_NAME);
   await lineDialog.getByRole('textbox', { name: '긍장' }).fill('2.5');
   await lineDialog.getByRole('combobox', { name: '자국 접속 설비' }).selectOption({ label: 'OFD' });
-  await lineDialog.getByRole('textbox', { name: '자국 슬롯' }).fill('9');
+  await lineDialog.getByRole('textbox', { name: '자국 슬롯' }).fill('8');
   await lineDialog.getByRole('button', { name: '추가', exact: true }).click();
   await expect(lineDialog).toHaveCount(0);
   const northBlock = blocks(page).filter({ hasText: LINE_NAME });

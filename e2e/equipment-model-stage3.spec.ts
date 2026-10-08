@@ -161,7 +161,7 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await expect.poll(() => changeCount(page)).toBe(2);
   await save(page);
 
-  // 5. 광선로 추가 — 상대국 화천S/S · OPGW · 12심 · 이쪽 OFD 슬롯 9 → 저장
+  // 5. 광선로 추가 — 상대국 화천S/S · OPGW · 12심 · 이쪽 OFD 슬롯 8 (빈 슬롯 — 슬롯 수 8 안) → 저장
   await main(page).getByRole('button', { name: '광선로 추가' }).click();
   dialog = page.getByRole('dialog', { name: '광선로 추가' });
   await dialog.getByRole('textbox', { name: '상대국 검색' }).fill('화천');
@@ -170,13 +170,13 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await dialog.getByRole('textbox', { name: '코어 수' }).fill('12');
   await dialog.getByRole('textbox', { name: '선로명' }).fill(LINE_NAME);
   await dialog.getByRole('combobox', { name: '자국 접속 설비' }).selectOption({ label: 'OFD' });
-  await dialog.getByRole('textbox', { name: '자국 슬롯' }).fill('9');
+  await dialog.getByRole('textbox', { name: '자국 슬롯' }).fill('8');
   await dialog.getByRole('button', { name: '추가', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const added = blocks(page).filter({ hasText: LINE_NAME });
   await expect(added).toHaveCount(1);
   await expect(added).toHaveAttribute('aria-current', 'true'); // 닫으면 그 블록으로
-  await expect(added.getByTestId('sheet-block-head')).toContainText('OFD · 슬롯 9 · 어댑터 1–12');
+  await expect(added.getByTestId('sheet-block-head')).toContainText('OFD · 슬롯 8 · 어댑터 1–12');
   await expect(added.getByTestId('sheet-block-head')).toContainText(`↔ ${PEER}`);
   await expect(added.locator('tbody tr')).toHaveCount(12);
   await expect.poll(() => changeCount(page)).toBe(1);

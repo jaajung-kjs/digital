@@ -181,11 +181,11 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await detail(page).getByRole('tab', { name: '연결' }).click();
   await expect(detail(page).getByTestId('link-far')).toHaveText(`${PANEL} 차단기 2`);
 
-  // 9. E2E L3 지우기 — 연결 1건이 함께 간다
+  // 9. E2E L3 지우기 — 연결 1건이 함께 간다(확인 문구에 적힌다)
   await detail(page).getByRole('tab', { name: '정보' }).click();
   await detail(page).getByRole('button', { name: '삭제' }).click();
   const confirm = page.getByRole('alertdialog', { name: '설비 삭제' });
-  await expect(confirm).toContainText('연결 1건');
+  await expect(confirm).toContainText('함께 삭제됩니다 — 연결 1.');
   await confirm.getByRole('button', { name: '삭제' }).click();
   expect(await changeCount(page)).toBe(2); // 설비 + 연결
   await save(page);

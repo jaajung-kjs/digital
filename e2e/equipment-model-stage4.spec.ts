@@ -56,6 +56,8 @@ async function dropE2ELinks(page: Page) {
     const line = mine.first().locator('xpath=ancestor::div[contains(@class,"group")][1]');
     await line.hover();
     await line.getByRole('button', { name: '연결 삭제' }).click();
+    /* 설비 상세의 연결 삭제도 선번장처럼 묻는다(삭제 확인 규칙). */
+    await page.getByRole('alertdialog', { name: '연결 삭제' }).getByRole('button', { name: '삭제' }).click();
   }
   await expect(mine).toHaveCount(0);
 }
