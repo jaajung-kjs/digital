@@ -29,11 +29,8 @@ export const isBadCell = (raw: string) => Number.isNaN(parseMeasure(raw));
 export const isBlankDraft = (d: MeasureDraft) => MEASURE_COLS.every((c) => d[c.key].trim() === '');
 export const draftHasBad = (d: MeasureDraft) => MEASURE_COLS.some((c) => isBadCell(d[c.key]));
 
-/** 오늘(이 기기의 날짜) — `YYYY-MM-DD`. `toISOString` 은 UTC 라 새벽 아홉 시 전에는 어제가 된다. */
-export function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+/** 측정일 기본값 — 오늘(`format.ts` 한 곳). */
+export { today } from '../../../components/ui/format';
 
 /** 측정일 칸 — 비었거나 날짜가 아니면 까닭. */
 export function dateIssue(raw: string): string | null {

@@ -25,3 +25,18 @@ export function formatDate(value: string | null | undefined): string {
   if (!value) return EMPTY;
   return value.slice(0, 10);
 }
+
+/** 오늘(이 기기의 날짜) — `YYYY-MM-DD`. `toISOString` 은 UTC 라 새벽 아홉 시 전에는 어제가 된다. */
+export function today(): string {
+  const d = new Date();
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+}
+
+/**
+ * 수 — 천 단위 구분, **로케일은 ko-KR 로 못 박는다**(`toLocaleString()` 을 로케일 없이 부르면
+ * 브라우저 설정이 구분자를 정해 같은 값이 PC 마다 다르게 적힌다).
+ */
+export function formatNumber(v: number, maximumFractionDigits = 0): string {
+  return v.toLocaleString('ko-KR', { maximumFractionDigits });
+}

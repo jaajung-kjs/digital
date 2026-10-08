@@ -4,7 +4,7 @@ import { compareName, computeEstimate, computeReport, designItems, laborCosts, m
 import type { DesignItem, DesignTarget, EstimateParams, OverheadRates, ReportKind } from '@twin/core';
 import {
   Badge, Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, Input, MessageStrip, Modal, OverflowShade, SegmentedControl,
-  TABLE_ROW, TableCard, TableGroupHead, TableSubHead, Td, Th, cn, useOverflowShade,
+  TABLE_ROW, TableCard, TableGroupHead, TableSubHead, Td, Th, cn, today, useOverflowShade,
 } from '../../../components/ui';
 import type { BadgeStatus } from '../../../components/ui';
 import { useV2OrgTree, useWageCatalog } from '../../hooks';
@@ -592,13 +592,6 @@ function CostRow({ label, basis, rate, amount, total = false }: { label: string;
       <Td align="right">{won(amount)}</Td>
     </tr>
   );
-}
-
-/** 오늘(이 컴퓨터의 날짜) — `YYYY-MM-DD`. 설계서의 작성일이다. */
-function today(): string {
-  const d = new Date();
-  const two = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
 }
 
 /**

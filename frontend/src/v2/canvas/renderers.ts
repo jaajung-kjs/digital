@@ -1,3 +1,4 @@
+import { formatNumber } from '../../components/ui/format';
 import { SELECTION_STYLES, ELEMENT_COLORS } from './constants';
 import type { PlacedRect } from './hitTest';
 
@@ -29,7 +30,7 @@ const FRONT_EDGE: Record<string, ((x: number, y: number, w: number, h: number) =
 };
 
 /** 캔버스 1 unit = 1 cm 약속 — 도면의 단위인 mm 로 적는다. */
-const mm = (cm: number) => Math.round(cm * 10).toLocaleString();
+const mm = (cm: number) => formatNumber(Math.round(cm * 10));
 
 function renderAssetItem(
   ctx: CanvasRenderingContext2D,

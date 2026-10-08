@@ -24,9 +24,7 @@ import { bySubstation, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Floor } from '../../model/types';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
-import {
-  Button, EmptyState, IconButton, Select, StatusBar, StatusItem, Tabs, useConfirm, useTabs, ViewCard,
-} from '../../../components/ui';
+import { Button, EmptyState, IconButton, Select, StatusBar, StatusItem, Tabs, useConfirm, useTabs, ViewCard, formatNumber } from '../../../components/ui';
 import { AssetResizeHandles } from '../floorplan/AssetResizeHandles';
 import { BackgroundImportControls } from '../floorplan/BackgroundImportControls';
 import { useFloorAdmin } from '../floorplan/useFloorAdmin';
@@ -149,7 +147,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack, railT
     onChange: () => scheduleRender(),
     onPointerWorld: (w) => {
       /* 캔버스 1 unit = 1 cm — 도면의 단위인 mm 로 적는다(리렌더 없이 마디에 직접). */
-      if (coordRef.current) coordRef.current.textContent = `X ${Math.round(w.x * 10).toLocaleString()} · Y ${Math.round(w.y * 10).toLocaleString()}`;
+      if (coordRef.current) coordRef.current.textContent = `X ${formatNumber(Math.round(w.x * 10))} · Y ${formatNumber(Math.round(w.y * 10))}`;
     },
   });
 

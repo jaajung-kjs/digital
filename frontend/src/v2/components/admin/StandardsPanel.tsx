@@ -13,19 +13,8 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Upload } from 'lucide-react';
 import {
-  Button,
-  DetailCard,
-  DetailCardHeader,
-  DetailRow,
-  EmptyState,
-  StatusDot,
-  TableCard,
-  TableSearch,
-  Th,
-  cn,
-  formatDate,
-  SELECTABLE,
-  EMPTY, Td, TABLE_ROW,} from '../../../components/ui';
+  Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, SELECTABLE, EMPTY, Td, TABLE_ROW, formatNumber,
+} from '../../../components/ui';
 import {
   activateStandard,
   previewOverheadStandard,
@@ -421,7 +410,7 @@ function WageRatesCard() {
                 {data.dates.map((d) => (
                   <Td align="right" key={d} className="text-content">
                     {/* 그 회차에 조사되지 않았으면 **칸이 아니라 없음**이다. */}
-                    {r.wages[d]?.toLocaleString() ?? EMPTY}
+                    {r.wages[d] != null ? formatNumber(r.wages[d]) : EMPTY}
                   </Td>
                 ))}
               </tr>
@@ -523,7 +512,7 @@ function OverheadRatesCard() {
               <Td className="text-content">{band}</Td>
               <Td align="right" className="text-content">{pct(v.rate)}</Td>
               <Td align="right" className="text-content-muted">
-                {v.base == null ? EMPTY : `${v.base.toLocaleString()}원`}
+                {v.base == null ? EMPTY : `${formatNumber(v.base)}원`}
               </Td>
             </tr>
           ))}
