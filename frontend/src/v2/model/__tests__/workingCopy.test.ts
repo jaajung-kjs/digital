@@ -6,10 +6,17 @@ const wcOf: Record<string, Workingcopy> = {};
 const fetched: string[] = [];
 /** 읽기에 실패할 국 — 시험이 넣고 뺀다. */
 const failing = new Set<string>();
+/** 서버에서 지워진 국 — 404 로 답한다. */
+const deleted = new Set<string>();
+/** 응답을 붙잡아 둘 국 — 시험이 문을 연다. */
+const gates: Record<string, Promise<void>> = {};
 vi.mock('../api', () => ({
   fetchWorkingcopy: async (id: string) => {
     fetched.push(id);
     if (failing.has(id)) throw new Error('네트워크 끊김');
+    if (deleted.has(id)) throw Object.assign(new Error('Not Found'), { isAxiosError: true, response: { status: 404, data: {} } });
+    const gate = gates[id];
+    if (gate) { delete gates[id]; await gate; }
     return structuredClone(wcOf[id]!);
   },
   putCommit: async () => ({}),
@@ -29,6 +36,8 @@ const base = (id: string, name: string): Workingcopy => ({
 beforeEach(() => {
   fetched.length = 0;
   failing.clear();
+  deleted.clear();
+  for (const k of Object.keys(gates)) delete gates[k];
   wcOf.S1 = base('S1', '북춘천');
   wcOf.S1.racks = [{ id: 'r1', substationId: 'S1', name: '통신랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: 't1' }];
   wcOf.S1.equipment = [
@@ -396,7 +405,7 @@ describe('새로 읽기 · 충돌 뒤 다시 맞추기 · 주인', () => {
     /* 그사이 다른 사람이 랙 이름과 차단기 1 을 고쳐 저장했다. */
     wcOf.S1.racks[0] = { ...wcOf.S1.racks[0]!, name: '남의 이름', updatedAt: 't9' };
     wcOf.S1.equipment[0]!.circuits[0] = { ...wcOf.S1.equipment[0]!.circuits[0]!, label: '남의 CB', updatedAt: 'c9' };
-    const dropped = await store.getState().rebase([
+    const { dropped } = await store.getState().rebase([
       { key: 'r1', reason: 'modified', serverUpdatedAt: 't9' },
       { key: 'circuit:pnl:1', reason: 'modified', serverUpdatedAt: 'c9' },
     ]);
@@ -417,10 +426,10 @@ describe('새로 읽기 · 충돌 뒤 다시 맞추기 · 주인', () => {
     store.getState().create('maintenance', { id: 'm9', equipmentId: 'ote', occurredAt: '2026-10-01', content: '고장', action: null, updatedAt: '' });
     wcOf.S1.equipment = wcOf.S1.equipment.filter((e) => e.id !== 'ote');
     wcOf.S1.links = [];
-    const dropped = await store.getState().rebase([{ key: 'ote', reason: 'deleted' }]);
+    const { dropped } = await store.getState().rebase([{ key: 'ote', reason: 'deleted' }]);
     expect(dropped).toEqual([
-      { key: 'ote', kind: 'equipment', reason: 'conflict' },
-      { key: 'm9', kind: 'maintenance', reason: 'orphan' },
+      { key: 'ote', kind: 'equipment', reason: 'conflict', op: 'update' },
+      { key: 'm9', kind: 'maintenance', reason: 'orphan', op: 'create' },
     ]);
     expect(store.getState().dirtyCount()).toBe(0);
   });
@@ -437,3 +446,171 @@ describe('새로 읽기 · 충돌 뒤 다시 맞추기 · 주인', () => {
     expect(store.getState().owner).toBe('u2');
   });
 });
+
+/* 충돌 뒤 다시 맞추기 — 지우기 묶음(설비 지우기가 펼친 연결 지우기·광선로 끝 비우기)은 함께 가고 함께 남는다. */
+describe('충돌 뒤 — 지우기 묶음은 통째로, 사라진 행에 기대던 것은 버린다', () => {
+  const CABLES = [{ id: 'opgw', medium: 'fiber' }];
+  const line = {
+    id: 'L', cableTypeId: 'opgw', coreCount: 2, name: 'L선로', lengthKm: null, segments: [],
+    aSubstationId: 'S1', aEquipmentId: 'ofd', aPanel: 1, aStartNo: 1,
+    bSubstationId: 'S2', bEquipmentId: null, bPanel: null, bStartNo: 1,
+    aSubstationName: '북춘천', bSubstationName: '춘천HP', updatedAt: 'l1', cores: [],
+  };
+  const link = (id: string, a: Workingcopy['links'][number]['a'], b: Workingcopy['links'][number]['b']) => ({
+    id, substationId: 'S1', cableTypeId: null, lengthM: null, spec: null, note: null, pathPoints: [], a, b, updatedAt: `${id}v`,
+  });
+  beforeEach(async () => {
+    wcOf.S1.equipment.push({ id: 'ofd', substationId: 'S1', rackId: 'r1', name: 'OFD', typeId: 'et', status: 'normal', model: null, maker: null, madeOn: null, serial: null, installDate: null, manager: null, note: null, circuitCount: 0, panelCount: 4, updatedAt: 'o1', circuits: [] });
+    wcOf.S1.fiberLines = [line];
+    wcOf.S2.fiberLines = [line];
+    wcOf.S1.links.push(
+      link('k2', { kind: 'equipment', equipmentId: 'ofd' }, { kind: 'equipment', equipmentId: 'ote' }),
+      link('k3', { kind: 'core', lineId: 'L', no: 1, side: 'A' }, { kind: 'equipment', equipmentId: 'ofd' }),
+    );
+    await store.getState().ensureLoaded('S1');
+    await store.getState().ensureLoaded('S2');
+    /* 상관없는 손질 둘 — 남아야 한다. */
+    store.getState().update('equipment', 'pnl', { note: '내 메모' });
+    store.getState().create('racks', { id: 'r9', substationId: 'S2', name: '새 랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: '' });
+  });
+
+  const staged = () => {
+    const o = store.getState().overlays;
+    return { eq: o.equipment.deletes, links: [...o.links.deletes].sort(), lineUpd: o.fiberLines.updates };
+  };
+  const keptUnrelated = () => {
+    const st = store.getState();
+    expect(st.overlays.equipment.updates.pnl).toEqual({ note: '내 메모' });
+    expect(Object.keys(st.overlays.racks.creates)).toEqual(['r9']);
+  };
+
+  it('OFD 지우기가 충돌하면 그 묶음(연결 지우기·광선로 끝 비우기)을 통째로 버린다', async () => {
+    deleteRows({ equipment: ['ofd'] });
+    expect(staged()).toEqual({ eq: ['ofd'], links: ['k2', 'k3'], lineUpd: { L: { aEquipmentId: null, aPanel: null } } });
+    /* 그사이 다른 사람이 OFD 이름을 고쳤다. */
+    wcOf.S1.equipment[2] = { ...wcOf.S1.equipment[2]!, name: 'OFD-2', updatedAt: 'o2' };
+    const r = await store.getState().rebase([{ key: 'ofd', reason: 'modified', serverUpdatedAt: 'o2' }], CABLES);
+    expect(r.blocked).toBeNull();
+    expect(staged()).toEqual({ eq: [], links: [], lineUpd: {} });
+    expect(r.dropped).toEqual([
+      { key: 'ofd', kind: 'equipment', reason: 'conflict', op: 'delete' },
+      { key: 'k2', kind: 'links', reason: 'cascade', op: 'delete' },
+      { key: 'k3', kind: 'links', reason: 'cascade', op: 'delete' },
+      { key: 'L', kind: 'fiberLines', reason: 'cascade', op: 'endClear' },
+    ]);
+    keptUnrelated();
+    expect(store.getState().dirtyCount()).toBe(2);
+    expect(store.temporal.getState().pastStates).toHaveLength(0);
+  });
+
+  it('묶음 안의 연결 하나가 충돌하면(다른 곳에서 지움) 부모 설비 지우기까지 묶음째 버린다 — 저장 못 할 반쪽이 남지 않는다', async () => {
+    deleteRows({ equipment: ['ofd'] });
+    wcOf.S1.links = wcOf.S1.links.filter((l) => l.id !== 'k2');
+    const r = await store.getState().rebase([{ key: 'k2', reason: 'deleted' }], CABLES);
+    expect(r.blocked).toBeNull();
+    expect(staged()).toEqual({ eq: [], links: [], lineUpd: {} });
+    expect(r.dropped.map((d) => [d.key, d.reason])).toEqual([['ofd', 'cascade'], ['k2', 'conflict'], ['k3', 'cascade'], ['L', 'cascade']]);
+    keptUnrelated();
+    const { validateState } = await import('@twin/core');
+    expect(validateState(toModelState(store.getState(), CABLES))).toEqual([]);
+  });
+
+  it('그사이 서버에서 지울 설비에 연결이 더 생겼으면 그 묶음도 버린다 — 실린 펼침이 모자란다', async () => {
+    deleteRows({ equipment: ['ote'] });
+    store.getState().update('equipment', 'pnl', { note: '내 메모 2' });
+    wcOf.S1.links.push(link('k5', { kind: 'circuit', equipmentId: 'pnl', no: 2 }, { kind: 'equipment', equipmentId: 'ote' }));
+    wcOf.S1.equipment[0] = { ...wcOf.S1.equipment[0]!, updatedAt: 't9' };
+    const r = await store.getState().rebase([{ key: 'pnl', reason: 'modified', serverUpdatedAt: 't9' }], CABLES);
+    expect(r.blocked).toBeNull();
+    expect(store.getState().overlays.equipment.deletes).toEqual([]);
+    expect(store.getState().overlays.links.deletes).toEqual([]);
+    expect(r.dropped.map((d) => [d.key, d.reason, d.op]).sort()).toEqual([
+      ['k1', 'cascade', 'delete'], ['k2', 'cascade', 'delete'], ['ote', 'cascade', 'delete'], ['pnl', 'conflict', 'update'],
+    ]);
+  });
+
+  it('서버에서 지워진 설비로 가는 저장 안 된 연결은 버리고 알린다 — 상관없는 손질은 남는다', async () => {
+    store.getState().create('links', link('kN', { kind: 'circuit', equipmentId: 'pnl', no: 2 }, { kind: 'equipment', equipmentId: 'ote' }));
+    store.getState().update('racks', 'r1', { x: 5 });
+    /* 다른 사람이 ote 를(그 연결 k1·k2 와 함께) 지우고, 랙 r1 도 고쳤다. */
+    wcOf.S1.equipment = wcOf.S1.equipment.filter((e) => e.id !== 'ote');
+    wcOf.S1.links = wcOf.S1.links.filter((l) => l.id === 'k3');
+    wcOf.S1.racks[0] = { ...wcOf.S1.racks[0]!, updatedAt: 't9' };
+    const before = { saved: store.getState().saved, overlays: store.getState().overlays };
+    const r = await store.getState().rebase([{ key: 'r1', reason: 'modified', serverUpdatedAt: 't9' }], CABLES);
+    expect(r.blocked).toBeNull();
+    expect(r.dropped).toEqual([
+      { key: 'r1', kind: 'racks', reason: 'conflict', op: 'update' },
+      { key: 'kN', kind: 'links', reason: 'orphan', op: 'create' },
+    ]);
+    expect(store.getState().overlays.links.creates).toEqual({});
+    keptUnrelated();
+    const { droppedLabel } = await import('../../components/ConflictDialog');
+    expect(droppedLabel(before, r.dropped[1]!)).toBe('연결(저장 안 됨)');
+  });
+
+  it('버린 결과가 판정에 걸리면 아무것도 버리지 않고 막힌 국을 알린다 — 기준·오버레이·되돌리기 이력 그대로', async () => {
+    store.getState().update('racks', 'r1', { x: 5 });
+    store.getState().create('racks', { id: 'rN', substationId: 'S1', name: '통신랙2', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: '' });
+    /* 다른 사람이 r1 이름을 「통신랙2」로 바꿨다 — 내 새 랙과 이름이 겹친다. */
+    wcOf.S1.racks[0] = { ...wcOf.S1.racks[0]!, name: '통신랙2', updatedAt: 't9' };
+    const st0 = store.getState();
+    const past = store.temporal.getState().pastStates.length;
+    const r = await store.getState().rebase([{ key: 'r1', reason: 'modified', serverUpdatedAt: 't9' }], CABLES);
+    expect(r.dropped).toEqual([]);
+    expect(r.blocked).toEqual({ stations: ['북춘천'], message: expect.stringContaining('통신랙2') });
+    expect(store.getState().overlays).toBe(st0.overlays);
+    expect(store.getState().saved).toBe(st0.saved);
+    expect(store.temporal.getState().pastStates).toHaveLength(past);
+  });
+
+  it('고친 값을 다른 사람도 똑같이 저장했으면 접힌다 — 변경이 아니다', async () => {
+    store.getState().update('equipment', 'ote', { note: '같은 값' });
+    wcOf.S1.equipment[1] = { ...wcOf.S1.equipment[1]!, note: '같은 값', updatedAt: 't9' };
+    wcOf.S1.racks[0] = { ...wcOf.S1.racks[0]!, updatedAt: 't9' };
+    store.getState().update('racks', 'r1', { x: 5 });
+    await store.getState().rebase([{ key: 'r1', reason: 'modified', serverUpdatedAt: 't9' }], CABLES);
+    expect(store.getState().overlays.equipment.updates.ote).toBeUndefined();
+    keptUnrelated();
+  });
+});
+
+describe('지워진 국 · 낡은 읽기', () => {
+  it('들렀던 국이 지워졌으면(404) 저장 뒤 새로 읽기가 그 국을 빼고 알린다 — 다음 읽기도 막히지 않는다', async () => {
+    await store.getState().ensureLoaded('S1');
+    await store.getState().ensureLoaded('S2');
+    deleted.add('S2');
+    expect(await store.getState().refresh()).toEqual(['춘천HP']);
+    expect(store.getState().loaded).toEqual(['S1']);
+    expect(store.getState().saved.substations.S2).toBeUndefined();
+    await expect(store.getState().refresh()).resolves.toEqual([]);
+  });
+
+  it('충돌 뒤 다시 맞출 때도 지워진 국을 빼고, 그 국의 저장 안 된 행을 버린다', async () => {
+    await store.getState().ensureLoaded('S1');
+    await store.getState().ensureLoaded('S2');
+    store.getState().create('racks', { id: 'r9', substationId: 'S2', name: '새 랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: '' });
+    store.getState().update('equipment', 'ote', { note: 'x' });
+    deleted.add('S2');
+    const r = await store.getState().rebase([{ key: 'ote', reason: 'modified', serverUpdatedAt: 't9' }]);
+    expect(r.gone).toEqual(['춘천HP']);
+    expect(r.dropped).toContainEqual({ key: 'r9', kind: 'racks', reason: 'orphan', op: 'create' });
+    expect(store.getState().loaded).toEqual(['S1']);
+    expect(store.getState().dirtyCount()).toBe(0);
+  });
+
+  it('새로 읽기 전에 떠난 국 읽기가 뒤에 오면 버리고 다시 읽는다 — 낡은 버전이 새 기준을 덮지 않는다', async () => {
+    await store.getState().ensureLoaded('S1');
+    let open!: () => void;
+    gates.S2 = new Promise((r) => { open = r; });
+    const pending = store.getState().ensureLoaded('S2');
+    /* S2 를 읽는 사이 저장이 끝나 새 기준이 섰다 — 서버의 S2 도 바뀌었다. */
+    await store.getState().refresh();
+    wcOf.S2.racks = [{ id: 'rS2', substationId: 'S2', name: '새 것', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: 'v2' }];
+    open();
+    await pending;
+    expect(fetched.filter((x) => x === 'S2')).toHaveLength(2);
+    expect(store.getState().baseVersions.rS2).toBe('v2');
+  });
+});
+

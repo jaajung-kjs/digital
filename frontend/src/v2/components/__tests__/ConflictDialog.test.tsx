@@ -38,16 +38,16 @@ describe('ConflictDialog', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('「충돌 항목만 버리고 계속」은 rebase 하고, 무엇을 버렸고 몇 건이 남았는지 상자 안에 적는다', async () => {
-    const rebase = vi.spyOn(workingCopyStore.getState(), 'rebase').mockResolvedValue([{ key: 'x'.repeat(12), kind: 'racks', reason: 'conflict' }]);
+    const rebase = vi.spyOn(workingCopyStore.getState(), 'rebase').mockResolvedValue({ dropped: [{ key: 'x'.repeat(12), kind: 'racks', reason: 'conflict', op: 'update' }], blocked: null, gone: [] });
     vi.spyOn(workingCopyStore.getState(), 'dirtyCount').mockReturnValue(3);
     const onClose = vi.fn();
     render(<ConflictDialog conflicts={[{ key: 'x'.repeat(12), reason: 'modified' }]} onClose={onClose} />);
-    expect(screen.getByText(/아래 1건이 서버와 충돌하여/)).toBeInTheDocument();
+    expect(screen.getByText(/아래 1건이 서버와 충돌하여/)).toHaveTextContent('실행 취소 기록이 초기화됩니다');
     fireEvent.click(screen.getByRole('button', { name: '충돌 항목만 버리고 계속' }));
-    expect(await screen.findByText('충돌한 항목 1건의 변경을 취소했습니다.')).toBeInTheDocument();
-    expect(rebase).toHaveBeenCalledWith([{ key: 'x'.repeat(12), reason: 'modified' }]);
+    expect(await screen.findByText('충돌한 항목과 그에 묶인 변경 1건을 취소했습니다.')).toBeInTheDocument();
+    expect(rebase).toHaveBeenCalledWith([{ key: 'x'.repeat(12), reason: 'modified' }], undefined);
     expect(screen.getByRole('list', { name: '취소한 변경' })).toHaveTextContent('xxxxxxxx');
-    expect(screen.getByText(/나머지 변경 3건은 그대로입니다/)).toBeInTheDocument();
+    expect(screen.getByText(/나머지 변경 3건은 그대로입니다/)).toHaveTextContent('실행 취소 기록은 초기화되었습니다.');
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '확인' }));
     expect(onClose).toHaveBeenCalled();
@@ -66,7 +66,7 @@ describe('ConflictDialog', () => {
 
   it('다시 읽기가 실패하면 닫지 않고 상자 안에 까닭을 적고, 다시 시도할 수 있다', async () => {
     let fail = true;
-    vi.spyOn(workingCopyStore.getState(), 'rebase').mockImplementation(async () => { if (fail) throw new Error('끊김'); return []; });
+    vi.spyOn(workingCopyStore.getState(), 'rebase').mockImplementation(async () => { if (fail) throw new Error('끊김'); return { dropped: [], blocked: null, gone: [] }; });
     const onClose = vi.fn();
     render(<ConflictDialog conflicts={[{ key: 'x'.repeat(12), reason: 'deleted' }]} onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: '충돌 항목만 버리고 계속' }));
@@ -74,6 +74,36 @@ describe('ConflictDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
     fail = false;
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-    expect(await screen.findByText('충돌한 항목 0건의 변경을 취소했습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('충돌한 항목과 그에 묶인 변경 0건을 취소했습니다.')).toBeInTheDocument();
+  });
+
+  it('버리면 맞지 않을 때는 아무것도 버리지 않았다고, 어느 변전소가 막는지 적는다', async () => {
+    vi.spyOn(workingCopyStore.getState(), 'rebase').mockResolvedValue({ dropped: [], blocked: { stations: ['북춘천'], message: '같은 변전소에 랙 이름 「A」이 2개 있습니다' }, gone: [] });
+    render(<ConflictDialog conflicts={[{ key: 'x'.repeat(12), reason: 'modified' }]} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '충돌 항목만 버리고 계속' }));
+    expect(await screen.findByText(/북춘천의 변경이 서로 맞지 않게 됩니다 — 아무것도 버리지 않았습니다/)).toBeInTheDocument();
+    expect(screen.getByText('같은 변전소에 랙 이름 「A」이 2개 있습니다')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: '취소한 변경' })).toBeNull();
+  });
+
+  it('묶음으로 버린 것과 사라진 행에 기대던 것도 이름을 붙여 적는다', async () => {
+    const st = workingCopyStore.getState();
+    vi.spyOn(st, 'rebase').mockResolvedValue({
+      dropped: [
+        { key: U(2), kind: 'equipment', reason: 'conflict', op: 'delete' },
+        { key: U(5), kind: 'links', reason: 'cascade', op: 'delete' },
+        { key: U(4), kind: 'fiberLines', reason: 'cascade', op: 'endClear' },
+      ],
+      blocked: null, gone: ['춘천HP'],
+    });
+    workingCopyStore.setState({ saved: { ...st.saved, ...(s as { saved: object }).saved } as never });
+    render(<ConflictDialog conflicts={[{ key: U(2), reason: 'modified' }]} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '충돌 항목만 버리고 계속' }));
+    const list = await screen.findByRole('list', { name: '취소한 변경' });
+    expect(list).toHaveTextContent('L3 #1 삭제');
+    expect(list).toHaveTextContent('연결 삭제(함께 삭제하던 것)');
+    expect(list).toHaveTextContent('북춘천-춘천 접속 해제');
+    expect(screen.getByText(/삭제된 변전소를 목록에서 뺐습니다 — 춘천HP/)).toBeInTheDocument();
+    workingCopyStore.getState().reset();
   });
 });

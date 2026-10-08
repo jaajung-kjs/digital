@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Button, ErrorStrip, Modal } from '../../components/ui';
 import { apiErrorMessage } from '../apiError';
 import { effectiveRows, equipmentName } from '../model/store/effective';
-import { useWorkingCopy, workingCopyStore, type DroppedEdit, type WorkingCopyState } from '../model/store/workingCopy';
+import { useWorkingCopy, workingCopyStore, type DroppedEdit, type RowKind, type WorkingCopyState } from '../model/store/workingCopy';
 import type { Conflict } from '../model/types';
 
 interface ConflictDialogProps {
   conflicts: Conflict[];
+  /** 다시 맞춘 결과를 판정할 품목(매체 규칙) — 저장 판정과 같은 것(`useCommit`). */
+  cableTypes?: readonly { id: string; medium: string }[];
   /** 상자를 닫는다 — 충돌 표시를 걷는다(버렸든 유지했든). */
   onClose: () => void;
 }
@@ -35,18 +37,28 @@ export function conflictLabel(s: Pick<WorkingCopyState, 'saved' | 'overlays'>, k
 
 const reasonLabel = (reason: Conflict['reason']) => (reason === 'deleted' ? '서버에서 삭제됨' : '다른 사용자가 수정함');
 
-const ORPHAN_LABEL: Partial<Record<DroppedEdit['kind'], string>> = {
+const RECORD_LABEL: Partial<Record<DroppedEdit['kind'], string>> = {
   maintenance: '고장 이력', inspections: '점검 기록', photos: '사진', coreMeasurements: '측정',
 };
 
 /** 버린 손질 하나의 이름 — 버리기 **전** 상태로 짓는다(버린 뒤에는 그 행이 없을 수 있다). */
-function droppedLabel(before: Pick<WorkingCopyState, 'saved' | 'overlays'>, d: DroppedEdit): string {
-  if (d.reason === 'conflict') return conflictLabel(before, d.key);
-  const kind = d.kind as 'maintenance' | 'inspections' | 'photos' | 'coreMeasurements';
-  const row = before.overlays[kind].creates[d.key] as { equipmentId?: string; lineId?: string } | undefined;
-  const owner = row?.equipmentId ? equipmentName(before, row.equipmentId)
-    : row?.lineId ? effectiveRows(before, 'fiberLines').find((l) => l.id === row.lineId)?.name ?? null : null;
-  return `${owner ? `${owner} ` : ''}${ORPHAN_LABEL[d.kind] ?? '항목'}(저장 안 됨)`;
+export function droppedLabel(before: Pick<WorkingCopyState, 'saved' | 'overlays'>, d: DroppedEdit): string {
+  if (d.op === 'create') {
+    const row = (before.overlays[d.kind as RowKind] as { creates: Record<string, { name?: string | null; equipmentId?: string; lineId?: string }> }).creates[d.key];
+    const record = RECORD_LABEL[d.kind];
+    if (record) {
+      const owner = row?.equipmentId ? equipmentName(before, row.equipmentId)
+        : row?.lineId ? effectiveRows(before, 'fiberLines').find((l) => l.id === row.lineId)?.name ?? null : null;
+      return `${owner ? `${owner} ` : ''}${record}(저장 안 됨)`;
+    }
+    return `${row?.name ?? (d.kind === 'links' ? '연결' : '항목')}(저장 안 됨)`;
+  }
+  const name = conflictLabel(before, d.key);
+  if (d.op === 'endClear') return `${name} 접속 해제`;
+  const what = d.op === 'delete' ? `${name} 삭제` : name;
+  if (d.reason === 'cascade') return `${what}(함께 삭제하던 것)`;
+  if (d.reason === 'orphan') return `${what}(서버에서 삭제됨)`;
+  return what;
 }
 
 function ConflictItem({ conflict }: { conflict: Conflict }) {
@@ -67,11 +79,15 @@ function ConflictItem({ conflict }: { conflict: Conflict }) {
  * 「변경 유지하고 닫기」(아무것도 바꾸지 않는다 — 다시 저장하면 같은 충돌이 난다). 버린 뒤에는 무엇을 버렸고
  * 몇 건이 남았는지 상자 안에 적는다(사라지는 알림으로 넘기지 않는다).
  */
-export function ConflictDialog({ conflicts, onClose }: ConflictDialogProps) {
+export function ConflictDialog({ conflicts, cableTypes, onClose }: ConflictDialogProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** 버린 뒤 — 버린 것의 이름과 남은 변경 수. */
-  const [result, setResult] = useState<{ dropped: string[]; remaining: number } | null>(null);
+  /** 버린 뒤 — 버린 것의 이름과 남은 변경 수(지워진 국은 이름). 버리면 맞지 않아 그대로 둔 때는 `blocked`. */
+  const [result, setResult] = useState<
+    | { kind: 'dropped'; dropped: string[]; remaining: number; gone: string[] }
+    | { kind: 'blocked'; stations: string[]; message: string }
+    | null
+  >(null);
   if (conflicts.length === 0) return null;
 
   /* 다시 읽기가 실패하면 아무것도 바뀌지 않았다(오버레이는 그대로) — 상자 안에 까닭을 적고 같은 단추로 다시 해 본다. */
@@ -81,8 +97,10 @@ export function ConflictDialog({ conflicts, onClose }: ConflictDialogProps) {
     const st = workingCopyStore.getState();
     const before = { saved: st.saved, overlays: st.overlays };
     try {
-      const dropped = await st.rebase(conflicts);
-      setResult({ dropped: dropped.map((d) => droppedLabel(before, d)), remaining: workingCopyStore.getState().dirtyCount() });
+      const r = await st.rebase(conflicts, cableTypes);
+      setResult(r.blocked
+        ? { kind: 'blocked', stations: r.blocked.stations, message: r.blocked.message }
+        : { kind: 'dropped', dropped: r.dropped.map((d) => droppedLabel(before, d)), remaining: workingCopyStore.getState().dirtyCount(), gone: r.gone });
     } catch (e) {
       setError(apiErrorMessage(e, '서버에서 새로 불러오지 못했습니다'));
     } finally {
@@ -90,17 +108,35 @@ export function ConflictDialog({ conflicts, onClose }: ConflictDialogProps) {
     }
   }
 
+  if (result?.kind === 'blocked') {
+    return (
+      <Modal open onClose={onClose} title="저장 충돌" footer={<Button size="sm" onClick={onClose}>확인</Button>}>
+        <p className="mb-3 text-sm text-content">
+          충돌 항목만 버리면 {result.stations.join(' · ') || '변경안'}의 변경이 서로 맞지 않게 됩니다 — 아무것도 버리지 않았습니다.
+        </p>
+        <p className="mb-3 text-sm text-danger">{result.message}</p>
+        <p className="text-sm text-content">
+          그 변전소의 변경을 직접 정리한 뒤 다시 저장하거나, 「변경 취소」로 모두 버리고 서버의 최신 값에서 다시 하세요.
+        </p>
+      </Modal>
+    );
+  }
+
   if (result) {
     return (
       <Modal open onClose={onClose} title="저장 충돌" footer={<Button size="sm" onClick={onClose}>확인</Button>}>
-        <p className="mb-3 text-sm text-content">충돌한 항목 {result.dropped.length}건의 변경을 취소했습니다.</p>
+        <p className="mb-3 text-sm text-content">충돌한 항목과 그에 묶인 변경 {result.dropped.length}건을 취소했습니다.</p>
         <ul className="mb-3 space-y-1" aria-label="취소한 변경">
           {result.dropped.map((label, i) => <li key={i} className="truncate text-sm text-content-muted">{label}</li>)}
         </ul>
+        {result.gone.length > 0 && (
+          <p className="mb-3 text-sm text-content">삭제된 변전소를 목록에서 뺐습니다 — {result.gone.join(' · ')}</p>
+        )}
         <p className="text-sm text-content">
           {result.remaining > 0
             ? `나머지 변경 ${result.remaining}건은 그대로입니다. 서버의 최신 값을 확인한 뒤 다시 저장하세요.`
             : '남은 변경이 없습니다.'}
+          {' '}실행 취소 기록은 초기화되었습니다.
         </p>
       </Modal>
     );
@@ -122,7 +158,8 @@ export function ConflictDialog({ conflicts, onClose }: ConflictDialogProps) {
     >
       <p className="mb-3 text-sm text-content">
         아래 {conflicts.length}건이 서버와 충돌하여 저장되지 않았습니다. 「충돌 항목만 버리고 계속」을 누르면 서버의 최신 값을 불러오고,
-        이 {conflicts.length}건에 대한 내 변경만 취소합니다. 나머지 변경은 그대로 남습니다.
+        이 {conflicts.length}건에 대한 내 변경만 취소합니다 — 함께 삭제하던 묶음(설비와 그 연결 등)은 통째로 취소합니다.
+        나머지 변경은 그대로 남습니다. 실행 취소 기록이 초기화됩니다.
       </p>
       <ul className="space-y-1">
         {conflicts.map((c) => (
