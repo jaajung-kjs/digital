@@ -18,6 +18,10 @@ const LINE_NAME = `${PREFIX} 선번장 선로`;
 /** 시드 블록 — 슬롯 3(154kV 북춘천화천HP T/L) 코어 11·12 는 비어 있다(연결·용도·측정 없음). */
 const SLOT3_LINE = '154kV 북춘천화천HP T/L';
 
+/* 측정 네 열(1310·1550 손실·거리·측정일)은 판이 넓을 때(wide)만 선다 — 글 열이 읽히는 폭을 먼저 지키므로(§1.7-e2)
+   1600 + 트리에서는 「1310/1550 손실」 한 열로 병합된다. 이 시험은 측정 칸을 하나씩 읽으므로 넓은 화면에서 돈다. */
+test.use({ viewport: { width: 1920, height: 1080 } });
+
 const main = (page: Page) => page.getByTestId('v2-main');
 const detail = (page: Page) => main(page).getByRole('complementary');
 const saveButton = (page: Page) => page.getByRole('button', { name: '저장', exact: true });

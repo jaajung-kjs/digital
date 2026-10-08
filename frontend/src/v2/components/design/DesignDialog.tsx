@@ -580,7 +580,7 @@ function CostTable({ e, sticky = false, paper = false }: { e: DesignEstimate; st
   const digits = est ? percentDigits([rates?.byDuration.간접노무비[est.sizeBand][est.durationBand], ...est.expenses.map((x) => x.rate), est.overheadAdmin.rate, est.profit.rate, 0.1]) : 0;
   return (
     /* 종이에서는 원가계산서가 쪽에 걸쳐 갈리지 않는다 — 남은 자리가 모자라면 새 쪽에서 시작한다. */
-    <TableCard widths={['140px', 100, '68px', '120px']} className={cn(paper && 'break-inside-avoid')}>
+    <TableCard widths={['140px', 100, '80px', '120px']} className={cn(paper && 'break-inside-avoid')}>
       <thead>
         <TableGroupHead colSpan={4} title="공사비" />
         <tr>

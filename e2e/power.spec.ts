@@ -89,8 +89,8 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   const panelId = (await panel.getAttribute('data-equipment'))!;
   const head = panel.getByTestId('ledger-block-head');
   await expect(head).toContainText(`${PANEL}· 차단기 22개`);
-  await expect(head).toContainText('교류 입력: 소내전원반 차단기 4');
-  await expect(head).toContainText('직류 입력: 충전기 #2 차단기 1');
+  //    다모선이라 입력 전원은 소묶음 머리가 말하고 머리줄은 되풀이하지 않는다(I7)
+  await expect(head).not.toContainText('입력');
   const busHeads = panel.getByTestId('ledger-bus-head');
   await expect(busHeads).toHaveCount(2);
   await expect(busHeads.nth(0)).toContainText('교류 모선 · 입력: 소내전원반 차단기 4');
