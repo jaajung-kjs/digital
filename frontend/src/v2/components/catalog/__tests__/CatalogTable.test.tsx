@@ -51,7 +51,7 @@ describe('CatalogTable', () => {
   it('추가 행에 이름을 적고 Enter 하면 접두 맞는 키가 자동으로 실려 create 한다', async () => {
     wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[]} columns={columns} newRow={() => ({ sortOrder: 5 })} />);
     expect(screen.queryByText('키')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '추가' }));
+    fireEvent.click(screen.getByRole('button', { name: / 추가$/ }));
     const name = screen.getByLabelText('이름');
     fireEvent.change(name, { target: { value: '새 랙' } });
     fireEvent.keyDown(name, { key: 'Enter' });
@@ -64,7 +64,7 @@ describe('CatalogTable', () => {
   it('KEY_TAKEN 이면 다른 키로 한 번 다시 시도한다', async () => {
     create.mockRejectedValueOnce(Object.assign(new Error('x'), { isAxiosError: true, response: { status: 409, data: { error: 'KEY_TAKEN', message: '같은 키가 이미 있습니다' } } }));
     wrap(<CatalogTable kind="rack-types" title="랙 품목" rows={[]} columns={columns} newRow={() => ({})} />);
-    fireEvent.click(screen.getByRole('button', { name: '추가' }));
+    fireEvent.click(screen.getByRole('button', { name: / 추가$/ }));
     const name = screen.getByLabelText('이름');
     fireEvent.change(name, { target: { value: '새 랙' } });
     fireEvent.keyDown(name, { key: 'Enter' });
@@ -88,7 +88,7 @@ describe('CatalogTable', () => {
     expect(screen.getByRole('combobox', { name: 'OFD 분야' })).toBeInTheDocument();
   });
 
-  const open = () => fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  const open = () => fireEvent.click(screen.getByRole('button', { name: / 추가$/ }));
   const fill = () => {
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '새 랙' } });
   };
@@ -171,7 +171,7 @@ describe('CatalogTable', () => {
 
   it('새 줄의 순서는 맨 끝 차례를 보이고, 저장 값은 newRow 의 끝 번호다', async () => {
     wrap(<CatalogTable kind="categories" title="분야" rows={[{ id: 'a', name: '가', sortOrder: 20 }]} columns={columns} newRow={() => ({ sortOrder: 21 })} />);
-    fireEvent.click(screen.getByRole('button', { name: '추가' }));
+    fireEvent.click(screen.getByRole('button', { name: / 추가$/ }));
     expect(screen.queryByLabelText('순서')).toBeNull();
     const name = screen.getByLabelText('이름');
     fireEvent.change(name, { target: { value: '새' } });

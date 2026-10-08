@@ -10,8 +10,8 @@
  * 옮기고 목록 전체를 한 번에 다시 매긴다(`PATCH /v2/order` — 트리가 끌어 옮길 때와 같은 문).
  */
 import { useMemo, useRef, useState } from 'react';
-import { Check, Plus, Trash2, X } from 'lucide-react';
-import { Button, EMPTY, HOVER_REVEAL, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, isCommitKey, useConfirm } from '../../../components/ui';
+import { Check, Trash2, X } from 'lucide-react';
+import { Button, EMPTY, HOVER_REVEAL, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, ViewCard, isCommitKey, useConfirm } from '../../../components/ui';
 import { isAxiosError } from 'axios';
 import { apiErrorMessage } from '../../apiError';
 import { useReorder, useWageCatalog } from '../../hooks';
@@ -74,7 +74,8 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
   const [error, setError] = useState<{ id: string; message: string } | null>(null);
 
   const cols = columns;
-  const weight = (c: Column) => (c.kind === 'labor' ? 2 : c.key === 'name' ? 2 : 1);
+  /* 이름만 두 몫 — 노무유형은 직종 이름이 짧아 한 몫이면 든다(두 몫이면 대부분 「—」인 열이 자리를 차지했다). */
+  const weight = (c: Column) => (c.key === 'name' ? 2 : 1);
   /* 폭을 정한 열(순서)은 그 폭만 쓰고, 나머지 열이 남은 자리를 무게대로 나눈다 — 끝 10% 는 줄 손잡이. */
   const fixed = cols.reduce((n, c) => n + (c.width ? Number(c.width) : 0), 0);
   const total = cols.reduce((n, c) => n + (c.width ? 0 : weight(c)), 0);
@@ -204,20 +205,20 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
   const alignOf = (c: Column) => (c.kind === 'number' ? 'right' : 'left');
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 p-4">
-      <div className="flex shrink-0 items-center justify-between">
-        <h2 className="text-sm font-semibold text-content">
-          {title}
-          {/* 이 화면은 변경안을 거치지 않는다 — 설비 현황의 「저장」과 다르다는 것을 한 줄로 말한다(M19). */}
-          <EditOnly><span className="ml-2 text-xs font-normal text-content-muted">수정하면 즉시 반영됩니다</span></EditOnly>
-        </h2>
-        <EditOnly>
-          <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => { setError(null); setDraft(newRow()); }} disabled={draft != null}>
-            추가
-          </Button>
-        </EditOnly>
-      </div>
-      <div className="min-h-0 flex-1">
+    <div className="flex min-h-0 min-w-0 flex-1 p-4">
+      {/* 판은 `ViewCard` — 판 단위 만들기(「<품목> 추가」)는 머리 띠 오른쪽(§3 단추 자리 표). */}
+      <ViewCard
+        title={title}
+        /* 이 화면은 변경안을 거치지 않는다 — 설비 현황의 「저장」과 다르다는 것을 한 줄로 말한다(M19). */
+        tools={<EditOnly><span className="truncate text-xs text-content-muted">수정하면 즉시 반영됩니다</span></EditOnly>}
+        actions={(
+          <EditOnly>
+            <Button variant="secondary" size="sm" onClick={() => { setError(null); setDraft(newRow()); }} disabled={draft != null}>
+              {title} 추가
+            </Button>
+          </EditOnly>
+        )}
+      >
         <TableCard fill widths={widths}>
           <thead className="sticky top-0 z-sticky">
             <tr>
@@ -267,7 +268,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
             )}
           </tbody>
         </TableCard>
-      </div>
+      </ViewCard>
       {confirmDialog}
     </div>
   );

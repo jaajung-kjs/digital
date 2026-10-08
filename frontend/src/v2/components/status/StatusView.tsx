@@ -1,9 +1,10 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EQUIPMENT_STATUSES, compareName } from '@twin/core';
 import {
   Button, EMPTY, EmptyState, HOVER_REVEAL, IconButton, SegmentedControl, Select, SELECTABLE, SELECTED, StatusDot,
-  TABLE_ROW, TableCard, TableSearch, Td, Th, ViewCard, cn, formatDate, selectableRow, useScrollSelectedIntoView,
+  TABLE_ROW, TableCard, TableSearch, Td, Th, ViewCard, cn, formatDate, selectableRow, useScrollSelectedIntoView, useTableLayout,
+  type TableColumn,
 } from '../../../components/ui';
 import { summarize } from '../../statusSummary';
 import type { StatusRow } from './statusRows';
@@ -40,12 +41,27 @@ const MODES = [{ key: '품목별' as const, label: '품목별' }, { key: '랙별
 /** 상태 거르개 — 하나만 고른다. '' = 전체, 상태 값, 또는 미점검. */
 const NEVER = '__never__';
 
-/** 열 — 이름·개수·랙(품목)은 늘 있고, 상태(정상 아닌 것)·모델·제조사·설치일·마지막점검일은 값이 있을 때만 그린다. */
+/**
+ * 열 — 이름·개수·랙(품목)은 늘 있고, 상태(정상 아닌 것)·모델·제조사·설치일·마지막점검일은 값이 있을 때만 그린다.
+ * 판이 좁으면(§1.7-e, 700px 아래) 모델·제조사·설치일이 숨는다(최근 점검은 남는다) — 그 값은 상세 레일에 있다.
+ */
 const COLUMNS = [
   { key: 'name', width: 26 }, { key: 'count', width: 7 }, { key: 'status', width: 14 }, { key: 'where', width: 17 },
-  { key: 'model', width: 10 }, { key: 'maker', width: 10 }, { key: 'install', width: 9 }, { key: 'inspected', width: 10 },
-] as const;
-type ColKey = (typeof COLUMNS)[number]['key'];
+  { key: 'model', width: 10, priority: 3 }, { key: 'maker', width: 10, priority: 3 }, { key: 'install', width: 9, priority: 3 }, { key: 'inspected', width: 10 },
+] as const satisfies readonly TableColumn[];
+const KEYS = COLUMNS.map((c) => c.key);
+
+/** `after` 열 뒤로 지금 서는 열을 한 칸으로 덮는다 — 없으면 그리지 않는다. */
+function RestCells({ after }: { after: string }) {
+  const { shows } = useTableLayout();
+  const n = KEYS.slice(KEYS.indexOf(after as (typeof KEYS)[number]) + 1).filter(shows).length;
+  return n > 0 ? <Td colSpan={n} /> : null;
+}
+/** 표 폭 전체를 덮는 한 칸(빈 상태). */
+function FullRow({ children }: { children: ReactNode }) {
+  const { colCount } = useTableLayout();
+  return <tr><Td colSpan={colCount}>{children}</Td></tr>;
+}
 const OPTIONAL: Readonly<Record<string, (r: StatusRow) => boolean>> = {
   /* 정상은 칸을 비운다 — 모두 정상이면 그 열은 통째로 빈 열이다. */
   status: (r) => r.status !== OK_STATUS,
@@ -92,17 +108,11 @@ export function StatusView({
   const summary = useMemo(() => summarize(shown), [shown]);
   /** 칩의 숫자는 거르기 전 전체다. */
   const all = useMemo(() => summarize(rows), [rows]);
-  /** 보이는 행에 값이 하나라도 있는 열만 그린다 — 열 정의는 그대로, 표시만 거른다. */
-  const cols = useMemo(() => {
-    const on = COLUMNS.filter((c) => !OPTIONAL[c.key] || shown.some(OPTIONAL[c.key]!));
-    const sum = on.reduce((a, c) => a + c.width, 0);
-    return on.map((c) => ({ key: c.key as ColKey, width: (c.width / sum) * 100 }));
-  }, [shown]);
-  const widths = cols.map((c) => c.width);
-  const COLS = cols.length;
-  const has = (k: ColKey) => cols.some((c) => c.key === k);
-  /** 랙 행에서 품목 칸 다음 — 이름·개수·(상태)·품목 뒤의 나머지 열. */
-  const restFrom = has('status') ? 4 : 3;
+  /** 보이는 행에 값이 하나라도 있는 열만 그린다 — 열 정의는 그대로, 표시만 거른다. 폭 순위는 `TableCard` 가 본다. */
+  const columns = useMemo<readonly TableColumn[]>(
+    () => COLUMNS.map((c) => ({ ...c, hidden: OPTIONAL[c.key] ? !shown.some(OPTIONAL[c.key]!) : false })),
+    [shown],
+  );
   /** 랙마다 설비가 몇 개인가 — 거르기 전 전체(일체형 판정은 거른 결과에 흔들리지 않는다). */
   const perRack = useMemo(() => {
     const m = new Map<string, number>();
@@ -157,21 +167,19 @@ export function StatusView({
         </span>
       </Td>
       <Td align="right" className="text-content">{count}</Td>
-      {has('status') && <Td>{r.status !== OK_STATUS && <StatusDot status={statusTone(r.status)}>{statusLabel(r.status)}</StatusDot>}</Td>}
+      <Td col="status">{r.status !== OK_STATUS && <StatusDot status={statusTone(r.status)}>{statusLabel(r.status)}</StatusDot>}</Td>
       <Td className="truncate text-content-muted">{fourth}</Td>
-      {has('model') && <Td className="truncate text-content-muted">{r.model ?? EMPTY}</Td>}
-      {has('maker') && <Td className="truncate text-content-muted">{r.maker ?? EMPTY}</Td>}
-      {has('install') && <Td className="text-content-muted">{formatDate(r.installDate) || EMPTY}</Td>}
-      {has('inspected') && <Td className="text-content-muted">{formatDate(r.lastInspectedAt) || EMPTY}</Td>}
+      <Td col="model" className="truncate text-content-muted">{r.model ?? EMPTY}</Td>
+      <Td col="maker" className="truncate text-content-muted">{r.maker ?? EMPTY}</Td>
+      <Td col="install" className="text-content-muted">{formatDate(r.installDate) || EMPTY}</Td>
+      <Td col="inspected" className="text-content-muted">{formatDate(r.lastInspectedAt) || EMPTY}</Td>
     </tr>
   );
 
   const empty = (
-    <tr>
-      <Td colSpan={COLS}>
-        {filtering ? <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 설비가 없습니다` : '조건에 해당하는 설비가 없습니다'} /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」로 등록하세요.' : undefined} />}
-      </Td>
-    </tr>
+    <FullRow>
+      {filtering ? <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 설비가 없습니다` : '조건에 해당하는 설비가 없습니다'} /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」로 등록하세요.' : undefined} />}
+    </FullRow>
   );
 
   return (
@@ -179,7 +187,8 @@ export function StatusView({
       onClearSelection={() => onSelect(null)}
       bodyRef={scrollRef}
       tools={
-        <div className="flex min-w-0 items-center gap-2">
+        /* 범위 고르개·펼치기는 줄지 않는다 — 좁아지면 오른쪽 검색 칸이 먼저 준다(§3.1). */
+        <div className="flex shrink-0 items-center gap-2">
           {canRackView && <SegmentedControl aria-label="현황 보기" items={MODES} value={mode} onChange={setMode} />}
           <div className="w-36 shrink-0">
             <Select size="sm" aria-label="상태" value={filter} onChange={(e) => setFilter(e.currentTarget.value)}>
@@ -190,6 +199,19 @@ export function StatusView({
               <option value={NEVER}>상태: 미점검 {all.neverInspected}</option>
             </Select>
           </div>
+          {/* 모두 펼치기/접기 — 머리 띠 왼쪽 묶음 끝의 글자 단추(전원 계통도와 같은 꼴·자리, §3.10). */}
+          {view === '품목별' && summary.groups.length > 0 && (
+            <Button
+              variant="ghost" size="sm"
+              onClick={() => {
+                if (allCollapsed) return setCollapsed(new Set());
+                setExpanded(new Set());
+                setCollapsed(new Set(summary.groups.map((g) => g.categoryName)));
+              }}
+            >
+              {allCollapsed ? '모두 펼치기' : '모두 접기'}
+            </Button>
+          )}
         </div>
       }
       actions={
@@ -209,34 +231,17 @@ export function StatusView({
         </div>
       }
     >
-      <TableCard fill widths={widths}>
+      <TableCard fill columns={columns}>
         <thead>
           <tr className="sticky top-0 z-sticky">
-            <Th>
-              <span className="flex items-center gap-2">
-                {view === '랙별' ? '랙 · 설비' : '분야 · 품목'}
-                {view === '품목별' && summary.groups.length > 0 && (
-                  <button
-                    type="button"
-                    className="rounded px-1 font-normal text-content-faint hover:bg-surface-3 hover:text-content"
-                    onClick={() => {
-                      if (allCollapsed) return setCollapsed(new Set());
-                      setExpanded(new Set());
-                      setCollapsed(new Set(summary.groups.map((g) => g.categoryName)));
-                    }}
-                  >
-                    {allCollapsed ? '모두 펼치기' : '모두 접기'}
-                  </button>
-                )}
-              </span>
-            </Th>
+            <Th>{view === '랙별' ? '랙 · 설비' : '분야 · 품목'}</Th>
             <Th align="right">개수</Th>
-            {has('status') && <Th>상태</Th>}
+            <Th col="status">상태</Th>
             <Th>{view === '랙별' ? '품목' : '랙'}</Th>
-            {has('model') && <Th>모델</Th>}
-            {has('maker') && <Th>제조사</Th>}
-            {has('install') && <Th>설치일</Th>}
-            {has('inspected') && <Th>최근 점검</Th>}
+            <Th col="model">모델</Th>
+            <Th col="maker">제조사</Th>
+            <Th col="install">설치일</Th>
+            <Th col="inspected">최근 점검</Th>
           </tr>
         </thead>
         <tbody>
@@ -258,7 +263,7 @@ export function StatusView({
                   </span>
                 </Td>
                 <Td align="right" className="font-semibold text-content">{group.count}</Td>
-                <Td colSpan={COLS - 2} />
+                <RestCells after="count" />
               </tr>
               {!collapsed.has(group.categoryName) && group.items.map((item) => {
                 const open = expanded.has(item.key);
@@ -279,7 +284,7 @@ export function StatusView({
                         </span>
                       </Td>
                       <Td align="right" className="text-content">{item.count}</Td>
-                      {has('status') && <Td>
+                      <Td col="status">
                         {bad.length > 0 && (
                           <span className="flex flex-wrap items-center gap-1">
                             {bad.map(([value, n]) => (
@@ -287,9 +292,9 @@ export function StatusView({
                             ))}
                           </span>
                         )}
-                      </Td>}
+                      </Td>
                       {(() => { const where = rackSummary(item.rows); return <Td className="truncate text-content-muted" title={where}>{where}</Td>; })()}
-                      {COLS > restFrom && <Td colSpan={COLS - restFrom} />}
+                      <RestCells after="where" />
                     </tr>
                     {open && item.rows.map((r) => equipmentRow(r, 'pl-14', rackCell(r)))}
                   </Fragment>
@@ -313,9 +318,9 @@ export function StatusView({
               >
                 <Td className="truncate font-semibold text-content">{rack.name}</Td>
                 <Td align="right" className="font-semibold text-content">{inRack.length}</Td>
-                {has('status') && <Td />}
+                <Td col="status" />
                 <Td className="truncate text-content-muted">{rack.typeName}</Td>
-                {COLS > restFrom && <Td colSpan={COLS - restFrom} />}
+                <RestCells after="where" />
               </tr>
               {inRack.map((r) => equipmentRow(r, 'pl-8', r.typeName))}
             </Fragment>

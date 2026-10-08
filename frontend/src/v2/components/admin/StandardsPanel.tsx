@@ -13,7 +13,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Upload } from 'lucide-react';
 import {
-  Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, SELECTABLE, EMPTY, Td, TABLE_ROW, formatNumber,
+  Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, SELECTABLE, EMPTY, Select, Td, TABLE_ROW, TableGroupHead, formatNumber,
 } from '../../../components/ui';
 import {
   activateStandard,
@@ -364,6 +364,7 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
 function WageRatesCard() {
   const rates = useWageRates();
   const [query, setQuery] = useState('');
+  const [olderPick, setOlderPick] = useState<string | null>(null);
   const data = rates.data;
 
   const shown = (data?.rows ?? []).filter((r) => {
@@ -373,14 +374,30 @@ function WageRatesCard() {
 
   if (!data || data.rows.length === 0) return null;
 
+  /* 회차는 늘 쌓인다 — 열을 그만큼 늘리지 않는다(§1.6). 넷을 넘으면 최근 셋 + 「이전 회차」 하나(고른 것).
+     회차는 최근부터 온다(보고서 차례). */
+  const many = data.dates.length > 4;
+  const older = many ? data.dates.slice(3) : [];
+  const picked = older.includes(olderPick ?? '') ? olderPick! : older[0] ?? null;
+  const dates = many ? [...data.dates.slice(0, 3), picked!] : data.dates;
+
   /* 코드 · 이름 · 회차마다 한 칸. 합이 100(`TableCard`).
      코드와 이름은 **다른 컬럼**이다 — 붙여 놓으면 한 칸에 둘 다 저장되는 것으로 읽힌다
      (보고서 표도 두 칸이다). */
-  const widths = [10, 90 - data.dates.length * 15, ...data.dates.map(() => 15)];
+  const widths = [10, 90 - dates.length * 15, ...dates.map(() => 15)];
 
   return (
     <DetailCard>
-      <DetailCardHeader title="직종 노임" badge={String(data.rows.length)} badgeStatus="neutral" />
+      <DetailCardHeader
+        title="직종 노임" badge={String(data.rows.length)} badgeStatus="neutral"
+        actions={many && (
+          <div className="w-44">
+            <Select size="sm" aria-label="이전 회차" value={picked ?? ''} onChange={(e) => setOlderPick(e.currentTarget.value)}>
+              {older.map((d) => <option key={d} value={d}>이전 회차 {d}</option>)}
+            </Select>
+          </div>
+        )}
+      />
       <TableSearch
         aria-label="직종 검색"
         placeholder="직종 이름 · 코드"
@@ -396,7 +413,7 @@ function WageRatesCard() {
             <tr className="sticky top-0 z-sticky">
               <Th>코드</Th>
               <Th>직종</Th>
-              {data.dates.map((d) => (
+              {dates.map((d) => (
                 <Th key={d} align="right">
                   {d}
                 </Th>
@@ -411,7 +428,7 @@ function WageRatesCard() {
                   {r.name}
                   {r.marker && <span className="ml-1 text-xs text-warning">{r.marker}</span>}
                 </Td>
-                {data.dates.map((d) => (
+                {dates.map((d) => (
                   <Td align="right" key={d} className="text-content">
                     {/* 그 회차에 조사되지 않았으면 **칸이 아니라 없음**이다. */}
                     {r.wages[d] != null ? formatNumber(r.wages[d]) : EMPTY}
@@ -445,42 +462,28 @@ function OverheadRatesCard() {
     <DetailCard>
       <DetailCardHeader title="제비율" badge={t.kind} badgeStatus="neutral" />
 
-      {/* 규모 × 기간 — 두 항목이 같은 축을 쓰므로 한 표에 나란히 둔다. */}
-      <TableCard widths={[16, ...durations.flatMap(() => [Math.floor(84 / (durations.length * 2))])
-        .concat(durations.map(() => Math.floor(84 / (durations.length * 2))))]}>
-        <thead>
-          <tr>
-            <Th>공사규모</Th>
-            {durations.map((d) => (
-              <Th key={`i-${d}`} align="right" unit={`${d}일`}>
-                간접노무비
-              </Th>
-            ))}
-            {durations.map((d) => (
-              <Th key={`e-${d}`} align="right" unit={`${d}일`}>
-                기타경비
-              </Th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sizes.map((size) => (
-            <tr key={size} className={TABLE_ROW}>
-              <Td className="text-content">{size}</Td>
-              {durations.map((d) => (
-                <Td align="right" key={`i-${d}`} className="text-content">
-                  {pct(t.byDuration.간접노무비[size]![d]!)}
-                </Td>
-              ))}
-              {durations.map((d) => (
-                <Td align="right" key={`e-${d}`} className="text-content-muted">
-                  {pct(t.byDuration.기타경비[size]![d]!)}
-                </Td>
-              ))}
+      {/* 규모 × 기간 — 항목마다 표 하나(머리는 한 줄: 공사규모 · 기간들). 항목 이름은 묶음 머리줄이 말한다. */}
+      {(['간접노무비', '기타경비'] as const).map((item) => (
+        <TableCard key={item} widths={[16, ...durations.map(() => 84 / durations.length)]}>
+          <thead>
+            <TableGroupHead title={item} metas={['공사기간별']} />
+            <tr>
+              <Th>공사규모</Th>
+              {durations.map((d) => <Th key={d} align="right">{d}일</Th>)}
             </tr>
-          ))}
-        </tbody>
-      </TableCard>
+          </thead>
+          <tbody>
+            {sizes.map((size) => (
+              <tr key={size} className={TABLE_ROW}>
+                <Td className="text-content">{size}</Td>
+                {durations.map((d) => (
+                  <Td align="right" key={d} className="text-content">{pct(t.byDuration[item][size]![d]!)}</Td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </TableCard>
+      ))}
 
       {/* 기간과 무관한 둘 + 고정요율 + 산안비. 축이 달라 표를 나눈다. */}
       <TableCard widths={[40, 30, 30]}>
@@ -488,7 +491,7 @@ function OverheadRatesCard() {
           <tr>
             <Th>공사규모</Th>
             <Th align="right">일반관리비</Th>
-            <Th align="right" unit="경쟁">이윤</Th>
+            <Th align="right">이윤(경쟁)</Th>
           </tr>
         </thead>
         <tbody>

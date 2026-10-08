@@ -35,12 +35,12 @@ describe('V2CatalogPage', () => {
     expect(screen.getByRole('button', { name: /케이블 품목\s*1/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /분야\s*1/ })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: '키' })).toBeNull();
-    expect(screen.getByRole('button', { name: /설비 품목/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /^설비 품목\s*\d+$/ })).toHaveAttribute('aria-current', 'true');
   });
 
   it('케이블 품목을 누르면 kind=cable 과 케이블 표', async () => {
     renderAt('/catalog');
-    fireEvent.click(await screen.findByRole('button', { name: /케이블 품목/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^케이블 품목\s*\d+$/ }));
     expect(screen.getByTestId('loc')).toHaveTextContent('kind=cable');
     expect(screen.getByRole('columnheader', { name: '매체' })).toBeInTheDocument();
     expect(screen.getByText('광케이블')).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe('V2CatalogPage — 조회 사용자', () => {
   it('추가·삭제가 없고 칸은 누를 수 없다(읽는 줄만)', async () => {
     renderAt('/catalog?kind=equipment');
     expect(await screen.findByText('OFD')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '추가' })).toBeNull();
+    expect(screen.queryByRole('button', { name: / 추가$/ })).toBeNull();
     expect(screen.queryAllByRole('button', { name: /삭제$|수정$/ })).toEqual([]);
     expect(screen.queryByText('수정하면 즉시 반영됩니다')).toBeNull();
   });
