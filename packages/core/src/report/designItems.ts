@@ -39,7 +39,13 @@ export interface DesignInput {
  *   이 함수가 낸 평평한 목록 하나에서 낸다(`computeReport`).
  * - `primarySubstationId` — 정렬 기준인 국 하나: 이설은 옮기기 전 국, 광선로는 A 끝, 나머지는 그 국.
  */
-export type DesignItem = ReportItem & { substationIds: string[]; primarySubstationId: string };
+export type DesignItem = ReportItem & { substationIds: string[]; primarySubstationId: string; target: DesignTarget };
+
+/**
+ * 산출 대상 — 랙·설비·케이블(국 안 연결)·광선로(국 사이). 케이블과 광선로는 작업 종류(`cable-*`)가 같아
+ * 종류만으로는 가를 수 없으므로 여기서 함께 적는다(화면의 「대상」 칸).
+ */
+export type DesignTarget = 'rack' | 'equipment' | 'link' | 'line';
 
 /**
  * 품목을 못 찾은 줄 — 지우지 않고 남긴다(공량 0, 단가 없음). 대로 세는 것은 1대,
@@ -62,6 +68,7 @@ function unresolvedItem(kind: ReportKind, name: string, lengthM: number | null =
 
 /** 구분 차례 — 랙 → 설비 → 케이블 → 광선로. */
 const GROUP = { rack: 0, equipment: 1, link: 2, line: 3 } as const;
+const TARGET_OF: readonly DesignTarget[] = ['rack', 'equipment', 'link', 'line'];
 /** 작업 차례 — 신설 → 철거 → 이설. */
 const WORK: Record<ReportKind, number> = {
   'rack-install': 0, 'equipment-install': 0, 'cable-install': 0,
@@ -103,7 +110,7 @@ export function designItems(input: DesignInput): DesignItem[] {
   const push = (group: number, id: string, item: ReportItem, substationIds: string[]) => {
     const ids = uniq(substationIds);
     const primarySubstationId = ids[0]!;
-    rows.push({ group, id, place: substationName(primarySubstationId), item: { ...item, substationIds: ids, primarySubstationId } });
+    rows.push({ group, id, place: substationName(primarySubstationId), item: { ...item, substationIds: ids, primarySubstationId, target: TARGET_OF[group]! } });
   };
 
   const unitItem = (kind: UnitReportKind, name: string, type: LaborType | undefined) =>

@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Redo2, Undo2 } from 'lucide-react';
 import { useStore } from 'zustand';
 import { Button, IconButton, isTypingTarget, useConfirm } from '../../components/ui';
 import { useWorkingCopy, workingCopyStore } from '../model/store/workingCopy';
+import { DesignDialog } from './design/DesignDialog';
 
 interface SaveBarProps {
   onCommit: () => void;
@@ -33,6 +34,8 @@ const MOD = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator
  */
 export function SaveBar({ onCommit, isCommitting, substationNames, issue }: SaveBarProps) {
   const { confirm, confirmDialog } = useConfirm();
+  /* 설계서는 열 때만 세운다 — 닫혀 있는 동안 카탈로그·조직을 읽을 까닭이 없다. */
+  const [designOpen, setDesignOpen] = useState(false);
   // 반응형 dirty count — 스토어 파생 getter 구독 (primitive 반환, 재렌더 안전)
   const dirty = useWorkingCopy((s) => s.dirtyCount());
   /* 되돌아갈 수 있나 — 시간 여행 스토어를 따로 구독한다(값이 아니라 개수만 본다). */
@@ -108,12 +111,16 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
           <Button variant="secondary" size="sm" disabled={isCommitting} onClick={() => void handleRevert()}>
             변경 취소
           </Button>
+          <Button variant="secondary" size="sm" onClick={() => setDesignOpen(true)}>
+            설계서
+          </Button>
           <Button size="sm" disabled={isCommitting || issue != null} onClick={onCommit}>
             {isCommitting ? '저장 중…' : '저장'}
           </Button>
         </>
       )}
       {confirmDialog}
+      {designOpen && <DesignDialog open onClose={() => setDesignOpen(false)} />}
     </>
   );
 }

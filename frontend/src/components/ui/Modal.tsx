@@ -15,7 +15,7 @@ export interface ModalProps {
   footer?: ReactNode;
   /**
    * 패널 최대 폭 — sm(360px) / md(기본, 448px) / lg(672px, 판을 담을 때) / xl(1024px, 표와
-   * 요약을 나란히 놓을 때). 폭 매직넘버의 단일 소스다 — 부르는 쪽에서 `max-w-…` 를 주면
+   * 요약을 나란히 놓을 때) / 2xl(최대 1536px, 문서 한 부 — 설계서). 폭 매직넘버의 단일 소스다 — 부르는 쪽에서 `max-w-…` 를 주면
    * 두 폭이 한 요소에 겹쳐 어느 쪽이 이길지 CSS 순서가 정한다(실제로 무시된 적이 있다).
    */
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
@@ -30,9 +30,9 @@ export interface ModalProps {
   className?: string;
 }
 
-/* `2xl` 은 **여덟 열짜리 표 + 요약**이 나란히 설 때다 — `xl`(1024px)에서는 표에 616px 만
-   돌아가 단가·배지가 칸을 넘쳤다. */
-const SIZE = { sm: 'max-w-[360px]', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl', '2xl': 'max-w-6xl' } as const;
+/* `2xl` 은 **문서 한 부를 펼치는 상자**다(설계서 — 열 열짜리 산출 내역 + 공사비) — 화면 폭을 거의 다 쓴다(최대 1536px).
+   `max-w-6xl`(1152px)이던 동안 1280·1440 이 같은 폭이라 이름·품목 칸이 100px 남짓으로 눌렸다. */
+const SIZE = { sm: 'max-w-[360px]', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl', '2xl': 'max-w-[96rem]' } as const;
 
 /**
  * 초점이 갈 수 있는 것들 — 트랩이 순환시킬 대상(focus-trap·Radix 가 쓰는 목록과 같다).

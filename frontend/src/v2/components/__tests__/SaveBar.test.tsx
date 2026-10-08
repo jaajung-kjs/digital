@@ -14,6 +14,12 @@ describe('SaveBar', () => {
     expect(screen.getByText('이름이 겹칩니다')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
   });
+  it('변경이 있으면 저장 옆에 「설계서」 단추가 선다', () => {
+    dirtyOne();
+    render(<SaveBar onCommit={() => {}} isCommitting={false} substationNames={[]} issue={null} />);
+    const buttons = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(buttons.slice(-2)).toEqual(['설계서', '저장']);
+  });
   it('변경이 닿은 국 이름을 보인다', () => {
     dirtyOne();
     render(<SaveBar onCommit={() => {}} isCommitting={false} substationNames={['북춘천S/S', '춘천H/P']} issue={null} />);

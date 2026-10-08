@@ -113,6 +113,7 @@ describe('designItems — 연결·광선로', () => {
     expect(items[2]).toMatchObject({ typeName: '광케이블 24C', manDays: 25, unit: 'm', primarySubstationId: 'S1' });
     expect(items[0]!.primarySubstationId).toBe('S1');
     expect(items[1]!.primarySubstationId).toBe('S2');
+    expect(items.map((i) => i.target)).toEqual(['link', 'link', 'line']);
     expect(materialCostOf(items[2]!)).toBe(12500 * 3_000);
   });
 
