@@ -214,9 +214,10 @@ export function equipmentDeleteSummary(equipmentId: string): {
     inspections: count('inspections'),
     maintenance: count('maintenance'),
     photos: count('photos'),
-    lineEnds: plan.lineEndClears.map((c) => {
+    /* 광선로 하나에 한 줄 — 양 끝이 모두 이 설비인 선로(되돌이)를 두 번 세지 않는다. */
+    lineEnds: [...new Map(plan.lineEndClears.map((c) => {
       const l = lines.get(c.lineId);
-      return { lineId: c.lineId, farSubstation: (c.side === 'A' ? l?.bSubstationName : l?.aSubstationName) ?? '' };
-    }),
+      return [c.lineId, { lineId: c.lineId, farSubstation: (c.side === 'A' ? l?.bSubstationName : l?.aSubstationName) ?? '' }] as const;
+    })).values()],
   };
 }

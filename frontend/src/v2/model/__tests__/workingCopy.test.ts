@@ -24,7 +24,7 @@ vi.mock('../api', () => ({
 
 import { workingCopyStore as store } from '../store/workingCopy';
 import { effectiveCircuits, effectiveRows, bySubstation, toModelState } from '../store/effective';
-import { addCircuit, deleteRows, removeLastCircuit } from '../store/deleteActions';
+import { addCircuit, deleteRows, equipmentDeleteSummary, removeLastCircuit } from '../store/deleteActions';
 import { buildCommitPayload } from '../store/commitPayload';
 import { expandDeletes } from '@twin/core';
 
@@ -614,3 +614,13 @@ describe('지워진 국 · 낡은 읽기', () => {
   });
 });
 
+it('설비 삭제 요약은 양 끝이 모두 그 설비인 광선로를 한 번만 센다', async () => {
+  const loop = {
+    id: 'LL', cableTypeId: 'opgw', coreCount: 2, name: null, lengthKm: null, segments: [],
+    aSubstationId: 'S1', aEquipmentId: 'ote', aPanel: 1, aStartNo: 1, bSubstationId: 'S1', bEquipmentId: 'ote', bPanel: 2, bStartNo: 1,
+    aSubstationName: '북춘천', bSubstationName: '북춘천', updatedAt: 'll', cores: [],
+  };
+  wcOf.S1.fiberLines = [loop];
+  await store.getState().ensureLoaded('S1');
+  expect(equipmentDeleteSummary('ote').lineEnds).toEqual([{ lineId: 'LL', farSubstation: '북춘천' }]);
+});
