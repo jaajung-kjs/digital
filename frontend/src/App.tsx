@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useV2AuthStore } from './v2/store/authStore';
 import { V2Shell } from './v2/V2Shell';
-import V2LoginPage from './v2/pages/V2LoginPage';
+import V2LoginPage, { returnPath } from './v2/pages/V2LoginPage';
 import V2WorkspacePage from './v2/pages/V2WorkspacePage';
 import V2CatalogPage from './v2/pages/V2CatalogPage';
 import V2StandardsPage from './v2/pages/V2StandardsPage';
@@ -26,6 +26,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const hasValidSession = useV2AuthStore((s) => s.hasValidSession());
   const isLoading = useV2AuthStore((s) => s.isLoading);
   const fetchCurrentUser = useV2AuthStore((s) => s.fetchCurrentUser);
+  const location = useLocation();
 
   useEffect(() => {
     void fetchCurrentUser();
@@ -34,7 +35,8 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   if (isLoading) return null;
 
   if (!hasValidSession) {
-    return <Navigate to="/login" replace />;
+    /* 가려던 자리를 싣고 간다 — 로그인 뒤 그리로 돌아온다(`returnPath`). */
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   return <>{children}</>;
@@ -47,8 +49,9 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
  */
 export function LoginRoute() {
   const hasValidSession = useV2AuthStore((s) => s.hasValidSession());
+  const location = useLocation();
   if (hasValidSession) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={returnPath(location.state)} replace />;
   }
   return <V2LoginPage />;
 }

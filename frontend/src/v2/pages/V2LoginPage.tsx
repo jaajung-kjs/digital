@@ -1,10 +1,22 @@
 import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Boxes, AlertCircle } from 'lucide-react';
 import { useV2AuthStore } from '../store/authStore';
 import { apiErrorMessage } from '../apiError';
 import { Button, Input } from '../../components/ui';
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from '../../product';
+
+/**
+ * 로그인 뒤 돌아갈 자리 — 로그인이 필요해 튕겨 온 주소(`RequireAuth` 가 `state.from` 에 싣는다). 북마크·공유 주소·
+ * 세션 만료 뒤의 자리가 첫 화면으로 떨어지지 않게. 앱 안의 경로만 받는다(그 밖이면 첫 화면).
+ */
+export function returnPath(state: unknown): string {
+  const from = (state as { from?: { pathname?: unknown; search?: unknown; hash?: unknown } } | null)?.from;
+  const path = typeof from?.pathname === 'string' ? from.pathname : '';
+  if (!path.startsWith('/') || path.startsWith('//') || path === '/login') return '/';
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  return `${path}${str(from?.search)}${str(from?.hash)}`;
+}
 
 export function V2LoginPage() {
   const [username, setUsername] = useState('');
@@ -13,6 +25,7 @@ export function V2LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const login = useV2AuthStore((s) => s.login);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -21,7 +34,7 @@ export function V2LoginPage() {
     setSubmitting(true);
     try {
       await login({ username, password });
-      navigate('/', { replace: true });
+      navigate(returnPath(location.state), { replace: true });
     } catch (err: unknown) {
       setLocalError(apiErrorMessage(err, '로그인에 실패했습니다.'));
     } finally {

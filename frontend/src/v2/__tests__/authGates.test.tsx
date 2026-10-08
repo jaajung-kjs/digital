@@ -7,15 +7,22 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
-import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { RequireAuth, LoginRoute } from '../../App';
 import { useV2AuthStore } from '../store/authStore';
 import { tokenStorage, invokeSessionInvalid } from '../httpClient';
+import { returnPath } from '../pages/V2LoginPage';
+import { workingCopyStore } from '../model/store/workingCopy';
 
 beforeEach(() => {
   localStorage.clear();
   useV2AuthStore.setState({ user: null, isAuthenticated: false, isLoading: false });
 });
+
+function Where() {
+  const l = useLocation();
+  return <div>AT {l.pathname}{l.search}</div>;
+}
 
 function renderRoutes(initialPath: string) {
   return render(
@@ -30,6 +37,7 @@ function renderRoutes(initialPath: string) {
           }
         >
           <Route path="/" element={<div>WORKSPACE</div>} />
+          <Route path="/n/:nodeId" element={<Where />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -139,5 +147,40 @@ describe('httpClient 세션-무효 핸들러 → 게이트 연동 (B-V2)', () =>
 
     expect(useV2AuthStore.getState().isAuthenticated).toBe(false);
     expect(useV2AuthStore.getState().user).toBeNull();
+  });
+});
+
+describe('딥 링크 — 로그인 뒤 가려던 자리로', () => {
+  it('로그인 전에 연 /n/<국>?view=선번장 은 로그인 뒤 그 주소로 돌아온다', async () => {
+    renderRoutes('/n/S1?view=선번장');
+    expect(await screen.findByRole('button', { name: /로그인/ })).toBeInTheDocument();
+    /* 로그인 성공(스토어가 하는 일)을 그대로 — 토큰 + 인증 상태. LoginRoute 가 돌려보낸다. */
+    act(() => {
+      tokenStorage.setAccessToken('valid-access');
+      tokenStorage.setRefreshToken('valid-refresh');
+      useV2AuthStore.setState({ user: { id: 'u1', username: 'admin', role: 'admin' }, isAuthenticated: true });
+    });
+    expect(await screen.findByText("AT /n/S1?view=선번장")).toBeInTheDocument();
+  });
+
+  it('returnPath — 앱 안의 경로만, /login 이나 바깥 주소는 첫 화면', () => {
+    expect(returnPath({ from: { pathname: '/n/S1', search: '?eq=E1', hash: '' } })).toBe('/n/S1?eq=E1');
+    expect(returnPath(null)).toBe('/');
+    expect(returnPath({ from: { pathname: '/login' } })).toBe('/');
+    expect(returnPath({ from: { pathname: '//evil.example' } })).toBe('/');
+  });
+});
+
+describe('세션이 끊긴 뒤 다른 사용자가 들어오면 변경안을 비운다', () => {
+  it('/me 로 복원한 사용자가 변경안의 주인과 다르면 reset', async () => {
+    workingCopyStore.getState().reset();
+    workingCopyStore.getState().claim('u-old');
+    workingCopyStore.getState().create('racks', { id: 'r9', substationId: 'S', name: '랙', rackTypeId: 't', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: '' });
+    expect(workingCopyStore.getState().dirtyCount()).toBe(1);
+    tokenStorage.setAccessToken('valid-access');
+    useV2AuthStore.setState({ user: { id: 'u-new', username: 'other', role: 'admin' }, isAuthenticated: true });
+    await useV2AuthStore.getState().fetchCurrentUser();
+    expect(workingCopyStore.getState().dirtyCount()).toBe(0);
+    expect(workingCopyStore.getState().owner).toBe('u-new');
   });
 });

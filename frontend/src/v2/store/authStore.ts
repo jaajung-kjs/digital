@@ -11,6 +11,7 @@ import { httpClient, tokenStorage, setSessionInvalidHandler } from '../httpClien
 import { setMutationErrorHandler } from '../../lib/queryClient';
 import { apiErrorMessage } from '../apiError';
 import { useV2Notice } from './noticeStore';
+import { workingCopyStore } from '../model/store/workingCopy';
 
 interface V2User {
   id: string;
@@ -64,6 +65,9 @@ export const useV2AuthStore = create<AuthStore>()(
           tokenStorage.setAccessToken(data.accessToken);
           tokenStorage.setRefreshToken(data.refreshToken);
 
+          /* 변경안은 그것을 쌓은 사람의 것이다 — 세션이 끊긴 뒤 **다른** 사람이 들어오면 비운다(같은 사람이면 이어서 쓴다).
+             안 그러면 다음 사람이 앞사람의 변경을 자기 이름으로 저장한다. */
+          workingCopyStore.getState().claim(data.user.id);
           set({ user: data.user, isAuthenticated: true, isLoading: false });
         } catch (err) {
           // 표시용 메시지 추출은 apiError.ts 의 apiErrorMessage 가 유일 지점 —
@@ -97,12 +101,15 @@ export const useV2AuthStore = create<AuthStore>()(
 
         if (get().user) {
           // 이미 세션이 복원돼 있음 — 마운트마다 /me 를 재호출하지 않는다.
+          // 변경안의 주인만 적는다(새로 고친 탭은 주인이 없다).
+          workingCopyStore.getState().claim(get().user!.id);
           return;
         }
 
         set({ isLoading: true });
         try {
           const { data } = await httpClient.get<V2User>('/v2/auth/me');
+          workingCopyStore.getState().claim(data.id);
           set({ user: data, isAuthenticated: true, isLoading: false });
         } catch {
           get().resetSession();
