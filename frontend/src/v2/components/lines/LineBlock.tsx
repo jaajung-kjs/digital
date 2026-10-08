@@ -25,7 +25,7 @@ const COLUMNS: readonly TableColumn[] = [
   { key: 'near', width: 33 },
   { key: 'far', width: 22 },
   { key: 'status', width: '88px' },
-  { key: 'role', width: '72px', priority: 3 },
+  { key: 'role', width: '88px', priority: 3 }, // 「예비회선」이 다 드는 폭
   { key: 'purpose', width: 28 },
   { key: 'note', width: 17, priority: 3 },
   { key: 'loss1310', width: '104px', priority: 2 },

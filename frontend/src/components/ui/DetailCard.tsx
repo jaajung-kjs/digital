@@ -96,7 +96,8 @@ export function DetailCardHeader({
         className,
       )}
     >
-      <span className="text-xs font-bold text-content-muted">{title}</span>
+      {/* 제목은 한 줄로 선다 — 단추가 자리를 먹어도 「차/단/기」처럼 글자 단위로 세로로 쪼개지지 않게. */}
+      <span className="shrink-0 whitespace-nowrap text-xs font-bold text-content-muted">{title}</span>
       {count != null && <span className="text-xs tabular-nums text-content-faint" data-count>{count}</span>}
       {badge != null && <Badge status={badgeStatus}>{badge}</Badge>}
       {(actions || onEdit || onDelete) && (

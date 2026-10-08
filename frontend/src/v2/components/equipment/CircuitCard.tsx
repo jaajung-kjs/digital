@@ -40,7 +40,8 @@ export function CircuitCard({ equipmentId, onEdit, onAdd, onOpenPower }: {
         actions={(
           <>
             {/* 다른 화면으로 가는 길은 링크 톤 고스트, 만들기 단추 앞(§3 단추 자리 표). */}
-            {onOpenPower && <Button variant="link" size="sm" onClick={onOpenPower}>차단기 대장에서 보기</Button>}
+            {/* 카드 제목이 이미 「차단기」라 보이는 글자는 줄인다(330px 레일에 단추 셋이 한 줄로 들게) — 이름은 온전히(aria·title). */}
+            {onOpenPower && <Button variant="link" size="sm" aria-label="차단기 대장에서 보기" title="차단기 대장에서 보기" onClick={onOpenPower}>대장에서 보기</Button>}
             <EditOnly>
               <Button variant="secondary" size="sm" onClick={() => onEdit(null)}>차단기 수정</Button>
               <Button variant="secondary" size="sm" disabled={rows.length >= MAX_CIRCUITS} onClick={onAdd}>차단기 추가</Button>

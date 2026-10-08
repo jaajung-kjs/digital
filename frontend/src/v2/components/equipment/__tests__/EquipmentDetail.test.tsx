@@ -28,7 +28,7 @@ const head = (title: string) => [...document.querySelectorAll<HTMLElement>('[dat
 const headCount = (title: string) => head(title)?.querySelector('[data-count]')?.textContent ?? null;
 const breakerCard = () => head('차단기')!.parentElement!;
 /* 요약 줄 — 카드 머리의 편집·차단기 추가를 뺀 누를 수 있는 줄. */
-const breakerRows = () => within(breakerCard()).getAllByRole('button').filter((b) => !['차단기 수정', '차단기 추가', '차단기 대장에서 보기'].includes(b.textContent ?? ''));
+const breakerRows = () => within(breakerCard()).getAllByRole('button').filter((b) => !['차단기 수정', '차단기 추가', '대장에서 보기'].includes(b.textContent ?? ''));
 
 describe('설비 상세 — 차단기', () => {
   it('차단기가 없는 설비에는 차단기 카드가 없고, 정보 카드 끝의 「차단기 추가」로 한 줄이 생기며 편집 창이 그 줄로 열린다', () => {
