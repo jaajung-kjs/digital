@@ -1,6 +1,6 @@
 import type { LinkEndRef } from './types.js';
 import { endRefKey } from './types.js';
-import type { Side } from './vocab.js';
+import { asCoreRole, isBackupRole, isMainRole, type CoreRole, type Side } from './vocab.js';
 import { biconnectedBlocks } from './topologyLayout.js';
 
 /**
@@ -29,11 +29,22 @@ export interface OpticalPath {
   hops: PathHop[];
   /** 지난 중계 패치(코어↔코어) 연결 id — 순서대로. */
   patches: string[];
-  /** 지난 코어들의 주/예비가 모두 같으면 그 값, 섞이거나 비면 null. */
-  role: 'main' | 'backup' | null;
+  /**
+   * 회선의 주/예비 — 지난 코어들의 주/예비(`Core.role`)가 모두 같으면 그 값, 섞이거나 비면 null.
+   * 코어 값(`Core.role`)에서 파생한 경로의 몫이라 이름을 따로 둔다.
+   */
+  duty: CoreRole | null;
   /** 양끝이 설비이고 고리 없음. */
   complete: boolean;
+  /**
+   * 끝이 비었을 때 그 까닭 — `open` 은 그 코어 끝에 연결이 없음, `loop` 는 사슬이 이미 지난 코어로 되돌아옴(데이터 고리).
+   * 끝이 설비면 null.
+   */
+  startCut: PathCut | null;
+  endCut: PathCut | null;
 }
+/** 사슬이 끊긴 까닭 — 연결 없음 · 데이터 고리. */
+export type PathCut = 'open' | 'loop';
 export interface NetworkInput {
   lines: { id: string; aSubstationId: string; bSubstationId: string }[];
   cores: { lineId: string; no: number; role: string | null }[];
@@ -113,6 +124,8 @@ function reversedBody<T extends Body>(p: T): T {
     ...p,
     start: p.end,
     end: p.start,
+    startCut: p.endCut,
+    endCut: p.startCut,
     hops: [...p.hops].reverse().map((h) => ({ ...h, from: h.to, to: h.from })),
     patches: [...p.patches].reverse(),
   };
@@ -161,16 +174,18 @@ function trace(ix: Index, at: { lineId: string; coreNo: number; side: Side }): O
     first,
     ...fwd.hops,
   ];
-  const roles = new Set(hops.map((h) => ix.role.get(coreId(h.lineId, h.coreNo)) ?? null));
-  const only = roles.size === 1 ? [...roles][0]! : null;
+  const duties = new Set(hops.map((h) => asCoreRole(ix.role.get(coreId(h.lineId, h.coreNo)))));
   const cyclic = fwd.cyclic || back.cyclic;
+  const cut = (leg: Leg): PathCut | null => (leg.end ? null : leg.cyclic ? 'loop' : 'open');
   const body: Body = {
     start: back.end,
     end: fwd.end,
     hops,
     patches: [...[...back.patches].reverse(), ...fwd.patches],
-    role: only === 'main' || only === 'backup' ? only : null,
+    duty: duties.size === 1 ? [...duties][0]! : null,
     complete: back.end !== null && fwd.end !== null && !cyclic,
+    startCut: cut(back),
+    endCut: cut(fwd),
   };
   return { id: pathId(body), ...body };
 }
@@ -197,22 +212,22 @@ export function opticalPaths(net: NetworkInput): OpticalPath[] {
 }
 
 /** 같은 설비 쌍·광선로 순서·주예비 — Tx/Rx 두 코어가 한 선. */
-export interface PathBundle { id: string; a: PathEnd; b: PathEnd; lineIds: string[]; role: 'main' | 'backup' | null; paths: string[] }
+export interface PathBundle { id: string; a: PathEnd; b: PathEnd; lineIds: string[]; duty: CoreRole | null; paths: string[] }
 
 /**
  * 완결 경로를 (정렬된 양끝 설비 쌍, 지나는 광선로 id 순서, 주/예비) 로 묶는다.
  * 설비 쌍은 포트를 보지 않는다 — Tx/Rx 가 다른 포트여도 한 선이다. 묶음 끝의 포트는 경로들이 모두 같을 때만 그 값.
  */
 export function pathBundles(paths: OpticalPath[]): PathBundle[] {
-  const groups = new Map<string, { a: PathEnd[]; b: PathEnd[]; lineIds: string[]; role: PathBundle['role']; paths: string[] }>();
+  const groups = new Map<string, { a: PathEnd[]; b: PathEnd[]; lineIds: string[]; duty: PathBundle['duty']; paths: string[] }>();
   for (const p of paths) {
     if (!p.complete || !p.start || !p.end) continue;
     let [a, b, lineIds] = [p.start, p.end, p.hops.map((h) => h.lineId)];
     const swap = cmp(a.equipmentId, b.equipmentId) > 0
       || (a.equipmentId === b.equipmentId && cmp(lineIds.join(','), [...lineIds].reverse().join(',')) > 0);
     if (swap) [a, b, lineIds] = [b, a, [...lineIds].reverse()];
-    const key = `bundle:${a.equipmentId}|${b.equipmentId}|${lineIds.join('>')}|${p.role ?? '-'}`;
-    const g = groups.get(key) ?? { a: [], b: [], lineIds, role: p.role, paths: [] };
+    const key = `bundle:${a.equipmentId}|${b.equipmentId}|${lineIds.join('>')}|${p.duty ?? '-'}`;
+    const g = groups.get(key) ?? { a: [], b: [], lineIds, duty: p.duty, paths: [] };
     g.a.push(a); g.b.push(b); g.paths.push(p.id);
     groups.set(key, g);
   }
@@ -221,7 +236,7 @@ export function pathBundles(paths: OpticalPath[]): PathBundle[] {
     return { equipmentId: ends[0]!.equipmentId, port: ports.size === 1 ? ends[0]!.port : null, substationId: ends[0]!.substationId };
   };
   return [...groups].map(([id, g]) => ({
-    id, a: merge(g.a), b: merge(g.b), lineIds: g.lineIds, role: g.role, paths: [...g.paths].sort(cmp),
+    id, a: merge(g.a), b: merge(g.b), lineIds: g.lineIds, duty: g.duty, paths: [...g.paths].sort(cmp),
   })).sort((x, y) => cmp(x.id, y.id));
 }
 
@@ -252,16 +267,8 @@ export function rings(bundles: PathBundle[]): { id: string; equipmentIds: string
  */
 export function redundancyWarnings(bundles: PathBundle[]): { a: string; b: string; sharedLineIds: string[]; mainBundle: string; backupBundle: string }[] {
   const sorted = [...bundles].sort((x, y) => cmp(x.id, y.id));
-  // 주·예비로 가른다(코어의 주/예비 값 — 사용자 권한 role 이 아니다; 가드레일의 role 비교 금지와 겹치지 않게 switch 로).
-  const mains: PathBundle[] = [];
-  const backups: PathBundle[] = [];
-  for (const b of sorted) {
-    switch (b.role) {
-      case 'main': mains.push(b); break;
-      case 'backup': backups.push(b); break;
-      default: break;
-    }
-  }
+  const mains = sorted.filter((b) => isMainRole(b.duty));
+  const backups = sorted.filter((b) => isBackupRole(b.duty));
   const out: { a: string; b: string; sharedLineIds: string[]; mainBundle: string; backupBundle: string }[] = [];
   for (const m of mains) {
     for (const k of backups) {

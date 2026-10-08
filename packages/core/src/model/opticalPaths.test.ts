@@ -108,7 +108,7 @@ describe('traceFromCore — 중계경로 추적', () => {
     expect(p.end).toEqual({ equipmentId: 'RTU-철원', port: 'Rx', substationId: '철원' });
     expect(hopsOf(p)).toEqual(['FL2:9 A→B', 'CH-HC:20 B→A', 'HC-HW:1 A→B', 'HW-CW:37 A→B']);
     expect(p.patches).toEqual(['p-춘천HP', 'p-화천HP', 'p-화천']);
-    expect(p.role).toBe('backup');
+    expect(p.duty).toBe('backup');
     expect(p.complete).toBe(true);
   });
 
@@ -142,7 +142,7 @@ describe('traceFromCore — 중계경로 추적', () => {
     expect(r.end).toEqual(p.start);
     expect(hopsOf(r)).toEqual(['HW-CW:37 B→A', 'HC-HW:1 B→A', 'CH-HC:20 A→B', 'FL2:9 B→A']);
     expect(r.patches).toEqual([...p.patches].reverse());
-    expect(r.role).toBe(p.role);
+    expect(r.duty).toBe(p.duty);
     expect(r.complete).toBe(p.complete);
     expect(reversePath(r)).toEqual(p);
   });
@@ -160,15 +160,15 @@ describe('traceFromCore — 중계경로 추적', () => {
     expect(p.start).toBeNull();
     expect(p.end).toBeNull();
     expect(hopsOf(p)).toHaveLength(1);
-    expect(p.role).toBeNull();
+    expect(p.duty).toBeNull();
     expect(p.complete).toBe(false);
   });
 
-  it('주/예비가 섞이거나 비면 role 은 null', () => {
+  it('주/예비가 섞이거나 비면 duty 는 null', () => {
     const mixed: Fx = { ...RTU, cores: RTU.cores.map((c) => (c.lineId === 'HC-HW' ? { ...c, role: 'main' } : c)) };
-    expect(traceFromCore(net(mixed), { lineId: 'FL2', coreNo: 9, side: 'A' }).role).toBeNull();
+    expect(traceFromCore(net(mixed), { lineId: 'FL2', coreNo: 9, side: 'A' }).duty).toBeNull();
     const blank: Fx = { ...RTU, cores: RTU.cores.filter((c) => c.lineId !== 'HC-HW') };
-    expect(traceFromCore(net(blank), { lineId: 'FL2', coreNo: 9, side: 'A' }).role).toBeNull();
+    expect(traceFromCore(net(blank), { lineId: 'FL2', coreNo: 9, side: 'A' }).duty).toBeNull();
   });
 
   it('데이터 고리(코어끼리만 돌아 제자리) — 멈추고 경로 미완결', () => {
@@ -186,6 +186,18 @@ describe('traceFromCore — 중계경로 추적', () => {
     expect(p.hops).toHaveLength(2); // 각 코어를 한 번씩만
     expect(p.start).toBeNull();
     expect(p.end).toBeNull();
+    /* 끊긴 까닭 — 고리는 앞으로 간 다리가 만난다(뒤 다리는 이미 방문한 코어라 연결 없음과 같다). */
+    expect([p.startCut, p.endCut]).toContain('loop');
+  });
+
+  it('끊긴 까닭 — 연결이 없으면 open, 설비 끝이면 null, 뒤집으면 함께 바뀐다', () => {
+    const fx: Fx = { ...RTU, links: RTU.links.filter((l) => l.id !== 'k-end') };
+    const p = traceFromCore(net(fx), { lineId: 'FL2', coreNo: 9, side: 'A' });
+    expect(p.startCut).toBeNull();
+    expect(p.endCut).toBe('open');
+    const r = reversePath(p);
+    expect([r.startCut, r.endCut]).toEqual(['open', null]);
+    expect(traceFromCore(net(RTU), { lineId: 'FL2', coreNo: 9, side: 'A' })).toMatchObject({ startCut: null, endCut: null });
   });
 
   it('한 코어 끝에 연결이 둘(어긋난 자료)이어도 멈춘다 — 경로 미완결', () => {
@@ -237,7 +249,7 @@ describe('traceFromCore — 중계경로 추적', () => {
     expect(hopsOf(ps[0]!)).toEqual(['L:1 A→B', 'L:2 B→A']);
     expect(ps[0]!.patches).toEqual(['j']);
     expect(ps[0]!.complete).toBe(true);
-    expect(ps[0]!.role).toBe('main');
+    expect(ps[0]!.duty).toBe('main');
   });
 
   it('차단기 끝도 경로의 끝(설비 끝으로) — 경로 미완결이 아니다', () => {
@@ -315,7 +327,7 @@ describe('pathBundles — Tx/Rx 가 한 선', () => {
   it('송광치 링: 주 1·2 는 구간마다 한 선, 예비 7·8 은 별개 선, 우회 예비도 별개', () => {
     const bs = pathBundles(opticalPaths(net(RING)));
     expect(bs).toHaveLength(5);
-    const desc = bs.map((b) => `${b.a.equipmentId}~${b.b.equipmentId} ${b.lineIds.join('>')} ${b.role} ×${b.paths.length}`).sort();
+    const desc = bs.map((b) => `${b.a.equipmentId}~${b.b.equipmentId} ${b.lineIds.join('>')} ${b.duty} ×${b.paths.length}`).sort();
     expect(desc).toEqual([
       'SG-북춘천~SG-춘천 OPGW-1 backup ×2',
       'SG-북춘천~SG-춘천 OPGW-1 main ×2',
@@ -378,8 +390,8 @@ describe('redundancyWarnings — 주·예비회선이 같은 광선로를 지납
     const ws = redundancyWarnings(bs);
     expect(ws).toHaveLength(1);
     expect(ws[0]).toMatchObject({ a: 'SG-북춘천', b: 'SG-춘천', sharedLineIds: ['OPGW-1'] });
-    expect(bs.find((b) => b.id === ws[0]!.mainBundle)?.role).toBe('main');
-    expect(bs.find((b) => b.id === ws[0]!.backupBundle)?.role).toBe('backup');
+    expect(bs.find((b) => b.id === ws[0]!.mainBundle)?.duty).toBe('main');
+    expect(bs.find((b) => b.id === ws[0]!.backupBundle)?.duty).toBe('backup');
   });
 
   it('예비가 다른 광선로로 돌면 경고 없음', () => {

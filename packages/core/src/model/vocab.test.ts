@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CABLE_MEDIA, CORE_STATUSES, EQUIPMENT_STATUSES, isLineMedium, isLinkMedium, cableMediumLabel,
-  DEFAULT_EQUIPMENT_STATUS, DEFAULT_CORE_STATUS,
+  DEFAULT_EQUIPMENT_STATUS, DEFAULT_CORE_STATUS, asCoreRole, coreRoleCircuitLabel, isBackupRole, isMainRole,
 } from './vocab.js';
 import { circuitKey, coreKey, endRefKey, sameEndRef } from './types.js';
 
@@ -45,5 +45,16 @@ describe('행 키', () => {
     expect(endRefKey({ kind: 'core', lineId: 'l1', no: 5, side: 'A' })).toBe('core:l1:5:A');
     expect(sameEndRef({ kind: 'circuit', equipmentId: 'e1', no: 1 }, { kind: 'circuit', equipmentId: 'e1', no: 1 })).toBe(true);
     expect(sameEndRef({ kind: 'core', lineId: 'l1', no: 5, side: 'A' }, { kind: 'core', lineId: 'l1', no: 5, side: 'B' })).toBe(false);
+  });
+});
+
+describe('코어 주/예비 판정·화면 말', () => {
+  it('isMainRole · isBackupRole · asCoreRole — CORE_ROLES 값만', () => {
+    expect([isMainRole('main'), isMainRole('backup'), isMainRole(null)]).toEqual([true, false, false]);
+    expect([isBackupRole('backup'), isBackupRole('main'), isBackupRole(undefined)]).toEqual([true, false, false]);
+    expect([asCoreRole('main'), asCoreRole('x'), asCoreRole(null)]).toEqual(['main', null, null]);
+  });
+  it('coreRoleCircuitLabel — 주회선 · 예비회선 · 주/예비 미지정', () => {
+    expect([coreRoleCircuitLabel('main'), coreRoleCircuitLabel('backup'), coreRoleCircuitLabel(null)]).toEqual(['주회선', '예비회선', '주/예비 미지정']);
   });
 });

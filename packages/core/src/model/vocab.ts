@@ -62,6 +62,31 @@ export const CORE_ROLES = [
 ] as const;
 export type CoreRole = (typeof CORE_ROLES)[number]['value'];
 
+/*
+ * 코어의 주/예비 값 판정 — core·화면이 이 셋만 쓴다(값을 문자열로 따로 비교하지 않는다).
+ * 사용자 권한(admin/viewer)과는 무관한 **회선의 주/예비**다.
+ */
+const [MAIN_ROLE, BACKUP_ROLE] = CORE_ROLES;
+/** 주회선 코어 값인가. */
+export function isMainRole(value: string | null | undefined): value is 'main' {
+  return value === MAIN_ROLE.value;
+}
+/** 예비회선 코어 값인가. */
+export function isBackupRole(value: string | null | undefined): value is 'backup' {
+  return value === BACKUP_ROLE.value;
+}
+/** 알려진 주/예비 값으로 좁힌다 — 아니면 null. */
+export function asCoreRole(value: string | null | undefined): CoreRole | null {
+  return CORE_ROLES.find((r) => r.value === value)?.value ?? null;
+}
+/** 값이 비었을 때의 화면 말(광 계통도 범례·회선 목록 꼬리). */
+export const CORE_ROLE_UNSET_LABEL = '주/예비 미지정';
+/** 회선의 주/예비 화면 말 — `CORE_ROLES` 의 label + 「회선」(주회선 · 예비회선), 비면 「주/예비 미지정」. */
+export function coreRoleCircuitLabel(value: string | null | undefined): string {
+  const r = CORE_ROLES.find((x) => x.value === value);
+  return r ? `${r.label}회선` : CORE_ROLE_UNSET_LABEL;
+}
+
 export const CIRCUIT_CURRENTS = [
   { value: 'AC', label: '교류' },
   { value: 'DC', label: '직류' },
