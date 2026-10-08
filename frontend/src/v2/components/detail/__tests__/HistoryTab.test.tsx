@@ -81,7 +81,7 @@ describe('historyLines — 문장', () => {
     expect(historyLines(it1({ entity: 'link', action: 'delete', peer: { kind: 'circuit', equipmentId: 'p', no: 2 }, peerName: '분전반' }))).toEqual(['연결 삭제: 분전반 차단기 2']);
     expect(historyLines(it1({ entity: 'link', action: 'delete', peer: { kind: 'equipment', equipmentId: 'g' }, peerName: null }))).toEqual(['연결 삭제: (삭제됨)']);
     expect(historyLines(it1({ entity: 'link', peerName: '부하', peer: { kind: 'equipment', equipmentId: 'l' }, fields: [{ name: 'peerLabel', before: 'AC IN', after: null }, { name: 'lengthM', before: 3, after: 5 }] })))
-      .toEqual(['연결(부하) 상대 포트: AC IN → —', '연결(부하) 길이: 3 m → 5 m']);
+      .toEqual(['연결(부하) 길이: 3 m → 5 m', '연결(부하) 상대 포트: AC IN → —']);
   });
 
   it('기록 — 등록·삭제는 내용 한 줄, 날짜는 날로', () => {
@@ -89,5 +89,10 @@ describe('historyLines — 문장', () => {
     expect(historyLines(it1({ entity: 'inspection', action: 'delete', fields: [{ name: 'content', before: '외관', after: null }] }))).toEqual(['점검 기록 삭제: 외관']);
     expect(historyLines(it1({ fields: [{ name: 'installDate', before: '2020-01-02T00:00:00.000Z', after: '2021-03-04' }] }))).toEqual(['설치일: 2020-01-02 → 2021-03-04']);
     expect(historyLines(it1({ entity: 'circuit', no: 1, fields: [{ name: 'switch', before: 'on', after: 'off' }] }))).toEqual(['차단기 1 개폐: 투입 → 개방']);
+  });
+
+  it('칸 차례는 칸을 그리는 차례다 — 저장 본문의 차례가 아니라', () => {
+    expect(historyLines(it1({ fields: [{ name: 'model', before: null, after: 'M1' }, { name: 'status', before: 'normal', after: 'fault' }] })))
+      .toEqual(['상태: 정상 → 고장', '모델명: — → M1']);
   });
 });
