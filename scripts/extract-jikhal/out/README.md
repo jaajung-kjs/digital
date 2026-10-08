@@ -1,0 +1,1 @@
+이 폴더의 JSON(`equipment.json`·`ofd_blocks.json`·`ofd_cores.json`·`ofd_opgw.json`)은 직할 시드 추출기의 입력 자료다 — 원본 엑셀에서 한 번 뽑아 검수한 중간 산출(계획 `docs/superpowers/plans/2026-06-19-직할-통신자산-선번장-적재.md`)로, 시드를 다시 만들거나 대조할 때 쓴다. 앱·서버는 실행 중에 읽지 않는다.
