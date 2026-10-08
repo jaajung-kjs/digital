@@ -141,11 +141,11 @@
 
 표가 제 스크롤 상자를 쥐면 `TableCard fill` 을 쓴다 — 그래야 `sticky` 머리글이 그 상자에 붙는다. 바깥은 높이를 주기만 한다(`min-h-0 flex-1`). `TableCard` 를 **기본(fill 아님)** 으로 쓸 때만 바깥이 스크롤을 맡고, 그때는 감싸는 틀에 세로 `min-h-0` 을 걸지 않는다 — 걸면 flex 가 표를 컨테이너 높이까지 줄여 버리고, 그 위에서 `overflow-clip` 이 잘라 내면 스크롤바 없이 행이 사라진다. 가로(`min-w-0`)는 어느 쪽이든 필요하다.
 
-**열 폭은 비율과 고정 폭을 섞을 수 있다**(`TableCard widths={['40px', 30, …]}`). 고정 폭 열이 먼저 제 폭을 갖고 비율 열(합 100)이 남은 폭을 나눈다. 내용 폭이 정해진 열(번호·상태·수·날짜)은 px, 길이가 들쭉날쭉한 이름 열은 비율 — 전부 비율이면 좁은 화면에서 번호 열까지 같이 줄고, 정작 이름 열은 모자란다(선번장 1280 에서 「PTP 춘천-…」). 고정 폭 합이 판보다 넓어질 수 있으면 감싸는 쪽이 `min-w-*` 로 바닥을 정한다.
+**열 폭은 비율과 고정 폭을 섞을 수 있다**(`TableCard widths={['40px', 30, …]}`). 고정 폭 열이 먼저 제 폭을 갖고 비율 열(합 100)이 남은 폭을 나눈다. 내용 폭이 정해진 열(번호·상태·수·날짜)은 px, 길이가 들쭉날쭉한 이름 열은 비율 — 전부 비율이면 좁은 화면에서 번호 열까지 같이 줄고, 정작 이름 열은 모자란다(선번장 1280 에서 「PTP 춘천-…」). 고정 폭 합이 판보다 넓어질 수 있으면 **열 순위**로 병합·숨긴다(§1.7-e2). `min-w-*` 로 표의 바닥 폭을 정하지 않는다.
 
 **줄 높이는 `TABLE_ROW`(28px) 하나다.** 칸에 `py-*` 를 얹어 덮지 않는다(§1.5) — 선번장이 `py-1.5` 로 32px 이었고, 산출 내역·기준정보·케이블 관리는 `<tr>` 을 손으로 짜서 아예 높이가 없었다. 같은 앱의 표가 화면마다 다른 밀도로 보이던 까닭이다.
 
-**수는 줄바꿈하지 않는다**(`Td align="right"` 가 `whitespace-nowrap`). 「350,000원」이 칸에 안 들어가면 「350,000」/「원」 두 줄로 쪼개져 그 줄만 높이가 두 배가 되고, 수가 한눈에 안 읽힌다. **배지도 낱말 하나다** — 좁은 칸에서 「신설」이 신/설로 쪼개지면 동그라미 두 개로 보인다. 잘려도 되는 것은 **글**이고(이름·타입은 `truncate`), 잘리면 안 되는 것은 **수**다. 열이 좁아 값이 넘치면 값을 접을 것이 아니라 **열 폭을 고친다**(`TableCard widths`), 그래도 모자라면 단위를 머리글 아래로 내린다(`Th unit`).
+**수는 줄바꿈하지 않는다**(`Td align="right"` 가 `whitespace-nowrap`). 「350,000원」이 칸에 안 들어가면 「350,000」/「원」 두 줄로 쪼개져 그 줄만 높이가 두 배가 되고, 수가 한눈에 안 읽힌다. **배지도 낱말 하나다** — 좁은 칸에서 「신설」이 신/설로 쪼개지면 동그라미 두 개로 보인다. 잘려도 되는 것은 **글**이고(이름·타입은 `truncate`), 잘리면 안 되는 것은 **수**다. 열이 좁아 값이 넘치면 값을 접을 것이 아니라 **열 폭을 고친다**(`TableCard widths`/`columns`), 그래도 모자라면 순위가 낮은 열을 병합·숨긴다(§1.7-e2).
 
 **긴 표에는 고정 머리글을 단다.** 96행·160행짜리 등록부에 그것이 없어서, 스크롤해 내려가면 지금 보는 칸이 무슨 열인지 알 방법이 없었다. 묶음마다 표를 따로 세우는 경우에도 머리글은 표마다 붙는다.
 
@@ -277,7 +277,13 @@
 
 ## 1.7-g 잘려야 하는 것은 **값이지 머리글이 아니다**
 
-열 폭은 `colgroup` 이 못 박으므로(고정 레이아웃) 머리글이 길면 잘린다 — 실제로 「노임단가 원…」·「자재단가…」로 잘려 무슨 열인지 읽을 수 없었다. **머리글이 잘리면 그 열의 값 전부가 뜻을 잃는다.** 그래서 단위는 이름 옆이 아니라 **아랫줄**에 붙인다(`Th unit`) — 머리줄만 한 줄 높아지고 폭은 이름만큼만 필요해진다.
+열 폭은 `colgroup` 이 못 박으므로(고정 레이아웃) 머리글이 길면 잘린다 — 실제로 「노임단가 원…」·「자재단가…」로 잘려 무슨 열인지 읽을 수 없었다. **머리글이 잘리면 그 열의 값 전부가 뜻을 잃는다.**
+
+**머리글은 늘 한 줄이다**(`Th` 가 `whitespace-nowrap`).
+- 단위는 이름 뒤 **괄호, 같은 줄**: 「길이(m)」 「자재단가(원)」 「신설 공량(인)」 「1310 손실(dB)」. `Th unit="m"` 이 `길이(m)` 로 그린다 — 아랫줄은 없다(예전에는 단위를 아랫줄에 내려 그 표의 머리줄만 35px 로 부풀었다).
+- `unit` 에는 **단위만** 넣는다. 「경쟁」·「183일」 같은 수식어는 이름에 적거나(「이윤(경쟁)」) 표를 나눈다(제비율의 간접노무비·기타경비는 표 하나씩, 묶음 머리줄이 항목 이름).
+- 이름+단위가 열에 안 들어가면 **열 폭이 틀린 것**이다 — `TableCard widths`/`columns` 를 고친다. 머리글을 줄바꿈시키지 않는다.
+- **예외는 하나 — 측정 표의 2단 머리**(`MeasureHeadRows`): 같은 이름(파장 1310 · 1550)이 묶음마다 서는 표라 윗줄 「손실(dB)」·「거리(km)」가 두 칸씩 덮고(`colSpan`) 아랫줄이 파장이다. 측정 입력 창·코어 측정 이력 창만 쓴다.
 
 **수 칸에는 스피너를 두지 않는다.** 화살표가 늘 자리를 잡아 두고 그만큼 값을 밀어내, 선번장 「길이(m)」가 네 자리에서부터 끝자리가 잘렸다. 화살표로 한 칸씩 올릴 값도 아니다(수천 m·소수 dB).
 
@@ -291,7 +297,35 @@
 
 상세 패널은 고른 것이 있을 때만 생기는 열이 아니라 **못 박힌 레일**이다(384px). 예전에는 고른 것이 있을 때만 열이 생겨, 표에서 한 줄 누를 때마다 표가 그만큼 좁아졌다 폈다 했다 — 이 앱에서 하는 일이 대부분 「골라서 본다」라 여닫이가 잦은데, 그때마다 열 너비가 다시 잡히고 눈이 따라간 자리가 어긋난다. 검사기 레일을 고정해 두는 것은 Figma·VS Code·Photoshop 이 같다.
 
-**예외 — 선번장·전원 계통.** 12열 코어 표·차단기 대장이 판의 주인이라, 1280 에서 레일까지 세우면 이름 열이 읽히지 않는다. 이 두 판에서는 **고른 것이 있을 때만** 상세가 서고(접속 설비·공급 설비를 누르면 열린다), 그때 표는 짓눌리지 않고 가로로 구른다(블록 `min-w`) — 묶음 머리줄의 단추는 `sticky right-0` 으로 판 오른쪽에 남고, 넘친 쪽 가장자리에 옅은 그늘이 선다(`useOverflowShade` + `OverflowShade`). 표가 우선이다.
+**선번장·전원 계통**은 12열 코어 표·차단기 대장이 판의 주인이라 **고른 것이 있을 때만** 상세가 선다(접속 설비·공급 설비를 누르면 열린다). 레일이 서도 표는 **가로로 구르지 않는다** — 열 순위대로 병합·숨는다(§1.7-e2).
+
+## 1.7-e2 판 안의 표는 **가로로 구르지 않는다** — 열 순위
+
+**1280 · 트리 펼침 · 레일 열림에서도 판 안의 표는 가로 스크롤이 없다.** 넓은 표는 열마다 순위를 선언하고(`TableCard columns`), 표 상자 **자신의 폭**(화면 폭이 아니다)으로 단계가 정해진다.
+
+| 단계(표 상자 폭) | P1(기본) | P2 | P3 | `merged` 열 |
+|---|---|---|---|---|
+| `wide` ≥ 900 | 선다 | 선다 | 선다 | 숨는다 |
+| `mid` 700–899 | 선다 | **병합**(숨고 값은 다른 칸에) | 선다 | 선다 |
+| `narrow` < 700 | 선다 | 병합 | 숨는다 | 선다(`priority: 3` 이면 숨는다) |
+
+```tsx
+const COLUMNS: TableColumn[] = [
+  { key: 'no', width: '60px' }, { key: 'voltage', width: '60px', priority: 2 }, { key: 'capacity', width: '60px', priority: 2 },
+  { key: 'rating', width: '112px', merged: true },   // 「전압」+「용량」 → 「정격」
+  { key: 'phase', width: '44px', priority: 3 },
+];
+<TableCard columns={COLUMNS}>
+  <thead><tr><Th col="no">차단기</Th>…</tr></thead>
+  <tbody><tr><Td col="no">…</Td>…</tr></tbody>        {/* 서지 않는 열의 Th·Td 는 저절로 빠진다 */}
+</TableCard>
+```
+- 칸은 `Th col`·`Td col` 로 열 키를 단다 — 손으로 `{has(k) && …}` 를 적지 않는다. 묶음 머리줄의 `colSpan` 은 기본이 지금 서는 열 수다. 병합 칸이 지금 단계를 알아야 하면 `useTableLayout()`(또는 `children` 함수).
+- **숨거나 병합된 값은 사라지지 않는다** — 그 줄의 대표 칸(번호·이름) `title` 에 모으고, 상세 레일에서도 읽힌다.
+- **블록 안에서 값이 모두 빈 열은 숨긴다**(`hidden`) — 현황의 빈 열 숨김을 일반화한 것. **편집 창은 예외**(빈 칸을 채우는 곳이라 `tier="wide"` 로 다 세운다).
+- 표마다 경계가 다를 수 있다(`breakpoints`, 선번장 `[1200, 700]`). 순위를 선언한 표: 차단기 대장·편집 창(`breakerColumns` 한 벌) · 선번장 · 설계서 산출 내역(인쇄는 `tier="wide"` 전 열) · 현황 · 측정 창. 품목 관리는 1280 에서 이미 들고, 기준정보 노임표는 회차를 최근 셋 + 「이전 회차」 하나로 묶어 열이 늘지 않는다.
+- **`min-w-[…]` 로 표의 바닥 폭을 정하지 않는다.** 가로 스크롤은 인쇄 미리보기에서만 허용한다.
+- 시험: `e2e/no-hscroll.spec.ts` 가 1280·1440 × 트리 펼침/접힘 × 레일 열림/닫힘에서 표 상자마다 `scrollWidth <= clientWidth` 를 단언한다.
 
 **자리는 화면이 정하고 내용은 패널이 채운다.** 패널이 제 폭·테두리를 들고 있으면 비었을 때 그 자리가 통째로 사라진다. 비었을 때는 같은 폭 안에 `EmptyState` 를 세운다.
 
@@ -395,9 +429,9 @@
 
 실제로 존재하는 공용 컴포넌트는 전부 `src/components/ui`(배럴 `index.ts`)에 있다:
 `Badge`, `Button`, `IconButton`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailGrid`,
-`InsetBox`, `ListRow`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
+`InsetBox`, `ListRow`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`·`TableColumn`·`useTableLayout`), `Input`, `Select`, `DateInput`, `TimeInput`,
 `Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `TreeRow`, `cn`, `controlSize`,
-`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`·`TableSubHead`, `HOVER_REVEAL`, `useOverflowShade`·`OverflowShade`·`scrollBoxToTop`, `Chain`·`ChainStep`·`ChainLink`.
+`ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`·`TableSubHead`, `HOVER_REVEAL`, `scrollBoxToTop`, `StatusBar`·`StatusItem`, `Chain`·`ChainStep`·`ChainLink`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -483,17 +517,18 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 한 단 들어간 면(`surface-2`)으로 「이 안은 바깥과 다른 것을 담는다」를 말한다 — 연결 내역, 넣을 것을 고르는 목록 같은 것. 여러 곳이 각자 `rounded border border-line bg-surface-2` 를 손으로 적고 있었고 여백이 `p-1.5`·`px-2 py-1.5`·`p-2` 로 갈렸다. **면과 테두리만** 이 컴포넌트가 정하고, 안을 어떻게 흘릴지는 담는 쪽이 `className` 으로 준다.
 
-### 밑줄형 탭(뷰 전환·상세 탭·카탈로그 탭) → `Tabs`
+### 탭(뷰 전환·상세 탭·기준정보 탭) → `Tabs` — 두 종류(§3.7)
 ```tsx
-<Tabs items={VIEW_TABS} value={viewMode} onChange={setViewMode} />
+<Tabs {...t.list} items={VIEW_TABS} onChange={setView} />   // 내비게이션 탭: 제 폭, 왼쪽 정렬
+<ViewCard title={eq.name} tabs={<Tabs {...t.list} variant="panel" items={TABS} onChange={setTab} />} body="scroll">…</ViewCard>  // 패널 탭
 ```
-비활성 탭도 테두리 자리를 차지하므로 탭을 골라도 줄이 밀리지 않는다 — 직접 만들면 이 실수를 반복한다.
+비활성 탭도 테두리 자리를 차지하므로 탭을 골라도 줄이 밀리지 않는다 — 직접 만들면 이 실수를 반복한다. 폭은 `variant` 가 정한다 — 호출부가 `className` 으로 늘이지 않는다.
 
 ### 화면의 판(네 탭·상세 패널·관리 표) → `ViewCard`
 ```tsx
 <ViewCard tools={<Select …/>} actions={<TableSearch …/>} body="scroll">…</ViewCard>
 ```
-회색 머리 띠(=도구바) + 본문 + 선택적 바닥 띠. 좌측 기준선·도구바 높이·스크롤 소유권이 여기 한 곳에서 정해진다 — 자세한 것은 **§3.1**.
+회색 머리 띠(=도구바) + (패널 탭 띠 `tabs`) + 본문 + 선택적 바닥 띠. 좌측 기준선·도구바 높이·스크롤 소유권·본문 간격이 여기 한 곳에서 정해진다 — 자세한 것은 **§3.1**.
 
 ### 상태로 좁히기(상태 전체 · 고장 2 · 미점검 39) → `Select`
 ```tsx
@@ -514,9 +549,9 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 `<p className="text-xs font-semibold text-content-muted">속성</p>` 처럼 직접 쓰지 않는다 — 같은 패널 안에서 제목 크기가 갈린다.
 우측 버튼(업로드·추가·지우기)은 `actions`, 수정/삭제는 `onEdit`/`onDelete`.
 ```tsx
-<DetailCardHeader title="사진" actions={<Button variant="secondary" size="sm">업로드</Button>} />
+<DetailCardHeader title="사진" actions={<Button variant="secondary" size="sm">사진 추가</Button>} />
 ```
-카드 머리줄 액션은 `variant="secondary" size="sm"` 로 통일한다(행 안쪽 인라인 액션만 `ghost`).
+카드 머리줄 액션은 `variant="secondary" size="sm"` 로 통일하고, 만들기 단추는 **대상을 적는다**(「사진 추가」 — 대상 없는 「추가」 금지). 자리·크기는 §3.10.
 
 ### 상태 배지(ON/OFF·연결상태 등) → `Badge`
 `src/components/ui/Badge.tsx` (`status`: success·warning·danger·info·neutral). `DetailCardHeader` 의 `badgeStatus` 가 이걸 씀.
@@ -532,7 +567,7 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 **그림은 지도, 상세는 서식 — 그림 위에 컨트롤을 얹지 않는다.** 업계도 그렇게 하지 않는다: NetBox 는 PowerOutlet 의 상태를 **필드(배지)** 로 두고, SCADA/HMI 는 **심볼 자체**의 모습(채움·색)으로 말하며 조작은 심볼을 눌러 여는 별도 자리에서 한다.
 
 ### 버튼 → `Button` / `IconButton`
-`Button` 은 `variant`(`primary`/`secondary`/`ghost`/`danger`) + `size`(`xs`/`sm`/`md`) props 로 톤을 결정한다 — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`(`size` `sm`/`md` + `tone` `default`/`danger`). 글자 단추로 둔 지우기(되돌릴 수 있어 확인을 묻지 않는 것 — 「차단기 22 삭제」)는 `Button variant="secondary" tone="danger"` — 글자만 붉다.
+`Button` 은 `variant`(`primary`/`secondary`/`ghost`/`link`/`danger`) + `size`(`xs`/`sm`/`md`) props 로 톤을 결정한다(`link` = 다른 화면으로 가는 길 — 고스트 자리에 링크 색). **어디에 어떤 꼴로 두는지는 §3.10 표가 정한다** — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`(`size` `sm`/`md` + `tone` `default`/`danger`). 글자 단추로 둔 지우기(되돌릴 수 있어 확인을 묻지 않는 것 — 「차단기 22 삭제」)는 `Button variant="secondary" tone="danger"` — 글자만 붉다.
 
 **표 줄 안의 단추는 `size="xs"`**(높이 h-5 고정 · `py-0`) — 표 줄은 `TABLE_ROW` 28px 이고 `Td` 가 위아래 4px 씩 쓰므로 단추에 남는 자리는 20px 다. `sm`(테두리까지 26px)을 두면 그 줄만 33px 로 부풀어 「연결」 단추가 든 줄과 안 든 줄의 높이가 갈린다(차단기 편집 창이 실제로 그랬다).
 
@@ -542,15 +577,17 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 ### 표 본문 칸 → `Td` (줄맞춤은 열이 정한다 · §1.7-i3)
 
+### 표 머리 칸 → `Th` (한 줄 · 단위는 괄호 · §1.7-g)
+`<Th align="right" unit="m">길이</Th>` → 「길이(m)」. 열 순위가 있는 표에서는 `col` 로 열 키를 단다(§1.7-e2).
+
 ### 표 폭을 다 쓰는 머리 칸 → `Th bare`
-`Th` 는 내용을 말줄임 감싸개에 넣는다 — 그 감싸개는 `overflow: hidden` 이라 안의 `sticky` 가 갇힌다. 칸 안에서 제 배치를 갖는 것(묶음 머리줄의 오른쪽 끝 단추)은 `bare` 로 감싸개를 벗기고, 잘림은 내용이 맡는다(`min-w-0 truncate`). 손으로 쓰지 말고 아래 `TableGroupHead` 를 쓴다.
+`Th` 는 내용을 말줄임 감싸개에 넣는다. 칸 안에서 제 배치를 갖는 것(묶음 머리줄의 오른쪽 끝 단추)은 `bare` 로 감싸개를 벗기고, 잘림은 내용이 맡는다(`min-w-0 truncate`). 손으로 쓰지 말고 아래 `TableGroupHead` 를 쓴다.
 
 ### 묶음 표의 머리줄 → `TableGroupHead` · `TableGroupHeadButton`
-묶음마다 표를 세우는 판(선번장 블록 · 차단기 대장)의 `thead` 첫 줄. 제목(굵게, 잘리지 않음) · 메타(흐리게, 넘치면 말줄임) · 오른쪽 끝 단추(`sticky right-0` — 표가 가로로 굴러도 판 오른쪽에 남는다).
+묶음마다 표를 세우는 판(선번장 블록 · 차단기 대장)의 `thead` 첫 줄. 제목(굵게, 잘리지 않음) · 메타(흐리게, 넘치면 말줄임) · 오른쪽 끝 단추. `colSpan` 은 기본이 지금 서는 열 수다(§1.7-e2).
 ```tsx
 <thead className="sticky top-0 z-sticky bg-surface-2">
   <TableGroupHead
-    colSpan={COLS}
     title={<><TableGroupHeadButton variant="link" onClick={openEquipment}>OFD</TableGroupHeadButton> · <TableGroupHeadButton onClick={focus}>슬롯 2 · 어댑터 1–24</TableGroupHeadButton> ↔ 춘천S/S</>}
     metas={[lineName, length, cable]}
     actions={<Button variant="secondary" size="xs">편집</Button>}
@@ -561,7 +598,7 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 `TableGroupHeadButton variant="link"` 은 **다른 곳으로 가는** 이름(밑줄·강조색 — 선번장 접속 설비 이름 → 그 설비 상세), `plain` 은 제자리에서 그 묶음을 고르는 글자다.
 
 - **메타가 그 묶음의 뜻인 판**(차단기 대장의 입력 전원)은 `wrapMetas` — 넘치면 말줄임 대신 머리 안에서 다음 줄로 내린다(1280 + 상세 레일에서도 어디서 받는지가 다 읽힌다). 메타는 글자 또는 `{ text, faint, title }` — 거른 보기 밖의 것은 지우지 않고 `faint`(한 단 더 흐리게, title 「현재 보기 밖의 입력」)로 둔다. 거르기로 머리의 정보가 사라지면 그 묶음이 무엇인지를 잃는다.
-- **묶음 안의 소묶음**(다모선 분전반의 「교류 모선 · 입력: 소내전원반 차단기 4」)은 `tbody` 안의 `TableSubHead` — 열 머리 글씨(`text-xs`·흐림)에 이름만 본문색. 묶음 머리줄보다 한 단 가볍다(`scope="rowgroup"`, 가로로 굴려도 `sticky left-0` 로 판 안에 남는다). 비는 소묶음(거르기·검색)은 머리도 두지 않는다. 행과 소묶음 머리를 **한 배열로 펴서** 행 키(차단기 번호)를 고정한다 — 교류/직류를 바꿔 행이 다른 소묶음으로 옮겨도 같은 행이 다시 쓰여 편집 칸의 초점을 잃지 않는다.
+- **묶음 안의 소묶음**(다모선 분전반의 「교류 모선 · 입력: 소내전원반 차단기 4」)은 `tbody` 안의 `TableSubHead` — 열 머리 글씨(`text-xs`·흐림)에 이름만 본문색. 묶음 머리줄보다 한 단 가볍다(`scope="rowgroup"`). 비는 소묶음(거르기·검색)은 머리도 두지 않는다. 행과 소묶음 머리를 **한 배열로 펴서** 행 키(차단기 번호)를 고정한다 — 교류/직류를 바꿔 행이 다른 소묶음으로 옮겨도 같은 행이 다시 쓰여 편집 칸의 초점을 잃지 않는다.
 - 머리의 수는 좁혔을 때(거르기·검색) 「차단기 12 / 22」, 안 좁혔을 때는 전체만.
 
 ### 표의 열은 어휘·선언에서 나온다 — 화면이 키를 알지 않는다
@@ -575,14 +612,8 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 
 - **null = 안 적었다, 0 = 품이 안 든다.** 둘을 구별해야 하므로 nullable 이다. 빈 칸은 화면에서도 빈 칸으로 남는다 — 0 을 채워 넣지 않는다.
 
-### 넓은 표가 판을 가로로 넘칠 때 → `useOverflowShade` · `OverflowShade`
-상세 레일이 서서 판이 좁아지면 묶음 표(선번장·차단기 대장)는 짓눌리지 않고 가로로 구른다(§1.7-e 예외). 가려진 오른쪽 가장자리에 그늘을 세워 「열이 더 있다」를 말한다 — 판마다 손으로 재지 않는다.
-```tsx
-const shade = useOverflowShade();
-<div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1"><ViewCard bodyRef={shade.bodyRef} …/><OverflowShade top={shade.top} /></div>
-```
-`shade.bodyRef` 는 **콜백 ref** 다 — 보기를 바꿔 본문 요소가 바뀌면(전원 계통 계통도 → 대장) 새 요소에 다시 붙는다. ref 객체를 넘겨 의존성으로 두면 처음 요소만 지켜보아 그늘이 서지 않는다. 지금 요소는 `shade.body.current`.
-블록 초점으로 굴릴 때는 `scrollBoxToTop(shade.body.current, el)` — **세로로만** 굴린다. `scrollIntoView` 는 가로로 넘친 판까지 옆으로 밀어 보던 열을 옮긴다.
+### 넓은 표가 판보다 넓을 때 → `TableCard columns` (열 순위 · §1.7-e2)
+가로로 굴리지 않는다 — 순위로 병합·숨긴다. 블록 초점으로 굴릴 때는 `scrollBoxToTop(body, el)` — **세로로만** 굴린다(`scrollIntoView` 는 바깥 판까지 함께 민다).
 
 ### 표 위 검색 상자 → `TableSearch`
 `src/components/ui/TableSearch.tsx` — 현황·선번장·계통이 같은 검색 헤더를 쓴다. 상자와 `N / M건` 표시를 맡고, **무엇으로 거를지는 호출부**가 정한다(열 구성이 표마다 다르다). 검색 중 결과가 비면 빈 상태 문구도 검색어를 되짚어 준다 — "검색이 잘못됐나" 와 "원래 없다" 가 구분되지 않으면 같은 검색을 반복하게 된다. 상자 폭은 `className`(배치용, 기본 `w-64`)으로만 줄인다 — 현황처럼 머리 띠가 한 줄에 다 들어가야 하는 좁은 판(1280px)에서만. 그 폭은 **기준**이다 — 상세 레일이 서서 띠가 좁아지면 검색 칸이 먼저 준다(`ViewCard` 오른쪽 자리와 `TableSearch` 가 `min-w-0`). 건수와 단추는 줄지 않는다(`Button` 은 `whitespace-nowrap` — 좁아진 띠에서 「모두 접기」가 한 글자씩 세로로 섰다).
@@ -596,13 +627,16 @@ const shade = useOverflowShade();
 
 **금액·수량은 `<Input numeric suffix="원/식">`** — `type="number"` 를 쓰지 않는다. 칸에 손이 얹힌 채 스크롤하면 **값이 소리 없이 바뀌고**(긴 폼에서 단가가 저 혼자 달라진다), 위아래 스피너는 단가·품셈에 아무 뜻이 없으며, 천단위 구분을 붙일 수 없다. 업계도 금액에는 텍스트 입력 + 포맷터를 쓴다(Ant `InputNumber`, Carbon `NumberInput`, Stripe). `numeric` 이 `inputMode="decimal"` + 우측 정렬 + `tabular-nums` 를 함께 건다 — `numeric` 키패드에는 소수점이 없어 품셈(`0.06`)을 휴대기기에서 아예 입력할 수 없다.
 
-**단위는 칸 안 오른쪽에 붙인다(`suffix`)** — 상자 **바깥**에 별개 글자로 두면 단위가 어느 칸의 것인지 눈으로 이어야 하고, 칸이 여럿 쌓인 폼에서는 값과 단위가 서로 다른 줄에서 만난다. 값과 단위는 한 덩어리다(Ant `addonAfter`, Fluent suffix). 표에서는 `Th` 의 `unit` 이 같은 일을 한다. 폼 안에서 `<span className="text-xs text-content-faint">원/m</span>` 을 값 옆에 손으로 붙이지 않는다.
+**단위는 칸 안 오른쪽에 붙인다(`suffix`)** — 상자 **바깥**에 별개 글자로 두면 단위가 어느 칸의 것인지 눈으로 이어야 하고, 칸이 여럿 쌓인 폼에서는 값과 단위가 서로 다른 줄에서 만난다. 값과 단위는 한 덩어리다(Ant `addonAfter`, Fluent suffix). 표에서는 단위가 머리 괄호에 선다(`Th unit` → 「길이(m)」, §1.7-g). 폼 안에서 `<span className="text-xs text-content-faint">원/m</span>` 을 값 옆에 손으로 붙이지 않는다.
 
 **뜻이 있는 빈 칸은 그 뜻을 `placeholder` 로 말한다.** 자료가 3-상태(`null`·`0`·`N`)면 화면도 3-상태여야 한다 — 빈 상자와 `0` 이 든 상자는 거의 같아 보이는데 뜻은 정반대고, 0 을 지워 `null` 로 되돌릴 수 있는지조차 알 수 없었다. 무엇을 뜻하는지는 **선언이 정한다** — 화면이 품목 이름으로 갈라 적지 않는다.
 
 **붉은 칸은 고칠 때도 붉다.** `invalid` 의 테두리는 초점이 들어와도 파랗게 바뀌지 않는다(`focus:border-danger`) — 고치려고 누르는 순간 경고가 사라지면 무엇을 고치던 중인지 잊는다. 표 칸(`InlineEditCell validate`)도 같다: 받을 수 없는 값이면 칸이 붉게 **열린 채 남고** 까닭은 `title` 에 선다 — 말없이 원래 값으로 돌아가지 않는다(설비 상세의 슬롯 수).
 
 **저장을 막는 칸은 `<Input invalid>`** — 붉은 테두리와 `aria-invalid` 를 함께 건다. 문구는 부르는 쪽이 말한다(`DetailRow` 의 `issue`, 저장 바의 `issueCount`). 표처럼 라벨 옆에 문구를 놓을 자리가 없는 곳에서는 이 테두리가 유일한 길잡이라, 「입력 오류 N건」만 띄우고 어느 칸인지 안 짚는 화면을 만들지 않는다. 테두리를 `className="border-danger"` 로 직접 그리지 않는다 — `cn` 은 tailwind-merge 가 아니라 기본 `border-line` 과 충돌한다.
+
+### 날짜·시각 → `DateInput` · `TimeInput`
+날짜는 `DateInput`(`YYYY-MM-DD` 글자 칸 + 달력 단추), 시각이 필요하면 옆 줄에 `TimeInput`(`HH:mm`, 비우면 시각 없음 — 검사는 `TIME_PATTERN`). 네이티브 `type="date"`·`"datetime-local"`·`"time"` 은 표기를 브라우저 로케일이 정해(「mm/dd/yyyy, --:-- --」) 쓰지 않는다.
 
 ### 표 안에서 값을 고칠 때 — 상자를 깔지, 상세 패널로 보낼지
 
@@ -619,8 +653,8 @@ const shade = useOverflowShade();
 - `<Td>` 에 직접 건 `truncate` 는 그냥 둔다 — 칸은 flex 항목이 아니다.
 - 세로 flex(`flex-col`) 안에서도 그냥 둔다 — 가로는 늘어난 폭(stretch)이라 `min-width` 가 걸리지 않는다.
 
-### 단위는 **값 뒤에** 붙는다 — 머리글이 아니라
-`1310 손실(dB)` 이 아니라 머리글은 `1310 손실`, 값이 `-13.05 dB` 다. 단위는 **값의 성질**이지 열 이름의 일부가 아니고, 이름에 달면 그만큼 길어져 잘린다(잘린 머리글은 그 열 전체의 뜻을 잃는다). 고칠 때 상자에는 **수만** 남는다 — 단위까지 지웠다 다시 치게 하지 않는다(`InlineEditCell unit`). 수 칸은 `type="number"`(`inputmode="decimal"`) 라 숫자와 소수점만 들어간다.
+### 단위는 **한 자리에만** 선다 — 표는 머리 괄호, 머리가 없는 곳은 값 뒤
+표에서는 머리글이 「1310 손실(dB)」이고 칸에는 **수만** 선다(§1.7-g) — 한 열의 값마다 같은 단위를 되풀이하지 않는다. 머리가 없는 자리(목록 줄의 메타 「F-CV · 12 m」, 병합 칸 「최근 측정」)에서만 값 뒤에 붙는다. 고칠 때 상자에는 **수만** 남는다 — 단위까지 지웠다 다시 치게 하지 않는다(`InlineEditCell unit`·`Input suffix`).
 
 ### 폼 글 칸은 **다 친 뒤 한 번** → `CommitInput`
 상세 카드의 이름·모델명처럼 워킹 카피에 바로 싣는 글 칸. 치는 동안은 초안이고, 포커스를 잃거나 Enter 에서 앞뒤 공백을 걷은 값으로 `onCommit` 을 한 번 부른다(그대로면 부르지 않는다). Esc 는 초안을 버린다. 비울 수 없는 칸(이름)은 `required` — 비우고 나가면 원래 값으로 돌아간다.
@@ -702,7 +736,8 @@ Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버
 ### 상세 패널의 탭은 「무엇에 대한 기록인가」로 가른다
 설비 상세: 정보 · 연결 · 점검·고장 · 사진 · 이력. 사진은 설비에 딸려 쌓이는 기록이라 점검·고장이력과 같은 층위다 — '정보' 탭 맨 아래 카드로 두면 속성을 보러 온 사람에겐 스크롤 끝의 군더더기이고, 사진을 보러 온 사람은 거기 있는 줄 모른다.
 
-- **비어 있는 칸은 숨기고 동작만 둔다.** 차단기가 없는 설비에 빈 차단기 표를 세우지 않는다 — 머리줄의 「차단기 추가」 단추 하나만 남긴다(항목 하나짜리 `⋯` 메뉴를 두지 않는다). **품목별 화면 분기는 없다**: 차단기·슬롯은 데이터가 있으면 선다.
+- **비어 있는 칸은 숨기고 동작만 둔다.** 차단기가 없는 설비에 빈 차단기 표를 세우지 않는다 — **정보 카드 끝**의 작은 단추(「차단기 추가」·「슬롯 수 지정」, `Button ghost xs`)만 남긴다. 상세 머리 띠에는 「닫기」만 선다(항목 하나짜리 `⋯` 메뉴를 두지 않는다). **품목별 화면 분기는 없다**: 차단기·슬롯은 데이터가 있으면 선다.
+- **탭은 패널 탭**(`Tabs variant="panel"`, `ViewCard tabs`) — 줄을 고르게 채우고, 본문을 내려도 제목 띠 아래에 남는다.
 - **기록(사진·점검·고장이력)의 주인은 설비다.** 랙은 기록을 갖지 않는다.
 - **이력은 저장한 것만이다.** 「이력」 탭은 서버의 변경 이력(저장 한 번 = 항목 하나, `formatDateTime` 일시 · 사용자)을 읽는다. 칸 이름은 칸을 그리는 곳과 **같은 표**(`v2/components/equipment/fieldLabels.ts`)에서 읽는다 — 이력에만 다른 말을 쓰면 고친 기록이 다른 이름으로 남는다. 저장 전 변경이 있으면 「저장 전 변경은 이력에 없습니다」 한 줄만 둔다(저장 전 변경을 이력처럼 섞어 그리지 않는다).
 - **위치는 랙이 말한다.** 설비가 어디 있는지는 그 설비가 든 랙이고, 랙의 자리는 평면도에서 끌어서 정한다 — 눈에 보이는 판이 곧 자리다.
@@ -715,7 +750,8 @@ Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버
 | 자리 | 무엇 |
 | --- | --- |
 | 머리 띠 왼쪽 | **늘 「범위를 고르는 것」** — 상태 고르개·설비 고르개·갈래, 그다음 판 도구 |
-| 머리 띠 오른쪽 끝 | **늘 검색**(`TableSearch`). 검색이 없는 화면은 자리를 비운다 |
+| 머리 띠 오른쪽 끝 | **늘 검색**(`TableSearch`). 판 단위 만들기(「랙 추가」)는 검색 바로 앞(§3.10). 검색이 없는 화면은 자리를 비운다 |
+| 패널 탭 띠(`tabs`) | 상세 레일의 패널 탭 — 제목 띠 바로 아래 **고정**(본문과 함께 흐르지 않는다) |
 | 바닥 띠 | `StatusBar` — 판을 쓰는 화면만(평면도) |
 
 예전에는 네 탭이 껍데기를 각자 그려서 좌측 기준선이 **0·8·12·16px 네 값**이었고, 도구바
@@ -749,6 +785,8 @@ Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버
 줄뿐이다. 내용은 벽이 아니라 카드다 — 우측 상세 레일이 벽이었을 때, 왼쪽 판과 같은 층위로
 읽히지 않고 「덧대어진 것」으로 보였다.
 
+**간격은 두 단계뿐이다.** 절 사이 `gap-3`(12px), 절 안 `gap-1.5`(6px). `ViewCard body="scroll"` 본문과 `Modal` 본문이 기본으로 `flex flex-col gap-3` 을 갖는다 — 호출부가 `space-y-*`·`mb-*` 를 다시 적지 않는다(예전 창 본문은 `space-y-3`·`space-y-4`·`gap-5`·`gap-2` 로 갈렸다).
+
 ## 3.2 **한 절 = 한 카드** — 어법은 앱에 하나다
 
 절(section)은 어디에 서든 같은 모양이다: **회색 머리 띠**(`DetailCardHeader`) + **본문**, 둘을 `DetailCard` 하나가 감싼다.
@@ -760,6 +798,8 @@ Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버
 | 머리줄을 `<div>` 로 **한 번 더 감싸기** | 카드는 「줄도 머리도 아닌 자식」에 여백을 준다 — 감싼 `div` 가 그 대상이 되어 띠가 안으로 밀려 들어간다(사진 탭이 그랬다). **머리줄은 카드의 바로 자식**이다 |
 | 절 안에서 `EmptyState` 쓰기 | 절이 여럿 쌓이는 탭에서 아무것도 없는 화면이 제일 길어진다. **`EmptyState` 는 화면 전체가 빌 때만** — 절 안은 한 줄이다 |
 | 버튼에 `size` 를 적어 기본값과 다르게 두기 | 기본이 `sm`(24px)이다. 표 행이 28px 인 화면에서 32px 버튼은 줄 사이를 벌린다 |
+
+**목록 항목은 카드가 아니다.** 이력·기록 항목은 `ListItemRow`(내용 + 메타 한 줄, 손잡이는 호버)나 평평한 목록 줄로 둔다 — 카드 안에 카드(항목마다 머리 띠)를 두면 테두리가 겹치고 들여쓰기가 생긴다. **만드는 폼도 카드 안에 카드로 펴지 않는다** — 창(`Modal` 「점검 기록 추가」)으로 연다. 고치기도 같은 창이다(§1.7-m).
 
 **모서리는 `rounded`(2px) 하나**다. 프리미티브에 남아 있던 `rounded-lg`·`rounded-md`(MessageStrip·Table·MenuPopup 등)를 모두 옮겼다 — 원형(`rounded-full`)만 예외이고 그것은 모서리가 아니라 모양이다.
 
@@ -803,13 +843,37 @@ CAD·GIS 업무 도구는 좌표·축척·스냅·선택 수를 화면 아래 �
 - 숫자는 `tabular-nums`. 좌표처럼 매 순간 바뀌는 값이 비례폭이면 자릿수가 바뀔 때마다 칸이 들썩인다.
 - **매 순간 바뀌는 값은 React 를 돌리지 않는다** — 마디(`ref`)에 `textContent` 로 직접 쓴다. 캔버스 화면이 애초에 `ref` 를 쓰는 까닭과 같다.
 - 캔버스 1 unit = 1 cm 약속이므로 화면에는 도면의 단위인 **mm** 로 적는다.
-- 칸이 좁아질 때 글자가 세로로 쪼개지는 판(광 계통도 — 범례가 길다)은 **그 판에서** 수 칸에 `className="shrink-0 whitespace-nowrap"` 를 준다. `StatusItem` 자체에 걸지 않는다(다른 판의 줄바꿈 거동을 바꾼다).
+- **칸은 줄을 바꾸지 않는다** — `StatusItem` 이 늘 `nowrap`·줄지 않음이다(1280 평면도에서 「좌/표」·「스/냅」이 한 자씩 세로로 섰다). 띠가 좁으면 **순위가 낮은 칸부터 통째로 빠진다**: `priority` 4 → 3 → 2 가 띠 폭 760 · 680 · 600px 아래에서 숨는다(띠 자신의 컨테이너 쿼리). 평면도는 좌표(4) → 스냅(3) → 격자(2) 차례, 랙 수·배율은 남는다.
 
 ## 3.7 탭은 **사각 탭**이고, 묶음 머리줄은 앱에 한 벌이다
 
 - **갈래는 탭이 아니다**(`SegmentedControl`). 탭은 다른 내용으로 건너가는 것이고 갈래는 같은 내용을 거르는 것이다 — 계통의 `전체·교류·직류` 가 뷰 탭과 똑같은 사각 탭이라 위계가 안 읽혔고, 도구바 안에 서느라 상위 탭보다 14px 더 높았다.
+- **탭은 두 종류다**(`Tabs variant`):
+  - **내비게이션 탭**(`nav`, 기본) — 화면 머리의 뷰 탭 · 기준정보 페이지 탭 · 평면도 층 탭. **제 폭, 왼쪽 정렬**(항목이 늘거나 다른 단추와 한 줄에 선다).
+  - **패널 탭**(`panel`) — 상세 레일·창·카드 안의 탭. **줄을 고르게 나눠 채우고**(글자보다 좁아지지는 않는다), `ViewCard tabs` 띠(제목 띠 바로 아래)에 서서 본문과 함께 흐르지 않는다. 다섯을 넘거나 한 탭 이름이 6자를 넘으면 탭을 늘리지 말고 줄인다.
+  - 탭 이름은 줄을 바꾸지 않는다(「3/층」으로 쪼개지지 않게).
 - **탭**(`Tabs`): 고른 것만 흰 바탕으로 솟고 **위에 파란 선**이 그어진다. 밑줄만으로는 회색 띠 위에서 잘 안 읽힌다. 테두리·높이는 활성 여부와 무관하게 같아 골라도 줄이 밀리지 않는다. 바닥선은 `Tabs` 가 긋는다 — 감싸는 쪽에서 또 그으면 2px 로 보인다.
 - **묶음 머리줄**: 회색 띠 + 남색 세로 바(`bg-appbar`) + 제목 + **오른쪽 끝** 메타. 묶음 표를 쌓는 판이 이 한 벌을 쓴다 — 표와 붙어 한 덩어리로 읽힌다.
+
+## 3.10 단추의 **자리·크기·꼴**은 표 하나가 정한다
+
+| 동작 | 자리 | 꼴 | 글자 |
+|---|---|---|---|
+| 판 단위 만들기(랙·설비·광선로·품목) | `ViewCard` 머리 띠 오른쪽, 검색 바로 앞 | `Button secondary sm` | 「<대상> 추가」 |
+| 카드(절) 단위 만들기(차단기·연결·기록·사진·실장 설비) | `DetailCardHeader actions` 오른쪽 끝 | `Button secondary sm` | 「<대상> 추가」 — 대상 없는 「추가」 금지 |
+| 묶음 표 단위 만들기(대장 블록) | `TableGroupHead actions` | `Button secondary xs` | 「<대상> 추가」 |
+| 없는 절 만들기(차단기 추가·슬롯 수 지정) | 정보 카드 **끝 줄**(상세 머리 띠가 아니다) | `Button ghost xs` | 「<대상> 추가」·「슬롯 수 지정」 |
+| 표 줄 안 동작(빈 부하에 연결, 측정 행 추가) | 그 칸 | `Button secondary xs` | 동사 하나(「연결」) |
+| 목록 줄의 수정·삭제 | 줄 끝, `HOVER_REVEAL` | `IconButton sm`(삭제는 `tone="danger"`) | aria 「<대상> 수정/삭제」 |
+| 카드·창의 대상 자체 삭제(설비·랙·광선로·기록) | 카드 머리 오른쪽 끝 · 창 바닥 **왼쪽** | `Button secondary tone="danger"` | 「<대상> 삭제」 — 중립 「삭제」 금지 |
+| 다른 화면으로 이동(차단기 대장에서 보기) | 카드 머리 오른쪽, 만들기 단추 **앞** | `Button link sm`(목록 머리는 `xs`) | 「<화면>에서 보기」 |
+| 모두 펼치기/접기 | `ViewCard` 머리 띠 왼쪽 묶음 끝 | `Button ghost sm` 글자(아이콘만 금지) | 「모두 펼치기」·「모두 접기」 |
+| 판 닫기(상세 레일) | `ViewCard` 머리 오른쪽 끝 | `Button secondary sm` | 「닫기」 |
+| 창 확정 | 창 바닥 오른쪽 끝 | `Button primary` | 제목의 동사(추가·수정·삭제·등록·연결) |
+| 창 취소 | 확정 바로 왼쪽 | `Button secondary` | 「취소」 |
+
+- **삭제는 앱에 한 꼴**: 목록 줄은 호버에서 드러나는 붉은 `IconButton sm`, 카드·창의 대상 자체는 붉은 글자 단추 「<대상> 삭제」. 늘 보이는 회색 휴지통·중립 「삭제」를 두지 않는다.
+- **Primary(채운 파랑)는 창 확정 · 저장 바 「저장」 · 서버로 보내는 확정(기준정보 「등록하고 적용」)뿐**이다. 판·카드의 만들기는 secondary 다(품목 관리의 「+ 추가」 primary 를 걷었다).
 
 ## 3.8 상세는 **카드가 아니라 표다** — `DetailCard` · `DetailRow`
 
