@@ -1,37 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { assetReportItem, cableReportItem, computeReport, materialCostOf } from './computeReport.js';
+import { unitReportItem, cableReportItem, computeReport, materialCostOf } from './computeReport.js';
 import type { ReportItem } from './computeReport.js';
 
-const labor = { laborCode: '통신내선공', installManDays: 2, removeManDays: 1, relocateManDays: 3 };
-const fiberGroup = { name: '광', laborCode: '통신외선공', installManDays: 0.04, removeManDays: 0.02 };
+const labor = { laborCode: '통신내선공', unitPrice: null, installManDays: 2, removeManDays: 1, relocateManDays: 3 };
+const fiberCable = { name: '광케이블', laborCode: '통신외선공', installManDays: 0.04, removeManDays: 0.02 };
 
-describe('assetReportItem', () => {
-  it('kind별 공량', () => {
-    expect(assetReportItem('equipment-install', '랙1', '랙', labor)).toMatchObject({ qty: 1, unit: '대', manDays: 2, laborCode: '통신내선공' });
-    expect(assetReportItem('equipment-relocate', '랙1', '랙', labor).manDays).toBe(3);
+describe('unitReportItem', () => {
+  it('작업별 공량', () => {
+    expect(unitReportItem('equipment-install', 'L3 스위치 1', 'L3 스위치', labor)).toMatchObject({ qty: 1, unit: '대', manDays: 2, laborCode: '통신내선공', manDaysMissing: false });
+    expect(unitReportItem('equipment-relocate', 'L3 스위치 1', 'L3 스위치', labor).manDays).toBe(3);
+    expect(unitReportItem('rack-install', '랙 1', '19인치 랙', labor).manDays).toBe(2);
   });
-  it('remove 분기', () => {
-    expect(assetReportItem('equipment-remove', '랙1', '랙', labor).manDays).toBe(1);
+  it('철거', () => {
+    expect(unitReportItem('equipment-remove', 'L3 스위치 1', 'L3 스위치', labor).manDays).toBe(1);
+  });
+  it('공량 미입력(null) — 0 으로 세고 미입력으로 알린다. 0 은 미입력이 아니다', () => {
+    const blank = { ...labor, relocateManDays: null };
+    expect(unitReportItem('rack-relocate', '랙 1', '19인치 랙', blank)).toMatchObject({ manDays: 0, manDaysMissing: true });
+    expect(unitReportItem('rack-install', '랙 1', '19인치 랙', blank).manDaysMissing).toBe(false);
+    expect(unitReportItem('rack-relocate', '랙 1', '19인치 랙', { ...labor, relocateManDays: 0 })).toMatchObject({ manDays: 0, manDaysMissing: false });
   });
 });
 
 describe('cableReportItem', () => {
   it('lengthM × perM', () => {
-    expect(cableReportItem('cable-install', 'A↔B', fiberGroup, 50)).toMatchObject({ qty: 50, unit: 'm', manDays: 2, laborCode: '통신외선공' });
-    expect(cableReportItem('cable-remove', 'A↔B', fiberGroup, 50).manDays).toBe(1);
+    expect(cableReportItem('cable-install', 'A↔B', fiberCable, 50)).toMatchObject({ qty: 50, unit: 'm', manDays: 2, laborCode: '통신외선공' });
+    expect(cableReportItem('cable-remove', 'A↔B', fiberCable, 50).manDays).toBe(1);
   });
   it('길이 미입력 → 0 + note', () => {
-    expect(cableReportItem('cable-install', 'A↔B', fiberGroup, null)).toMatchObject({ qty: 0, manDays: 0, note: '길이 미입력' });
+    expect(cableReportItem('cable-install', 'A↔B', fiberCable, null)).toMatchObject({ qty: 0, manDays: 0, note: '길이 미입력' });
+  });
+  it('m 당 공량 미입력(null) → 공량 미입력', () => {
+    expect(cableReportItem('cable-remove', 'A↔B', { ...fiberCable, removeManDays: null }, 50)).toMatchObject({ qty: 50, manDays: 0, manDaysMissing: true });
+    expect(cableReportItem('cable-install', 'A↔B', { ...fiberCable, removeManDays: null }, 50).manDaysMissing).toBe(false);
   });
 });
 
 describe('computeReport', () => {
   it('노무유형별 합계 + 총합', () => {
     const s = computeReport([
-      assetReportItem('equipment-install', '랙1', '랙', labor),
-      assetReportItem('equipment-remove', 'UPS1', 'UPS', { ...labor, laborCode: '통신내선공', removeManDays: 0.5 }),
-      cableReportItem('cable-install', 'A↔B', fiberGroup, 50),
-      assetReportItem('equipment-install', '접지1', '접지함체', { laborCode: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 }),
+      unitReportItem('rack-install', '랙 1', '19인치 랙', labor),
+      unitReportItem('equipment-remove', 'UPS 1', 'UPS', { ...labor, laborCode: '통신내선공', removeManDays: 0.5 }),
+      cableReportItem('cable-install', 'A↔B', fiberCable, 50),
+      unitReportItem('equipment-install', '접지 1', '접지함체', { laborCode: null, unitPrice: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 }),
     ]);
     expect(s.totalManDays).toBeCloseTo(2 + 0.5 + 2);
     expect(s.byLaborType).toEqual([
@@ -51,7 +62,7 @@ describe('computeReport', () => {
 describe('materialCostOf', () => {
   const item = (over: Partial<ReportItem>): ReportItem => ({
     kind: 'equipment-install', name: 'x', typeName: 't', laborCode: null,
-    qty: 1, unit: '대', manDays: 0, unitPrice: null, ...over,
+    qty: 1, unit: '대', manDays: 0, unitPrice: null, manDaysMissing: false, ...over,
   });
 
   it('신설은 수량 × 단가', () => {
@@ -63,6 +74,15 @@ describe('materialCostOf', () => {
     expect(materialCostOf(item({ kind: 'equipment-remove', unitPrice: 1_200_000 }))).toBe(0);
     expect(materialCostOf(item({ kind: 'equipment-relocate', unitPrice: 1_200_000 }))).toBe(0);
     expect(materialCostOf(item({ kind: 'cable-remove', unit: 'm', qty: 120, unitPrice: 3_400 }))).toBe(0);
+  });
+
+  it('소수 m 는 줄마다 원 단위로 반올림한다 — 합계는 반올림한 줄의 합', () => {
+    expect(materialCostOf(item({ kind: 'cable-install', unit: 'm', qty: 2.5, unitPrice: 2_101 }))).toBe(5_253);
+    const r = computeReport([
+      item({ kind: 'cable-install', unit: 'm', qty: 2.5, unitPrice: 2_101 }),
+      item({ kind: 'cable-install', unit: 'm', qty: 2.5, unitPrice: 2_101 }),
+    ]);
+    expect(r.totalMaterialCost).toBe(10_506);
   });
 
   it('단가를 안 적었으면 0 이다', () => {

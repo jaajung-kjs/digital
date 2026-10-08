@@ -18,7 +18,7 @@
  *   기타경비     (재료비 + 노무비) × 율 × 경비구성비
  *   일반관리비   (재료비 + 노무비 + 경비) × 율
  *   이윤         (노무비 + 경비 + 일반관리비) × 율   ← 재료비가 빠진다
- *   부가세       위 합계 × 10%
+ *   부가세       공급가액(총원가) × 10%
  */
 
 /** 공사규모 구간 — 직접공사비가 정한다. 사용자에게 묻지 않는다. */
@@ -116,9 +116,11 @@ export interface Estimate {
   laborCost: number;
   expenses: EstimateLine[];
   expenseTotal: number;
+  /** 순공사원가 = 재료비 + 노무비 + 경비 — 원가계산서의 소계 줄(일반관리비의 모수와 같다). */
+  netCost: number;
   overheadAdmin: EstimateLine;
   profit: EstimateLine;
-  /** 부가세 전 합계. */
+  /** 총원가(공급가액) — 순공사원가 + 일반관리비 + 이윤. 부가세 전 합계. */
   subtotal: number;
   vat: number;
   total: number;
@@ -203,7 +205,8 @@ export function computeEstimate(
     amount: won((labor + expenseTotal + overheadAdmin.amount) * profitRate),
   };
 
-  const subtotal = material + labor + expenseTotal + overheadAdmin.amount + profit.amount;
+  const netCost = material + labor + expenseTotal;
+  const subtotal = netCost + overheadAdmin.amount + profit.amount;
   const vat = won(subtotal * 0.1);
 
   return {
@@ -215,6 +218,7 @@ export function computeEstimate(
     laborCost: labor,
     expenses,
     expenseTotal,
+    netCost,
     overheadAdmin,
     profit,
     subtotal,

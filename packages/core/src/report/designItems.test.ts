@@ -9,7 +9,7 @@ const smf: LaborType = { id: 'smf', name: '광케이블 24C', laborCode: '통신
 
 const names: Record<string, string> = { S1: '춘천', S2: '화천', S10: '가평' };
 
-const rack = (id: string, o: Partial<DRack> = {}): DRack => ({ id, name: id, substationId: 'S1', rackTypeId: 'rt', floorId: 'F1', x: 0, y: 0, ...o });
+const rack = (id: string, o: Partial<DRack> = {}): DRack => ({ id, name: id, substationId: 'S1', rackTypeId: 'rt', floorId: 'F1', x: 0, y: 0, width: 60, height: 100, ...o });
 const eq = (id: string, o: Partial<DEquipment> = {}): DEquipment => ({ id, name: id, substationId: 'S1', rackId: 'r1', typeId: 'et', ...o });
 const link = (id: string, o: Partial<DLink> = {}): DLink => ({ id, substationId: 'S1', cableTypeId: 'utp', lengthM: 10, label: `${id}A ↔ ${id}B`, ...o });
 const line = (id: string, o: Partial<DLine> = {}): DLine => ({ id, name: null, cableTypeId: 'smf', lengthKm: 1, aSubstationId: 'S1', bSubstationId: 'S2', ...o });
@@ -35,16 +35,54 @@ describe('designItems — 랙', () => {
     expect(items[1]!.manDays).toBe(1);
   });
 
-  it('좌표만 바뀌어도 이설 1건', () => {
-    const items = run({ racks: [rack('r1')] }, { racks: [rack('r1', { x: 5 })] });
+  it('실제로 옮기면 이설 1건 — 중심이 작은 변(60)의 절반(30)보다 멀리', () => {
+    const items = run({ racks: [rack('r1')] }, { racks: [rack('r1', { x: 200, y: 50 })] });
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ kind: 'rack-relocate', manDays: 3, substationIds: ['S1'] });
+    expect(items[0]).toMatchObject({ kind: 'rack-relocate', manDays: 3, substationIds: ['S1'], id: 'r1' });
+    expect(run({ racks: [rack('r1')] }, { racks: [rack('r1', { x: 31 })] }).map((i) => i.kind)).toEqual(['rack-relocate']);
   });
 
-  it('층이나 국이 바뀌어도 이설 — 국이 바뀌면 두 국에 걸린다', () => {
+  it('문턱 안의 줄 맞춤은 이설이 아니다', () => {
+    expect(run({ racks: [rack('r1')] }, { racks: [rack('r1', { x: 10, y: 10 })] })).toEqual([]);
+    expect(run({ racks: [rack('r1')] }, { racks: [rack('r1', { x: 30 })] })).toEqual([]);
+  });
+
+  it('놓기(좌표 없음 → 좌표)·배치 해제(좌표 → 없음)는 이설이 아니다', () => {
+    const unplaced = rack('r1', { floorId: null, x: null, y: null, width: null, height: null });
+    expect(run({ racks: [unplaced] }, { racks: [rack('r1', { x: 500, y: 500 })] })).toEqual([]);
+    expect(run({ racks: [rack('r1', { x: 500, y: 500 })] }, { racks: [unplaced] })).toEqual([]);
+  });
+
+  it('크기 조절은 어느 손잡이로 해도 이설이 아니다', () => {
+    const base = rack('r1', { x: 100, y: 100, width: 60, height: 100 });
+    const resized = [
+      { x: 0, width: 160 },                 // 왼쪽 손잡이 — 오른쪽 변 그대로
+      { width: 300 },                       // 오른쪽 손잡이
+      { y: -200, height: 400 },             // 위 손잡이 — 아래 변 그대로
+      { height: 400 },                      // 아래 손잡이
+      { x: -100, y: -100, width: 260, height: 300 }, // 왼쪽 위 모서리
+      { width: 260, height: 300 },          // 오른쪽 아래 모서리
+      { x: -100, width: 260, height: 300 }, // 왼쪽 아래 모서리
+      { y: -100, width: 260, height: 300 }, // 오른쪽 위 모서리
+    ];
+    for (const r of resized) expect(run({ racks: [base] }, { racks: [{ ...base, ...r }] })).toEqual([]);
+  });
+
+  it('층이 바뀌면 이설', () => {
     expect(run({ racks: [rack('r1')] }, { racks: [rack('r1', { floorId: 'F2' })] }).map((i) => i.kind)).toEqual(['rack-relocate']);
+  });
+
+  it('국이 바뀌면 이설 — 두 국에 걸리고, 놓이지 않은 랙도 센다', () => {
     const moved = run({ racks: [rack('r1')] }, { racks: [rack('r1', { substationId: 'S2' })] });
     expect(moved[0]).toMatchObject({ kind: 'rack-relocate', substationIds: ['S1', 'S2'], primarySubstationId: 'S1' });
+    const loose = { floorId: null, x: null, y: null, width: null, height: null };
+    expect(run({ racks: [rack('r1', loose)] }, { racks: [rack('r1', { ...loose, substationId: 'S2' })] }).map((i) => i.kind)).toEqual(['rack-relocate']);
+  });
+
+  it('크기를 모르는 랙은 문턱 30 cm', () => {
+    const blank = { width: null, height: null };
+    expect(run({ racks: [rack('r1', blank)] }, { racks: [rack('r1', { ...blank, x: 30 })] })).toEqual([]);
+    expect(run({ racks: [rack('r1', blank)] }, { racks: [rack('r1', { ...blank, x: 31 })] }).map((i) => i.kind)).toEqual(['rack-relocate']);
   });
 
   it('이름만 바뀐 랙은 산출하지 않는다', () => {
@@ -54,9 +92,19 @@ describe('designItems — 랙', () => {
   it('랙째 옮기면 랙 이설 1건 — 안의 설비는 이설로 세지 않는다', () => {
     const items = run(
       { racks: [rack('r1')], equipment: [eq('e1'), eq('e2')] },
-      { racks: [rack('r1', { x: 10, y: 20 })], equipment: [eq('e1'), eq('e2')] },
+      { racks: [rack('r1', { x: 100, y: 200 })], equipment: [eq('e1'), eq('e2')] },
     );
     expect(items.map((i) => i.kind)).toEqual(['rack-relocate']);
+  });
+
+  it('품목에 이설 공량이 없으면 공량 미입력 — 공량 0 으로 센다', () => {
+    const items = designItems({
+      before: { ...empty(), racks: [rack('r1')] },
+      after: { ...empty(), racks: [rack('r1', { x: 500 })] },
+      rackTypes: [{ ...rackType, relocateManDays: null }], equipmentTypes: [], cableTypes: [],
+      substationName: (id) => id,
+    });
+    expect(items[0]).toMatchObject({ kind: 'rack-relocate', manDays: 0, manDaysMissing: true });
   });
 
   it('rack-install 은 재료비를 산다', () => {
@@ -92,7 +140,7 @@ describe('designItems — 설비', () => {
 
   it('품목을 못 찾으면 「품목 미지정」 줄로 남는다(공량 0)', () => {
     const [item] = run({}, { equipment: [eq('e1', { typeId: 'nope' })] });
-    expect(item).toMatchObject({ kind: 'equipment-install', name: 'e1', qty: 1, manDays: 0, laborCode: null, unitPrice: null, note: '품목 미지정' });
+    expect(item).toMatchObject({ kind: 'equipment-install', name: 'e1', qty: 1, manDays: 0, laborCode: null, unitPrice: null, manDaysMissing: false, note: '품목 미지정' });
   });
 });
 
@@ -158,13 +206,13 @@ describe('designItems — 최종 차이', () => {
 
 describe('designItems — 정렬', () => {
   const before: Side = {
-    racks: [rack('rx', { name: '랙 9' }), rack('rm', { name: '랙 1', x: 1 })],
+    racks: [rack('rx', { name: '랙 9' }), rack('rm', { name: '랙 1', x: 100 })],
     equipment: [eq('ex', { name: '설비 2' }), eq('em', { name: '설비 1' })],
     links: [link('kx', { label: 'X' })],
     fiberLines: [line('Lx', { name: '구선' })],
   };
   const after: Side = {
-    racks: [rack('rm', { name: '랙 1', x: 2 }), rack('rb', { name: '랙 10', substationId: 'S10' }), rack('ra', { name: '랙 2' }), rack('rc', { name: '랙 2' })],
+    racks: [rack('rm', { name: '랙 1', x: 300 }), rack('rb', { name: '랙 10', substationId: 'S10' }), rack('ra', { name: '랙 2' }), rack('rc', { name: '랙 2' })],
     equipment: [eq('em', { name: '설비 1', rackId: 'rb' }), eq('en', { name: '설비 10' }), eq('eo', { name: '설비 9' })],
     links: [link('kn', { label: 'B' }), link('ko', { label: 'A', substationId: 'S2' })],
     fiberLines: [line('Ln', { name: '신선' })],

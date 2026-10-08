@@ -118,6 +118,11 @@ describe('computeEstimate', () => {
     expect(est.total).toBe(est.subtotal + est.vat);
   });
 
+  it('순공사원가 = 재료비 + 노무비 + 경비 — 공급가액은 거기에 일반관리비·이윤', () => {
+    expect(est.netCost).toBe(est.materialCost + est.laborCost + est.expenseTotal);
+    expect(est.subtotal).toBe(est.netCost + est.overheadAdmin.amount + est.profit.amount);
+  });
+
   it('수의계약 이윤율은 표가 아니라 조달청 기준값이다', () => {
     const suui = computeEstimate({ materialCost: 2_000_000, directLaborCost: 3_000_000 }, RATES, {
       ...PARAMS,

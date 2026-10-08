@@ -10,20 +10,26 @@ export type UnitReportKind = Exclude<ReportKind, 'cable-install' | 'cable-remove
 
 export interface ReportItem {
   kind: ReportKind;
-  name: string;            // 자산명 or 케이블 파생 표시
-  typeName: string;        // 타입명 or 케이블 그룹명
+  name: string;            // 랙·설비 이름, 케이블은 「A ↔ B」, 광선로는 선로명
+  typeName: string;        // 품목 이름(랙·설비·케이블 품목)
   laborCode: string | null;
-  qty: number;             // 자산 1, 케이블 lengthM
+  qty: number;             // 랙·설비 1(대), 케이블·광선로 길이(m)
   unit: '대' | 'm';
-  manDays: number;         // 계산된 공량(인·일)
+  manDays: number;         // 계산된 공량(인·일). 공량 미입력이면 0 으로 센다
   /** 자재단가(원/단위). 안 적혀 있으면 null — 재료비가 0 이라는 뜻이다. */
   unitPrice: number | null;
+  /**
+   * 공량 미입력 — 품목에 이 작업(신설·철거·이설)의 공량이 안 적혀 있다(null). 셈은 0 으로 하되 화면이 따로 센다.
+   * `0` 이 적혀 있으면(「품이 안 든다」) 미입력이 아니다.
+   */
+  manDaysMissing: boolean;
   note?: string;           // '길이 미입력' 등
 }
 
 export interface ReportSummary {
   items: ReportItem[];
-  byLaborType: { laborCode: string; totalManDays: number }[]; // laborCode null 제외, 이름순
+  /** 직종별 공량 합 — laborCode null 제외, 직종 코드의 자연 순서(이름순은 이름을 아는 화면이 다시 정렬한다). */
+  byLaborType: { laborCode: string; totalManDays: number }[];
   totalManDays: number;
   /** 이 변경이 사는 자재의 값 — 신설 줄만 더한 것이다(`materialCostOf`). */
   totalMaterialCost: number;
@@ -38,10 +44,13 @@ export interface ReportSummary {
  * 화면에 자재비 칸이 서기 전에는 아무도 그것을 볼 수 없었다.
  *
  * 판정은 여기 한 번만 적는다 — 표의 칸과 금액의 모수가 갈리면 「합계가 안 맞는」 설계서가 된다.
+ *
+ * **줄마다 원 단위로 반올림한다**(길이는 소수 m 다 — 2.5 m × 2,101원 = 5,252.5원). 합계는 반올림한 줄의 합이라
+ * 산출 내역 합계와 원가계산서 재료비가 같다. 반올림인지 절사인지는 기준 문서가 정한다 — 확인할 정책이다.
  */
 export function materialCostOf(item: ReportItem): number {
   if (item.kind !== 'rack-install' && item.kind !== 'equipment-install' && item.kind !== 'cable-install') return 0;
-  return item.qty * (item.unitPrice ?? 0);
+  return Math.round(item.qty * (item.unitPrice ?? 0));
 }
 
 /** 작업 종류 → 품 칸. 랙과 설비가 같은 칸을 쓴다(`LaborSpec`). */
@@ -54,7 +63,8 @@ const MAN_DAYS_OF: Record<UnitReportKind, 'installManDays' | 'removeManDays' | '
   'equipment-relocate': 'relocateManDays',
 };
 
-export function assetReportItem(
+/** 대로 세는 줄(랙·설비) — 1대. */
+export function unitReportItem(
   kind: UnitReportKind,
   name: string,
   typeName: string,
@@ -62,8 +72,8 @@ export function assetReportItem(
   /** 자재단가(원/대) — 종류가 들고 있는 값. */
   unitPrice: number | null = null,
 ): ReportItem {
-  /* null = 「안 적었다」 — 합칠 자식이 없으면 0 이다(설비 1식은 부르는 쪽이 이미 갈랐다). */
-  const manDays = labor[MAN_DAYS_OF[kind]] ?? 0;
+  /* null = 「안 적었다」 — 0 으로 세고 공량 미입력으로 알린다. */
+  const spec = labor[MAN_DAYS_OF[kind]];
 
   return {
     kind,
@@ -72,18 +82,22 @@ export function assetReportItem(
     laborCode: labor.laborCode,
     qty: 1,
     unit: '대',
-    manDays,
+    manDays: spec ?? 0,
     unitPrice,
+    manDaysMissing: spec === null,
   };
 }
 
+/** 길이로 세는 줄(케이블·광선로) — 수량은 m, 공량은 m 당 공량 × 길이. */
 export function cableReportItem(
   kind: 'cable-install' | 'cable-remove',
   name: string,
-  /** 케이블 **종류** — 품셈은 종류가 갖는다(그룹은 색·이름뿐). */
+  /** 케이블 **품목** — 공량·단가는 품목이 갖는다(`LaborSpec`). */
   category: { name: string; laborCode: string | null; installManDays: number | null; removeManDays: number | null; unitPrice?: number | null },
   lengthM: number | null,
 ): ReportItem {
+  const perM = kind === 'cable-install' ? category.installManDays : category.removeManDays;
+  const manDaysMissing = perM === null;
   if (lengthM === null) {
     return {
       kind,
@@ -94,12 +108,12 @@ export function cableReportItem(
       unit: 'm',
       manDays: 0,
       unitPrice: category.unitPrice ?? null,
+      manDaysMissing,
       note: '길이 미입력',
     };
   }
 
-  const manDaysPerM = (kind === 'cable-install' ? category.installManDays : category.removeManDays) ?? 0;
-  const manDays = lengthM * manDaysPerM;
+  const manDays = lengthM * (perM ?? 0);
 
   return {
     kind,
@@ -110,13 +124,14 @@ export function cableReportItem(
     unit: 'm',
     manDays,
     unitPrice: category.unitPrice ?? null,
+    manDaysMissing,
   };
 }
 
 export function computeReport(items: ReportItem[]): ReportSummary {
   const totalManDays = items.reduce((sum, item) => sum + item.manDays, 0);
 
-  // Group by laborCode, excluding null
+  // 직종별 합 — 직종 없는 줄(null)은 뺀다
   const byLaborTypeMap = new Map<string, number>();
   for (const item of items) {
     if (item.laborCode !== null) {
@@ -125,9 +140,9 @@ export function computeReport(items: ReportItem[]): ReportSummary {
     }
   }
 
-  // Sort by laborCode name and convert to array
+  const order = new Intl.Collator('ko', { numeric: true });
   const byLaborType = Array.from(byLaborTypeMap.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
+    .sort((a, b) => order.compare(a[0], b[0]))
     .map(([laborCode, totalManDays]) => ({ laborCode, totalManDays }));
 
   return {
