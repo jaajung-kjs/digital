@@ -57,7 +57,7 @@ test('⑤ 광 계통도 — 회선 선택·이중화 경고·국으로 이동 (�
   await expect(panel(page).getByTestId('bundle-list').getByText(/^RTU 광스위치 · 북춘천 ↔ 철원$/)).toBeVisible();
   await page.mouse.move(0, 0);
   await shot(page, '02-bundle-picked');
-  await panel(page).getByRole('button', { name: '선택 해제' }).click();
+  await main(page).getByRole('button', { name: '선택 해제' }).click(); // 고른 것을 놓는 단추는 그림 머리
   await expect(overlay).toHaveCount(0);
   await panel(page).getByRole('textbox', { name: '회선 검색' }).fill('');
 
