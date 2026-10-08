@@ -71,10 +71,12 @@ echo
 echo "── 결과 ──────────────────────────────────────────"
 echo "  변전소   $before → $after   (줄어들었으면 시드가 지운 것이다)"
 docker exec "$NAME" psql -tAU postgres -d digital_next -c \
-  'select ''자산 ''||count(*) from "Asset" union all
-   select ''케이블 ''||count(*) from "Cable" union all
-   select ''장비 품목 ''||count(*) from "AssetType" union all
-   select ''설비 품목 ''||count(*) from "Assembly"' 2>/dev/null | sed 's/^ */  /'
+  'select ''랙 ''||count(*) from "Rack" union all
+   select ''설비 ''||count(*) from "Equipment" union all
+   select ''광선로 ''||count(*) from "FiberLine" union all
+   select ''연결 ''||count(*) from "Link" union all
+   select ''점검·고장 ''||((select count(*) from "InspectionLog")+(select count(*) from "MaintenanceLog")) union all
+   select ''사진 ''||count(*) from "EquipmentPhoto"' | sed 's/^ */  /'
 echo "──────────────────────────────────────────────────"
 echo
 echo "✅ 리허설 통과. 이 백업과 같은 상태의 서버라면 배포가 지나갑니다."
