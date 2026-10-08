@@ -323,7 +323,7 @@ type DesignEstimate = ReturnType<typeof useDesignEstimate>;
  * 요율은 기준정보(제비율)가 준다 — 기준정보가 없으면 금액을 0 으로 보이지 않고 막는다(판정 불가 ≠ 0).
  */
 function CostColumn({ report, e }: { report: ReturnType<typeof computeReport>; e: DesignEstimate }) {
-  const { wages, wageReady, overhead, days, setDays, daysIssue, contract, setContract, sanjae, setSanjae, materialCost, directLaborCost, band, unassigned, unassignedManDays } = e;
+  const { wages, wageReady, overhead, days, setDays, daysIssue, contract, setContract, sanjae, setSanjae, materialCost, directLaborCost, band } = e;
   return (
     <>
       <DetailCard>
@@ -355,47 +355,55 @@ function CostColumn({ report, e }: { report: ReturnType<typeof computeReport>; e
         </DetailRow>
       </DetailCard>
 
-      <TableCard widths={[100, '72px', '92px']}>
-        <thead>
-          <TableGroupHead colSpan={3} title="노무유형별 공량" />
-          <tr>
-            <Th>노무유형</Th>
-            <Th align="right" unit="인·일">공량</Th>
-            <Th align="right" unit="원/일">노임단가</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.byLaborType.map(({ laborCode, totalManDays }) => {
-            const wage = wages.wageOf(laborCode);
-            return (
-              <tr key={laborCode} className={TABLE_ROW}>
-                <Td className="truncate">{wages.nameOf(laborCode)}</Td>
-                <Td align="right">{manDaysText(totalManDays)}</Td>
-                {!wageReady
-                  ? <Td align="right" className="text-warning">미등록</Td>
-                  : wage == null
-                    ? <Td align="right" className="text-warning">단가 없음</Td>
-                    : <Td align="right">{won(wage)}</Td>}
-              </tr>
-            );
-          })}
-          {unassigned.length > 0 && (
-            <tr className={TABLE_ROW}>
-              <Td className="truncate text-warning">노무유형 미지정 {unassigned.length}건</Td>
-              <Td align="right">{manDaysText(unassignedManDays)}</Td>
-              <Td align="right" className="text-content-muted">{EMPTY}</Td>
-            </tr>
-          )}
-          <tr className={cn(TABLE_ROW, 'border-t border-line-strong font-semibold')}>
-            <Td>총 공량</Td>
-            <Td align="right">{manDaysText(report.totalManDays)}</Td>
-            <Td />
-          </tr>
-        </tbody>
-      </TableCard>
+      <LaborTable report={report} e={e} />
 
       <CostTable e={e} sticky />
     </>
+  );
+}
+
+/** 노무유형별 공량 표 — 화면과 인쇄가 같은 표(현장 설계서에도 공량 집계가 선다). */
+function LaborTable({ report, e }: { report: ReturnType<typeof computeReport>; e: DesignEstimate }) {
+  const { wages, wageReady, unassigned, unassignedManDays } = e;
+  return (
+    <TableCard widths={[100, '72px', '92px']}>
+      <thead>
+        <TableGroupHead colSpan={3} title="노무유형별 공량" />
+        <tr>
+          <Th>노무유형</Th>
+          <Th align="right" unit="인·일">공량</Th>
+          <Th align="right" unit="원/일">노임단가</Th>
+        </tr>
+      </thead>
+      <tbody>
+        {report.byLaborType.map(({ laborCode, totalManDays }) => {
+          const wage = wages.wageOf(laborCode);
+          return (
+            <tr key={laborCode} className={TABLE_ROW}>
+              <Td className="truncate">{wages.nameOf(laborCode)}</Td>
+              <Td align="right">{manDaysText(totalManDays)}</Td>
+              {!wageReady
+                ? <Td align="right" className="text-warning">미등록</Td>
+                : wage == null
+                  ? <Td align="right" className="text-warning">단가 없음</Td>
+                  : <Td align="right">{won(wage)}</Td>}
+            </tr>
+          );
+        })}
+        {unassigned.length > 0 && (
+          <tr className={TABLE_ROW}>
+            <Td className="truncate text-warning">노무유형 미지정 {unassigned.length}건</Td>
+            <Td align="right">{manDaysText(unassignedManDays)}</Td>
+            <Td align="right" className="text-content-muted">{EMPTY}</Td>
+          </tr>
+        )}
+        <tr className={cn(TABLE_ROW, 'border-t border-line-strong font-semibold')}>
+          <Td>총 공량</Td>
+          <Td align="right">{manDaysText(report.totalManDays)}</Td>
+          <Td />
+        </tr>
+      </tbody>
+    </TableCard>
   );
 }
 
@@ -502,6 +510,7 @@ function DesignPrint({ items, groups, report, e, laborName, substationName }: {
         title="산출 내역" widths={PRINT_COL_W} items={items} groups={groups} laborName={laborName}
         totalMaterialCost={report.totalMaterialCost} totalManDays={report.totalManDays}
       />
+      <LaborTable report={report} e={e} />
       <CostTable e={e} />
     </section>,
     document.body,

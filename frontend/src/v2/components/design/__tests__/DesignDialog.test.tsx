@@ -242,7 +242,13 @@ describe('설계서', () => {
     expect(printed().getByText('노임단가 2026-상반기 · 제비율 2026-04-30')).toBeInTheDocument();
     expect(printed().getByText('공사기간 30일 · 계약방법 경쟁 · 산재보험료 한전 기준')).toBeInTheDocument();
 
-    const [items, cost] = [...doc.querySelectorAll('table')];
+    const tables = [...doc.querySelectorAll('table')];
+    expect(tables).toHaveLength(3);
+    const [items, labor, cost] = tables;
+    /* 노무유형별 공량은 산출 내역과 공사비 사이 — 현장 설계서의 공량 집계. */
+    expect(labor!.querySelector('thead')!.textContent).toContain('노무유형별 공량');
+    expect(within(labor!).getByText('총 공량')).toBeInTheDocument();
+    expect(within(labor!).getByText('통신내선공')).toBeInTheDocument();
     expect(items!.querySelector('thead')!.textContent).toContain('산출 내역');
     expect(items!.querySelector('thead')!.textContent).toContain('공량');
     expect(within(items!).getByTestId('design-material-total').textContent).toBe('6,300,000');

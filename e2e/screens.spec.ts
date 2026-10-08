@@ -264,6 +264,31 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
     });
 
+    test('설계서', async ({ page }) => {
+      await login(page);
+      await openStation(page, '강원본부', '직할', STATION);
+      // 저장하지 않는 변경 하나 — 랙 추가(설계서를 열 거리). 찍고 나서 변경 취소로 물린다
+      await main(page).getByRole('button', { name: '랙 추가' }).click();
+      const addRack = page.getByRole('dialog', { name: '랙 추가' });
+      await addRack.getByRole('textbox', { name: '이름' }).fill('E2E 설계서랙');
+      await addRack.getByRole('combobox', { name: '랙 품목' }).selectOption({ label: '19인치 통신랙' });
+      await addRack.getByRole('button', { name: '추가' }).click();
+      await expect(addRack).toHaveCount(0);
+
+      await page.getByRole('button', { name: '설계서', exact: true }).click();
+      const design = page.getByRole('dialog', { name: '설계서' });
+      await expect(design.getByText('합계 1건')).toBeVisible();
+      await settle(page);
+      await noForbiddenWords(page, '설계서');
+      await shot(page, '50-design');
+      await design.getByRole('button', { name: '닫기' }).last().click();
+      await expect(design).toHaveCount(0);
+
+      await page.getByRole('button', { name: '변경 취소' }).click();
+      await page.getByRole('alertdialog', { name: '변경 취소' }).getByRole('button', { name: '변경 취소' }).click();
+      await expect(page.getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+    });
+
     test('품목 관리 · 기준정보', async ({ page }) => {
       await login(page);
       for (const [kind, label] of [['equipment', '설비 품목'], ['rack', '랙 품목'], ['cable', '케이블 품목'], ['category', '분야']] as const) {
