@@ -41,7 +41,7 @@ SHEET_KEYS = {
 COL_NO, COL_PEER, COL_KIND, COL_USE, COL_NOTE, COL_RESULT, COL_LINE = 0, 1, 2, 3, 4, 9, 10
 HEADER = ['No.', '상대국명', '유형', '회선수용내역', '비고']
 RANGE = re.compile(r'(\d+)~(\d+)코어')
-ROLE_MAIN = re.compile(r'㈜|\(주\)|주회선|-주\)|주_|주\(|\s주$')
+ROLE_MAIN = re.compile(r'㈜|\(주\)|주회선|-주\)|주_|(?<![가-힣])주\(|\s주$')
 ROLE_BACKUP = re.compile(r'\(예\)|예비회선|-예비\)|-예\)|예비_|예비\(|\s예$')
 
 
