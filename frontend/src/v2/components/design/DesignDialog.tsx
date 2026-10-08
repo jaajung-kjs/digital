@@ -41,8 +41,6 @@ const won = (v: number) => v.toLocaleString('ko-KR');
 const qtyText = (v: number) => v.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 const manDaysText = (v: number) => v.toFixed(3);
 const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
-/** 근거 — 「(재료비+노무비) × 4.378%」. 모수가 합이면 괄호로 묶는다(곱이 먼저 읽히지 않게). */
-const basisText = (basis: string, rate: number) => `${basis.includes('+') ? `(${basis})` : basis} × ${pct(rate)}`;
 
 /** 「품목 미지정」은 core 가 품목 이름을 「—」로 둔 줄이다 — 이름 자리에 사정을 적는다. */
 const UNRESOLVED = '—';
@@ -52,6 +50,8 @@ function ItemRow({ item, laborName }: { item: DesignItem; laborName: (code: stri
   /* 사는 것이 없는 줄(철거·이설)은 재료비를 비운다 — 금액은 `materialCostOf` 하나가 센다. */
   const buys = work === INSTALL;
   const note = item.note && item.typeName !== UNRESOLVED ? item.note : null;
+  /* 사는 줄인데 단가가 없으면 재료비는 「0」이 아니라 「—」 — 셈은 그대로 `materialCostOf`(0)다. 표시만. */
+  const priced = buys && item.unitPrice != null;
   return (
     <tr className={TABLE_ROW}>
       <Td><Badge status={work.status}>{work.label}</Badge></Td>
@@ -70,7 +70,7 @@ function ItemRow({ item, laborName }: { item: DesignItem; laborName: (code: stri
       <Td className="text-content-muted">{item.unit}</Td>
       {/* 단가는 적혀 있으면 늘 보인다 — 철거 줄에서도 그것이 그 물건의 값이다. */}
       <Td align="right" className="text-content-muted">{item.unitPrice == null ? EMPTY : won(item.unitPrice)}</Td>
-      <Td align="right">{buys ? won(materialCostOf(item)) : EMPTY}</Td>
+      <Td align="right">{priced ? won(materialCostOf(item)) : EMPTY}</Td>
       <Td className="truncate text-content-muted">{laborName(item.laborCode) ?? EMPTY}</Td>
       <Td align="right">{manDaysText(item.manDays)}</Td>
     </tr>
@@ -147,7 +147,7 @@ export function DesignDialog({ open, onClose }: DesignDialogProps) {
           {notice}
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_26rem] min-[1400px]:grid-cols-[minmax(0,1fr)_28rem]">
           <ItemsColumn items={items} groups={grouped ? groups : null} totalMaterialCost={report.totalMaterialCost} totalManDays={report.totalManDays} notice={notice} laborName={laborName} />
           <div className={cn(COLUMN_H, 'flex min-w-0 flex-col gap-3 overflow-auto')}>
             <CostColumn items={items} report={report} />
@@ -172,6 +172,8 @@ function ItemsColumn({ items, groups, totalMaterialCost, totalManDays, notice, l
   laborName: (code: string | null) => string | null;
 }) {
   const shade = useOverflowShade();
+  /** 사는 줄(신설)인데 자재단가가 없는 줄 — 재료비 합계에 0 으로 들어간다. */
+  const unpriced = items.filter((it) => WORK[it.kind] === INSTALL && it.unitPrice == null).length;
   return (
     <div ref={shade.frameRef} className="relative min-w-0">
       <div className={cn(COLUMN_H, 'min-w-0 overflow-auto')}>
@@ -206,7 +208,10 @@ function ItemsColumn({ items, groups, totalMaterialCost, totalManDays, notice, l
             {/* 합계는 평평한 목록에서 — 묶음 소계를 더하지 않는다(두 국에 걸친 줄이 두 번 세진다). */}
             <tfoot className="sticky bottom-0 bg-surface">
               <tr className={cn(TABLE_ROW, 'border-t border-line-strong font-semibold')}>
-                <Td colSpan={7}>합계 {items.length}건</Td>
+                <Td colSpan={5}>합계 {items.length}건</Td>
+                <Td colSpan={2} align="right" className="text-xs font-normal text-warning" data-testid="design-unpriced">
+                  {unpriced > 0 && `자재단가 미입력 ${unpriced}건`}
+                </Td>
                 <Td align="right" data-testid="design-material-total">{won(totalMaterialCost)}</Td>
                 <Td />
                 <Td align="right" data-testid="design-mandays-total">{manDaysText(totalManDays)}</Td>
@@ -255,16 +260,23 @@ function CostColumn({ items, report }: { items: DesignItem[]; report: ReturnType
 
   const missing = [!wageReady && '노임단가', !overhead && '제비율'].filter(Boolean).join('·');
   const rates = overhead as unknown as OverheadRates | null;
-  const est = !missing && rates
-    ? computeEstimate({ materialCost, directLaborCost }, rates, { days: Number(days.replace(/,/g, '')) || 0, contract, sanjaeBasis: sanjae })
+  /* 공사기간은 1 이상의 정수(일) — 비었거나 잘못 적었으면 0 으로 셈하지 않고 막는다. */
+  const daysText = days.replace(/,/g, '').trim();
+  const daysValue = /^\d+$/.test(daysText) && Number(daysText) > 0 ? Number(daysText) : null;
+  const daysIssue = daysValue == null ? '1 이상의 일수를 입력하세요' : null;
+  const est = !missing && rates && daysValue != null
+    ? computeEstimate({ materialCost, directLaborCost }, rates, { days: daysValue, contract, sanjaeBasis: sanjae })
     : null;
+  const blocked = missing
+    ? `${missing} 기준정보 미등록 — 기준정보에서 업로드하세요`
+    : '공사기간 입력 오류 — 1 이상의 일수를 입력하세요';
 
   return (
     <>
       <DetailCard>
         <DetailCardHeader title="산출 조건" />
-        <DetailRow label="공사기간">
-          <Input size="sm" numeric suffix="일" value={days} onChange={(e) => setDays(e.currentTarget.value)} />
+        <DetailRow label="공사기간" issue={daysIssue}>
+          <Input size="sm" numeric suffix="일" invalid={daysIssue != null} value={days} onChange={(e) => setDays(e.currentTarget.value)} />
         </DetailRow>
         <DetailRow label="계약방법">
           <SegmentedControl
@@ -278,7 +290,11 @@ function CostColumn({ items, report }: { items: DesignItem[]; report: ReturnType
             items={[{ key: '한전', label: '한전 기준' }, { key: '조달청', label: '조달청 기준' }]}
           />
         </DetailRow>
-        <DetailRow label="공사규모" hint={`직접공사비 ${won(Math.round(materialCost + directLaborCost))}원 기준 · 자동`}>
+        {/* 노임단가가 없으면 직접공사비에 노무비가 빠진다 — 구간이 그 사실을 숨기지 않게 적는다. */}
+        <DetailRow
+          label="공사규모"
+          hint={wageReady ? `직접공사비 ${won(Math.round(materialCost + directLaborCost))}원 기준 · 자동` : '노임단가 미등록 — 재료비만 반영'}
+        >
           {band}
         </DetailRow>
         <DetailRow label="기준">
@@ -325,34 +341,36 @@ function CostColumn({ items, report }: { items: DesignItem[]; report: ReturnType
         </tbody>
       </TableCard>
 
-      <TableCard widths={['136px', 100, '112px']}>
+      {/* 율은 제 열에 선다 — 「근거 × 율」 한 칸이면 모수가 긴 줄에서 정작 율이 잘린다. */}
+      <TableCard widths={['132px', 100, '68px', '112px']}>
         <thead>
-          <TableGroupHead colSpan={3} title="공사비" />
+          <TableGroupHead colSpan={4} title="공사비" />
           <tr>
             <Th>항목</Th>
             <Th>근거</Th>
+            <Th align="right">율</Th>
             <Th align="right" unit="원">금액</Th>
           </tr>
         </thead>
         <tbody>
-          <CostRow label="재료비" basis="수량 × 자재단가" amount={materialCost} />
+          <CostRow label="재료비" basis="수량 × 자재단가" amount={est?.materialCost ?? materialCost} />
           {est ? (
             <>
               <CostRow label="직접노무비" basis="공량 × 노임단가" amount={est.directLaborCost} />
               <CostRow
                 label="간접노무비"
-                basis={basisText('직접노무비', rates!.byDuration.간접노무비[est.sizeBand][est.durationBand])}
+                basis="직접노무비" rate={rates!.byDuration.간접노무비[est.sizeBand][est.durationBand]}
                 amount={est.indirectLaborCost}
               />
-              {est.expenses.map((e) => <CostRow key={e.label} label={e.label} basis={basisText(e.basis, e.rate)} amount={e.amount} />)}
-              <CostRow label={est.overheadAdmin.label} basis={basisText(est.overheadAdmin.basis, est.overheadAdmin.rate)} amount={est.overheadAdmin.amount} />
-              <CostRow label={est.profit.label} basis={basisText(est.profit.basis, est.profit.rate)} amount={est.profit.amount} />
-              <CostRow label="부가가치세" basis="합계 × 10%" amount={est.vat} />
+              {est.expenses.map((e) => <CostRow key={e.label} label={e.label} basis={e.basis} rate={e.rate} amount={e.amount} />)}
+              <CostRow label={est.overheadAdmin.label} basis={est.overheadAdmin.basis} rate={est.overheadAdmin.rate} amount={est.overheadAdmin.amount} />
+              <CostRow label={est.profit.label} basis={est.profit.basis} rate={est.profit.rate} amount={est.profit.amount} />
+              <CostRow label="부가가치세" basis="합계" rate={0.1} amount={est.vat} />
             </>
           ) : (
             <tr className={TABLE_ROW}>
-              <Td colSpan={3} className="text-warning" data-testid="design-blocked">
-                {missing} 기준정보 미등록 — 기준정보에서 업로드하세요
+              <Td colSpan={4} className="text-warning" data-testid="design-blocked">
+                {blocked}
               </Td>
             </tr>
           )}
@@ -362,7 +380,7 @@ function CostColumn({ items, report }: { items: DesignItem[]; report: ReturnType
           <tfoot className="sticky bottom-0 bg-surface">
             <tr className={cn(TABLE_ROW, 'border-t border-line-strong font-semibold')}>
               <Td>총공사비</Td>
-              <Td className="truncate font-normal text-warning">{missingWage > 0 && `노임 미반영 ${missingWage}건`}</Td>
+              <Td colSpan={2} className="truncate font-normal text-warning">{missingWage > 0 && `노임 미반영 ${missingWage}건`}</Td>
               <Td align="right" data-testid="design-total">{won(est.total)}</Td>
             </tr>
           </tfoot>
@@ -372,11 +390,12 @@ function CostColumn({ items, report }: { items: DesignItem[]; report: ReturnType
   );
 }
 
-function CostRow({ label, basis, amount }: { label: string; basis: string; amount: number }) {
+function CostRow({ label, basis, rate, amount }: { label: string; basis: string; rate?: number; amount: number }) {
   return (
     <tr className={TABLE_ROW}>
       <Td className="truncate" title={label}>{label}</Td>
       <Td className="truncate text-xs text-content-faint" title={basis}>{basis}</Td>
+      <Td align="right" className="text-content-muted">{rate == null ? '' : pct(rate)}</Td>
       <Td align="right">{won(amount)}</Td>
     </tr>
   );

@@ -96,7 +96,9 @@ describe('설계서', () => {
     expect(groups.map((g) => within(g).getAllByRole('columnheader')[0]!.textContent)).toEqual([
       expect.stringContaining('(구)춘천S/S'), expect.stringContaining('북춘천S/S'),
     ]);
-    /* 광선로는 대표 국(A 끝 북춘천)에 한 번만 선다. */
+    /* 줄마다 묶음 하나에만 선다 — 두 국에 걸친 광선로도(대표 국 A 끝 북춘천). */
+    const names = groups.flatMap((g) => within(g).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[2]!.textContent));
+    expect(names.sort()).toEqual(['E-new', 'R-new', '북춘천S/S–(구)춘천S/S'].sort());
     expect(within(groups[1]!).getByText('북춘천S/S–(구)춘천S/S')).toBeInTheDocument();
     expect(within(groups[1]!).getByText('광선로')).toBeInTheDocument();
     /* 1,200,000 + 3,000,000 + 1500 m × 3,400 = 9,300,000 */
@@ -160,7 +162,44 @@ describe('설계서', () => {
     expect(within(indirect()).getByText('57,300')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('공사기간'), { target: { value: '200' } });
     expect(within(indirect()).getByText('58,500')).toBeInTheDocument();
-    expect(within(indirect()).getByText('직접노무비 × 19.5%')).toBeInTheDocument();
+    expect(within(indirect()).getByText('19.5%')).toBeInTheDocument();
+    expect(within(indirect()).getByText('직접노무비')).toBeInTheDocument();
+  });
+
+  it('공사기간이 비었거나 잘못이면 그 자리에서 말하고 금액을 막는다 — 0 으로 셈하지 않는다', () => {
+    seed();
+    store.getState().create('racks', rack('R-new', 'S1'));
+    open();
+    const days = screen.getByLabelText('공사기간');
+    for (const bad of ['', 'abc', '0']) {
+      fireEvent.change(days, { target: { value: bad } });
+      fireEvent.blur(days);
+      expect(screen.getByText('1 이상의 일수를 입력하세요')).toBeInTheDocument();
+      expect(screen.getByTestId('design-blocked').textContent).toContain('공사기간 입력 오류');
+      expect(screen.queryByTestId('design-total')).toBeNull();
+    }
+    fireEvent.change(days, { target: { value: '45' } });
+    expect(screen.queryByText('1 이상의 일수를 입력하세요')).toBeNull();
+    expect(screen.getByTestId('design-total')).toBeInTheDocument();
+  });
+
+  it('신설인데 자재단가가 없으면 재료비는 「—」, 합계 옆에 「자재단가 미입력 n건」', () => {
+    h.catalog = { ...BASE_CATALOG, rackTypes: [{ ...BASE_CATALOG.rackTypes[0]!, unitPrice: null }] };
+    seed();
+    store.getState().create('racks', rack('R-new', 'S1'));
+    open();
+    const row = screen.getByText('R-new').closest('tr')!;
+    expect(within(row).getAllByText('—').length).toBeGreaterThanOrEqual(2); // 자재단가 · 재료비
+    expect(within(row).queryByText('0')).toBeNull();
+    expect(screen.getByTestId('design-unpriced').textContent).toBe('자재단가 미입력 1건');
+  });
+
+  it('노임단가가 없으면 공사규모는 재료비만 반영했다고 적는다', () => {
+    h.catalog = { ...BASE_CATALOG, wageStandard: null };
+    seed();
+    store.getState().create('racks', rack('R-new', 'S1'));
+    open();
+    expect(screen.getByText('노임단가 미등록 — 재료비만 반영')).toBeInTheDocument();
   });
 
   it('변경이 없으면 「변경 내용이 없습니다」, 값 변경만 있으면 산출하지 않는다고 말한다', () => {
