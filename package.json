@@ -1,7 +1,7 @@
 {
   "name": "ict-digital-twin",
   "version": "1.0.0",
-  "description": "ICT실 설비 디지털 트윈 시스템",
+  "description": "ICT 설비관리시스템",
   "private": true,
   "workspaces": [
     "frontend",

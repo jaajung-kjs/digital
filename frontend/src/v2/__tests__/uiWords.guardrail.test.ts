@@ -154,6 +154,12 @@ describe('화면 글자 금지어', () => {
     expect(hits()).toEqual([]);
   });
 
+  it('브라우저 탭 이름(index.html)도 제품 이름 하나 — 「ICT 설비관리시스템」(결정 8)', () => {
+    const html = readFileSync(join(SRC, '..', 'index.html'), 'utf8');
+    expect(html).toMatch(/<title>ICT 설비관리시스템<\/title>/);
+    for (const [name, re] of FORBIDDEN) expect(re.test(html.replace(/<!--[\s\S]*?-->/g, '')), name).toBe(false);
+  });
+
   it('검사가 눈이 멀지 않았다 — 금지어를 실제로 잡는다', () => {
     const probe = ['회로', '안의 설비', '종류', '자산', '빈 판', '판을 골라', '판'];
     for (const w of probe) {
