@@ -31,14 +31,17 @@ beforeAll(async () => {
 });
 afterAll(async () => { await sweepTestFixtures(); await nextDb.$disconnect(); });
 
+/** 만든 광선로 수 — 같은 슬롯에 쌓이므로 어댑터 범위를 띄운다(겹치면 ⑨ 판정이 거절한다). 첫 선로는 1·25 에서 시작한다. */
+let lineSeq = 0;
 /** S1–S2 광선로 하나를 만들고 id 를 돌려준다. */
 async function makeLine(coreCount = 24) {
   const id = randomUUID();
+  const off = 1000 * lineSeq++;
   await commit({
     fiberLines: { creates: [{
       id, cableTypeId: m.fiberCableId, coreCount, name: '154kV 시험T/L', lengthKm: 18.74,
-      a: { substationId: org.s1, equipmentId: site.s1.ofd, panel: 2 },
-      b: { substationId: org.s2, equipmentId: site.s2.ofd, panel: 5, startNo: 25 },
+      a: { substationId: org.s1, equipmentId: site.s1.ofd, panel: 2, ...(off ? { startNo: 1 + off } : {}) },
+      b: { substationId: org.s2, equipmentId: site.s2.ofd, panel: 5, startNo: 25 + off },
     }] },
   }).expect(200);
   return id;
@@ -69,6 +72,18 @@ describe('PUT /commit — 광선로·코어·측정·연결', () => {
     expect(core.role).toBe('main');
     expect([core.aPurpose, core.bPurpose]).toEqual(['PTP 시험 WEST', null]);
     expect(core.linkEnds.map((e) => e.coreSide).sort()).toEqual(['A', 'B']);
+  });
+
+  it('같은 접속 설비·슬롯의 어댑터 범위가 겹치거나 슬롯 수를 넘으면 422 — 서버도 같은 core 판정(⑨)', async () => {
+    const at = (panel: number, startNo: number) => ({
+      fiberLines: { creates: [{ id: randomUUID(), cableTypeId: m.fiberCableId, coreCount: 4, name: null, lengthKm: null,
+        a: { substationId: org.s1, equipmentId: site.s1.ofd, panel: 8, startNo }, b: { substationId: org.s2, equipmentId: site.s2.ofd, panel, startNo: 900 } }] },
+    });
+    await commit(at(8, 500)).expect(200);
+    const overlap = await commit(at(8, 502)).expect(422);
+    expect(overlap.body.details.map((i: { code: string }) => i.code)).toContain('LINE_SLOT_OVERLAP');
+    const range = await commit(at(9, 600)).expect(422);
+    expect(range.body.details.map((i: { code: string }) => i.code)).toContain('LINE_SLOT_RANGE');
   });
 
   it('S1 국 연결이 B 끝(S2 쪽)을 쓰면 422 INVALID_STATE', async () => {
