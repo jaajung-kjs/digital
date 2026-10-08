@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import { MAX_CIRCUITS, type LinkEndRef, type PowerBreaker, type PowerNode } from '@twin/core';
 import {
-  Button, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, TableSubHead, cn, type TableGroupMeta,
+  Button, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, TableSubHead, cn, type TableColumn, type TableGroupMeta,
 } from '../../../components/ui';
 import type { Circuit } from '../../model/types';
 import {
-  BreakerCells, BreakerHeadRow, breakerColumnsHiding, emptyBreakerColumns, type BreakerRowView,
+  BreakerCells, BreakerHeadRow, emptyBreakerColumns, ledgerBreakerColumns, type BreakerRowView,
 } from '../equipment/breakerColumns';
-import { EditOnly } from '../../useCanEdit';
+import { EditOnly, useCanEdit } from '../../useCanEdit';
 
 /** 고정 머리의 바닥선은 그림자다(선번장 블록과 같은 까닭 — 겹친 테두리는 sticky 를 따라오지 않는다). */
 const HEAD = 'border-b-0 shadow-[inset_0_-1px_0_rgb(var(--border-2-rgb))]';
@@ -60,29 +60,8 @@ export function PowerLedger({
   blocks, heads, narrowed = false, focusId, selectedEquipmentId, label, nameOf, cableName,
   onSelectSupply, onSelectEquipment, onConnect, onAddCircuit, onUpdateCircuit,
 }: PowerLedgerProps) {
-  return (
-    <div className="flex flex-col gap-3">
-      {blocks.map((n) => (
-        <LedgerBlock
-          key={n.equipmentId} node={n} head={heads.get(n.equipmentId)!} narrowed={narrowed} focused={focusId === n.equipmentId}
-          selectedEquipmentId={selectedEquipmentId} label={label} nameOf={nameOf} cableName={cableName}
-          onSelectSupply={onSelectSupply} onSelectEquipment={onSelectEquipment} onConnect={onConnect}
-          onAddCircuit={onAddCircuit} onUpdateCircuit={onUpdateCircuit}
-        />
-      ))}
-    </div>
-  );
-}
-
-/**
- * 블록 하나 — 열은 편집 창과 **같은 선언**(`BREAKER_COLUMNS`)이고, 판 폭에 따라 병합·숨는다(§1.7-e).
- * 블록 안에서 값이 모두 빈 열은 숨긴다(채우는 곳은 편집 창).
- */
-function LedgerBlock({
-  node: n, head, narrowed, focused, selectedEquipmentId, label, nameOf, cableName,
-  onSelectSupply, onSelectEquipment, onConnect, onAddCircuit, onUpdateCircuit,
-}: Omit<PowerLedgerProps, 'blocks' | 'heads' | 'focusId'> & { node: PowerNode; head: LedgerHead; focused: boolean }) {
-  const view = (b: PowerBreaker): BreakerRowView => ({
+  const canEdit = useCanEdit();
+  const viewOf = (b: PowerBreaker): BreakerRowView => ({
     no: b.no,
     circuit: b,
     load: b.load == null ? null
@@ -92,9 +71,36 @@ function LedgerBlock({
     cable: b.cableTypeId ? cableName(b.cableTypeId) : null,
     lengthM: b.lengthM,
   });
-  const views = new Map(n.breakers.map((b) => [b.no, view(b)]));
-  const hiddenKey = [...emptyBreakerColumns([...views.values()])].join(',');
-  const columns = useMemo(() => breakerColumnsHiding(new Set(hiddenKey ? hiddenKey.split(',') : [])), [hiddenKey]);
+  /* 빈 열은 **대장 전체**(보이는 블록 모두)로 센다 — 블록마다 열이 같아야 세로로 훑인다(I1). */
+  const hiddenKey = [...emptyBreakerColumns(blocks.flatMap((n) => n.breakers.map(viewOf)))].join(',');
+  const columns = useMemo(() => ledgerBreakerColumns(new Set(hiddenKey ? hiddenKey.split(',') : []), canEdit), [hiddenKey, canEdit]);
+  return (
+    <div className="flex flex-col gap-3">
+      {blocks.map((n) => (
+        <LedgerBlock
+          key={n.equipmentId} node={n} head={heads.get(n.equipmentId)!} narrowed={narrowed} focused={focusId === n.equipmentId}
+          columns={columns} viewOf={viewOf}
+          selectedEquipmentId={selectedEquipmentId}
+          onSelectSupply={onSelectSupply} onSelectEquipment={onSelectEquipment} onConnect={onConnect}
+          onAddCircuit={onAddCircuit} onUpdateCircuit={onUpdateCircuit}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 블록 하나 — 열은 편집 창과 **같은 선언**(`BREAKER_COLUMNS`)이고, 판 폭에 따라 병합·숨는다(§1.7-e2).
+ * 빈 열은 대장 전체로 정한 것을 받는다(`ledgerBreakerColumns`) — 블록끼리 열이 맞는다.
+ */
+function LedgerBlock({
+  node: n, head, narrowed, focused, selectedEquipmentId, columns, viewOf,
+  onSelectSupply, onSelectEquipment, onConnect, onAddCircuit, onUpdateCircuit,
+}: Omit<PowerLedgerProps, 'blocks' | 'heads' | 'focusId' | 'label' | 'nameOf' | 'cableName'> & {
+  node: PowerNode; head: LedgerHead; focused: boolean;
+  columns: readonly TableColumn[]; viewOf: (b: PowerBreaker) => BreakerRowView;
+}) {
+  const views = new Map(n.breakers.map((b) => [b.no, viewOf(b)]));
 
   const row = (b: PowerBreaker) => (
     <tr key={b.no} data-testid={`ledger-row-${b.no}`} tabIndex={-1} className={cn(TABLE_ROW, 'group')}>
@@ -122,11 +128,12 @@ function LedgerBlock({
             title={(
               <>
                 <TableGroupHeadButton title={`${head.name} 상세 보기`} onClick={() => onSelectSupply(n.equipmentId)}>{head.name}</TableGroupHeadButton>
-                <span className="font-normal text-content-muted">· 차단기 {narrowed ? `${n.breakers.length} / ${head.count}` : head.count}</span>
+                <span className="font-normal text-content-muted">· 차단기 {narrowed ? `${n.breakers.length} / ${head.count}` : head.count}개</span>
               </>
             )}
-            metas={head.feeds}
-            wrapMetas
+            /* 다모선이면 입력 전원은 소묶음 머리(「교류 모선 · 입력: …」)가 말한다 — 머리줄에는 **보기 밖**(흐린) 것만 남긴다
+               (그 모선은 거르기로 소묶음 머리가 서지 않는다). 머리줄은 한 줄이고 넘치면 말줄임(전문은 title). */
+            metas={n.multiBus ? head.feeds.filter((f) => f.faint) : head.feeds}
             actions={(
               <EditOnly>
                 <Button variant="secondary" size="xs" disabled={head.count >= MAX_CIRCUITS} onClick={() => onAddCircuit(n.equipmentId)}>차단기 추가</Button>

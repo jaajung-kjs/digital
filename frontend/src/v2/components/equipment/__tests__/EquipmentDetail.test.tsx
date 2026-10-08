@@ -58,7 +58,7 @@ describe('설비 상세 — 차단기', () => {
     store.getState().updateCircuit('p', 2, { label: 'F2', capacity: '30A', current: 'AC', switch: 'on' });
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     const rows = breakerRows();
-    expect(rows.map((r) => r.textContent)).toEqual(['1', '2 · F2 · 30 A · 교류 · 투입 → 부하']);
+    expect(rows.map((r) => r.textContent)).toEqual(['1', '2 · F2 · 교류 · 30 A · 투입 → 부하']);
     expect(rows[1]).toHaveClass('truncate');
     expect(breakerCard()).not.toHaveTextContent('회로');
     expect(screen.queryByRole('table')).toBeNull();

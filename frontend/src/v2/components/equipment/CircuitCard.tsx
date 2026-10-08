@@ -10,9 +10,10 @@ import { EditOnly } from '../../useCanEdit';
 const wordOf = (vocab: readonly { value: string; label: string }[], v: string | null) => (v ? vocab.find((x) => x.value === v)?.label ?? v : null);
 
 /**
- * 차단기 요약 — 좁은 패널(364px)에서는 **한 줄씩만** 읽는다: `번호 · 표기 · 용량 · 교류/직류 · 개폐 → 부하`.
- * 빈 칸은 건너뛰고 넘치면 말줄임. 고치는 일은 넓은 편집 창(`BreakerEditor`)이 맡는다 — 줄을 누르면 그 줄로 열린다.
- * 차단기가 없으면 카드를 그리지 않는다(더하는 길은 설비 머리의 「차단기 추가」).
+ * 차단기 요약 — 좁은 패널(364px)에서는 **한 줄씩만** 읽는다: `번호 · 표기 · 교류/직류 · 전압 · 용량 · 상 · 개폐 · 비고 → 부하`.
+ * 대장이 좁은 판에서 숨기는 값(전압·상·개폐·비고)도 여기서는 다 읽힌다. 빈 칸은 건너뛰고 넘치면 말줄임(전문은 title).
+ * 고치는 일은 넓은 「차단기 수정」 창(`BreakerEditor`)이 맡는다 — 줄을 누르면 그 줄로 열린다.
+ * 차단기가 없으면 카드를 그리지 않는다(더하는 길은 정보 카드 끝의 「차단기 추가」).
  * `onOpenPower` 를 주면 머리에 「차단기 대장에서 보기」 — 차단기 대장의 이 설비 블록으로 건너간다(기록을 남긴다).
  */
 export function CircuitCard({ equipmentId, onEdit, onAdd, onOpenPower }: {
@@ -27,7 +28,10 @@ export function CircuitCard({ equipmentId, onEdit, onAdd, onOpenPower }: {
   if (rows.length === 0) return null;
 
   const line = (c: Circuit) => {
-    const head = joinParts([String(c.no), c.label, c.capacity && unitValueText(c.capacity), wordOf(CIRCUIT_CURRENTS, c.current), wordOf(SWITCH_STATES, c.switch)]) ?? String(c.no);
+    const head = joinParts([
+      String(c.no), c.label, wordOf(CIRCUIT_CURRENTS, c.current), c.voltage && unitValueText(c.voltage), c.capacity && unitValueText(c.capacity),
+      c.phase, wordOf(SWITCH_STATES, c.switch), c.purpose && `비고 ${c.purpose}`,
+    ]) ?? String(c.no);
     const hit = circuitLink(links, equipmentId, c.no);
     return hit ? `${head} → ${endLabel({ saved, overlays }, hit.far)}` : head;
   };

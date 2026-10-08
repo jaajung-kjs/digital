@@ -94,11 +94,14 @@ describe('전원 계통 — 차단기 대장', () => {
     s.updateCircuit('chg', 1, { current: 'DC' });
     renderPower();
     const head = () => within(blockOf('dist')).getByTestId('ledger-block-head');
-    expect(head()).toHaveTextContent('교류 입력: 소내전원반 차단기 4');
-    expect(head()).toHaveTextContent('직류 입력: 충전기 차단기 1');
-    expect(head()).toHaveTextContent('입력 전원: UPS 차단기 1');
+    const block = () => blockOf('dist');
+    /* 단모선이면 머리줄이 입력 전원을 다 말한다 — 다모선이면 소묶음 머리가 말하고 머리줄은 되풀이하지 않는다(I7). */
+    const all = () => [head(), ...within(block()).queryAllByTestId('ledger-bus-head')].map((x) => x.textContent).join(' | ');
+    expect(all()).toContain('교류 모선 · 입력: 소내전원반 차단기 4');
+    expect(all()).toContain('직류 모선 · 입력: 충전기 차단기 1');
+    expect(all()).toContain('교류/직류 미지정 · 입력: UPS 차단기 1');
+    expect(head()).not.toHaveTextContent('입력');
     fireEvent.change(screen.getByRole('combobox', { name: '교류/직류' }), { target: { value: 'DC' } });
-    expect(within(head()).getByText('직류 입력: 충전기 차단기 1')).toHaveClass('text-content-muted');
     const ac = within(head()).getByText('교류 입력: 소내전원반 차단기 4');
     expect(ac).toHaveClass('text-content-faint');
     expect(ac.getAttribute('title')).toContain('현재 보기 밖의 입력');

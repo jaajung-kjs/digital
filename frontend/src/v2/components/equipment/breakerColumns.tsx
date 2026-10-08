@@ -71,7 +71,10 @@ export interface BreakerRowView {
 
 const faint = (v: ReactNode) => <span className="text-content-faint">{v}</span>;
 
-/** 블록 안에서 값이 모두 빈 열(대장만 숨긴다 — 편집 창은 빈 칸을 채우는 곳이다). */
+/**
+ * 값이 모두 빈 열 — **대장 전체**(보이는 블록 모두)의 줄로 센다. 블록마다 세면 블록마다 열 차례가 달라져 세로로 훑던 눈이
+ * 어긋난다(「부하」가 한 블록에서는 x=723, 다음 블록에서는 763). 편집 창은 늘 다 세운다(빈 칸을 채우는 곳).
+ */
 export function emptyBreakerColumns(rows: readonly BreakerRowView[]): Set<string> {
   const empty = new Set<string>();
   const all = (f: (r: BreakerRowView) => unknown) => rows.every((r) => f(r) == null || f(r) === '');
@@ -87,9 +90,20 @@ export function emptyBreakerColumns(rows: readonly BreakerRowView[]): Set<string
   return empty;
 }
 
-/** 열 선언에 블록의 빈 열을 얹는다. */
-export const breakerColumnsHiding = (hidden: ReadonlySet<string>): readonly TableColumn[] =>
-  hidden.size === 0 ? BREAKER_COLUMNS : BREAKER_COLUMNS.map((c) => (hidden.has(c.key) ? { ...c, hidden: true } : c));
+/**
+ * 대장의 열 선언 — 빈 열의 규칙 하나(§1.7-e2 「빈 열」):
+ * - 조회 사용자: 빈 열은 서지 않는다(읽을 것이 없다).
+ * - 고칠 수 있는 사람: 빈 열은 **wide 에서만** 「—」로 선다 — 그 자리에서 바로 채운다. 판이 좁으면 가장 먼저 빠지고,
+ *   그때 채우는 길은 설비 상세의 「차단기 수정」 창(전 열)이다. 병합 열(「정격」)은 둘 다 비면 서지 않는다.
+ */
+export function ledgerBreakerColumns(empty: ReadonlySet<string>, canEdit: boolean): readonly TableColumn[] {
+  if (empty.size === 0) return BREAKER_COLUMNS;
+  return BREAKER_COLUMNS.map((c) => {
+    if (!empty.has(c.key)) return c;
+    if (!canEdit || c.merged) return { ...c, hidden: true };
+    return { ...c, priority: 2 };
+  });
+}
 
 /**
  * 차단기 한 줄의 칸들 — 순위로 숨거나 병합된 값은 차단기 번호 칸 `title` 에 모인다.
@@ -132,7 +146,17 @@ export function BreakerCells({ row, onSet, onConnect, connectOnHover = false, on
 
   return (
     <>
-      <Td align="right" col="no" title={hiddenText ? `차단기 ${row.no} · ${hiddenText}` : undefined}>{noCell ?? row.no}</Td>
+      <Td align="right" col="no">
+        {/* 숨은 값은 **닿을 수 있는** 번호 위에 — 키보드로 와도 title·접근 설명이 읽힌다(날 td 의 title 은 마우스 전용이었다). */}
+        {hiddenText && noCell == null ? (
+          <span
+            tabIndex={0} title={`차단기 ${row.no} · ${hiddenText}`} aria-label={`차단기 ${row.no}`} aria-description={hiddenText}
+            className="rounded focus-visible:outline-none focus-ring-input"
+          >
+            {row.no}
+          </span>
+        ) : (noCell ?? row.no)}
+      </Td>
       <Td col="label">{cell('label')}</Td>
       <Td col="current">{cell('current')}</Td>
       <Td col="voltage">{cell('voltage')}</Td>

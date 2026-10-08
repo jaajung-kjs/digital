@@ -5,7 +5,7 @@ import { Th, useTableLayout } from './Table';
 /**
  * 묶음 표의 **묶음 머리줄**(§3.7) — `thead` 첫 줄에 표 폭을 다 쓰는 한 칸: 제목 · 메타(흐리게) · 오른쪽 끝 단추.
  *
- * 선번장 블록(「OFD · 슬롯 2 ↔ 송광치 · 24심」 + 측정 입력·편집)이 처음 썼고, 차단기 대장처럼 묶음마다
+ * 선번장 블록(「OFD · 슬롯 2 ↔ 송광치 · 24심」 + 측정 등록·광선로 수정)이 처음 썼고, 차단기 대장처럼 묶음마다
  * 표를 세우는 판이 같은 한 벌을 쓴다. 손으로 짜면 제목 굵기·메타 잘림·단추 자리가 판마다 갈린다.
  *
  * - **제목은 잘리지 않는다**(`shrink-0`) — 어느 묶음인지가 이 줄의 뜻이다. 넘치면 메타가 먼저 말줄임된다.
@@ -17,19 +17,14 @@ import { Th, useTableLayout } from './Table';
 export interface TableGroupMeta { text: string; faint?: boolean; title?: string }
 
 export function TableGroupHead({
-  colSpan: span, title, metas = [], wrapMetas = false, actions, className, ...rest
+  colSpan: span, title, metas = [], actions, className, ...rest
 }: {
   /** 기본은 지금 서는 열 수(`TableCard columns`). */
   colSpan?: number;
   /** 굵은 제목 — 글자든 `TableGroupHeadButton` 이든. 여럿이면 그대로 늘어놓는다. */
   title: ReactNode;
-  /** 흐린 메타(선로명·길이·케이블) — 빈 것은 건너뛴다. 넘치면 말줄임(전문은 title). */
+  /** 흐린 메타(선로명·길이·케이블) — 빈 것은 건너뛴다. 넘치면 말줄임(전문은 title). 머리줄은 늘 한 줄이다(§1.7-g). */
   metas?: readonly (string | TableGroupMeta | null | undefined)[];
-  /**
-   * 메타가 넘치면 말줄임 대신 **머리 안에서 다음 줄로** 내린다 — 메타가 그 묶음의 뜻인 판(차단기 대장의 입력 전원)용.
-   * 상세 레일이 선 1280 에서 「교류 입력: … · 직류 입력: …」이 잘리면 어디서 받는지를 읽을 수 없다.
-   */
-  wrapMetas?: boolean;
   /** 오른쪽 끝 단추 — 표 줄 안이므로 `size="xs"`. */
   actions?: ReactNode;
   /** 칸 테두리 같은 꾸밈(고정 머리의 바닥 그림자 등). */
@@ -43,19 +38,17 @@ export function TableGroupHead({
   const meta = (m: TableGroupMeta, i: number) => (
     <span
       key={i} title={m.title ?? m.text} data-faint={m.faint ? '' : undefined}
-      className={cn('min-w-0 font-normal', wrapMetas ? 'break-keep' : 'truncate', m.faint ? 'text-content-faint' : 'text-content-muted')}
+      className={cn('min-w-0 truncate font-normal', m.faint ? 'text-content-faint' : 'text-content-muted')}
     >
       {m.text}
     </span>
   );
   return (
     <tr>
-      <Th colSpan={span ?? layout.colCount} bare className={cn(wrapMetas && 'whitespace-normal', className)}>
+      <Th colSpan={span ?? layout.colCount} bare className={className}>
         <span data-testid={rest['data-testid']} className="flex min-w-0 items-center gap-3">
           <span className="flex shrink-0 items-center gap-1.5 text-sm font-semibold text-content">{title}</span>
-          {wrapMetas
-            ? items.length > 0 && <span className="flex min-w-0 flex-1 flex-wrap gap-x-3 gap-y-0.5 py-0.5">{items.map(meta)}</span>
-            : items.map(meta)}
+          {items.map(meta)}
           {actions && (
             <span className="ml-auto flex shrink-0 items-center gap-1 pl-2">{actions}</span>
           )}
@@ -68,7 +61,6 @@ export function TableGroupHead({
 /**
  * 묶음 안의 **소묶음 머리줄** — `tbody` 안에서 표 폭을 다 쓰는 한 칸, 묶음 머리줄(`TableGroupHead`)보다 한 단 가볍게
  * (열 머리 글씨 크기·흐림, 이름만 본문색). 차단기 대장의 「교류 모선 · 입력: 소내전원반 차단기 4」·「교류/직류 미지정」.
- * 표가 판보다 넓을 수 있는 판은 감싸는 쪽에 `[container-type:inline-size]` 를 단다(`TableGroupHead wrapMetas` 와 같다).
  */
 export function TableSubHead({ colSpan, name, meta, 'data-testid': testId }: {
   /** 기본은 지금 서는 열 수. */
