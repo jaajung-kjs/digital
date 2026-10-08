@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { CORE_ROLES, coreRoleCircuitLabel, type OpticalPath, type PathBundle } from '@twin/core';
-import { Button, DetailCard, DetailCardHeader, IconButton, ListRow, SELECTED, TableSearch } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, EMPTY, IconButton, ListRow, SELECTED, TableSearch } from '../../../components/ui';
 import { DutyBadge } from './duty';
 import type { NetworkView } from './networkSelectors';
 import { equipmentLabel, lineName, type OpticalMapModel, type Ring, type Warning } from './opticalMapModel';
@@ -14,7 +14,7 @@ export const warningKey = (w: Warning) => `${w.mainBundle}~${w.backupBundle}`;
  * 설비 이름이 다르면 둘 다(`I-MUX(B) ↔ I-MUX(북춘천-춘천H/P) · 북춘천 ↔ 춘천HP`).
  */
 function bundleTitle(view: NetworkView, b: PathBundle): string {
-  const [a, z] = [view.equipmentName(b.a.equipmentId) ?? '—', view.equipmentName(b.b.equipmentId) ?? '—'];
+  const [a, z] = [view.equipmentName(b.a.equipmentId) ?? EMPTY, view.equipmentName(b.b.equipmentId) ?? EMPTY];
   const [sa, sz] = [shortStationName(view.substationName(b.a.substationId)), shortStationName(view.substationName(b.b.substationId))];
   return `${a === z ? a : `${a} ↔ ${z}`} · ${sa === sz ? sa : `${sa} ↔ ${sz}`}`;
 }
@@ -101,7 +101,7 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
                 title={`주/예비회선이 같은 광선로를 지납니다 — ${names}`}
                 {...on(picked.warnings.has(warningKey(w)))}
               >
-                {main ? `${equipmentLabel(view, main.a)} ↔ ${equipmentLabel(view, main.b)}` : '—'}
+                {main ? `${equipmentLabel(view, main.a)} ↔ ${equipmentLabel(view, main.b)}` : EMPTY}
               </ListRow>
             );
           })}
@@ -119,7 +119,7 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
           ) : model.rings.map((r) => {
             const names = r.equipmentIds.map((id) => {
               const end = model.bundles.flatMap((b) => [b.a, b.b]).find((e) => e.equipmentId === id);
-              return end ? equipmentLabel(view, end) : (view.equipmentName(id) ?? '—');
+              return end ? equipmentLabel(view, end) : (view.equipmentName(id) ?? EMPTY);
             }).join(' · ');
             return (
               <ListRow key={r.id} onClick={() => onRing(r)} trailing={`회선 ${r.bundleIds.length}개`} title={names} {...on(picked.rings.has(r.id))}>
@@ -153,7 +153,7 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
               {model.incomplete.map((p) => {
                 const end = p.start ?? p.end;
                 const cause = BREAK_TEXT[breakCause(view, p, p.start ? 'end' : 'start')];
-                const label = end ? `${equipmentLabel(view, end)}${end.port ? ` · ${end.port}` : ''}` : '—';
+                const label = end ? `${equipmentLabel(view, end)}${end.port ? ` · ${end.port}` : ''}` : EMPTY;
                 const meta = `${pathSummary(view, p)} · ${cause}`;
                 return (
                   <ListRow key={p.id} onClick={() => onIncomplete(p)} meta={meta} title={`${label} — ${meta} · 중계경로 보기`}>

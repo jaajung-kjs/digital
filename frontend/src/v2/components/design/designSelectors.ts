@@ -3,6 +3,7 @@ import { effectiveRows, substationName } from '../../model/store/effective';
 import { emptyOverlays, type WorkingCopyState } from '../../model/store/workingCopy';
 import type { Catalog, Link } from '../../model/types';
 import { endLabel } from '../equipment/endpoints';
+import { EMPTY } from '../../../components/ui/format';
 
 type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
 
@@ -46,7 +47,7 @@ export function designInput(s: S, catalog: Pick<Catalog, 'rackTypes' | 'equipmen
     rackTypes: catalog.rackTypes.map(laborType),
     equipmentTypes: catalog.equipmentTypes.map(laborType),
     cableTypes: catalog.cableTypes.map(laborType),
-    substationName: (id) => substationName(s, id) ?? nameOf(id) ?? '—',
+    substationName: (id) => substationName(s, id) ?? nameOf(id) ?? EMPTY,
   };
 }
 

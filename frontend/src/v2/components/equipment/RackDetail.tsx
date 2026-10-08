@@ -42,7 +42,7 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
     onDeleted();
   }
 
-  const place = rack.floorId == null ? '미배치' : `${saved.floors.find((f) => f.id === rack.floorId)?.name ?? '—'} (${rack.x ?? EMPTY}, ${rack.y ?? EMPTY})`;
+  const place = rack.floorId == null ? '미배치' : `${saved.floors.find((f) => f.id === rack.floorId)?.name ?? EMPTY} (${rack.x ?? EMPTY}, ${rack.y ?? EMPTY})`;
   return (
     <ViewCard title={rack.name} actions={<Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>} body="scroll">
       <div className="space-y-3">

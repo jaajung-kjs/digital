@@ -2,6 +2,7 @@ import type { NetworkInput } from '@twin/core';
 import type { Network, NetworkLine } from '../../model/networkApi';
 import { effectiveCores, effectiveRows, outsideLinks, substationName } from '../../model/store/effective';
 import type { WorkingCopyState } from '../../model/store/workingCopy';
+import { EMPTY } from '../../../components/ui/format';
 
 type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
 
@@ -70,7 +71,7 @@ export function effectiveNetwork(server: Network | undefined, s: S): NetworkView
       equipmentSubstation: (id) => eq.get(id)?.substationId ?? null,
     },
     line: (id) => lineById.get(id),
-    substationName: (id) => substationName(s, id) ?? serverSubs.get(id) ?? '—',
+    substationName: (id) => substationName(s, id) ?? serverSubs.get(id) ?? EMPTY,
     equipmentName: (id) => eq.get(id)?.name ?? null,
     isTruncated: (lineId, no) => cut.has(`${lineId}:${no}`),
     truncated: server?.truncated ?? false,

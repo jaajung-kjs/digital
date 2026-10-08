@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { LinkEndRef, SheetBlock } from '@twin/core';
-import { Button, EmptyState, ErrorStrip, OverflowShade, Select, TableSearch, ViewCard, scrollBoxToTop, useConfirm, useOverflowShade } from '../../../components/ui';
+import { Button, EMPTY, EmptyState, ErrorStrip, OverflowShade, Select, TableSearch, ViewCard, scrollBoxToTop, useConfirm, useOverflowShade } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
 import { equipmentName } from '../../model/store/effective';
@@ -65,7 +65,7 @@ export function LineSheetView({
     const seen = new Map<string, string>();
     for (const b of blocks) {
       const key = b.equipmentId ?? UNASSIGNED;
-      if (!seen.has(key)) seen.set(key, b.equipmentId ? (equipmentName(s, b.equipmentId) ?? '—') : '접속 설비 미지정');
+      if (!seen.has(key)) seen.set(key, b.equipmentId ? (equipmentName(s, b.equipmentId) ?? EMPTY) : '접속 설비 미지정');
     }
     return [...seen];
   }, [blocks, s]);

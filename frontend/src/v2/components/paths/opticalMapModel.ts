@@ -6,6 +6,7 @@ import type { Network } from '../../model/networkApi';
 import { dutyOrder } from './duty';
 import type { NetworkView } from './networkSelectors';
 import { shortStationName } from './pathChain';
+import { EMPTY } from '../../../components/ui/format';
 
 /** 광 계통도의 마디 — 국 하나. 범위 밖 국(경로가 나가 닿은 곳)은 흐리게 그린다. */
 export interface MapStation { id: string; name: string; inScope: boolean }
@@ -150,7 +151,7 @@ export function lineName(view: NetworkView, id: string): string {
 
 /** 설비 이름 앞에 국 줄임 — `북춘천 송변전광단말장치`(같은 이름의 설비가 국마다 있다). */
 export function equipmentLabel(view: NetworkView, end: { equipmentId: string; substationId: string }): string {
-  return `${shortStationName(view.substationName(end.substationId))} ${view.equipmentName(end.equipmentId) ?? '—'}`;
+  return `${shortStationName(view.substationName(end.substationId))} ${view.equipmentName(end.equipmentId) ?? EMPTY}`;
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { Catalog, NodeEquipmentRow } from '../../model/types';
 import { bySubstation, effectiveRows } from '../../model/store/effective';
 import type { WorkingCopyState } from '../../model/store/workingCopy';
+import { EMPTY } from '../../../components/ui/format';
 
 /** 현황 표의 한 줄 — 설비 하나. 랙은 세지 않는다(랙 줄은 랙별 보기에서 따로 그린다). */
 export interface StatusRow {
@@ -27,8 +28,8 @@ export function rowsFromWorkingCopy(
   return bySubstation(effectiveRows(s, 'equipment'), substationId).map((e) => {
     const t = types.get(e.typeId);
     return {
-      id: e.id, substationId, substationName, rackId: e.rackId, rackName: racks.get(e.rackId)?.name ?? '—',
-      typeName: t?.name ?? '—', categoryName: (t && cats.get(t.categoryId)?.name) ?? '—',
+      id: e.id, substationId, substationName, rackId: e.rackId, rackName: racks.get(e.rackId)?.name ?? EMPTY,
+      typeName: t?.name ?? EMPTY, categoryName: (t && cats.get(t.categoryId)?.name) ?? EMPTY,
       name: e.name, status: e.status, model: e.model, maker: e.maker,
       installDate: e.installDate, lastInspectedAt: lastInspected.get(e.id) ?? null,
     };

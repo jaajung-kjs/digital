@@ -1,5 +1,6 @@
 import { fiberLineName, type OpticalPath, type PathEnd, type PathHop, type Side } from '@twin/core';
 import type { NetworkView } from './networkSelectors';
+import { EMPTY } from '../../../components/ui/format';
 
 /** 선번장 블록 하나 — 그 국에서 연다. */
 export interface BlockAt { substationId: string; lineId: string; side: Side }
@@ -52,7 +53,7 @@ const sideSub = (v: NetworkView, lineId: string, side: Side) => {
 function terminalName(v: NetworkView, lineId: string, side: Side): string | null {
   const l = v.line(lineId);
   const eqId = l ? (side === 'A' ? l.aEquipmentId : l.bEquipmentId) : null;
-  return eqId ? (v.equipmentName(eqId) ?? '—') : null;
+  return eqId ? (v.equipmentName(eqId) ?? EMPTY) : null;
 }
 
 /** 어댑터 번호 — 그 끝의 시작 번호 + 코어 − 1(선번장 「어댑터」 열과 같다). */
@@ -78,7 +79,7 @@ function corePlace(v: NetworkView, lineId: string, side: Side, coreNo: number): 
 
 function lineText(v: NetworkView, lineId: string): string {
   const l = v.line(lineId);
-  if (!l) return '—';
+  if (!l) return EMPTY;
   const name = fiberLineName(l.name, v.substationName(l.aSubstationId), v.substationName(l.bSubstationId));
   return l.lengthKm != null ? `${name} (${l.lengthKm} km)` : name;
 }
@@ -86,7 +87,7 @@ function lineText(v: NetworkView, lineId: string): string {
 const at = (v: NetworkView, h: PathHop, side: Side): BlockAt => ({ substationId: sideSub(v, h.lineId, side), lineId: h.lineId, side });
 
 function endStep(v: NetworkView, e: PathEnd, near: BlockAt): ChainStep {
-  return { kind: 'end', station: v.substationName(e.substationId), equipment: v.equipmentName(e.equipmentId) ?? '—', port: e.port, at: near };
+  return { kind: 'end', station: v.substationName(e.substationId), equipment: v.equipmentName(e.equipmentId) ?? EMPTY, port: e.port, at: near };
 }
 
 /** 끊긴 끝의 까닭 — 고리면 loop, 그 코어가 깊이 상한에서 멈춘 코어면 truncated, 아니면 연결 없음. */
@@ -153,6 +154,6 @@ export function pathSummary(v: NetworkView, paths: OpticalPath | readonly Optica
 
 /** 창 제목 — `중계경로 — RTU 광스위치 · FX-TX:1`. 시작 설비가 없으면 물은 코어 끝(`OFD · 슬롯 2 · 어댑터 9 · 코어 9`). */
 export function pathTitle(v: NetworkView, p: OpticalPath, asked: { lineId: string; coreNo: number; side: Side }): string {
-  if (p.start) return `중계경로 — ${[v.equipmentName(p.start.equipmentId) ?? '—', p.start.port].filter(Boolean).join(' · ')}`;
+  if (p.start) return `중계경로 — ${[v.equipmentName(p.start.equipmentId) ?? EMPTY, p.start.port].filter(Boolean).join(' · ')}`;
   return `중계경로 — ${corePlace(v, asked.lineId, asked.side, asked.coreNo)}`;
 }

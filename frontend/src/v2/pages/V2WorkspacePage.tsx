@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BusyOverlay, Button, CollapsibleRail, EmptyState, ErrorStrip, isCancelKey, PageHeader, PageState, Tabs, useTabs, type TabItem } from '../../components/ui';
+import { BusyOverlay, Button, CollapsibleRail, EMPTY, EmptyState, ErrorStrip, isCancelKey, PageHeader, PageState, Tabs, useTabs, type TabItem } from '../../components/ui';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { SaveBar } from '../components/SaveBar';
@@ -75,7 +75,7 @@ export default function V2WorkspacePage() {
     if (!substationId) return undefined;
     const types = new Map((catalog.data?.rackTypes ?? []).map((t) => [t.id, t.name]));
     return bySubstation(effectiveRows({ saved, overlays }, 'racks'), substationId).map((r) => ({
-      id: r.id, name: r.name, typeName: types.get(r.rackTypeId) ?? '—',
+      id: r.id, name: r.name, typeName: types.get(r.rackTypeId) ?? EMPTY,
     }));
   }, [substationId, catalog.data?.rackTypes, saved, overlays]);
 

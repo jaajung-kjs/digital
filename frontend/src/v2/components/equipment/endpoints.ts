@@ -2,6 +2,7 @@ import { endRefKey, fiberLineName, sameEndRef, type LinkEndRef } from '@twin/cor
 import { bySubstation, effectiveCircuits, effectiveRows, equipmentName, linesTouching } from '../../model/store/effective';
 import type { WorkingCopyState } from '../../model/store/workingCopy';
 import type { Link } from '../../model/types';
+import { EMPTY } from '../../../components/ui/format';
 
 type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
 export interface EndpointOption { ref: LinkEndRef; label: string; group: '설비' | '차단기' | '코어'; taken: boolean }
@@ -18,8 +19,8 @@ const lineName = (s: S, lineId: string) => {
 /** 끝 이름 — 「분전반 차단기 3」「송광치 AC IN」「북춘천–춘천HP 코어 5」(모델의 회로 = 화면의 차단기). */
 export function endLabel(s: S, ref: LinkEndRef): string {
   switch (ref.kind) {
-    case 'equipment': return [equipmentName(s, ref.equipmentId) ?? '—', ref.label].filter(Boolean).join(' ');
-    case 'circuit': return `${equipmentName(s, ref.equipmentId) ?? '—'} 차단기 ${ref.no}`;
+    case 'equipment': return [equipmentName(s, ref.equipmentId) ?? EMPTY, ref.label].filter(Boolean).join(' ');
+    case 'circuit': return `${equipmentName(s, ref.equipmentId) ?? EMPTY} 차단기 ${ref.no}`;
     case 'core': return `${lineName(s, ref.lineId)} 코어 ${ref.no}`;
   }
 }

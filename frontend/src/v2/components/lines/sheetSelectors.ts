@@ -2,6 +2,7 @@ import { lineSheet, type SheetBlock } from '@twin/core';
 import { effectiveCores, effectiveRows, equipmentName, linesTouching, outsideLinks } from '../../model/store/effective';
 import type { WorkingCopyState } from '../../model/store/workingCopy';
 import type { FiberLine } from '../../model/types';
+import { EMPTY } from '../../../components/ui/format';
 
 type S = Pick<WorkingCopyState, 'saved' | 'overlays'>;
 
@@ -42,11 +43,11 @@ function peerSubstationName(line: FiberLine, side: 'A' | 'B'): string {
  * 머리는 단자 이름(`terminal`, 그 설비로 가는 길)과 나머지(`place`)를 따로 그린다.
  */
 export function blockWhere(s: S, b: SheetBlock): { where: string; terminal: string | null; place: string | null; peer: string } {
-  const terminal = b.equipmentId ? (equipmentName(s, b.equipmentId) ?? '—') : null;
+  const terminal = b.equipmentId ? (equipmentName(s, b.equipmentId) ?? EMPTY) : null;
   const place = b.equipmentId
     ? [b.panel != null ? `슬롯 ${b.panel}` : null, `어댑터 ${b.startNo}–${b.startNo + b.coreCount - 1}`].filter(Boolean).join(' · ')
     : null;
   const where = terminal != null ? `${terminal} · ${place}` : '접속 설비 미지정';
   const line = lineOf(s, b.lineId);
-  return { where, terminal, place, peer: (line ? peerSubstationName(line, b.side) : '') || '—' };
+  return { where, terminal, place, peer: (line ? peerSubstationName(line, b.side) : '') || EMPTY };
 }
