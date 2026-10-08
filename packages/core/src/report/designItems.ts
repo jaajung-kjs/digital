@@ -31,17 +31,28 @@ export interface DesignInput {
   substationName: (id: string) => string;
 }
 
-export type DesignItem = ReportItem & { substationIds: string[] };
+/**
+ * 산출 내역 한 줄 + 관련 국.
+ *
+ * - `substationIds` — 이 줄이 걸친 국(광선로는 두 국, 국을 옮긴 이설은 전·후 두 국). 화면이 국별로 묶어 보이는 데 쓴다.
+ *   **주의: 국별 묶음의 소계를 더하면 두 국에 걸친 줄이 두 번 세진다.** 합계(공량·재료비·총공사비)는 반드시
+ *   이 함수가 낸 평평한 목록 하나에서 낸다(`computeReport`).
+ * - `primarySubstationId` — 정렬 기준인 국 하나: 이설은 옮기기 전 국, 광선로는 A 끝, 나머지는 그 국.
+ */
+export type DesignItem = ReportItem & { substationIds: string[]; primarySubstationId: string };
 
-/** 품목을 못 찾은 줄 — 지우지 않고 남긴다(공량 0). 대로 세는 것은 1대, 케이블은 길이를 셀 수 없어 0. */
-function unresolvedItem(kind: ReportKind, name: string): ReportItem {
+/**
+ * 품목을 못 찾은 줄 — 지우지 않고 남긴다(공량 0, 단가 없음). 대로 세는 것은 1대,
+ * 케이블은 길이가 적혀 있으면 그 길이(m), 없으면 0.
+ */
+function unresolvedItem(kind: ReportKind, name: string, lengthM: number | null = null): ReportItem {
   const cable = kind === 'cable-install' || kind === 'cable-remove';
   return {
     kind,
     name,
     typeName: '—',
     laborCode: null,
-    qty: cable ? 0 : 1,
+    qty: cable ? lengthM ?? 0 : 1,
     unit: cable ? 'm' : '대',
     manDays: 0,
     unitPrice: null,
@@ -53,9 +64,9 @@ function unresolvedItem(kind: ReportKind, name: string): ReportItem {
 const GROUP = { rack: 0, equipment: 1, link: 2, line: 3 } as const;
 /** 작업 차례 — 신설 → 철거 → 이설. */
 const WORK: Record<ReportKind, number> = {
-  'rack-install': 0, 'asset-install': 0, 'cable-install': 0,
-  'rack-remove': 1, 'asset-remove': 1, 'cable-remove': 1,
-  'rack-relocate': 2, 'asset-relocate': 2,
+  'rack-install': 0, 'equipment-install': 0, 'cable-install': 0,
+  'rack-remove': 1, 'equipment-remove': 1, 'cable-remove': 1,
+  'rack-relocate': 2, 'equipment-relocate': 2,
 };
 
 /** 이름 자연 순서 — 한 번 만들어 모든 비교가 함께 쓴다. */
@@ -88,16 +99,18 @@ export function designItems(input: DesignInput): DesignItem[] {
   const cableTypes = byId(input.cableTypes);
 
   const rows: Row[] = [];
+  /** `substationIds[0]` 이 대표 국이다 — 부르는 쪽이 이설은 전 국, 광선로는 A 끝을 먼저 둔다. */
   const push = (group: number, id: string, item: ReportItem, substationIds: string[]) => {
     const ids = uniq(substationIds);
-    rows.push({ group, id, place: substationName(ids[0]!), item: { ...item, substationIds: ids } });
+    const primarySubstationId = ids[0]!;
+    rows.push({ group, id, place: substationName(primarySubstationId), item: { ...item, substationIds: ids, primarySubstationId } });
   };
 
   const unitItem = (kind: UnitReportKind, name: string, type: LaborType | undefined) =>
     type ? assetReportItem(kind, name, type.name, type, type.unitPrice) : unresolvedItem(kind, name);
   const cableItem = (kind: 'cable-install' | 'cable-remove', name: string, typeId: string | null, lengthM: number | null) => {
     const type = typeId === null ? undefined : cableTypes.get(typeId);
-    return type ? cableReportItem(kind, name, type, lengthM) : unresolvedItem(kind, name);
+    return type ? cableReportItem(kind, name, type, lengthM) : unresolvedItem(kind, name, lengthM);
   };
 
   /* 랙 */
@@ -111,10 +124,10 @@ export function designItems(input: DesignInput): DesignItem[] {
 
   /* 설비 */
   const eqs = diff(before.equipment, after.equipment);
-  for (const e of eqs.added) push(GROUP.equipment, e.id, unitItem('asset-install', e.name, equipmentTypes.get(e.typeId)), [e.substationId]);
-  for (const e of eqs.removed) push(GROUP.equipment, e.id, unitItem('asset-remove', e.name, equipmentTypes.get(e.typeId)), [e.substationId]);
+  for (const e of eqs.added) push(GROUP.equipment, e.id, unitItem('equipment-install', e.name, equipmentTypes.get(e.typeId)), [e.substationId]);
+  for (const e of eqs.removed) push(GROUP.equipment, e.id, unitItem('equipment-remove', e.name, equipmentTypes.get(e.typeId)), [e.substationId]);
   for (const [p, e] of eqs.kept) {
-    if (p.rackId !== e.rackId) push(GROUP.equipment, e.id, unitItem('asset-relocate', e.name, equipmentTypes.get(e.typeId)), [p.substationId, e.substationId]);
+    if (p.rackId !== e.rackId) push(GROUP.equipment, e.id, unitItem('equipment-relocate', e.name, equipmentTypes.get(e.typeId)), [p.substationId, e.substationId]);
   }
 
   /* 연결(케이블) — 값만 바뀐 것은 세지 않는다. */

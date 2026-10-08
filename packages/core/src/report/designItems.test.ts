@@ -44,7 +44,7 @@ describe('designItems — 랙', () => {
   it('층이나 국이 바뀌어도 이설 — 국이 바뀌면 두 국에 걸린다', () => {
     expect(run({ racks: [rack('r1')] }, { racks: [rack('r1', { floorId: 'F2' })] }).map((i) => i.kind)).toEqual(['rack-relocate']);
     const moved = run({ racks: [rack('r1')] }, { racks: [rack('r1', { substationId: 'S2' })] });
-    expect(moved[0]).toMatchObject({ kind: 'rack-relocate', substationIds: ['S1', 'S2'] });
+    expect(moved[0]).toMatchObject({ kind: 'rack-relocate', substationIds: ['S1', 'S2'], primarySubstationId: 'S1' });
   });
 
   it('이름만 바뀐 랙은 산출하지 않는다', () => {
@@ -73,7 +73,7 @@ describe('designItems — 설비', () => {
       { racks: [rack('r1'), rack('r2')], equipment: [eq('e1', { rackId: 'r2' })] },
     );
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ kind: 'asset-relocate', name: 'e1', typeName: 'L3 스위치', manDays: 0.4, unit: '대' });
+    expect(items[0]).toMatchObject({ kind: 'equipment-relocate', name: 'e1', typeName: 'L3 스위치', manDays: 0.4, unit: '대' });
   });
 
   it('설비 삭제 + 펼친 연결 삭제 = 설비 철거 1 + 케이블 철거 n', () => {
@@ -82,7 +82,7 @@ describe('designItems — 설비', () => {
       { equipment: [eq('e2')], links: [link('k3')] },
     );
     expect(items.map((i) => [i.kind, i.name])).toEqual([
-      ['asset-remove', 'e1'],
+      ['equipment-remove', 'e1'],
       ['cable-remove', 'k1A ↔ k1B'],
       ['cable-remove', 'k2A ↔ k2B'],
     ]);
@@ -92,7 +92,7 @@ describe('designItems — 설비', () => {
 
   it('품목을 못 찾으면 「품목 미지정」 줄로 남는다(공량 0)', () => {
     const [item] = run({}, { equipment: [eq('e1', { typeId: 'nope' })] });
-    expect(item).toMatchObject({ kind: 'asset-install', name: 'e1', qty: 1, manDays: 0, laborCode: null, unitPrice: null, note: '품목 미지정' });
+    expect(item).toMatchObject({ kind: 'equipment-install', name: 'e1', qty: 1, manDays: 0, laborCode: null, unitPrice: null, note: '품목 미지정' });
   });
 });
 
@@ -110,7 +110,9 @@ describe('designItems — 연결·광선로', () => {
       ['cable-install', 'FDF ↔ 수광치', 5, ['S2']],
       ['cable-install', '춘천–화천', 12500, ['S1', 'S2']],
     ]);
-    expect(items[2]).toMatchObject({ typeName: '광케이블 24C', manDays: 25, unit: 'm' });
+    expect(items[2]).toMatchObject({ typeName: '광케이블 24C', manDays: 25, unit: 'm', primarySubstationId: 'S1' });
+    expect(items[0]!.primarySubstationId).toBe('S1');
+    expect(items[1]!.primarySubstationId).toBe('S2');
     expect(materialCostOf(items[2]!)).toBe(12500 * 3_000);
   });
 
@@ -124,9 +126,14 @@ describe('designItems — 연결·광선로', () => {
     expect(materialCostOf(item!)).toBe(0);
   });
 
-  it('케이블 품목 없음 → 「품목 미지정」 줄', () => {
+  it('케이블 품목 없음 → 「품목 미지정」 줄 — 길이는 수량으로 남고 공량 0·단가 없음', () => {
     const [item] = run({ links: [link('k1', { cableTypeId: null })] }, {});
-    expect(item).toMatchObject({ kind: 'cable-remove', name: 'k1A ↔ k1B', typeName: '—', qty: 0, manDays: 0, laborCode: null, note: '품목 미지정' });
+    expect(item).toMatchObject({ kind: 'cable-remove', name: 'k1A ↔ k1B', typeName: '—', qty: 10, unit: 'm', manDays: 0, laborCode: null, unitPrice: null, note: '품목 미지정' });
+    const [noLen] = run({}, { links: [link('k2', { cableTypeId: null, lengthM: null })] });
+    expect(noLen).toMatchObject({ qty: 0, manDays: 0, note: '품목 미지정' });
+    const [line9] = run({}, { fiberLines: [line('L9', { cableTypeId: 'nope', lengthKm: 1.5 })] });
+    expect(line9).toMatchObject({ qty: 1500, manDays: 0, unitPrice: null, note: '품목 미지정' });
+    expect(materialCostOf(line9!)).toBe(0);
   });
 
   it('광선로 철거', () => {
@@ -169,10 +176,10 @@ describe('designItems — 정렬', () => {
       'rack-install:랙 2', // 춘천 rc
       'rack-remove:랙 9',
       'rack-relocate:랙 1',
-      'asset-install:설비 9',
-      'asset-install:설비 10',
-      'asset-remove:설비 2',
-      'asset-relocate:설비 1',
+      'equipment-install:설비 9',
+      'equipment-install:설비 10',
+      'equipment-remove:설비 2',
+      'equipment-relocate:설비 1',
       'cable-install:B',
       'cable-install:A', // 화천
       'cable-remove:X',

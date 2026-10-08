@@ -7,11 +7,11 @@ const fiberGroup = { name: '광', laborCode: '통신외선공', installManDays: 
 
 describe('assetReportItem', () => {
   it('kind별 공량', () => {
-    expect(assetReportItem('asset-install', '랙1', '랙', labor)).toMatchObject({ qty: 1, unit: '대', manDays: 2, laborCode: '통신내선공' });
-    expect(assetReportItem('asset-relocate', '랙1', '랙', labor).manDays).toBe(3);
+    expect(assetReportItem('equipment-install', '랙1', '랙', labor)).toMatchObject({ qty: 1, unit: '대', manDays: 2, laborCode: '통신내선공' });
+    expect(assetReportItem('equipment-relocate', '랙1', '랙', labor).manDays).toBe(3);
   });
   it('remove 분기', () => {
-    expect(assetReportItem('asset-remove', '랙1', '랙', labor).manDays).toBe(1);
+    expect(assetReportItem('equipment-remove', '랙1', '랙', labor).manDays).toBe(1);
   });
 });
 
@@ -28,10 +28,10 @@ describe('cableReportItem', () => {
 describe('computeReport', () => {
   it('노무유형별 합계 + 총합', () => {
     const s = computeReport([
-      assetReportItem('asset-install', '랙1', '랙', labor),
-      assetReportItem('asset-remove', 'UPS1', 'UPS', { ...labor, laborCode: '통신내선공', removeManDays: 0.5 }),
+      assetReportItem('equipment-install', '랙1', '랙', labor),
+      assetReportItem('equipment-remove', 'UPS1', 'UPS', { ...labor, laborCode: '통신내선공', removeManDays: 0.5 }),
       cableReportItem('cable-install', 'A↔B', fiberGroup, 50),
-      assetReportItem('asset-install', '접지1', '접지함체', { laborCode: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 }),
+      assetReportItem('equipment-install', '접지1', '접지함체', { laborCode: null, installManDays: 0, removeManDays: 0, relocateManDays: 0 }),
     ]);
     expect(s.totalManDays).toBeCloseTo(2 + 0.5 + 2);
     expect(s.byLaborType).toEqual([
@@ -50,7 +50,7 @@ describe('computeReport', () => {
  */
 describe('materialCostOf', () => {
   const item = (over: Partial<ReportItem>): ReportItem => ({
-    kind: 'asset-install', name: 'x', typeName: 't', laborCode: null,
+    kind: 'equipment-install', name: 'x', typeName: 't', laborCode: null,
     qty: 1, unit: '대', manDays: 0, unitPrice: null, ...over,
   });
 
@@ -60,8 +60,8 @@ describe('materialCostOf', () => {
   });
 
   it('철거·이설은 사는 것이 없다 — 단가가 적혀 있어도 0', () => {
-    expect(materialCostOf(item({ kind: 'asset-remove', unitPrice: 1_200_000 }))).toBe(0);
-    expect(materialCostOf(item({ kind: 'asset-relocate', unitPrice: 1_200_000 }))).toBe(0);
+    expect(materialCostOf(item({ kind: 'equipment-remove', unitPrice: 1_200_000 }))).toBe(0);
+    expect(materialCostOf(item({ kind: 'equipment-relocate', unitPrice: 1_200_000 }))).toBe(0);
     expect(materialCostOf(item({ kind: 'cable-remove', unit: 'm', qty: 120, unitPrice: 3_400 }))).toBe(0);
   });
 
@@ -72,7 +72,7 @@ describe('materialCostOf', () => {
   it('합계는 신설만 센다', () => {
     const r = computeReport([
       item({ qty: 2, unitPrice: 1_000_000 }),
-      item({ kind: 'asset-remove', qty: 1, unitPrice: 9_000_000 }),
+      item({ kind: 'equipment-remove', qty: 1, unitPrice: 9_000_000 }),
     ]);
     expect(r.totalMaterialCost).toBe(2_000_000);
   });

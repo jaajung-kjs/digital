@@ -2,7 +2,7 @@ import type { LaborRules } from '../catalog/laborSpec.js';
 
 export type ReportKind =
   | 'rack-install' | 'rack-remove' | 'rack-relocate'
-  | 'asset-install' | 'asset-remove' | 'asset-relocate'
+  | 'equipment-install' | 'equipment-remove' | 'equipment-relocate'
   | 'cable-install' | 'cable-remove';
 
 /** 대(臺)로 세는 작업 — 랙과 설비. */
@@ -40,7 +40,7 @@ export interface ReportSummary {
  * 판정은 여기 한 번만 적는다 — 표의 칸과 금액의 모수가 갈리면 「합계가 안 맞는」 설계서가 된다.
  */
 export function materialCostOf(item: ReportItem): number {
-  if (item.kind !== 'rack-install' && item.kind !== 'asset-install' && item.kind !== 'cable-install') return 0;
+  if (item.kind !== 'rack-install' && item.kind !== 'equipment-install' && item.kind !== 'cable-install') return 0;
   return item.qty * (item.unitPrice ?? 0);
 }
 
@@ -49,9 +49,9 @@ const MAN_DAYS_OF: Record<UnitReportKind, 'installManDays' | 'removeManDays' | '
   'rack-install': 'installManDays',
   'rack-remove': 'removeManDays',
   'rack-relocate': 'relocateManDays',
-  'asset-install': 'installManDays',
-  'asset-remove': 'removeManDays',
-  'asset-relocate': 'relocateManDays',
+  'equipment-install': 'installManDays',
+  'equipment-remove': 'removeManDays',
+  'equipment-relocate': 'relocateManDays',
 };
 
 export function assetReportItem(
