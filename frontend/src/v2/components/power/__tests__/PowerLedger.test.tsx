@@ -278,7 +278,7 @@ describe('조회 사용자 — 차단기 대장은 읽기만', () => {
   it('차단기 추가·연결·편집·추가가 없고, 칸은 누를 수 없다', () => {
     renderPower();
     expect(blocks().length).toBeGreaterThan(0);
-    for (const name of ['차단기 추가', '연결', '편집', '추가']) {
+    for (const name of ['차단기 추가', '연결', '차단기 수정', '추가']) {
       expect(screen.queryByRole('button', { name })).toBeNull();
     }
     expect(screen.queryAllByRole('button', { name: /수정$/ })).toEqual([]);

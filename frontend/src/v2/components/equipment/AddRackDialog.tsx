@@ -7,10 +7,10 @@ import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy'
 import { newId } from '../../newId';
 import { EquipmentTypeOptions, RackTypeOptions } from './TypeOptions';
 
-interface Props { substationId: string; open: boolean; onClose: () => void; onCreated: (rackId: string) => void }
+interface Props { substationId: string; /** 본문 첫 줄 「위치」(§1.8). 새 랙은 평면도 「배치」로 놓기 전까지 미배치다. */ substationName?: string; open: boolean; onClose: () => void; onCreated: (rackId: string) => void }
 
 /** 랙 추가 — 「같은 이름의 설비 함께 만들기」를 켜면 일체형(UPS반 + UPS)을 한 번에 만든다. */
-export function AddRackDialog({ substationId, open, onClose, onCreated }: Props) {
+export function AddRackDialog({ substationId, substationName, open, onClose, onCreated }: Props) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
@@ -53,12 +53,13 @@ export function AddRackDialog({ substationId, open, onClose, onCreated }: Props)
       footer={<><Button variant="secondary" onClick={onClose}>취소</Button><Button disabled={!ok} onClick={submit}>추가</Button></>}
     >
       <div className="flex flex-col gap-3">
+        {substationName && <DetailRow label="위치" hint="평면도 「배치」에서 층에 배치합니다">{`${substationName} · 미배치`}</DetailRow>}
         <DetailRow label="이름">
           <Input size="sm" autoFocus value={name} onChange={(e) => setName(e.currentTarget.value)} />
         </DetailRow>
         <DetailRow label="랙 품목">
           <Select size="sm" value={rackTypeId} onChange={(e) => setRackTypeId(e.currentTarget.value)}>
-            <option value="">선택</option>
+            <option value="" disabled>선택하세요</option>
             <RackTypeOptions types={catalog?.rackTypes ?? []} />
           </Select>
         </DetailRow>
@@ -66,7 +67,7 @@ export function AddRackDialog({ substationId, open, onClose, onCreated }: Props)
         {withEquipment && (
           <DetailRow label="설비 품목">
             <Select size="sm" value={typeId} onChange={(e) => setTypeId(e.currentTarget.value)}>
-              <option value="">선택</option>
+              <option value="" disabled>선택하세요</option>
               <EquipmentTypeOptions categories={catalog?.categories ?? []} types={catalog?.equipmentTypes ?? []} />
             </Select>
           </DetailRow>

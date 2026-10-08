@@ -10,7 +10,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { DetailCardHeader, Button, DetailCard, HOVER_REVEAL, IconButton, Modal, useConfirm } from '../../../components/ui';
+import { DetailCardHeader, Button, DetailCard, HOVER_REVEAL, IconButton, Modal, useConfirm, EmptyRow } from '../../../components/ui';
 import { EditOnly, useCanEdit } from '../../useCanEdit';
 import { deleteConfirm } from '../deleteConfirm';
 import { RECORD_FIELD_LABELS } from '../equipment/fieldLabels';
@@ -109,7 +109,7 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
       />
 
       {photos.length === 0 ? (
-        <p className="px-1 py-1 text-sm text-content-faint">등록된 사진이 없습니다</p>
+        <EmptyRow>사진이 없습니다</EmptyRow>
       ) : (
         /* **판 너비를 다 쓴다.** 예전에는 80px 짜리 썸네일이 세 줄로 섰는데, 그 크기로는
            무엇을 찍은 사진인지도 분간이 안 돼 **누를 때마다 상자를 열어야** 했다. 사진을

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MAX_CORES, compareName, fiberLineName, isLineMedium, type Side } from '@twin/core';
 import {
-  Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, EMPTY, ErrorStrip, InsetBox, Input, IssueReveal, ListRow, Modal, SELECTED, Select, TableSearch, useConfirm,
+  Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, EMPTY, ErrorStrip, InsetBox, Input, IssueReveal, ListRow, Modal,
+  SELECTED, Select, TableSearch, useConfirm, EmptyRow,
 } from '../../../components/ui';
 import { useV2OrgTree } from '../../hooks';
 import { useCatalog } from '../../model/hooks';
@@ -207,12 +208,12 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
 
   return (
     <Modal
-      open onClose={onClose} size="lg" title={line ? '광선로 편집' : '광선로 추가'}
+      open onClose={onClose} size="lg" title={line ? '광선로 수정' : '광선로 추가'}
       footer={
         <>
           {line && <Button variant="secondary" tone="danger" className="mr-auto" onClick={() => void remove()}>광선로 삭제</Button>}
           <Button variant="secondary" onClick={onClose}>취소</Button>
-          <Button disabled={!ok} onClick={submit}>{line ? '확인' : '추가'}</Button>
+          <Button disabled={!ok} onClick={submit}>{line ? '수정' : '추가'}</Button>
         </>
       }
     >
@@ -227,7 +228,7 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
           ) : (
             <DetailRow label="상대국" required align="start" wide>
               <div className="flex flex-col gap-1.5 py-1">
-                <TableSearch aria-label="상대국 검색" className="w-full" count="inside" placeholder="변전소 · 본부 · 지사 검색" value={query} onChange={setQuery} shown={shownSubs.length} total={substations.length} />
+                <TableSearch aria-label="상대국 검색" className="w-full" count="inside" placeholder="변전소·본부·지사 검색" value={query} onChange={setQuery} shown={shownSubs.length} total={substations.length} />
                 <InsetBox className="max-h-40 overflow-y-auto p-1">
                   {shownSubs.map((x) => (
                     <ListRow
@@ -239,14 +240,14 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
                       {x.name}
                     </ListRow>
                   ))}
-                  {shownSubs.length === 0 && <ListRow>검색 결과가 없습니다</ListRow>}
+                  {shownSubs.length === 0 && <EmptyRow>{query.trim() ? `'${query.trim()}'에 해당하는 변전소가 없습니다` : '변전소가 없습니다'}</EmptyRow>}
                 </InsetBox>
               </div>
             </DetailRow>
           )}
           <DetailRow label="케이블 품목" required>
             <Select size="sm" aria-label="케이블 품목" value={cableTypeId} onChange={(e) => setCableTypeId(e.currentTarget.value)}>
-              <option value="">선택</option>
+              <option value="" disabled>선택하세요</option>
               {cables.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </DetailRow>

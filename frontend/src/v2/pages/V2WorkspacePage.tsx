@@ -133,7 +133,7 @@ export default function V2WorkspacePage() {
         </CollapsibleRail>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
           {selected == null ? (
-            <EmptyState title="선택된 조직/변전소가 없습니다" description="왼쪽에서 변전소를 선택하면 현황·선번장·전원 계통·평면도를 조회할 수 있습니다." />
+            <EmptyState title="선택된 변전소가 없습니다" description="왼쪽 조직 트리에서 변전소를 선택하세요" />
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               <PageHeader
@@ -230,9 +230,10 @@ export default function V2WorkspacePage() {
       </div>
       {substationId && (
         <>
-          <AddRackDialog substationId={substationId} open={adding?.kind === 'rack'} onClose={closeAdding} onCreated={route.selectRack} />
+          <AddRackDialog substationId={substationId} substationName={selected?.name} open={adding?.kind === 'rack'} onClose={closeAdding} onCreated={route.selectRack} />
           <AddEquipmentDialog
             substationId={substationId}
+            substationName={selected?.name}
             open={adding?.kind === 'equipment'}
             defaultRackId={adding?.kind === 'equipment' ? adding.rackId : undefined}
             onClose={closeAdding}

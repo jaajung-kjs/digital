@@ -45,10 +45,10 @@ export function BreakerEditor({ equipmentId, equipmentName, count, open, focusNo
             {count > 0 ? `차단기 ${count} 삭제` : '차단기 삭제'}
           </Button>
           <ErrorStrip className="min-w-0 flex-1" message={blocked} onDismiss={() => setBlocked(null)} />
-          {/* 이 창은 워킹카피에 싣기만 한다 — 「완료」를 저장으로 믿고 떠나지 않게 서버로 가는 문을 짚는다(§「저장」). */}
+          {/* 이 창은 워킹카피에 싣기만 한다 — 「닫기」를 저장으로 믿고 떠나지 않게 서버로 가는 문을 짚는다(§「저장」). */}
           <span className="ml-auto shrink-0 self-center text-xs text-content-muted">수정한 내용은 상단 「저장」을 눌러야 반영됩니다</span>
           </EditOnly>
-          <Button variant="secondary" className={canEdit ? undefined : 'ml-auto'} onClick={onClose}>{canEdit ? '완료' : '닫기'}</Button>
+          <Button variant="secondary" className={canEdit ? undefined : 'ml-auto'} onClick={onClose}>닫기</Button>
         </>
       )}
     >

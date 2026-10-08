@@ -4,8 +4,17 @@
  * 세 군데가 각자 적고 있어서 셋 다 달랐다: 상단 내비 「ICT 디지털 트윈」, 로그인 화면
  * 「변전소 ICT 설비 현황관리 시스템」, 로그인 바닥글 「ICT 디지털 트윈 시스템」. 첫 화면에서
  * 이름이 흔들리면 읽는 사람은 「이거 완성된 제품 맞나」부터 묻게 된다.
+ *
+ * 이름은 업무 시스템 명명 관행대로 **「ICT 설비관리시스템」** 하나다(감사 결정 8). 「디지털 트윈」은
+ * 로고 곁의 부제로만 쓴다 — 이름 자리에 쓰지 않는다(가드레일 `uiWords.guardrail.test.ts`).
  */
-export const PRODUCT_NAME = 'ICT 디지털 트윈';
+export const PRODUCT_NAME = 'ICT 설비관리시스템';
+
+/** 로고 부제 — 이름 곁의 작은 글자(상단 바·로그인 로고)에서만. */
+export const PRODUCT_LOGO_SUBTITLE = '디지털 트윈';
 
 /** 이름 아래 한 줄 — 이름이 아니라 **무엇을 하는 것인지**를 말한다. */
-export const PRODUCT_TAGLINE = '변전소 ICT 설비 현황관리';
+export const PRODUCT_TAGLINE = '변전소 ICT 설비 통합 관리';
+
+/** 로그인 부제 — 이 시스템의 화면들(상단 보기 탭과 같은 이름). */
+export const PRODUCT_SCREENS = '현황 · 선번장 · 전원 계통 · 평면도 · 광 계통도';

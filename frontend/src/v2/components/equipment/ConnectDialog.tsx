@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CORE_STATUSES, DEFAULT_CORE_STATUS, endRefKey, isLinkMedium, validateState, type LinkEndRef } from '@twin/core';
-import { Button, DetailRow, ErrorStrip, InsetBox, Input, ListHeading, ListRow, MessageStrip, Modal, SELECTED, Select, TableSearch } from '../../../components/ui';
+import {
+  Button, DetailRow, ErrorStrip, InsetBox, Input, ListHeading, ListRow, MessageStrip, Modal, SELECTED, Select, TableSearch,
+  EmptyRow,
+} from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { effectiveCores, toModelState } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -99,11 +102,11 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
               </div>
             );
           })}
-          {shown.length === 0 && <ListRow>검색 결과가 없습니다</ListRow>}
+          {shown.length === 0 && <EmptyRow>{query.trim() ? `'${query.trim()}'에 해당하는 접속 설비가 없습니다` : '접속 설비가 없습니다'}</EmptyRow>}
         </InsetBox>
         <DetailRow label={LL.cableTypeId}>
           <Select size="sm" aria-label={LL.cableTypeId} value={cableTypeId} onChange={(e) => setCableTypeId(e.currentTarget.value)}>
-            <option value="">선택 안 함</option>
+            <option value="">미지정</option>
             {cables.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </DetailRow>

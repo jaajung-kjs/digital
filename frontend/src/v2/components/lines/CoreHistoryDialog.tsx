@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { fiberLineName, newestFirst, type Side } from '@twin/core';
 import {
-  Button, DateInput, EMPTY, ErrorStrip, HOVER_REVEAL, IconButton, Input, ListHeading, Modal, TABLE_ROW, TableCard, Td, Th, formatDate, useConfirm,
+  Button, DateInput, EMPTY, ErrorStrip, HOVER_REVEAL, IconButton, Input, ListHeading, Modal, TABLE_ROW, TableCard, Td, Th,
+  formatDate, useConfirm, EmptyRow, formatMeasure,
 } from '../../../components/ui';
 import { deleteLeafRow } from '../../model/store/deleteActions';
 import { effectiveRows } from '../../model/store/effective';
@@ -27,7 +28,7 @@ export interface CoreHistoryDialogProps {
 
 /** 측정일 · 1310 dB · 1310 km · 1550 dB · 1550 km · 측정자 · 손잡이. */
 const WIDTHS = ['136px', '72px', '72px', '72px', '72px', 100, '52px'] as const;
-const num = (v: number | null) => (v == null ? EMPTY : String(v));
+const num = (v: number | null) => (v == null ? EMPTY : formatMeasure(v));
 const other = (s: Side): Side => (s === 'A' ? 'B' : 'A');
 
 /**
@@ -63,7 +64,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
   }
 
   async function remove(m: CoreMeasurement) {
-    const when = m.measuredOn ? formatDate(m.measuredOn) : '날짜 미상';
+    const when = m.measuredOn ? formatDate(m.measuredOn) : '측정일 미입력';
     if (!(await confirm({ title: '측정 삭제', target: `코어 ${no} · ${when} 측정`, message: UNDO_HINT, confirmLabel: '삭제', danger: true }))) return;
     deleteLeafRow('coreMeasurements', m.id);
   }
@@ -86,7 +87,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
           <thead>{head}</thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr className={TABLE_ROW}><Td colSpan={WIDTHS.length} className="text-content-muted">등록된 측정이 없습니다</Td></tr>
+              <EmptyRow colSpan={WIDTHS.length}>측정 기록이 없습니다</EmptyRow>
             ) : rows.map((m) => (
               <tr key={m.id} data-testid="history-row" className={`${TABLE_ROW} group`}>
                 <Td className="whitespace-nowrap tabular-nums">{m.measuredOn ? formatDate(m.measuredOn) : EMPTY}</Td>
@@ -110,12 +111,12 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
   };
 
   return (
-    <Modal open onClose={onClose} size="lg" title={`코어 ${no} — ${lineTitle}`} footer={<Button variant="secondary" onClick={onClose}>닫기</Button>}>
+    <Modal open onClose={onClose} size="lg" title={`코어 ${no} — ${lineTitle}`}>
       <div className="flex flex-col gap-3">
         {group(side)}
         {group(other(side))}
-        {canEdit && <section aria-label="측정 추가" className="flex flex-col gap-1.5">
-          <ListHeading>측정 추가 — 자국 · {subName(side)}</ListHeading>
+        {canEdit && <section aria-label="측정 등록" className="flex flex-col gap-1.5">
+          <ListHeading>측정 등록 — 자국 · {subName(side)}</ListHeading>
           <TableCard widths={WIDTHS}>
             <thead>{head}</thead>
             <tbody>
@@ -133,7 +134,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
                   );
                 })}
                 <Td><Input size="cell" aria-label="측정자" value={measuredBy} onChange={(e) => setMeasuredBy(e.currentTarget.value)} /></Td>
-                <Td align="right"><Button variant="secondary" size="xs" disabled={!ok} onClick={add}>추가</Button></Td>
+                <Td align="right"><Button variant="secondary" size="xs" disabled={!ok} onClick={add}>등록</Button></Td>
               </tr>
             </tbody>
           </TableCard>

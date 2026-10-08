@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { CORE_ROLES, coreRoleCircuitLabel, type OpticalPath, type PathBundle } from '@twin/core';
-import { Button, DetailCard, DetailCardHeader, EMPTY, IconButton, ListRow, SELECTED, TableSearch } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, EMPTY, IconButton, ListRow, SELECTED, TableSearch, EmptyRow } from '../../../components/ui';
 import { DutyBadge } from './duty';
 import type { NetworkView } from './networkSelectors';
 import { equipmentLabel, lineName, type OpticalMapModel, type Ring, type Warning } from './opticalMapModel';
@@ -109,7 +109,7 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
       </DetailCard>
 
       <DetailCard className="shrink-0">
-        <DetailCardHeader title="링" badge={model.rings.length} />
+        <DetailCardHeader title="링" count={model.rings.length} />
         <div data-testid="ring-list" className="max-h-32 overflow-y-auto">
           {model.rings.length === 0 ? (
             /* 미완결 경로가 있으면 「링이 없다」고 단정하지 않는다 — 끊긴 사슬이 이어지면 링이 될 수 있다. */
@@ -169,23 +169,26 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
       <DetailCard className="flex min-h-0 flex-1 flex-col">
         <DetailCardHeader
           title="회선"
-          badge={model.bundles.length}
+          count={model.bundles.length}
           actions={(
-            <>
-              <TableSearch value={query} onChange={onQuery} placeholder="설비 · 변전소 검색" aria-label="회선 검색" shown={shown.length} total={model.bundles.length} className="w-28" />
-              {quick.map((q) => (
-                <Button key={q.duty} variant={q.all ? 'secondary' : 'ghost'} size="xs" aria-pressed={q.all} onClick={() => onBundles(q.ids, !q.all)}>
-                  {coreRoleCircuitLabel(q.duty)} 전체
-                </Button>
-              ))}
-            </>
+            /* 검색은 머리 오른쪽, w-40 아래로 고정하지 않는다(§1.7-f) — 빠른 선택은 그 아래 줄로 내린다(좁은 레일). */
+            <TableSearch value={query} onChange={onQuery} placeholder="설비·변전소 검색" aria-label="회선 검색" shown={shown.length} total={model.bundles.length} count="inside" className="w-44 min-w-0" />
           )}
         />
+        {quick.length > 0 && (
+          <div className="flex shrink-0 items-center gap-1 px-1">
+            {quick.map((q) => (
+              <Button key={q.duty} variant={q.all ? 'secondary' : 'ghost'} size="xs" aria-pressed={q.all} onClick={() => onBundles(q.ids, !q.all)}>
+                {coreRoleCircuitLabel(q.duty)} 전체
+              </Button>
+            ))}
+          </div>
+        )}
         <div data-testid="bundle-list" className="min-h-0 flex-1 overflow-y-auto">
           {model.bundles.length === 0 ? (
-            <ListRow className="text-content-muted">완결된 회선이 없습니다</ListRow>
+            <EmptyRow>완결된 회선이 없습니다</EmptyRow>
           ) : shown.length === 0 ? (
-            <ListRow className="text-content-muted">검색 결과가 없습니다</ListRow>
+            <EmptyRow>{`'${query.trim()}'에 해당하는 회선이 없습니다`}</EmptyRow>
           ) : shown.map((b) => {
             const title = bundleTitle(view, b);
             const meta = bundleMeta(b);

@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Pencil, Route, Trash2 } from 'lucide-react';
-import { Button, CommitInput, isComposing, DetailCard, DetailCardHeader, EmptyState, ErrorStrip, IconButton, ListHeading, ListItemRow, useConfirm } from '../../../components/ui';
+import {
+  Button, CommitInput, isComposing, DetailCard, DetailCardHeader, ErrorStrip, IconButton, ListHeading, ListItemRow, useConfirm,
+  EmptyRow, lengthText,
+} from '../../../components/ui';
 import { EditOnly } from '../../useCanEdit';
 import { deleteConfirm } from '../deleteConfirm';
 import { useCatalog } from '../../model/hooks';
@@ -71,7 +74,7 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
     <DetailCard>
       <DetailCardHeader title="연결" actions={<EditOnly><Button variant="secondary" size="sm" onClick={() => setOpen(true)}>연결 추가</Button></EditOnly>} />
       <ErrorStrip message={error} onDismiss={() => setError(null)} />
-      {links.length === 0 && <EmptyState title="등록된 연결이 없습니다" />}
+      {links.length === 0 && <EmptyRow>연결이 없습니다</EmptyRow>}
       {/* 줄들은 한 자식으로 묶는다 — 카드는 자식마다 여백을 주므로, 따로 두면 줄 사이가 벌어진다(CONVENTIONS §3 「카드 안 목록 줄」). */}
       {links.length > 0 && (
         <div>
@@ -97,7 +100,7 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
     const { near, far } = sidesOf(l, equipmentId);
     const nearRef = l[near];
     const here = nearLabel(nearRef);
-    const meta = [here, cableName(l.cableTypeId), l.lengthM != null ? `${l.lengthM} m` : null].filter(Boolean).join(' · ');
+    const meta = [here, cableName(l.cableTypeId), l.lengthM != null ? lengthText(l.lengthM) : null].filter(Boolean).join(' · ');
     const farText = endLabel(s, far);
     /* 코어 끝이 있는 연결(광선로 코어에 물린 것)만 중계경로가 있다 — 그 코어 끝에서 추적한다. */
     const core = far.kind === 'core' ? far : null;

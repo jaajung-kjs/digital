@@ -7,10 +7,10 @@ import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy'
 import { newId } from '../../newId';
 import { EquipmentTypeOptions } from './TypeOptions';
 
-interface Props { substationId: string; open: boolean; defaultRackId?: string; onClose: () => void; onCreated: (equipmentId: string) => void }
+interface Props { substationId: string; /** 본문 첫 줄 「위치」(§1.8 — 어디에 넣는지). */ substationName?: string; open: boolean; defaultRackId?: string; onClose: () => void; onCreated: (equipmentId: string) => void }
 
 /** 설비 추가 — 이름·품목·랙. 차단기는 묻지 않는다 — 상세에서 「차단기 추가」로 한 줄씩 더한다. */
-export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose, onCreated }: Props) {
+export function AddEquipmentDialog({ substationId, substationName, open, defaultRackId, onClose, onCreated }: Props) {
   const catalog = useCatalog().data;
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
@@ -46,18 +46,19 @@ export function AddEquipmentDialog({ substationId, open, defaultRackId, onClose,
       footer={<><Button variant="secondary" onClick={onClose}>취소</Button><Button disabled={!ok} onClick={submit}>추가</Button></>}
     >
       <div className="flex flex-col gap-3">
+        {substationName && <DetailRow label="위치">{substationName}</DetailRow>}
         <DetailRow label="이름">
           <Input size="sm" autoFocus value={name} onChange={(e) => setName(e.currentTarget.value)} />
         </DetailRow>
         <DetailRow label="설비 품목">
           <Select size="sm" value={typeId} onChange={(e) => setTypeId(e.currentTarget.value)}>
-            <option value="">선택</option>
+            <option value="" disabled>선택하세요</option>
             <EquipmentTypeOptions categories={catalog?.categories ?? []} types={catalog?.equipmentTypes ?? []} />
           </Select>
         </DetailRow>
         <DetailRow label="랙">
           <Select size="sm" value={rackId} onChange={(e) => setRackPick(e.currentTarget.value)}>
-            <option value="">선택</option>
+            <option value="" disabled>선택하세요</option>
             {racks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </Select>
         </DetailRow>

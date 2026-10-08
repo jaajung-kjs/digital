@@ -72,7 +72,7 @@ describe('V2LoginPage 제출', () => {
     fireEvent.click(screen.getByRole('button', { name: /로그인/ }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('로그인에 실패했습니다.');
+      expect(screen.getByRole('alert')).toHaveTextContent('로그인에 실패했습니다');
     });
     expect(mockNavigate).not.toHaveBeenCalled();
   });

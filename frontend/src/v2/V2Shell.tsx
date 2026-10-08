@@ -3,7 +3,7 @@
  *
  * 구조:
  *   ┌── header (shrink-0, h-12) ──────────────────────────────────────────┐
- *   │  [Boxes] ICT 디지털 트윈  |  설비 관리  설비관리대장  |  사용자(역할) 로그아웃 │
+ *   │  [Boxes] ICT 설비관리시스템 디지털 트윈  |  설비 관리  설비관리대장  |  사용자(역할) 로그아웃 │
  *   └─────────────────────────────────────────────────────────────────────┘
  *   ┌── <Outlet/> (flex-1, min-h-0) ─────────────────────────────────────┐
  *   │  v2 페이지가 자체 OrgTreePanel 보유 → 이중 사이드바 없음           │
@@ -18,7 +18,7 @@ import { useUnsaved, unsavedGuard } from './store/unsavedStore';
 import { confirmDiscard, unsavedPrompt } from './leaveGuard';
 import { workingCopyStore } from './model/store/workingCopy';
 import { AppBar, ErrorStrip, MenuBar, useConfirm, type MenuBarItem } from '../components/ui';
-import { PRODUCT_NAME } from '../product';
+import { PRODUCT_LOGO_SUBTITLE, PRODUCT_NAME } from '../product';
 
 /**
  * 최상위 화면 셋 — **다루는 것이 다르면 탭이 아니라 화면을 나눈다**.
@@ -114,7 +114,7 @@ export function V2Shell() {
           두 줄을 각각 공용 컴포넌트로 뽑아 두면 화면이 늘어도 머리는 한 곳에서만 바뀐다. */}
       <AppBar
         title={PRODUCT_NAME}
-        subtitle="ICT 설비관리시스템"
+        subtitle={PRODUCT_LOGO_SUBTITLE}
         onTitleClick={() => { void mayLeave().then((ok) => { if (ok) navigate('/'); }); }}
       >
         {user && (

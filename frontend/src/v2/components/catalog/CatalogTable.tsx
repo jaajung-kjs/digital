@@ -11,7 +11,10 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { Check, Trash2, X } from 'lucide-react';
-import { Button, EMPTY, HOVER_REVEAL, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, ViewCard, isCommitKey, useConfirm } from '../../../components/ui';
+import {
+  Button, EMPTY, HOVER_REVEAL, IconButton, Input, Select, TABLE_ROW, TableCard, Td, Th, ErrorStrip, ViewCard, isCommitKey,
+  useConfirm, formatManDays,
+} from '../../../components/ui';
 import { isAxiosError } from 'axios';
 import { apiErrorMessage } from '../../apiError';
 import { useReorder, useWageCatalog } from '../../hooks';
@@ -43,9 +46,8 @@ interface Props {
   title: string;
 }
 
-const KO = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 3 });
-/** 읽는 줄의 수 — 천 단위 구분(편집 칸은 원래 수). */
-const showNumber = (v: string) => (v === '' || Number.isNaN(Number(v)) ? v : KO.format(Number(v)));
+/** 읽는 줄의 수 — 천 단위 구분, 최대 3자리 꼬리 0 제거(단가·공량 공용 `formatManDays` 규칙, 편집 칸은 원래 수). */
+const showNumber = (v: string) => (v === '' || Number.isNaN(Number(v)) ? v : formatManDays(Number(v)));
 const isKeyTaken = (e: unknown) => isAxiosError(e) && (e.response?.data as { error?: string } | undefined)?.error === 'KEY_TAKEN';
 const str = (v: unknown) => (v == null ? '' : String(v));
 

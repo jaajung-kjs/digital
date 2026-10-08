@@ -1,6 +1,6 @@
 import { fiberLineName, type OpticalPath, type PathEnd, type PathHop, type Side } from '@twin/core';
 import type { NetworkView } from './networkSelectors';
-import { EMPTY } from '../../../components/ui/format';
+import { EMPTY, kmText } from '../../../components/ui/format';
 
 /** 선번장 블록 하나 — 그 국에서 연다. */
 export interface BlockAt { substationId: string; lineId: string; side: Side }
@@ -81,7 +81,7 @@ function lineText(v: NetworkView, lineId: string): string {
   const l = v.line(lineId);
   if (!l) return EMPTY;
   const name = fiberLineName(l.name, v.substationName(l.aSubstationId), v.substationName(l.bSubstationId));
-  return l.lengthKm != null ? `${name} (${l.lengthKm} km)` : name;
+  return l.lengthKm != null ? `${name} (${kmText(l.lengthKm)})` : name;
 }
 
 const at = (v: NetworkView, h: PathHop, side: Side): BlockAt => ({ substationId: sideSub(v, h.lineId, side), lineId: h.lineId, side });

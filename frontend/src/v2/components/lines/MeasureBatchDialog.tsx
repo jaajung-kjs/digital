@@ -1,7 +1,8 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import type { SheetBlock } from '@twin/core';
 import {
-  Button, DateInput, DetailCard, DetailRow, EMPTY, ErrorStrip, Input, Modal, TABLE_ROW, TableCard, Td, Th, formatDate, isCommitKey, useConfirm,
+  Button, DateInput, DetailCard, DetailRow, EMPTY, ErrorStrip, Input, Modal, TABLE_ROW, TableCard, Td, Th, formatDate,
+  isCommitKey, useConfirm, dbText,
 } from '../../../components/ui';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import { blockWhere } from './sheetSelectors';
@@ -15,7 +16,7 @@ import {
 /** 지금 최근 측정 한 줄 — `2024-10-08 · 1310 -6.435 dB · 1550 -4.42 dB`. */
 function latestText(m: SheetBlock['rows'][number]['latest']): string {
   if (!m) return EMPTY;
-  const parts = [m.measuredOn ? formatDate(m.measuredOn) : null, m.loss1310 != null ? `1310 ${m.loss1310} dB` : null, m.loss1550 != null ? `1550 ${m.loss1550} dB` : null];
+  const parts = [m.measuredOn ? formatDate(m.measuredOn) : null, m.loss1310 != null ? `1310 ${dbText(m.loss1310)}` : null, m.loss1550 != null ? `1550 ${dbText(m.loss1550)}` : null];
   return parts.filter(Boolean).join(' · ') || EMPTY;
 }
 
@@ -52,7 +53,7 @@ export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) 
   const filled = useMemo(() => block.rows.filter((r) => drafts[r.no] && !isBlankDraft(drafts[r.no]!)), [block.rows, drafts]);
   /* 친 것이 있으면 닫기 전에 묻는다(Esc · ✕ · 취소) — 스무 줄을 친 뒤 Esc 한 번에 날아가지 않게. */
   async function requestClose() {
-    if (filled.length > 0 && !(await confirm({ title: '측정 입력 닫기', target: null, message: `입력한 ${filled.length}건을 취소하시겠습니까?`, confirmLabel: '입력 취소', danger: true }))) return;
+    if (filled.length > 0 && !(await confirm({ title: '측정 등록 취소', target: null, message: `입력한 ${filled.length}건을 취소하시겠습니까?`, confirmLabel: '입력 취소', cancelLabel: '계속 입력', danger: true }))) return;
     onClose();
   }
   const bad = useMemo(() => block.rows.filter((r) => drafts[r.no] && draftHasBad(drafts[r.no]!)).map((r) => r.no), [block.rows, drafts]);
@@ -77,7 +78,7 @@ export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) 
 
   return (
     <Modal
-      open onClose={() => void requestClose()} size="xl" title={`측정 입력 — ${where} ↔ ${peer}`}
+      open onClose={() => void requestClose()} size="xl" title={`측정 등록 — ${where} ↔ ${peer}`}
       footer={
         <>
           <span className="mr-auto text-xs text-content-muted">

@@ -100,7 +100,7 @@ describe('광 계통도', () => {
     expect(document.querySelector('[data-station="S4"]')).toHaveClass('opacity-50');
     expect(document.querySelector('[data-station="S1"]')).toHaveAttribute('data-in-scope', 'true');
     /* 범례는 있는 것만 — 주회선 · 예비회선 · 주/예비 미지정 · 범위 밖 국. */
-    expect(screen.getByTestId('map-legend')).toHaveTextContent(/주회선.*예비회선.*주\/예비 미지정.*범위 밖 국/);
+    expect(screen.getByTestId('map-legend')).toHaveTextContent(/주회선.*예비회선.*주\/예비 미지정.*범위 밖 변전소/);
     expect(overlays()).toEqual([]);
   });
 

@@ -38,7 +38,7 @@ export function conflictLabel(s: Pick<WorkingCopyState, 'saved' | 'overlays'>, k
 const reasonLabel = (reason: Conflict['reason']) => (reason === 'deleted' ? '서버에서 삭제됨' : '다른 사용자가 수정함');
 
 const RECORD_LABEL: Partial<Record<DroppedEdit['kind'], string>> = {
-  maintenance: '고장 이력', inspections: '점검 기록', photos: '사진', coreMeasurements: '측정',
+  maintenance: '고장 기록', inspections: '점검 기록', photos: '사진', coreMeasurements: '측정',
 };
 
 /** 버린 손질 하나의 이름 — 버리기 **전** 상태로 짓는다(버린 뒤에는 그 행이 없을 수 있다). */

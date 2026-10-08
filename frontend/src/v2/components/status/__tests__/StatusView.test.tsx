@@ -47,7 +47,7 @@ describe('StatusView 빈 화면·고아 설비', () => {
   it('랙별 — 랙 목록에 없는 랙의 설비는 「랙 없음」 아래', () => {
     render(<StatusView rows={rows} racks={[racks[0]!]} selectedId={null} onSelect={vi.fn()} />);
     fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
-    expect(screen.getByText('랙 없음')).toBeInTheDocument();
+    expect(screen.getByText('랙 미지정')).toBeInTheDocument();
     expect(screen.getAllByText('UPS').length).toBeGreaterThan(0);
   });
 });

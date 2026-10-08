@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { Route, Trash2 } from 'lucide-react';
 import { CORE_ROLES, CORE_STATUSES, DEFAULT_CORE_STATUS, type CoreRole, type CoreStatus, type LinkEndRef, type SheetBlock, type SheetRow } from '@twin/core';
 import {
-  Button, EMPTY, HOVER_REVEAL, IconButton, StatusDot, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, Td, Th, cn, formatDate,
+  Button, EMPTY, HOVER_REVEAL, IconButton, StatusDot, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, Td, Th, cn, dbText, formatDate,
+  formatMeasure, joinParts, kmText,
   type TableColumn,
 } from '../../../components/ui';
 import type { Core } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
 import { EditOnly } from '../../useCanEdit';
+import { coreStatusTone } from '../../tones';
 
 /**
  * 코어 · 어댑터 · 자국 접속 · 대국 접속 · 상태 · 주/예비 · 회선 내역 · 비고 · 1310 손실 · 1550 손실 · 거리 · 측정일.
@@ -41,9 +43,9 @@ const BREAKPOINTS = [1200, 700] as const;
 const HEAD = 'border-b-0 shadow-[inset_0_-1px_0_rgb(var(--border-2-rgb))]';
 
 const statusLabel = (v: string) => CORE_STATUSES.find((c) => c.value === v)?.label ?? v;
-const num = (v: number | null) => (v == null ? EMPTY : String(v));
+const num = (v: number | null) => (v == null ? EMPTY : formatMeasure(v));
 /** 수 칸 — 빈 값 「—」는 늘 흐리게(같은 표의 다른 빈 칸과 같은 색). */
-const numCell = (v: number | null) => (v == null ? <span className="text-content-faint">{EMPTY}</span> : String(v));
+const numCell = (v: number | null) => (v == null ? <span className="text-content-faint">{EMPTY}</span> : formatMeasure(v));
 
 export interface BlockHead {
   /** 단자 · 슬롯 · 어댑터 범위 — 단자가 비면 「단자 미지정」(블록의 이름, aria-label). */
@@ -147,8 +149,8 @@ export function LineBlock({
             metas={[head.lineName, head.length, head.cable]}
             actions={(
               <EditOnly>
-                <Button variant="secondary" size="xs" onClick={onMeasure}>측정 입력</Button>
-                <Button variant="secondary" size="xs" onClick={onEdit}>편집</Button>
+                <Button variant="secondary" size="xs" onClick={onMeasure}>측정 등록</Button>
+                <Button variant="secondary" size="xs" onClick={onEdit}>광선로 수정</Button>
               </EditOnly>
             )}
           />
@@ -190,21 +192,23 @@ export function LineBlock({
             const dist = m ? (m.dist1550 ?? m.dist1310) : null;
             const distFrom1310 = m != null && m.dist1550 == null && m.dist1310 != null;
             /* 최근 측정 한 줄 — 「-6.44 / -4.42 dB · 18.7 km」(측정일은 title). */
-            const latest = m ? [
-              m.loss1310 != null || m.loss1550 != null ? `${num(m.loss1310)} / ${num(m.loss1550)} dB` : null,
-              dist != null ? `${dist} km${distFrom1310 ? '(1310)' : ''}` : null,
-            ].filter(Boolean).join(' · ') || EMPTY : EMPTY;
+            /* 빈 조각은 뺀다 — 한 파장만 있으면 「1550 -4.42 dB」(어느 파장인지 적는다), 둘 다면 「-6.44 / -4.42 dB」. */
+            const loss = m == null ? null
+              : m.loss1310 != null && m.loss1550 != null ? `${num(m.loss1310)} / ${num(m.loss1550)} dB`
+              : m.loss1310 != null ? `1310 ${dbText(m.loss1310)}`
+              : m.loss1550 != null ? `1550 ${dbText(m.loss1550)}` : null;
+            const latest = (m && joinParts([loss, dist != null ? `${kmText(dist)}${distFrom1310 ? '(1310)' : ''}` : null])) ?? EMPTY;
             /* 지금 서지 않는 칸의 값 — 코어 번호 칸 title 에 모은다. */
             const hidden = [
               !shows('jack') && `어댑터 ${r.jack}`,
-              !shows('role') && r.role && `주/예비 ${CORE_ROLES.find((x) => x.value === r.role)?.label ?? r.role}`,
+              !shows('role') && r.role && (CORE_ROLES.find((x) => x.value === r.role)?.label ?? r.role),
               !shows('note') && r.note && `비고 ${r.note}`,
               !shows('loss1310') && !shows('latest') && m && `최근 측정 ${latest}${m.measuredOn ? ` (${formatDate(m.measuredOn)})` : ''}`,
             ].filter(Boolean).join(' · ');
             return (
               <tr key={r.no} data-testid={`sheet-row-${r.no}`} className={cn(TABLE_ROW, 'group', bad && 'text-content-faint')}>
                 <Td align="right" col="no">
-                  <button type="button" className="w-full rounded px-1 text-right hover:text-primary" title={hidden || undefined} aria-label={`코어 ${r.no} 측정 이력`} onClick={() => onOpenCore(r.no)}>{r.no}</button>
+                  <button type="button" className="w-full rounded px-1 text-right hover:text-primary" title={hidden || undefined} aria-label={`코어 ${r.no} 측정 기록`} onClick={() => onOpenCore(r.no)}>{r.no}</button>
                 </Td>
                 <Td align="right" col="jack" className="text-content-muted">{r.jack}</Td>
                 {/* 손잡이(지우개·잇기)는 **제 자리**를 갖는다 — 이름 위에 겹쳐 띄우면 이름 끝을 가리고, 손이 닿아야만
@@ -251,7 +255,7 @@ export function LineBlock({
                   <InlineEditCell
                     value={r.status} label="상태" choices={CORE_STATUSES} required
                     /* 점 칸은 한 줄 높이(h-5)에 가둔다 — 기준선에 맞추면 그 줄만 2px 부푼다(코어 줄은 눈으로 센다). */
-                    format={(v) => (v === DEFAULT_CORE_STATUS ? <span className="text-content-muted">{statusLabel(v)}</span> : <span className="flex h-5 items-center"><StatusDot status="warning">{statusLabel(v)}</StatusDot></span>)}
+                    format={(v) => (v === DEFAULT_CORE_STATUS ? <span className="text-content-muted">{statusLabel(v)}</span> : <span className="flex h-5 items-center"><StatusDot status={coreStatusTone(v)}>{statusLabel(v)}</StatusDot></span>)}
                     onCommit={(v) => { if (v !== r.status) onUpdateCore(r.no, { status: v as CoreStatus }); }}
                   />
                 </Td>

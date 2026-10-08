@@ -4,7 +4,7 @@ import { Boxes, AlertCircle } from 'lucide-react';
 import { useV2AuthStore } from '../store/authStore';
 import { apiErrorMessage } from '../apiError';
 import { Button, Input } from '../../components/ui';
-import { PRODUCT_NAME, PRODUCT_TAGLINE } from '../../product';
+import { PRODUCT_LOGO_SUBTITLE, PRODUCT_NAME, PRODUCT_SCREENS, PRODUCT_TAGLINE } from '../../product';
 
 /**
  * 로그인 뒤 돌아갈 자리 — 로그인이 필요해 튕겨 온 주소(`RequireAuth` 가 `state.from` 에 싣는다). 북마크·공유 주소·
@@ -37,7 +37,7 @@ export function V2LoginPage() {
       await login({ username, password });
       navigate(returnPath(location.state), { replace: true });
     } catch (err: unknown) {
-      setLocalError(apiErrorMessage(err, '로그인에 실패했습니다.'));
+      setLocalError(apiErrorMessage(err, '로그인에 실패했습니다'));
     } finally {
       setSubmitting(false);
     }
@@ -46,25 +46,28 @@ export function V2LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* LEFT — 브랜드 패널 */}
-      <div className="hidden md:flex md:w-[45%] flex-col justify-between p-12 bg-gradient-to-br from-[#1c1917] to-[#292524] text-white">
+      <div className="hidden md:flex md:w-[45%] flex-col justify-between p-12 bg-appbar text-appbar-fg">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded border border-white/20">
-            <Boxes className="h-6 w-6 text-primary" />
+          <div className="flex h-10 w-10 items-center justify-center rounded border border-appbar-fg/20">
+            <Boxes className="h-6 w-6 text-appbar-fg" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">{PRODUCT_NAME}</span>
+          <span className="flex flex-col">
+            <span className="text-lg font-semibold tracking-tight">{PRODUCT_NAME}</span>
+            <span className="text-xs text-appbar-fg/75">{PRODUCT_LOGO_SUBTITLE}</span>
+          </span>
         </div>
 
         <div className="space-y-4">
           <h1 className="text-3xl font-bold leading-snug">
             {PRODUCT_TAGLINE}
           </h1>
-          <p className="text-base text-white/60">
-            현황 · 평면도 · 계통도 통합 관리
+          <p className="text-base text-appbar-fg/75">
+            {PRODUCT_SCREENS}
           </p>
         </div>
 
         {/* 조직 이름은 데이터다 — 화면에 박아 두면 다른 본부에 깔았을 때 거짓말이 된다. */}
-        <p className="text-sm text-white/40">v2.0</p>
+        <p className="text-sm text-appbar-fg/60">v2.0</p>
       </div>
 
       {/* RIGHT — 폼 패널 */}
@@ -81,7 +84,7 @@ export function V2LoginPage() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-content">로그인</h2>
             <p className="mt-2 text-sm text-content-muted">
-              계정 정보를 입력해 로그인하세요.
+              계정 정보를 입력하여 로그인하세요
             </p>
           </div>
 

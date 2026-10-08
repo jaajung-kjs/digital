@@ -151,7 +151,7 @@ describe('선번장', () => {
   it('단자 Select 로 거른다 — 블록이 있는 단자만 선택지에 선다', () => {
     renderSheet();
     const pick = screen.getByRole('combobox', { name: '접속 설비' }) as HTMLSelectElement;
-    expect([...pick.options].map((o) => o.textContent)).toEqual(['전체', 'OFD', 'OFD#2', '접속 설비 미지정']);
+    expect([...pick.options].map((o) => o.textContent)).toEqual(['접속 설비 전체', 'OFD', 'OFD#2', '접속 설비 미지정']);
     fireEvent.change(pick, { target: { value: 'ofd2' } });
     expect(blocks().map((b) => b.dataset.line)).toEqual(['L3']);
   });
@@ -302,7 +302,7 @@ describe('선번장', () => {
     store.getState().reset();
     renderSheet();
     expect(screen.getByText('이 변전소에 수용된 광선로가 없습니다')).toBeInTheDocument();
-    expect(screen.getByText('「광선로 추가」로 상대국과 코어 수를 지정하세요')).toBeInTheDocument();
+    expect(screen.getByText('「광선로 추가」를 누르세요')).toBeInTheDocument();
   });
 });
 
@@ -311,11 +311,11 @@ describe('조회 사용자 — 선번장은 읽기만', () => {
   it('광선로 추가·측정 입력·편집·연결·연결 삭제가 없고, 회선 내역 칸은 누를 수 없다', () => {
     renderSheet();
     expect(blocks().length).toBeGreaterThan(0);
-    for (const name of ['광선로 추가', '측정 입력', '편집', '연결', '연결 삭제']) {
+    for (const name of ['광선로 추가', '측정 등록', '광선로 수정', '연결', '연결 삭제']) {
       expect(screen.queryByRole('button', { name })).toBeNull();
     }
     expect(screen.queryAllByRole('button', { name: /수정$/ })).toEqual([]);
     /* 읽는 것은 그대로 — 측정 이력·중계경로는 연다. */
-    expect(screen.getAllByRole('button', { name: /측정 이력$/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /측정 기록$/ }).length).toBeGreaterThan(0);
   });
 });

@@ -108,7 +108,7 @@ export function PanelsCard({ equipmentId, panelCount, onOpenBlock, editCount, on
               </ListRow>
             );
           })}
-          {free != null && <ListRow>{`빈 슬롯 ${Math.max(0, free)}`}</ListRow>}
+          {free != null && <ListRow>{`빈 슬롯 ${Math.max(0, free)}개`}</ListRow>}
         </div>
       )}
       {over.length > 0 && (

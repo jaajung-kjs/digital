@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { CIRCUIT_CURRENTS, type PowerBreaker } from '@twin/core';
 import {
-  Badge, Button, SelectionScope, StatusDot, TreeRow, selectOrToggle, useScrollSelectedIntoView, type BadgeStatus,
+  Badge, Button, SelectionScope, StatusDot, TreeRow, selectOrToggle, useScrollSelectedIntoView, type BadgeStatus, EMPTY,
+  joinParts, unitValueText,
 } from '../../../components/ui';
 import { visibleTreeRows, type PowerTreeRow } from './powerSelectors';
 
@@ -36,9 +37,9 @@ export interface PowerTreeViewProps {
 
 const currentWord = (v: string | null) => CIRCUIT_CURRENTS.find((c) => c.value === v)?.label ?? null;
 
-/** 「차단기 3 · IP급전랙 · 30A · 교류」 — 빈 값은 건너뛴다. */
+/** 「차단기 3 · IP급전랙 · 30 A · 교류」 — 빈 값은 건너뛴다. */
 const breakerText = (b: PowerBreaker) =>
-  [`차단기 ${b.no}`, b.label, b.capacity, currentWord(b.current)].filter(Boolean).join(' · ');
+  joinParts([`차단기 ${b.no}`, b.label, b.capacity && unitValueText(b.capacity), currentWord(b.current)]) ?? '';
 
 /** 「상위 설비 공급」의 뜻 — 고리처럼 보이지만 분전반의 UPS 모선처럼 정상인 구성이다(경고가 아니다). */
 const FEEDBACK_TITLE = '상위 설비의 모선으로 다시 공급되는 계통(분전반의 UPS 모선 등)';
@@ -226,7 +227,7 @@ export function PowerTreeView({
   );
 
   function loadTitle(b: PowerBreaker): string {
-    if (b.load == null) return '예비';
+    if (b.load == null) return EMPTY;
     if (b.load.kind === 'other') return otherLoad(b);
     const name = info(b.load.equipmentId).name;
     return b.cycle ? `${name} (상위 설비 공급 — ${FEEDBACK_TITLE})` : b.repeat ? `${name} (상단 참조)` : name;
@@ -250,7 +251,7 @@ function EquipmentLabel({ info, strong = false, bus = null, meta = [], after }: 
 }
 
 /**
- * 차단기 줄의 부하 — 설비(모선이 여럿이면 들어간 모선) · 예비 · 상단 참조 · 상위 설비 공급 · 설비가 아닌 끝(차단기·코어).
+ * 차단기 줄의 부하 — 설비(모선이 여럿이면 들어간 모선) · 없음(「—」) · 상단 참조 · 상위 설비 공급 · 설비가 아닌 끝(차단기·코어).
  * 「상단 참조」와 「상위 설비 공급」은 같은 손잡이다 — 누르면 그 (설비, 모선)을 펼친 줄로 간다.
  */
 function Load({ row, info, otherLoad, onReveal }: {
@@ -260,7 +261,8 @@ function Load({ row, info, otherLoad, onReveal }: {
   onReveal: (equipmentId: string, bus: string | null) => void;
 }) {
   const b = row.breaker!;
-  if (b.load == null) return <span className="min-w-0 flex-1 truncate text-content-faint">예비</span>;
+  /* 부하 없음 = 값 없음 — 「—」(「예비」는 설비 상태·예비회선과 겹친다, V1). */
+  if (b.load == null) return <span className="min-w-0 flex-1 truncate text-content-faint">{EMPTY}</span>;
   if (b.load.kind === 'other') return <span className="min-w-0 flex-1 truncate">{otherLoad(b)}</span>;
   const id = b.load.equipmentId;
   const go = (e: { stopPropagation: () => void }) => { e.stopPropagation(); onReveal(id, b.loadBus); };

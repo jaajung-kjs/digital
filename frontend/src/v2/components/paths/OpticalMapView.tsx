@@ -71,7 +71,7 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
   }
   if (!view || !model) return <PageState />;
   if (model.lines.length === 0) {
-    return <EmptyState title="이 범위에 등록된 광선로가 없습니다" description="변전소 선번장에서 「광선로 추가」로 등록하세요." />;
+    return <EmptyState title="이 범위에 등록된 광선로가 없습니다" description="변전소 선번장에서 「광선로 추가」를 누르세요" />;
   }
 
   const openLine = (l: MapLine) => {
@@ -93,13 +93,13 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
       {/* 범례는 좁으면 잘린다(글자를 세로로 쪼개지 않는다) — 수·확대 단추가 먼저다. */}
       <span className="flex min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap px-3" data-testid="map-legend">
         {duties.map((d) => <DutyLegend key={dutyAttr(d)} duty={d} />)}
-        {outside && <span className="flex shrink-0 items-center gap-1.5"><svg width="12" height="12" aria-hidden className="opacity-50"><circle cx="6" cy="6" r="4" className="fill-surface stroke-content" strokeWidth={1.5} strokeDasharray="3 2" /></svg>범위 밖 국</span>}
+        {outside && <span className="flex shrink-0 items-center gap-1.5"><svg width="12" height="12" aria-hidden className="opacity-50"><circle cx="6" cy="6" r="4" className="fill-surface stroke-content" strokeWidth={1.5} strokeDasharray="3 2" /></svg>범위 밖 변전소</span>}
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-0.5">
         <IconButton aria-label="축소" size="sm" onClick={vp.zoomOut}><Minus size={14} /></IconButton>
         <span className="min-w-10 text-center tabular-nums text-content">{Math.round(vp.viewport.zoom)}%</span>
         <IconButton aria-label="확대" size="sm" onClick={vp.zoomIn}><Plus size={14} /></IconButton>
-        <Button variant="ghost" size="xs" title="국 전체에 맞추기" onClick={vp.refit}>맞추기</Button>
+        <Button variant="ghost" size="xs" title="전체 맞추기" onClick={vp.refit}>맞추기</Button>
       </span>
     </StatusBar>
   );

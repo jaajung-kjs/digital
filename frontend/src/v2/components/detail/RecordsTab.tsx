@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import {
   Button, DateInput, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, ListItemRow, Modal, TIME_PATTERN, TimeInput,
-  formatDate, formatDateTime, today, useConfirm,
+  formatDate, formatDateTime, today, useConfirm, EmptyRow,
 } from '../../../components/ui';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -130,7 +130,7 @@ export function RecordsTab({
       />
       {/* 빈 상태는 **한 줄**이다 — 절이 여럿 쌓이는 탭에서 절마다 큰 빈 상자를 세우면 아무것도 없는 화면이 제일 길어진다. */}
       {sorted.length === 0 ? (
-        <p className="px-1 py-1 text-sm text-content-faint">{emptyMessage}</p>
+        <EmptyRow>{emptyMessage}</EmptyRow>
       ) : (
         <div>
           {sorted.map((record) => {

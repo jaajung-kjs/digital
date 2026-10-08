@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { CIRCUIT_CURRENTS, MAX_CIRCUITS, SWITCH_STATES } from '@twin/core';
-import { Button, DetailCard, DetailCardHeader, ListRow } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, ListRow, joinParts, unitValueText } from '../../../components/ui';
 import { effectiveCircuits, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy } from '../../model/store/workingCopy';
 import type { Circuit } from '../../model/types';
@@ -27,7 +27,7 @@ export function CircuitCard({ equipmentId, onEdit, onAdd, onOpenPower }: {
   if (rows.length === 0) return null;
 
   const line = (c: Circuit) => {
-    const head = [String(c.no), c.label, c.capacity, wordOf(CIRCUIT_CURRENTS, c.current), wordOf(SWITCH_STATES, c.switch)].filter(Boolean).join(' · ');
+    const head = joinParts([String(c.no), c.label, c.capacity && unitValueText(c.capacity), wordOf(CIRCUIT_CURRENTS, c.current), wordOf(SWITCH_STATES, c.switch)]) ?? String(c.no);
     const hit = circuitLink(links, equipmentId, c.no);
     return hit ? `${head} → ${endLabel({ saved, overlays }, hit.far)}` : head;
   };
@@ -35,13 +35,14 @@ export function CircuitCard({ equipmentId, onEdit, onAdd, onOpenPower }: {
   return (
     <DetailCard>
       <DetailCardHeader
-        title={`차단기 ${rows.length}`}
+        title="차단기"
+        count={rows.length}
         actions={(
           <>
             {/* 다른 화면으로 가는 길은 링크 톤 고스트, 만들기 단추 앞(§3 단추 자리 표). */}
             {onOpenPower && <Button variant="link" size="sm" onClick={onOpenPower}>차단기 대장에서 보기</Button>}
             <EditOnly>
-              <Button variant="secondary" size="sm" onClick={() => onEdit(null)}>편집</Button>
+              <Button variant="secondary" size="sm" onClick={() => onEdit(null)}>차단기 수정</Button>
               <Button variant="secondary" size="sm" disabled={rows.length >= MAX_CIRCUITS} onClick={onAdd}>차단기 추가</Button>
             </EditOnly>
           </>

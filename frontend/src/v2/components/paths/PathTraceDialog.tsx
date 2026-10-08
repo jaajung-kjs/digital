@@ -46,7 +46,7 @@ export function PathTraceDialog({ substationId, at, onClose }: PathTraceDialogPr
   const title = view && path ? pathTitle(view, path, at) : '중계경로';
 
   return (
-    <Modal open onClose={onClose} title={title} size="lg" footer={<Button variant="secondary" onClick={onClose}>닫기</Button>}>
+    <Modal open onClose={onClose} title={title} size="lg">
       {failed ? (
         <PageState error="중계경로를 불러오지 못했습니다" action={<Button variant="secondary" size="sm" onClick={() => { void org.refetch(); void net.refetch(); }}>다시 시도</Button>} />
       ) : !view || !path ? (

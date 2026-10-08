@@ -85,7 +85,7 @@ describe('historyLines — 문장', () => {
   });
 
   it('기록 — 등록·삭제는 내용 한 줄, 날짜는 날로', () => {
-    expect(historyLines(it1({ entity: 'maintenance', action: 'create', fields: [{ name: 'content', before: null, after: '트립' }] }))).toEqual(['고장 이력 등록: 트립']);
+    expect(historyLines(it1({ entity: 'maintenance', action: 'create', fields: [{ name: 'content', before: null, after: '트립' }] }))).toEqual(['고장 기록 추가: 트립']);
     expect(historyLines(it1({ entity: 'inspection', action: 'delete', fields: [{ name: 'content', before: '외관', after: null }] }))).toEqual(['점검 기록 삭제: 외관']);
     expect(historyLines(it1({ fields: [{ name: 'installDate', before: '2020-01-02T00:00:00.000Z', after: '2021-03-04' }] }))).toEqual(['설치일: 2020-01-02 → 2021-03-04']);
     expect(historyLines(it1({ entity: 'circuit', no: 1, fields: [{ name: 'switch', before: 'on', after: 'off' }] }))).toEqual(['차단기 1 개폐: 투입 → 개방']);

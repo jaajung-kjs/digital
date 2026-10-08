@@ -71,7 +71,7 @@ describe('전원 계통 — 계통도', () => {
     expect(row('r:panel/4')).toHaveTextContent('차단기 4 · 통신용 · 교류');
     expect(row('r:panel/4')).toHaveTextContent('통신용 분전반');
     expect(row('r:panel/4')).toHaveTextContent('분전반'); // 품목(흐림)
-    expect(row('r:panel/4/1')).toHaveTextContent('차단기 1 · MCCB1 · 30A · 교류');
+    expect(row('r:panel/4/1')).toHaveTextContent('차단기 1 · MCCB1 · 30 A · 교류');
     expect(within(row('r:panel/4/1')).getByText('고장')).toBeInTheDocument(); // 정상이 아니면 상태
   });
 
@@ -82,10 +82,11 @@ describe('전원 계통 — 계통도', () => {
     expect(meta).not.toHaveClass('text-warning');
   });
 
-  it('부하가 없는 차단기는 「예비」로 남는다', () => {
+  it('부하가 없는 차단기는 「—」(「예비」라 쓰지 않는다 — 설비 상태·예비회선과 겹친다)', () => {
     renderTree();
-    expect(within(row('r:panel/4/3')).getByText('예비')).toHaveClass('text-content-faint');
-    expect(within(row('r:panel/1')).getByText('예비')).toBeInTheDocument();
+    expect(within(row('r:panel/4/3')).getByText('—')).toHaveClass('text-content-faint');
+    expect(within(row('r:panel/1')).getByText('—')).toBeInTheDocument();
+    expect(row('r:panel/1')).not.toHaveTextContent('예비');
   });
 
   it('이중 입력 — 두 번째 자리는 이름 + 「상단 참조」, 누르면 처음 펼친 줄로(접힌 조상은 편다) · 선택도 그 줄로', () => {

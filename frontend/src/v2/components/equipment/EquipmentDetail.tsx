@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, EmptyState, Tabs, ViewCard, useConfirm, useTabs, type TabItem } from '../../../components/ui';
+import { Button, EmptyState, Tabs, ViewCard, useConfirm, useTabs, type TabItem, EMPTY } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { addCircuit, deleteRows, equipmentDeleteSummary } from '../../model/store/deleteActions';
 import { alsoDeleted, deleteConfirm } from '../deleteConfirm';
@@ -56,9 +56,9 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, 
     const byStation = new Map<string, number>();
     for (const e of n.lineEnds) byStation.set(e.farSubstation, (byStation.get(e.farSubstation) ?? 0) + 1);
     const effects = [
-      alsoDeleted([['차단기', n.circuits], ['연결', n.links], ['점검 기록', n.inspections], ['고장 이력', n.maintenance], ['사진', n.photos]]),
+      alsoDeleted([['차단기', n.circuits], ['연결', n.links], ['점검 기록', n.inspections], ['고장 기록', n.maintenance], ['사진', n.photos]]),
       lineCount > 0
-        ? `광선로 ${lineCount}개의 접속 설비가 해제됩니다 — 대국 ${[...byStation].map(([name, k]) => `${name || '(이름 없음)'} ${k}`).join(' · ')}.`
+        ? `광선로 ${lineCount}개의 접속 설비가 해제됩니다 — 대국 ${[...byStation].map(([name, k]) => `${name || EMPTY} ${k}`).join(' · ')}.`
         : null,
     ].filter((x): x is string => x != null);
     if (!(await confirm(deleteConfirm('설비', eq!.name, effects)))) return;
@@ -106,8 +106,8 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, 
           {tab === '연결' && <LinkList equipmentId={equipmentId} substationId={eq.substationId} onOpenPower={onOpenPower && (() => onOpenPower(equipmentId))} />}
           {tab === '점검·고장' && (
             <>
-              <RecordsTab equipmentId={equipmentId} kind="inspections" dateField="inspectedAt" extraField="result" dateLabel={R.inspectedAt} extraLabel={R.result} sectionTitle="점검 기록" emptyMessage="등록된 점검 기록이 없습니다" />
-              <RecordsTab equipmentId={equipmentId} kind="maintenance" dateField="occurredAt" extraField="action" dateLabel={R.occurredAt} extraLabel={R.action} sectionTitle="고장 이력" emptyMessage="등록된 고장 이력이 없습니다" />
+              <RecordsTab equipmentId={equipmentId} kind="inspections" dateField="inspectedAt" extraField="result" dateLabel={R.inspectedAt} extraLabel={R.result} sectionTitle="점검 기록" emptyMessage="점검 기록이 없습니다" />
+              <RecordsTab equipmentId={equipmentId} kind="maintenance" dateField="occurredAt" extraField="action" dateLabel={R.occurredAt} extraLabel={R.action} sectionTitle="고장 기록" emptyMessage="고장 기록이 없습니다" />
             </>
           )}
           {tab === '사진' && <PhotoCard equipmentId={equipmentId} />}

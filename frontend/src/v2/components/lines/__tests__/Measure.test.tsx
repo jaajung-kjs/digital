@@ -55,7 +55,7 @@ const dialog = () => screen.getByRole('dialog');
 const measurements = () => effectiveRows(store.getState(), 'coreMeasurements');
 
 describe('코어 측정 이력', () => {
-  const open = (no = 5) => fireEvent.click(within(row(no)).getByRole('button', { name: `코어 ${no} 측정 이력` }));
+  const open = (no = 5) => fireEvent.click(within(row(no)).getByRole('button', { name: `코어 ${no} 측정 기록` }));
 
   it('제목은 코어 번호 — 선로 이름, 이쪽/상대 묶음이 side 로 갈리고 각각 최근 먼저', () => {
     renderSheet();
@@ -89,10 +89,10 @@ describe('코어 측정 이력', () => {
   it('측정 추가 — 이쪽 끝 한 줄, 음수 손실 그대로, 넣으면 맨 위에 선다', () => {
     renderSheet();
     open();
-    const add = screen.getByRole('region', { name: '측정 추가' });
+    const add = screen.getByRole('region', { name: '측정 등록' });
     fireEvent.change(within(add).getByRole('textbox', { name: '측정일' }), { target: { value: '2026-02-03' } });
     fireEvent.change(within(add).getByRole('textbox', { name: '1310 nm 손실' }), { target: { value: '-12.4' } });
-    fireEvent.click(within(add).getByRole('button', { name: '추가' }));
+    fireEvent.click(within(add).getByRole('button', { name: '등록' }));
     const created = measurements().find((m) => m.measuredOn === '2026-02-03')!;
     expect(created).toMatchObject({ lineId: 'L1', coreNo: 5, side: 'A', loss1310: -12.4, dist1310: null });
     expect(within(screen.getByTestId('history-near')).getAllByTestId('history-row')[0]).toHaveTextContent('2026-02-03');
@@ -101,17 +101,17 @@ describe('코어 측정 이력', () => {
   it('측정 추가 — 수가 아니면 붉고 「숫자만 넣으세요」, 추가가 잠긴다', () => {
     renderSheet();
     open();
-    const add = screen.getByRole('region', { name: '측정 추가' });
+    const add = screen.getByRole('region', { name: '측정 등록' });
     const box = within(add).getByRole('textbox', { name: '1550 nm 손실' });
     fireEvent.change(box, { target: { value: 'abc' } });
     expect(box).toHaveAttribute('aria-invalid', 'true');
     expect(add).toHaveTextContent('숫자만 입력하세요');
-    expect(within(add).getByRole('button', { name: '추가' })).toBeDisabled();
+    expect(within(add).getByRole('button', { name: '등록' })).toBeDisabled();
   });
 });
 
 describe('블록 일괄 측정 입력', () => {
-  const open = () => fireEvent.click(within(block()).getByRole('button', { name: '측정 입력' }));
+  const open = () => fireEvent.click(within(block()).getByRole('button', { name: '측정 등록' }));
   const box = (no: number, name: string) => within(dialog()).getByRole('textbox', { name: `코어 ${no} ${name}` });
 
   it('측정일은 오늘이 기본, 줄은 코어 1..N', () => {
@@ -171,7 +171,7 @@ describe('블록 일괄 측정 입력', () => {
   it('제목은 블록에서 — 단자 · 슬롯 · 어댑터 ↔ 상대국', () => {
     renderSheet();
     open();
-    expect(within(dialog()).getByRole('heading', { level: 2 })).toHaveTextContent('측정 입력 — OFD · 슬롯 1 · 어댑터 1–6 ↔ 춘천S/S');
+    expect(within(dialog()).getByRole('heading', { level: 2 })).toHaveTextContent('측정 등록 — OFD · 슬롯 1 · 어댑터 1–6 ↔ 춘천S/S');
   });
 
   it('고칠 칸이 있으면 바닥 글이 줄 수 대신 「고칠 칸이 있습니다」, 1e3·0x10 같은 꼴도 수가 아니다', () => {
@@ -196,7 +196,7 @@ describe('블록 일괄 측정 입력', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: '취소' }));
     let ask = await screen.findByRole('alertdialog');
     expect(ask).toHaveTextContent('입력한 2건을 취소하시겠습니까?');
-    fireEvent.click(within(ask).getByRole('button', { name: '취소' }));
+    fireEvent.click(within(ask).getByRole('button', { name: '계속 입력' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(box(1, '1310 nm 손실')).toHaveValue('-3');
     fireEvent.keyDown(window, { key: 'Escape' });

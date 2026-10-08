@@ -40,7 +40,7 @@ describe('로그아웃', () => {
     renderShell();
     fireEvent.click(screen.getByRole('button', { name: /로그아웃/ }));
     const dialog = await screen.findByRole('alertdialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: '계속 편집' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: '계속 수정' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(logout).not.toHaveBeenCalled();
     expect(workingCopyStore.getState().dirtyCount()).toBe(1);

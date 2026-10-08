@@ -66,7 +66,7 @@ const rackR1 = () => effectiveRows(store.getState(), 'racks').find((r) => r.id =
 describe('RackPlanView', () => {
   it('층이 없는 국이면 「층 추가」 안내가 보인다', () => {
     render(<RackPlanView substationId="S1" selectedRackId={null} onSelectRack={() => {}} />);
-    expect(screen.getByText('이 변전소에는 층이 없습니다')).toBeInTheDocument();
+    expect(screen.getByText('층이 없습니다')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '층 추가' })).toBeInTheDocument();
   });
 

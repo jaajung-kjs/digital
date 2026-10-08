@@ -11,8 +11,8 @@ export function EquipmentPlaceholder({ row, plan = false }: { row: StatusRow | n
       /* 빈 상태도 머리 띠를 둔다 — 고르면 띠가 생겨 판이 뛰던 것을 막는다(제목 자리만 잡는다). */
       <ViewCard title="상세">
         {plan
-          ? <EmptyState title="선택된 랙이 없습니다" description="도면에서 랙을 선택하세요." />
-          : <EmptyState title="선택된 설비가 없습니다" description="표에서 설비나 랙을 선택하세요." />}
+          ? <EmptyState title="선택된 랙이 없습니다" description="도면에서 랙을 선택하세요" />
+          : <EmptyState title="선택된 설비가 없습니다" description="표에서 설비나 랙을 선택하세요" />}
       </ViewCard>
     );
   }

@@ -331,9 +331,9 @@ describe('설계서', () => {
 
   it('산출할 것이 없으면 그렇게 말하고, 길이·품목이 실제로 바뀐 것만 「산출하지 않습니다」라고 알린다', () => {
     seed({ racks: [rack('R1', 'S1')] });
-    const notice = '수정 사항(길이·품목 등)은 산출하지 않습니다.';
+    const notice = '수정 사항(길이·품목 등)은 산출하지 않습니다';
     const first = open();
-    expect(ui().getByText('산출할 항목이 없습니다.')).toBeInTheDocument();
+    expect(ui().getByText('산출할 항목이 없습니다')).toBeInTheDocument();
     expect(ui().queryByText(notice)).toBeNull();
     first.unmount();
     /* 이름만 바꾼 것은 설계서와 상관없다. */

@@ -474,7 +474,7 @@ export function TreePanel({
           aria-label={`${title} 검색`}
           size="sm"
           value={query}
-          placeholder="이름으로 검색"
+          placeholder="이름 검색"
           onChange={(e) => setQuery(e.currentTarget.value)}
         />
       </div>
@@ -490,7 +490,7 @@ export function TreePanel({
       >
         {rows.length === 0 && (
           <p className="px-3 py-3 text-xs text-content-faint">
-            {searching ? '검색 결과가 없습니다' : (emptyText ?? '없음')}
+            {searching ? `'${query.trim()}'에 해당하는 항목이 없습니다` : (emptyText ?? '항목이 없습니다')}
           </p>
         )}
         {rows.map((n) => {

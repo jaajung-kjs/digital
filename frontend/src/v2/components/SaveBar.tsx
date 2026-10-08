@@ -76,7 +76,7 @@ export function SaveBar({ onCommit, isCommitting, stations, issue }: SaveBarProp
   if (dirty === 0 && !canRedo) return null;
 
   async function handleRevert() {
-    if (!(await confirm({ title: '변경 취소', target: null, message: `저장하지 않은 변경 ${dirty}건이 모두 취소됩니다.`, confirmLabel: '변경 취소', cancelLabel: '계속 편집', danger: true }))) return;
+    if (!(await confirm({ title: '변경 취소', target: null, message: `저장하지 않은 변경 ${dirty}건이 모두 취소됩니다.`, confirmLabel: '변경 취소', cancelLabel: '계속 수정', danger: true }))) return;
     workingCopyStore.getState().revert();
   }
 

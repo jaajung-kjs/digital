@@ -14,8 +14,10 @@ import { endLabel } from '../equipment/endpoints';
 import { PowerLedger, type LedgerHead } from './PowerLedger';
 import { busName, ledgerBlocks, searchTreeRows, treeRows } from './powerSelectors';
 import { PowerTreeView, type TreeEquipmentInfo } from './PowerTreeView';
+import { equipmentStatusTone } from '../../tones';
 
 const STATUS = new Map(EQUIPMENT_STATUSES.map((st) => [st.value as string, st]));
+/* 톤은 `equipmentStatusTone`(tones.ts) 한 곳 — 정상(success)은 계통도에 세우지 않는다. */
 
 /** 입력 전원 하나를 받는 차단기의 교류/직류. */
 const feedCurrent = (s: S, f: PowerFeed) => effectiveCircuits(s, f.equipmentId).find((c) => c.no === f.circuitNo)?.current ?? null;
@@ -150,7 +152,7 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
       m.set(e.id, {
         name: e.name || EMPTY,
         type: types.get(e.typeId) ?? null,
-        status: st && st.tone !== 'success' ? { label: st.label, tone: st.tone } : null,
+        status: st && st.tone !== 'success' ? { label: st.label, tone: equipmentStatusTone(e.status) } : null,
       });
     }
     return m;
@@ -215,9 +217,9 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
         tools={(
           <>
             <SegmentedControl aria-label="전원 계통 보기" items={VIEWS} value={view} onChange={onView} />
-            <div className="w-28 shrink-0">
+            <div className="w-32 shrink-0">
               <Select size="sm" aria-label="교류/직류" value={filter} onChange={(e) => setFilter(e.currentTarget.value as CurrentFilter)}>
-                <option value="all">전체</option>
+                <option value="all">교류/직류 전체</option>
                 {CIRCUIT_CURRENTS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </Select>
             </div>
@@ -232,13 +234,13 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
         )}
         actions={(
           <TableSearch
-            aria-label="전원 계통 검색" className="w-72" placeholder="설비 · 차단기 표기 · 부하 · 비고 검색"
+            aria-label="전원 계통 검색" className="w-64" placeholder="설비·차단기·부하 검색"
             value={query} onChange={setQuery} shown={isTree ? treeShown.matched : shownRows} total={isTree ? treeTotal : total}
           />
         )}
       >
         {all.length === 0 ? (
-          <EmptyState title="차단기가 있는 설비가 없습니다" description="분전반·UPS 등의 설비 상세에서 「차단기 추가」로 등록하세요" />
+          <EmptyState title="차단기가 있는 설비가 없습니다" description="분전반·UPS 등의 설비 상세에서 「차단기 추가」를 누르세요" />
         ) : isTree ? (
           treeShown.rows.length === 0 ? (
             <EmptyState title={q ? `'${query.trim()}'에 해당하는 설비·차단기가 없습니다` : '조건에 해당하는 차단기가 없습니다'} />

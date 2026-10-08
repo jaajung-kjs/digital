@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Button, DetailCard, DetailCardHeader, ErrorStrip, formatDateTime } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, ErrorStrip, formatDateTime, EmptyRow } from '../../../components/ui';
 import { apiErrorMessage } from '../../apiError';
 import { useEquipmentChanges } from '../../model/hooks';
 import { equipmentPending } from '../../model/store/pendingFor';
@@ -24,7 +24,7 @@ export function HistoryTab({ equipmentId }: { equipmentId: string }) {
       {q.isError && <ErrorStrip message={apiErrorMessage(q.error, '변경 이력을 불러오지 못했습니다')} />}
       {!isNew && q.isPending && <p className="text-xs text-content-faint">불러오는 중</p>}
       {(isNew || q.isSuccess) && entries.length === 0 && !q.hasNextPage && (
-        <p className="text-xs text-content-faint">변경 이력이 없습니다</p>
+        <EmptyRow>변경 이력이 없습니다</EmptyRow>
       )}
       {/* 항목은 카드가 아니라 **목록 줄**이다(§3.2) — 머리 줄(일시 · 사용자, 흐리게) + 바뀐 칸마다 한 줄. 카드 안에 카드를 두면
           테두리가 겹치고 들여쓰기가 생겼다. */}

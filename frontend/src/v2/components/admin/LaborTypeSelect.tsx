@@ -11,7 +11,7 @@
  * 있어야 하고, 기준정보는 나중에 올려도 된다.
  */
 import { useMemo } from 'react';
-import { Select } from '../../../components/ui';
+import { Select, formatSourceDate } from '../../../components/ui';
 import { useWageCatalog } from '../../hooks';
 
 export function LaborTypeSelect({
@@ -52,7 +52,7 @@ export function LaborTypeSelect({
         value={value ?? ''}
         onChange={(e) => onChange(e.currentTarget.value || null)}
       >
-        <option value="">— 없음 —</option>
+        <option value="">미지정</option>
         {unknown && <option value={value}>{wage.nameOf(value)}</option>}
         {/* **부문으로 묶는다** — 124개가 평평하게 늘어서면 찾을 방법이 스크롤뿐이다.
             묶음은 보고서가 쓰는 그것이다(코드 첫 자리: 1xxx 일반공사 · 2xxx 광전자 …). */}
@@ -71,7 +71,7 @@ export function LaborTypeSelect({
         <span className="text-xs text-content-faint">상단 「기준정보」에서 노임단가를 먼저 업로드하세요</span>
       )}
       {unknown && !empty && (
-        <span className="text-xs text-warning">현재 기준({wage.effective})에 없는 직종입니다</span>
+        <span className="text-xs text-warning">현재 기준({formatSourceDate(wage.effective)})에 없는 직종입니다</span>
       )}
 
     </div>

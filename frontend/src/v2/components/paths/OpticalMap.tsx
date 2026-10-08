@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { compareName, type PathBundle } from '@twin/core';
-import { cn, isCommitKey } from '../../../components/ui';
+import { cn, isCommitKey, kmText } from '../../../components/ui';
 import { DRAG_THRESHOLD } from '../../canvas/drag';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
 import { zoomAtPoint, ZOOM_STEP, type Viewport } from '../../canvas/transform';
@@ -314,7 +314,7 @@ function StationMark({ station: st, at: p, lit, onKeyDown }: { station: MapStati
 /** 광선로 이름표 — `154kV 춘천수력T/L · 24심 · 8.5 km`(이름이 ` / ` 로 여럿이면 첫 이름 + 「…」). */
 function lineLabel(l: Pick<MapLine, 'name' | 'coreCount' | 'lengthKm'>): string {
   const [first, ...rest] = l.name.split(' / ');
-  return [`${first}${rest.length > 0 ? '…' : ''}`, l.coreCount > 0 ? `${l.coreCount}심` : null, l.lengthKm != null ? `${l.lengthKm} km` : null]
+  return [`${first}${rest.length > 0 ? '…' : ''}`, l.coreCount > 0 ? `${l.coreCount}심` : null, l.lengthKm != null ? kmText(l.lengthKm) : null]
     .filter(Boolean).join(' · ');
 }
 

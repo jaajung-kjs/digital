@@ -82,7 +82,7 @@ const lines = () => effectiveRows(store.getState(), 'fiberLines');
 const dialog = () => screen.getByRole('dialog');
 const field = (name: string) => within(dialog()).getByLabelText(name) as HTMLInputElement | HTMLSelectElement;
 const set = (name: string, value: string) => fireEvent.change(field(name), { target: { value } });
-const openEdit = (lineId: string, side?: 'A' | 'B') => fireEvent.click(within(blockOf(lineId, side)).getByRole('button', { name: '편집' }));
+const openEdit = (lineId: string, side?: 'A' | 'B') => fireEvent.click(within(blockOf(lineId, side)).getByRole('button', { name: '광선로 수정' }));
 
 describe('광선로 추가', () => {
   it('상대국·케이블 품목·코어 수가 없으면 추가 단추가 잠기고, 채워 추가하면 새 블록이 선다(이 국이 A 끝)', async () => {
@@ -201,7 +201,7 @@ describe('광선로 편집', () => {
     expect(within(dialog()).getByText('상대국은 변경할 수 없습니다 — 변경하려면 삭제 후 다시 추가하세요')).toBeInTheDocument();
     set('자국 슬롯', '3');
     set('자국 시작번호', '13');
-    fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: '수정' }));
     expect(within(blockOf('L1')).getByTestId('sheet-block-head')).toHaveTextContent('OFD · 슬롯 3 · 어댑터 13–16');
     expect(lines().find((l) => l.id === 'L1')).toMatchObject({ aPanel: 3, aStartNo: 13 });
   });
@@ -214,7 +214,7 @@ describe('광선로 편집', () => {
     expect(field('대국 슬롯')).toHaveValue('1');
     set('자국 접속 설비', 'ofd');
     set('자국 슬롯', '5');
-    fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: '수정' }));
     expect(lines().find((l) => l.id === 'L2')).toMatchObject({ bEquipmentId: 'ofd', bPanel: 5, aEquipmentId: 'cofd', aPanel: 1 });
   });
 
@@ -228,7 +228,7 @@ describe('광선로 편집', () => {
     /* 막는 말은 막힌 순간에 — 치는 동안은 말하지 않고 확인은 눌린다. */
     set('코어 수', '2');
     expect(within(dialog()).queryByText(/줄일 수 없습니다/)).toBeNull();
-    const ok = within(dialog()).getByRole('button', { name: '확인' });
+    const ok = within(dialog()).getByRole('button', { name: '수정' });
     expect(ok).toBeEnabled();
     fireEvent.click(ok);
     /* 상자는 그대로, 까닭은 코어 수 칸에. */
@@ -238,7 +238,7 @@ describe('광선로 편집', () => {
     /* 코어 수를 고치면 까닭이 걷힌다. */
     set('코어 수', '3');
     expect(within(dialog()).queryByText(/줄일 수 없습니다/)).toBeNull();
-    fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: '수정' }));
     expect(within(dialog()).getByText('코어 4에 연결·측정이 있어 코어 수를 줄일 수 없습니다')).toBeInTheDocument();
     expect(store.getState().overlays).toBe(before);
     expect(lines().find((l) => l.id === 'L1')!.coreCount).toBe(4);
@@ -253,7 +253,7 @@ describe('광선로 편집', () => {
     renderSheet();
     openEdit('L1');
     set('코어 수', '2');
-    fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: '수정' }));
     expect(within(dialog()).getByText('코어 3, 5에 연결·측정이 있어 코어 수를 줄일 수 없습니다')).toBeInTheDocument();
   });
 
@@ -262,7 +262,7 @@ describe('광선로 편집', () => {
     renderSheet();
     openEdit('L1');
     set('코어 수', '3');
-    fireEvent.click(within(dialog()).getByRole('button', { name: '확인' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: '수정' }));
     expect(within(blockOf('L1')).getAllByTestId(/^sheet-row-/)).toHaveLength(3);
     expect(Object.keys(store.getState().overlays.cores)).toEqual([]);
     expect(effectiveCores(store.getState(), 'L1')).toHaveLength(3);

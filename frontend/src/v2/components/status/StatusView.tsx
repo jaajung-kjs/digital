@@ -7,14 +7,10 @@ import {
   type TableColumn,
 } from '../../../components/ui';
 import { summarize } from '../../statusSummary';
+import { equipmentStatusTone as statusTone } from '../../tones';
 import type { StatusRow } from './statusRows';
 
-type Tone = 'success' | 'warning' | 'danger' | 'neutral';
-const STATUS = new Map<string, { label: string; tone: Tone }>(
-  EQUIPMENT_STATUSES.map((s) => [s.value, { label: s.label, tone: s.tone }]),
-);
-const statusLabel = (v: string) => STATUS.get(v)?.label ?? v;
-const statusTone = (v: string): Tone => STATUS.get(v)?.tone ?? 'neutral';
+const statusLabel = (v: string) => EQUIPMENT_STATUSES.find((s) => s.value === v)?.label ?? v;
 
 /** 좋은 상태 하나 — 나머지(예비·고장…)만 칩으로 세운다. */
 const OK_STATUS = EQUIPMENT_STATUSES.find((s) => s.tone === 'success')?.value ?? 'normal';
@@ -133,7 +129,7 @@ export function StatusView({
       .map((rack) => ({ rack, rows: (byRack.get(rack.id) ?? []).sort((a, b) => compareName(a.name, b.name)) }))
       .filter((g) => !filtering || g.rows.length > 0)
       .sort((a, b) => compareName(a.rack.name, b.rack.name));
-    if (orphans.length > 0) groups.push({ rack: { id: NO_RACK, name: '랙 없음', typeName: '' }, rows: orphans });
+    if (orphans.length > 0) groups.push({ rack: { id: NO_RACK, name: '랙 미지정', typeName: '' }, rows: orphans });
     return groups;
   }, [racks, shown, filtering]);
 
@@ -178,7 +174,7 @@ export function StatusView({
 
   const empty = (
     <FullRow>
-      {filtering ? <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 설비가 없습니다` : '조건에 해당하는 설비가 없습니다'} /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」로 등록하세요.' : undefined} />}
+      {filtering ? <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 설비가 없습니다` : '조건에 해당하는 설비가 없습니다'} /> : <EmptyState title="설비가 없습니다" description={!nodeScope && onAddEquipment ? '「설비 추가」를 누르세요' : undefined} />}
     </FullRow>
   );
 

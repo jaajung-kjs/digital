@@ -1,5 +1,5 @@
 import { CIRCUIT_CURRENTS, EQUIPMENT_STATUSES, SWITCH_STATES } from '@twin/core';
-import { EMPTY, formatDate } from '../../../components/ui';
+import { EMPTY, formatDate, lengthText } from '../../../components/ui';
 import type { ChangeItem } from '../../model/types';
 import { CIRCUIT_FIELD_LABELS, EQUIPMENT_FIELD_LABELS, LINK_FIELD_LABELS, RECORD_FIELD_LABELS } from '../equipment/fieldLabels';
 
@@ -12,7 +12,7 @@ const CHOICES: Record<string, readonly { value: string; label: string }[]> = {
   status: EQUIPMENT_STATUSES, current: CIRCUIT_CURRENTS, switch: SWITCH_STATES,
 };
 const DATES = new Set(['installDate', 'occurredAt', 'inspectedAt']);
-const RECORD_NAME = { maintenance: '고장 이력', inspection: '점검 기록', photo: '사진' } as const;
+const RECORD_NAME = { maintenance: '고장 기록', inspection: '점검 기록', photo: '사진' } as const;
 
 const tableOf = (entity: ChangeItem['entity']): Record<string, string> =>
   entity === 'circuit' ? CIRCUIT_FIELD_LABELS
@@ -25,7 +25,7 @@ export function valueText(name: string, v: unknown): string {
   if (v === null || v === undefined || v === '') return EMPTY;
   if (typeof v === 'string' && CHOICES[name]) return CHOICES[name]!.find((c) => c.value === v)?.label ?? v;
   if (typeof v === 'string' && DATES.has(name)) return formatDate(v);
-  if (name === 'lengthM' && typeof v === 'number') return `${v} m`;
+  if (name === 'lengthM' && typeof v === 'number') return lengthText(v);
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
@@ -53,7 +53,7 @@ function fieldLines(it: ChangeItem, prefix: string): string[] {
 export function historyLines(it: ChangeItem): string[] {
   switch (it.entity) {
     case 'equipment':
-      if (it.action === 'create') return ['설비 등록'];
+      if (it.action === 'create') return ['설비 추가'];
       if (it.action === 'delete') return ['설비 삭제'];
       return fieldLines(it, '');
     case 'circuit':
@@ -66,7 +66,7 @@ export function historyLines(it: ChangeItem): string[] {
       const what = RECORD_NAME[it.entity];
       const content = it.fields.find((f) => f.name === 'content');
       const summary = content ? `: ${valueText('content', it.action === 'delete' ? content.before : content.after)}` : '';
-      if (it.action === 'create') return [`${what} 등록${summary}`];
+      if (it.action === 'create') return [`${what} 추가${summary}`];
       if (it.action === 'delete') return [`${what} 삭제${summary}`];
       return fieldLines(it, `${what} `);
     }

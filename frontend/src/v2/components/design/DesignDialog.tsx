@@ -4,13 +4,15 @@ import { compareName, computeEstimate, computeReport, designItems, laborCosts, m
 import type { DesignItem, DesignTarget, EstimateParams, OverheadRates, ReportKind } from '@twin/core';
 import {
   Badge, Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, Input, MessageStrip, Modal, SegmentedControl,
-  TABLE_ROW, TableCard, TableGroupHead, TableSubHead, Td, Th, cn, today, useTableLayout, type TableColumn, type TableTier,
+  EmptyRow, TABLE_ROW, TableCard, TableGroupHead, TableSubHead, Td, Th, cn, formatManDaysFixed, formatPercent, formatQty, formatSourceDate, formatWon,
+  today, useTableLayout, type TableColumn, type TableTier,
 } from '../../../components/ui';
 import type { BadgeStatus } from '../../../components/ui';
 import { useV2OrgTree, useWageCatalog } from '../../hooks';
 import { useCatalog } from '../../model/hooks';
 import { useWorkingCopy } from '../../model/store/workingCopy';
 import { flattenTree } from '../../orgTreeSelectors';
+import { TONE, WORK_KIND_TONE } from '../../tones';
 import { designInput, hasUnpricedChanges } from './designSelectors';
 import './designPrint.css';
 import './designPage.css';
@@ -22,9 +24,10 @@ import './designPage.css';
 const COLUMN_H = 'max-h-[calc(85vh-8.75rem)]';
 
 /** 작업 → 구분(신설·철거·이설). 대상(랙·설비·케이블·광선로)은 core 가 적은 `target` 이 말한다. */
-const INSTALL = { label: '신설', status: 'success' as BadgeStatus };
-const REMOVE = { label: '철거', status: 'danger' as BadgeStatus };
-const RELOCATE = { label: '이설', status: 'info' as BadgeStatus };
+/* 공사 구분은 범주다 — 셋 다 neutral, 글자로 가른다(결정 7 · `WORK_KIND_TONE`). */
+const INSTALL = { label: '신설', status: WORK_KIND_TONE };
+const REMOVE = { label: '철거', status: WORK_KIND_TONE };
+const RELOCATE = { label: '이설', status: WORK_KIND_TONE };
 const WORK: Record<ReportKind, { label: string; status: BadgeStatus }> = {
   'rack-install': INSTALL, 'equipment-install': INSTALL, 'cable-install': INSTALL,
   'rack-remove': REMOVE, 'equipment-remove': REMOVE, 'cable-remove': REMOVE,
@@ -61,11 +64,12 @@ const PRINT_WIDTH: Record<string, TableColumn['width']> = {
 };
 const PRINT_COLUMNS: readonly TableColumn[] = ITEM_COLUMNS.map((c) => ({ ...c, width: PRINT_WIDTH[c.key] ?? c.width }));
 
-/** 원 단위, 천 단위 구분 — 금액은 core 가 이미 원 단위로 맞췄다(`materialCostOf`·`computeEstimate`). */
-const won = (v: number) => v.toLocaleString('ko-KR');
-const qtyText = (v: number) => v.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
-const manDaysText = (v: number) => v.toLocaleString('ko-KR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
+/* 수 꼴은 공용 helper 하나씩(`format.ts`) — 금액은 core 가 이미 원 단위로 맞췄다(`materialCostOf`·`computeEstimate`).
+   공량은 **설계서에서만** 늘 3자리(`formatManDaysFixed`, 문서 관행), 그 밖 화면은 꼬리 0 제거. */
+const won = formatWon;
+const qtyText = formatQty;
+const manDaysText = formatManDaysFixed;
+const pct = formatPercent;
 
 /** 「품목 미지정」은 core 가 품목 이름을 「—」로 둔 줄이다 — 이름 자리에 사정을 적는다. */
 const UNRESOLVED = '—';
@@ -100,7 +104,7 @@ function ItemRow({ item, laborName }: { item: DesignItem; laborName: (code: stri
       {/* 사정(「길이 미입력」)은 이름 **앞**에 선다 — 뒤에 두면 이름이 길 때 함께 잘려 사라진다. */}
       <Td col="name" title={nameTitle}>
         <span className="flex items-center gap-1.5">
-          {note && <Badge status="warning" className="shrink-0">{note}</Badge>}
+          {note && <Badge status={TONE.warning} className="shrink-0">{note}</Badge>}
           <span className="min-w-0 truncate text-content">{item.name}</span>
         </span>
       </Td>
@@ -219,13 +223,15 @@ export function DesignDialog({ open, onClose }: DesignDialogProps) {
 
   const estimate = useDesignEstimate(items, report);
   const empty = items.length === 0;
-  const notice = unpriced && <MessageStrip tone="info">수정 사항(길이·품목 등)은 산출하지 않습니다.</MessageStrip>;
+  const notice = unpriced && <MessageStrip tone="info">수정 사항(길이·품목 등)은 산출하지 않습니다</MessageStrip>;
+  /* 문서 창 제목은 「<문서> — <범위>」(CONVENTIONS §1.8) — 어느 변전소의 설계서인지 제목이 말한다. */
+  const scope = groups.length === 0 ? null : groups.length === 1 ? groups[0]!.name : `${groups[0]!.name} 외 ${groups.length - 1}개 변전소`;
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="설계서"
+      title={scope ? `설계서 — ${scope}` : '설계서'}
       size={empty ? 'md' : '2xl'}
       footer={(
         <>
@@ -239,7 +245,7 @@ export function DesignDialog({ open, onClose }: DesignDialogProps) {
         <p className="text-sm text-content-muted">불러오는 중…</p>
       ) : empty ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-content-muted">산출할 항목이 없습니다.</p>
+          <EmptyRow>산출할 항목이 없습니다</EmptyRow>
           {notice}
         </div>
       ) : (
@@ -322,7 +328,7 @@ function ItemsTable({ items, groups, report, laborName, sticky = false, title, c
           <Th col="unitPrice" align="right" unit="원">자재단가</Th>
           <Th col="material" align="right" unit="원">재료비</Th>
           <Th col="labor">노무유형</Th>
-          <Th col="manDays" align="right" unit="인·일">공량</Th>
+          <Th col="manDays" align="right" unit="인">공량</Th>
         </tr>
       </thead>
       {groups ? (
@@ -491,7 +497,9 @@ function CostColumn({ report, e }: { report: Report; e: DesignEstimate }) {
           {band}
         </DetailRow>
         <DetailRow label="기준">
-          {`노임단가 ${wages.effective ?? '미등록'} · 제비율 ${overhead?.effective ?? '미등록'}`}
+          <span title={[wages.effective, overhead?.effective].filter(Boolean).join(' · ') || undefined}>
+            {`노임단가 ${wages.effective ? formatSourceDate(wages.effective) : '미등록'} · 제비율 ${overhead?.effective ? formatSourceDate(overhead.effective) : '미등록'}`}
+          </span>
         </DetailRow>
       </DetailCard>
 
@@ -514,7 +522,7 @@ function LaborTable({ report, e, paper = false }: { report: Report; e: DesignEst
         <TableGroupHead colSpan={4} title="노무유형별 공량" />
         <tr>
           <Th>노무유형</Th>
-          <Th align="right" unit="인·일">공량</Th>
+          <Th align="right" unit="인">공량</Th>
           <Th align="right" unit="원/일">노임단가</Th>
           <Th align="right" unit="원">노무비</Th>
         </tr>
@@ -662,7 +670,7 @@ function DesignPrint({ items, groups, report, e, laborName, substationName }: {
         <DetailRow label="공사명" wide>{e.name.trim() || '(공사명 미입력)'}</DetailRow>
         <DetailRow label="대상 변전소" wide>{places.join(' · ')}</DetailRow>
         <DetailRow label="작성일" wide>{today()}</DetailRow>
-        <DetailRow label="기준" wide>{`노임단가 ${e.wages.effective ?? '미등록'} · 제비율 ${e.overhead?.effective ?? '미등록'}`}</DetailRow>
+        <DetailRow label="기준" wide>{`노임단가 ${e.wages.effective ? formatSourceDate(e.wages.effective) : '미등록'} · 제비율 ${e.overhead?.effective ? formatSourceDate(e.overhead.effective) : '미등록'}`}</DetailRow>
         <DetailRow label="산출 조건" wide>{conditions}</DetailRow>
       </DetailCard>
       <ItemsTable title="산출 내역" columns={PRINT_COLUMNS} tier="wide" items={items} groups={groups} laborName={laborName} report={report} />

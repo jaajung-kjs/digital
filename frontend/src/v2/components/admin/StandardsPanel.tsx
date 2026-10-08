@@ -13,7 +13,8 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Upload } from 'lucide-react';
 import {
-  Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, SELECTABLE, EMPTY, Select, Td, TABLE_ROW, TableGroupHead, formatNumber,
+  Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, SELECTABLE,
+  EMPTY, Select, Td, TABLE_ROW, TableGroupHead, formatNumber, SourceDate, formatPercent, formatSourceDate, formatWon,
 } from '../../../components/ui';
 import {
   activateStandard,
@@ -27,6 +28,7 @@ import {
 import { apiErrorMessage } from '../../apiError';
 import { DURATION_BANDS, SANAN_BANDS, SIZE_BANDS } from '@twin/core';
 import { useStandards, useWageRates } from '../../hooks';
+import { TONE } from '../../tones';
 import { useCatalog } from '../../model/hooks';
 import type { Standard } from '../../model/types';
 import { EditOnly, useCanEdit } from '../../useCanEdit';
@@ -34,8 +36,10 @@ import { EditOnly, useCanEdit } from '../../useCanEdit';
 /** 파일 · 적용시기 · 올린이 · 상태. 합이 100(`TableCard`). */
 /* 상태와 동작은 **다른 열**이다 — 한 칸에 섞으면 같은 열에 배지·맨글자·단추가 뒤섞인다. */
 const COL_WIDTHS = [36, 20, 20, 14, 10] as const;
+/** 「적용」할 판이 하나도 없으면 동작 열을 세우지 않는다(모두 빈 열 숨김, §1.7-e2). */
+const COL_WIDTHS_NO_ACTION = [40, 22, 22, 16] as const;
 
-const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
+const pct = formatPercent;
 
 /**
  * 노임단가 — 올리기 + 임포트된 직종 표.
@@ -56,7 +60,7 @@ export function WageRatesView({ onError }: { onError: (m: string) => void }) {
         title="노임단가"
         accept=".hwp"
         badge={wage?.latestDate ?? null}
-        hint="건설업 임금실태조사 보고서(.hwp)를 업로드하면 직종과 노임단가가 등록됩니다."
+        hint="건설업 임금실태조사 보고서(.hwp)를 업로드하면 직종과 노임단가가 등록됩니다"
         summary={wage && <>직종 {wage.rows.length}개</>}
         onPreview={previewWageStandard}
         onCommit={uploadWageStandard}
@@ -66,7 +70,7 @@ export function WageRatesView({ onError }: { onError: (m: string) => void }) {
           <>
             <DetailRow label="직종">
               <span className="text-sm text-content">
-                {p.rows.length}개 · 기준일 {p.dates.join(' · ')}
+                {p.rows.length}개 · 기준일 {p.dates.map(formatSourceDate).join(' · ')}
               </span>
             </DetailRow>
             <DetailRow label="반영할 값">
@@ -108,7 +112,7 @@ export function OverheadRatesView({ onError }: { onError: (m: string) => void })
         title="제비율"
         accept=".xlsx"
         badge={overhead?.effective ?? null}
-        hint="조달청 「간접공사비 적용기준」(.xlsx)을 업로드하면 간접노무비·경비·일반관리비·이윤이 등록됩니다."
+        hint="조달청 「간접공사비 적용기준」(.xlsx)을 업로드하면 간접노무비·경비·일반관리비·이윤이 등록됩니다"
         summary={overhead && <>{overhead.kind}</>}
         onPreview={previewOverheadStandard}
         onCommit={uploadOverheadStandard}
@@ -224,13 +228,14 @@ function StandardCard<P extends { sourceName: string; effective: string }>({
       <DetailCard>
         <DetailCardHeader
           title={title}
-          badge={badge ?? '없음'}
-          badgeStatus={badge ? 'success' : 'warning'}
+          /* 판 버전은 범주(neutral, §2.1) — 없으면 「미등록」 경고. 원문 시기 표기는 title. */
+          badge={badge ? <SourceDate value={badge} /> : '미등록'}
+          badgeStatus={badge ? TONE.category : TONE.warning}
           actions={
             <EditOnly>
-              <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>
+              <Button variant="secondary" size="sm" disabled={busy} title={`${title} 파일(${accept}) 업로드`} onClick={() => fileRef.current?.click()}>
                 <Upload size={14} />
-                파일 선택
+                기준정보 업로드
               </Button>
             </EditOnly>
           }
@@ -257,8 +262,8 @@ function StandardCard<P extends { sourceName: string; effective: string }>({
         <DetailCard>
           <DetailCardHeader
             title={`${title} — 이 파일로 등록하시겠습니까?`}
-            badge={preview.data.effective}
-            badgeStatus="info"
+            badge={<SourceDate value={preview.data.effective} />}
+            badgeStatus={TONE.category}
             actions={
               <>
                 <Button variant="secondary" size="sm" disabled={busy} onClick={() => setPreview(null)}>
@@ -284,9 +289,10 @@ function StandardCard<P extends { sourceName: string; effective: string }>({
 function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: string) => void }) {
   const KIND_LABEL: Record<string, string> = { wage: '노임단가', overhead: '제비율' };
   const canEdit = useCanEdit();
+  const actionable = canEdit && rows.some((r) => r.kind === 'overhead' && !r.active);
   return (
     <DetailCard>
-      <DetailCardHeader title="등록 이력" badge={String(rows.length)} badgeStatus="neutral" />
+      <DetailCardHeader title="등록 이력" count={rows.length} />
       {/* 두 기준정보가 적용되는 단위가 다르다 — 상태 칸이 왜 다른지 여기서 한 번 말한다. */}
       <p className="text-xs text-content-faint">
         제비율은 <b className="font-medium">등록 이력</b> 중 하나를 선택하여 적용합니다. 노임단가는 등록한 값이 회차별로 누적되며, 직종별로
@@ -295,18 +301,18 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
       {rows.length === 0 ? (
         <EmptyState
           title="등록된 기준정보가 없습니다"
-          description="노임단가·제비율 탭의 「파일 선택」으로 업로드하세요."
+          description="노임단가·제비율 탭에서 「기준정보 업로드」를 누르세요"
           className="py-6"
         />
       ) : (
-        <TableCard widths={COL_WIDTHS}>
+        <TableCard widths={actionable ? COL_WIDTHS : COL_WIDTHS_NO_ACTION}>
           <thead>
             <tr>
               <Th>파일</Th>
               <Th>적용시기</Th>
               <Th>등록자</Th>
               <Th>상태</Th>
-              <Th align="right">동작</Th>
+              {actionable && <Th align="right"><span className="sr-only">동작</span></Th>}
             </tr>
           </thead>
           <tbody>
@@ -316,7 +322,7 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
                   <span className="mr-1.5 text-xs text-content-faint">{KIND_LABEL[row.kind] ?? row.kind}</span>
                   {row.sourceName}
                 </Td>
-                <Td className="truncate text-content">{row.effective}</Td>
+                <Td className="truncate text-content"><SourceDate value={row.effective} /></Td>
                 <Td className="truncate text-content-muted">
                   {row.uploadedBy} · {formatDate(row.createdAt)}
                 </Td>
@@ -325,15 +331,15 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
                     값이 쓰인다(「임포트됨」은 반영이 안 된 것처럼 읽혔다). */}
                 <Td className="truncate ">
                   {row.kind !== 'overhead' ? (
-                    <StatusDot status="info">값 반영됨</StatusDot>
+                    <StatusDot status={TONE.category}>값 반영됨</StatusDot>
                   ) : row.active ? (
-                    <StatusDot status="success">적용 중</StatusDot>
+                    <StatusDot status={TONE.contrastOk}>적용 중</StatusDot>
                   ) : (
-                    <StatusDot status="neutral">미적용</StatusDot>
+                    <StatusDot status={TONE.category}>미적용</StatusDot>
                   )}
                 </Td>
                 {/* 「적용」은 **제비율에만** 있다 — 눌러도 안 바뀌는 버튼을 두지 않는다. */}
-                <Td align="right">
+                {actionable && <Td align="right">
                   {row.kind === 'overhead' && !row.active && canEdit && (
                     <button
                       type="button"
@@ -343,7 +349,7 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
                       적용
                     </button>
                   )}
-                </Td>
+                </Td>}
               </tr>
             ))}
           </tbody>
@@ -389,22 +395,28 @@ function WageRatesCard() {
   return (
     <DetailCard>
       <DetailCardHeader
-        title="직종 노임" badge={String(data.rows.length)} badgeStatus="neutral"
-        actions={many && (
-          <div className="w-44">
-            <Select size="sm" aria-label="이전 회차" value={picked ?? ''} onChange={(e) => setOlderPick(e.currentTarget.value)}>
-              {older.map((d) => <option key={d} value={d}>이전 회차 {d}</option>)}
-            </Select>
-          </div>
+        title="직종 노임" count={data.rows.length}
+        actions={(
+          /* 카드 안 표의 검색도 카드 머리 오른쪽(§1.7-f). */
+          <>
+            {many && (
+              <div className="w-44">
+                <Select size="sm" aria-label="이전 회차" value={picked ?? ''} onChange={(e) => setOlderPick(e.currentTarget.value)}>
+                  {older.map((d) => <option key={d} value={d} title={d}>이전 회차 {formatSourceDate(d)}</option>)}
+                </Select>
+              </div>
+            )}
+            <TableSearch
+              aria-label="직종 검색"
+              placeholder="직종·코드 검색"
+              className="w-56"
+              value={query}
+              onChange={setQuery}
+              shown={shown.length}
+              total={data.rows.length}
+            />
+          </>
         )}
-      />
-      <TableSearch
-        aria-label="직종 검색"
-        placeholder="직종 이름 · 코드"
-        value={query}
-        onChange={setQuery}
-        shown={shown.length}
-        total={data.rows.length}
       />
       {/* 안쪽에 스크롤 상자를 만들지 않는다 — 화면 하나를 통째로 쓰므로 페이지가 스크롤하면
           된다. 머리글은 그 스크롤에 붙어 따라온다(CONVENTIONS §1.7-b). */}
@@ -415,7 +427,7 @@ function WageRatesCard() {
               <Th>직종</Th>
               {dates.map((d) => (
                 <Th key={d} align="right">
-                  {d}
+                  <SourceDate value={d} />
                 </Th>
               ))}
             </tr>
@@ -519,7 +531,7 @@ function OverheadRatesCard() {
               <Td className="text-content">{band}</Td>
               <Td align="right" className="text-content">{pct(v.rate)}</Td>
               <Td align="right" className="text-content-muted">
-                {v.base == null ? EMPTY : `${formatNumber(v.base)}원`}
+                {v.base == null ? EMPTY : `${formatWon(v.base)}원`}
               </Td>
             </tr>
           ))}

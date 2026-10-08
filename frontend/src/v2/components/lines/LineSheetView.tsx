@@ -142,7 +142,7 @@ export function LineSheetView({
         tools={
           <div className="w-40 shrink-0">
             <Select size="sm" aria-label="접속 설비" value={activeTerminal} onChange={(e) => setTerminal(e.currentTarget.value)}>
-              <option value="">전체</option>
+              <option value="">접속 설비 전체</option>
               {terminals.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
             </Select>
           </div>
@@ -152,7 +152,7 @@ export function LineSheetView({
           <div className="flex min-w-0 items-center gap-1.5">
             {addLine}
             <TableSearch
-              aria-label="선번장 검색" className="w-72" placeholder="상대국 · 선로명 · 접속 · 회선 내역 · 비고 검색"
+              aria-label="선번장 검색" className="w-64" placeholder="상대국·선로명·회선 내역 검색"
               value={query} onChange={setQuery} shown={shownRows} total={totalRows}
             />
           </div>
@@ -160,7 +160,7 @@ export function LineSheetView({
       >
         {error && <ErrorStrip message={error} onDismiss={() => setError(null)} />}
         {blocks.length === 0 ? (
-          <EmptyState title="이 변전소에 수용된 광선로가 없습니다" description={canEdit ? '「광선로 추가」로 상대국과 코어 수를 지정하세요' : undefined} action={addLine ?? undefined} />
+          <EmptyState title="이 변전소에 수용된 광선로가 없습니다" description={canEdit ? '「광선로 추가」를 누르세요' : undefined} action={addLine ?? undefined} />
         ) : shown.length === 0 ? (
           <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 코어가 없습니다` : '조건에 해당하는 코어가 없습니다'} />
         ) : (

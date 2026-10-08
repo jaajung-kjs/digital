@@ -326,8 +326,8 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack }: Pro
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <EmptyState
-          title="이 변전소에는 층이 없습니다"
-          description="층을 추가하면 랙을 배치할 수 있습니다."
+          title="층이 없습니다"
+          description={canEdit ? '「층 추가」를 누르세요' : undefined}
           action={canEdit ? <Button variant="secondary" size="sm" onClick={startAdd}>층 추가</Button> : undefined}
         />
         {floorPrompt}
@@ -358,8 +358,8 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack }: Pro
           <span className="mx-1 h-4 w-px bg-line" aria-hidden />
           <IconButton
             size="sm"
-            aria-label={`정면 회전 (현재 ${selectedPlaced.facing ?? '없음'})`}
-            title={`정면 회전 — 현재 ${selectedPlaced.facing ?? '없음'}`}
+            aria-label={`정면 회전 (현재 ${selectedPlaced.facing ?? '미지정'})`}
+            title={`정면 회전 — 현재 ${selectedPlaced.facing ?? '미지정'}`}
             onClick={rotateFacing}
           >
             <RotateCw size={15} />

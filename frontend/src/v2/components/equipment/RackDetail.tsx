@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Button, CommitInput, DetailCard, DetailCardHeader, DetailRow, EMPTY, EmptyState, ErrorStrip, ListRow, Select, ViewCard, useConfirm } from '../../../components/ui';
+import {
+  Button, CommitInput, DetailCard, DetailCardHeader, DetailRow, EMPTY, EmptyState, ErrorStrip, ListRow, Select, ViewCard,
+  useConfirm, EmptyRow,
+} from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { expandDeletes } from '@twin/core';
 import { deleteRows } from '../../model/store/deleteActions';
@@ -61,10 +64,10 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
           <ErrorStrip message={blocked} onDismiss={() => setBlocked(null)} />
         </DetailCard>
         <DetailCard>
-          <DetailCardHeader title={`실장 설비 ${inside.length}`} actions={<EditOnly><Button variant="secondary" size="sm" onClick={() => onAddEquipment(rackId)}>설비 추가</Button></EditOnly>} />
+          <DetailCardHeader title="실장 설비" count={inside.length} actions={<EditOnly><Button variant="secondary" size="sm" onClick={() => onAddEquipment(rackId)}>설비 추가</Button></EditOnly>} />
           {/* 줄들은 한 자식 — 카드 여백을 한 번만 받는다(차단기 요약과 같은 밀도). */}
           <div>
-            {inside.length === 0 && <ListRow>실장 설비가 없습니다</ListRow>}
+            {inside.length === 0 && <EmptyRow>실장 설비가 없습니다</EmptyRow>}
             {inside.map((e) => (
               <ListRow key={e.id} onClick={() => onSelectEquipment(e.id)}>{e.name}</ListRow>
             ))}
