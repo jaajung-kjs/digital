@@ -10,9 +10,9 @@ export const EQUIPMENT_FIELD_LABELS: Record<string, string> = {
   circuitCount: '차단기 수', panelCount: '슬롯 수',
 };
 
-/** 차단기 한 줄의 칸(`CircuitCell`). */
+/** 차단기 한 줄의 칸(`CircuitCell`). 저장 칸 `purpose` 의 화면 이름은 「비고」다(현장 분전반 문서에 「용도」 칸이 없다). */
 export const CIRCUIT_FIELD_LABELS = {
-  label: '표기', current: '교류/직류', voltage: '전압', capacity: '용량', phase: '상', switch: '개폐', purpose: '용도',
+  label: '표기', current: '교류/직류', voltage: '전압', capacity: '용량', phase: '상', switch: '개폐', purpose: '비고',
 } as const;
 
 /** 연결의 칸(`ConnectDialog`) — 포트는 이 설비 쪽, 상대 포트는 다른 끝. */

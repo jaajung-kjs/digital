@@ -1,24 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, EMPTY, SELECTED, TABLE_ROW, TableCard, Td, Th, cn } from '../../../components/ui';
+import { SELECTED, TABLE_ROW, TableCard, cn } from '../../../components/ui';
 import { effectiveCircuits, effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import type { Circuit } from '../../model/types';
-import { CircuitCell, type CircuitField } from './CircuitCell';
+import { useCatalog } from '../../model/hooks';
+import { BREAKER_COLUMNS, BreakerCells, BreakerHeadRow, type BreakerRowView } from './breakerColumns';
 import { ConnectDialog } from './ConnectDialog';
 import { circuitLink, endLabel } from './endpoints';
-import { useCanEdit } from '../../useCanEdit';
-
-const WIDTHS = [5, 22, 8, 9, 8, 6, 8, 12, 22];
 
 /**
- * 설비의 차단기 1..N 표 — **차단기 편집 창(`BreakerEditor`) 안에서만** 쓴다(좁은 패널에 9열 표를 두면 글자가
- * 세로로 쪼개진다). 칸을 눌러 고치면 변경안(`updateCircuit`)에 실린다. `focusNo` 줄은 표시하고 화면 안으로 굴린다.
+ * 설비의 차단기 1..N 표 — **차단기 편집 창(`BreakerEditor`) 안에서만** 쓴다. 열은 차단기 대장과 **같은 선언**(`BREAKER_COLUMNS`)
+ * 이고 빈 열도 다 선다(빈 칸을 채우는 곳이다, `tier="wide"`). 칸을 눌러 고치면 변경안(`updateCircuit`)에 실린다.
+ * `focusNo` 줄은 표시하고 화면 안으로 굴린다.
  */
 export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: string; focusNo?: number | null }) {
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
   const rows = useMemo(() => effectiveCircuits({ saved, overlays }, equipmentId), [saved, overlays, equipmentId]);
-  const canEdit = useCanEdit();
+  const cableTypes = useCatalog().data?.cableTypes;
 
   const links = useMemo(() => effectiveRows({ saved, overlays }, 'links'), [saved, overlays]);
   const substationId = useMemo(() => effectiveRows({ saved, overlays }, 'equipment').find((e) => e.id === equipmentId)?.substationId ?? null, [saved, overlays, equipmentId]);
@@ -31,35 +30,35 @@ export function CircuitTable({ equipmentId, focusNo = null }: { equipmentId: str
   }, [focusNo]);
 
   const set = (no: number) => (patch: Partial<Circuit>) => workingCopyStore.getState().updateCircuit(equipmentId, no, patch);
-  const cell = (c: Circuit, field: CircuitField) => <CircuitCell circuit={c} field={field} onSet={set(c.no)} />;
+  /** 대장과 같은 꼴로 읽는다 — 부하는 연결의 상대 끝, 포트는 그 설비 쪽 표기. */
+  const view = (c: Circuit): BreakerRowView => {
+    const hit = circuitLink(links, equipmentId, c.no);
+    const far = hit?.far ?? null;
+    return {
+      no: c.no,
+      circuit: c,
+      load: far == null ? null
+        : far.kind === 'equipment'
+          ? { equipmentId: far.equipmentId, name: endLabel({ saved, overlays }, { kind: 'equipment', equipmentId: far.equipmentId }), port: far.label ?? null }
+          : { equipmentId: null, name: endLabel({ saved, overlays }, far), port: null },
+      cable: hit?.link.cableTypeId ? cableTypes?.find((t) => t.id === hit.link.cableTypeId)?.name ?? null : null,
+      lengthM: hit?.link.lengthM ?? null,
+    };
+  };
 
   return (
     <>
-      <TableCard widths={WIDTHS}>
+      <TableCard columns={BREAKER_COLUMNS} tier="wide">
         <thead>
-          <tr>
-            <Th>번호</Th><Th>표기</Th><Th>교류/직류</Th><Th>전압</Th><Th>용량</Th><Th>상</Th><Th>개폐</Th><Th>용도</Th><Th>연결(부하)</Th>
-          </tr>
+          <BreakerHeadRow />
         </thead>
         <tbody ref={bodyRef}>
           {rows.map((c) => (
             <tr key={c.no} data-testid={`circuit-row-${c.no}`} aria-current={c.no === focusNo ? 'true' : undefined} className={cn(TABLE_ROW, c.no === focusNo && SELECTED)}>
-              <Td><span data-testid="circuit-no">{c.no}</span></Td>
-              <Td>{cell(c, 'label')}</Td>
-              <Td>{cell(c, 'current')}</Td>
-              <Td>{cell(c, 'voltage')}</Td>
-              <Td>{cell(c, 'capacity')}</Td>
-              <Td>{cell(c, 'phase')}</Td>
-              <Td>{cell(c, 'switch')}</Td>
-              <Td>{cell(c, 'purpose')}</Td>
-              <Td>
-                {(() => {
-                  const hit = circuitLink(links, equipmentId, c.no);
-                  return hit
-                    ? <span className="block truncate text-sm">{endLabel({ saved, overlays }, hit.far)}</span>
-                    : canEdit ? <Button variant="secondary" size="xs" onClick={() => setConnectNo(c.no)}>연결</Button> : <span className="text-sm text-content-faint">{EMPTY}</span>;
-                })()}
-              </Td>
+              <BreakerCells
+                row={view(c)} onSet={set(c.no)} onConnect={() => setConnectNo(c.no)}
+                noCell={<span data-testid="circuit-no">{c.no}</span>}
+              />
             </tr>
           ))}
         </tbody>

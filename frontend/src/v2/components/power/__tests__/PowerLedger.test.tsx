@@ -164,10 +164,11 @@ describe('전원 계통 — 차단기 대장', () => {
     expect(cell(r, 'length')).toHaveTextContent('12');
   });
 
-  it('예비 차단기 행에는 「예비」와 「연결」 — 누르면 그 차단기 끝에서 연결 상자가 열린다', () => {
+  it('부하가 없는 차단기 행에는 「—」와 「연결」(편집 창과 같은 꼴) — 누르면 그 차단기 끝에서 연결 상자가 열린다', () => {
     renderPower();
     const load = cell(rowOf('dist', 3), 'load');
-    expect(load).toHaveTextContent('예비');
+    expect(load).toHaveTextContent('—');
+    expect(load).not.toHaveTextContent('예비');
     fireEvent.click(within(load).getByRole('button', { name: '연결' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('통신용 분전반 차단기 3');
   });
