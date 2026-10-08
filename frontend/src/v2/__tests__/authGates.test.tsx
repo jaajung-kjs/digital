@@ -168,6 +168,7 @@ describe('딥 링크 — 로그인 뒤 가려던 자리로', () => {
     expect(returnPath(null)).toBe('/');
     expect(returnPath({ from: { pathname: '/login' } })).toBe('/');
     expect(returnPath({ from: { pathname: '//evil.example' } })).toBe('/');
+    expect(returnPath({ from: { pathname: '/\\evil.example' } })).toBe('/');
   });
 });
 

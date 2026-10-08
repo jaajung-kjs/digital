@@ -13,7 +13,8 @@ import { PRODUCT_NAME, PRODUCT_TAGLINE } from '../../product';
 export function returnPath(state: unknown): string {
   const from = (state as { from?: { pathname?: unknown; search?: unknown; hash?: unknown } } | null)?.from;
   const path = typeof from?.pathname === 'string' ? from.pathname : '';
-  if (!path.startsWith('/') || path.startsWith('//') || path === '/login') return '/';
+  /* `\` 는 브라우저가 `/` 로 읽는다(`/\host` → `//host`) — 경로에 쓸 일이 없으니 통째로 받지 않는다. */
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || path === '/login') return '/';
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
   return `${path}${str(from?.search)}${str(from?.hash)}`;
 }
