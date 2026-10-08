@@ -36,4 +36,17 @@ describe('SaveBar', () => {
     fireEvent.keyDown(window, { key: 'z', metaKey: true });
     expect(workingCopyStore.getState().overlays.racks.creates.r1!.name).toBe('R2');
   });
+  it('상자가 떠 있으면 ⌘Z 를 듣지 않는다 — 충돌 목록을 읽는 동안 변경안이 바뀌지 않게', () => {
+    dirtyOne();
+    workingCopyStore.getState().update('racks', 'r1', { name: 'R2' } as never);
+    render(<SaveBar onCommit={() => {}} isCommitting={false} stations={[]} issue={null} />);
+    const modal = document.createElement('div');
+    modal.setAttribute('aria-modal', 'true');
+    document.body.appendChild(modal);
+    fireEvent.keyDown(window, { key: 'z', metaKey: true });
+    expect(workingCopyStore.getState().overlays.racks.creates.r1!.name).toBe('R2');
+    modal.remove();
+    fireEvent.keyDown(window, { key: 'z', metaKey: true });
+    expect(workingCopyStore.getState().overlays.racks.creates.r1!.name).toBe('R');
+  });
 });

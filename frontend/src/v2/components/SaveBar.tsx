@@ -63,6 +63,8 @@ export function SaveBar({ onCommit, isCommitting, stations, issue }: SaveBarProp
       if (isTypingTarget(e.target)) return;
       e.preventDefault();
       if (committing.current) return;
+      /* 상자(충돌·확인 등)가 떠 있으면 물리지 않는다 — 상자를 읽는 동안 그 아래 변경안이 말없이 바뀐다. */
+      if (document.querySelector('[aria-modal="true"]')) return;
       const t = workingCopyStore.temporal.getState();
       if (e.shiftKey) t.redo();
       else t.undo();
