@@ -18,7 +18,7 @@ vi.mock('../api', () => ({
   fetchWorkingcopy: async () => { fetchCount += 1; if (refreshFails && fetchCount > 1) throw new Error('down'); return structuredClone(wc); },
   putCommit: async () => { putCalls += 1; return {}; },
 }));
-vi.mock('../hooks', () => ({ useCatalog: () => catalog, CATALOG_KEY: ['c'], NODE_EQUIPMENT_KEY: ['n'] }));
+vi.mock('../hooks', () => ({ useCatalog: () => catalog, CATALOG_KEY: ['c'], NODE_EQUIPMENT_KEY: ['n'], EQUIPMENT_CHANGES_KEY: ['h'] }));
 
 import { useV2Notice } from '../../store/noticeStore';
 import { useCommit } from '../store/useCommit';
@@ -66,5 +66,13 @@ describe('useCommit', () => {
     expect(client.getQueryState(['v2', 'network', 'HQ'])?.isInvalidated).toBe(false);
     await act(async () => { await result.current.commit(); });
     expect(client.getQueryState(['v2', 'network', 'HQ'])?.isInvalidated).toBe(true);
+  });
+
+  it('저장 뒤 설비 변경 이력을 낡은 것으로 표시한다 — 방금 저장한 것이 이력 탭에 보이게', async () => {
+    catalog = { data: { cableTypes: [] } };
+    client.setQueryData(['h', 'e1'], { pages: [], pageParams: [] });
+    const { result } = renderHook(() => useCommit(), { wrapper });
+    await act(async () => { await result.current.commit(); });
+    expect(client.getQueryState(['h', 'e1'])?.isInvalidated).toBe(true);
   });
 });
