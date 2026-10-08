@@ -7,7 +7,7 @@ import { useV2Notice } from '../../store/noticeStore';
 import { pendingPhotoFiles } from '../../store/pendingPhotos';
 import { putCommit } from '../api';
 import { NETWORK_KEY } from '../networkApi';
-import { CATALOG_KEY, NODE_EQUIPMENT_KEY, useCatalog } from '../hooks';
+import { CATALOG_KEY, EQUIPMENT_CHANGES_KEY, NODE_EQUIPMENT_KEY, useCatalog } from '../hooks';
 import type { Conflict } from '../types';
 import { buildCommitPayload } from './commitPayload';
 import { toModelState } from './effective';
@@ -56,6 +56,7 @@ export function useCommit() {
       await qc.invalidateQueries({ queryKey: ['v2', 'org-tree'] });
       await qc.invalidateQueries({ queryKey: NODE_EQUIPMENT_KEY });
       await qc.invalidateQueries({ queryKey: CATALOG_KEY });
+      await qc.invalidateQueries({ queryKey: EQUIPMENT_CHANGES_KEY });
       /* 광 계통도·중계경로의 범위 데이터 — 들르지 않은 국의 것도 저장으로 바뀌었을 수 있다(광선로 삭제가 먼 국 연결까지 지운다). */
       await qc.invalidateQueries({ queryKey: NETWORK_KEY });
       useV2Notice.getState().showSuccess(`변경 ${count}건을 저장했습니다`);

@@ -40,3 +40,15 @@ export function today(): string {
 export function formatNumber(v: number, maximumFractionDigits = 0): string {
   return v.toLocaleString('ko-KR', { maximumFractionDigits });
 }
+
+/**
+ * 시각을 화면 형식으로 — `YYYY-MM-DD HH:mm`(이 기기의 시간대). 변경 이력처럼 **언제 했는가**가 값인 자리만 쓴다.
+ * 날짜 값(설치일·점검일)은 `formatDate` — 시각이 없는 값에 시간대를 씌우면 날이 바뀐다.
+ */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return EMPTY;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return EMPTY;
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
+}

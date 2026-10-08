@@ -1,6 +1,6 @@
 import { httpClient as api } from '../httpClient';
 import type { CommitPayload } from '@twin/core';
-import type { Catalog, CatalogKind, NodeEquipmentRow, Workingcopy } from './types';
+import type { Catalog, CatalogKind, EquipmentChangesPage, NodeEquipmentRow, Workingcopy } from './types';
 
 /** ISO datetime → `YYYY-MM-DD`. 이미 그 꼴이거나 비었으면 그대로. */
 function dateOnly(v: string | null | undefined): string | null {
@@ -61,4 +61,9 @@ export async function fetchNodeEquipment(nodeId: string): Promise<NodeEquipmentR
 export type OrderKind = 'headquarters' | 'branches' | 'substations' | CatalogKind;
 export async function putOrder(kind: OrderKind, ids: string[]): Promise<void> {
   await api.patch('/v2/order', { kind, ids });
+}
+
+/** 설비 변경 이력 한 쪽 — 최신부터. `cursor` 는 앞 쪽의 `nextCursor`. */
+export async function fetchEquipmentChanges(equipmentId: string, cursor?: string): Promise<EquipmentChangesPage> {
+  return (await api.get(`/v2/equipment/${equipmentId}/changes`, { params: cursor ? { cursor } : {} })).data;
 }

@@ -5,6 +5,7 @@ import { addCircuit, deleteRows, equipmentDeleteSummary } from '../../model/stor
 import { alsoDeleted, deleteConfirm } from '../deleteConfirm';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy } from '../../model/store/workingCopy';
+import { HistoryTab } from '../detail/HistoryTab';
 import { PhotoCard } from '../detail/PhotoCard';
 import { RecordsTab } from '../detail/RecordsTab';
 import { BreakerEditor } from './BreakerEditor';
@@ -13,12 +14,13 @@ import { EquipmentInfoCard } from './EquipmentInfoCard';
 import { LinkList } from './LinkList';
 import { PanelsCard, useSlotEnds } from './PanelsCard';
 import { EditOnly } from '../../useCanEdit';
+import { RECORD_FIELD_LABELS as R } from './fieldLabels';
 import type { BlockFocus } from '../../useWorkspaceRoute';
 
-type Tab = '정보' | '연결' | '점검·고장' | '사진';
-const TABS: readonly TabItem<Tab>[] = (['정보', '연결', '점검·고장', '사진'] as const).map((k) => ({ key: k, label: k }));
+type Tab = '정보' | '연결' | '점검·고장' | '사진' | '이력';
+const TABS: readonly TabItem<Tab>[] = (['정보', '연결', '점검·고장', '사진', '이력'] as const).map((k) => ({ key: k, label: k }));
 
-/** 설비 상세 — 정보 · 연결 · 점검·고장 · 사진.  */
+/** 설비 상세 — 정보 · 연결 · 점검·고장 · 사진 · 이력. */
 export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, onOpenPower }: {
   equipmentId: string; onClose: () => void; onDeleted: () => void;
   /** 슬롯 줄 → 선번장의 그 블록(주소). 없으면 줄은 읽기만 한다. */
@@ -107,11 +109,12 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, 
           {tab === '연결' && <LinkList equipmentId={equipmentId} substationId={eq.substationId} onOpenPower={onOpenPower && (() => onOpenPower(equipmentId))} />}
           {tab === '점검·고장' && (
             <>
-              <RecordsTab equipmentId={equipmentId} kind="inspections" dateField="inspectedAt" extraField="result" dateLabel="점검일" extraLabel="결과" sectionTitle="점검 기록" emptyMessage="등록된 점검 기록이 없습니다" />
-              <RecordsTab equipmentId={equipmentId} kind="maintenance" dateField="occurredAt" extraField="action" dateLabel="발생일" extraLabel="조치" sectionTitle="고장 이력" emptyMessage="등록된 고장 이력이 없습니다" />
+              <RecordsTab equipmentId={equipmentId} kind="inspections" dateField="inspectedAt" extraField="result" dateLabel={R.inspectedAt} extraLabel={R.result} sectionTitle="점검 기록" emptyMessage="등록된 점검 기록이 없습니다" />
+              <RecordsTab equipmentId={equipmentId} kind="maintenance" dateField="occurredAt" extraField="action" dateLabel={R.occurredAt} extraLabel={R.action} sectionTitle="고장 이력" emptyMessage="등록된 고장 이력이 없습니다" />
             </>
           )}
           {tab === '사진' && <PhotoCard equipmentId={equipmentId} />}
+          {tab === '이력' && <HistoryTab equipmentId={equipmentId} />}
         </div>
       </div>
       <BreakerEditor equipmentId={equipmentId} equipmentName={eq.name} count={eq.circuitCount} open={breakers !== null} focusNo={breakers?.at ?? null} onAdd={addBreaker} onClose={() => setBreakers(null)} />

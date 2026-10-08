@@ -140,3 +140,20 @@ export interface OrgSubstation { id: string; name: string; sortOrder: number; br
 export interface OrgBranch { id: string; name: string; sortOrder: number; headquartersId: string; substations: OrgSubstation[] }
 export interface OrgHq { id: string; name: string; sortOrder: number; branches: OrgBranch[] }
 export interface OrgTree { headquarters: OrgHq[] }
+
+/* ── 설비 변경 이력(`GET /v2/equipment/:id/changes`) ── */
+export type ChangeEntity = 'equipment' | 'circuit' | 'link' | 'maintenance' | 'inspection' | 'photo';
+export interface ChangeField { name: string; before: unknown; after: unknown }
+export interface ChangeItem {
+  entity: ChangeEntity;
+  action: 'create' | 'update' | 'delete';
+  id: string;
+  /** 차단기 번호 — 차단기 줄만. */
+  no?: number;
+  /** 연결의 다른 끝 — 연결 줄만. 이름은 `peerName`(지금은 없으면 null). */
+  peer?: { kind: 'equipment'; equipmentId: string } | { kind: 'circuit'; equipmentId: string; no: number } | { kind: 'core'; lineId: string; no: number };
+  peerName?: string | null;
+  fields: ChangeField[];
+}
+export interface ChangeEntry { id: string; at: string; username: string; items: ChangeItem[] }
+export interface EquipmentChangesPage { entries: ChangeEntry[]; nextCursor: string | null }

@@ -25,7 +25,7 @@ export { PageState } from './PageState';
 export type { OverflowMenuItem } from './OverflowMenu';
 export type { MenuItem, MenuAnchor } from './MenuPopup';
 export { DateInput } from './DateInput';
-export { EMPTY, formatDate, formatNumber, today } from './format';
+export { EMPTY, formatDate, formatDateTime, formatNumber, today } from './format';
 export type { InputProps } from './Input';
 export { StatusDot } from './StatusDot';
 export { TableSearch } from './TableSearch';

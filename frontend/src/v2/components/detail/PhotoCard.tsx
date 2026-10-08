@@ -13,6 +13,7 @@ import { Trash2 } from 'lucide-react';
 import { DetailCardHeader, Button, DetailCard, IconButton, Modal, useConfirm } from '../../../components/ui';
 import { EditOnly, useCanEdit } from '../../useCanEdit';
 import { deleteConfirm } from '../deleteConfirm';
+import { RECORD_FIELD_LABELS } from '../equipment/fieldLabels';
 import { photoUrl } from '../../api';
 import { effectiveRows } from '../../model/store/effective';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
@@ -135,7 +136,7 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
               </button>
               <div className="flex items-center gap-1">
                 <div className="min-w-0 flex-1">
-                  <InlineEditCell value={p.caption ?? ''} onCommit={(v) => handleCaptionCommit(p, v)} label="설명" wrap />
+                  <InlineEditCell value={p.caption ?? ''} onCommit={(v) => handleCaptionCommit(p, v)} label={RECORD_FIELD_LABELS.caption} wrap />
                 </div>
                 <EditOnly>
                   <IconButton aria-label="사진 삭제" onClick={() => void handleDelete(p)}>

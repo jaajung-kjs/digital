@@ -8,6 +8,7 @@ import type { InspectionLog, MaintenanceLog } from '../../model/types';
 import { newId } from '../../newId';
 import { useCanEdit } from '../../useCanEdit';
 import { deleteConfirm } from '../deleteConfirm';
+import { RECORD_FIELD_LABELS } from '../equipment/fieldLabels';
 
 // ── ISO 변환 헬퍼 ─────────────────────────────────────────────────────────────
 /** datetime-local 입력값(yyyy-MM-ddTHH:mm) → 로컬 시간 기준 ISO 8601 문자열 */
@@ -198,7 +199,7 @@ export function RecordsTab({
               onChange={(e) => { const v = e.currentTarget.value; setAddState((s) => ({ ...s, date: v })); }}
             />
           </DetailRow>
-          <DetailRow label="내용">
+          <DetailRow label={RECORD_FIELD_LABELS.content}>
             <Input
               value={addState.content}
               size="sm"
@@ -254,7 +255,7 @@ export function RecordsTab({
                   onChange={(e) => { const v = e.currentTarget.value; setEditState((s) => s && ({ ...s, date: v })); }}
                 />
               </DetailRow>
-              <DetailRow label="내용">
+              <DetailRow label={RECORD_FIELD_LABELS.content}>
                 <Input
                   value={editState.content}
                   size="sm"

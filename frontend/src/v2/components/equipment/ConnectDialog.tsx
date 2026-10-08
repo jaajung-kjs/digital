@@ -7,6 +7,7 @@ import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy'
 import type { Link } from '../../model/types';
 import { newId } from '../../newId';
 import { endLabel, endpointOptions, type EndpointOption } from './endpoints';
+import { LINK_FIELD_LABELS as LL } from './fieldLabels';
 
 interface Props { substationId: string; from: LinkEndRef; open: boolean; onClose: () => void; onCreated: (linkId: string) => void }
 
@@ -100,20 +101,20 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
           })}
           {shown.length === 0 && <ListRow>검색 결과가 없습니다</ListRow>}
         </InsetBox>
-        <DetailRow label="케이블 품목">
-          <Select size="sm" aria-label="케이블 품목" value={cableTypeId} onChange={(e) => setCableTypeId(e.currentTarget.value)}>
+        <DetailRow label={LL.cableTypeId}>
+          <Select size="sm" aria-label={LL.cableTypeId} value={cableTypeId} onChange={(e) => setCableTypeId(e.currentTarget.value)}>
             <option value="">선택 안 함</option>
             {cables.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </DetailRow>
-        <DetailRow label="길이">
-          <Input size="sm" numeric suffix="m" aria-label="길이" value={length} onChange={(e) => setLength(e.currentTarget.value)} />
+        <DetailRow label={LL.lengthM}>
+          <Input size="sm" numeric suffix="m" aria-label={LL.lengthM} value={length} onChange={(e) => setLength(e.currentTarget.value)} />
         </DetailRow>
         {from.kind === 'equipment' && (
-          <DetailRow label="포트"><Input size="sm" aria-label="포트" value={fromLabel} onChange={(e) => setFromLabel(e.currentTarget.value)} /></DetailRow>
+          <DetailRow label={LL.label}><Input size="sm" aria-label={LL.label} value={fromLabel} onChange={(e) => setFromLabel(e.currentTarget.value)} /></DetailRow>
         )}
         {pick?.kind === 'equipment' && (
-          <DetailRow label="상대 포트"><Input size="sm" aria-label="상대 포트" value={toLabel} onChange={(e) => setToLabel(e.currentTarget.value)} /></DetailRow>
+          <DetailRow label={LL.peerLabel}><Input size="sm" aria-label={LL.peerLabel} value={toLabel} onChange={(e) => setToLabel(e.currentTarget.value)} /></DetailRow>
         )}
         <ErrorStrip message={issue ?? (lengthOk ? null : '길이는 0 이상의 숫자여야 합니다')} />
       </div>
