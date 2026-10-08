@@ -72,31 +72,7 @@ export default {
         'danger-bg': 'rgb(var(--danger-bg-rgb) / <alpha-value>)',
         'info-bg': 'rgb(var(--info-bg-rgb) / <alpha-value>)',
         // 운전 상태 표시등 — 글자용 상태색과 다른 색이다(index.css 주석 참고).
-        'lamp-success': 'rgb(var(--lamp-success-rgb) / <alpha-value>)',
         'lamp-warning': 'rgb(var(--lamp-warning-rgb) / <alpha-value>)',
-        'lamp-danger': 'rgb(var(--lamp-danger-rgb) / <alpha-value>)',
-        eq: {
-          1: 'rgb(var(--eq-1-rgb) / <alpha-value>)',
-          2: 'rgb(var(--eq-2-rgb) / <alpha-value>)',
-          3: 'rgb(var(--eq-3-rgb) / <alpha-value>)',
-          4: 'rgb(var(--eq-4-rgb) / <alpha-value>)',
-        },
-        // 케이블 색상
-        cable: {
-          ac: '#FF0000',
-          dc: '#FF8C00',
-          lan: '#0066CC',
-          fiber: '#00AA00',
-        },
-        // 설비 카테고리 색상
-        asset: {
-          server: '#4A90D9',
-          network: '#50C878',
-          storage: '#9B59B6',
-          power: '#E67E22',
-          security: '#E74C3C',
-          other: '#95A5A6',
-        },
       },
     },
   },

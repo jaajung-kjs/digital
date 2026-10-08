@@ -92,7 +92,7 @@
 | --- | --- |
 | 버튼 크기 | `<Button size="sm" \| "md">` |
 | 입력/선택 크기 | `<Input size="sm" \| "md">` · `<Select size="sm" \| "md">` (→ `controlSize.ts`) |
-| 카드 안 항목 블록 | `<ItemCard>` (직접 `rounded border bg-surface-2 p-2` 를 쓰지 않는다) |
+| 카드 안 한 구획 | `<InsetBox>` (직접 `rounded border bg-surface-2 p-2` 를 쓰지 않는다) |
 | 폼/상세 한 줄 | `<DetailRow>` (라벨 폭·오류 문구 위치가 여기서 고정된다) |
 
 `className` 은 배치(`flex-1`·`w-full`·`mt-*`)에만 쓴다.
@@ -336,7 +336,7 @@
 패널·모달은 그 자체로 맥락을 갖고 있어야 한다. 실제로 있었던 결함들:
 
 - 상세 패널의 설비 이름이 '정보' 탭 **안**에만 있어, 점검·연결 탭으로 옮기면 무엇의
-  기록인지 알 수 없었다 → 대상 이름은 `PanelHeader` 로 탭 **위**에 고정한다.
+  기록인지 알 수 없었다 → 대상 이름은 `ViewCard` 의 `title` 로 탭 **위**에 고정한다.
 - 추가 모달이 어느 층·어느 랙에 넣는지 안 보여줬다 → 첫 줄에 `위치` 를 밝힌다.
 - 조직 추가/이름변경 모달의 제목이 그냥 "추가" 였다 → `본부 추가`·`층 이름 변경` 처럼
   **무엇을** 다루는지 제목에 넣는다.
@@ -347,7 +347,7 @@
 - 면: `bg-surface`(카드) · `bg-surface-2`(보조/hover)
 - 선: `border-line`
 - 강조/상태: `text-primary` · `text-success`/`bg-success-bg` · `text-warning`/`bg-warning-bg` · `text-danger`/`bg-danger-bg` · `text-info`/`bg-info-bg`
-- **표시등(LED)**: `bg-lamp-success` · `bg-lamp-warning` · `bg-lamp-danger`
+- **표시등(LED)**: `bg-lamp-warning` · `stroke-lamp-warning` (지금 쓰이는 것은 경고 하나다 — 다른 상태 표시등이 필요하면 `index.css` 에 같은 방식으로 더한다)
 
   운전 상태를 **색만으로** 알리는 점·불에만 쓴다. 위의 `text-*` 상태색을
   쓰지 말 것 — 그 셋은 흰 바탕에 읽히라고 어둡게 깎은 글자색이라 명도가 서로 비슷하고
@@ -375,7 +375,7 @@
 
 실제로 존재하는 공용 컴포넌트는 전부 `src/components/ui`(배럴 `index.ts`)에 있다:
 `Badge`, `Button`, `IconButton`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailGrid`,
-`ItemCard`, `ListRow`, `PanelHeader`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
+`InsetBox`, `ListRow`, `Tabs`, `ViewCard`, `Table`(`TableCard`·`Th`·`Td`), `Input`, `Select`,
 `Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `TableSearch`, `TreePanel`, `TreeRow`, `cn`, `controlSize`,
 `ListHeading`, `ListItemRow`, `CommitInput`, `BusyOverlay`, `PageState`, `TableGroupHead`·`TableGroupHeadButton`·`TableSubHead`, `HOVER_REVEAL`, `useOverflowShade`·`OverflowShade`·`scrollBoxToTop`, `Chain`·`ChainStep`·`ChainLink`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다.
@@ -459,44 +459,9 @@ useDismissOnOutside(selectedId != null, [canvasRef, asideRef], () => setSelected
 - **좁은 패널의 요약 목록 + 넓은 편집 창** — 9열짜리 표(차단기)를 364px 패널에 두면 글자가 세로로 쪼개진다. 패널에는 한 줄 요약(`ListRow`, `번호 · 표기 · 용량 · 교류/직류 · 개폐 → 부하`, 빈 값 건너뜀)만 두고, 줄을 누르면 넓은 `Modal`(`xl`) 안의 표가 그 줄로 열린다(`BreakerEditor`). 개수 입력 칸을 두지 않는다 — 한 줄씩 「추가」, 마지막 한 줄 「차단기 n 삭제」(연결이 남으면 까닭을 띄우고 그대로).
 - 목록이 비었거나 검색에 걸린 것이 없다는 한 줄도 `ListRow`(읽기 전용)다 — `<div className="px-1 text-xs …">` 로 따로 짓지 않는다.
 
-### 목록 안에서 되풀이되는 항목 → `ItemCard`
-`DetailCard` *안*에 들어가는 회색 항목 블록. 제목 + (선택)삭제 버튼을 내장한다.
-```tsx
-<ItemCard title={`항목 ${i + 1}`} onDelete={locked ? undefined : () => remove(i)}>
-  <DetailRow label="값">…</DetailRow>
-</ItemCard>
-```
-
-### 좁은 패널에 구획이 여럿 쌓일 때 → `Accordion` (한 번에 하나만 펼침)
-`src/components/ui/Accordion.tsx` — 384px 상세 패널에 같은 모양의 카드가 **개수만큼** 쌓이면
-패널은 개수에 비례해 길어진다(§1.6 의 세로판). 옛 상세 패널이 그랬다: 카드 열두 장 =
-**2,945px, 화면 5.5장**. 맨 아래 카드를 보려면 그 위 열한 장을 지나 스크롤해야 했고 접는 길도
-건너뛰는 길도 없었다.
-
-- **하나만 펼친다.** 여럿을 동시에 펼칠 수 있으면 결국 전부 펼쳐 놓고 쓰게 되어 원래대로 돌아온다.
-  좁은 패널의 업계 표준도 단일 펼침이다(Ant `Collapse accordion`, Carbon `Accordion`).
-- **접힌 머리줄이 곧 목록이다** — 그래서 `badge` 에 **펴지 않고도 고를 수 있는 값**을 적는다
-  (`3/25 연결`). 이름만 남기면 어느 것을 펼지 펴 보면서 알아내야 한다.
-- **처음부터 다 접어 두지 않는다.** 첫 구획은 펼친 채로 연다 — 탭을 열었는데 접힌 줄만 나오면
-  「이 패널이 무엇을 보여 주는 곳인가」가 사라진다. 사람이 접은 것(`null`)과 아직 아무것도 고르지
-  않은 것을 **구분**해야 「접었다」가 매 렌더 되돌아오지 않는다.
-- **접힌 구획은 감추지 말고 그리지 않는다.** `hidden` 으로 덮으면 판 열두 장을 그대로 그려 놓고
-  눈에서만 치우는 셈이라 안의 것이 전부 DOM 에 남는다.
-- 카드 껍데기는 이 컴포넌트가 갖는다 — 안에 `DetailCard` 를 또 넣으면 테두리가 두 겹이 된다.
-- 밖에서 어떤 항목을 지목해 오면 **그 항목이 든 구획을 펼친다**. 안 그러면
-  고른 것이 접힌 구획 안에 숨는다.
-
 ### 카드 **안**의 한 구획 → `InsetBox`
 
 한 단 들어간 면(`surface-2`)으로 「이 안은 바깥과 다른 것을 담는다」를 말한다 — 연결 내역, 넣을 것을 고르는 목록 같은 것. 여러 곳이 각자 `rounded border border-line bg-surface-2` 를 손으로 적고 있었고 여백이 `p-1.5`·`px-2 py-1.5`·`p-2` 로 갈렸다. **면과 테두리만** 이 컴포넌트가 정하고, 안을 어떻게 흘릴지는 담는 쪽이 `className` 으로 준다.
-
-### 캔버스 위에 떠 있는 도구 상자 → `FloatingBar`
-
-평면도의 안내 띠·확대 축소처럼 캔버스 위에 얹는 것. 캔버스는 제 배경을 가지므로 「떠 있다」가 보여야 눌리는 것으로 읽힌다. **어디에 뜨는지는 정하지 않는다** — 자리와 층(`absolute`·`z-*`)은 캔버스가 안다.
-
-### 패널 상단 바(사이드바 제목·본문 헤더) → `PanelHeader`
-좌우 패널의 첫 구분선이 어긋나지 않도록 높이(`h-10`)를 고정한다. `variant="sidebar"`(작은 라벨) / `"content"`(대상 이름).
-우측 액션은 `actions`, 제목 옆에 붙는 것(뷰 탭 등)은 children.
 
 ### 밑줄형 탭(뷰 전환·상세 탭·카탈로그 탭) → `Tabs`
 ```tsx
@@ -771,7 +736,7 @@ Esc 닫기·백드롭 클릭 닫기·폭 고정(`size`)을 내장. 자체 오버
 | 절 안에서 `EmptyState` 쓰기 | 절이 여럿 쌓이는 탭에서 아무것도 없는 화면이 제일 길어진다. **`EmptyState` 는 화면 전체가 빌 때만** — 절 안은 한 줄이다 |
 | 버튼에 `size` 를 적어 기본값과 다르게 두기 | 기본이 `sm`(24px)이다. 표 행이 28px 인 화면에서 32px 버튼은 줄 사이를 벌린다 |
 
-**모서리는 `rounded`(2px) 하나**다. 프리미티브에 남아 있던 `rounded-lg`·`rounded-md`(Accordion·MessageStrip·ItemCard·Table·MenuPopup·FloatingBar)를 모두 옮겼다 — 원형(`rounded-full`)만 예외이고 그것은 모서리가 아니라 모양이다.
+**모서리는 `rounded`(2px) 하나**다. 프리미티브에 남아 있던 `rounded-lg`·`rounded-md`(MessageStrip·Table·MenuPopup 등)를 모두 옮겼다 — 원형(`rounded-full`)만 예외이고 그것은 모서리가 아니라 모양이다.
 
 ## 3.3 **보는 방식**은 저장하지 않는다 — 레이어 토글
 

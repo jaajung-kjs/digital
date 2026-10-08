@@ -7,7 +7,7 @@ import { SELECTABLE, SELECTED } from './selection';
  * 한 층 들여쓰기 — 셰브런(12px) + 틈(4px). 그래서 자식 줄의 셰브런이 **부모 이름의 첫 글자 바로 아래**에 선다.
  * 깊이 6단(소내전원반 → 분전반 → 충전기 → …)도 96px 라 1280 에서 이름이 잘리지 않는다.
  */
-export const TREE_INDENT = 16;
+const TREE_INDENT = 16;
 
 /** 깊이 `depth` 줄의 왼쪽 여백 — 줄 아래에 붙는 것(오류 한 줄 등)도 이 값으로 맞춘다. */
 export const treeIndent = (depth: number) => 8 + depth * TREE_INDENT;
