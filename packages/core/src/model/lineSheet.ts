@@ -2,6 +2,7 @@ import type { LinkEndRef } from './types.js';
 import { endRefKey } from './types.js';
 import { rowsForCount } from './rows.js';
 import { DEFAULT_CORE_STATUS, type Side } from './vocab.js';
+import { compareName } from './order.js';
 
 /** 선번장 파생 — 국 끝마다 블록 하나, 코어 행은 1..N. 순수 함수(저장 없음). */
 export type LineSide = Side;
@@ -159,13 +160,12 @@ export function lineSheet(input: {
 
   const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   /* 사람이 읽는 이름은 **자연 순서**로 — 글자 차례면 OFD10 이 OFD2 앞에 선다. 같은 이름이면 id 로 갈라 묶음이 섞이지 않게. */
-  const byName = (a: string, b: string) => a.localeCompare(b, 'ko', { numeric: true });
   return blocks.sort((x, y) => {
     if ((x.equipmentId === null) !== (y.equipmentId === null)) return x.equipmentId === null ? 1 : -1;
     if (x.equipmentId === null || y.equipmentId === null) {
       return cmp(x.peerSubstationId, y.peerSubstationId) || cmp(x.lineId, y.lineId);
     }
-    const e = byName(equipmentOrder(x.equipmentId), equipmentOrder(y.equipmentId)) || cmp(x.equipmentId, y.equipmentId);
+    const e = compareName(equipmentOrder(x.equipmentId), equipmentOrder(y.equipmentId)) || cmp(x.equipmentId, y.equipmentId);
     if (e) return e;
     if ((x.panel === null) !== (y.panel === null)) return x.panel === null ? 1 : -1;
     if (x.panel !== null && y.panel !== null && x.panel !== y.panel) return x.panel - y.panel;

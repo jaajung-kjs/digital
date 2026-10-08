@@ -1,5 +1,6 @@
 import type { LaborSpec } from '../catalog/laborSpec.js';
 import { cableReportItem, unitReportItem, type ReportItem, type ReportKind, type UnitReportKind } from './computeReport.js';
+import { compareName } from '../model/order.js';
 
 /**
  * 설계서 산출 내역 — 변경안 **전/후의 최종 차이**에서 줄을 만든다. 순수 함수(저장 없음).
@@ -83,7 +84,6 @@ const WORK: Record<ReportKind, number> = {
 };
 
 /** 이름 자연 순서 — 한 번 만들어 모든 비교가 함께 쓴다. */
-const NAME_ORDER = new Intl.Collator('ko', { numeric: true });
 const cmpId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 interface Row { group: number; id: string; place: string; item: DesignItem }
@@ -195,8 +195,8 @@ export function designItems(input: DesignInput): DesignItem[] {
     .sort((x, y) =>
       x.group - y.group
       || WORK[x.item.kind] - WORK[y.item.kind]
-      || NAME_ORDER.compare(x.place, y.place)
-      || NAME_ORDER.compare(x.item.name, y.item.name)
+      || compareName(x.place, y.place)
+      || compareName(x.item.name, y.item.name)
       || cmpId(x.id, y.id))
     .map((r) => r.item);
 }

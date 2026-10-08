@@ -132,3 +132,20 @@ describe('StatusView 도구줄·표 정리', () => {
     expect(screen.getByText('L3 스위치').closest('tr')).toHaveTextContent('랙 2개');
   });
 });
+
+describe('현황 순서 — 이름은 자연 순서(core compareName)', () => {
+  const row = (id: string, rackId: string, rackName: string, name: string) => ({
+    id, substationId: 'S1', substationName: 'S', rackId, rackName, typeName: '광전송장치', categoryName: '통신', name,
+    status: 'normal', model: null, maker: null, installDate: null, lastInspectedAt: null,
+  });
+  const natural = [row('a', 'k10', '랙10', '설비10'), row('b', 'k2', '랙2', '설비2'), row('c', 'k2', '랙2', '설비10')];
+  const natRacks = [{ id: 'k10', name: '랙10', typeName: '19인치 통신랙' }, { id: 'k2', name: '랙2', typeName: '19인치 통신랙' }];
+
+  it('랙별 — 「랙2」가 「랙10」 앞, 랙 안에서도 「설비2」가 「설비10」 앞', () => {
+    render(<StatusView rows={natural} racks={natRacks} selectedId={null} onSelect={vi.fn()} onSelectRack={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: '랙별' }));
+    const text = document.body.textContent ?? '';
+    expect(text.indexOf('랙2')).toBeLessThan(text.indexOf('랙10'));
+    expect(text.indexOf('설비2')).toBeLessThan(text.indexOf('설비10'));
+  });
+});

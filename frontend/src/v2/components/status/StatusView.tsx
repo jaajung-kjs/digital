@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
-import { EQUIPMENT_STATUSES } from '@twin/core';
+import { EQUIPMENT_STATUSES, compareName } from '@twin/core';
 import {
   Button, EMPTY, EmptyState, HOVER_REVEAL, IconButton, SegmentedControl, Select, SELECTABLE, SELECTED, StatusDot,
   TABLE_ROW, TableCard, TableSearch, Td, Th, ViewCard, cn, formatDate, selectableRow, useScrollSelectedIntoView,
@@ -120,9 +120,9 @@ export function StatusView({
     const known = new Set(racks.map((r) => r.id));
     const orphans = shown.filter((r) => !known.has(r.rackId));
     const groups = racks
-      .map((rack) => ({ rack, rows: (byRack.get(rack.id) ?? []).sort((a, b) => a.name.localeCompare(b.name, 'ko')) }))
+      .map((rack) => ({ rack, rows: (byRack.get(rack.id) ?? []).sort((a, b) => compareName(a.name, b.name)) }))
       .filter((g) => !filtering || g.rows.length > 0)
-      .sort((a, b) => a.rack.name.localeCompare(b.rack.name, 'ko'));
+      .sort((a, b) => compareName(a.rack.name, b.rack.name));
     if (orphans.length > 0) groups.push({ rack: { id: NO_RACK, name: '랙 없음', typeName: '' }, rows: orphans });
     return groups;
   }, [racks, shown, filtering]);

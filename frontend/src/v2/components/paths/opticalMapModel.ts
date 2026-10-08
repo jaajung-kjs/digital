@@ -1,5 +1,5 @@
 import {
-  computeLayout, opticalPaths, pathBundles, redundancyWarnings, reversePath, rings,
+  compareName, computeLayout, opticalPaths, pathBundles, redundancyWarnings, reversePath, rings,
   type LayoutPoint, type OpticalPath, type PathBundle, type PathEnd,
 } from '@twin/core';
 import type { Network } from '../../model/networkApi';
@@ -40,12 +40,11 @@ export interface OpticalMapModel {
   truncated: boolean;
 }
 
-const NATURAL = new Intl.Collator('ko', { numeric: true });
-const byName = <T extends { name: string; id: string }>(x: T, y: T) => NATURAL.compare(x.name, y.name) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+const byName = <T extends { name: string; id: string }>(x: T, y: T) => compareName(x.name, y.name) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
 
 /** 국 이름 차례 — 현장 표기(`구춘천`·`북춘천`·`신춘천`)의 자연 순. 「(구)」의 괄호가 앞에 서지 않게 줄인 이름으로 견준다. */
 const cmpStation = (view: NetworkView, a: string, b: string) =>
-  NATURAL.compare(shortStationName(view.substationName(a)), shortStationName(view.substationName(b)));
+  compareName(shortStationName(view.substationName(a)), shortStationName(view.substationName(b)));
 
 /**
  * 보이는 방향 — 범위 안 끝이 앞, 둘 다(또는 둘 다 밖)면 국 이름이 앞서는 끝이 앞(현장 표기의 자연 순). 같으면 core 의 정규 방향 그대로.
@@ -94,13 +93,13 @@ export function buildOpticalMap(view: NetworkView, server: Network | undefined):
   /* 보이는 방향·차례 — 앞 끝 국 · 앞 설비 · 뒤 끝 국 · 뒤 설비 · 주/예비. */
   const eqName = (e: PathEnd) => view.equipmentName(e.equipmentId) ?? '';
   const bundles = kept.map((b) => orientBundle(b, firstIsA(view, inScope, b.a, b.b)))
-    .sort((x, y) => cmpStation(view, x.a.substationId, y.a.substationId) || NATURAL.compare(eqName(x.a), eqName(y.a))
-      || cmpStation(view, x.b.substationId, y.b.substationId) || NATURAL.compare(eqName(x.b), eqName(y.b))
+    .sort((x, y) => cmpStation(view, x.a.substationId, y.a.substationId) || compareName(eqName(x.a), eqName(y.a))
+      || cmpStation(view, x.b.substationId, y.b.substationId) || compareName(eqName(x.b), eqName(y.b))
       || dutyOrder(x.duty) - dutyOrder(y.duty) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
   /* 미완결 — 설비 끝의 국 · 설비 · 첫 코어 차례(uuid 차례는 뜻이 없다). */
   incomplete.sort((x, y) => {
     const [ex, ey] = [x.start ?? x.end, y.start ?? y.end];
-    return (ex && ey ? cmpStation(view, ex.substationId, ey.substationId) || NATURAL.compare(eqName(ex), eqName(ey)) : 0)
+    return (ex && ey ? cmpStation(view, ex.substationId, ey.substationId) || compareName(eqName(ex), eqName(ey)) : 0)
       || (x.hops[0]?.coreNo ?? 0) - (y.hops[0]?.coreNo ?? 0) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
   });
   const pathsOf = new Map(bundles.map((b) => [
@@ -121,7 +120,7 @@ export function buildOpticalMap(view: NetworkView, server: Network | undefined):
 
   const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
   const pairs = new Map<string, string[]>();
-  for (const l of [...drawable].sort((x, y) => NATURAL.compare(lineName(view, x.id), lineName(view, y.id)) || (x.id < y.id ? -1 : 1))) {
+  for (const l of [...drawable].sort((x, y) => compareName(lineName(view, x.id), lineName(view, y.id)) || (x.id < y.id ? -1 : 1))) {
     const k = pairKey(l.aSubstationId, l.bSubstationId);
     pairs.set(k, [...(pairs.get(k) ?? []), l.id]);
   }

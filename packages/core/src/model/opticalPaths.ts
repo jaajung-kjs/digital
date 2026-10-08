@@ -2,6 +2,7 @@ import type { LinkEndRef } from './types.js';
 import { endRefKey } from './types.js';
 import { asCoreRole, isBackupRole, isMainRole, type CoreRole, type Side } from './vocab.js';
 import { biconnectedBlocks } from './topologyLayout.js';
+import { compareName } from './order.js';
 
 /**
  * 중계경로 파생 — 선번장 코어 사슬에서 「설비 → 코어 → 광선로 → 중계 패치 → … → 설비」를 읽는다.
@@ -54,8 +55,7 @@ export interface NetworkInput {
 }
 
 /** 자연 순서 — 같으면 코드 단위로 갈라 결정적으로. */
-const NATURAL = new Intl.Collator('ko', { numeric: true });
-const cmp = (a: string, b: string) => NATURAL.compare(a, b) || (a < b ? -1 : a > b ? 1 : 0);
+const cmp = (a: string, b: string) => compareName(a, b) || (a < b ? -1 : a > b ? 1 : 0);
 
 const flip = (s: Side): Side => (s === 'A' ? 'B' : 'A');
 const coreId = (lineId: string, no: number) => `${lineId}:${no}`;

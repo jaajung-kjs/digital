@@ -1,6 +1,7 @@
 import type { LinkEndRef } from './types.js';
 import { endRefKey } from './types.js';
 import { rowsForCount } from './rows.js';
+import { compareName } from './order.js';
 
 /**
  * 전원 계통 파생 — 공급 설비별 차단기, 차단기의 부하, 입력 전원 → 차단기 → 부하로 이어지는 트리. 순수 함수(저장 없음).
@@ -68,9 +69,6 @@ interface CircuitIn {
 }
 interface LinkIn { id: string; substationId: string; cableTypeId: string | null; lengthM: number | null; a: LinkEndRef; b: LinkEndRef }
 
-/** 이름 자연 순서 — 한 번 만들어 모든 비교가 함께 쓴다. */
-const NAME_ORDER = new Intl.Collator('ko', { numeric: true });
-
 export interface PowerInput {
   substationId: string;
   equipment: EquipmentIn[];
@@ -86,7 +84,7 @@ function derive(input: PowerInput) {
 
   const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   /* 사람이 읽는 이름은 자연 순서로(분전반2 < 분전반10). 같은 이름이면 id 로. */
-  const byName = (a: string, b: string) => NAME_ORDER.compare(nameOf(a), nameOf(b)) || cmp(a, b);
+  const byName = (a: string, b: string) => compareName(nameOf(a), nameOf(b)) || cmp(a, b);
 
   // 이 국의 공급 설비 = 차단기를 가진 설비.
   const supply = new Map<string, EquipmentIn>();

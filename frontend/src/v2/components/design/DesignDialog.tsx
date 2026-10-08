@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { computeEstimate, computeReport, designItems, materialCostOf, sizeBand } from '@twin/core';
+import { compareName, computeEstimate, computeReport, designItems, materialCostOf, sizeBand } from '@twin/core';
 import type { DesignItem, DesignTarget, EstimateParams, OverheadRates, ReportKind } from '@twin/core';
 import {
   Badge, Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, Input, MessageStrip, Modal, OverflowShade, SegmentedControl,
@@ -117,8 +117,7 @@ function groupBySubstation(items: DesignItem[], nameOf: (id: string) => string):
     at(it.primarySubstationId).rows.push(it);
     for (const id of it.substationIds) if (id !== it.primarySubstationId) at(id).refs.push(it);
   }
-  const order = new Intl.Collator('ko', { numeric: true });
-  return [...groups.values()].sort((a, b) => order.compare(a.name, b.name));
+  return [...groups.values()].sort((a, b) => compareName(a.name, b.name));
 }
 
 /** 묶음 이름 — 대표 국의 묶음은 늘 있다(줄이 거기 실린다). */
@@ -371,9 +370,6 @@ function useConditions() {
   return { ...c, setName: set('name'), setDays: set('days'), setContract: set('contract'), setSanjae: set('sanjae') };
 }
 
-/** 직종 이름 자연 순서. */
-const NAME_ORDER = new Intl.Collator('ko', { numeric: true });
-
 function useDesignEstimate(items: DesignItem[], report: Report) {
   const catalog = useCatalog();
   const wages = useWageCatalog();
@@ -390,7 +386,7 @@ function useDesignEstimate(items: DesignItem[], report: Report) {
       const wage = wages.wageOf(laborCode);
       return { laborCode, name: wages.nameOf(laborCode) ?? laborCode, manDays: totalManDays, wage, cost: wage == null ? null : Math.round(totalManDays * wage) };
     })
-    .sort((a, b) => NAME_ORDER.compare(a.name, b.name)), [report, wages]);
+    .sort((a, b) => compareName(a.name, b.name)), [report, wages]);
   const directLaborCost = laborRows.reduce((n, r) => n + (r.cost ?? 0), 0);
   /* 노임이 없는 줄은 0 으로 세고 몇 건인지 말한다. */
   const missingWage = items.filter((it) => it.manDays > 0 && wages.wageOf(it.laborCode) == null).length;
@@ -628,8 +624,7 @@ function DesignPrint({ items, groups, report, e, laborName, substationName }: {
   laborName: (code: string | null) => string | null;
   substationName: (id: string) => string;
 }) {
-  const order = new Intl.Collator('ko', { numeric: true });
-  const places = [...new Set(items.flatMap((it) => it.substationIds))].map(substationName).sort(order.compare);
+  const places = [...new Set(items.flatMap((it) => it.substationIds))].map(substationName).sort(compareName);
   const conditions = e.daysValue == null
     ? `공사기간 미입력 · 계약방법 ${e.contract} · 산재보험료 ${e.sanjae} 기준`
     : `공사기간 ${e.daysValue}일 · 계약방법 ${e.contract} · 산재보험료 ${e.sanjae} 기준`;

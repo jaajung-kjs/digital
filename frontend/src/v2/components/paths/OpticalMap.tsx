@@ -13,7 +13,7 @@
  * 줄인 그림에서 모두 세우면 글자가 겹쳐 국 이름까지 가린다.
  */
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import type { PathBundle } from '@twin/core';
+import { compareName, type PathBundle } from '@twin/core';
 import { cn, isCommitKey } from '../../../components/ui';
 import { DRAG_THRESHOLD } from '../../canvas/drag';
 import { contentBounds, fitViewport } from '../../canvas/fitView';
@@ -28,7 +28,6 @@ type Duty = PathBundle['duty'];
 const LANE_GAP = 16;
 /** 한 광선로를 고른 회선 여럿이 지나면 그 겹침끼리 벌리는 폭. */
 const OVERLAY_GAP = 5;
-const NAME = new Intl.Collator('ko', { numeric: true });
 /** 맞출 때 국 하나가 차지한다고 보는 자리(배치 좌표) — 이름 글자까지 판 안에 들게. */
 const NODE_BOX = { w: 150, h: 56 };
 /** 이 배율(%) 이상이면 모든 광선로에 이름표를 세운다. */
@@ -262,7 +261,7 @@ export function OpticalMap({ model, viewport, setViewport, boxRef, overlay, warn
           if (!p) return null;
           return <StationMark key={st.id} station={st} at={p} lit={touched.has(st.id)} onKeyDown={onKey({ kind: 'station', id: st.id })} />;
         })}
-        {[...curves].sort((x, y) => NAME.compare(x.line.name, y.line.name)).map(({ line, a, b }) => {
+        {[...curves].sort((x, y) => compareName(x.line.name, y.line.name)).map(({ line, a, b }) => {
           const d = curvePath(line, a, b, 0);
           return (
             <g key={`h-${line.id}`} data-line={line.id} className="group cursor-pointer outline-none" role="button" tabIndex={0} aria-label={`${line.name} 선번장에서 보기`} onKeyDown={onKey({ kind: 'line', id: line.id })}>

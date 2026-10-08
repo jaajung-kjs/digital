@@ -1,4 +1,5 @@
 import type { LaborRules } from '../catalog/laborSpec.js';
+import { compareName } from '../model/order.js';
 
 export type ReportKind =
   | 'rack-install' | 'rack-remove' | 'rack-relocate'
@@ -140,9 +141,8 @@ export function computeReport(items: ReportItem[]): ReportSummary {
     }
   }
 
-  const order = new Intl.Collator('ko', { numeric: true });
   const byLaborType = Array.from(byLaborTypeMap.entries())
-    .sort((a, b) => order.compare(a[0], b[0]))
+    .sort((a, b) => compareName(a[0], b[0]))
     .map(([laborCode, totalManDays]) => ({ laborCode, totalManDays }));
 
   return {

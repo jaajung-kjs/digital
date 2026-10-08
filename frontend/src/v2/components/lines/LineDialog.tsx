@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MAX_CORES, isLineMedium, type Side } from '@twin/core';
+import { MAX_CORES, compareName, isLineMedium, type Side } from '@twin/core';
 import {
   Button, DetailCard, DetailCardHeader, DetailGrid, DetailRow, ErrorStrip, InsetBox, Input, IssueReveal, ListRow, Modal, SELECTED, Select, TableSearch, useConfirm,
 } from '../../../components/ui';
@@ -104,7 +104,7 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
     const list = bySubstation(effectiveRows(s, 'equipment'), sid).map((e) => ({ id: e.id, name: e.name }));
     /* 들르지 않은 국의 단자 설비도 지금 값으로는 선다(이름은 참조로 안다). */
     if (current && !list.some((e) => e.id === current)) list.push({ id: current, name: equipmentName(s, current) ?? '—' });
-    return list.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    return list.sort((a, b) => compareName(a.name, b.name));
   };
 
   /* ── 검증 ── */

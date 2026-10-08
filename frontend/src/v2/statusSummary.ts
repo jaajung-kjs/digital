@@ -1,3 +1,4 @@
+import { compareName } from '@twin/core';
 import type { StatusRow } from './components/status/statusRows';
 
 /**
@@ -80,7 +81,7 @@ export function summarize(rows: StatusRow[]): Summary {
 
   /* 펼쳤을 때 **같은 자리 것끼리 붙어** 보이게 — 어디에 몇 개인지가 순서로 읽힌다. */
   for (const item of items.values()) {
-    item.rows.sort((a, b) => a.rackName.localeCompare(b.rackName, 'ko') || a.name.localeCompare(b.name, 'ko'));
+    item.rows.sort((a, b) => compareName(a.rackName, b.rackName) || compareName(a.name, b.name));
   }
 
   const groups = new Map<string, SummaryGroup>();
@@ -91,12 +92,12 @@ export function summarize(rows: StatusRow[]): Summary {
     groups.set(item.categoryName, g);
   }
   for (const g of groups.values()) {
-    g.items.sort((a, b) => b.count - a.count || a.itemName.localeCompare(b.itemName, 'ko'));
+    g.items.sort((a, b) => b.count - a.count || compareName(a.itemName, b.itemName));
   }
 
   return {
     groups: [...groups.values()].sort(
-      (a, b) => b.count - a.count || a.categoryName.localeCompare(b.categoryName, 'ko'),
+      (a, b) => b.count - a.count || compareName(a.categoryName, b.categoryName),
     ),
     total: rows.length,
     byStatus,
