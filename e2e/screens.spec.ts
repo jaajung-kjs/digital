@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { login, openBranch, openStation } from './helpers';
+import { horizontalOverflow, login, openBranch, openStation } from './helpers';
 
 /**
  * 화면 스크린샷 — ②-b 정리 뒤 모든 화면을 두 폭(1280×800 · 1440×900)으로 찍어 `test-results/screens/` 에 남긴다.
@@ -95,7 +95,7 @@ for (const vp of VIEWPORTS) {
       await editor.getByRole('button', { name: '완료' }).click();
       await expect(editor).toHaveCount(0);
 
-      // 설비 머리 — 항목 하나짜리 ⋯ 메뉴는 없다(차단기가 있으면 카드의 「추가」가 그 길)
+      // 설비 머리 — 항목 하나짜리 ⋯ 메뉴는 없다(차단기가 있으면 차단기 카드의 「차단기 추가」가 그 길)
       await expect(detail(page).getByRole('button', { name: '더 보기' })).toHaveCount(0);
 
       // 랙 상세 — 실장 설비
@@ -144,10 +144,10 @@ for (const vp of VIEWPORTS) {
       await noForbiddenWords(page, '선번장');
       await shot(page, '20-sheet-tree-open');
 
-      // 선번장 — 조직 트리 접음(넓은 표를 읽는 자리). 12열이 판 안에 든다 — 가로 그늘 없음
+      // 선번장 — 조직 트리 접음(넓은 표를 읽는 자리). 판 안에 들고 가로로 구르지 않는다(§1.7-e2)
       await page.getByRole('button', { name: '조직 접기' }).click();
       await expect(page.getByRole('button', { name: '조직 펼치기' })).toBeVisible();
-      await expect(page.getByTestId('overflow-shade')).toHaveCount(0);
+      expect(await horizontalOverflow(page)).toEqual([]);
       await page.mouse.move(0, 0);
       await shot(page, '21-sheet-tree-collapsed');
 
@@ -173,7 +173,7 @@ for (const vp of VIEWPORTS) {
       await slots.getByRole('button', { name: /^슬롯 3 · / }).click();
       await expect(blocks.and(page.locator('[aria-current="true"]'))).toBeInViewport();
       await expect(detail(page)).toHaveCount(0);
-      await expect(page.getByTestId('overflow-shade')).toHaveCount(0);
+      expect(await horizontalOverflow(page)).toEqual([]);
       await page.mouse.move(0, 0);
       await noForbiddenWords(page, '선번장 + 상세');
       await shot(page, '24-sheet-from-slot');
@@ -195,12 +195,13 @@ for (const vp of VIEWPORTS) {
       await noForbiddenWords(page, '차단기 대장');
       await shot(page, '30-power-ledger');
 
-      // 블록 머리의 설비 이름 → 그 설비 상세 + 블록 초점(판은 가로로 구르고 그늘이 선다)
+      // 블록 머리의 설비 이름 → 그 설비 상세 + 블록 초점(레일이 서도 표는 가로로 구르지 않는다 — 열이 병합·숨는다)
       const panel = blocks.filter({ has: page.getByTestId('ledger-block-head').getByRole('button', { name: PANEL, exact: true }) });
       await panel.getByTestId('ledger-block-head').getByRole('button', { name: PANEL, exact: true }).click();
       await expect(panel).toHaveAttribute('aria-current', 'true');
       await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
       await settle(page);
+      expect(await horizontalOverflow(page)).toEqual([]);
       await noForbiddenWords(page, '차단기 대장 + 상세');
       await shot(page, '31-power-ledger-detail');
 
@@ -293,7 +294,7 @@ for (const vp of VIEWPORTS) {
       await login(page);
       for (const [kind, label] of [['equipment', '설비 품목'], ['rack', '랙 품목'], ['cable', '케이블 품목'], ['category', '분야']] as const) {
         await page.goto(`/catalog?kind=${kind}`);
-        await expect(page.getByRole('button', { name: new RegExp(`^${label}`) })).toHaveAttribute('aria-current', 'true');
+        await expect(page.getByRole('button', { name: new RegExp(`^${label}\\s*\\d+$`) })).toHaveAttribute('aria-current', 'true');
         await expect(page.getByRole('table').getByRole('row').nth(1)).toBeVisible();
         await noForbiddenWords(page, `품목 관리 ${label}`);
         await shot(page, `11-catalog-${kind}`);

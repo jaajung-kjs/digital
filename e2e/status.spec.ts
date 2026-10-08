@@ -58,7 +58,7 @@ async function sweepLeftovers(page: Page) {
     // 설비 행(들여쓴 행)이 있으면 그것부터 — 맨 뒤 행이 늘 가장 안쪽이다.
     await rows.last().click();
     const isRack = (await detail(page).getByText(/^실장 설비 \d+/).count()) > 0;
-    await detail(page).getByRole('button', { name: '삭제' }).click();
+    await detail(page).getByRole('button', { name: isRack ? '랙 삭제' : '설비 삭제' }).click();
     const confirm = page.getByRole('alertdialog', { name: isRack ? '랙 삭제' : '설비 삭제' });
     await confirm.getByRole('button', { name: '삭제' }).click();
     await expect(confirm).toHaveCount(0);
@@ -106,9 +106,9 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await editor.getByRole('button', { name: '완료' }).click();
   await expect(editor).toHaveCount(0);
   expect(await changeCount(page)).toBe(0);
-  //    차단기가 있는 설비 머리에는 「차단기 추가」 단추도 ⋯ 메뉴도 없다 — 더하는 길은 카드의 「추가」
+  //    차단기가 있는 설비에는 정보 카드 끝 「차단기 추가」도 ⋯ 메뉴도 없다 — 더하는 길은 차단기 카드 머리의 「차단기 추가」 하나
   await expect(detail(page).getByRole('button', { name: '더 보기' })).toHaveCount(0);
-  await expect(detail(page).getByRole('button', { name: '차단기 추가' })).toHaveCount(0);
+  await expect(detail(page).getByRole('button', { name: '차단기 추가' })).toHaveCount(1);
 
   // 4. 랙 추가 → 설비 추가(개수 칸 없음)
   await main(page).getByRole('button', { name: '랙 추가' }).click();
@@ -133,7 +133,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
 
   // 5. 잇기 — 분전반 차단기 2, F-CV. 연결 목록은 두 줄: 상대 끝(진하게) · 케이블
   await detail(page).getByRole('tab', { name: '연결' }).click();
-  await detail(page).getByRole('button', { name: '연결', exact: true }).click();
+  await detail(page).getByRole('button', { name: '연결 추가', exact: true }).click();
   dialog = page.getByRole('dialog', { name: '연결 추가' });
   await dialog.getByRole('textbox', { name: '접속 설비 검색' }).fill('분전반');
   const breaker2 = dialog.getByRole('button', { name: `${PANEL} 차단기 2`, exact: true });
@@ -183,7 +183,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
 
   // 9. E2E L3 지우기 — 연결 1건이 함께 간다(확인 문구에 적힌다)
   await detail(page).getByRole('tab', { name: '정보' }).click();
-  await detail(page).getByRole('button', { name: '삭제' }).click();
+  await detail(page).getByRole('button', { name: '설비 삭제' }).click();
   const confirm = page.getByRole('alertdialog', { name: '설비 삭제' });
   await expect(confirm).toContainText('함께 삭제됩니다 — 연결 1.');
   await confirm.getByRole('button', { name: '삭제' }).click();
@@ -199,7 +199,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   // 정리 — 빈 E2E랙도 지워 다시 돌릴 수 있게
   await main(page).getByRole('row').filter({ hasText: 'E2E랙' }).click();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue('E2E랙');
-  await detail(page).getByRole('button', { name: '삭제' }).click();
+  await detail(page).getByRole('button', { name: '랙 삭제' }).click();
   const rackConfirm = page.getByRole('alertdialog', { name: '랙 삭제' });
   await rackConfirm.getByRole('button', { name: '삭제' }).click();
   await expect(rackConfirm).toHaveCount(0);
@@ -235,12 +235,12 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   const nav = page.getByRole('navigation', { name: '주요 메뉴' });
   await expect(nav.getByRole('button')).toHaveText(['설비 현황', '품목 관리', '기준정보']);
   await nav.getByRole('button', { name: '품목 관리' }).click();
-  await page.getByRole('button', { name: /^케이블 품목/ }).click();
-  await expect(page.getByRole('button', { name: /^케이블 품목/ })).toHaveAttribute('aria-current', 'true');
+  await page.getByRole('button', { name: /^케이블 품목\s*\d+$/ }).click();
+  await expect(page.getByRole('button', { name: /^케이블 품목\s*\d+$/ })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('table').getByRole('rowgroup').nth(1).getByRole('row')).toHaveCount(17);
   await expect(page.getByRole('columnheader', { name: '키' })).toHaveCount(0);
-  await page.getByRole('button', { name: /^설비 품목/ }).click();
-  await expect(page.getByRole('button', { name: /^설비 품목/ })).toHaveAttribute('aria-current', 'true');
+  await page.getByRole('button', { name: /^설비 품목\s*\d+$/ }).click();
+  await expect(page.getByRole('button', { name: /^설비 품목\s*\d+$/ })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('row').filter({ hasText: 'L3 스위치' })).toHaveCount(1);
 
   // 12. 기준정보 — 노임단가 · 제비율 · 올린 기록 탭

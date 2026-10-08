@@ -48,3 +48,27 @@ export async function selectStation(page: Page, station: string) {
   await tree.getByRole('treeitem', { name: new RegExp(`^${escaped} `) }).click();
   await expect(page.getByRole('heading', { level: 1, name: station })).toBeVisible();
 }
+
+/**
+ * 판 안의 표는 가로로 구르지 않는다(CONVENTIONS §1.7-e2) — 보이는 표 상자마다 `scrollWidth <= clientWidth`,
+ * 가로로 구를 수 있는 상자(overflow-x auto/scroll)도, 문서도 넘치지 않는다. 넘친 것을 「어디 · 폭」으로 돌려준다.
+ */
+export async function horizontalOverflow(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const visible = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const name = (el: HTMLElement) => `${el.tagName.toLowerCase()}[${el.getAttribute('data-testid') ?? el.className.toString().slice(0, 40)}]`;
+    document.querySelectorAll('table').forEach((t) => {
+      const box = t.parentElement as HTMLElement | null;
+      if (!box || !visible(t) || t.closest('[data-design-print]')) return;
+      if (box.scrollWidth > box.clientWidth + 1) out.push(`table in ${name(box)} ${box.clientWidth}<${box.scrollWidth}`);
+    });
+    document.querySelectorAll<HTMLElement>('body *').forEach((el) => {
+      if (!visible(el) || el.closest('[data-design-print]')) return;
+      const x = getComputedStyle(el).overflowX;
+      if ((x === 'auto' || x === 'scroll') && el.scrollWidth > el.clientWidth + 1) out.push(`scroll box ${name(el)} ${el.clientWidth}<${el.scrollWidth}`);
+    });
+    if (document.documentElement.scrollWidth > window.innerWidth + 1) out.push(`document ${window.innerWidth}<${document.documentElement.scrollWidth}`);
+    return out;
+  });
+}

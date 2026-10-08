@@ -33,8 +33,12 @@ const row = (block: Locator, no: number) => block.getByTestId(`sheet-row-${no}`)
 const cell = (block: Locator, no: number, col: string) => row(block, no).locator(`[data-col="${col}"]`);
 const design = (page: Page) => page.getByRole('dialog', { name: '설계서' });
 /** 설계서 산출 내역의 본문 줄 — 「대상」 칸(둘째 칸)이 그 글자인 줄. */
+/** 대상 칸으로 줄을 찾는다 — 넓으면 「대상」 열, 좁으면 병합 칸 「구분 · 대상」(「신설 광선로」, §1.7-e2). */
 const itemRows = (page: Page, target: string, within: Locator = design(page)) =>
-  within.locator('tr').filter({ has: page.locator('td:nth-child(2)', { hasText: new RegExp(`^${target}$`) }) });
+  within.locator('tr').filter({
+    has: page.locator('td[data-col="target"]', { hasText: new RegExp(`^${target}$`) })
+      .or(page.locator('td[data-col="kindTarget"]', { hasText: new RegExp(`(신설|철거|이설)\\s*${target}$`) })),
+  });
 
 async function openSheet(page: Page) {
   await main(page).getByRole('tab', { name: '선번장' }).click();
@@ -136,8 +140,9 @@ test('⑥ 설계서 — 두 국에 걸친 광선로 신설 + 양 끝 점퍼가 �
     await expect(line).toContainText('신설');
     await expect(line).toContainText(LINE_NAME);
     await expect(line).toContainText('광케이블');
-    await expect(line.locator('td').nth(4)).toHaveText('2,500'); // 수량
-    await expect(line.locator('td').nth(5)).toHaveText('m');
+    /* 수량 · 단위 — 넓으면 두 열, 좁으면 수량 칸에 단위가 붙는다(「2,500 m」, §1.7-e2). */
+    await expect(line.locator('td[data-col="qty"]')).toHaveText(/^2,500\s*m?$/);
+    await expect(line.locator('td[data-col="qty"], td[data-col="unit"]').last()).toHaveText(/m$/);
     await expect(itemRows(page, '광선로', groups.nth(1))).toHaveCount(1); // 대표 국(A 끝 북춘천)에만
     // B 끝 (구)춘천 묶음에는 수량 없이 어디에 실렸는지만
     await expect(groups.nth(0).getByTestId('design-ref')).toHaveText(`광선로 ${LINE_NAME} · ${NORTH} 묶음에 포함`);

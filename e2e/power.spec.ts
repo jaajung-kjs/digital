@@ -100,7 +100,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await expect(cell(panel, 20, 'load')).toHaveText('PIA');
   await expect(cell(panel, 20, 'current')).toHaveText('직류');
   await expect(cell(panel, SPARE_NO, 'label')).toHaveText('SPARE');
-  await expect(cell(panel, SPARE_NO, 'load')).toContainText('예비');
+  await expect(cell(panel, SPARE_NO, 'load')).toContainText('—'); // 부하 없음은 「—」(편집 창과 같은 꼴)
 
   // 3. 예비 차단기 7 → 「연결」 → 부하 설비 PoE 스위치(상대 포트 E2E-AC · F-CV · 5 m) → 저장
   await row(panel, SPARE_NO).hover();
@@ -201,8 +201,9 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await cell(panel, SPARE_NO, 'load').getByRole('button', { name: LOAD }).click();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(LOAD);
   await dropE2ELinks(page);
-  await expect(cell(panel, SPARE_NO, 'load')).toContainText('예비');
-  await expect(cell(panel, SPARE_NO, 'port')).not.toContainText(PREFIX);
+  await expect(cell(panel, SPARE_NO, 'load')).toContainText('—'); // 부하 없음은 「—」(편집 창과 같은 꼴)
+  /* 포트는 레일이 서면 부하 칸 뒤로 병합되거나(§1.7-e2) 블록 안에서 비면 열째 숨는다 — 줄 전체에 남지 않았는지 본다. */
+  await expect(panel.getByTestId(`ledger-row-${SPARE_NO}`)).not.toContainText(PREFIX);
   await expect.poll(() => changeCount(page)).toBe(1);
   await save(page);
   await expect(main(page).locator('[data-testid="ledger-block"] [data-col="port"]').filter({ hasText: PREFIX })).toHaveCount(0);
