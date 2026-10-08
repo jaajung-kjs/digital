@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import { useEffect, useRef, type ReactNode, type Ref } from 'react';
 import { cn } from './cn';
 import { SelectionScope } from './SelectionScope';
 
@@ -25,6 +25,11 @@ export interface ViewCardProps {
    * 긴 탭(차단기 22줄)을 내려도 탭을 바꾸러 위로 올라가지 않는다.
    */
   tabs?: ReactNode;
+  /**
+   * 바뀌면 본문 스크롤을 **맨 위로** 되돌린다 — 패널 탭의 지금 탭을 준다. 탭 띠가 고정이라 본문 스크롤 상자는 탭이 바뀌어도
+   * 그대로 남는데, 「정보」를 내려 둔 채 「연결」을 누르면 그 탭이 가운데부터 열려 카드 머리(「연결 추가」)가 위로 숨었다.
+   */
+  scrollKey?: unknown;
   /** 카드 **바닥 띠** — `StatusBar`. 지금은 평면도만 쓴다. */
   status?: ReactNode;
   body?: ViewCardBody;
@@ -51,8 +56,13 @@ export interface ViewCardProps {
  *     <ViewCard tools={<Select …/>} actions={<TableSearch …/>} body="scroll">…</ViewCard>
  */
 export function ViewCard({
-  title, tools, actions, tabs, status, body = 'fill', onClearSelection, bodyRef, children, className,
+  title, tools, actions, tabs, scrollKey, status, body = 'fill', onClearSelection, bodyRef, children, className,
 }: ViewCardProps) {
+  /* `scroll` 본문의 스크롤 상자 — 탭이 바뀌면(`scrollKey`) 맨 위로. */
+  const scrollBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollBox.current) scrollBox.current.scrollTop = 0;
+  }, [scrollKey]);
   const hasHead = title != null || tools != null || actions != null;
   /* `scroll` 본문은 **회색**이다 — 그 위에 묶음 표가 제 테두리를 갖고 쌓이는데, 흰
      바탕에서는 바깥 카드 테두리와 묶음 표 사이 16px 이 「빈 흰 여백」으로 보였다.
@@ -95,12 +105,12 @@ export function ViewCard({
         <SelectionScope
           onClear={onClearSelection}
           className={boxClass}
-          ref={body === 'scroll' ? undefined : bodyRef}
+          ref={body === 'scroll' ? scrollBox : bodyRef}
         >
           {inner}
         </SelectionScope>
       ) : (
-        <div className={boxClass} ref={body === 'scroll' ? undefined : bodyRef}>
+        <div className={boxClass} ref={body === 'scroll' ? scrollBox : bodyRef}>
           {inner}
         </div>
       )}

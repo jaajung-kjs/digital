@@ -372,7 +372,7 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack }: Pro
 
   const status = (
     <StatusBar className="pl-0">
-      <Tabs {...floorTabs.list} edge="bottom" menuText="층 관리" items={tabItems} onChange={setPickedFloorId} className="h-full border-t-0" />
+      <Tabs {...floorTabs.list} aria-label="층" edge="bottom" menuText="층 관리" items={tabItems} onChange={setPickedFloorId} className="h-full border-t-0" />
       {canEdit && (
         <IconButton aria-label="층 추가" size="sm" onClick={startAdd}>
           <Plus size={14} />

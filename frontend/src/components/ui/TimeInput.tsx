@@ -10,5 +10,6 @@ export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
  * (`YYYY-MM-DD`)와 어긋난다. 그래서 글자 칸이고, 값의 검사는 부르는 쪽이 `TIME_PATTERN` 으로 한다.
  */
 export function TimeInput(props: Omit<InputProps, 'type'>) {
-  return <Input placeholder="예 14:30" inputMode="numeric" maxLength={5} {...props} />;
+  /* `numeric` 자판은 「:」가 없다(터치) — 글 자판으로 둔다. */
+  return <Input placeholder="예 14:30" inputMode="text" maxLength={5} {...props} />;
 }

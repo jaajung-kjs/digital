@@ -47,6 +47,8 @@ interface TabsProps<T extends string> {
   edge?: 'top' | 'bottom';
   /** 열린 탭의 메뉴 단추 글자 — 없으면 `⋯` 아이콘만 선다. 아이콘만으로는 무엇의 메뉴인지 모른다(예: `층 관리`). */
   menuText?: string;
+  /** 탭 목록의 접근 이름 — 무엇의 탭인지(「설비 상세」). 스크린리더가 「탭 목록」만 읽지 않게. */
+  'aria-label'?: string;
   className?: string;
 }
 
@@ -91,7 +93,7 @@ export function useTabs<T extends string>(value: T) {
  * 바로 열린다(automatic activation): 탭 내용이 이미 다 손에 있어 여는 값이 싸므로, 화살표로
  * 훑는 사람에게 Enter 를 한 번 더 누르게 할 이유가 없다.
  */
-export function Tabs<T extends string>({ items, value, onChange, idBase, variant = 'nav', edge = 'top', menuText, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ items, value, onChange, idBase, variant = 'nav', edge = 'top', menuText, 'aria-label': ariaLabel, className }: TabsProps<T>) {
   const fill = variant === 'panel';
   const list = useRef<HTMLDivElement>(null);
   /* 이름을 고치는 규칙(빈 이름·그대로면 아무 일 없음, Enter/포커스 잃음=확정, Esc=물림)은
@@ -130,6 +132,7 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, variant
       <div
         ref={list}
         role="tablist"
+        aria-label={ariaLabel}
         className={cn(fill ? 'grid min-w-0 flex-1' : 'flex items-stretch')}
         /* 패널 탭은 **같은 폭**으로 나눈다 — 다만 글자보다 좁아지지는 않는다(넘치는 탭만 제 폭, 나머지가 고르게 나눈다). */
         style={fill ? { gridTemplateColumns: `repeat(${items.length}, minmax(max-content, 1fr))` } : undefined}

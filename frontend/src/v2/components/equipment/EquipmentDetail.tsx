@@ -77,7 +77,9 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, 
       title={eq.name}
       actions={<Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>}
       /* 패널 탭 — 제목 띠 아래 고정 띠, 줄을 고르게 채운다(§3.7). 긴 정보 탭을 내려도 탭은 남는다. */
-      tabs={<Tabs {...tabs.list} variant="panel" items={TABS} onChange={setTab} />}
+      tabs={<Tabs {...tabs.list} variant="panel" aria-label="설비 상세" items={TABS} onChange={setTab} />}
+      /* 탭을 바꾸면 본문은 맨 위에서 연다(탭 띠는 고정이라 스크롤이 탭을 넘어 남는다). */
+      scrollKey={tab}
       body="scroll"
     >
         <div {...tabs.panel} className="flex flex-col gap-3">

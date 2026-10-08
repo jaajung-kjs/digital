@@ -143,7 +143,7 @@ export default function V2WorkspacePage() {
                 actions={canEdit && <SaveBar onCommit={commit.commit} isCommitting={commit.isCommitting} stations={touched} issue={commit.issues[0]?.message ?? null} />}
               />
               <div className="flex h-8 shrink-0 items-end bg-surface-2 px-4">
-                <Tabs {...viewTabs.list} items={substationId ? VIEW_TABS : NODE_VIEW_TABS} onChange={route.setView} className="w-full" />
+                <Tabs {...viewTabs.list} aria-label="보기" items={substationId ? VIEW_TABS : NODE_VIEW_TABS} onChange={route.setView} className="w-full" />
               </div>
               {commit.error && (
                 <div className="shrink-0 px-4 pt-4">
