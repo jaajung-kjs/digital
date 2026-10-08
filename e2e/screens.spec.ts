@@ -103,7 +103,7 @@ for (const vp of VIEWPORTS) {
 
       // 랙 상세 — 실장 설비
       await main(page).getByRole('row').filter({ hasText: RACK }).first().click();
-      await expect(detail(page).getByText(/^실장 설비 \d+/)).toBeVisible();
+      await expect(detail(page).locator('[data-detail-head]', { hasText: /^실장 설비\d+/ })).toBeVisible();
       await noForbiddenWords(page, '랙 상세');
       await shot(page, '07-rack-detail');
 

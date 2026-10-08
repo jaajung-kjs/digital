@@ -57,7 +57,7 @@ async function sweepLeftovers(page: Page) {
   for (let guard = 0; guard < 20 && (await rows.count()) > 0; guard++) {
     // 설비 행(들여쓴 행)이 있으면 그것부터 — 맨 뒤 행이 늘 가장 안쪽이다.
     await rows.last().click();
-    const isRack = (await detail(page).getByText(/^실장 설비 \d+/).count()) > 0;
+    const isRack = (await detail(page).locator('[data-detail-head]', { hasText: /^실장 설비\d+/ }).count()) > 0;
     await detail(page).getByRole('button', { name: isRack ? '랙 삭제' : '설비 삭제' }).click();
     const confirm = page.getByRole('alertdialog', { name: isRack ? '랙 삭제' : '설비 삭제' });
     await confirm.getByRole('button', { name: '삭제' }).click();
@@ -90,8 +90,9 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await expect(panelRows).toContainText('분전반 · 분전반함'); // 설비 품목 · 랙 품목
   await panelRows.click();
   await expect(detail(page).getByRole('textbox', { name: '이름' })).toHaveValue(PANEL);
-  const header = await detail(page).getByText(/^차단기 \d+$/).innerText();
-  const breakers = Number(header.replace('차단기 ', ''));
+  /* 개수는 머리 제목 뒤 흐린 숫자(`DetailCardHeader count`) — 제목 문자열에 섞지 않는다. */
+  const header = detail(page).locator('[data-detail-head]', { hasText: /^차단기\d+/ });
+  const breakers = Number(await header.locator('[data-count]').innerText());
   expect(breakers).toBeGreaterThan(2);
   let editor = await openBreakers(page);
   await expect(editor.getByTestId('circuit-no')).toHaveCount(breakers);

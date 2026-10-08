@@ -7,9 +7,9 @@ import { join } from 'node:path';
  *
  * 시험은 시드 변전소 위에서 랙·설비·연결·광선로·측정을 만들고 끝에 지운다. 지우는 흐름이 실패하거나 빠지면
  * 시드 데이터가 소리 없이 늘어난다(예: 빈 「4층」이 남았던 일). 그래서 끝에 한 번 단언한다:
- *  - 층·랙·설비·광선로·연결·측정 수가 시작과 같다
+ *  - 층·랙·설비·광선로·연결·측정·변경 이력 수가 시작과 같다(변경 이력은 걷은 뒤)
  *  - 이름·표기·측정자가 `E2E` 로 시작하는 행이 없다
- * 그리고 이번 실행이 남긴 변경 이력(`ChangeLog`, 내용에 E2E 가 든 것)을 걷는다 — 저장했다 지운 흔적이 시드 설비의
+ * 그리고 이번 실행이 남긴 변경 이력(`ChangeLog`)을 걷는다 — 저장했다 지운·되돌린 흔적이 시드 설비의
  * 「변경 이력」 탭에 쌓이지 않게.
  *
  * DB 주소는 backend/.env 의 DATABASE_URL_NEXT(개발 DB). 없으면 검사를 건너뛴다(CI 등 DB 를 모르는 곳).
@@ -52,6 +52,7 @@ const COUNTS: Record<string, string> = {
   lines: 'select count(*)::int as n from "FiberLine"',
   links: 'select count(*)::int as n from "Link"',
   measurements: 'select count(*)::int as n from "CoreMeasurement"',
+  changelog: 'select count(*)::int as n from "ChangeLog"',
 };
 
 const LEFTOVERS: Record<string, string> = {
@@ -83,9 +84,15 @@ export async function leftovers(db: Db): Promise<string[]> {
   return out;
 }
 
-/** 이번 실행(since 이후)이 남긴 변경 이력 중 E2E 흔적이 든 것을 걷는다. 걷은 수를 돌려준다. */
+/**
+ * 이번 실행(since 이후)이 남긴 변경 이력을 걷는다. 걷은 수를 돌려준다.
+ *
+ * E2E 가 만든 것(이름·표기·측정자 `E2E…`)뿐 아니라 **시드 값을 고쳤다 되돌린 저장**(현황 한 바퀴의 차단기 교류/직류 왕복)도
+ * 시드 설비의 「변경 이력」 탭에 쌓이므로, 실행 동안 E2E 계정(`admin`)이 남긴 이력을 모두 걷는다. 시험은 직렬이고 개발 DB 에서만
+ * 돈다 — 실행하는 동안 같은 계정으로 손으로 저장한 것이 있으면 그것도 걷힌다.
+ */
 export async function dropE2EChangeLog(db: Db, since: string): Promise<number> {
   return db.$executeRawUnsafe(
-    `delete from "ChangeLog" where at >= '${since.replace(/'/g, '')}'::timestamp and summary::text like '%E2E%'`,
+    `delete from "ChangeLog" where at >= '${since.replace(/'/g, '')}'::timestamp and (username = 'admin' or summary::text like '%E2E%')`,
   );
 }
