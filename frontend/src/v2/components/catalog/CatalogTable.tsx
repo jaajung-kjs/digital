@@ -32,7 +32,7 @@ export interface Column {
   options?: { value: string; label: string }[];
   required?: boolean;
   width?: string;
-  /** 단위 — 머리글 아랫줄에 선다(`Th unit`, §1.7-g). 열 이름에 「(원/m)」로 붙이지 않는다. */
+  /** 단위 — 머리글 이름 뒤 같은 줄 괄호로 선다(`Th unit`, §1.7-g). 열 이름에 「(원/m)」로 직접 붙이지 않는다. */
   unit?: string;
 }
 
@@ -134,7 +134,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
 
   async function removeRow(row: Row) {
     const name = str(row.name);
-    if (!(await confirm({ title: `${title} 삭제`, target: name, message: '삭제하면 복구할 수 없습니다.', confirmLabel: '삭제', danger: true }))) return;
+    if (!(await confirm({ title: `${title} 삭제`, target: name, message: '삭제하면 되돌릴 수 없습니다.', confirmLabel: '삭제', danger: true }))) return;
     setError(null);
     remove.mutateAsync({ kind, id: str(row.id) }).catch((e) => fail(str(row.id), e, '삭제하지 못했습니다'));
   }
@@ -242,7 +242,7 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
                         className={HOVER_REVEAL}
                         onClick={() => removeRow(row)}
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={14} />
                       </IconButton>
                     </EditOnly>
                   </Td>
@@ -258,8 +258,8 @@ export function CatalogTable({ kind, rows: rawRows, columns, newRow, title }: Pr
                   {cols.map((c) => <Td key={c.key} align={alignOf(c)}>{draftCell(c)}</Td>)}
                   <Td align="right">
                     <span className="flex justify-end gap-0.5">
-                      <IconButton size="sm" aria-label="추가 확정" onClick={submitDraft}><Check size={12} /></IconButton>
-                      <IconButton size="sm" tone="danger" aria-label="추가 취소" onClick={cancelDraft}><X size={12} /></IconButton>
+                      <IconButton size="sm" aria-label="추가 확정" onClick={submitDraft}><Check size={14} /></IconButton>
+                      <IconButton size="sm" tone="danger" aria-label="추가 취소" onClick={cancelDraft}><X size={14} /></IconButton>
                     </span>
                   </Td>
                 </tr>

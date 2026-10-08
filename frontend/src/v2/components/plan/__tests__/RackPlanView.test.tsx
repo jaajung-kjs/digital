@@ -144,7 +144,7 @@ describe('RackPlanView', () => {
     store.getState().create('racks', waitingRack);
     const onSelectRack = vi.fn();
     const { rerender } = render(<RackPlanView substationId="S1" selectedRackId={null} onSelectRack={onSelectRack} />);
-    expect(screen.queryByRole('button', { name: '도면' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '배경 도면' })).toBeNull();
     expect(screen.queryByRole('button', { name: '배치' })).toBeNull();
     expect(screen.queryByRole('button', { name: '층 추가' })).toBeNull();
     expect(screen.queryByRole('button', { name: '층 관리' })).toBeNull();
@@ -271,14 +271,14 @@ describe('RackPlanView — 배경 도면', () => {
     store.getState().create('floors', floor);
   });
   const menu = () => {
-    fireEvent.click(screen.getByRole('button', { name: '도면' }));
+    fireEvent.click(screen.getByRole('button', { name: '배경 도면' }));
     return within(screen.getByRole('menu'));
   };
 
   it('비관리자에게는 배경 도면 메뉴가 없다', () => {
     useV2AuthStore.setState({ user: { id: 'u1', username: 'u', role: 'viewer' } } as never);
     view();
-    expect(screen.queryByRole('button', { name: '도면' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '배경 도면' })).toBeNull();
   });
 
   it('관리자가 파일을 고르면 읽어서 그 층에 얹는다 — 서버로 가는 것은 저장할 때다', async () => {
@@ -296,7 +296,7 @@ describe('RackPlanView — 배경 도면', () => {
     act(() => store.getState().update('floors', 'F1', { backgroundDrawing: drawing('plan.dwg') }));
     render(<RackPlanView substationId="S1" selectedRackId={null} onSelectRack={() => {}} />);
     expect(screen.queryByRole('region', { name: '배경 도면' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '배경 도면' }));
+    fireEvent.click(screen.getByRole('button', { name: '농도·레이어' }));
     const panel = screen.getByRole('region', { name: '배경 도면' });
     const slider = within(panel).getByRole('slider', { name: '배경 농도' });
     const before = store.temporal.getState().pastStates.length;

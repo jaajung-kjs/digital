@@ -151,11 +151,11 @@ test('③ 선번장 한 바퀴 — 북춘천에서 잇고 재고, 광선로를 �
   await dialog.getByLabel('코어 12 1310 nm 거리').fill('8.34');
   await dialog.getByRole('button', { name: '등록' }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(cell(slot3, 11, 'loss1310')).toHaveText('-2.5');
-  await expect(cell(slot3, 11, 'loss1550')).toHaveText('-1.75');
-  await expect(cell(slot3, 11, 'dist')).toHaveText('8.35'); // 1550 거리가 있으면 그것
-  await expect(cell(slot3, 12, 'loss1310')).toHaveText('-2.61');
-  await expect(cell(slot3, 12, 'dist')).toHaveText('8.34(1310)'); // 1550 이 없으면 1310 거리 — 물러섰다고 적는다
+  await expect(cell(slot3, 11, 'loss1310')).toHaveText('-2.500');
+  await expect(cell(slot3, 11, 'loss1550')).toHaveText('-1.750');
+  await expect(cell(slot3, 11, 'dist')).toHaveText('8.350'); // 1550 거리가 있으면 그것
+  await expect(cell(slot3, 12, 'loss1310')).toHaveText('-2.610');
+  await expect(cell(slot3, 12, 'dist')).toHaveText('8.340(1310)'); // 1550 이 없으면 1310 거리 — 물러섰다고 적는다
   await expect(cell(slot3, 11, 'measuredOn')).not.toHaveText('—');
   await expect(cell(slot3, 13, 'measuredOn')).toHaveText('—'); // 빈 줄은 측정이 없다
   await expect.poll(() => changeCount(page)).toBe(2);

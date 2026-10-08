@@ -119,7 +119,7 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
         {pick?.kind === 'equipment' && (
           <DetailRow label={LL.peerLabel}><Input size="sm" aria-label={LL.peerLabel} value={toLabel} onChange={(e) => setToLabel(e.currentTarget.value)} /></DetailRow>
         )}
-        <ErrorStrip message={issue ?? (lengthOk ? null : '길이는 0 이상의 숫자여야 합니다')} />
+        <ErrorStrip message={issue ?? (lengthOk ? null : '길이는 0 이상의 숫자로 입력하세요')} />
       </div>
     </Modal>
   );

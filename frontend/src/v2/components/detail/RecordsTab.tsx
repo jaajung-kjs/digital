@@ -97,7 +97,7 @@ export function RecordsTab({
   async function remove(record: AnyRecord) {
     /* 어느 기록인지 이름으로 부른다 — 목록에 여러 줄이 있을 때 「이 기록」만으로는 못 짚는다. */
     const label = [formatDate(fieldOf(record, dateField)), record.content].filter(Boolean).join(' · ');
-    if (!(await confirm(deleteConfirm('기록', label)))) return false;
+    if (!(await confirm(deleteConfirm(sectionTitle, label)))) return false;
     deleteLeafRow(kind, record.id);
     return true;
   }

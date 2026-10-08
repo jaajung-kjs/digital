@@ -210,6 +210,9 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
     row.focus({ preventScroll: true });
   }, [added]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const branchKeys = tree.filter((r) => r.branch).map((r) => r.key);
+  const allCollapsed = branchKeys.length > 0 && branchKeys.every((k) => collapsed.has(k));
+
   return (
       <ViewCard
         body={isTree ? 'fill' : 'scroll'}
@@ -225,16 +228,18 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
             </div>
             {isTree && (
               <>
-                {/* 글자 단추(§1.7-h 아이콘만으로는 모른다) — 현황의 「모두 펼치기/접기」와 같은 꼴·자리. */}
-                <Button variant="ghost" size="sm" onClick={() => setCollapsed(new Set())}>모두 펼치기</Button>
-                <Button variant="ghost" size="sm" onClick={() => setCollapsed(new Set(tree.filter((r) => r.branch).map((r) => r.key)))}>모두 접기</Button>
+                {/* 글자 단추 **하나**(§1.7-h 아이콘만으로는 모른다) — 현황의 「모두 펼치기/접기」와 같은 꼴·자리. 둘을 세우면
+                    1280 + 레일에서 검색 칸이 w-40 아래로 눌렸다. */}
+                <Button variant="ghost" size="sm" onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(branchKeys))}>
+                  {allCollapsed ? '모두 펼치기' : '모두 접기'}
+                </Button>
               </>
             )}
           </>
         )}
         actions={(
           <TableSearch
-            aria-label="전원 계통 검색" className="w-64" placeholder="설비·차단기·부하 검색"
+            aria-label="전원 계통 검색" className="w-64 min-w-40" placeholder="설비·차단기·부하 검색"
             value={query} onChange={setQuery} shown={isTree ? treeShown.matched : shownRows} total={isTree ? treeTotal : total}
           />
         )}

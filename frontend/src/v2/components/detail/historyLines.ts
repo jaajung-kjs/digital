@@ -1,5 +1,5 @@
 import { CIRCUIT_CURRENTS, EQUIPMENT_STATUSES, SWITCH_STATES } from '@twin/core';
-import { EMPTY, formatDate, lengthText } from '../../../components/ui';
+import { EMPTY, formatDate, lengthText, unitValueText } from '../../../components/ui';
 import type { ChangeItem } from '../../model/types';
 import { CIRCUIT_FIELD_LABELS, EQUIPMENT_FIELD_LABELS, LINK_FIELD_LABELS, RECORD_FIELD_LABELS } from '../equipment/fieldLabels';
 
@@ -20,12 +20,13 @@ const tableOf = (entity: ChangeItem['entity']): Record<string, string> =>
       : entity === 'equipment' ? EQUIPMENT_FIELD_LABELS
         : RECORD_FIELD_LABELS;
 
-/** 값 하나 — 빈 값은 「—」, 어휘는 말, 날짜는 날, 길이는 단위를 붙인다. */
+/** 값 하나 — 빈 값은 「—」, 어휘는 말, 날짜는 날, 길이는 단위를 붙이고 용량·전압은 대장과 같은 꼴(「50 A」). */
 export function valueText(name: string, v: unknown): string {
   if (v === null || v === undefined || v === '') return EMPTY;
   if (typeof v === 'string' && CHOICES[name]) return CHOICES[name]!.find((c) => c.value === v)?.label ?? v;
   if (typeof v === 'string' && DATES.has(name)) return formatDate(v);
   if (name === 'lengthM' && typeof v === 'number') return lengthText(v);
+  if ((name === 'capacity' || name === 'voltage') && typeof v === 'string') return unitValueText(v);
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }

@@ -157,7 +157,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
 
   // 7. 평면도 — 첫 층에 E2E랙 끌어 놓기(랙 이름은 랙 안에 그린다 — 캔버스라 글자는 못 본다)
   await main(page).getByRole('tab', { name: '평면도' }).click();
-  await expect(main(page).getByRole('button', { name: '도면' })).toBeVisible();
+  await expect(main(page).getByRole('button', { name: '배경 도면' })).toBeVisible();
   await expect(main(page).getByRole('button', { name: '층 관리' })).toBeVisible();
   await main(page).getByRole('combobox', { name: '배치할 랙' }).selectOption({ label: 'E2E랙' });
   await main(page).getByRole('button', { name: '배치', exact: true }).click();
@@ -186,7 +186,7 @@ test('② 현황 한 바퀴 — 북춘천에서 변경안을 쌓아 저장하고
   await detail(page).getByRole('tab', { name: '정보' }).click();
   await detail(page).getByRole('button', { name: '설비 삭제' }).click();
   const confirm = page.getByRole('alertdialog', { name: '설비 삭제' });
-  await expect(confirm).toContainText('함께 삭제됩니다 — 연결 1.');
+  await expect(confirm).toContainText('함께 삭제됩니다 — 연결 1건.');
   await confirm.getByRole('button', { name: '삭제' }).click();
   expect(await changeCount(page)).toBe(2); // 설비 + 연결
   await save(page);

@@ -111,12 +111,12 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
 
   /* ── 검증 ── */
   const count = positiveInt(coreCount);
-  const countIssue = count === null || Number.isNaN(count) || count > MAX_CORES ? `코어 수는 1–${MAX_CORES} 사이의 정수입니다` : null;
+  const countIssue = count === null || Number.isNaN(count) || count > MAX_CORES ? `코어 수는 1–${MAX_CORES} 사이의 정수로 입력하세요` : null;
   const lengthKm = length.trim() === '' ? null : Number(length);
-  const lengthIssue = lengthKm !== null && !(Number.isFinite(lengthKm) && lengthKm >= 0) ? '긍장은 0 이상의 숫자입니다' : null;
+  const lengthIssue = lengthKm !== null && !(Number.isFinite(lengthKm) && lengthKm >= 0) ? '긍장은 0 이상의 숫자로 입력하세요' : null;
   const endIssues = (e: EndDraft) => ({
-    panel: Number.isNaN(positiveInt(e.panel)) ? '슬롯은 1 이상의 정수입니다' : null,
-    startNo: positiveInt(e.startNo) === null || Number.isNaN(positiveInt(e.startNo)) ? '시작번호는 1 이상의 정수입니다' : null,
+    panel: Number.isNaN(positiveInt(e.panel)) ? '슬롯은 1 이상의 정수로 입력하세요' : null,
+    startNo: positiveInt(e.startNo) === null || Number.isNaN(positiveInt(e.startNo)) ? '시작번호는 1 이상의 정수로 입력하세요' : null,
   });
   const nearIssues = endIssues(nearEnd);
   const farIssues = endIssues(farEnd);

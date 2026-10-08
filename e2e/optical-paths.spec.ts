@@ -64,7 +64,7 @@ test('⑤ 광 계통도 — 회선 선택·이중화 경고·국으로 이동 (�
   // 3. 이중화 경고 — 통합PTP 북춘천-춘천H/P 주(1·2)·예비(7·8)가 같은 광선로
   const warnings = panel(page).getByTestId('warning-list');
   /* 직할 국 그래프는 나무다(링 0) — 다만 경로 미완결이 남아 있으니 「링이 없다」고 단정하지 않는다. */
-  await expect(panel(page).getByTestId('ring-list')).toContainText(/완결된 회선으로는 링이 나타나지 않습니다 \(경로 미완결 \d+\)/);
+  await expect(panel(page).getByTestId('ring-list')).toContainText(/경로가 완결된 회선만으로는 링이 생기지 않습니다 — 경로 미완결 \d+건/);
   await expect(panel(page).getByTestId('incomplete-list').getByRole('button').first()).toBeVisible();
   const warn = warnings.getByText(new RegExp(PTP.replace(/[()/]/g, '\\$&'))).first();
   await expect(warn).toBeVisible();

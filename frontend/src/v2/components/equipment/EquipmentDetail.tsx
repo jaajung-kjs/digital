@@ -58,7 +58,7 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, 
     const effects = [
       alsoDeleted([['차단기', n.circuits], ['연결', n.links], ['점검 기록', n.inspections], ['고장 기록', n.maintenance], ['사진', n.photos]]),
       lineCount > 0
-        ? `광선로 ${lineCount}개의 접속 설비가 해제됩니다 — 대국 ${[...byStation].map(([name, k]) => `${name || EMPTY} ${k}`).join(' · ')}.`
+        ? `광선로 ${lineCount}개의 접속 설비가 해제됩니다 — 대국 ${[...byStation].map(([name, k]) => `${name || EMPTY} ${k}개`).join(' · ')}.`
         : null,
     ].filter((x): x is string => x != null);
     if (!(await confirm(deleteConfirm('설비', eq!.name, effects)))) return;

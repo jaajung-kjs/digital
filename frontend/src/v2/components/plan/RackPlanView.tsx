@@ -409,10 +409,11 @@ export function RackPlanView({ substationId, selectedRackId, onSelectRack }: Pro
       tools={canEdit ? tools : undefined}
       actions={(activeFloor?.backgroundDrawing || canEdit) ? (
         <>
-          {/* 배경 도면 농도·레이어 — 판 안에 뜨는 도구 판을 열고 닫는다(조회 사용자도 레이어는 끈다). */}
+          {/* 배경 도면 농도·레이어 — 판 안에 뜨는 도구 판을 열고 닫는다(조회 사용자도 레이어는 끈다). 이름은 **여는 것**을 말한다 —
+              곁의 「배경 도면 ⋯」(업로드·제거)과 같은 이름을 두 번 세우지 않는다. */}
           {activeFloor?.backgroundDrawing && (
-            <Button variant="ghost" size="sm" aria-pressed={bgOpen} className={bgOpen ? 'bg-surface-3' : undefined} onClick={() => setBgOpen((v) => !v)}>
-              배경 도면
+            <Button variant="ghost" size="sm" aria-pressed={bgOpen} title="배경 도면 농도·레이어" className={bgOpen ? 'bg-surface-3' : undefined} onClick={() => setBgOpen((v) => !v)}>
+              농도·레이어
             </Button>
           )}
           {canEdit && <BackgroundImportControls floorId={activeFloorId} hasBackground={activeFloor?.backgroundDrawing != null} />}

@@ -5,7 +5,7 @@ import { Button, DetailCard, DetailCardHeader, EMPTY, IconButton, ListRow, SELEC
 import { DutyBadge } from './duty';
 import type { NetworkView } from './networkSelectors';
 import { equipmentLabel, lineName, type OpticalMapModel, type Ring, type Warning } from './opticalMapModel';
-import { BREAK_TEXT, breakCause, pathSummary, shortStationName } from './pathChain';
+import { BREAK_META, BREAK_TEXT, breakCause, pathSummary, shortStationName } from './pathChain';
 
 export const warningKey = (w: Warning) => `${w.mainBundle}~${w.backupBundle}`;
 
@@ -81,8 +81,8 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
       <DetailCard className="shrink-0">
         <DetailCardHeader
           title="이중화 경고"
-          badge={judged ? model.warnings.length : undefined}
-          badgeStatus={model.warnings.length > 0 ? 'warning' : 'neutral'}
+          count={judged ? model.warnings.length : undefined}
+          countTone="warning"
         />
         <div data-testid="warning-list" className="max-h-40 overflow-y-auto">
           {!judged ? (
@@ -114,7 +114,7 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
           {model.rings.length === 0 ? (
             /* 미완결 경로가 있으면 「링이 없다」고 단정하지 않는다 — 끊긴 사슬이 이어지면 링이 될 수 있다. */
             <ListRow className="text-content-muted">
-              {broken > 0 ? `완결된 회선으로는 링이 나타나지 않습니다 (경로 미완결 ${broken})` : '이 범위의 회선은 링을 이루지 않습니다'}
+              {broken > 0 ? `경로가 완결된 회선만으로는 링이 생기지 않습니다 — 경로 미완결 ${broken}건` : '이 범위의 회선은 링을 이루지 않습니다'}
             </ListRow>
           ) : model.rings.map((r) => {
             const names = r.equipmentIds.map((id) => {
@@ -134,8 +134,8 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
         <DetailCard className="shrink-0">
           <DetailCardHeader
             title="경로 미완결"
-            badge={broken}
-            badgeStatus="warning"
+            count={broken}
+            countTone="warning"
             actions={(
               <IconButton
                 size="sm"
@@ -152,11 +152,11 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
             <div data-testid="incomplete-list" className="max-h-32 overflow-y-auto">
               {model.incomplete.map((p) => {
                 const end = p.start ?? p.end;
-                const cause = BREAK_TEXT[breakCause(view, p, p.start ? 'end' : 'start')];
+                const why = breakCause(view, p, p.start ? 'end' : 'start');
                 const label = end ? `${equipmentLabel(view, end)}${end.port ? ` · ${end.port}` : ''}` : EMPTY;
-                const meta = `${pathSummary(view, p)} · ${cause}`;
+                const meta = `${pathSummary(view, p)} · ${BREAK_META[why]}`;
                 return (
-                  <ListRow key={p.id} onClick={() => onIncomplete(p)} meta={meta} title={`${label} — ${meta} · 중계경로 보기`}>
+                  <ListRow key={p.id} onClick={() => onIncomplete(p)} meta={meta} title={`${label} — ${pathSummary(view, p)} · ${BREAK_TEXT[why]} · 중계경로 보기`}>
                     {label}
                   </ListRow>
                 );

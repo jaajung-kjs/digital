@@ -65,6 +65,7 @@ export function DetailCard({ children, className }: { children: ReactNode; class
 export function DetailCardHeader({
   title,
   count,
+  countTone,
   badge,
   badgeStatus = 'neutral',
   actions,
@@ -78,6 +79,8 @@ export function DetailCardHeader({
    * 제목 문자열에 숫자를 섞거나 배지 알약(`badge`)으로 두지 않는다. 배지는 판 버전·상태 같은 낱말 하나에만.
    */
   count?: number;
+  /** 개수가 **경고**인 머리(광 계통도의 이중화 경고·경로 미완결) — 같은 흐린 숫자 자리에 경고색. 알약으로 두지 않는다. */
+  countTone?: 'warning';
   badge?: ReactNode;
   badgeStatus?: BadgeStatus;
   /** 우측 임의 액션(업로드·추가 등). onEdit/onDelete 와 함께 쓸 수 있다. */
@@ -98,7 +101,7 @@ export function DetailCardHeader({
     >
       {/* 제목은 한 줄로 선다 — 단추가 자리를 먹어도 「차/단/기」처럼 글자 단위로 세로로 쪼개지지 않게. */}
       <span className="shrink-0 whitespace-nowrap text-xs font-bold text-content-muted">{title}</span>
-      {count != null && <span className="text-xs tabular-nums text-content-faint" data-count>{count}</span>}
+      {count != null && <span className={cn('text-xs tabular-nums', countTone === 'warning' && count > 0 ? 'font-medium text-warning' : 'text-content-faint')} data-count>{count}</span>}
       {badge != null && <Badge status={badgeStatus}>{badge}</Badge>}
       {(actions || onEdit || onDelete) && (
         <div className="ml-auto flex shrink-0 items-center gap-0.5">

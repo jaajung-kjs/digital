@@ -88,7 +88,7 @@ test('④ 전원 계통 한 바퀴 — (구)춘천 분전반의 예비 차단기
   await expect(panel).toHaveCount(1);
   const panelId = (await panel.getAttribute('data-equipment'))!;
   const head = panel.getByTestId('ledger-block-head');
-  await expect(head).toContainText(`${PANEL}· 차단기 22`);
+  await expect(head).toContainText(`${PANEL}· 차단기 22개`);
   await expect(head).toContainText('교류 입력: 소내전원반 차단기 4');
   await expect(head).toContainText('직류 입력: 충전기 #2 차단기 1');
   const busHeads = panel.getByTestId('ledger-bus-head');

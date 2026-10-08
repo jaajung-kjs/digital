@@ -1,5 +1,5 @@
 /**
- * 층 배경 도면(DWG/DXF/DGN) 임포트·제거 — 도구바 오른쪽 `⋯` 안.
+ * 층 배경 도면(DWG/DXF/DGN) 업로드·제거 — 도구바 오른쪽 `⋯` 안.
  *
  * 평면도(`RackPlanView`)의 도구바에 얹히지만 캔버스 연산에는 전혀 참여하지 않는다 —
  * 필요한 것은 대상 층 id 와 배경 유무뿐이라 자기 상태를 스스로 소유한다.
@@ -55,16 +55,16 @@ export function BackgroundImportControls({ floorId, hasBackground }: BackgroundI
           (§1.7-h). 예전에는 층 탭 줄 오른쪽 끝에 버튼 둘이 상주했고, 그 줄이 통째로
           하단으로 내려가면서 갈 곳이 없어졌다. */}
       <OverflowMenu
-        label="배경 도면"
-        text="도면"
+        label="배경 도면 업로드·제거"
+        text="배경 도면"
         items={[
           {
-            label: busy ? '임포트 중…' : '배경 임포트',
+            label: busy ? '업로드 중…' : '배경 도면 업로드',
             /* 파일 대화상자는 **숨은 input** 이 연다 — 메뉴가 닫힌 뒤에도 그 노드로
                `change` 가 돌아오므로 늘 마운트해 둔다. */
             onSelect: () => inputRef.current?.click(),
             disabled: busy || floorId == null,
-            disabledReason: floorId == null ? '층을 먼저 선택하세요' : '읽는 중입니다',
+            disabledReason: floorId == null ? '층을 먼저 선택하세요' : '불러오는 중입니다',
           },
           ...(hasBackground
             ? [{ label: '배경 제거', danger: true, onSelect: () => stage(null), disabled: busy }]

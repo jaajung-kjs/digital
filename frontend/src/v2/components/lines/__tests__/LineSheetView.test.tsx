@@ -301,7 +301,7 @@ describe('선번장', () => {
   it('광선로가 없으면 빈 상태가 다음 할 일을 말한다', () => {
     store.getState().reset();
     renderSheet();
-    expect(screen.getByText('이 변전소에 수용된 광선로가 없습니다')).toBeInTheDocument();
+    expect(screen.getByText('광선로가 없습니다')).toBeInTheDocument();
     expect(screen.getByText('「광선로 추가」를 누르세요')).toBeInTheDocument();
   });
 });

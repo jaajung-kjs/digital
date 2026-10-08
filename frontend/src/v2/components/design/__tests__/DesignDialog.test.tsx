@@ -183,7 +183,7 @@ describe('설계서', () => {
     expect(within(indirect()).getByText('57,300')).toBeInTheDocument();
     fireEvent.change(ui().getByLabelText('공사기간'), { target: { value: '200' } });
     expect(within(indirect()).getByText('58,500')).toBeInTheDocument();
-    expect(within(indirect()).getByText('19.5%')).toBeInTheDocument();
+    expect(within(indirect()).getByText(/^19\.50*%$/)).toBeInTheDocument();
     expect(within(indirect()).getByText('직접노무비')).toBeInTheDocument();
   });
 

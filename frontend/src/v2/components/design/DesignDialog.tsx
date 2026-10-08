@@ -4,7 +4,7 @@ import { compareName, computeEstimate, computeReport, designItems, laborCosts, m
 import type { DesignItem, DesignTarget, EstimateParams, OverheadRates, ReportKind } from '@twin/core';
 import {
   Badge, Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, Input, MessageStrip, Modal, SegmentedControl,
-  EmptyRow, TABLE_ROW, TableCard, TableGroupHead, TableSubHead, Td, Th, cn, formatManDaysFixed, formatPercent, formatQty, formatSourceDate, formatWon,
+  EmptyRow, TABLE_ROW, TableCard, TableGroupHead, TableSubHead, Td, Th, cn, formatManDaysFixed, formatPercent, formatQty, percentDigits, formatSourceDate, formatWon,
   today, useTableLayout, type TableColumn, type TableTier,
 } from '../../../components/ui';
 import type { BadgeStatus } from '../../../components/ui';
@@ -39,7 +39,7 @@ const TARGET: Record<DesignTarget, string> = { rack: '랙', equipment: '설비',
  * 산출 내역 열 — 수·배지는 고정 폭(잘리면 안 된다, 머리글 「자재단가(원)」이 다 드는 폭), 이름·품목은 비율(넘치면 말줄임).
  * 차례: 구분 · 대상 · 이름 · 품목 · 수량 · 단위 · 자재단가 · 재료비 · 노무유형 · 공량.
  *
- * 화면에서 상자가 좁으면(§1.7-e) 「구분」+「대상」 → 「신설 · 랙」, 「단위」는 수량 뒤(「1 대」)로 병합되고,
+ * 화면에서 상자가 좁으면(§1.7-e) 「구분」+「대상」 → 「신설 · 랙」, 「단위」는 수량 뒤(「1대」·「12 m」)로 병합되고,
  * 자재단가·노무유형·품목이 숨는다(이름 칸 title 에 남는다). **인쇄는 늘 전 열**이다(`tier="wide"`, 종이 폭 고정).
  */
 const ITEM_COLUMNS: readonly TableColumn[] = [
@@ -60,16 +60,16 @@ const ITEM_COLUMNS: readonly TableColumn[] = [
  * 수 칸은 큰 공사가 들어가는 폭이다 — 재료비 10억(「1,000,000,000」), 수량 99,999 m(45 km 광선로 = 45,000).
  */
 const PRINT_WIDTH: Record<string, TableColumn['width']> = {
-  kind: '40px', target: '44px', name: 58, type: 42, qty: '64px', unit: '40px', unitPrice: '80px', material: '100px', labor: '72px', manDays: '72px',
+  kind: '40px', target: '44px', name: 58, type: 42, qty: '64px', unit: '40px', unitPrice: '92px', material: '100px', labor: '72px', manDays: '72px',
 };
 const PRINT_COLUMNS: readonly TableColumn[] = ITEM_COLUMNS.map((c) => ({ ...c, width: PRINT_WIDTH[c.key] ?? c.width }));
 
 /* 수 꼴은 공용 helper 하나씩(`format.ts`) — 금액은 core 가 이미 원 단위로 맞췄다(`materialCostOf`·`computeEstimate`).
    공량은 **설계서에서만** 늘 3자리(`formatManDaysFixed`, 문서 관행), 그 밖 화면은 꼬리 0 제거. */
-const won = formatWon;
-const qtyText = formatQty;
 const manDaysText = formatManDaysFixed;
-const pct = formatPercent;
+
+/** 띄워 쓰는 단위(SI) — 그 밖(대·개·식)은 셈 단위라 수에 붙인다. */
+const SI_UNITS: ReadonlySet<string> = new Set(['m', 'km', 'A', 'V', 'kV', 'dB']);
 
 /** 「품목 미지정」은 core 가 품목 이름을 「—」로 둔 줄이다 — 이름 자리에 사정을 적는다. */
 const UNRESOLVED = '—';
@@ -83,7 +83,7 @@ function ItemRow({ item, laborName }: { item: DesignItem; laborName: (code: stri
   const note = item.note && item.typeName !== UNRESOLVED ? item.note : null;
   /* 사는 줄인데 단가가 없으면 재료비는 「0」이 아니라 「—」 — 셈은 그대로 `materialCostOf`(0)다. 표시만. */
   const priced = buys && item.unitPrice != null;
-  const unitPrice = buys && item.unitPrice != null ? won(item.unitPrice) : EMPTY;
+  const unitPrice = buys && item.unitPrice != null ? formatWon(item.unitPrice) : EMPTY;
   const labor = laborName(item.laborCode) ?? EMPTY;
   const typeName = item.typeName === UNRESOLVED ? '품목 미지정' : item.typeName;
   /* 숨은 열의 값은 이름 칸 title 에 모은다 — 화면에서 사라지는 값은 없다. */
@@ -112,16 +112,17 @@ function ItemRow({ item, laborName }: { item: DesignItem; laborName: (code: stri
         ? <Td col="type" className="truncate text-warning">품목 미지정</Td>
         : <Td col="type" className="truncate text-content-muted" title={item.typeName}>{item.typeName}</Td>}
       <Td col="qty" align="right">
-        {qtyText(item.qty)}
-        {!shows('unit') && <span className="ml-1 text-content-muted">{item.unit}</span>}
+        {/* 좁으면 단위가 수량 뒤에 — SI 단위만 띄우고 셈 단위는 붙인다(「12 m」·「1대」, §0). */}
+        {formatQty(item.qty)}
+        {!shows('unit') && <span className={cn(SI_UNITS.has(item.unit) && 'ml-1', 'text-content-muted')}>{item.unit}</span>}
       </Td>
       <Td col="unit" className="text-content-muted">{item.unit}</Td>
       <Td col="unitPrice" align="right" className="text-content-muted">{unitPrice}</Td>
-      <Td col="material" align="right">{priced ? won(materialCostOf(item)) : EMPTY}</Td>
+      <Td col="material" align="right">{priced ? formatWon(materialCostOf(item)) : EMPTY}</Td>
       <Td col="labor" className="truncate text-content-muted">{labor}</Td>
       {/* 품목에 공량이 안 적힌 줄 — 셈은 0 으로 하되(합계에 0) 「0.000」으로 숨기지 않는다. */}
       {item.manDaysMissing
-        ? <Td col="manDays" align="right" className="text-warning" title="공량 미입력 — 0 으로 셈">미입력</Td>
+        ? <Td col="manDays" align="right" className="text-warning" title="공량 미입력 — 0으로 계산">미입력</Td>
         : <Td col="manDays" align="right">{manDaysText(item.manDays)}</Td>}
     </tr>
   );
@@ -371,7 +372,7 @@ function TotalRow({ items, unpriced, noManDays, report }: { items: DesignItem[];
               {noManDays > 0 && <span className="ml-3 text-xs font-normal text-warning" data-testid="design-mandays-missing">공량 미입력 {noManDays}건</span>}
             </span>
           </Td>
-          <Td align="right" data-testid="design-material-total">{won(report.totalMaterialCost)}</Td>
+          <Td align="right" data-testid="design-material-total">{formatWon(report.totalMaterialCost)}</Td>
           <Td col="labor" />
           <Td align="right" data-testid="design-mandays-total">{manDaysText(report.totalManDays)}</Td>
         </tr>
@@ -492,7 +493,7 @@ function CostColumn({ report, e }: { report: Report; e: DesignEstimate }) {
         {/* 노임단가가 없으면 직접공사비에 노무비가 빠진다 — 구간이 그 사실을 숨기지 않게 적는다. */}
         <DetailRow
           label="공사규모"
-          hint={wageReady ? `직접공사비 ${won(materialCost + directLaborCost)}원 기준 · 자동 적용` : '노임단가 미등록 — 재료비만 반영'}
+          hint={wageReady ? `직접공사비 ${formatWon(materialCost + directLaborCost)}원 기준 · 자동 적용` : '노임단가 미등록 — 재료비만 반영'}
         >
           {band}
         </DetailRow>
@@ -534,8 +535,8 @@ function LaborTable({ report, e, paper = false }: { report: Report; e: DesignEst
             <Td align="right">{manDaysText(r.manDays)}</Td>
             {r.wage == null
               ? <Td align="right" className="text-warning">미등록</Td>
-              : <Td align="right">{won(r.wage)}</Td>}
-            <Td align="right">{r.cost == null ? EMPTY : won(r.cost)}</Td>
+              : <Td align="right">{formatWon(r.wage)}</Td>}
+            <Td align="right">{r.cost == null ? EMPTY : formatWon(r.cost)}</Td>
           </tr>
         ))}
         {unassigned.length > 0 && (
@@ -550,7 +551,7 @@ function LaborTable({ report, e, paper = false }: { report: Report; e: DesignEst
           <Td>총공량</Td>
           <Td align="right">{manDaysText(report.totalManDays)}</Td>
           <Td />
-          <Td align="right" data-testid="design-labor-total">{wageReady ? won(directLaborCost) : EMPTY}</Td>
+          <Td align="right" data-testid="design-labor-total">{wageReady ? formatWon(directLaborCost) : EMPTY}</Td>
         </tr>
       </tbody>
     </TableCard>
@@ -575,7 +576,8 @@ function CostFlags({ e }: { e: DesignEstimate }) {
  */
 function CostTable({ e, sticky = false, paper = false }: { e: DesignEstimate; sticky?: boolean; paper?: boolean }) {
   const { est, rates, materialCost, directLaborCost, wageReady, blocked } = e;
-  /* 율은 제 열에 선다 — 「근거 × 율」 한 칸이면 모수가 긴 줄에서 정작 율이 잘린다. */
+  /* 율은 제 열에 선다 — 「근거 × 율」 한 칸이면 모수가 긴 줄에서 정작 율이 잘린다. 열 안의 자릿수는 하나로(「10.0%」 옆 「3.21%」가 아니게). */
+  const digits = est ? percentDigits([rates?.byDuration.간접노무비[est.sizeBand][est.durationBand], ...est.expenses.map((x) => x.rate), est.overheadAdmin.rate, est.profit.rate, 0.1]) : 0;
   return (
     /* 종이에서는 원가계산서가 쪽에 걸쳐 갈리지 않는다 — 남은 자리가 모자라면 새 쪽에서 시작한다. */
     <TableCard widths={['140px', 100, '68px', '120px']} className={cn(paper && 'break-inside-avoid')}>
@@ -589,28 +591,28 @@ function CostTable({ e, sticky = false, paper = false }: { e: DesignEstimate; st
         </tr>
       </thead>
       <tbody>
-        <CostRow label="재료비" basis="수량 × 자재단가" amount={est?.materialCost ?? materialCost} />
+        <CostRow digits={digits} label="재료비" basis="수량 × 자재단가" amount={est?.materialCost ?? materialCost} />
         {est ? (
           <>
-            <CostRow label="직접노무비" basis="공량 × 노임단가" amount={est.directLaborCost} />
+            <CostRow digits={digits} label="직접노무비" basis="공량 × 노임단가" amount={est.directLaborCost} />
             <CostRow
-              label="간접노무비"
+              digits={digits} label="간접노무비"
               basis="직접노무비" rate={rates!.byDuration.간접노무비[est.sizeBand][est.durationBand]}
               amount={est.indirectLaborCost}
             />
-            <CostRow label="노무비 계" basis="직접노무비+간접노무비" amount={est.laborCost} total />
-            {est.expenses.map((x) => <CostRow key={x.label} label={x.label} basis={x.basis} rate={x.rate} amount={x.amount} />)}
-            <CostRow label="경비 계" basis="" amount={est.expenseTotal} total />
-            <CostRow label="순공사원가" basis="재료비+노무비+경비" amount={est.netCost} total />
-            <CostRow label={est.overheadAdmin.label} basis={est.overheadAdmin.basis} rate={est.overheadAdmin.rate} amount={est.overheadAdmin.amount} />
-            <CostRow label={est.profit.label} basis={est.profit.basis} rate={est.profit.rate} amount={est.profit.amount} />
-            <CostRow label="총원가(공급가액)" basis="순공사원가+일반관리비+이윤" amount={est.subtotal} total />
-            <CostRow label="부가가치세" basis="공급가액" rate={0.1} amount={est.vat} />
+            <CostRow digits={digits} label="노무비 계" basis="직접노무비+간접노무비" amount={est.laborCost} total />
+            {est.expenses.map((x) => <CostRow digits={digits} key={x.label} label={x.label} basis={x.basis} rate={x.rate} amount={x.amount} />)}
+            <CostRow digits={digits} label="경비 계" basis="" amount={est.expenseTotal} total />
+            <CostRow digits={digits} label="순공사원가" basis="재료비+노무비+경비" amount={est.netCost} total />
+            <CostRow digits={digits} label={est.overheadAdmin.label} basis={est.overheadAdmin.basis} rate={est.overheadAdmin.rate} amount={est.overheadAdmin.amount} />
+            <CostRow digits={digits} label={est.profit.label} basis={est.profit.basis} rate={est.profit.rate} amount={est.profit.amount} />
+            <CostRow digits={digits} label="총원가(공급가액)" basis="순공사원가+일반관리비+이윤" amount={est.subtotal} total />
+            <CostRow digits={digits} label="부가가치세" basis="공급가액" rate={0.1} amount={est.vat} />
           </>
         ) : (
           <>
             {/* 제비율이 없어도 노임단가가 있으면 직접노무비까지는 낸다 — 그 뒤가 막힌다. */}
-            {wageReady && <CostRow label="직접노무비" basis="공량 × 노임단가" amount={directLaborCost} />}
+            {wageReady && <CostRow digits={digits} label="직접노무비" basis="공량 × 노임단가" amount={directLaborCost} />}
             <tr className={TABLE_ROW}>
               <Td colSpan={4} className="text-warning" data-testid="design-blocked">
                 {paper ? blocked.paper : blocked.screen}
@@ -625,7 +627,7 @@ function CostTable({ e, sticky = false, paper = false }: { e: DesignEstimate; st
           <tr className={cn(TABLE_ROW, 'border-t border-line-strong font-semibold')}>
             <Td>총공사비</Td>
             <Td colSpan={2} className="text-xs font-normal" data-testid="design-flags"><CostFlags e={e} /></Td>
-            <Td align="right" data-testid="design-total">{won(est.total)}</Td>
+            <Td align="right" data-testid="design-total">{formatWon(est.total)}</Td>
           </tr>
         </tfoot>
       )}
@@ -633,13 +635,13 @@ function CostTable({ e, sticky = false, paper = false }: { e: DesignEstimate; st
   );
 }
 
-function CostRow({ label, basis, rate, amount, total = false }: { label: string; basis: string; rate?: number; amount: number; total?: boolean }) {
+function CostRow({ label, basis, rate, amount, digits, total = false }: { label: string; basis: string; rate?: number | null; amount: number; digits: number; total?: boolean }) {
   return (
     <tr className={cn(TABLE_ROW, total && 'font-semibold')}>
       <Td className="truncate" title={label}>{label}</Td>
       <Td className="truncate text-xs font-normal text-content-faint" title={basis}>{basis}</Td>
-      <Td align="right" className="text-content-muted">{rate == null ? '' : pct(rate)}</Td>
-      <Td align="right">{won(amount)}</Td>
+      <Td align="right" className="text-content-muted">{rate == null ? '' : formatPercent(rate, digits)}</Td>
+      <Td align="right">{formatWon(amount)}</Td>
     </tr>
   );
 }

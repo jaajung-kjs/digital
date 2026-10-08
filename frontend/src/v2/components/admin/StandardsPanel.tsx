@@ -14,7 +14,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Upload } from 'lucide-react';
 import {
   Button, DetailCard, DetailCardHeader, DetailRow, EmptyState, StatusDot, TableCard, TableSearch, Th, cn, formatDate, SELECTABLE,
-  EMPTY, Select, Td, TABLE_ROW, TableGroupHead, formatNumber, SourceDate, formatPercent, formatSourceDate, formatWon,
+  EMPTY, Select, Td, TABLE_ROW, TableGroupHead, formatNumber, SourceDate, formatPercent, percentDigits, formatSourceDate, formatWon,
 } from '../../../components/ui';
 import {
   activateStandard,
@@ -40,6 +40,8 @@ const COL_WIDTHS = [36, 20, 20, 14, 10] as const;
 const COL_WIDTHS_NO_ACTION = [40, 22, 22, 16] as const;
 
 const pct = formatPercent;
+/** 공사기간 구간 머리 — 「183일」, 끝 구간 「1096+」 는 「1096일 이상」(「+일」은 오타처럼 읽힌다). */
+const durationLabel = (d: string) => (d.endsWith('+') ? `${d.slice(0, -1)}일 이상` : `${d}일`);
 
 /**
  * 노임단가 — 올리기 + 임포트된 직종 표.
@@ -295,8 +297,7 @@ function HistoryCard({ rows, onActivate }: { rows: Standard[]; onActivate: (id: 
       <DetailCardHeader title="등록 이력" count={rows.length} />
       {/* 두 기준정보가 적용되는 단위가 다르다 — 상태 칸이 왜 다른지 여기서 한 번 말한다. */}
       <p className="text-xs text-content-faint">
-        제비율은 <b className="font-medium">등록 이력</b> 중 하나를 선택하여 적용합니다. 노임단가는 등록한 값이 회차별로 누적되며, 직종별로
-        가장 최근 값이 적용됩니다 — 별도로 선택하지 않습니다.
+        제비율은 <b className="font-medium">등록 이력</b> 중 하나를 선택하여 적용합니다. 노임단가는 직종별 가장 최근 값이 자동 적용됩니다.
       </p>
       {rows.length === 0 ? (
         <EmptyState
@@ -469,37 +470,45 @@ function OverheadRatesCard() {
   /* 차례는 **어휘**가 정한다 — 저장된 표에서 뽑으면 jsonb 가 섞어 놓은 순서가 나온다. */
   const sizes = SIZE_BANDS;
   const durations = DURATION_BANDS;
+  const sizeDigits = percentDigits(sizes.flatMap((size) => [t.bySize.일반관리비[size], t.bySize.이윤[size]]));
+  const sananDigits = percentDigits(SANAN_BANDS.map((band) => t.sanan[band]?.rate));
 
   return (
     <DetailCard>
       <DetailCardHeader title="제비율" badge={t.kind} badgeStatus="neutral" />
 
       {/* 규모 × 기간 — 항목마다 표 하나(머리는 한 줄: 공사규모 · 기간들). 항목 이름은 묶음 머리줄이 말한다. */}
-      {(['간접노무비', '기타경비'] as const).map((item) => (
-        <TableCard key={item} widths={[16, ...durations.map(() => 84 / durations.length)]}>
-          <thead>
-            <TableGroupHead title={item} metas={['공사기간별']} />
-            <tr>
-              <Th>공사규모</Th>
-              {durations.map((d) => <Th key={d} align="right">{d}일</Th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {sizes.map((size) => (
-              <tr key={size} className={TABLE_ROW}>
-                <Td className="text-content">{size}</Td>
-                {durations.map((d) => (
-                  <Td align="right" key={d} className="text-content">{pct(t.byDuration[item][size]![d]!)}</Td>
-                ))}
+      {/* 율은 표마다 자릿수를 하나로 고정한다(「19.0%」 옆 「19.1%」) — 꼬리 0 을 버리면 오른쪽 맞춤의 소수점이 어긋난다. */}
+      {(['간접노무비', '기타경비'] as const).map((item) => {
+        const digits = percentDigits(sizes.flatMap((size) => durations.map((d) => t.byDuration[item][size]?.[d])));
+        return (
+          <TableCard key={item} widths={[16, ...durations.map(() => 84 / durations.length)]}>
+            <thead>
+              <TableGroupHead title={item} metas={['공사기간별']} />
+              <tr>
+                <Th>공사규모</Th>
+                {durations.map((d) => <Th key={d} align="right">{durationLabel(d)}</Th>)}
               </tr>
-            ))}
-          </tbody>
-        </TableCard>
-      ))}
+            </thead>
+            <tbody>
+              {sizes.map((size) => (
+                <tr key={size} className={TABLE_ROW}>
+                  <Td className="text-content">{size}</Td>
+                  {durations.map((d) => (
+                    <Td align="right" key={d} className="text-content">{formatPercent(t.byDuration[item][size]![d]!, digits)}</Td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </TableCard>
+        );
+      })}
 
       {/* 기간과 무관한 둘 + 고정요율 + 산안비. 축이 달라 표를 나눈다. */}
       <TableCard widths={[40, 30, 30]}>
         <thead>
+          {/* 위 두 표와 같은 꼴 — 묶음 머리줄이 무엇의 표인지 말한다. */}
+          <TableGroupHead title="일반관리비 · 이윤" metas={['공사규모별']} />
           <tr>
             <Th>공사규모</Th>
             <Th align="right">일반관리비</Th>
@@ -510,8 +519,8 @@ function OverheadRatesCard() {
           {sizes.map((size) => (
             <tr key={size} className={TABLE_ROW}>
               <Td className="text-content">{size}</Td>
-              <Td align="right" className="text-content">{pct(t.bySize.일반관리비[size]!)}</Td>
-              <Td align="right" className="text-content">{pct(t.bySize.이윤[size]!)}</Td>
+              <Td align="right" className="text-content">{formatPercent(t.bySize.일반관리비[size]!, sizeDigits)}</Td>
+              <Td align="right" className="text-content">{formatPercent(t.bySize.이윤[size]!, sizeDigits)}</Td>
             </tr>
           ))}
         </tbody>
@@ -529,7 +538,7 @@ function OverheadRatesCard() {
           {SANAN_BANDS.map((band) => ({ band, v: t.sanan[band]! })).map(({ band, v }) => (
             <tr key={band} className={TABLE_ROW}>
               <Td className="text-content">{band}</Td>
-              <Td align="right" className="text-content">{pct(v.rate)}</Td>
+              <Td align="right" className="text-content">{formatPercent(v.rate, sananDigits)}</Td>
               <Td align="right" className="text-content-muted">
                 {v.base == null ? EMPTY : `${formatWon(v.base)}원`}
               </Td>

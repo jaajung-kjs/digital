@@ -12,6 +12,12 @@ export const BREAK_TEXT: Record<BreakCause, string> = {
   loop: '경로가 같은 코어로 되돌아옵니다',
   truncated: '경로가 길어 일부만 불러왔습니다',
 };
+/** 같은 까닭의 **짧은 꼴** — 「·」 로 잇는 메타 줄용(문장을 메타에 넣지 않는다). 미- 꼴(미지정·미입력·미배치)과 같은 결. */
+export const BREAK_META: Record<BreakCause, string> = {
+  open: '미연결',
+  loop: '같은 코어로 되돌아옴',
+  truncated: '일부만 불러옴',
+};
 
 /** 세로 사슬의 한 줄(현장 표기 순). */
 export type ChainStep =
@@ -22,7 +28,7 @@ export type ChainStep =
    * (`showStation`). 국 이름은 늘 싣는다 — 코어 단추의 설명(title)에 쓴다.
    */
   | { kind: 'terminal'; station: string; showStation: boolean; place: string; adapter: number; coreNo: number; at: BlockAt }
-  /** 광선로 — `154kV 춘천수력T/L (8.5 km)`. */
+  /** 광선로 — `154kV 춘천수력T/L (8.500 km)`. */
   | { kind: 'line'; text: string }
   /** 같은 국 안 코어 ↔ 코어. */
   | { kind: 'patch' }

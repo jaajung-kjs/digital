@@ -110,7 +110,7 @@ export function useFloorAdmin(args: {
       open={adding}
       title="층 추가"
       label="층 이름"
-      placeholder="예: 1층"
+      placeholder="예 1층"
       error={error}
       onConfirm={add}
       onClose={() => { setAdding(false); setError(null); }}

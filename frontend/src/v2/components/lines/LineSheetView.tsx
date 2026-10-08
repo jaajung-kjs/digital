@@ -160,7 +160,7 @@ export function LineSheetView({
       >
         {error && <ErrorStrip message={error} onDismiss={() => setError(null)} />}
         {blocks.length === 0 ? (
-          <EmptyState title="이 변전소에 수용된 광선로가 없습니다" description={canEdit ? '「광선로 추가」를 누르세요' : undefined} action={addLine ?? undefined} />
+          <EmptyState title="광선로가 없습니다" description={canEdit ? '「광선로 추가」를 누르세요' : undefined} action={addLine ?? undefined} />
         ) : shown.length === 0 ? (
           <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 코어가 없습니다` : '조건에 해당하는 코어가 없습니다'} />
         ) : (

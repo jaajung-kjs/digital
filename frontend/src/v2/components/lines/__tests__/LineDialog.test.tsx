@@ -276,7 +276,7 @@ describe('광선로 지우기', () => {
     openEdit('L1');
     fireEvent.click(within(dialog()).getByRole('button', { name: '광선로 삭제' }));
     const ask = await screen.findByRole('alertdialog');
-    expect(ask).toHaveTextContent('코어 4 · 측정 1 · 연결 1');
+    expect(ask).toHaveTextContent('코어 4개 · 측정 1건 · 연결 1건');
     fireEvent.click(within(ask).getByRole('button', { name: '삭제' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(blocks().some((b) => b.dataset.line === 'L1')).toBe(false);

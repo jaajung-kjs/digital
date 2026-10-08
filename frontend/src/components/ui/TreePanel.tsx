@@ -387,7 +387,7 @@ export function TreePanel({
     if (child?.create) {
       out.push(
         <IconButton key="add" size="sm" aria-label={`${n.text} 하위 ${child.label} 추가`} onClick={() => startCreate(n)}>
-          <Plus size={12} />
+          <Plus size={14} />
         </IconButton>,
       );
     }
@@ -403,7 +403,7 @@ export function TreePanel({
             setRenaming({ id: n.id, value: n.text });
           }}
         >
-          <Pencil size={12} />
+          <Pencil size={14} />
         </IconButton>,
       );
     }
@@ -418,7 +418,7 @@ export function TreePanel({
           disabledReason={n.removeBlocked}
           onClick={() => onRemove?.(n)}
         >
-          <Trash2 size={12} />
+          <Trash2 size={14} />
         </IconButton>,
       );
     }
@@ -653,7 +653,7 @@ export function TreePanel({
             className="flex w-full items-center gap-1 px-3 py-1.5 text-left text-xs text-content-faint hover:bg-surface-2 hover:text-content"
             onClick={() => startCreate(null)}
           >
-            <Plus size={12} />
+            <Plus size={14} />
             새 {kindAt(0)!.label}
           </button>
         )}

@@ -235,7 +235,7 @@ describe('설비 상세', () => {
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={onDeleted} />);
     fireEvent.click(screen.getByRole('button', { name: '설비 삭제' }));
     const dialog = await screen.findByRole('alertdialog');
-    expect(dialog).toHaveTextContent('함께 삭제됩니다 — 연결 1. 저장 전에는 실행 취소할 수 있습니다.');
+    expect(dialog).toHaveTextContent('함께 삭제됩니다 — 연결 1건. 저장 전에는 실행 취소할 수 있습니다.');
     fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
     expect(store.getState().overlays.equipment.creates.l).toBeUndefined();
@@ -254,8 +254,8 @@ describe('설비 상세', () => {
     render(<EquipmentDetail equipmentId="ofd" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '설비 삭제' }));
     const dialog = await screen.findByRole('alertdialog');
-    expect(dialog).toHaveTextContent('함께 삭제됩니다 — 점검 기록 1 · 사진 1.');
-    expect(dialog).toHaveTextContent('광선로 3개의 접속 설비가 해제됩니다 — 대국 (구)춘천 2 · 춘천H/P 1.');
+    expect(dialog).toHaveTextContent('함께 삭제됩니다 — 점검 기록 1건 · 사진 1장.');
+    expect(dialog).toHaveTextContent('광선로 3개의 접속 설비가 해제됩니다 — 대국 (구)춘천 2개 · 춘천H/P 1개.');
     expect(dialog).toHaveTextContent('저장 전에는 실행 취소할 수 있습니다.');
   });
 
@@ -300,7 +300,7 @@ describe('설비 상세', () => {
       /* 말없이 되돌아가지 않는다 — 칸이 남아 붉고, 까닭이 title 에 선다. */
       expect(box).toBeInTheDocument();
       expect(box).toHaveAttribute('aria-invalid', 'true');
-      expect(box).toHaveAttribute('title', '슬롯 수는 0–200 사이의 정수입니다');
+      expect(box).toHaveAttribute('title', '슬롯 수는 0–200 사이의 정수로 입력하세요');
     }
     type('');
     expect(count()).toBeNull();
@@ -313,7 +313,7 @@ describe('설비 상세', () => {
     store.getState().create('fiberLines', { ...fiber, id: 'L2', aSubstationId: 'S1', aEquipmentId: 'p', aPanel: 6, aStartNo: 1 });
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     expect(screen.getByText('빈 슬롯 3개')).toBeInTheDocument();
-    expect(screen.getByText('슬롯 6 이 슬롯 수(4)보다 큽니다')).toBeInTheDocument();
+    expect(screen.getByText('슬롯 번호(6)가 슬롯 수(4)보다 큽니다')).toBeInTheDocument();
   });
 
   it('슬롯 줄은 슬롯 → 시작 번호 순이다(선번장 블록 차례와 같다)', () => {

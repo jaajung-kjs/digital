@@ -252,11 +252,11 @@ describe('광 계통도', () => {
     server.links = server.links.filter((l) => !l.id.startsWith('L13-'));
     server.links.push({ id: 'y-a', substationId: 'S2', a: eq('e2'), b: core('L23', 3, 'A') });
     renderMap();
-    expect(screen.getByTestId('ring-list')).toHaveTextContent('완결된 회선으로는 링이 나타나지 않습니다 (경로 미완결 1)');
+    expect(screen.getByTestId('ring-list')).toHaveTextContent('경로가 완결된 회선만으로는 링이 생기지 않습니다 — 경로 미완결 1건');
     const rows = within(screen.getByTestId('incomplete-list')).getAllByRole('button');
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent('나국 광단말 e2');
-    expect(rows[0]).toHaveTextContent('나국(3)-다국 · 연결이 없습니다');
+    expect(rows[0]).toHaveTextContent('나국(3)-다국 · 미연결');
     fireEvent.click(rows[0]!);
     expect(screen.getByTestId('trace')).toHaveTextContent('S2:L23:3:A');
     /* 접을 수 있다. */

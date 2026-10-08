@@ -18,7 +18,7 @@ function parsePanelCount(raw: string): number | null | undefined {
 
 /** 슬롯 수 칸이 받지 않는 값의 까닭 — 칸이 붉어지고 열린 채 남는다(`InlineEditCell validate`). */
 const panelCountIssue = (raw: string): string | null =>
-  parsePanelCount(raw) === undefined ? `슬롯 수는 0–${MAX_PANELS} 사이의 정수입니다` : null;
+  parsePanelCount(raw) === undefined ? `슬롯 수는 0–${MAX_PANELS} 사이의 정수로 입력하세요` : null;
 
 export interface SlotEnd { lineId: string; side: Side; slot: number | null; startNo: number; label: string }
 
@@ -112,7 +112,7 @@ export function PanelsCard({ equipmentId, panelCount, onOpenBlock, editCount, on
         </div>
       )}
       {over.length > 0 && (
-        <MessageStrip tone="warning">{`슬롯 ${over.join(', ')} 이 슬롯 수(${panelCount})보다 큽니다`}</MessageStrip>
+        <MessageStrip tone="warning">{`슬롯 번호(${over.join(', ')})가 슬롯 수(${panelCount})보다 큽니다`}</MessageStrip>
       )}
     </DetailCard>
   );
