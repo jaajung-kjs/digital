@@ -1,6 +1,12 @@
 import type { LaborRules } from '../catalog/laborSpec.js';
 
-export type ReportKind = 'asset-install' | 'asset-remove' | 'asset-relocate' | 'cable-install' | 'cable-remove';
+export type ReportKind =
+  | 'rack-install' | 'rack-remove' | 'rack-relocate'
+  | 'asset-install' | 'asset-remove' | 'asset-relocate'
+  | 'cable-install' | 'cable-remove';
+
+/** 대(臺)로 세는 작업 — 랙과 설비. */
+export type UnitReportKind = Exclude<ReportKind, 'cable-install' | 'cable-remove'>;
 
 export interface ReportItem {
   kind: ReportKind;
@@ -34,12 +40,22 @@ export interface ReportSummary {
  * 판정은 여기 한 번만 적는다 — 표의 칸과 금액의 모수가 갈리면 「합계가 안 맞는」 설계서가 된다.
  */
 export function materialCostOf(item: ReportItem): number {
-  if (item.kind !== 'asset-install' && item.kind !== 'cable-install') return 0;
+  if (item.kind !== 'rack-install' && item.kind !== 'asset-install' && item.kind !== 'cable-install') return 0;
   return item.qty * (item.unitPrice ?? 0);
 }
 
+/** 작업 종류 → 품 칸. 랙과 설비가 같은 칸을 쓴다(`LaborSpec`). */
+const MAN_DAYS_OF: Record<UnitReportKind, 'installManDays' | 'removeManDays' | 'relocateManDays'> = {
+  'rack-install': 'installManDays',
+  'rack-remove': 'removeManDays',
+  'rack-relocate': 'relocateManDays',
+  'asset-install': 'installManDays',
+  'asset-remove': 'removeManDays',
+  'asset-relocate': 'relocateManDays',
+};
+
 export function assetReportItem(
-  kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
+  kind: UnitReportKind,
   name: string,
   typeName: string,
   labor: LaborRules,
@@ -47,11 +63,7 @@ export function assetReportItem(
   unitPrice: number | null = null,
 ): ReportItem {
   /* null = 「안 적었다」 — 합칠 자식이 없으면 0 이다(설비 1식은 부르는 쪽이 이미 갈랐다). */
-  const manDays = {
-    'asset-install': labor.installManDays,
-    'asset-remove': labor.removeManDays,
-    'asset-relocate': labor.relocateManDays,
-  }[kind] ?? 0;
+  const manDays = labor[MAN_DAYS_OF[kind]] ?? 0;
 
   return {
     kind,

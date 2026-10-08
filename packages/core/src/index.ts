@@ -2,6 +2,7 @@ export * from './seed/org.js';
 export * from './seed/master.js';
 export * from './report/computeReport.js';
 export * from './report/computeEstimate.js';
+export * from './report/designItems.js';
 export * from './catalog/laborSpec.js';
 export * from './canvas/backgroundTypes.js';
 export * from './model/vocab.js';
