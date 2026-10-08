@@ -80,7 +80,7 @@ async function usedLaborValues(): Promise<Map<string, number>> {
  * 올린 표를 지금 카탈로그에 맞춰 본다.
  *
  * - `promote`: 아직 **이름**으로 들어 있는 값 중 표에서 코드를 찾은 것 → 등록하면서 코드로 승격
- * - `orphans`: 코드도 이름도 표에 없는 값 → 그대로 두면 설계서에서 「단가 없음」이 된다
+ * - `orphans`: 코드도 이름도 표에 없는 값 → 그대로 두면 설계서에서 「미등록」으로 나온다
  */
 function matchCatalog(report: WageReport, used: Map<string, number>) {
   const byCode = new Map(report.rows.map((r) => [r.code, r]));

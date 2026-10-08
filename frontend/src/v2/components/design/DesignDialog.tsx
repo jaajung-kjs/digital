@@ -133,15 +133,18 @@ const PRINT_FALLBACK_MS = 10_000;
 export function printDesign(): void {
   const root = document.documentElement;
   root.classList.add(PRINTING_CLASS);
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let finished = false;
   const done = () => {
+    if (finished) return; // afterprint 와 예비 시한 중 먼저 온 쪽만 — 다음 인쇄의 클래스를 걷지 않게
+    finished = true;
     root.classList.remove(PRINTING_CLASS);
     window.removeEventListener('afterprint', done);
-    if (timer !== undefined) clearTimeout(timer);
+    clearTimeout(timer);
   };
+  /* 시한은 print() 전에 건다 — Chromium 은 print() 안에서 afterprint 를 쏘므로 뒤에 걸면 지울 수 없다. */
+  const timer = setTimeout(done, PRINT_FALLBACK_MS);
   window.addEventListener('afterprint', done);
   window.print();
-  timer = setTimeout(done, PRINT_FALLBACK_MS);
 }
 
 interface DesignDialogProps {

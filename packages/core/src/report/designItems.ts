@@ -5,7 +5,7 @@ import { cableReportItem, unitReportItem, type ReportItem, type ReportKind, type
  * 설계서 산출 내역 — 변경안 **전/후의 최종 차이**에서 줄을 만든다. 순수 함수(저장 없음).
  *
  * - 신설 = 후에만 있는 id, 철거 = 전에만 있는 id. 만들었다 지운 것은 어느 쪽에도 없어 0 줄이다.
- * - 둘 다 있으면 **이설만** 본다 — 랙은 `rackRelocated`, 설비는 랙. 그 밖의 값 변경(이름·길이·품목)은
+ * - 둘 다 있으면 **이설만** 본다 — 랙은 `rackRelocated`, 설비는 랙. 그 밖의 수정(이름·길이·품목)은
  *   산출하지 않는다(철거+신설로 세지 않는다).
  * - 랙째 옮겨도 안 설비의 `rackId` 는 그대로이므로 설비 이설은 생기지 않는다 — 랙 이설 1건.
  * - 설비 삭제가 펼친 연결 삭제도 후에 없으니 케이블 철거로 잡힌다.
@@ -53,7 +53,7 @@ export type DesignItem = ReportItem & { id: string; substationIds: string[]; pri
 export type DesignTarget = 'rack' | 'equipment' | 'link' | 'line';
 
 /**
- * 품목을 못 찾은 줄 — 지우지 않고 남긴다(공량 0, 단가 없음). 대로 세는 것은 1대,
+ * 품목을 못 찾은 줄 — 지우지 않고 남긴다(공량 0, 단가 미등록). 대로 세는 것은 1대,
  * 케이블은 길이가 적혀 있으면 그 길이(m), 없으면 0. 사정은 「품목 미지정」 하나다 — 공량 미입력으로 겹쳐 세지 않는다.
  */
 function unresolvedItem(kind: ReportKind, name: string, lengthM: number | null = null): ReportItem {

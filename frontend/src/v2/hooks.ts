@@ -100,7 +100,7 @@ export function useWageCatalog() {
       /** 「1086 통신내선공」 — 저장되는 값을 앞에 둔다(보고서 인쇄와 같은 차례). */
       labelOf: (code: string | null) =>
         code == null ? null : `${code} ${byCode.get(code)?.name ?? '(표에 없음)'}`,
-      /** 이 코드의 노임(원/일). 표에 없으면 null — 산출 내역가 「단가 없음」으로 말한다. */
+      /** 이 코드의 노임(원/일). 표에 없으면 null — 설계서가 「미등록」으로 말한다. */
       wageOf: (code: string | null) => (code == null ? null : (byCode.get(code)?.wage ?? null)),
       /**
        * 이 값이 **옛 회차**의 것이면 그 기준일, 최신 회차면 null.

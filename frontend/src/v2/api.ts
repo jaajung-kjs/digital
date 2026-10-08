@@ -59,7 +59,7 @@ export interface WagePreview {
   rows: { code: string; name: string; sector: string; marker: string; values: { date: string; wage: number }[] }[];
   /** 이름으로 들어 있던 값 중 코드로 올릴 수 있는 것 — 등록하면 함께 바뀐다. */
   promote: { from: string; toCode: string; toName: string; count: number }[];
-  /** 새 표에 없는 값 — 그대로 두면 산출 내역에서 「단가 없음」이 된다. */
+  /** 새 표에 없는 값 — 그대로 두면 산출 내역에서 「미등록」으로 나온다. */
   orphans: { value: string; count: number }[];
 }
 
