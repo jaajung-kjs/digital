@@ -50,18 +50,33 @@ export function designInput(s: S, catalog: Pick<Catalog, 'rackTypes' | 'equipmen
   };
 }
 
-/** 이설로 세는 칸 — 그 밖의 값 변경은 산출하지 않는다(core `designItems`). */
-const MOVE_FIELDS = { racks: ['substationId', 'floorId', 'x', 'y'], equipment: ['substationId', 'rackId'], links: [], fiberLines: [] } as const;
+/**
+ * 산출에 들어갈 만한데 산출하지 않는 칸 — 길이와 품목. 이름·메모 같은 칸은 설계서와 상관없어 말할 거리가 아니다.
+ * 이설(랙 좌표·층·국, 설비의 랙)은 core `designItems` 가 이설로 센다.
+ */
+const PRICED_FIELDS = {
+  racks: ['rackTypeId'],
+  equipment: ['typeId'],
+  links: ['lengthM', 'cableTypeId'],
+  fiberLines: ['lengthKm', 'cableTypeId'],
+} as const;
 
 /**
- * 산출하지 않는 값 변경이 있는가 — 랙·설비·연결·광선로의 고치기 중 이설이 아닌 칸(이름·길이·품목…).
- * 있으면 설계서가 「값 변경은 산출하지 않습니다」라고 한 줄 말한다(빈 설계서가 거짓말로 읽히지 않게).
+ * 있던 것의 길이·품목이 **실제로** 바뀌었는가 — 저장본 값과 견준다(바꿨다 되돌린 것은 바뀐 것이 아니다).
+ * 그렇다면 설계서가 「수정 사항(길이·품목 등)은 산출하지 않습니다」라고 한 줄 말한다(빈 설계서가 거짓말로 읽히지 않게).
+ * 새로 만든 것·지운 것은 신설·철거로 이미 산출된다.
  */
 export function hasUnpricedChanges(s: S): boolean {
-  return (Object.keys(MOVE_FIELDS) as (keyof typeof MOVE_FIELDS)[]).some((k) => {
-    const moves: readonly string[] = MOVE_FIELDS[k];
+  return (Object.keys(PRICED_FIELDS) as (keyof typeof PRICED_FIELDS)[]).some((k) => {
+    const fields: readonly string[] = PRICED_FIELDS[k];
+    const saved = new Map<string, Record<string, unknown>>(
+      (s.saved[k] as unknown as Record<string, unknown>[]).map((row) => [row.id as string, row]),
+    );
     const deleted = new Set(s.overlays[k].deletes);
-    return Object.entries(s.overlays[k].updates).some(([id, patch]) =>
-      !deleted.has(id) && Object.keys(patch as object).some((f) => !moves.includes(f)));
+    return Object.entries(s.overlays[k].updates).some(([id, patch]) => {
+      const was = saved.get(id);
+      if (!was || deleted.has(id)) return false;
+      return Object.entries(patch as Record<string, unknown>).some(([f, v]) => fields.includes(f) && v !== was[f]);
+    });
   });
 }

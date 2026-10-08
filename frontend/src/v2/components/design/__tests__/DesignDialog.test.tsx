@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OverheadRates } from '@twin/core';
 import { workingCopyStore as store } from '../../../model/store/workingCopy';
 import type { Catalog, Equipment, FiberLine, Rack } from '../../../model/types';
-import { DesignDialog } from '../DesignDialog';
+import { DesignDialog, PRINTING_CLASS } from '../DesignDialog';
 
 const RATES: OverheadRates = {
   byDuration: {
@@ -84,6 +84,8 @@ const ui = () => within(screen.getByRole('dialog'));
 const printed = () => within(document.querySelector<HTMLElement>('[data-design-print]')!);
 
 beforeEach(() => {
+  window.sessionStorage.clear();
+  document.documentElement.classList.remove(PRINTING_CLASS);
   store.getState().reset();
   h.catalog = BASE_CATALOG;
 });
@@ -100,10 +102,15 @@ describe('설계서', () => {
       expect.stringContaining('(구)춘천S/S'), expect.stringContaining('북춘천S/S'),
     ]);
     /* 줄마다 묶음 하나에만 선다 — 두 국에 걸친 광선로도(대표 국 A 끝 북춘천). */
-    const names = groups.flatMap((g) => within(g).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[2]!.textContent));
+    const names = groups.flatMap((g) => within(g).getAllByRole('row').filter((r) => within(r).queryAllByRole('cell').length > 0)
+      .map((r) => within(r).getAllByRole('cell')[2]!.textContent));
     expect(names.sort()).toEqual(['E-new', 'R-new', '북춘천S/S–(구)춘천S/S'].sort());
     expect(within(groups[1]!).getByText('북춘천S/S–(구)춘천S/S')).toBeInTheDocument();
     expect(within(groups[1]!).getByText('광선로')).toBeInTheDocument();
+    /* B 끝 (구)춘천 묶음에는 수량 없이 「어디에 실렸는지」만 선다. */
+    const ref = within(groups[0]!).getByTestId('design-ref');
+    expect(ref.textContent).toBe('광선로 북춘천S/S–(구)춘천S/S · 북춘천S/S 묶음에 포함');
+    expect(within(groups[1]!).queryByTestId('design-ref')).toBeNull();
     /* 1,200,000 + 3,000,000 + 1500 m × 3,400 = 9,300,000 */
     expect(ui().getByTestId('design-material-total').textContent).toBe('9,300,000');
     expect(ui().getByTestId('design-mandays-total').textContent).toBe('91.500');
@@ -139,12 +146,23 @@ describe('설계서', () => {
     expect(ui().queryByTestId('design-total')).toBeNull();
   });
 
-  it('직종 단가가 없는 줄은 「단가 없음」, 합계 옆에 「노임 미반영 n건」', () => {
+  it('제비율이 없어도 노임단가가 있으면 직접노무비까지는 낸다 — 종이에는 「미산출」로 적는다', () => {
+    h.catalog = { ...BASE_CATALOG, overheadStandard: null };
+    seed();
+    store.getState().create('racks', rack('R-new', 'S1'));
+    open();
+    const direct = ui().getByText('직접노무비').closest('tr')!;
+    expect(within(direct).getByText('300,000')).toBeInTheDocument();
+    expect(printed().getByTestId('design-blocked').textContent).toBe('제비율 미등록 — 공사비 미산출');
+    expect(printed().queryByText(/업로드/)).toBeNull();
+  });
+
+  it('직종 단가가 없는 줄은 「미등록」, 총공사비 옆에 「노무비 미반영 n건」', () => {
     seed({ racks: [rack('R1', 'S1')] });
     store.getState().create('equipment', eq('E-x', 'S1', 'R1', { typeId: 'ex' }));
     open();
-    expect(ui().getByText('단가 없음')).toBeInTheDocument();
-    expect(ui().getByText('노임 미반영 1건')).toBeInTheDocument();
+    expect(ui().getByText('미등록')).toBeInTheDocument();
+    expect(ui().getByTestId('design-flags').textContent).toBe('노무비 미반영 1건');
     expect(ui().getByTestId('design-total')).toBeInTheDocument();
   });
 
@@ -195,6 +213,112 @@ describe('설계서', () => {
     expect(within(row).getAllByText('—').length).toBeGreaterThanOrEqual(2); // 자재단가 · 재료비
     expect(within(row).queryByText('0')).toBeNull();
     expect(ui().getByTestId('design-unpriced').textContent).toBe('자재단가 미입력 1건');
+    expect(ui().getByTestId('design-flags').textContent).toBe('자재단가 미입력 1건');
+  });
+
+  it('품목에 공량이 없으면 그 줄은 「미입력」, 합계·총공사비 옆에 「공량 미입력 n건」 — 셈은 0', () => {
+    h.catalog = { ...BASE_CATALOG, rackTypes: [{ ...BASE_CATALOG.rackTypes[0]!, relocateManDays: null }] };
+    seed({ racks: [rack('R1', 'S1')] });
+    store.getState().update('racks', 'R1', { x: 500 });
+    open();
+    const row = ui().getByText('R1').closest('tr')!;
+    expect(within(row).getByText('미입력')).toBeInTheDocument();
+    expect(ui().getByTestId('design-mandays-missing').textContent).toBe('공량 미입력 1건');
+    expect(ui().getByTestId('design-mandays-total').textContent).toBe('0.000');
+    expect(ui().getByTestId('design-flags').textContent).toBe('공량 미입력 1건');
+  });
+
+  it('철거 줄은 자재단가·재료비 모두 「—」', () => {
+    seed({ racks: [rack('R1', 'S1')] });
+    store.getState().remove('racks', 'R1');
+    open();
+    const row = ui().getByText('R1').closest('tr')!;
+    const cells = within(row).getAllByRole('cell');
+    expect(cells[6]!.textContent).toBe('—');
+    expect(cells[7]!.textContent).toBe('—');
+  });
+
+  it('소수 m 의 재료비는 줄마다 원 단위 — 산출 내역 합계 = 원가계산서 재료비', () => {
+    h.catalog = { ...BASE_CATALOG, cableTypes: [{ ...BASE_CATALOG.cableTypes[0]!, unitPrice: 3_401 }] };
+    seed();
+    store.getState().create('fiberLines', line('L1', { lengthKm: 0.0025 }));
+    open();
+    /* 2.5 m × 3,401 = 8,502.5 → 8,503 */
+    expect(ui().getByTestId('design-material-total').textContent).toBe('8,503');
+    const material = ui().getByText('재료비', { selector: 'td' }).closest('tr')!;
+    expect(within(material).getByText('8,503')).toBeInTheDocument();
+  });
+
+  it('원가계산서 차례 — 소계 줄과 부가가치세의 근거(공급가액)', () => {
+    seed();
+    store.getState().create('racks', rack('R-new', 'S1'));
+    open();
+    const cost = ui().getByText('총공사비').closest('table')!;
+    const labels = [...cost.querySelectorAll('tbody tr')].map((r) => r.querySelector('td')!.textContent);
+    expect(labels).toEqual([
+      '재료비', '직접노무비', '간접노무비', '노무비 계',
+      '공구손료', '산재보험료', '고용보험료', '건강보험료', '연금보험료', '퇴직공제부금비', '노인장기요양보험료', '산업안전보건관리비', '기타경비',
+      '경비 계', '순공사원가', '일반관리비', '이윤', '총원가(공급가액)', '부가가치세',
+    ]);
+    const vat = within(cost).getByText('부가가치세').closest('tr')!;
+    expect(within(vat).getByText('공급가액')).toBeInTheDocument();
+  });
+
+  it('노무유형별 공량의 노무비 열 합 = 직접노무비, 직종 이름 자연 순서', () => {
+    h.catalog = {
+      ...BASE_CATALOG,
+      equipmentTypes: [...BASE_CATALOG.equipmentTypes, { id: 'e2', key: 'e2', name: '전원 설비', categoryId: 'c', sortOrder: 3, ...labor('1001', 100, 0.25) }],
+      wageStandard: {
+        latestDate: '2026-상반기',
+        rows: [
+          { code: '1086', name: '통신내선공', sector: '', wage: 300_000, marker: '', markerNote: null, effectiveLabel: '2026-상반기' },
+          { code: '1001', name: '전기공', sector: '', wage: 333_333, marker: '', markerNote: null, effectiveLabel: '2026-상반기' },
+        ],
+      },
+    };
+    seed({ racks: [rack('R1', 'S1')] });
+    store.getState().create('equipment', eq('E1', 'S1', 'R1'));
+    store.getState().create('equipment', eq('E2', 'S1', 'R1', { typeId: 'e2' }));
+    open();
+    const laborTable = ui().getByText('노무유형별 공량').closest('table')!;
+    const rows = [...laborTable.querySelectorAll('tbody tr')].map((r) => [...r.querySelectorAll('td')].map((c) => c.textContent));
+    /* 전기공 0.25 × 333,333 = 83,333.25 → 83,333 · 통신내선공 0.5 × 300,000 = 150,000 */
+    expect(rows).toEqual([
+      ['전기공', '0.250', '333,333', '83,333'],
+      ['통신내선공', '0.500', '300,000', '150,000'],
+      ['총공량', '0.750', '', '233,333'],
+    ]);
+    const direct = ui().getByText('직접노무비', { selector: 'td:first-child' }).closest('tr')!;
+    expect(within(direct).getByText('233,333')).toBeInTheDocument();
+  });
+
+  it('산출 조건(공사명·공사기간·계약방법·산재 기준)은 상자를 다시 열어도 남는다', () => {
+    seed();
+    store.getState().create('racks', rack('R-new', 'S1'));
+    const first = open();
+    expect(printed().getByText('(공사명 미입력)')).toBeInTheDocument();
+    fireEvent.change(ui().getByLabelText('공사명'), { target: { value: '북춘천 광선로 신설' } });
+    fireEvent.change(ui().getByLabelText('공사기간'), { target: { value: '90' } });
+    fireEvent.click(ui().getByRole('radio', { name: '수의' }));
+    first.unmount();
+    open();
+    expect((ui().getByLabelText('공사명') as HTMLInputElement).value).toBe('북춘천 광선로 신설');
+    expect((ui().getByLabelText('공사기간') as HTMLInputElement).value).toBe('90');
+    expect(ui().getByRole('radio', { name: '수의' })).toHaveAttribute('aria-checked', 'true');
+    expect(printed().getByText('북춘천 광선로 신설')).toBeInTheDocument();
+  });
+
+  it('세션 저장소가 막혀 있어도 열린다', () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    seed();
+    store.getState().create('racks', rack('R-new', 'S1'));
+    open();
+    expect((ui().getByLabelText('공사기간') as HTMLInputElement).value).toBe('30');
+    fireEvent.change(ui().getByLabelText('공사기간'), { target: { value: '60' } });
+    expect((ui().getByLabelText('공사기간') as HTMLInputElement).value).toBe('60');
+    get.mockRestore();
+    set.mockRestore();
   });
 
   it('노임단가가 없으면 공사규모는 재료비만 반영했다고 적는다', () => {
@@ -205,16 +329,26 @@ describe('설계서', () => {
     expect(ui().getByText('노임단가 미등록 — 재료비만 반영')).toBeInTheDocument();
   });
 
-  it('변경이 없으면 「변경 내용이 없습니다」, 값 변경만 있으면 산출하지 않는다고 말한다', () => {
+  it('산출할 것이 없으면 그렇게 말하고, 길이·품목이 실제로 바뀐 것만 「산출하지 않습니다」라고 알린다', () => {
     seed({ racks: [rack('R1', 'S1')] });
-    const { unmount } = open();
-    expect(ui().getByText('변경 내용이 없습니다.')).toBeInTheDocument();
-    expect(ui().queryByText(/값 변경/)).toBeNull();
-    unmount();
+    const notice = '수정 사항(길이·품목 등)은 산출하지 않습니다.';
+    const first = open();
+    expect(ui().getByText('산출할 항목이 없습니다.')).toBeInTheDocument();
+    expect(ui().queryByText(notice)).toBeNull();
+    first.unmount();
+    /* 이름만 바꾼 것은 설계서와 상관없다. */
     store.getState().update('racks', 'R1', { name: '새 이름' });
+    const second = open();
+    expect(ui().queryByText(notice)).toBeNull();
+    second.unmount();
+    /* 품목을 바꾸면 알린다 — 되돌리면 다시 조용하다. */
+    store.getState().update('racks', 'R1', { rackTypeId: 'rt2' });
+    const third = open();
+    expect(ui().getByText(notice)).toBeInTheDocument();
+    third.unmount();
+    store.getState().update('racks', 'R1', { rackTypeId: 'rt' });
     open();
-    expect(ui().getByText('변경 내용이 없습니다.')).toBeInTheDocument();
-    expect(ui().getByText('값 변경(길이·품목 등)은 산출하지 않습니다.')).toBeInTheDocument();
+    expect(ui().queryByText(notice)).toBeNull();
   });
 
   it('품목을 못 찾은 줄은 「품목 미지정」으로 남는다', () => {
@@ -222,6 +356,39 @@ describe('설계서', () => {
     store.getState().create('racks', rack('R-new', 'S1', { rackTypeId: 'gone' }));
     open();
     expect(ui().getByText('품목 미지정')).toBeInTheDocument();
+  });
+
+  it('인쇄 — 인쇄하는 동안만 <html> 에 표시를 단다(앱의 다른 인쇄는 그대로), afterprint 에 걷는다', () => {
+    const root = document.documentElement;
+    const during: boolean[] = [];
+    const print = vi.spyOn(window, 'print').mockImplementation(() => { during.push(root.classList.contains(PRINTING_CLASS)); });
+    seed();
+    store.getState().create('racks', rack('R-new', 'S1'));
+    open();
+    expect(root.classList.contains(PRINTING_CLASS)).toBe(false);
+    fireEvent.click(ui().getByRole('button', { name: '인쇄' }));
+    expect(print).toHaveBeenCalledOnce();
+    expect(during).toEqual([true]);
+    window.dispatchEvent(new Event('afterprint'));
+    expect(root.classList.contains(PRINTING_CLASS)).toBe(false);
+    print.mockRestore();
+  });
+
+  it('인쇄 — afterprint 가 오지 않아도 잠시 뒤 표시를 걷는다', () => {
+    vi.useFakeTimers();
+    try {
+      const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+      seed();
+      store.getState().create('racks', rack('R-new', 'S1'));
+      open();
+      fireEvent.click(ui().getByRole('button', { name: '인쇄' }));
+      expect(document.documentElement.classList.contains(PRINTING_CLASS)).toBe(true);
+      vi.advanceTimersByTime(10_000);
+      expect(document.documentElement.classList.contains(PRINTING_CLASS)).toBe(false);
+      print.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('인쇄 — 상자 밖 인쇄본에 머리말(대상 변전소·작성일·기준)·산출 내역 표·공사비 표·합계가 선다', () => {
@@ -232,6 +399,7 @@ describe('설계서', () => {
     open();
     fireEvent.click(ui().getByRole('button', { name: '인쇄' }));
     expect(print).toHaveBeenCalledOnce();
+    window.dispatchEvent(new Event('afterprint'));
 
     const doc = document.querySelector<HTMLElement>('[data-design-print]')!;
     expect(doc.parentElement).toBe(document.body);
@@ -247,7 +415,8 @@ describe('설계서', () => {
     const [items, labor, cost] = tables;
     /* 노무유형별 공량은 산출 내역과 공사비 사이 — 현장 설계서의 공량 집계. */
     expect(labor!.querySelector('thead')!.textContent).toContain('노무유형별 공량');
-    expect(within(labor!).getByText('총 공량')).toBeInTheDocument();
+    expect(within(labor!).getByText('총공량')).toBeInTheDocument();
+    expect(printed().getByText('(공사명 미입력)')).toBeInTheDocument();
     expect(within(labor!).getByText('통신내선공')).toBeInTheDocument();
     expect(items!.querySelector('thead')!.textContent).toContain('산출 내역');
     expect(items!.querySelector('thead')!.textContent).toContain('공량');
@@ -256,7 +425,7 @@ describe('설계서', () => {
     expect(within(cost!).getByText('총공사비')).toBeInTheDocument();
     expect(within(cost!).getByTestId('design-total').textContent).toBe(ui().getByTestId('design-total').textContent);
     /* 인쇄본은 머리·합계 줄을 붙이지 않는다(종이에서 sticky 는 뜻이 없고 쪽마다 머리줄이 반복된다). */
-    expect(doc.querySelector('.sticky')).toBeNull();
+    expect(doc.querySelector('thead.sticky, tfoot.sticky')).toBeNull();
   });
 
   it('빈 변경안에는 인쇄 단추가 없다', () => {
