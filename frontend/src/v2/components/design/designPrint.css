@@ -1,0 +1,84 @@
+/*
+ * 설계서 인쇄 — 화면에서는 인쇄본(`[data-design-print]`)을 숨기고, 인쇄할 때는 그것만 남긴다.
+ *
+ * 인쇄본은 `body` 바로 밑에 있다(포털). 앱 화면(#root)·상자·덮개도 모두 `body` 의 자식이라
+ * 「인쇄본이 아닌 자식」 하나의 규칙으로 크롬(트리·탭·저장 바·상자 테두리·단추)이 함께 걷힌다.
+ * 종이는 흑백 대비 — 화면 색 토큰(흐린 회색·경고색)은 종이에서 검정으로 읽힌다.
+ */
+[data-design-print] {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  body > :not([data-design-print]) {
+    display: none !important;
+  }
+
+  [data-design-print] {
+    display: flex !important;
+  }
+
+  [data-design-print],
+  [data-design-print] * {
+    color: black !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    /* 스크롤 상자·말줄임은 종이에서 줄을 잘라 먹는다 — 넘치는 글은 줄을 바꾼다. */
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  [data-design-print] .truncate {
+    white-space: normal !important;
+  }
+
+  /* 칸 안의 가로 줄(사정 배지 + 이름)은 글줄로 흐른다 — flex 로 두면 배지가 자리를 차지하고 이름이 한 글자 폭으로 눌린다. */
+  [data-design-print] td .flex {
+    display: block !important;
+  }
+
+  [data-design-print] [data-design-print-title] {
+    font-size: 16pt;
+  }
+
+  /* 표는 한 크기(9pt) — 칸 안 보조 글(text-xs)·배지까지 같은 크기로 둬야 열 폭 셈이 맞는다. */
+  [data-design-print] table,
+  [data-design-print] table * {
+    font-size: 9pt !important;
+  }
+
+  /* 표 겉테두리는 쪽이 갈릴 때 세로선만 남아 떠 보인다 — 종이에서는 칸 선만 둔다. */
+  [data-design-print] div:has(> table) {
+    border: none !important;
+  }
+
+  [data-design-print] th,
+  [data-design-print] td {
+    border-color: gray !important;
+  }
+
+  /* 머리줄은 쪽마다 다시 선다 · 합계는 표 끝에 한 번 · 줄은 쪽 경계에서 쪼개지 않는다. */
+  [data-design-print] thead {
+    display: table-header-group;
+  }
+
+  [data-design-print] tfoot {
+    display: table-row-group;
+  }
+
+  [data-design-print] tr {
+    break-inside: avoid;
+  }
+}
