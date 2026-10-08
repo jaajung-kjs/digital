@@ -4,7 +4,7 @@
  */
 import type { CatalogKind } from '../../model/types';
 
-export const KIND_PREFIX: Record<CatalogKind, string> = {
+const KIND_PREFIX: Record<CatalogKind, string> = {
   'equipment-types': 'EQ',
   'rack-types': 'RACK',
   'cable-types': 'CABLE',

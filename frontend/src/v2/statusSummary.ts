@@ -44,7 +44,7 @@ export interface Summary {
 }
 
 /** 이름 없는 자리 — 층이 없거나(미배치) 분류가 비었을 때. */
-export const UNSET = '미지정';
+const UNSET = '미지정';
 
 /**
  * 개체 줄들을 **분류 ▸ 품목**으로 접는다.

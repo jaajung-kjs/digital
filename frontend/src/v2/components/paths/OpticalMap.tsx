@@ -32,7 +32,7 @@ const NAME = new Intl.Collator('ko', { numeric: true });
 /** 맞출 때 국 하나가 차지한다고 보는 자리(배치 좌표) — 이름 글자까지 판 안에 들게. */
 const NODE_BOX = { w: 150, h: 56 };
 /** 이 배율(%) 이상이면 모든 광선로에 이름표를 세운다. */
-export const LABEL_ZOOM = 130;
+const LABEL_ZOOM = 130;
 /** 이름표 양옆에 남길 선 길이(화면 px) — 국 이름(마디 아래 글자)과 겹치지 않을 만큼. */
 const LABEL_CLEAR = 48;
 /** 이름표 글자 폭 어림 — 12px 글자에서 한글 12px, 그 밖 7px. */
@@ -313,7 +313,7 @@ function StationMark({ station: st, at: p, lit, onKeyDown }: { station: MapStati
 }
 
 /** 광선로 이름표 — `154kV 춘천수력T/L · 24심 · 8.5 km`(이름이 ` / ` 로 여럿이면 첫 이름 + 「…」). */
-export function lineLabel(l: Pick<MapLine, 'name' | 'coreCount' | 'lengthKm'>): string {
+function lineLabel(l: Pick<MapLine, 'name' | 'coreCount' | 'lengthKm'>): string {
   const [first, ...rest] = l.name.split(' / ');
   return [`${first}${rest.length > 0 ? '…' : ''}`, l.coreCount > 0 ? `${l.coreCount}심` : null, l.lengthKm != null ? `${l.lengthKm} km` : null]
     .filter(Boolean).join(' · ');

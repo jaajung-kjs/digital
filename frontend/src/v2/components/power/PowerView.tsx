@@ -23,7 +23,7 @@ const feedCurrent = (s: S, f: PowerFeed) => effectiveCircuits(s, f.equipmentId).
 const feedName = (s: S, f: PowerFeed) => endLabel(s, { kind: 'circuit', equipmentId: f.equipmentId, no: f.circuitNo });
 
 /** 거른 보기 밖의 입력 전원에 붙는 말 — 흐리게 서는 까닭. */
-export const OUTSIDE_VIEW = '현재 보기 밖의 입력';
+const OUTSIDE_VIEW = '현재 보기 밖의 입력';
 
 /**
  * 입력 전원 메타 — 받는 차단기의 교류/직류로 묶는다: 「교류 입력: …」·「직류 입력: …」, 교류/직류가 비면 「입력 전원: …」.

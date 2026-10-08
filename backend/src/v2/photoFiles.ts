@@ -24,7 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * 조합으로 임의 확장자 파일이 저장된다(서빙 정규식이 막아 영원히 못 읽는 고아가 되지만,
  * 애초에 만들지 않는 편이 옳다).
  */
-export const MIME_TO_EXT = new Map([
+const MIME_TO_EXT = new Map([
   ['image/jpeg', '.jpg'],
   ['image/png', '.png'],
   ['image/gif', '.gif'],
@@ -33,7 +33,7 @@ export const MIME_TO_EXT = new Map([
 export const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 /** UPLOADS_DIR 절대 경로. 미설정 시 `<backend>/uploads`(개발 기본값). */
-export function uploadsRoot(): string {
+function uploadsRoot(): string {
   return process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.resolve(__dirname, '../../uploads');
 }
 

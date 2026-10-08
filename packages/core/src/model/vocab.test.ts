@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CABLE_MEDIA, CORE_STATUSES, EQUIPMENT_STATUSES, isLineMedium, isLinkMedium, cableMediumLabel,
+  CABLE_MEDIA, CORE_STATUSES, EQUIPMENT_STATUSES, isLineMedium, isLinkMedium,
   DEFAULT_EQUIPMENT_STATUS, DEFAULT_CORE_STATUS, asCoreRole, coreRoleCircuitLabel, isBackupRole, isMainRole,
 } from './vocab.js';
 import { circuitKey, coreKey, endRefKey, sameEndRef } from './types.js';
@@ -15,11 +15,6 @@ describe('매체 어휘', () => {
       expect(isLineMedium(k)).toBe(false);
     }
     expect(isLinkMedium('network')).toBe(false); // 옛 어휘는 받지 않는다
-  });
-
-  it('라벨은 어휘에서 읽고, 모르는 값은 그대로 돌려준다', () => {
-    expect(cableMediumLabel('power')).toBe('전원');
-    expect(cableMediumLabel('???')).toBe('???');
   });
 });
 

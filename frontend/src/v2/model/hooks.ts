@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createCatalogRow, deleteCatalogRow, fetchCatalog, fetchNodeEquipment, patchCatalogRow, putOrder } from './api';
+import { createCatalogRow, deleteCatalogRow, fetchCatalog, fetchNodeEquipment, patchCatalogRow } from './api';
 import type { CatalogKind } from './types';
 
 export const CATALOG_KEY = ['v2', 'catalog'] as const;
@@ -28,12 +28,4 @@ export function useCatalogMutations() {
     patch: useMutation({ mutationFn: (v: { kind: CatalogKind; id: string; patch: Record<string, unknown> }) => patchCatalogRow(v.kind, v.id, v.patch), ...done }),
     remove: useMutation({ mutationFn: (v: { kind: CatalogKind; id: string }) => deleteCatalogRow(v.kind, v.id), ...done }),
   };
-}
-
-export function useReorderCatalog() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { kind: CatalogKind; ids: string[] }) => putOrder(v.kind, v.ids),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CATALOG_KEY }),
-  });
 }

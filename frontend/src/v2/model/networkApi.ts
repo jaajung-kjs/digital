@@ -23,7 +23,7 @@ export interface Network {
   truncatedCores: { lineId: string; no: number }[];
 }
 
-export async function fetchNetwork(nodeId: string): Promise<Network> {
+async function fetchNetwork(nodeId: string): Promise<Network> {
   return (await api.get(`/v2/nodes/${nodeId}/network`)).data;
 }
 

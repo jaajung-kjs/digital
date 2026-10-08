@@ -56,7 +56,7 @@ function terminalName(v: NetworkView, lineId: string, side: Side): string | null
 }
 
 /** 어댑터 번호 — 그 끝의 시작 번호 + 코어 − 1(선번장 「어댑터」 열과 같다). */
-export function adapterNo(v: NetworkView, lineId: string, side: Side, coreNo: number): number {
+function adapterNo(v: NetworkView, lineId: string, side: Side, coreNo: number): number {
   const l = v.line(lineId);
   const start = l ? (side === 'A' ? l.aStartNo : l.bStartNo) : 1;
   return start + coreNo - 1;
@@ -72,7 +72,7 @@ export function place(v: NetworkView, lineId: string, side: Side): string {
 }
 
 /** 코어 끝 한 자리 — `OFD · 슬롯 2 · 어댑터 33 · 코어 9`. */
-export function corePlace(v: NetworkView, lineId: string, side: Side, coreNo: number): string {
+function corePlace(v: NetworkView, lineId: string, side: Side, coreNo: number): string {
   return `${place(v, lineId, side)} · 어댑터 ${adapterNo(v, lineId, side, coreNo)} · 코어 ${coreNo}`;
 }
 

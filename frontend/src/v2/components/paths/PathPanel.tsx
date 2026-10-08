@@ -13,7 +13,7 @@ export const warningKey = (w: Warning) => `${w.mainBundle}~${w.backupBundle}`;
  * 회선 줄의 첫 줄 — 설비 이름 + 양끝 국(`RTU 광스위치 · 북춘천 ↔ 철원`). 국마다 같은 이름의 설비가 있어 국이 있어야 갈린다.
  * 설비 이름이 다르면 둘 다(`I-MUX(B) ↔ I-MUX(북춘천-춘천H/P) · 북춘천 ↔ 춘천HP`).
  */
-export function bundleTitle(view: NetworkView, b: PathBundle): string {
+function bundleTitle(view: NetworkView, b: PathBundle): string {
   const [a, z] = [view.equipmentName(b.a.equipmentId) ?? '—', view.equipmentName(b.b.equipmentId) ?? '—'];
   const [sa, sz] = [shortStationName(view.substationName(b.a.substationId)), shortStationName(view.substationName(b.b.substationId))];
   return `${a === z ? a : `${a} ↔ ${z}`} · ${sa === sz ? sa : `${sa} ↔ ${sz}`}`;
@@ -23,7 +23,7 @@ function summary(view: NetworkView, model: OpticalMapModel, b: PathBundle): stri
   return pathSummary(view, model.pathsOf.get(b.id) ?? []);
 }
 /** 회선 검색 — 설비 이름·국 이름·중계경로 표기에서. */
-export function filterBundles(view: NetworkView, model: OpticalMapModel, query: string): PathBundle[] {
+function filterBundles(view: NetworkView, model: OpticalMapModel, query: string): PathBundle[] {
   const q = query.trim().toLowerCase();
   if (!q) return model.bundles;
   return model.bundles.filter((b) => [bundleTitle(view, b), summary(view, model, b), equipmentLabel(view, b.a), equipmentLabel(view, b.b)].some((t) => t.toLowerCase().includes(q)));

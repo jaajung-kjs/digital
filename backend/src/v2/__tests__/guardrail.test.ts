@@ -402,7 +402,6 @@ describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => 
        들고 있으면 훅이 하는 일을 다시 쓰고 있는 것이다. 훅 자신과 인라인 셀은 제외한다. */
     const ALLOW = new Set([
       'frontend/src/components/ui/useInlineRename.tsx',
-      'frontend/src/components/ui/InlineEditCell.tsx',
       'frontend/src/v2/components/InlineEditCell.tsx',
     ]);
     for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {

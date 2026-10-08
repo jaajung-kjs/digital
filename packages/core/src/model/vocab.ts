@@ -26,10 +26,6 @@ export function isLineMedium(m: string): boolean {
   return CABLE_MEDIA.some((x) => x.key === m && x.use === 'line');
 }
 
-export function cableMediumLabel(m: string): string {
-  return CABLE_MEDIA.find((x) => x.key === m)?.name ?? m;
-}
-
 /** 설비 상태 — 철거 자체는 삭제와 변경 이력으로 남는다(「철거됨」 상태를 두지 않는다). */
 export const EQUIPMENT_STATUSES = [
   { value: 'normal', label: '정상', tone: 'success' },

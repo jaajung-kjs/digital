@@ -32,7 +32,7 @@ export function lineOf(s: S, lineId: string): FiberLine | undefined {
 }
 
 /** 상대 국 이름 — 광선로가 두 끝 국 이름을 함께 싣는다. */
-export function peerSubstationName(line: FiberLine, side: 'A' | 'B'): string {
+function peerSubstationName(line: FiberLine, side: 'A' | 'B'): string {
   return side === 'A' ? line.bSubstationName : line.aSubstationName;
 }
 

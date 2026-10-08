@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 /** 시드 관리자 계정 — 개발 DB 기준. */
-export const ADMIN = { username: 'admin', password: 'admin123' };
+const ADMIN = { username: 'admin', password: 'admin123' };
 
 export async function login(page: Page) {
   await page.goto('/');

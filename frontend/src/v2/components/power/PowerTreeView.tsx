@@ -37,11 +37,11 @@ export interface PowerTreeViewProps {
 const currentWord = (v: string | null) => CIRCUIT_CURRENTS.find((c) => c.value === v)?.label ?? null;
 
 /** 「차단기 3 · IP급전랙 · 30A · 교류」 — 빈 값은 건너뛴다. */
-export const breakerText = (b: PowerBreaker) =>
+const breakerText = (b: PowerBreaker) =>
   [`차단기 ${b.no}`, b.label, b.capacity, currentWord(b.current)].filter(Boolean).join(' · ');
 
 /** 「상위 설비 공급」의 뜻 — 고리처럼 보이지만 분전반의 UPS 모선처럼 정상인 구성이다(경고가 아니다). */
-export const FEEDBACK_TITLE = '상위 설비의 모선으로 다시 공급되는 계통(분전반의 UPS 모선 등)';
+const FEEDBACK_TITLE = '상위 설비의 모선으로 다시 공급되는 계통(분전반의 UPS 모선 등)';
 
 /**
  * 계통도 — **입력 전원에서 부하까지** 왼쪽에서 오른쪽으로 들여 쓴 트리. 판정(뿌리·자식·예비·상단 참조·상위 설비 공급·모선)은

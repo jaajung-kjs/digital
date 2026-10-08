@@ -19,7 +19,7 @@ const PLAIN_DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)$/;
 /**
  * 칸 글자 → 수. 비었으면 null, 수가 아니면 NaN. **부호는 바꾸지 않는다** — 엑셀처럼 손실은 음수 그대로 받는다.
  */
-export function parseMeasure(raw: string): number | null {
+function parseMeasure(raw: string): number | null {
   const t = raw.trim();
   if (t === '') return null;
   return PLAIN_DECIMAL.test(t) ? Number(t) : Number.NaN;

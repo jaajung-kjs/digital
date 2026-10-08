@@ -16,7 +16,7 @@ export interface RowOf {
   links: Link; maintenance: MaintenanceLog; inspections: InspectionLog; photos: EquipmentPhoto;
 }
 export type RowKind = keyof RowOf;
-export const ROW_KINDS: readonly RowKind[] = ['floors', 'racks', 'equipment', 'fiberLines', 'coreMeasurements', 'links', 'maintenance', 'inspections', 'photos'];
+const ROW_KINDS: readonly RowKind[] = ['floors', 'racks', 'equipment', 'fiberLines', 'coreMeasurements', 'links', 'maintenance', 'inspections', 'photos'];
 
 export interface Saved {
   substations: Record<string, { id: string; name: string }>;
@@ -37,7 +37,7 @@ const EMPTY_SAVED: Saved = {
   links: [], farLinks: [], refEquipment: [], refLines: [], maintenance: [], inspections: [], photos: [],
 };
 /** 저장된 행 — 고치기가 제자리로 돌아왔는지 견줄 기준(`stageUpdate` 의 `base`). */
-export function savedRow(saved: Saved, kind: RowKind, id: string): unknown {
+function savedRow(saved: Saved, kind: RowKind, id: string): unknown {
   return (saved[kind] as { id: string }[]).find((r) => r.id === id);
 }
 

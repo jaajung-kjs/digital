@@ -21,7 +21,7 @@ function powerInput(s: S, substationId: string, filter: CurrentFilter): PowerInp
 }
 
 /** 교류/직류를 적지 않은 차단기 묶음의 이름(모선이 여럿인 설비에서). */
-export const UNSPECIFIED_BUS = '교류/직류 미지정';
+const UNSPECIFIED_BUS = '교류/직류 미지정';
 
 /** 모선 이름 — 「교류 모선」·「직류 모선」, 교류/직류를 적지 않은 묶음은 「교류/직류 미지정」. */
 export function busName(current: string | null): string {

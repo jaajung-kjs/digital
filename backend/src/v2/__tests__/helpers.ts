@@ -20,7 +20,7 @@ export function authHeader(role: 'admin' | 'viewer' = 'admin'): string {
 }
 
 /** 시험 픽스처의 이름 접두 — 안정 접두라 지난 런의 잔재까지 쓸어 담는다. */
-export const TEST_PREFIXES = ['t3-'] as const;
+const TEST_PREFIXES = ['t3-'] as const;
 const TEST_KEY_PREFIX = 'TEST_';
 
 /**

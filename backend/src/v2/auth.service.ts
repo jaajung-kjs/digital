@@ -33,7 +33,7 @@ const DUMMY_PASSWORD_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJ
 /** 이 횟수만큼 연속 실패하면 잠근다. */
 export const MAX_FAILED_LOGINS = 5;
 /** 잠금 지속 시간(분). 지나면 자동으로 풀린다 — 관리자 개입을 요구하지 않는다. */
-export const LOCKOUT_MINUTES = 15;
+const LOCKOUT_MINUTES = 15;
 
 // ── 서비스 ────────────────────────────────────────────────────────────────────
 

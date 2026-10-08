@@ -9,7 +9,7 @@ import { InlineEditCell } from '../InlineEditCell';
 /**
  * 슬롯 수 칸 값 → 저장할 값. 비우면 `null`(모름), 정수 0..MAX_PANELS 가 아니면 `undefined`(받지 않는다).
  */
-export function parsePanelCount(raw: string): number | null | undefined {
+function parsePanelCount(raw: string): number | null | undefined {
   const t = raw.trim();
   if (t === '') return null;
   const n = Number(t);
@@ -17,7 +17,7 @@ export function parsePanelCount(raw: string): number | null | undefined {
 }
 
 /** 슬롯 수 칸이 받지 않는 값의 까닭 — 칸이 붉어지고 열린 채 남는다(`InlineEditCell validate`). */
-export const panelCountIssue = (raw: string): string | null =>
+const panelCountIssue = (raw: string): string | null =>
   parsePanelCount(raw) === undefined ? `슬롯 수는 0–${MAX_PANELS} 사이의 정수입니다` : null;
 
 export interface SlotEnd { lineId: string; side: Side; slot: number | null; startNo: number; label: string }
@@ -45,7 +45,7 @@ export function useSlotEnds(equipmentId: string): SlotEnd[] {
  * 슬롯 셈 — 「빈 슬롯」은 **1..슬롯 수 안에서 쓰인 슬롯**만 빼고, 슬롯 수를 넘는 슬롯은 따로 짚는다(경고, 막지 않는다).
  * 넘는 슬롯까지 쓰인 것으로 세면 빈 슬롯이 실제보다 적게 나온다.
  */
-export function slotTally(ends: readonly { slot: number | null }[], panelCount: number | null): { free: number | null; over: number[] } {
+function slotTally(ends: readonly { slot: number | null }[], panelCount: number | null): { free: number | null; over: number[] } {
   const slots = [...new Set(ends.map((e) => e.slot).filter((p): p is number => p != null))].sort((a, b) => a - b);
   if (panelCount == null) return { free: null, over: [] };
   const used = slots.filter((p) => p >= 1 && p <= panelCount).length;

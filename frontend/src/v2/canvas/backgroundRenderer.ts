@@ -1,6 +1,6 @@
 // ported from frontend/src/features/editor/renderers/backgroundLayerRenderer.ts (Stage 3)
 
-import type { BackgroundDrawing, BgFilled, BgLayer, BgPath, BgText } from '@twin/core';
+import type { BackgroundDrawing, BgLayer, BgPath, BgText } from '@twin/core';
 
 /**
  * Render the imported DWG background as a faded reference layer.
@@ -153,4 +153,3 @@ function drawTextBody(
   }
 }
 
-export type { BackgroundDrawing, BgLayer, BgPath, BgText, BgFilled };

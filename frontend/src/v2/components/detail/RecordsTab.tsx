@@ -14,7 +14,7 @@ function localInputToIso(local: string): string {
 }
 
 /** ISO 문자열 → datetime-local 입력값(yyyy-MM-ddTHH:mm, 로컬 시간) */
-export function isoToLocalInput(iso: string): string {
+function isoToLocalInput(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;

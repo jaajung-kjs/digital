@@ -2,7 +2,7 @@
  * drawRect.ts — 평면도에 끌어 그린 사각형의 순수 헬퍼
  */
 
-export const MIN_DRAW = 10;
+const MIN_DRAW = 10;
 
 /**
  * 두 점으로부터 정규화된 rect 반환 (역방향 드래그 포함).
