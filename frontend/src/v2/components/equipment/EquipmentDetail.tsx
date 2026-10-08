@@ -75,28 +75,25 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, 
   return (
     <ViewCard
       title={eq.name}
-      actions={(
-        <>
-          {/* 차단기가 하나도 없을 때만 — 있으면 차단기 카드 머리에 「추가」가 선다. 항목 하나짜리 `⋯` 는 두지 않는다
-              (아이콘만으로는 무엇이 들었는지 모르고, 한 겹 안에 숨길 만큼 드문 일도 아니다). */}
-          <EditOnly>
-          {eq.circuitCount === 0 && <Button variant="ghost" size="xs" onClick={addBreaker}>차단기 추가</Button>}
-          {/* 슬롯도 같다 — 광선로 끝도 슬롯 수도 없으면 카드 대신 이 단추. 누르면 슬롯 카드가 슬롯 수 칸을 연 채로 선다. */}
-          {!hasSlots && !slotEditing && (
-            <Button variant="ghost" size="xs" onClick={() => { setTab('정보'); setSlotEditing(true); }}>슬롯 수 지정</Button>
-          )}
-          </EditOnly>
-          <Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>
-        </>
-      )}
+      actions={<Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>}
+      /* 패널 탭 — 제목 띠 아래 고정 띠, 줄을 고르게 채운다(§3.7). 긴 정보 탭을 내려도 탭은 남는다. */
+      tabs={<Tabs {...tabs.list} variant="panel" items={TABS} onChange={setTab} />}
       body="scroll"
     >
-      <div className="space-y-3">
-        <Tabs {...tabs.list} items={TABS} onChange={setTab} />
-        <div {...tabs.panel} className="space-y-3">
+        <div {...tabs.panel} className="flex flex-col gap-3">
           {tab === '정보' && (
             <>
-              <EquipmentInfoCard eq={eq} catalog={catalog} onDelete={remove} />
+              <EquipmentInfoCard
+                eq={eq} catalog={catalog} onDelete={remove}
+                /* 없는 절을 만드는 길은 정보 카드 끝의 작은 단추다(머리 띠에는 닫기만) — 차단기가 하나도 없을 때·슬롯이 없을 때만.
+                   누르면 차단기는 편집 창이 그 줄로, 슬롯은 슬롯 카드가 슬롯 수 칸을 연 채로 선다. */
+                footer={(eq.circuitCount === 0 || (!hasSlots && !slotEditing)) && (
+                  <EditOnly>
+                    {eq.circuitCount === 0 && <Button variant="ghost" size="xs" onClick={addBreaker}>차단기 추가</Button>}
+                    {!hasSlots && !slotEditing && <Button variant="ghost" size="xs" onClick={() => setSlotEditing(true)}>슬롯 수 지정</Button>}
+                  </EditOnly>
+                )}
+              />
               <CircuitCard equipmentId={equipmentId} onEdit={(at) => setBreakers({ at })} onAdd={addBreaker} onOpenPower={onOpenPower && (() => onOpenPower(equipmentId))} />
               {(hasSlots || slotEditing) && (
                 <PanelsCard
@@ -116,7 +113,6 @@ export function EquipmentDetail({ equipmentId, onClose, onDeleted, onOpenBlock, 
           {tab === '사진' && <PhotoCard equipmentId={equipmentId} />}
           {tab === '이력' && <HistoryTab equipmentId={equipmentId} />}
         </div>
-      </div>
       <BreakerEditor equipmentId={equipmentId} equipmentName={eq.name} count={eq.circuitCount} open={breakers !== null} focusNo={breakers?.at ?? null} onAdd={addBreaker} onClose={() => setBreakers(null)} />
       {confirmDialog}
     </ViewCard>

@@ -24,11 +24,11 @@ beforeEach(() => {
 
 const openEditor = () => fireEvent.click(screen.getByRole('button', { name: '편집' }));
 const breakerCard = () => screen.getByText(/^차단기 \d+$/).closest('[data-detail-head]')!.parentElement!;
-/* 요약 줄 — 카드 머리의 편집·추가를 뺀 누를 수 있는 줄. */
-const breakerRows = () => within(breakerCard()).getAllByRole('button').filter((b) => !['편집', '추가'].includes(b.textContent ?? ''));
+/* 요약 줄 — 카드 머리의 편집·차단기 추가를 뺀 누를 수 있는 줄. */
+const breakerRows = () => within(breakerCard()).getAllByRole('button').filter((b) => !['편집', '차단기 추가'].includes(b.textContent ?? ''));
 
 describe('설비 상세 — 차단기', () => {
-  it('차단기가 없는 설비에는 차단기 카드가 없고, 머리줄의 「차단기 추가」로 한 줄이 생기며 편집 창이 그 줄로 열린다', () => {
+  it('차단기가 없는 설비에는 차단기 카드가 없고, 정보 카드 끝의 「차단기 추가」로 한 줄이 생기며 편집 창이 그 줄로 열린다', () => {
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
     expect(screen.queryByText(/^차단기 \d+$/)).toBeNull();
     /* 항목 하나짜리 아이콘 메뉴는 없다 — 글자 단추가 바로 선다. */
@@ -43,9 +43,9 @@ describe('설비 상세 — 차단기', () => {
   it('카드의 추가는 차단기 수를 하나 늘리고 편집 창을 새 줄로 연다 — 개수 입력 칸은 없다', () => {
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     expect(screen.queryByLabelText(/차단기 수|회로 수/)).toBeNull();
-    /* 차단기가 있으면 머리줄 단추는 없다 — 더하는 길은 카드 머리의 「추가」 하나. */
-    expect(screen.queryByRole('button', { name: '차단기 추가' })).toBeNull();
-    fireEvent.click(within(breakerCard()).getByRole('button', { name: '추가' }));
+    /* 차단기가 있으면 정보 카드 끝 단추는 없다 — 더하는 길은 차단기 카드 머리의 「차단기 추가」 하나. */
+    expect(screen.getAllByRole('button', { name: '차단기 추가' })).toHaveLength(1);
+    fireEvent.click(within(breakerCard()).getByRole('button', { name: '차단기 추가' }));
     expect(store.getState().overlays.equipment.creates.p!.circuitCount).toBe(3);
     expect(screen.getByText('차단기 3')).toBeInTheDocument();
     expect(within(screen.getByRole('dialog')).getByTestId('circuit-row-3')).toHaveAttribute('aria-current', 'true');
@@ -61,11 +61,11 @@ describe('설비 상세 — 차단기', () => {
     expect(screen.queryByRole('table')).toBeNull();
   });
 
-  it('요약 줄을 누르면 편집 창이 그 줄로 열린다 — 열은 번호 · 표기 · 갈래 · 전압 · 용량 · 상 · 개폐 · 용도 · 연결(부하)', () => {
+  it('요약 줄을 누르면 편집 창이 그 줄로 열린다 — 열은 차단기 대장과 같은 선언(전 열)', () => {
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(breakerRows()[1]!);
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['번호', '표기', '교류/직류', '전압', '용량', '상', '개폐', '용도', '연결(부하)']);
+    expect(within(dialog).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['차단기', '표기', '교류/직류', '전압', '용량', '상', '개폐', '부하', '포트', '전원케이블', '길이(m)', '비고']);
     expect(within(dialog).getByTestId('circuit-row-2')).toHaveAttribute('aria-current', 'true');
     expect(within(dialog).getByTestId('circuit-row-1')).not.toHaveAttribute('aria-current');
   });
@@ -130,7 +130,7 @@ describe('설비 상세 — 차단기 다시 더하기·끝', () => {
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     openEditor();
     fireEvent.click(screen.getByRole('button', { name: '차단기 3 삭제' }));
-    fireEvent.click(screen.getByRole('button', { name: '차단기 추가' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '차단기 추가' }));
     expect(store.getState().overlays.equipment.creates.p!.circuitCount).toBe(3);
     expect(within(screen.getByRole('dialog')).getAllByRole('button', { name: '표기 수정' })[2]).toHaveTextContent('—');
     expect(store.getState().overlays.circuits['circuit:p:3']?.label ?? null).toBeNull();
@@ -140,7 +140,7 @@ describe('설비 상세 — 차단기 다시 더하기·끝', () => {
     store.setState({ saved: { ...store.getState().saved, circuits: [{ equipmentId: 'p', no: 3, label: 'SAVED', current: 'AC', voltage: null, capacity: '30A', phase: null, switch: 'on', purpose: null, updatedAt: '' }] } });
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
     const before = store.temporal.getState().pastStates.length;
-    fireEvent.click(within(breakerCard()).getByRole('button', { name: '추가' }));
+    fireEvent.click(within(breakerCard()).getByRole('button', { name: '차단기 추가' }));
     expect(store.getState().overlays.equipment.creates.p!.circuitCount).toBe(3);
     expect(breakerRows()[2]).toHaveTextContent(/^3$/);
     expect(store.temporal.getState().pastStates.length).toBe(before + 1);
@@ -230,7 +230,7 @@ describe('설비 상세', () => {
   it('삭제는 함께 지워질 연결 수를 알리고 확인 뒤에 지운다', async () => {
     const onDeleted = vi.fn();
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={onDeleted} />);
-    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '설비 삭제' }));
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent('함께 삭제됩니다 — 연결 1. 저장 전에는 실행 취소할 수 있습니다.');
     fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
@@ -249,7 +249,7 @@ describe('설비 상세', () => {
     s.create('inspections', { id: 'i1', equipmentId: 'ofd', inspectedAt: '2026-10-01T09:00', content: '점검', result: null, updatedAt: '' });
     s.create('photos', { id: 'ph', equipmentId: 'ofd', filePath: '', caption: null, updatedAt: '' });
     render(<EquipmentDetail equipmentId="ofd" onClose={vi.fn()} onDeleted={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '설비 삭제' }));
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent('함께 삭제됩니다 — 점검 기록 1 · 사진 1.');
     expect(dialog).toHaveTextContent('광선로 3개의 접속 설비가 해제됩니다 — 대국 (구)춘천 2 · 춘천H/P 1.');
@@ -373,7 +373,7 @@ describe('설비 상세 — 연결 목록', () => {
     expect(within(row!).getByTestId('link-far')).toHaveTextContent(/^분전반 P1 차단기 2$/);
     expect(within(row!).getByTestId('link-near')).toHaveTextContent(/^F-CV · 12 m$/);
     expect(row).not.toHaveTextContent('표기 없음');
-    expect(screen.getByRole('button', { name: '연결' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '연결 추가' })).toBeInTheDocument();
   });
 
   it('설비 끝의 표기는 줄에서 고친다 — 차단기 끝에는 표기 고치기가 없다', () => {
@@ -433,7 +433,7 @@ describe('랙 상세', () => {
 
   it('설비가 든 랙은 묻지 않고 까닭만 띄운다', () => {
     render(<RackDetail {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '랙 삭제' }));
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.getByRole('alert')).toHaveTextContent(/랙에 실장 설비가 2대/);
     expect(store.getState().overlays.racks.creates.r1).toBeDefined();
@@ -443,7 +443,7 @@ describe('랙 상세', () => {
     store.getState().create('racks', { id: 'r2', substationId: 'S1', name: '빈 랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: '' });
     const onDeleted = vi.fn();
     render(<RackDetail {...props} rackId="r2" onDeleted={onDeleted} />);
-    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '랙 삭제' }));
     const dialog = await screen.findByRole('alertdialog');
     fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
@@ -515,7 +515,7 @@ describe('조회 사용자 — 설비·랙 상세는 읽기만', () => {
   it('설비 상세: 삭제·차단기 추가·편집·추가가 없고 정보 칸은 글로 선다', () => {
     store.getState().update('equipment', 'p', { model: 'MX-1' });
     render(<EquipmentDetail equipmentId="p" onClose={vi.fn()} onDeleted={vi.fn()} />);
-    for (const name of ['삭제', '차단기 추가', '편집', '추가', '슬롯 수 지정']) expect(screen.queryByRole('button', { name })).toBeNull();
+    for (const name of ['설비 삭제', '차단기 추가', '편집', '슬롯 수 지정']) expect(screen.queryByRole('button', { name })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.getAllByText('분전반 P1', { selector: 'span' }).length).toBeGreaterThan(0);
@@ -529,17 +529,17 @@ describe('조회 사용자 — 설비·랙 상세는 읽기만', () => {
     store.getState().create('photos', { id: 'ph', equipmentId: 'l', filePath: '', caption: '명판', updatedAt: '' });
     render(<EquipmentDetail equipmentId="l" onClose={vi.fn()} onDeleted={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: /연결/ }));
-    for (const name of ['연결', '포트 수정', '연결 삭제']) expect(screen.queryByRole('button', { name })).toBeNull();
+    for (const name of ['연결 추가', '포트 수정', '연결 삭제']) expect(screen.queryByRole('button', { name })).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: /점검/ }));
-    for (const name of ['추가', '수정', '삭제']) expect(screen.queryByRole('button', { name })).toBeNull();
+    for (const name of ['점검 기록 추가', '점검 기록 수정', '점검 기록 삭제', '고장 이력 추가']) expect(screen.queryByRole('button', { name })).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: /사진/ }));
-    for (const name of ['추가', '사진 삭제', '설명 수정']) expect(screen.queryByRole('button', { name })).toBeNull();
+    for (const name of ['사진 추가', '사진 삭제', '설명 수정']) expect(screen.queryByRole('button', { name })).toBeNull();
     expect(screen.getByText('명판', { selector: 'span' })).toBeInTheDocument();
   });
 
   it('랙 상세: 삭제·설비 추가가 없고 이름은 글로 선다', () => {
     render(<RackDetail rackId="r1" onClose={vi.fn()} onSelectEquipment={vi.fn()} onDeleted={vi.fn()} onAddEquipment={vi.fn()} />);
-    for (const name of ['삭제', '설비 추가']) expect(screen.queryByRole('button', { name })).toBeNull();
+    for (const name of ['랙 삭제', '설비 추가']) expect(screen.queryByRole('button', { name })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.getAllByText('분전반함', { selector: 'span' }).length).toBeGreaterThan(0);
   });

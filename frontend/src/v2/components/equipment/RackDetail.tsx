@@ -47,9 +47,8 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
   const place = rack.floorId == null ? '미배치' : `${saved.floors.find((f) => f.id === rack.floorId)?.name ?? EMPTY} (${rack.x ?? EMPTY}, ${rack.y ?? EMPTY})`;
   return (
     <ViewCard title={rack.name} actions={<Button variant="secondary" size="sm" onClick={onClose}>닫기</Button>} body="scroll">
-      <div className="space-y-3">
         <DetailCard>
-          <DetailCardHeader title="랙 정보" actions={<EditOnly><Button variant="secondary" size="sm" onClick={remove}>삭제</Button></EditOnly>} />
+          <DetailCardHeader title="랙 정보" actions={<EditOnly><Button variant="secondary" tone="danger" size="sm" onClick={remove}>랙 삭제</Button></EditOnly>} />
           <DetailRow label="이름"><Editable value={rack.name}><CommitInput size="sm" aria-label="이름" required value={rack.name} onCommit={(v) => patch({ name: v })} /></Editable></DetailRow>
           <DetailRow label="랙 품목">
             <Editable value={catalog?.rackTypes.find((t) => t.id === rack.rackTypeId)?.name}>
@@ -71,7 +70,6 @@ export function RackDetail({ rackId, onClose, onSelectEquipment, onDeleted, onAd
             ))}
           </div>
         </DetailCard>
-      </div>
       {confirmDialog}
     </ViewCard>
   );

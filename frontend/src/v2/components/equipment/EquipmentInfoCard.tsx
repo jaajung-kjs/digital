@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { EQUIPMENT_STATUSES, type EquipmentStatus } from '@twin/core';
 import { Button, CommitInput, DateInput, DetailCard, DetailCardHeader, DetailRow, Select, formatDate } from '../../../components/ui';
 import { bySubstation, effectiveRows } from '../../model/store/effective';
@@ -16,7 +16,11 @@ type TextKey = 'model' | 'maker' | 'serial' | 'manager' | 'note';
 const TEXTS: { key: TextKey; label: string }[] = (['model', 'maker', 'serial', 'manager', 'note'] as const).map((key) => ({ key, label: L[key]! }));
 
 /** 설비 정보 — 글 칸은 다 친 뒤 한 번(`CommitInput`), 고르는 칸은 고를 때 변경안에 실린다. 이름은 비울 수 없다. */
-export function EquipmentInfoCard({ eq, catalog, onDelete }: { eq: Equipment; catalog: Pick<Catalog, 'categories' | 'equipmentTypes'> | undefined; onDelete: () => void }) {
+export function EquipmentInfoCard({ eq, catalog, onDelete, footer }: {
+  eq: Equipment; catalog: Pick<Catalog, 'categories' | 'equipmentTypes'> | undefined; onDelete: () => void;
+  /** 카드 끝 줄 — 없는 절을 만드는 작은 단추(차단기 추가·슬롯 수 지정). */
+  footer?: ReactNode;
+}) {
   const saved = useWorkingCopy((s) => s.saved);
   const overlays = useWorkingCopy((s) => s.overlays);
   const racks = useMemo(() => bySubstation(effectiveRows({ saved, overlays }, 'racks'), eq.substationId), [saved, overlays, eq.substationId]);
@@ -29,7 +33,7 @@ export function EquipmentInfoCard({ eq, catalog, onDelete }: { eq: Equipment; ca
   );
   return (
     <DetailCard>
-      <DetailCardHeader title="설비 정보" actions={<EditOnly><Button variant="secondary" size="sm" onClick={onDelete}>삭제</Button></EditOnly>} />
+      <DetailCardHeader title="설비 정보" actions={<EditOnly><Button variant="secondary" tone="danger" size="sm" onClick={onDelete}>설비 삭제</Button></EditOnly>} />
       <DetailRow label={L.name}><Editable value={eq.name}><CommitInput size="sm" aria-label={L.name} required value={eq.name} onCommit={(v) => patch({ name: v })} /></Editable></DetailRow>
       <DetailRow label={L.typeId}>
         <Editable value={typeName}>
@@ -63,6 +67,7 @@ export function EquipmentInfoCard({ eq, catalog, onDelete }: { eq: Equipment; ca
         <Editable value={eq.installDate && formatDate(eq.installDate)}><DateInput size="sm" value={eq.installDate ?? ''} onChange={(e) => patch({ installDate: e.currentTarget.value || null })} /></Editable>
       </DetailRow>
       {TEXTS.slice(3).map(text)}
+      {footer && <div className="flex items-center justify-end gap-1 px-1.5 py-1">{footer}</div>}
     </DetailCard>
   );
 }

@@ -26,14 +26,20 @@ export function HistoryTab({ equipmentId }: { equipmentId: string }) {
       {(isNew || q.isSuccess) && entries.length === 0 && !q.hasNextPage && (
         <p className="text-xs text-content-faint">변경 이력이 없습니다</p>
       )}
-      {entries.map((e) => (
-        <DetailCard key={e.id}>
-          <DetailCardHeader title={`${formatDateTime(e.at)} · ${e.username}`} />
-          <ul className="space-y-0.5 text-sm text-content">
-            {e.items.flatMap((it, i) => historyLines(it).map((line, j) => <li key={`${i}-${j}`} className="break-words">{line}</li>))}
-          </ul>
-        </DetailCard>
-      ))}
+      {/* 항목은 카드가 아니라 **목록 줄**이다(§3.2) — 머리 줄(일시 · 사용자, 흐리게) + 바뀐 칸마다 한 줄. 카드 안에 카드를 두면
+          테두리가 겹치고 들여쓰기가 생겼다. */}
+      {entries.length > 0 && (
+        <ul>
+          {entries.map((e) => (
+            <li key={e.id} className="border-b border-line px-1 py-1.5 last:border-b-0">
+              <p className="text-xs text-content-muted">{`${formatDateTime(e.at)} · ${e.username}`}</p>
+              <ul className="text-sm text-content">
+                {e.items.flatMap((it, i) => historyLines(it).map((line, j) => <li key={`${i}-${j}`} className="break-words">{line}</li>))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
       {q.hasNextPage && (
         <div className="flex justify-center">
           <Button variant="secondary" size="sm" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>

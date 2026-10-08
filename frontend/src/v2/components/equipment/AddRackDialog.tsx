@@ -52,7 +52,7 @@ export function AddRackDialog({ substationId, open, onClose, onCreated }: Props)
       open={open} onClose={onClose} title="랙 추가" size="sm"
       footer={<><Button variant="secondary" onClick={onClose}>취소</Button><Button disabled={!ok} onClick={submit}>추가</Button></>}
     >
-      <div className="space-y-2">
+      <div className="flex flex-col gap-3">
         <DetailRow label="이름">
           <Input size="sm" autoFocus value={name} onChange={(e) => setName(e.currentTarget.value)} />
         </DetailRow>

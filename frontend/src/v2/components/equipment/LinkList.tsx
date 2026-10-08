@@ -69,7 +69,7 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
 
   return (
     <DetailCard>
-      <DetailCardHeader title="연결" actions={<EditOnly><Button variant="secondary" size="sm" onClick={() => setOpen(true)}>연결</Button></EditOnly>} />
+      <DetailCardHeader title="연결" actions={<EditOnly><Button variant="secondary" size="sm" onClick={() => setOpen(true)}>연결 추가</Button></EditOnly>} />
       <ErrorStrip message={error} onDismiss={() => setError(null)} />
       {links.length === 0 && <EmptyState title="등록된 연결이 없습니다" />}
       {/* 줄들은 한 자식으로 묶는다 — 카드는 자식마다 여백을 주므로, 따로 두면 줄 사이가 벌어진다(CONVENTIONS §3 「카드 안 목록 줄」). */}
@@ -78,7 +78,7 @@ export function LinkList({ equipmentId, substationId, onOpenPower }: {
           {groups.map((g) => (
             <section key={g.title ?? 'all'} aria-label={g.title ?? undefined}>
               {g.title && (
-                <ListHeading action={g.power && onOpenPower ? <Button variant="ghost" size="xs" onClick={onOpenPower}>차단기 대장에서 보기</Button> : undefined}>
+                <ListHeading action={g.power && onOpenPower ? <Button variant="link" size="xs" onClick={onOpenPower}>차단기 대장에서 보기</Button> : undefined}>
                   {g.title}
                 </ListHeading>
               )}

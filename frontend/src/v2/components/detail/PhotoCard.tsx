@@ -10,7 +10,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { DetailCardHeader, Button, DetailCard, IconButton, Modal, useConfirm } from '../../../components/ui';
+import { DetailCardHeader, Button, DetailCard, HOVER_REVEAL, IconButton, Modal, useConfirm } from '../../../components/ui';
 import { EditOnly, useCanEdit } from '../../useCanEdit';
 import { deleteConfirm } from '../deleteConfirm';
 import { RECORD_FIELD_LABELS } from '../equipment/fieldLabels';
@@ -93,8 +93,8 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
           /* 같은 패널의 점검·고장이력과 **같은 동작**이다(목록에 한 줄을 더한다) —
              한 동작에 한 단어. 「업로드」는 그 일을 하는 **방법**이지 하려는 일이 아니다. */
           canEdit ? (
-            <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-              추가
+            <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+              사진 추가
             </Button>
           ) : undefined
         }
@@ -109,7 +109,7 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
       />
 
       {photos.length === 0 ? (
-        <p className="text-xs text-content-faint">등록된 사진이 없습니다</p>
+        <p className="px-1 py-1 text-sm text-content-faint">등록된 사진이 없습니다</p>
       ) : (
         /* **판 너비를 다 쓴다.** 예전에는 80px 짜리 썸네일이 세 줄로 섰는데, 그 크기로는
            무엇을 찍은 사진인지도 분간이 안 돼 **누를 때마다 상자를 열어야** 했다. 사진을
@@ -119,9 +119,9 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
            자르지 않는다(`object-contain`): 설비 사진은 명판·단자대처럼 **가장자리에 있는
            것**이 요긴한데 `object-cover` 는 그것부터 잘라 낸다. 다만 세로로 긴 사진 한 장이
            판을 통째로 차지하지 않게 높이에 상한을 둔다. */
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           {photos.map((p) => (
-            <div key={p.id} className="space-y-1">
+            <div key={p.id} className="flex flex-col gap-1.5">
               <button
                 type="button"
                 className="block w-full focus-ring"
@@ -134,13 +134,14 @@ export function PhotoCard({ equipmentId }: PhotoCardProps) {
                   className="block max-h-96 w-full rounded border border-line bg-surface-2 object-contain"
                 />
               </button>
-              <div className="flex items-center gap-1">
+              <div className="group flex items-center gap-1">
                 <div className="min-w-0 flex-1">
                   <InlineEditCell value={p.caption ?? ''} onCommit={(v) => handleCaptionCommit(p, v)} label={RECORD_FIELD_LABELS.caption} wrap />
                 </div>
                 <EditOnly>
-                  <IconButton aria-label="사진 삭제" onClick={() => void handleDelete(p)}>
-                    <Trash2 size={14} />
+                  {/* 삭제는 앱에 한 꼴 — 호버에서 드러나는 붉은 `IconButton sm`(§3 단추 자리 표). */}
+                  <IconButton size="sm" tone="danger" aria-label="사진 삭제" title="사진 삭제" className={HOVER_REVEAL} onClick={() => void handleDelete(p)}>
+                    <Trash2 className="h-3.5 w-3.5" />
                   </IconButton>
                 </EditOnly>
               </div>

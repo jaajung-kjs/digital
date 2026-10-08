@@ -101,7 +101,7 @@ export function DetailCardHeader({
             </IconButton>
           )}
           {onDelete && (
-            <IconButton aria-label="삭제" title="삭제" size="sm" className="hover:text-danger" onClick={onDelete}>
+            <IconButton aria-label="삭제" title="삭제" size="sm" tone="danger" onClick={onDelete}>
               <Trash2 size={14} />
             </IconButton>
           )}

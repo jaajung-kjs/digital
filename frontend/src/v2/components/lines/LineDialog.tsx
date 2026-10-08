@@ -216,7 +216,7 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
         </>
       }
     >
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <ErrorStrip message={removeError} onDismiss={() => setRemoveError(null)} />
         <DetailCard>
           <DetailCardHeader title="광선로" />
@@ -226,7 +226,7 @@ export function LineDialog({ substationId, edit, onClose, onDone }: LineDialogPr
             </DetailRow>
           ) : (
             <DetailRow label="상대국" required align="start" wide>
-              <div className="space-y-1 py-1">
+              <div className="flex flex-col gap-1.5 py-1">
                 <TableSearch aria-label="상대국 검색" className="w-full" count="inside" placeholder="변전소 · 본부 · 지사 검색" value={query} onChange={setQuery} shown={shownSubs.length} total={substations.length} />
                 <InsetBox className="max-h-40 overflow-y-auto p-1">
                   {shownSubs.map((x) => (

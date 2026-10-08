@@ -412,6 +412,7 @@ export function TreePanel({
         <IconButton
           key="remove"
           size="sm"
+          tone="danger"
           aria-label={`${n.text} 삭제`}
           disabled={n.removeBlocked != null}
           disabledReason={n.removeBlocked}

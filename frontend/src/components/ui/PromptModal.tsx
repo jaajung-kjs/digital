@@ -76,9 +76,9 @@ export function PromptModal({
         </>
       }
     >
-      <div className="space-y-2">
+      <div className="flex flex-col gap-3">
         {hint && <p className="text-xs text-content-muted">{hint}</p>}
-        <label className="block space-y-1">
+        <label className="flex flex-col gap-1.5">
           <span className="text-xs text-content-muted">{label}</span>
           <Input
             autoFocus

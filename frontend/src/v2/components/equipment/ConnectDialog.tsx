@@ -82,7 +82,7 @@ export function ConnectDialog({ substationId, from, open, onClose, onCreated }: 
       open={open} onClose={onClose} title="연결 추가" size="md"
       footer={<><Button variant="secondary" onClick={onClose}>취소</Button><Button disabled={!ok} onClick={submit}>연결</Button></>}
     >
-      <div className="space-y-2">
+      <div className="flex flex-col gap-3">
         <p className="text-xs text-content-muted">{`${from.kind === 'core' ? '기준 코어' : '기준 설비'}: ${endLabel({ saved, overlays }, from)}`}</p>
         {/* 단선·사용불가 코어에 잇는 것은 막지 않는다(우회 결선·기록 정리일 수 있다) — 알고 하게 할 뿐이다. */}
         {fromCoreBad && <MessageStrip tone="warning">{`이 코어는 ${fromCoreBad} 상태입니다`}</MessageStrip>}

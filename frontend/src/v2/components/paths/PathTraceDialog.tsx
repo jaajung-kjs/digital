@@ -52,7 +52,7 @@ export function PathTraceDialog({ substationId, at, onClose }: PathTraceDialogPr
       ) : !view || !path ? (
         <PageState />
       ) : (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <span data-testid="path-summary" className="min-w-0 flex-1 break-words text-sm font-medium tabular-nums">{pathSummary(view, path).split('-').flatMap((part, i) => (i === 0 ? [part] : ['-', <wbr key={i} />, part]))}</span>
             {/* 회선의 주/예비 — 사슬의 코어가 모두 같을 때만 값이 선다(core 가 정한다). 회선 목록과 같은 배지. */}

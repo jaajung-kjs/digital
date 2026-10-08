@@ -38,10 +38,11 @@ export function CircuitCard({ equipmentId, onEdit, onAdd, onOpenPower }: {
         title={`차단기 ${rows.length}`}
         actions={(
           <>
-            {onOpenPower && <Button variant="secondary" size="sm" onClick={onOpenPower}>차단기 대장에서 보기</Button>}
+            {/* 다른 화면으로 가는 길은 링크 톤 고스트, 만들기 단추 앞(§3 단추 자리 표). */}
+            {onOpenPower && <Button variant="link" size="sm" onClick={onOpenPower}>차단기 대장에서 보기</Button>}
             <EditOnly>
               <Button variant="secondary" size="sm" onClick={() => onEdit(null)}>편집</Button>
-              <Button variant="secondary" size="sm" disabled={rows.length >= MAX_CIRCUITS} onClick={onAdd}>추가</Button>
+              <Button variant="secondary" size="sm" disabled={rows.length >= MAX_CIRCUITS} onClick={onAdd}>차단기 추가</Button>
             </EditOnly>
           </>
         )}
