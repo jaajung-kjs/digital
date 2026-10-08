@@ -239,7 +239,8 @@ export function Modal({
             <X size={16} />
           </IconButton>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
+        {/* 본문은 절 사이 `gap-3` 한 단계를 기본으로 갖는다(§3.1 간격) — 부르는 쪽이 `space-y-*` 를 다시 적지 않는다. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">{children}</div>
         {footer && (
           <div className="flex shrink-0 justify-end gap-2 border-t border-line px-4 py-3">{footer}</div>
         )}

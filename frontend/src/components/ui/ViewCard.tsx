@@ -20,6 +20,11 @@ export interface ViewCardProps {
   tools?: ReactNode;
   /** 머리 띠 **오른쪽 끝** — 검색 또는 버튼. 이 자리가 고정이라 네 탭에서 검색의 x 가 같다. */
   actions?: ReactNode;
+  /**
+   * 제목 띠 바로 아래 **고정 띠**의 패널 탭(`<Tabs variant="panel">`, §3.7) — 본문과 함께 흐르지 않는다.
+   * 긴 탭(차단기 22줄)을 내려도 탭을 바꾸러 위로 올라가지 않는다.
+   */
+  tabs?: ReactNode;
   /** 카드 **바닥 띠** — `StatusBar`. 지금은 평면도만 쓴다. */
   status?: ReactNode;
   body?: ViewCardBody;
@@ -46,7 +51,7 @@ export interface ViewCardProps {
  *     <ViewCard tools={<Select …/>} actions={<TableSearch …/>} body="scroll">…</ViewCard>
  */
 export function ViewCard({
-  title, tools, actions, status, body = 'fill', onClearSelection, bodyRef, children, className,
+  title, tools, actions, tabs, status, body = 'fill', onClearSelection, bodyRef, children, className,
 }: ViewCardProps) {
   const hasHead = title != null || tools != null || actions != null;
   /* `scroll` 본문은 **회색**이다 — 그 위에 묶음 표가 제 테두리를 갖고 쌓이는데, 흰
@@ -57,7 +62,8 @@ export function ViewCard({
     : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden';
   /* `scroll` 에서 ref 는 **안쪽 래퍼**가 받는다 — 여백을 가진 쪽이 곧 내용의 상자다. */
   const inner = body === 'scroll'
-    ? <div className="p-4" ref={bodyRef}>{children}</div>
+    /* 본문은 절 사이 `gap-3` 한 단계를 기본으로 갖는다(§3.1) — 부르는 쪽이 `space-y-*` 를 다시 적지 않는다. */
+    ? <div className={cn('flex flex-col gap-3 px-4 pb-4', tabs != null ? 'pt-3' : 'pt-4')} ref={bodyRef}>{children}</div>
     : children;
 
   return (
@@ -84,6 +90,7 @@ export function ViewCard({
           )}
         </div>
       )}
+      {tabs != null && <div className={cn('shrink-0 px-4 pt-4', body === 'scroll' ? 'bg-bg' : 'bg-surface')}>{tabs}</div>}
       {onClearSelection ? (
         <SelectionScope
           onClear={onClearSelection}

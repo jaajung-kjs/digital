@@ -1,4 +1,4 @@
-import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react';
+import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject, type TdHTMLAttributes, type ThHTMLAttributes } from 'react';
 import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { cn } from './cn';
 
@@ -31,51 +31,152 @@ import { cn } from './cn';
  */
 export const TABLE_ROW = 'h-7 border-b border-line focus-visible:outline-none focus-ring-input';
 
+/**
+ * 표 판의 폭 단계 — **표 상자 자신의 폭**으로 정한다(화면 폭이 아니다: 같은 1280 에서도 레일이 서면 판이 좁다).
+ * `wide` ≥ 900 · `mid` 700–899 · `narrow` < 700 (§1.7-e). 표마다 경계를 바꿀 수 있다(`breakpoints`).
+ */
+export type TableTier = 'wide' | 'mid' | 'narrow';
+
+/**
+ * 넓은 표의 열 선언 — **순위**가 좁은 판에서 무엇을 남길지 정한다(§1.7-e).
+ *
+ * - `priority` 1(기본) 늘 선다 · 2 `wide` 에서만 선다(좁으면 다른 열에 **병합**되어 읽힌다) · 3 `narrow` 에서 숨는다.
+ * - `merged` — 병합 표기 열. P2 열들 대신 `wide` 가 아닐 때만 선다(「전압」+「용량」 → 「정격」). `priority: 3` 을 함께 주면
+ *   `narrow` 에서는 그마저 숨는다.
+ * - `hidden` — 부르는 쪽이 숨긴다(블록 안에서 값이 모두 빈 열).
+ *
+ * 숨거나 병합된 값은 그 줄의 대표 칸 `title` 과 상세 레일에서 읽힌다 — 화면에서 사라지는 값은 없다.
+ */
+export interface TableColumn {
+  key: string;
+  /** 비율(수) 또는 고정 폭(`'40px'`). 보이는 비율 열끼리 남은 폭을 나눈다(합을 다시 100 으로 맞춘다). */
+  width: number | `${number}px`;
+  priority?: 1 | 2 | 3;
+  merged?: boolean;
+  hidden?: boolean;
+}
+
+export interface TableLayout {
+  tier: TableTier;
+  /** P2 열이 병합 표기로 읽힌다(`tier !== 'wide'`). */
+  merged: boolean;
+  /** 이 열이 지금 서는가 — 선언되지 않은 열 키는 늘 선다. */
+  shows: (key: string) => boolean;
+  /** 지금 서는 열 수 — 묶음 머리줄 `colSpan`. */
+  colCount: number;
+}
+
+const ALL: TableLayout = { tier: 'wide', merged: false, shows: () => true, colCount: 0 };
+const LayoutContext = createContext<TableLayout>(ALL);
+
+/** 표 안(`TableCard` 의 자식)에서 지금 폭 단계와 보이는 열을 읽는다. */
+export const useTableLayout = () => useContext(LayoutContext);
+
+/** 열이 이 단계에서 서는가 — 순위 규칙 한 곳. */
+export function columnShows(c: TableColumn, tier: TableTier): boolean {
+  if (c.hidden) return false;
+  /* 병합 열도 순위 3 이면 가장 좁은 단계에서는 숨는다(선번장 「최근 측정」). */
+  if (c.merged) return tier !== 'wide' && !(c.priority === 3 && tier === 'narrow');
+  if (c.priority === 2) return tier === 'wide';
+  if (c.priority === 3) return tier !== 'narrow';
+  return true;
+}
+
+export function tierOf(width: number, [wideMin, midMin]: readonly [number, number] = [900, 700]): TableTier {
+  /* 아직 재지 못했다(jsdom·첫 그림 전) — 다 세운다. */
+  if (width <= 0 || width >= wideMin) return 'wide';
+  return width >= midMin ? 'mid' : 'narrow';
+}
+
+/** 상자의 폭을 잰다 — 붙을 때 한 번(그리기 전) + 바뀔 때마다. */
+function useBoxWidth<T extends HTMLElement>(): [RefObject<T>, number] {
+  const ref = useRef<T>(null);
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setW(el.getBoundingClientRect().width);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((es) => { const r = es[0]?.contentRect.width; if (r != null) setW(r); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w];
+}
+
 export function TableCard({
   widths,
+  columns,
+  tier: forcedTier,
+  breakpoints,
   fill = false,
   children,
   className,
+  ...rest
 }: {
   /**
-   * 열 폭 — 수는 비율(%), `'40px'` 꼴은 고정 폭. 열 개수와 순서가 머리글과 같아야 한다.
+   * 열 폭 — 수는 비율(%), `'40px'` 꼴은 고정 폭. 열 개수와 순서가 머리글과 같아야 한다. 순위가 없는 표(늘 다 서는 표)용.
    *
    * 비율만 쓰면 합이 100 이 되게 준다. **섞으면** 고정 폭 열이 먼저 제 폭을 갖고, 비율 열들이
    * 남은 폭을 그 비율대로 나눈다(비율의 합은 100). 내용 폭이 정해진 열(번호·상태·수·날짜)은
-   * 고정 폭으로, 이름처럼 길이가 들쭉날쭉한 열은 비율로 둔다 — 전부 비율이면 좁은 화면에서
-   * 번호 열까지 같이 줄어 「어댑터」가 잘리고, 정작 이름 열은 넓은 화면에서도 모자란다(선번장).
-   * 고정 폭의 합이 판보다 넓어질 수 있으면 감싸는 쪽이 `min-w-*` 로 바닥을 정한다.
+   * 고정 폭으로, 이름처럼 길이가 들쭉날쭉한 열은 비율로 둔다. 표의 바닥 폭(`min-w-*`)은 두지 않는다 —
+   * 판이 좁으면 `columns` 순위로 열을 병합·숨긴다(§1.7-e).
    */
-  widths: readonly (number | `${number}px`)[];
+  widths?: readonly (number | `${number}px`)[];
+  /** 순위가 있는 열 선언(`TableColumn`) — 주면 `widths` 대신 쓴다. 칸은 `Th col`·`Td col` 로 이 키를 단다. */
+  columns?: readonly TableColumn[];
+  /** 폭과 무관하게 이 단계로 그린다 — 편집 창(늘 다 세움)·인쇄. */
+  tier?: TableTier;
+  /** `[wide 하한, mid 하한]` — 기본 `[900, 700]`. */
+  breakpoints?: readonly [number, number];
   /**
    * 표가 **주어진 높이를 채운다** — 행 수와 무관하게 카드 크기가 같고, 넘치면 카드 안에서
-   * 스크롤한다(머리글은 `sticky` 로 남는다).
+   * 세로로 스크롤한다(머리글은 `sticky` 로 남는다).
    *
    * 기본(false)은 행만큼만 자라고 스크롤은 바깥이 맡는다 — 현황·선번장처럼 표가 화면의
    * 주인공일 때. `fill` 은 표가 **패널의 한 칸**을 차지할 때다: 행이 몇 개든 화면 구성이
    * 그대로여야 한다(§1.6).
    */
   fill?: boolean;
-  children: ReactNode;
+  /** 묶음 머리줄의 `colSpan`·병합 표기가 지금 단계를 알아야 하면 함수로 받는다. */
+  children: ReactNode | ((layout: TableLayout) => ReactNode);
   className?: string;
+  'data-testid'?: string;
 }) {
+  const [ref, width] = useBoxWidth<HTMLDivElement>();
+  const tier = forcedTier ?? tierOf(width, breakpoints);
+  const layout = useMemo<TableLayout>(() => {
+    if (!columns) return { ...ALL, tier, colCount: widths?.length ?? 0 };
+    const on = new Set(columns.filter((c) => columnShows(c, tier)).map((c) => c.key));
+    return { tier, merged: tier !== 'wide', shows: (k) => on.has(k) || !columns.some((c) => c.key === k), colCount: on.size };
+  }, [columns, widths, tier]);
+  const cols = useMemo(() => {
+    const ws = columns ? columns.filter((c) => columnShows(c, tier)).map((c) => c.width) : widths ?? [];
+    /* 보이는 비율 열끼리 100 을 나눈다 — 숨은 열의 몫이 빈 자리로 남지 않게. */
+    const sum = ws.reduce<number>((a, w) => a + (typeof w === 'number' ? w : 0), 0);
+    return ws.map((w) => (typeof w === 'number' ? `${sum > 0 ? (w / sum) * 100 : 0}%` : w));
+  }, [columns, widths, tier]);
+
   return (
     <div
+      ref={ref}
+      data-testid={rest['data-testid']}
+      data-tier={columns ? tier : undefined}
       className={cn(
         'min-w-0 rounded border border-line bg-surface',
-        // `clip` 은 스크롤 상자를 만들지 않는다 — 위 주석 참고. `fill` 일 때만 스크롤 상자다.
-        fill ? 'flex h-full min-h-0 flex-col overflow-auto' : 'overflow-clip',
+        // `clip` 은 스크롤 상자를 만들지 않는다 — 위 주석 참고. `fill` 일 때만 (세로) 스크롤 상자다.
+        fill ? 'flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden' : 'overflow-clip',
         className,
       )}
     >
-      <table className="w-full table-fixed text-sm">
-        <colgroup>
-          {widths.map((w, i) => (
-            <col key={i} style={{ width: typeof w === 'number' ? `${w}%` : w }} />
-          ))}
-        </colgroup>
-        {children}
-      </table>
+      <LayoutContext.Provider value={layout}>
+        <table className="w-full table-fixed text-sm">
+          <colgroup>
+            {cols.map((w, i) => <col key={i} style={{ width: w }} />)}
+          </colgroup>
+          {typeof children === 'function' ? children(layout) : children}
+        </table>
+      </LayoutContext.Provider>
     </div>
   );
 }
@@ -91,14 +192,19 @@ export function TableCard({
  * 수 칸은 자릿수 고정 글꼴까지 함께 받는다 — 자릿수가 세로로 맞아야 크기가 비교된다.
  */
 export function Td({
-  children, className, align = 'left', ...rest
+  children, className, align = 'left', col, ...rest
 }: Omit<TdHTMLAttributes<HTMLTableCellElement>, 'align'> & {
   children?: ReactNode;
   /** 수는 오른쪽으로. 같은 열의 머리글(`Th`)과 같은 값을 준다. */
   align?: 'left' | 'right';
+  /** 열 키(`TableCard columns`) — 그 열이 지금 서지 않으면 칸도 그리지 않는다. `data-col` 로도 붙는다. */
+  col?: string;
 }) {
+  const layout = useTableLayout();
+  if (col != null && !layout.shows(col)) return null;
   return (
     <td
+      data-col={col}
       /* **수는 줄바꿈하지 않는다.** 「350,000원」이 칸에 안 들어가면 「350,000」/「원」 두 줄로
          쪼개지는데, 그러면 같은 열의 줄 높이가 제각각이 되고 수가 한눈에 안 읽힌다. 좁으면
          넘치게 두는 편이 낫다 — 열 폭은 `TableCard` 가 정하는 것이지 값이 정할 일이 아니다. */
@@ -118,8 +224,13 @@ interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> 
   children: ReactNode;
   /** 수는 오른쪽으로 — 자릿수가 세로로 맞아야 크기가 비교된다. */
   align?: 'left' | 'right';
-  /** 단위는 **이름에 붙이지 않는다** — 붙이면 「노임단가(원/」 처럼 토큰 한가운데서 접힌다. */
+  /**
+   * 단위 — 이름 뒤 **괄호로 같은 줄에** 붙는다: `길이(m)`·`자재단가(원)`(§1.7-g). 단위만 넣는다 —
+   * 「경쟁」·「183일」 같은 수식어는 단위가 아니다(그건 묶음 머리 `colSpan` 으로).
+   */
   unit?: string;
+  /** 열 키(`TableCard columns`) — 그 열이 지금 서지 않으면 머리 칸도 그리지 않는다. */
+  col?: string;
   /**
    * 이 열로 정렬한다 — 주면 머리글이 **누를 수 있는 것**이 된다.
    *
@@ -130,8 +241,7 @@ interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> 
   sort?: 'asc' | 'desc' | null;
   /**
    * 내용이 **제 배치를 갖는다** — 말줄임 감싸개를 두르지 않는다. 묶음 머리줄(`colSpan` 으로 표 폭을
-   * 다 쓰는 한 줄: 제목 + 메타 + 단추)처럼 안에서 `sticky` 를 쓰는 칸용이다 — 말줄임 감싸개는
-   * `overflow: hidden` 이라 그 안의 `sticky` 가 감싸개에 갇혀 붙지 않는다. 잘림은 내용이 맡는다.
+   * 다 쓰는 한 줄: 제목 + 메타 + 단추)용이다. 잘림은 내용이 맡는다.
    */
   bare?: boolean;
 }
@@ -143,24 +253,16 @@ interface ThProps extends Omit<ThHTMLAttributes<HTMLTableCellElement>, 'align'> 
  * 갈렸다. 그래서 선번장의 「슬롯 1」 구분행(색이 있다)이 진짜 머리글보다 머리글처럼 보였다.
  * 면을 한 단 내리고 글자를 굵혀 위계를 만든다.
  *
- * **줄을 접지 않는다.** 한글은 어디서나 끊기므로(`break-keep` 이 없으면 「원/」+「일)」로
- * 쪼개진다) 머리글 높이가 행보다 커지고 표가 들쭉날쭉해진다. 넘치면 접는 대신 말줄임한다 —
- * 폭이 모자란 것이지 이름이 두 줄짜리인 게 아니다.
+ * **머리글은 늘 한 줄이다**(§1.7-g). 한글은 어디서나 끊기므로 접게 두면 머리줄 높이가 표마다 달라진다.
+ * 단위도 같은 줄 괄호에 둔다 — 예전에는 단위를 아랫줄에 내려 그 표의 머리줄만 35px 로 부풀었다.
+ * 이름이 안 들어가면 그 열의 **폭이 틀린 것**이다(`TableCard widths`/`columns` 를 고친다).
  *
  * 배경이 **불투명**해야 `sticky` 머리글 아래로 행이 비치지 않는다.
  */
-export function Th({ children, className, align = 'left', unit, onSort, sort = null, bare = false, ...rest }: ThProps) {
-  /* 단위는 **아랫줄**에 흐리게 — 무엇을 세는 열인지는 이름이 말하고, 단위는 곁들인다.
-     옆에 붙이면 머리글이 그만큼 길어지는데, 열 폭은 `colgroup` 이 못 박아 두므로(고정 레이아웃)
-     길어진 만큼 잘린다: 실제로 「노임단가 원…」·「자재단가…」로 잘려 무슨 열인지 읽을 수
-     없었다. **잘려야 하는 것은 값이지 머리글이 아니다** — 머리글이 잘리면 그 열의 값 전부가
-     뜻을 잃는다. 아래로 내리면 머리줄만 한 줄 높아지고 폭은 이름만큼만 필요해진다. */
-  const label = (
-    <>
-      <span className="block">{children}</span>
-      {unit && <span className="block font-normal text-content-faint">{unit}</span>}
-    </>
-  );
+export function Th({ children, className, align = 'left', unit, col, onSort, sort = null, bare = false, ...rest }: ThProps) {
+  const layout = useTableLayout();
+  if (col != null && !layout.shows(col)) return null;
+  const label = unit ? <>{children}<span className="font-normal">({unit})</span></> : children;
   return (
     <th
       /* 스크린리더가 「정렬됨」을 읽을 방법 — 없으면 정렬은 눈에만 있는 기능이다. */

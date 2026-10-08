@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { CIRCUIT_CURRENTS, EQUIPMENT_STATUSES, type CurrentFilter, type LinkEndRef, type PowerBreaker, type PowerBus, type PowerFeed, type PowerNode } from '@twin/core';
 import {
-  EMPTY, EmptyState, IconButton, OverflowShade, SegmentedControl, Select, TableSearch, ViewCard, scrollBoxToTop, useOverflowShade,
+  Button, EMPTY, EmptyState, SegmentedControl, Select, TableSearch, ViewCard, scrollBoxToTop,
   type SegmentedItem, type TableGroupMeta,
 } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
@@ -166,8 +165,8 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
   };
   const isTree = view === 'tree';
 
-  /* 상세 레일이 서서 판이 좁아지면 가려진 오른쪽에 그늘(§1.7-e). 보기를 바꿔 본문 요소가 바뀌어도 다시 붙는다. */
-  const shade = useOverflowShade();
+  /* 본문 상자 — 보기를 바꿔 본문 요소가 바뀌어도 ref 가 새 요소에 붙는다. */
+  const bodyRef = useRef<HTMLDivElement>(null);
   /**
    * 초점 블록이 **밖에서** 바뀔 때만 화면 안으로(주소·상세 패널의 「차단기 대장에서 보기」). 대장에서 블록 머리의
    * 이름을 누른 것은 굴리지 않는다 — 누른 머리는 이미 손 밑에 있다(계통도의 규칙과 같다).
@@ -177,8 +176,7 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
     if (!focus) { localFocus.current = null; return; }
     if (localFocus.current === focus) { localFocus.current = null; return; }
     localFocus.current = null;
-    /* 세로로만 — 레일이 서서 가로로 넘친 판을 옆으로 밀지 않는다. */
-    const body = shade.body.current;
+    const body = bodyRef.current;
     scrollBoxToTop(body, body?.querySelector<HTMLElement>('[data-testid="ledger-block"][aria-current="true"]') ?? null);
   }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectSupplyHere = (id: string) => { localFocus.current = id; onSelectSupply(id); };
@@ -197,7 +195,7 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
   useEffect(() => {
     if (!added) return;
     setAdded(null);
-    const body = shade.body.current;
+    const body = bodyRef.current;
     const row = body?.querySelector<HTMLElement>(`[data-testid="ledger-block"][data-equipment="${added.equipmentId}"] [data-testid="ledger-row-${added.no}"]`);
     if (!body || !row) return;
     /* 세로로만, 가려져 있을 때만 — 줄이 판 아래로 나갔으면 바닥에 닿게 굴린다. */
@@ -211,10 +209,9 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
   }, [added]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1">
       <ViewCard
         body={isTree ? 'fill' : 'scroll'}
-        bodyRef={shade.bodyRef}
+        bodyRef={bodyRef}
         tools={(
           <>
             <SegmentedControl aria-label="전원 계통 보기" items={VIEWS} value={view} onChange={onView} />
@@ -226,16 +223,16 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
             </div>
             {isTree && (
               <>
-                {/* 아이콘 단추 — 상세 레일이 선 1280 에서도 도구줄이 한 줄에 들어가야 한다(이름은 aria-label·title). */}
-                <IconButton aria-label="모두 펼치기" title="모두 펼치기" onClick={() => setCollapsed(new Set())}><ChevronsUpDown size={14} /></IconButton>
-                <IconButton aria-label="모두 접기" title="모두 접기" onClick={() => setCollapsed(new Set(tree.filter((r) => r.branch).map((r) => r.key)))}><ChevronsDownUp size={14} /></IconButton>
+                {/* 글자 단추(§1.7-h 아이콘만으로는 모른다) — 현황의 「모두 펼치기/접기」와 같은 꼴·자리. */}
+                <Button variant="ghost" size="sm" onClick={() => setCollapsed(new Set())}>모두 펼치기</Button>
+                <Button variant="ghost" size="sm" onClick={() => setCollapsed(new Set(tree.filter((r) => r.branch).map((r) => r.key)))}>모두 접기</Button>
               </>
             )}
           </>
         )}
         actions={(
           <TableSearch
-            aria-label="전원 계통 검색" className="w-72" placeholder="설비 · 차단기 표기 · 부하 · 용도 검색"
+            aria-label="전원 계통 검색" className="w-72" placeholder="설비 · 차단기 표기 · 부하 · 비고 검색"
             value={query} onChange={setQuery} shown={isTree ? treeShown.matched : shownRows} total={isTree ? treeTotal : total}
           />
         )}
@@ -276,7 +273,5 @@ export function PowerView({ substationId, view, onView, focus, selectedEquipment
           <ConnectDialog substationId={substationId} from={connectFrom} open onClose={() => setConnectFrom(null)} onCreated={() => undefined} />
         )}
       </ViewCard>
-      <OverflowShade top={shade.top} />
-    </div>
   );
 }

@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { cn } from './cn';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'link' | 'danger';
 export type ButtonSize = 'xs' | 'sm' | 'md';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -27,6 +27,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary: 'bg-primary text-white hover:bg-primary-hover',
   secondary: 'bg-surface border border-line text-content hover:bg-surface-2',
   ghost: 'text-content hover:bg-surface-2',
+  /* 다른 화면으로 가는 길(「차단기 대장에서 보기」) — 고스트 자리·크기에 링크 색. 만들기·고치기와 눈으로 갈린다. */
+  link: 'text-primary hover:bg-surface-2 hover:underline',
   danger: 'bg-danger text-white hover:opacity-90',
 };
 

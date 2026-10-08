@@ -161,6 +161,13 @@ body {
   }
 }
 
+/* 상태표시줄 칸의 순위(§3.6) — 띠 자신의 폭(컨테이너 쿼리)으로 낮은 순위 칸부터 숨긴다.
+   글자가 한 자씩 세로로 쪼개지는 대신 칸이 통째로 빠진다. 값은 그 칸의 title 에 남는다. */
+.status-bar { container-type: inline-size; }
+@container (max-width: 760px) { .status-p4 { display: none; } }
+@container (max-width: 680px) { .status-p3 { display: none; } }
+@container (max-width: 600px) { .status-p2 { display: none; } }
+
 /* Custom utility classes */
 @layer utilities {
   .text-balance {

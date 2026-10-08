@@ -14,7 +14,7 @@ export function StatusBar({ children, className }: { children: ReactNode; classN
   return (
     <div
       className={cn(
-        'flex h-[34px] shrink-0 items-center border-t border-line-strong bg-surface-2 px-3 text-xs text-content-muted',
+        'status-bar flex h-[34px] min-w-0 shrink-0 items-center overflow-hidden whitespace-nowrap border-t border-line-strong bg-surface-2 px-3 text-xs text-content-muted',
         className,
       )}
     >
@@ -28,16 +28,29 @@ export function StatusBar({ children, className }: { children: ReactNode; classN
  *
  * 숫자는 `tabular-nums` 다. 좌표처럼 **매 순간 바뀌는 값**이 비례폭이면 자릿수가 바뀔 때마다
  * 칸 전체가 들썩인다.
+ *
+ * **칸은 줄을 바꾸지 않는다**(`nowrap`, 줄지 않음) — 띠가 좁으면 순위가 낮은 칸부터 통째로 빠진다(`priority`,
+ * 띠 폭 760 · 680 · 600px 아래에서 4 · 3 · 2 순). 예전에는 1280 평면도에서 「좌/표」·「스/냅」이 한 자씩 세로로 섰다.
  */
 export function StatusItem({
-  label, children, className,
+  label, children, priority = 1, title, className,
 }: {
   label?: ReactNode;
   children: ReactNode;
+  /** 1(기본) 늘 선다 · 2~4 띠가 좁으면 큰 수부터 숨는다. */
+  priority?: 1 | 2 | 3 | 4;
+  title?: string;
   className?: string;
 }) {
   return (
-    <span className={cn('flex items-center gap-1.5 border-r border-line px-3 tabular-nums first:pl-0', className)}>
+    <span
+      title={title}
+      className={cn(
+        'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-r border-line px-3 tabular-nums first:pl-0',
+        priority > 1 && `status-p${priority}`,
+        className,
+      )}
+    >
       {label && <span className="text-content-faint">{label}</span>}
       <span className="text-content">{children}</span>
     </span>

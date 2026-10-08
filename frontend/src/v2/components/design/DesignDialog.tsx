@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { compareName, computeEstimate, computeReport, designItems, laborCosts, materialCostOf, sizeBand } from '@twin/core';
 import type { DesignItem, DesignTarget, EstimateParams, OverheadRates, ReportKind } from '@twin/core';
 import {
-  Badge, Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, Input, MessageStrip, Modal, OverflowShade, SegmentedControl,
-  TABLE_ROW, TableCard, TableGroupHead, TableSubHead, Td, Th, cn, today, useOverflowShade,
+  Badge, Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, Input, MessageStrip, Modal, SegmentedControl,
+  TABLE_ROW, TableCard, TableGroupHead, TableSubHead, Td, Th, cn, today, useTableLayout, type TableColumn, type TableTier,
 } from '../../../components/ui';
 import type { BadgeStatus } from '../../../components/ui';
 import { useV2OrgTree, useWageCatalog } from '../../hooks';
@@ -33,17 +33,33 @@ const WORK: Record<ReportKind, { label: string; status: BadgeStatus }> = {
 const TARGET: Record<DesignTarget, string> = { rack: '랙', equipment: '설비', link: '케이블', line: '광선로' };
 
 /**
- * 산출 내역 열 폭 — 수·배지는 고정 폭(잘리면 안 된다), 이름·품목은 비율(넘치면 말줄임).
- * 수 칸은 큰 공사가 들어가는 폭이다 — 재료비 10억, 공량 「2,933.000」.
+ * 산출 내역 열 — 수·배지는 고정 폭(잘리면 안 된다, 머리글 「자재단가(원)」이 다 드는 폭), 이름·품목은 비율(넘치면 말줄임).
  * 차례: 구분 · 대상 · 이름 · 품목 · 수량 · 단위 · 자재단가 · 재료비 · 노무유형 · 공량.
+ *
+ * 화면에서 상자가 좁으면(§1.7-e) 「구분」+「대상」 → 「신설 · 랙」, 「단위」는 수량 뒤(「1 대」)로 병합되고,
+ * 자재단가·노무유형·품목이 숨는다(이름 칸 title 에 남는다). **인쇄는 늘 전 열**이다(`tier="wide"`, 종이 폭 고정).
  */
-const ITEM_COL_W = ['52px', '60px', 60, 40, '72px', '40px', '88px', '116px', '84px', '84px'] as const;
-const ITEM_COLS = ITEM_COL_W.length;
+const ITEM_COLUMNS: readonly TableColumn[] = [
+  { key: 'kind', width: '52px', priority: 2 },
+  { key: 'target', width: '60px', priority: 2 },
+  { key: 'kindTarget', width: '96px', merged: true },
+  { key: 'name', width: 60 },
+  { key: 'type', width: 40, priority: 3 },
+  { key: 'qty', width: '80px' },
+  { key: 'unit', width: '44px', priority: 2 },
+  { key: 'unitPrice', width: '100px', priority: 3 },
+  { key: 'material', width: '116px' },
+  { key: 'labor', width: '84px', priority: 3 },
+  { key: 'manDays', width: '92px' },
+];
 /**
  * 인쇄(A4 세로, 9pt) — 종이 폭(약 718px)에 맞춰 수 칸을 줄이고 이름·품목에 자리를 준다. 차례는 화면과 같다.
  * 수 칸은 큰 공사가 들어가는 폭이다 — 재료비 10억(「1,000,000,000」), 수량 99,999 m(45 km 광선로 = 45,000).
  */
-const PRINT_COL_W = ['40px', '44px', 58, 42, '64px', '32px', '80px', '100px', '72px', '72px'] as const;
+const PRINT_WIDTH: Record<string, TableColumn['width']> = {
+  kind: '40px', target: '44px', name: 58, type: 42, qty: '64px', unit: '40px', unitPrice: '80px', material: '100px', labor: '72px', manDays: '72px',
+};
+const PRINT_COLUMNS: readonly TableColumn[] = ITEM_COLUMNS.map((c) => ({ ...c, width: PRINT_WIDTH[c.key] ?? c.width }));
 
 /** 원 단위, 천 단위 구분 — 금액은 core 가 이미 원 단위로 맞췄다(`materialCostOf`·`computeEstimate`). */
 const won = (v: number) => v.toLocaleString('ko-KR');
@@ -55,6 +71,7 @@ const pct = (v: number) => `${(v * 100).toFixed(3).replace(/\.?0+$/, '')}%`;
 const UNRESOLVED = '—';
 
 function ItemRow({ item, laborName }: { item: DesignItem; laborName: (code: string | null) => string | null }) {
+  const { shows } = useTableLayout();
   const work = WORK[item.kind];
   /* 사는 것이 없는 줄(철거·이설)은 자재단가·재료비를 함께 「—」로 둔다 — 단가만 보이면 재료비가 빠진 줄로 읽힌다.
      금액은 `materialCostOf` 하나가 센다. */
@@ -62,29 +79,46 @@ function ItemRow({ item, laborName }: { item: DesignItem; laborName: (code: stri
   const note = item.note && item.typeName !== UNRESOLVED ? item.note : null;
   /* 사는 줄인데 단가가 없으면 재료비는 「0」이 아니라 「—」 — 셈은 그대로 `materialCostOf`(0)다. 표시만. */
   const priced = buys && item.unitPrice != null;
+  const unitPrice = buys && item.unitPrice != null ? won(item.unitPrice) : EMPTY;
+  const labor = laborName(item.laborCode) ?? EMPTY;
+  const typeName = item.typeName === UNRESOLVED ? '품목 미지정' : item.typeName;
+  /* 숨은 열의 값은 이름 칸 title 에 모은다 — 화면에서 사라지는 값은 없다. */
+  const hidden = [
+    !shows('type') && `품목 ${typeName}`,
+    !shows('unitPrice') && `자재단가 ${unitPrice}`,
+    !shows('labor') && `노무유형 ${labor}`,
+  ].filter(Boolean).join(' · ');
+  const nameTitle = [note, item.name, hidden].filter(Boolean).join(' · ');
   return (
     <tr className={TABLE_ROW}>
-      <Td><Badge status={work.status}>{work.label}</Badge></Td>
-      <Td className="whitespace-nowrap text-content-muted">{TARGET[item.target]}</Td>
+      <Td col="kind"><Badge status={work.status}>{work.label}</Badge></Td>
+      <Td col="target" className="whitespace-nowrap text-content-muted">{TARGET[item.target]}</Td>
+      <Td col="kindTarget" className="whitespace-nowrap">
+        <Badge status={work.status}>{work.label}</Badge>
+        <span className="ml-1 text-content-muted">{TARGET[item.target]}</span>
+      </Td>
       {/* 사정(「길이 미입력」)은 이름 **앞**에 선다 — 뒤에 두면 이름이 길 때 함께 잘려 사라진다. */}
-      <Td title={note ? `${note} · ${item.name}` : item.name}>
+      <Td col="name" title={nameTitle}>
         <span className="flex items-center gap-1.5">
           {note && <Badge status="warning" className="shrink-0">{note}</Badge>}
           <span className="min-w-0 truncate text-content">{item.name}</span>
         </span>
       </Td>
       {item.typeName === UNRESOLVED
-        ? <Td className="truncate text-warning">품목 미지정</Td>
-        : <Td className="truncate text-content-muted" title={item.typeName}>{item.typeName}</Td>}
-      <Td align="right">{qtyText(item.qty)}</Td>
-      <Td className="text-content-muted">{item.unit}</Td>
-      <Td align="right" className="text-content-muted">{buys && item.unitPrice != null ? won(item.unitPrice) : EMPTY}</Td>
-      <Td align="right">{priced ? won(materialCostOf(item)) : EMPTY}</Td>
-      <Td className="truncate text-content-muted">{laborName(item.laborCode) ?? EMPTY}</Td>
+        ? <Td col="type" className="truncate text-warning">품목 미지정</Td>
+        : <Td col="type" className="truncate text-content-muted" title={item.typeName}>{item.typeName}</Td>}
+      <Td col="qty" align="right">
+        {qtyText(item.qty)}
+        {!shows('unit') && <span className="ml-1 text-content-muted">{item.unit}</span>}
+      </Td>
+      <Td col="unit" className="text-content-muted">{item.unit}</Td>
+      <Td col="unitPrice" align="right" className="text-content-muted">{unitPrice}</Td>
+      <Td col="material" align="right">{priced ? won(materialCostOf(item)) : EMPTY}</Td>
+      <Td col="labor" className="truncate text-content-muted">{labor}</Td>
       {/* 품목에 공량이 안 적힌 줄 — 셈은 0 으로 하되(합계에 0) 「0.000」으로 숨기지 않는다. */}
       {item.manDaysMissing
-        ? <Td align="right" className="text-warning" title="공량 미입력 — 0 으로 셈">미입력</Td>
-        : <Td align="right">{manDaysText(item.manDays)}</Td>}
+        ? <Td col="manDays" align="right" className="text-warning" title="공량 미입력 — 0 으로 셈">미입력</Td>
+        : <Td col="manDays" align="right">{manDaysText(item.manDays)}</Td>}
     </tr>
   );
 }
@@ -204,12 +238,12 @@ export function DesignDialog({ open, onClose }: DesignDialogProps) {
       {!catalog.data ? (
         <p className="text-sm text-content-muted">불러오는 중…</p>
       ) : empty ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           <p className="text-sm text-content-muted">산출할 항목이 없습니다.</p>
           {notice}
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_26rem] min-[1400px]:grid-cols-[minmax(0,1fr)_28rem]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_26rem] min-[1400px]:grid-cols-[minmax(0,1fr)_28rem]">
           <ItemsColumn items={items} groups={grouped ? groups : null} report={report} notice={notice} laborName={laborName} />
           <div className={cn(COLUMN_H, 'flex min-w-0 flex-col gap-3 overflow-auto')}>
             <CostColumn report={report} e={estimate} />
@@ -227,8 +261,8 @@ export function DesignDialog({ open, onClose }: DesignDialogProps) {
 }
 
 /**
- * 산출 내역 — 길면 여기만 구른다. 머리글과 합계 줄은 붙어 있다. 상자가 좁아지면(작은 화면) 열을 짓누르지 않고
- * 가로로 구르며 그늘이 「열이 더 있다」를 말한다(바닥 폭 46rem).
+ * 산출 내역 — 길면 여기만 (세로로) 구른다. 머리글과 합계 줄은 붙어 있다. 상자가 좁아지면 열이 순위대로 병합·숨는다
+ * (`ITEM_COLUMNS`) — 가로로 구르지 않는다.
  */
 function ItemsColumn({ items, groups, report, notice, laborName }: {
   items: DesignItem[];
@@ -238,16 +272,12 @@ function ItemsColumn({ items, groups, report, notice, laborName }: {
   notice: ReactNode;
   laborName: (code: string | null) => string | null;
 }) {
-  const shade = useOverflowShade();
   return (
-    <div ref={shade.frameRef} className="relative min-w-0">
-      <div className={cn(COLUMN_H, 'min-w-0 overflow-auto')}>
-        <div ref={shade.bodyRef} className="flex min-w-[46rem] flex-col gap-2">
-          <ItemsTable items={items} groups={groups} report={report} laborName={laborName} sticky />
-          {notice}
-        </div>
+    <div className={cn(COLUMN_H, 'min-w-0 overflow-y-auto overflow-x-hidden')}>
+      <div className="flex min-w-0 flex-col gap-3">
+        <ItemsTable items={items} groups={groups} report={report} laborName={laborName} sticky />
+        {notice}
       </div>
-      <OverflowShade top={shade.top} />
     </div>
   );
 }
@@ -263,7 +293,7 @@ const manDaysMissingCount = (items: DesignItem[]) => items.filter((it) => it.man
  * 산출 내역 표 — 화면과 인쇄가 같은 표를 쓴다. 화면은 머리·합계 줄이 붙어 있고(`sticky`), 인쇄는 줄이 쪽을 넘으면
  * 머리줄이 쪽마다 다시 선다(`thead` = table-header-group, 제목 줄 「산출 내역」도 그 안에 있다).
  */
-function ItemsTable({ items, groups, report, laborName, sticky = false, title, widths = ITEM_COL_W }: {
+function ItemsTable({ items, groups, report, laborName, sticky = false, title, columns = ITEM_COLUMNS, tier }: {
   items: DesignItem[];
   groups: Groups;
   report: Report;
@@ -271,35 +301,38 @@ function ItemsTable({ items, groups, report, laborName, sticky = false, title, w
   sticky?: boolean;
   /** 표 제목 줄 — 인쇄에서만(화면은 상자 제목이 말한다). */
   title?: string;
-  widths?: readonly (number | `${number}px`)[];
+  columns?: readonly TableColumn[];
+  /** 인쇄는 늘 전 열(`wide`). */
+  tier?: TableTier;
 }) {
   const unpriced = unpricedCount(items);
   const noManDays = manDaysMissingCount(items);
   return (
-    <TableCard widths={widths}>
+    <TableCard columns={columns} tier={tier}>
       <thead className={cn(sticky && 'sticky top-0 z-sticky')}>
-        {title && <TableGroupHead colSpan={ITEM_COLS} title={title} metas={[`${items.length}건`]} />}
+        {title && <TableGroupHead title={title} metas={[`${items.length}건`]} />}
         <tr>
-          <Th>구분</Th>
-          <Th>대상</Th>
-          <Th>이름</Th>
-          <Th>품목</Th>
-          <Th align="right">수량</Th>
-          <Th>단위</Th>
-          <Th align="right" unit="원">자재단가</Th>
-          <Th align="right" unit="원">재료비</Th>
-          <Th>노무유형</Th>
-          <Th align="right" unit="인·일">공량</Th>
+          <Th col="kind">구분</Th>
+          <Th col="target">대상</Th>
+          <Th col="kindTarget">구분 · 대상</Th>
+          <Th col="name">이름</Th>
+          <Th col="type">품목</Th>
+          <Th col="qty" align="right">수량</Th>
+          <Th col="unit">단위</Th>
+          <Th col="unitPrice" align="right" unit="원">자재단가</Th>
+          <Th col="material" align="right" unit="원">재료비</Th>
+          <Th col="labor">노무유형</Th>
+          <Th col="manDays" align="right" unit="인·일">공량</Th>
         </tr>
       </thead>
       {groups ? (
         groups.map((g) => (
           <tbody key={g.id} data-testid="design-group">
-            <TableGroupHead colSpan={ITEM_COLS} title={g.name} metas={[`${g.rows.length}건`]} />
+            <TableGroupHead title={g.name} metas={[`${g.rows.length}건`]} />
             {g.rows.map((it) => <ItemRow key={rowKey(it)} item={it} laborName={laborName} />)}
             {g.refs.map((it) => (
               <TableSubHead
-                key={`ref:${rowKey(it)}`} colSpan={ITEM_COLS} data-testid="design-ref"
+                key={`ref:${rowKey(it)}`} data-testid="design-ref"
                 name={`${TARGET[it.target]} ${it.name}`} meta={`${groupName(groups, it.primarySubstationId)} 묶음에 포함`}
               />
             ))}
@@ -312,9 +345,20 @@ function ItemsTable({ items, groups, report, laborName, sticky = false, title, w
       )}
       {/* 합계는 평평한 목록에서 — 묶음 소계를 더하지 않는다(두 국에 걸친 줄이 두 번 세진다). */}
       <tfoot className={cn(sticky && 'sticky bottom-0 bg-surface')}>
+        <TotalRow items={items} unpriced={unpriced} noManDays={noManDays} report={report} />
+      </tfoot>
+    </TableCard>
+  );
+}
+
+/** 합계 줄 — 재료비·공량 칸 아래에 선다(앞 칸 수는 지금 서는 열에서 센다). */
+function TotalRow({ items, unpriced, noManDays, report }: { items: DesignItem[]; unpriced: number; noManDays: number; report: Report }) {
+  const { shows } = useTableLayout();
+  const lead = ['kind', 'target', 'kindTarget', 'name', 'type', 'qty', 'unit', 'unitPrice'].filter(shows).length;
+  return (
         <tr className={cn(TABLE_ROW, 'border-t border-line-strong font-semibold')}>
           {/* 0 으로 셈한 줄의 수는 「합계」 곁에 — 좁은 수 칸 밑에 두면 줄이 꺾인다. */}
-          <Td colSpan={7}>
+          <Td colSpan={lead}>
             <span className="flex flex-wrap items-baseline">
               <span>합계 {items.length}건</span>
               {unpriced > 0 && <span className="ml-3 text-xs font-normal text-warning" data-testid="design-unpriced">자재단가 미입력 {unpriced}건</span>}
@@ -322,11 +366,9 @@ function ItemsTable({ items, groups, report, laborName, sticky = false, title, w
             </span>
           </Td>
           <Td align="right" data-testid="design-material-total">{won(report.totalMaterialCost)}</Td>
-          <Td />
+          <Td col="labor" />
           <Td align="right" data-testid="design-mandays-total">{manDaysText(report.totalManDays)}</Td>
         </tr>
-      </tfoot>
-    </TableCard>
   );
 }
 
@@ -467,7 +509,7 @@ function CostColumn({ report, e }: { report: Report; e: DesignEstimate }) {
 function LaborTable({ report, e, paper = false }: { report: Report; e: DesignEstimate; paper?: boolean }) {
   const { wageReady, laborRows, directLaborCost, unassigned, unassignedManDays } = e;
   return (
-    <TableCard widths={[100, '68px', '84px', '104px']} className={cn(paper && 'break-inside-avoid')}>
+    <TableCard widths={[100, '84px', '108px', '104px']} className={cn(paper && 'break-inside-avoid')}>
       <thead>
         <TableGroupHead colSpan={4} title="노무유형별 공량" />
         <tr>
@@ -623,7 +665,7 @@ function DesignPrint({ items, groups, report, e, laborName, substationName }: {
         <DetailRow label="기준" wide>{`노임단가 ${e.wages.effective ?? '미등록'} · 제비율 ${e.overhead?.effective ?? '미등록'}`}</DetailRow>
         <DetailRow label="산출 조건" wide>{conditions}</DetailRow>
       </DetailCard>
-      <ItemsTable title="산출 내역" widths={PRINT_COL_W} items={items} groups={groups} laborName={laborName} report={report} />
+      <ItemsTable title="산출 내역" columns={PRINT_COLUMNS} tier="wide" items={items} groups={groups} laborName={laborName} report={report} />
       <LaborTable report={report} e={e} paper />
       <CostTable e={e} paper />
     </section>,

@@ -29,13 +29,14 @@ interface TabsProps<T extends string> {
   /** 탭과 그 내용을 잇는 이름표 — `useTabs()` 가 만들어 준다. */
   idBase: string;
   /**
-   * 줄 **가득** 편다 — 탭이 폭을 똑같이 나눠 갖는다.
+   * 탭의 **두 종류**(§3.7) — 부르는 쪽이 폭을 손으로 정하지 않는다.
    *
-   * 제 폭만 차지하게 두면 좁은 패널에서 오른쪽이 빈 채로 남는다(쓰지 않는 자리다). 반대로
-   * 다른 것과 한 줄에 선 탭(머리줄의 뷰 전환, 층 탭 옆의 `+`)은 늘어나면 안 되므로 기본은
-   * 제 폭이다.
+   * - `nav`(기본) — **내비게이션 탭**: 화면 머리의 뷰 탭·기준정보 페이지 탭·평면도 층 탭. 제 폭, 왼쪽 정렬이다 —
+   *   항목이 늘거나 다른 단추와 한 줄에 서기 때문이다.
+   * - `panel` — **패널 탭**: 상세 레일·창·카드 안의 탭. 줄을 **똑같이 나눠 채운다** — 좁은 패널에서 오른쪽이 빈 채로
+   *   남지 않게. 자리는 `ViewCard tabs`(제목 띠 바로 아래 고정 띠)라 본문과 함께 흐르지 않는다.
    */
-  fill?: boolean;
+  variant?: 'nav' | 'panel';
   /**
    * 어느 **가장자리**에 서는가 — 기본은 위(`top`)다.
    *
@@ -90,7 +91,8 @@ export function useTabs<T extends string>(value: T) {
  * 바로 열린다(automatic activation): 탭 내용이 이미 다 손에 있어 여는 값이 싸므로, 화살표로
  * 훑는 사람에게 Enter 를 한 번 더 누르게 할 이유가 없다.
  */
-export function Tabs<T extends string>({ items, value, onChange, idBase, fill, edge = 'top', menuText, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ items, value, onChange, idBase, variant = 'nav', edge = 'top', menuText, className }: TabsProps<T>) {
+  const fill = variant === 'panel';
   const list = useRef<HTMLDivElement>(null);
   /* 이름을 고치는 규칙(빈 이름·그대로면 아무 일 없음, Enter/포커스 잃음=확정, Esc=물림)은
      앱 공통이다 — 여기서 다시 적지 않는다. */
@@ -125,7 +127,13 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, fill, e
         className,
       )}
     >
-      <div ref={list} className={cn('flex items-stretch', fill && 'flex-1')} role="tablist">
+      <div
+        ref={list}
+        role="tablist"
+        className={cn(fill ? 'grid min-w-0 flex-1' : 'flex items-stretch')}
+        /* 패널 탭은 **같은 폭**으로 나눈다 — 다만 글자보다 좁아지지는 않는다(넘치는 탭만 제 폭, 나머지가 고르게 나눈다). */
+        style={fill ? { gridTemplateColumns: `repeat(${items.length}, minmax(max-content, 1fr))` } : undefined}
+      >
         {items.map((t, i) => {
           const active = t.key === value;
           if (rename.isEditing(t.key)) {
@@ -164,10 +172,11 @@ export function Tabs<T extends string>({ items, value, onChange, idBase, fill, e
                 /* **사각 탭.** 고른 것만 흰 바탕으로 솟고 위에 파란 선이 그어진다 —
                    공공 업무화면의 관용구다. 밑줄만으로는 회색 띠 위에서 잘 안 읽힌다.
                    테두리·높이는 활성 여부와 무관하게 같아서 골라도 줄이 밀리지 않는다. */
-                'relative border px-3 py-1.5 text-sm transition-colors focus-ring',
+                /* 탭 이름은 쪼개지지 않는다 — 좁은 띠에서 「3층」이 3/층 으로 섰다. */
+                'relative shrink-0 whitespace-nowrap border py-1.5 text-sm transition-colors focus-ring',
+                fill ? 'px-2 text-center' : 'px-3',
                 edge === 'bottom' ? '-mt-px border-t-0' : '-mb-px border-b-0',
                 // 줄을 가득 채울 때는 탭이 폭을 똑같이 나눠 갖는다.
-                fill && 'flex-1 justify-center whitespace-nowrap',
                 active
                   ? 'border-line-strong bg-surface font-bold text-appbar'
                   : 'border-transparent bg-surface-2/60 text-content-muted hover:text-content',

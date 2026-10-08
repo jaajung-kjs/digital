@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LinkEndRef, SheetBlock } from '@twin/core';
-import { Button, EMPTY, EmptyState, ErrorStrip, OverflowShade, Select, TableSearch, ViewCard, scrollBoxToTop, useConfirm, useOverflowShade } from '../../../components/ui';
+import { Button, EMPTY, EmptyState, ErrorStrip, Select, TableSearch, ViewCard, scrollBoxToTop, useConfirm } from '../../../components/ui';
 import { useCatalog } from '../../model/hooks';
 import { deleteRows } from '../../model/store/deleteActions';
 import { equipmentName } from '../../model/store/effective';
@@ -115,12 +115,11 @@ export function LineSheetView({
   const shownRows = shown.reduce((n, b) => n + b.rows.length, 0);
 
   /* 초점 블록이 바뀔 때만 화면 안으로(주소로 들어온 경우 포함). */
-  const shade = useOverflowShade();
+  const bodyRef = useRef<HTMLDivElement>(null);
   const focusKey = focus ? blockKey(focus) : null;
   useEffect(() => {
     if (!focusKey) return;
-    /* 세로로만 — 가로로 넘친 판을 옆으로 밀지 않는다. */
-    const body = shade.body.current;
+    const body = bodyRef.current;
     scrollBoxToTop(body, body?.querySelector<HTMLElement>('[data-testid="sheet-block"][aria-current="true"]') ?? null);
   }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -137,10 +136,9 @@ export function LineSheetView({
   const addLine = canEdit ? <Button variant="secondary" size="sm" onClick={() => setDialog({})}>광선로 추가</Button> : null;
 
   return (
-    <div ref={shade.frameRef} className="relative flex min-h-0 min-w-0 flex-1">
       <ViewCard
         body="scroll"
-        bodyRef={shade.bodyRef}
+        bodyRef={bodyRef}
         tools={
           <div className="w-40 shrink-0">
             <Select size="sm" aria-label="접속 설비" value={activeTerminal} onChange={(e) => setTerminal(e.currentTarget.value)}>
@@ -160,13 +158,13 @@ export function LineSheetView({
           </div>
         }
       >
-        {error && <div className="mb-3"><ErrorStrip message={error} onDismiss={() => setError(null)} /></div>}
+        {error && <ErrorStrip message={error} onDismiss={() => setError(null)} />}
         {blocks.length === 0 ? (
           <EmptyState title="이 변전소에 수용된 광선로가 없습니다" description={canEdit ? '「광선로 추가」로 상대국과 코어 수를 지정하세요' : undefined} action={addLine ?? undefined} />
         ) : shown.length === 0 ? (
           <EmptyState title={query.trim() ? `'${query.trim()}'에 해당하는 코어가 없습니다` : '조건에 해당하는 코어가 없습니다'} />
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-3">
             {shown.map((b) => {
               const f: BlockFocus = { lineId: b.lineId, side: b.side };
               return (
@@ -210,7 +208,5 @@ export function LineSheetView({
         {tracing && <PathTraceDialog substationId={substationId} at={tracing} onClose={() => setTracing(null)} />}
         {confirmDialog}
       </ViewCard>
-      <OverflowShade top={shade.top} />
-    </div>
   );
 }

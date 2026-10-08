@@ -47,7 +47,9 @@ describe('ViewCard — 본문', () => {
     const box = container.querySelector('.overflow-auto') as HTMLElement;
     expect(box).not.toBeNull();
     expect(box.className).not.toMatch(/\bp-4\b/);
-    expect((box.firstChild as HTMLElement).className).toContain('p-4');
+    expect((box.firstChild as HTMLElement).className).toMatch(/\bpx-4\b/);
+    /* 절 사이는 한 단계(gap-3) — 부르는 쪽이 space-y 를 다시 적지 않는다(§3.1). */
+    expect(box.firstChild as HTMLElement).toHaveClass('flex', 'flex-col', 'gap-3');
     /* 본문은 **회색**이다 — 그 위에 묶음 표가 제 테두리를 갖고 쌓인다. 흰 바탕에서는
        바깥 카드 테두리와 묶음 표 사이 16px 이 「빈 흰 여백」으로 보였다. */
     expect(box).toHaveClass('bg-bg');
