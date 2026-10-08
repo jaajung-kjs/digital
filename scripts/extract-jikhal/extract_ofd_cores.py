@@ -13,13 +13,20 @@
 - purpose = 유형 · 회선수용내역 (상태 글인 셀과 빈 셀은 뺀다).
 - note    = 상태 글 원문 · 비고 (비고가 그 판의 선로명 셀과 같으면 뺀다).
 - 비고의 `(\\d+)~(\\d+)코어` + 사용불가 는 그 판의 코어 범위 전부를 unusable + 그 원문 note 로 싣는다.
-- role    = 회선수용내역 셀에 **명시 표기**가 있을 때만 — 주회선 `㈜`·`(주)`·`주회선`·`-주)`·`주_`,
-  예비회선 `(예)`·`예비회선`·`-예비)`·`예비_`·`예비(`. 둘 다 있으면 실패(추측하지 않는다). 표기가 없으면 null.
+- role    = 회선수용내역 셀에 **명시 표기**가 있을 때만 — 주·예비 대칭으로
+  주회선 `㈜`·`(주)`·`주회선`·`-주)`·`주_`·`주(`·끝의 ` 주`,
+  예비회선 `(예)`·`예비회선`·`-예비)`·`-예)`·`예비_`·`예비(`·끝의 ` 예`
+  (끝의 ` 주`/` 예` 는 셀이 띄어 쓴 한 글자로 끝날 때만 — 예 철원 「운천계 OMS WEST(Tx) 주」).
+  둘 다 있으면 실패(추측하지 않는다). 표기가 없으면 null.
   `I-MUX(B)` 의 `(B)` 는 장치 이름(I-MUX(A)/(B))이라 표기가 아니다 — 대국 끝은 같은 코어를 「주_Tx」 로 적는다.
   `본사-주From본부계 OFD 43~46` 은 네 코어 모두 「주」 인데 그중 44·46 은 예비 코어(본사-예비·동해-예비)에서
   온다 — 코어별 표기가 아니라 묶음 이름이라 표기로 보지 않는다(정규식이 `-주)` 만 잡는다).
   코어 하나의 role 은 두 끝 공유 — 두 끝을 합치는 건 시드(`jikhal.ts`)가 한다.
 셀 글은 공백(줄바꿈 포함)을 한 칸으로 줄인다. 값이 모두 비고 상태 ok 인 코어는 싣지 않는다.
+
+판의 **시작 번호(startNo)** = 그 판 첫 행의 No.(선번장의 어댑터 번호) — 48심 블록의 둘째 판은 25, 24심 블록 안
+12심 둘째 판은 13. 시작 번호는 1 이거나 앞 판을 잇는 번호(앞 판 끝 No.+1)여야 한다 — 어긋나면 실패.
+`PLATE_START_NO`(국 → 판 → 시작 번호)로 내보내고 시드가 광선로 끝의 startNo 로 싣는다.
 """
 import re
 import sys
@@ -34,8 +41,8 @@ SHEET_KEYS = {
 COL_NO, COL_PEER, COL_KIND, COL_USE, COL_NOTE, COL_RESULT, COL_LINE = 0, 1, 2, 3, 4, 9, 10
 HEADER = ['No.', '상대국명', '유형', '회선수용내역', '비고']
 RANGE = re.compile(r'(\d+)~(\d+)코어')
-ROLE_MAIN = re.compile(r'㈜|\(주\)|주회선|-주\)|주_')
-ROLE_BACKUP = re.compile(r'\(예\)|예비회선|-예비\)|예비_|예비\(')
+ROLE_MAIN = re.compile(r'㈜|\(주\)|주회선|-주\)|주_|주\(|\s주$')
+ROLE_BACKUP = re.compile(r'\(예\)|예비회선|-예비\)|-예\)|예비_|예비\(|\s예$')
 
 
 def fail(msg):
@@ -96,7 +103,12 @@ def plates_of(ws):
         if not in_block:
             fail(f'{ws.title}: 열 머리 없는 코어 행 No.{no}')
         if row[COL_PEER] is not None:
+            prev = plates[-1] if plates else None
             cur = {'peer': clean(row[COL_PEER]), 'line': line_name(row[COL_LINE]), 'rows': []}
+            # 시작 번호 — 1 이거나 앞 판을 잇는 번호(앞 판 끝 No.+1: 48심의 25~48, 24심 블록 안 12심 둘째 판의 13~24)
+            # 여야 한다. 그 밖이면 선번장 번호가 어긋난 것이다.
+            if int(no) != 1 and (prev is None or int(no) != prev['rows'][-1][0] + 1):
+                fail(f'{ws.title}: 판 「{cur["peer"]}」 의 첫 No.{no} 가 어긋난다 (1 이거나 앞 판 끝+1 이어야 한다)')
             plates.append(cur)
         if cur is None:
             fail(f'{ws.title}: 상대국명 없이 시작한 블록 No.{no}')
@@ -193,7 +205,7 @@ def main(xlsx, out_path):
     plates_ts = ts_plates(f'{seed_dir}/jikhalGangwon.ts')
     lines_ts = ts_plate_lines(f'{seed_dir}/jikhalGangwonLines.ts')
     wb = openpyxl.load_workbook(xlsx, read_only=True, data_only=True)
-    result = {}
+    result, starts = {}, {}
     for sheet, key in SHEET_KEYS.items():
         if sheet not in wb.sheetnames:
             fail(f'시트 「{sheet}」 가 없다')
@@ -204,7 +216,9 @@ def main(xlsx, out_path):
         if len(plates) != len(want):
             fail(f'{sheet}: 판 {len(plates)}장 ≠ PLATES {len(want)}장')
         result[key] = {}
+        starts[key] = {}
         for slot, plate in enumerate(plates, 1):
+            starts[key][slot] = plate['rows'][0][0]
             cores, peer = want[slot]
             if (len(plate['rows']), plate['peer']) != (cores, peer):
                 fail(f'{sheet} 판 {slot}: ({len(plate["rows"])}, {plate["peer"]}) ≠ PLATES ({cores}, {peer})')
@@ -216,19 +230,21 @@ def main(xlsx, out_path):
             got = cores_of(sheet, plate)
             if got:
                 result[key][slot] = got
-    write(result, out_path)
+    write(result, starts, out_path)
     flat = [c for st in result.values() for cs in st.values() for c in cs]
     print(f'[extract_ofd_cores] 코어 {len(flat)}: 용도 {sum(1 for c in flat if c["purpose"])}, '
           f'단선 {sum(1 for c in flat if c["status"] == "broken")}, 사용불가 {sum(1 for c in flat if c["status"] == "unusable")}, '
           f'비고 {sum(1 for c in flat if c["note"])}, 주 {sum(1 for c in flat if c["role"] == "main")}, '
           f'예비 {sum(1 for c in flat if c["role"] == "backup")} → {out_path}')
+    print('[extract_ofd_cores] 시작 번호 ≠ 1: ' + ', '.join(
+        f'{k} 판{s}={n}' for k, ss in starts.items() for s, n in ss.items() if n != 1))
 
 
 def ts_str(v):
     return 'null' if v is None else "'" + v.replace('\\', '\\\\').replace("'", "\\'") + "'"
 
 
-def write(result, out_path):
+def write(result, starts, out_path):
     out = [
         '/**',
         ' * 강원본부 직할 OFD 판의 **코어 용도·상태·비고** — `직할/직할_OFD선번장_260203.xlsx` 에서 뽑았다.',
@@ -252,6 +268,17 @@ def write(result, out_path):
                 out.append(f"      {{ no: {c['no']}, status: '{c['status']}', role: {role}, purpose: {ts_str(c['purpose'])}, note: {ts_str(c['note'])} }},")
             out.append('    ],')
         out.append('  },')
+    out.append('};')
+    out += [
+        '',
+        '/**',
+        ' * 판의 시작 번호(어댑터 번호) — 그 판 첫 행의 선번장 No.. 48심 블록의 둘째 판은 25, 24심 블록 안 12심 둘째 판은 13.',
+        ' * 키: 국 → 판 번호. 시드가 광선로 끝의 `startNo` 로 싣는다(어댑터 = startNo + 코어 − 1).',
+        ' */',
+        'export const PLATE_START_NO: Record<string, Record<number, number>> = {',
+    ]
+    for key, ss in starts.items():
+        out.append(f'  {key}: {{ ' + ', '.join(f'{s}: {n}' for s, n in ss.items()) + ' },')
     out.append('};')
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(out) + '\n')

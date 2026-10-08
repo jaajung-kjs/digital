@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { JIKHAL_INVENTORY, MASTER_CABLE_TYPES, MASTER_EQUIPMENT_TYPES, MASTER_RACK_TYPES, SEED_PICKS, validateState, type ModelState } from '@twin/core';
 import { describe, expect, it } from 'vitest';
-import { buildJikhalPayload, coreRoleOf, EXCEL_RELAY_PATCHES } from './jikhal.js';
+import { buildJikhalPayload, coreRoleOf, EXCEL_RELAY_PATCHES, plateStartNo } from './jikhal.js';
 import { OPGW, STATIONS, seatedPlates } from './jikhalGangwon.js';
-import { PLATE_CORES } from './jikhalGangwonCores.js';
+import { PLATE_CORES, PLATE_START_NO } from './jikhalGangwonCores.js';
 import { PLATE_LINES } from './jikhalGangwonLines.js';
 import { commitPayloadSchema } from '../v2/commit/schema.js';
 
@@ -34,6 +34,19 @@ describe('buildJikhalPayload — 광선로', () => {
     const line = p.fiberLines!.creates!.find((l) => l.a.substationId === 'sub-bukchuncheon' && l.b.substationId === `sub-${seg.b}`
       && l.a.panel === seatedPlates('bukchuncheon').findIndex((x) => x.slot === 2) + 1);
     expect(line).toBeTruthy();
+  });
+
+  it('끝의 시작 번호(startNo)는 선번장이 그 판을 적은 첫 No. — 48심 둘째 판 25, 12심 둘째 판 13', () => {
+    const p = buildJikhalPayload(input());
+    for (const [i, seg] of OPGW.entries()) {
+      const l = p.fiberLines!.creates![i]!;
+      expect(l.a.startNo).toBe(PLATE_START_NO[seg.a]![seg.aSlot]);
+      expect(l.b.startNo).toBe(PLATE_START_NO[seg.b]![seg.bSlot]);
+    }
+    const ends = OPGW.flatMap((seg) => [[seg.a, seg.aSlot], [seg.b, seg.bSlot]] as const)
+      .filter(([k, slot]) => plateStartNo(k, slot) !== 1).map(([k, slot]) => `${k}${slot}=${plateStartNo(k, slot)}`).sort();
+    expect(ends).toEqual(['guchuncheon2=25', 'inje4=25', 'namchuncheon2=25', 'yeolbyeonghap3=13']);
+    expect(plateStartNo('hwacheon', 2)).toBe(1);
   });
 
   it('코어 수는 판의 성단 심수다', () => {
@@ -107,7 +120,8 @@ describe('buildJikhalPayload — 국 설비', () => {
     expect(p.links!.creates).toHaveLength(invLinks + EXCEL_RELAY_PATCHES.length);
   });
 
-  it('화천 중계 패치 — 「회선현황」 G7 「…화천HP(OFD:1)-화천(OFD:37)-철원」: 화천HP 쪽 코어 1 ↔ 철원 쪽 코어 13', () => {
+  /* G7 은 「화천(OFD:37)」이라 적지만 화천 OFD 선번장은 철원 쪽 판을 1–24 로 적는다 — 선번장을 따른다(어댑터 13). */
+  it('화천 중계 패치 — 「회선현황」 G7 「…화천HP(OFD:1)-화천(OFD:37)-철원」: 화천HP 쪽 코어 1 ↔ 철원 쪽 코어 13(어댑터 13)', () => {
     const line = (a: string, aSlot: number, b: string, bSlot: number) =>
       p.fiberLines!.creates![OPGW.findIndex((s) => s.a === a && s.aSlot === aSlot && s.b === b && s.bSlot === bSlot)]!;
     const toHp = line('hwacheon', 1, 'hwacheonhp', 2); // 화천 = A 끝

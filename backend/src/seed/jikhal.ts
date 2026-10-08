@@ -10,7 +10,7 @@ import { commitChanges } from '../v2/commit/service.js';
 import type { CommitPayload } from '../v2/commit/schema.js';
 import { nextDb } from '../v2/db.js';
 import { OPGW, STATIONS, seatedPlates, type StationKey } from './jikhalGangwon.js';
-import { PLATE_CORES } from './jikhalGangwonCores.js';
+import { PLATE_CORES, PLATE_START_NO } from './jikhalGangwonCores.js';
 import { PLATE_LINES, type PlateLine } from './jikhalGangwonLines.js';
 
 const FLOOR = '3층';
@@ -30,6 +30,16 @@ function must(map: Record<string, string>, key: string, what: string): string {
   const id = map[key];
   if (!id) throw new Error(`${what} 「${key}」 이 마스터에 없습니다`);
   return id;
+}
+
+/**
+ * 판의 시작 번호(어댑터 번호) — 선번장이 그 판을 적은 첫 No.(48심 둘째 판 25, 12심 둘째 판 13). 생성물에 없으면 실패한다
+ * (조용히 1 로 두면 어댑터 번호가 어긋난 채 실린다).
+ */
+export function plateStartNo(key: StationKey, slot: number): number {
+  const n = PLATE_START_NO[key]?.[slot];
+  if (n == null || !Number.isInteger(n) || n < 1) throw new Error(`판 시작 번호 없음: ${key} 판 ${slot}`);
+  return n;
 }
 
 /** 한 판(국·선번장 판 번호)의 측정 — 잰 코어만. 날짜가 없으면 null(언제 쟀는지 모른다). */
@@ -81,7 +91,10 @@ export function coreRoleOf(a: Role, b: Role): { role: Role; conflict: boolean } 
  */
 export const EXCEL_RELAY_PATCHES: { station: StationKey; a: readonly [number, number]; b: readonly [number, number]; source: string }[] = [
   {
-    /* 북춘천 RTU 예비회선 — 화천에서 화천HP 쪽 코어 1 이 철원 쪽 OFD 37(판 2 코어 13 = 24 + 13)로 이어진다. */
+    /* 북춘천 RTU 예비회선 — 화천에서 화천HP 쪽 판 1 코어 1 이 철원 쪽 판 2 코어 13 으로 이어진다.
+       화천 OFD 선번장은 철원 쪽 판을 1–24 로 적는다(판 2 No.13 = 어댑터 13, 사용자 결정 2026-10-08).
+       SCADA 회선현황 G7 의 「화천(OFD:37)」은 이 번호와 맞지 않는다 — 현장 문서 사이의 불일치로 기록만 하고
+       선번장 번호를 따른다(앱 요약은 「화천(OFD:13)」). */
     station: 'hwacheon', a: [1, 1], b: [2, 13],
     source: 'SCADA 회선현황 「회선현황」 G7 「북춘천(OFD:9)-춘천HP(OFD:20)-화천HP(OFD:1)-화천(OFD:37)-철원」; '
       + 'OFD 선번장 「화천」 D5(판 1 No.1) 「RTU 예비회선용 광스위치 북춘천-철원(화천수력-화천 중계)」, '
@@ -128,8 +141,8 @@ export function buildJikhalPayload(input: JikhalInput): CommitPayload {
     lines.push({
       id: lineId, cableTypeId: opgw, coreCount: aPlates[aIdx]!.cores,
       name: aLine?.line ?? bLine?.line ?? null, lengthKm: aLine?.lengthKm ?? bLine?.lengthKm ?? null,
-      a: { substationId: substationIds[seg.a], equipmentId: ofdOf.get(seg.a)!, panel: aIdx + 1 },
-      b: { substationId: substationIds[seg.b], equipmentId: ofdOf.get(seg.b)!, panel: bIdx + 1 },
+      a: { substationId: substationIds[seg.a], equipmentId: ofdOf.get(seg.a)!, panel: aIdx + 1, startNo: plateStartNo(seg.a, seg.aSlot) },
+      b: { substationId: substationIds[seg.b], equipmentId: ofdOf.get(seg.b)!, panel: bIdx + 1, startNo: plateStartNo(seg.b, seg.bSlot) },
     });
     measurements.push(...measurementsOf(aLine, lineId, 'A', newId), ...measurementsOf(bLine, lineId, 'B', newId));
     cores.push(...coreUpdatesOf(seg, lineId));

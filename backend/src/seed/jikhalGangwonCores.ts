@@ -598,21 +598,21 @@ export const PLATE_CORES: Record<string, Record<number, PlateCore[]>> = {
       { no: 20, status: 'ok', role: null, purpose: '차세대KepCIT · 차세대KepCIT 강원#1링(화천B/O-본부)', note: null },
     ],
     2: [
-      { no: 1, status: 'ok', role: null, purpose: '소형광 · 운천계 OMS WEST(Tx) 주', note: null },
-      { no: 2, status: 'ok', role: null, purpose: '소형광 · 운천계 OMS WEST(Rx) 주', note: null },
-      { no: 3, status: 'ok', role: null, purpose: '소형광 · 운천계 OMS EAST(Tx) 주', note: null },
-      { no: 4, status: 'ok', role: null, purpose: '소형광 · 운천계 OMS EAST(Rx) 주', note: null },
+      { no: 1, status: 'ok', role: 'main', purpose: '소형광 · 운천계 OMS WEST(Tx) 주', note: null },
+      { no: 2, status: 'ok', role: 'main', purpose: '소형광 · 운천계 OMS WEST(Rx) 주', note: null },
+      { no: 3, status: 'ok', role: 'main', purpose: '소형광 · 운천계 OMS EAST(Tx) 주', note: null },
+      { no: 4, status: 'ok', role: 'main', purpose: '소형광 · 운천계 OMS EAST(Rx) 주', note: null },
       { no: 5, status: 'ok', role: null, purpose: '차세대KepCIT · 차세대KepCIT 강원#1링(신가평-철원B/O)', note: null },
       { no: 6, status: 'ok', role: null, purpose: '차세대KepCIT · 차세대KepCIT 강원#1링(신가평-철원B/O)', note: null },
-      { no: 7, status: 'ok', role: null, purpose: '소형광 · 운천계 OMS WEST(Tx) 예', note: null },
-      { no: 8, status: 'ok', role: null, purpose: '소형광 · 운천계 OMS WEST(Rx) 예', note: null },
+      { no: 7, status: 'ok', role: 'backup', purpose: '소형광 · 운천계 OMS WEST(Tx) 예', note: null },
+      { no: 8, status: 'ok', role: 'backup', purpose: '소형광 · 운천계 OMS WEST(Rx) 예', note: null },
       { no: 10, status: 'ok', role: null, purpose: '기타 · 인터넷 망', note: null },
       { no: 11, status: 'ok', role: null, purpose: null, note: '측정불가(운천 연장)' },
       { no: 12, status: 'ok', role: null, purpose: null, note: '측정불가(운천 연장)' },
       { no: 15, status: 'ok', role: null, purpose: '차세대KepCIT · 차세대KepCIT 경기북부링 패치', note: null },
       { no: 16, status: 'ok', role: null, purpose: '차세대KepCIT · 차세대KepCIT 경기북부링 패치', note: null },
-      { no: 17, status: 'ok', role: null, purpose: '소형광 · 운천계 OMS EAST(Tx) 예', note: null },
-      { no: 18, status: 'ok', role: null, purpose: '소형광 · 운천계 OMS EAST(Rx) 예', note: null },
+      { no: 17, status: 'ok', role: 'backup', purpose: '소형광 · 운천계 OMS EAST(Tx) 예', note: null },
+      { no: 18, status: 'ok', role: 'backup', purpose: '소형광 · 운천계 OMS EAST(Rx) 예', note: null },
       { no: 23, status: 'ok', role: null, purpose: null, note: '측정불가(운천 연장)' },
       { no: 24, status: 'ok', role: null, purpose: null, note: '측정불가(운천 연장)' },
     ],
@@ -802,4 +802,23 @@ export const PLATE_CORES: Record<string, Record<number, PlateCore[]>> = {
       { no: 12, status: 'ok', role: 'backup', purpose: '기타 · I-MUX 북춘천S/S-춘천H/P 예비(Rx)', note: null },
     ],
   },
+};
+
+/**
+ * 판의 시작 번호(어댑터 번호) — 그 판 첫 행의 선번장 No.. 48심 블록의 둘째 판은 25, 24심 블록 안 12심 둘째 판은 13.
+ * 키: 국 → 판 번호. 시드가 광선로 끝의 `startNo` 로 싣는다(어댑터 = startNo + 코어 − 1).
+ */
+export const PLATE_START_NO: Record<string, Record<number, number>> = {
+  guchuncheon: { 1: 1, 2: 25, 3: 1, 4: 1, 5: 1, 6: 1, 7: 25, 8: 1, 9: 1, 10: 1, 11: 1 },
+  sinchuncheon: { 1: 1, 2: 1 },
+  bukchuncheon: { 1: 1, 2: 1, 3: 1 },
+  namchuncheon: { 1: 1, 2: 25, 3: 1, 4: 1 },
+  seohongcheon: { 1: 1, 2: 13 },
+  yeolbyeonghap: { 1: 1, 2: 1, 3: 13, 4: 1, 5: 1 },
+  inje: { 1: 1, 2: 25, 3: 1, 4: 25, 5: 1, 6: 1, 7: 1 },
+  yanggu: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 },
+  cheorwon: { 1: 1, 2: 1, 3: 1, 4: 1 },
+  hwacheon: { 1: 1, 2: 1, 3: 1, 4: 1 },
+  hwacheonhp: { 1: 1, 2: 1, 3: 1 },
+  chuncheonhp: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 },
 };
