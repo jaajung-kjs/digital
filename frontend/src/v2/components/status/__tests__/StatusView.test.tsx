@@ -104,6 +104,9 @@ describe('StatusView 도구줄·표 정리', () => {
     expect(screen.getAllByText('UPS#1')).toHaveLength(1);
     const tr = screen.getByText('UPS#1').closest('tr')!;
     expect(tr).toHaveTextContent('UPS · UPS반');
+    /* 랙 행이기도 하다 — 개수 칸은 1(빈칸이면 랙 행 중 그 줄만 수가 없다). 첫 열 머리는 「랙 · 설비」. */
+    expect(tr.querySelectorAll('td')[1]).toHaveTextContent('1');
+    expect(screen.getByRole('columnheader', { name: /랙 · 설비/ })).toBeInTheDocument();
     fireEvent.click(tr);
     expect(onSelect).toHaveBeenCalledWith('e3');
   });

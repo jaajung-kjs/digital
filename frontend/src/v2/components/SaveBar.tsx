@@ -8,8 +8,8 @@ import { DesignDialog } from './design/DesignDialog';
 interface SaveBarProps {
   onCommit: () => void;
   isCommitting: boolean;
-  /** 변경이 닿은 국 이름 — 「북춘천S/S·춘천H/P」. */
-  substationNames: string[];
+  /** 변경이 닿은 국과 그 국의 변경 수 — 「(구)춘천S/S 1 · 북춘천S/S 1」. */
+  stations: { name: string; count: number }[];
   /** 저장을 막는 첫 흠 문구 — 있으면 저장 단추가 잠기고 문구가 뜬다. */
   issue: string | null;
 }
@@ -32,7 +32,7 @@ const MOD = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator
  * 바가 서는 조건은 「고칠 것이 있거나, **되돌아갈 수 있을 때**」다. 예전에는 고친 것이 없으면
  * 무조건 사라졌는데, 그러면 ⌘Z 로 전부 물린 순간 바가 사라져 **다시 실행할 길이 없어졌다**.
  */
-export function SaveBar({ onCommit, isCommitting, substationNames, issue }: SaveBarProps) {
+export function SaveBar({ onCommit, isCommitting, stations, issue }: SaveBarProps) {
   const { confirm, confirmDialog } = useConfirm();
   /* 설계서는 열 때만 세운다 — 닫혀 있는 동안 카탈로그·조직을 읽을 까닭이 없다. */
   const [designOpen, setDesignOpen] = useState(false);
@@ -74,14 +74,14 @@ export function SaveBar({ onCommit, isCommitting, substationNames, issue }: Save
   if (dirty === 0 && !canRedo) return null;
 
   async function handleRevert() {
-    if (!(await confirm({ title: '변경 취소', target: null, message: `저장하지 않은 변경 ${dirty}건이 모두 취소됩니다.`, confirmLabel: '변경 취소', danger: true }))) return;
+    if (!(await confirm({ title: '변경 취소', target: null, message: `저장하지 않은 변경 ${dirty}건이 모두 취소됩니다.`, confirmLabel: '변경 취소', cancelLabel: '계속 편집', danger: true }))) return;
     workingCopyStore.getState().revert();
   }
 
   return (
     <>
       <span className="shrink-0 text-xs text-content-muted">
-        변경 {dirty}건{substationNames.length > 0 && ` · ${substationNames.join('·')}`}
+        변경 {dirty}건{stations.length > 0 && ` · ${stations.map((s) => `${s.name} ${s.count}`).join(' · ')}`}
       </span>
       {issue && <span className="min-w-0 truncate text-xs text-danger" role="alert">{issue}</span>}
       <IconButton

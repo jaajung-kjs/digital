@@ -55,6 +55,7 @@ describe('공사 단위 워킹카피', () => {
     expect(st.loaded).toEqual(['S1', 'S2']);
     expect(st.dirtyCount()).toBe(2);
     expect(st.touchedSubstations().sort()).toEqual(['S1', 'S2']);
+    expect(st.dirtyBySubstation()).toEqual({ S1: 1, S2: 1 });
     expect(bySubstation(effectiveRows(st, 'racks'), 'S2').map((r) => r.name)).toEqual(['새 랙']);
   });
 

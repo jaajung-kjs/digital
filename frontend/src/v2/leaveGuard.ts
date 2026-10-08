@@ -18,8 +18,10 @@
 export const unsavedPrompt = (dirty: number) => ({
   title: '저장하지 않은 변경',
   target: null,
-  message: `변경 ${dirty}건이 취소됩니다. 이동하시겠습니까?`,
-  confirmLabel: '이동',
+  message: `저장하지 않은 변경 ${dirty}건이 모두 취소됩니다. 이동하시겠습니까?`,
+  confirmLabel: '변경 취소 후 이동',
+  /* 「취소」는 쓰지 않는다 — 옆 문장의 「취소됩니다」와 겹쳐 어느 쪽이 버리는 단추인지 흐려진다. */
+  cancelLabel: '계속 편집',
   danger: true,
 });
 

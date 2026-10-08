@@ -5,11 +5,13 @@ import type { StatusRow } from '../../components/status/statusRows';
  * 오른쪽 상세 자리 — **늘 서 있다**(CONVENTIONS §1.7-e). 고른 설비가 없어도 같은 폭의 카드가 남는다.
  * 상세 편집은 다음 단계가 이 자리를 채운다 — 지금은 이름·품목·랙만 보인다.
  */
-export function EquipmentPlaceholder({ row }: { row: StatusRow | null }) {
+export function EquipmentPlaceholder({ row, plan = false }: { row: StatusRow | null; /** 평면도 — 거기서 고르는 것은 랙이다. */ plan?: boolean }) {
   if (!row) {
     return (
       <ViewCard>
-        <EmptyState title="선택된 설비가 없습니다" description="표 또는 도면에서 설비를 선택하세요." />
+        {plan
+          ? <EmptyState title="선택된 랙이 없습니다" description="도면에서 랙을 선택하세요." />
+          : <EmptyState title="선택된 설비가 없습니다" description="표에서 설비나 랙을 선택하세요." />}
       </ViewCard>
     );
   }

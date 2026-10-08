@@ -89,7 +89,7 @@ export function OpticalMapView({ nodeId, onOpenStation, onOpenLine }: OpticalMap
   const status = (
     <StatusBar>
       {/* 줄지 않는다 — 범례가 3개로 늘면 1280 에서 「광선/로」처럼 세로로 쪼개졌다(범례만 잘린다). */}
-      <StatusItem label="국" className={KEEP}>{model.stations.length}</StatusItem>
+      <StatusItem label="변전소" className={KEEP}>{model.stations.length}</StatusItem>
       <StatusItem label="광선로" className={KEEP}>{model.lines.length}</StatusItem>
       <StatusItem label="회선" className={KEEP}>{model.bundles.length}</StatusItem>
       {/* 범례는 좁으면 잘린다(글자를 세로로 쪼개지 않는다) — 수·확대 단추가 먼저다. */}

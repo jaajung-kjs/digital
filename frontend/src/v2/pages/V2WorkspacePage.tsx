@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { compareName } from '@twin/core';
 import { useNavigate } from 'react-router-dom';
 import { BusyOverlay, Button, CollapsibleRail, EMPTY, EmptyState, ErrorStrip, isCancelKey, PageHeader, PageState, Tabs, useTabs, type TabItem } from '../../components/ui';
 import { ConflictDialog } from '../components/ConflictDialog';
@@ -86,7 +87,9 @@ export default function V2WorkspacePage() {
   const { eqId, rackId } = useLiveSelection(route, substationId, loadedHere);
 
   const touched = useMemo(
-    () => workingCopyStore.getState().touchedSubstations().map((id) => substationName({ saved, overlays }, id) ?? id),
+    () => Object.entries(workingCopyStore.getState().dirtyBySubstation())
+      .map(([id, count]) => ({ name: substationName({ saved, overlays }, id) ?? id, count }))
+      .sort((a, b) => compareName(a.name, b.name)),
     // 변경안이 바뀔 때마다 다시 센다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [saved, overlays],
@@ -145,7 +148,7 @@ export default function V2WorkspacePage() {
                 title={selected.name}
                 path={orgPath.length > 1 ? <span data-testid="v2-selected">{orgPath.slice(0, -1).map((n) => n.name).join(' › ')}</span> : undefined}
                 /* 조회 사용자에게는 저장 손잡이가 없다 — 고칠 길이 없으니 저장할 것도 없다(`useCanEdit`). */
-                actions={canEdit && <SaveBar onCommit={commit.commit} isCommitting={commit.isCommitting} substationNames={touched} issue={commit.issues[0]?.message ?? null} />}
+                actions={canEdit && <SaveBar onCommit={commit.commit} isCommitting={commit.isCommitting} stations={touched} issue={commit.issues[0]?.message ?? null} />}
               />
               <div className="flex h-8 shrink-0 items-end bg-surface-2 px-4">
                 <Tabs {...viewTabs.list} items={substationId ? VIEW_TABS : NODE_VIEW_TABS} onChange={route.setView} className="w-full" />
@@ -222,7 +225,7 @@ export default function V2WorkspacePage() {
                             onAddEquipment={(rackId) => setAdding({ kind: 'equipment', rackId })}
                           />
                         ) : (
-                          <EquipmentPlaceholder row={null} />
+                          <EquipmentPlaceholder row={null} plan={view === '평면도'} />
                         )}
                       </aside>
                     )}

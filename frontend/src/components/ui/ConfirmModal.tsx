@@ -20,6 +20,8 @@ interface ConfirmModalProps {
   message: React.ReactNode;
   /** 확인 버튼 문구. 삭제면 '삭제' 처럼 동사를 쓴다 — '확인' 보다 결과가 분명하다. */
   confirmLabel?: string;
+  /** 물리는 단추 문구 — 기본 「취소」. 확인 단추가 이미 「변경 취소」처럼 「취소」를 품으면 겹치지 않게 「계속 편집」 등으로 준다. */
+  cancelLabel?: string;
   /** 파괴적 동작이면 true — 확인 버튼이 위험 색을 쓴다. */
   danger?: boolean;
   onConfirm: () => void;
@@ -46,6 +48,7 @@ export function ConfirmModal({
   target,
   message,
   confirmLabel = '확인',
+  cancelLabel = '취소',
   danger,
   onConfirm,
   onClose,
@@ -63,7 +66,7 @@ export function ConfirmModal({
       footer={
         <>
           <Button variant="secondary" size="sm" autoFocus={danger} onClick={onClose}>
-            취소
+            {cancelLabel}
           </Button>
           {/* 닫는 책임은 호출부에 있다 — 여기서 onClose 를 함께 부르면
               useConfirm 처럼 확인/취소를 한 경로로 정리하는 쪽에서 이중 호출이 된다. */}

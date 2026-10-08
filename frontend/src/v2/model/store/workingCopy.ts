@@ -208,8 +208,10 @@ export interface WorkingCopyState {
   updateCircuit: (equipmentId: string, no: number, patch: Partial<Circuit>) => void;
   updateCore: (lineId: string, no: number, patch: Partial<Core>) => void;
   dirtyCount: () => number;
-  /** 변경이 닿은 국 — 저장 바가 이름을 보여 준다. */
+  /** 변경이 닿은 국. */
   touchedSubstations: () => string[];
+  /** 국마다 변경 수 — 저장 바가 「(구)춘천 1 · 북춘천 1」로 보인다. 두 국에 닿은 변경(광선로)은 두 국 모두에 센다. */
+  dirtyBySubstation: () => Record<string, number>;
 }
 
 /**
@@ -342,27 +344,40 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
           + live(Object.keys(o.circuits), eqCount) + live(Object.keys(o.cores), lineCount);
       },
 
-      touchedSubstations: () => {
+      touchedSubstations: () => Object.keys(get().dirtyBySubstation()),
+
+      /* 변경 한 건 = 행 하나의 만들기·고치기·지우기(차단기·코어는 키 하나). 그 행이 닿은 국마다 1 — 광선로는 양 끝 국 모두. */
+      dirtyBySubstation: () => {
         const { overlays: o, saved } = get();
-        const subs = new Set<string>();
+        const out: Record<string, number> = {};
+        const bump = (ids: Iterable<string | undefined>) => { for (const id of new Set(ids)) if (id) out[id] = (out[id] ?? 0) + 1; };
         const subOfEquipment = (id: string) =>
           (o.equipment.creates[id] ?? saved.equipment.find((e) => e.id === id))?.substationId;
+        const lineSubs = (lineId: string) => {
+          const l = o.fiberLines.creates[lineId] ?? saved.fiberLines.find((x) => x.id === lineId);
+          return l ? [l.aSubstationId, l.bSubstationId] : [];
+        };
         const rowsOf = <K extends RowKind>(k: K): RowOf[K][] => [
           ...Object.values(o[k].creates),
           ...(saved[k] as RowOf[K][]).filter((r) => (r as { id: string }).id in o[k].updates || o[k].deletes.includes((r as { id: string }).id)),
         ] as RowOf[K][];
-        for (const k of ['floors', 'racks', 'equipment', 'links'] as const) for (const r of rowsOf(k)) subs.add(r.substationId);
-        for (const r of saved.farLinks) if (o.links.deletes.includes(r.id)) subs.add(r.substationId);
-        for (const l of rowsOf('fiberLines')) { subs.add(l.aSubstationId); subs.add(l.bSubstationId); }
-        for (const k of ['maintenance', 'inspections', 'photos'] as const) for (const r of rowsOf(k)) { const s = subOfEquipment(r.equipmentId); if (s) subs.add(s); }
-        for (const key of Object.keys(o.circuits)) { const s = subOfEquipment(key.split(':')[1]!); if (s) subs.add(s); }
-        const lineSubs = (lineId: string) => {
-          const l = o.fiberLines.creates[lineId] ?? saved.fiberLines.find((x) => x.id === lineId);
-          if (l) { subs.add(l.aSubstationId); subs.add(l.bSubstationId); }
-        };
-        for (const key of Object.keys(o.cores)) lineSubs(key.split(':')[1]!);
-        for (const m of rowsOf('coreMeasurements')) lineSubs(m.lineId);
-        return [...subs];
+        for (const k of ['floors', 'racks', 'equipment', 'links'] as const) for (const r of rowsOf(k)) bump([r.substationId]);
+        for (const r of saved.farLinks) if (o.links.deletes.includes(r.id) && !saved.links.some((x) => x.id === r.id)) bump([r.substationId]);
+        for (const l of rowsOf('fiberLines')) bump([l.aSubstationId, l.bSubstationId]);
+        for (const k of ['maintenance', 'inspections', 'photos'] as const) for (const r of rowsOf(k)) bump([subOfEquipment(r.equipmentId)]);
+        for (const m of rowsOf('coreMeasurements')) bump(lineSubs(m.lineId));
+        /* 차단기·코어 값 — 저장에 실릴 것만(`dirtyCount` 와 같은 거르기). */
+        const eqCount = new Map(effectiveRows({ saved, overlays: o }, 'equipment').map((e) => [e.id, e.circuitCount]));
+        const lineCount = new Map(effectiveRows({ saved, overlays: o }, 'fiberLines').map((l) => [l.id, l.coreCount]));
+        for (const key of Object.keys(o.circuits)) {
+          const [, id, no] = key.split(':');
+          if (Number(no) <= (eqCount.get(id!) ?? 0)) bump([subOfEquipment(id!)]);
+        }
+        for (const key of Object.keys(o.cores)) {
+          const [, id, no] = key.split(':');
+          if (Number(no) <= (lineCount.get(id!) ?? 0)) bump(lineSubs(id!));
+        }
+        return out;
       },
     }),
     { partialize: (s) => ({ overlays: s.overlays }), equality: shallow, limit: 50 },

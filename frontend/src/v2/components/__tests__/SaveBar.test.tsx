@@ -10,26 +10,26 @@ const dirtyOne = () =>
 describe('SaveBar', () => {
   it('흠이 있으면 저장 단추가 잠기고 문구가 뜬다', () => {
     dirtyOne();
-    render(<SaveBar onCommit={() => {}} isCommitting={false} substationNames={[]} issue="이름이 겹칩니다" />);
+    render(<SaveBar onCommit={() => {}} isCommitting={false} stations={[]} issue="이름이 겹칩니다" />);
     expect(screen.getByText('이름이 겹칩니다')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
   });
   it('변경이 있으면 저장 옆에 「설계서」 단추가 선다', () => {
     dirtyOne();
-    render(<SaveBar onCommit={() => {}} isCommitting={false} substationNames={[]} issue={null} />);
+    render(<SaveBar onCommit={() => {}} isCommitting={false} stations={[]} issue={null} />);
     const buttons = screen.getAllByRole('button').map((b) => b.textContent);
     expect(buttons.slice(-2)).toEqual(['설계서', '저장']);
   });
-  it('변경이 닿은 국 이름을 보인다', () => {
+  it('변경이 닿은 국 이름과 국마다의 변경 수를 보인다', () => {
     dirtyOne();
-    render(<SaveBar onCommit={() => {}} isCommitting={false} substationNames={['북춘천S/S', '춘천H/P']} issue={null} />);
-    expect(screen.getByText(/북춘천S\/S·춘천H\/P/)).toBeInTheDocument();
+    render(<SaveBar onCommit={() => {}} isCommitting={false} stations={[{ name: '북춘천S/S', count: 2 }, { name: '춘천H/P', count: 1 }]} issue={null} />);
+    expect(screen.getByText(/북춘천S\/S 2 · 춘천H\/P 1/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '저장' })).toBeEnabled();
   });
   it('저장 중에는 되돌리기·실행 취소가 잠기고 ⌘Z 도 듣지 않는다', () => {
     dirtyOne();
     workingCopyStore.getState().update('racks', 'r1', { name: 'R2' } as never);
-    render(<SaveBar onCommit={() => {}} isCommitting substationNames={[]} issue={null} />);
+    render(<SaveBar onCommit={() => {}} isCommitting stations={[]} issue={null} />);
     expect(screen.getByRole('button', { name: '실행 취소 — 저장 중입니다' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '변경 취소' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '저장 중…' })).toBeDisabled();

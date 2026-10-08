@@ -172,7 +172,7 @@ export function PathPanel({ view, model, query, onQuery, picked, onBundle, onBun
           badge={model.bundles.length}
           actions={(
             <>
-              <TableSearch value={query} onChange={onQuery} placeholder="설비 · 국 검색" aria-label="회선 검색" shown={shown.length} total={model.bundles.length} className="w-28" />
+              <TableSearch value={query} onChange={onQuery} placeholder="설비 · 변전소 검색" aria-label="회선 검색" shown={shown.length} total={model.bundles.length} className="w-28" />
               {quick.map((q) => (
                 <Button key={q.duty} variant={q.all ? 'secondary' : 'ghost'} size="xs" aria-pressed={q.all} onClick={() => onBundles(q.ids, !q.all)}>
                   {coreRoleCircuitLabel(q.duty)} 전체

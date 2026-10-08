@@ -8,6 +8,8 @@ interface ConfirmOptions {
   message: React.ReactNode;
   /** 확인 버튼 문구. 삭제면 '삭제' 처럼 동사를 쓴다 — '확인' 보다 결과가 분명하다. */
   confirmLabel?: string;
+  /** 물리는 단추 문구 — 기본 「취소」(`ConfirmModal`). */
+  cancelLabel?: string;
   danger?: boolean;
 }
 
@@ -50,6 +52,7 @@ export function useConfirm() {
       target={options.target}
       message={options.message}
       confirmLabel={options.confirmLabel}
+      cancelLabel={options.cancelLabel}
       danger={options.danger}
       onConfirm={() => settle(true)}
       onClose={() => settle(false)}

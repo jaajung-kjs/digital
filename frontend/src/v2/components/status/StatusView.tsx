@@ -134,7 +134,8 @@ export function StatusView({
     return where.size === 1 && items[0] ? rackCell(items[0]) : `랙 ${where.size}개`;
   };
 
-  const equipmentRow = (r: StatusRow, indent: string, fourth: string, key: string = r.id) => (
+  /** 설비 한 줄 — `count` 를 주면 개수 칸에 선다(일체형 랙 한 줄은 랙 행이기도 하므로 1). */
+  const equipmentRow = (r: StatusRow, indent: string, fourth: string, key: string = r.id, count?: number) => (
     <tr
       key={key}
       {...selectableRow(selectedId, r.id, onSelect)}
@@ -155,7 +156,7 @@ export function StatusView({
           )}
         </span>
       </Td>
-      <Td />
+      <Td align="right" className="text-content">{count}</Td>
       {has('status') && <Td>{r.status !== OK_STATUS && <StatusDot status={statusTone(r.status)}>{statusLabel(r.status)}</StatusDot>}</Td>}
       <Td className="truncate text-content-muted">{fourth}</Td>
       {has('model') && <Td className="truncate text-content-muted">{r.model ?? EMPTY}</Td>}
@@ -213,7 +214,7 @@ export function StatusView({
           <tr className="sticky top-0 z-sticky">
             <Th>
               <span className="flex items-center gap-2">
-                항목
+                {view === '랙별' ? '랙 · 설비' : '분야 · 품목'}
                 {view === '품목별' && summary.groups.length > 0 && (
                   <button
                     type="button"
@@ -302,7 +303,7 @@ export function StatusView({
             /* 일체형 — 랙 안에 설비가 하나뿐이고 이름이 랙과 같으면 랙 행 하나로 그린다. */
             const only = inRack[0];
             if (only && inRack.length === 1 && perRack.get(rack.id) === 1 && only.name === rack.name) {
-              return equipmentRow(only, '', [only.typeName, rack.typeName].filter(Boolean).join(' · '), `rack:${rack.id}`);
+              return equipmentRow(only, '', [only.typeName, rack.typeName].filter(Boolean).join(' · '), `rack:${rack.id}`, 1);
             }
             return (
             <Fragment key={rack.id}>
