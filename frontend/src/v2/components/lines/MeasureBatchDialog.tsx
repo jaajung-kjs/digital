@@ -5,6 +5,7 @@ import {
 } from '../../../components/ui';
 import { useWorkingCopy, workingCopyStore } from '../../model/store/workingCopy';
 import { blockWhere } from './sheetSelectors';
+import { MeasureHeadRows } from './MeasureHeadRows';
 import { newId } from '../../newId';
 import { coreRuns } from '../../model/store/deleteActions';
 import {
@@ -89,7 +90,7 @@ export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) 
         </>
       }
     >
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <DetailCard>
           <DetailRow label="측정일" required issue={dateBad}>
             <DateInput size="sm" aria-label="측정일" invalid={!!dateBad} value={measuredOn} onChange={(e) => setMeasuredOn(e.currentTarget.value)} />
@@ -101,12 +102,10 @@ export function MeasureBatchDialog({ block, onClose }: MeasureBatchDialogProps) 
         <div className="max-h-[50vh] overflow-y-auto">
           <TableCard widths={WIDTHS}>
             <thead className="sticky top-0 z-sticky">
-              <tr>
-                <Th align="right">코어</Th>
-                <Th align="right">어댑터</Th>
-                {MEASURE_COLS.map((c) => <Th key={c.key} align="right" unit={c.unit} title={c.title}>{c.name}</Th>)}
-                <Th>최근 측정</Th>
-              </tr>
+              <MeasureHeadRows
+                lead={<><Th rowSpan={2} align="right">코어</Th><Th rowSpan={2} align="right">어댑터</Th></>}
+                trail={<Th rowSpan={2}>최근 측정</Th>}
+              />
             </thead>
             <tbody>
               {block.rows.map((r, ri) => {

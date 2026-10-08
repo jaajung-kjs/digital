@@ -1,20 +1,39 @@
+import { useMemo } from 'react';
 import { Route, Trash2 } from 'lucide-react';
 import { CORE_ROLES, CORE_STATUSES, DEFAULT_CORE_STATUS, type CoreRole, type CoreStatus, type LinkEndRef, type SheetBlock, type SheetRow } from '@twin/core';
 import {
   Button, EMPTY, HOVER_REVEAL, IconButton, StatusDot, TABLE_ROW, TableCard, TableGroupHead, TableGroupHeadButton, Td, Th, cn, formatDate,
+  type TableColumn,
 } from '../../../components/ui';
 import type { Core } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
 import { EditOnly } from '../../useCanEdit';
 
 /**
- * 코어 · 어댑터 · 자국 연결 · 대국 연결 · 상태 · 주/예비 · 용도 · 비고 · 1310 · 1550 · 거리 · 측정일.
- * 내용 폭이 정해진 열은 px, 이름 열(자국·대국·용도·비고)은 남은 폭을 30 : 23 : 27 : 20 으로 나눈다.
- * 비고는 단선 코어의 사정(「3번 단선 — 접속함 확인 요망」)을 적는 자리라 가장 좁으면 안 된다 — 폭은 대국(상대 끝,
- * 참고로 읽는 칸)에서 덜어 온다. 거리 칸은 1310 으로 물러선 값에 「(1310)」이 붙어도 들게 둔다.
+ * 코어 · 어댑터 · 자국 접속 · 대국 접속 · 상태 · 주/예비 · 회선 내역 · 비고 · 1310 손실 · 1550 손실 · 거리 · 측정일.
+ * 내용 폭이 정해진 열은 px(머리글 「1310 손실(dB)」이 다 드는 폭), 이름 열(자국·대국·회선 내역·비고)은 남은 폭을 나눈다.
+ *
+ * 판이 좁으면(§1.7-e, 이 표는 경계가 넓다 `[1200, 700]`) 측정 넷이 **「최근 측정」** 한 열(「-6.44 / -4.42 dB · 18.7 km」)로
+ * 병합되고, 더 좁으면 그마저 숨고 어댑터·주/예비·비고도 숨는다 — 숨은 값은 코어 번호 칸 title 에 남고, 코어 번호를 누르면
+ * 측정 기록 창이 열린다. 블록 안에서 측정이 하나도 없으면 측정 열은 서지 않는다.
  */
-const WIDTHS = ['40px', '52px', 30, 23, '88px', '64px', 27, 20, '60px', '60px', '100px', '96px'] as const;
-const COLS = WIDTHS.length;
+const COLUMNS: readonly TableColumn[] = [
+  { key: 'no', width: '44px' },
+  { key: 'jack', width: '60px', priority: 3 },
+  { key: 'near', width: 33 },
+  { key: 'far', width: 22 },
+  { key: 'status', width: '88px' },
+  { key: 'role', width: '72px', priority: 3 },
+  { key: 'purpose', width: 28 },
+  { key: 'note', width: 17, priority: 3 },
+  { key: 'loss1310', width: '104px', priority: 2 },
+  { key: 'loss1550', width: '104px', priority: 2 },
+  { key: 'dist', width: '96px', priority: 2 },
+  { key: 'measuredOn', width: '96px', priority: 2 },
+  { key: 'latest', width: '164px', merged: true, priority: 3 },
+];
+const MEASURE_KEYS = new Set(['loss1310', 'loss1550', 'dist', 'measuredOn', 'latest']);
+const BREAKPOINTS = [1200, 700] as const;
 /**
  * 고정 머리 칸의 바닥선은 **테두리가 아니라 그림자**다 — 겹친 테두리(collapse)는 표가 제자리에 그리므로
  * sticky 머리를 따라오지 않고, 그 반 픽셀 틈으로 아래를 지나가는 줄의 글자 윗동이 비쳤다.
@@ -23,6 +42,8 @@ const HEAD = 'border-b-0 shadow-[inset_0_-1px_0_rgb(var(--border-2-rgb))]';
 
 const statusLabel = (v: string) => CORE_STATUSES.find((c) => c.value === v)?.label ?? v;
 const num = (v: number | null) => (v == null ? EMPTY : String(v));
+/** 수 칸 — 빈 값 「—」는 늘 흐리게(같은 표의 다른 빈 칸과 같은 색). */
+const numCell = (v: number | null) => (v == null ? <span className="text-content-faint">{EMPTY}</span> : String(v));
 
 export interface BlockHead {
   /** 단자 · 슬롯 · 어댑터 범위 — 단자가 비면 「단자 미지정」(블록의 이름, aria-label). */
@@ -83,19 +104,27 @@ export function LineBlock({
     />
   );
 
+  /* 블록 안에 측정이 하나도 없으면 측정 열은 서지 않는다(읽기 전용 열 — 채우는 곳은 측정 입력 창).
+     어댑터가 코어 번호와 모두 같으면(1-1, 2-2 …) 어댑터 열도 서지 않는다 — 같은 수를 두 번 읽힐 뿐이다. */
+  const noMeasure = block.rows.every((r) => r.latest == null);
+  const sameJack = block.rows.every((r) => String(r.jack) === String(r.no));
+  const columns = useMemo(
+    () => COLUMNS.map((c) => ((noMeasure && MEASURE_KEYS.has(c.key)) || (sameJack && c.key === 'jack') ? { ...c, hidden: true } : c)),
+    [noMeasure, sameJack],
+  );
+
   return (
     <section
       data-testid="sheet-block" data-line={block.lineId} data-side={block.side}
       aria-label={head.title}
       aria-current={focused ? 'true' : undefined}
-      /* 표가 우선이다 — 상세 패널이 서서 판이 좁아져도 열을 짓누르지 않고(수가 옆 칸으로 넘친다) 판이
-         가로로 구른다. 1280 에서 패널이 닫혀 있으면 이 폭이 판 안에 든다. */
-      className={cn('min-w-[940px] scroll-mt-4', focused && 'outline outline-2 outline-primary')}
+      className={cn('scroll-mt-4', focused && 'outline outline-2 outline-primary')}
     >
-      <TableCard widths={WIDTHS}>
+      <TableCard columns={columns} breakpoints={BREAKPOINTS}>
+        {({ shows }) => (<>
         <thead className="sticky top-0 z-sticky bg-surface-2">
           <TableGroupHead
-            colSpan={COLS} className={HEAD} data-testid="sheet-block-head"
+            className={HEAD} data-testid="sheet-block-head"
             title={(
               <>
                 {/* 단자 이름은 **그 설비로 가는 길**이다 — 슬롯에서 선번장으로 왔으면 여기로 되돌아간다. 나머지(슬롯·어댑터)는 이 블록을 고른다. */}
@@ -124,19 +153,20 @@ export function LineBlock({
             )}
           />
           <tr>
-            <Th className={HEAD} align="right">코어</Th>
-            <Th className={HEAD} align="right">어댑터</Th>
-            <Th className={HEAD}>자국 접속</Th>
-            <Th className={HEAD}>대국 접속</Th>
-            <Th className={HEAD}>상태</Th>
-            <Th className={HEAD}>주/예비</Th>
-            <Th className={HEAD}>회선 내역</Th>
-            <Th className={HEAD}>비고</Th>
-            {/* 단위는 머리글 아랫줄(§1.7-g) — 수 칸 폭에 「1310 dB」가 한 줄로 들지 않는다. */}
-            <Th className={HEAD} align="right" unit="dB" title="1310 nm 손실">1310</Th>
-            <Th className={HEAD} align="right" unit="dB" title="1550 nm 손실">1550</Th>
-            <Th className={HEAD} align="right" unit="km" title="1550 거리(없으면 1310)">거리</Th>
-            <Th className={HEAD}>측정일</Th>
+            <Th col="no" className={HEAD} align="right">코어</Th>
+            <Th col="jack" className={HEAD} align="right">어댑터</Th>
+            <Th col="near" className={HEAD}>자국 접속</Th>
+            <Th col="far" className={HEAD}>대국 접속</Th>
+            <Th col="status" className={HEAD}>상태</Th>
+            <Th col="role" className={HEAD}>주/예비</Th>
+            <Th col="purpose" className={HEAD}>회선 내역</Th>
+            <Th col="note" className={HEAD}>비고</Th>
+            {/* 단위는 이름 뒤 괄호(§1.7-g) — 머리줄은 한 줄이다. */}
+            <Th col="loss1310" className={HEAD} align="right" unit="dB" title="1310 nm 손실">1310 손실</Th>
+            <Th col="loss1550" className={HEAD} align="right" unit="dB" title="1550 nm 손실">1550 손실</Th>
+            <Th col="dist" className={HEAD} align="right" unit="km" title="1550 거리(없으면 1310)">거리</Th>
+            <Th col="measuredOn" className={HEAD}>측정일</Th>
+            <Th col="latest" className={HEAD} align="right" title="최근 측정 — 1310 / 1550 손실 · 거리">최근 측정</Th>
           </tr>
         </thead>
         <tbody>
@@ -159,15 +189,27 @@ export function LineBlock({
             /* 거리는 1550 이 있으면 그것, 없으면 1310 — 물러선 값은 그렇다고 적는다(같은 칸에 다른 파장이 말없이 섞이지 않게). */
             const dist = m ? (m.dist1550 ?? m.dist1310) : null;
             const distFrom1310 = m != null && m.dist1550 == null && m.dist1310 != null;
+            /* 최근 측정 한 줄 — 「-6.44 / -4.42 dB · 18.7 km」(측정일은 title). */
+            const latest = m ? [
+              m.loss1310 != null || m.loss1550 != null ? `${num(m.loss1310)} / ${num(m.loss1550)} dB` : null,
+              dist != null ? `${dist} km${distFrom1310 ? '(1310)' : ''}` : null,
+            ].filter(Boolean).join(' · ') || EMPTY : EMPTY;
+            /* 지금 서지 않는 칸의 값 — 코어 번호 칸 title 에 모은다. */
+            const hidden = [
+              !shows('jack') && `어댑터 ${r.jack}`,
+              !shows('role') && r.role && `주/예비 ${CORE_ROLES.find((x) => x.value === r.role)?.label ?? r.role}`,
+              !shows('note') && r.note && `비고 ${r.note}`,
+              !shows('loss1310') && !shows('latest') && m && `최근 측정 ${latest}${m.measuredOn ? ` (${formatDate(m.measuredOn)})` : ''}`,
+            ].filter(Boolean).join(' · ');
             return (
               <tr key={r.no} data-testid={`sheet-row-${r.no}`} className={cn(TABLE_ROW, 'group', bad && 'text-content-faint')}>
-                <Td align="right" data-col="no">
-                  <button type="button" className="w-full rounded px-1 text-right hover:text-primary" aria-label={`코어 ${r.no} 측정 이력`} onClick={() => onOpenCore(r.no)}>{r.no}</button>
+                <Td align="right" col="no">
+                  <button type="button" className="w-full rounded px-1 text-right hover:text-primary" title={hidden || undefined} aria-label={`코어 ${r.no} 측정 이력`} onClick={() => onOpenCore(r.no)}>{r.no}</button>
                 </Td>
-                <Td align="right" data-col="jack" className="text-content-muted">{r.jack}</Td>
+                <Td align="right" col="jack" className="text-content-muted">{r.jack}</Td>
                 {/* 손잡이(지우개·잇기)는 **제 자리**를 갖는다 — 이름 위에 겹쳐 띄우면 이름 끝을 가리고, 손이 닿아야만
                     보이는 단추는 터치에서 영영 안 보인다(HOVER_REVEAL 이 호버 없는 기기에서는 늘 세운다). */}
-                <Td data-col="near">
+                <Td col="near">
                   <span className="flex min-w-0 items-center gap-1">
                     {near != null ? (
                       <>
@@ -199,13 +241,13 @@ export function LineBlock({
                 </Td>
                 {/* 중계경로는 「저 너머로 따라간다」 — 대국 접속 칸의 꼬리 자리(이 칸에는 제 손잡이가 없다). 자국 칸에 두면
                     그 자리만큼 자국 이름이 줄어든다. */}
-                <Td data-col="far">
+                <Td col="far">
                   <span className="flex min-w-0 items-center gap-1">
                     <span className={cn('min-w-0 flex-1 truncate', far == null ? 'text-content-faint' : !bad && 'text-content-muted')} title={far ?? undefined}>{far ?? EMPTY}</span>
                     {trace}
                   </span>
                 </Td>
-                <Td data-col="status">
+                <Td col="status">
                   <InlineEditCell
                     value={r.status} label="상태" choices={CORE_STATUSES} required
                     /* 점 칸은 한 줄 높이(h-5)에 가둔다 — 기준선에 맞추면 그 줄만 2px 부푼다(코어 줄은 눈으로 센다). */
@@ -213,7 +255,7 @@ export function LineBlock({
                     onCommit={(v) => { if (v !== r.status) onUpdateCore(r.no, { status: v as CoreStatus }); }}
                   />
                 </Td>
-                <Td data-col="role">
+                <Td col="role">
                   <InlineEditCell
                     value={r.role ?? ''} label="주/예비" choices={CORE_ROLES} muted={bad}
                     onCommit={(v) => { const next = (v || null) as CoreRole | null; if (next !== r.role) onUpdateCore(r.no, { role: next }); }}
@@ -223,23 +265,27 @@ export function LineBlock({
                   /* 상대 끝 용도는 참고일 뿐 — 칸의 title 에만 선다(고치는 것은 이 끝의 용도). */
                   const peer = r.peerPurpose ? `대국 회선 내역: ${r.peerPurpose}` : undefined;
                   return (
-                    <Td data-col="purpose" title={peer}>
+                    <Td col="purpose" title={peer}>
                       {text(r, purposeField, r.purpose, '회선 내역', bad, [r.purpose, peer].filter(Boolean).join('\n') || undefined)}
                     </Td>
                   );
                 })()}
-                <Td data-col="note">{text(r, noteField, r.note, '비고', bad)}</Td>
-                <Td align="right" data-col="loss1310">{num(m?.loss1310 ?? null)}</Td>
-                <Td align="right" data-col="loss1550">{num(m?.loss1550 ?? null)}</Td>
-                <Td align="right" data-col="dist" title={distFrom1310 ? '1550 측정값이 없어 1310 거리 표시' : undefined}>
-                  {num(dist)}
+                <Td col="note">{text(r, noteField, r.note, '비고', bad)}</Td>
+                <Td align="right" col="loss1310">{numCell(m?.loss1310 ?? null)}</Td>
+                <Td align="right" col="loss1550">{numCell(m?.loss1550 ?? null)}</Td>
+                <Td align="right" col="dist" title={distFrom1310 ? '1550 측정값이 없어 1310 거리 표시' : undefined}>
+                  {numCell(dist)}
                   {distFrom1310 && <span className="ml-1 text-xs text-content-faint">(1310)</span>}
                 </Td>
-                <Td data-col="measuredOn" className="whitespace-nowrap tabular-nums">{m?.measuredOn ? formatDate(m.measuredOn) : EMPTY}</Td>
+                <Td col="measuredOn" className="whitespace-nowrap tabular-nums">{m?.measuredOn ? formatDate(m.measuredOn) : <span className="text-content-faint">{EMPTY}</span>}</Td>
+                <Td align="right" col="latest" className="truncate" title={m?.measuredOn ? `${latest} (${formatDate(m.measuredOn)})` : undefined}>
+                  {m ? latest : <span className="text-content-faint">{EMPTY}</span>}
+                </Td>
               </tr>
             );
           })}
         </tbody>
+        </>)}
       </TableCard>
     </section>
   );

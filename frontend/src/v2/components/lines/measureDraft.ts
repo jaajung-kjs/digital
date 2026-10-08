@@ -1,11 +1,19 @@
 import type { CoreMeasurement } from '../../model/types';
 
-/** 측정 수 칸 넷 — 엑셀 선번장의 차례(1310 손실 · 1310 거리 · 1550 손실 · 1550 거리). */
+/**
+ * 측정 수 칸 넷 — 손실 둘 · 거리 둘(파장 1310 · 1550). 머리는 2단이다: 「손실(dB)」·「거리(km)」가 두 칸씩 덮고 그 아래 파장
+ * (`MeasureHeadRows`). 이름이 파장뿐이면 「1310」 두 열이 무엇으로 갈리는지 머리에서 읽히지 않는다.
+ */
 export const MEASURE_COLS = [
-  { key: 'loss1310', name: '1310', unit: 'dB', title: '1310 nm 손실' },
-  { key: 'dist1310', name: '1310', unit: 'km', title: '1310 nm 거리' },
-  { key: 'loss1550', name: '1550', unit: 'dB', title: '1550 nm 손실' },
-  { key: 'dist1550', name: '1550', unit: 'km', title: '1550 nm 거리' },
+  { key: 'loss1310', group: 'loss', name: '1310', title: '1310 nm 손실' },
+  { key: 'loss1550', group: 'loss', name: '1550', title: '1550 nm 손실' },
+  { key: 'dist1310', group: 'dist', name: '1310', title: '1310 nm 거리' },
+  { key: 'dist1550', group: 'dist', name: '1550', title: '1550 nm 거리' },
+] as const;
+/** 묶음 머리 — 단위는 이름 뒤 괄호(§1.7-g). */
+export const MEASURE_GROUPS = [
+  { key: 'loss', name: '손실', unit: 'dB' },
+  { key: 'dist', name: '거리', unit: 'km' },
 ] as const;
 export type MeasureKey = (typeof MEASURE_COLS)[number]['key'];
 export type MeasureDraft = Record<MeasureKey, string>;

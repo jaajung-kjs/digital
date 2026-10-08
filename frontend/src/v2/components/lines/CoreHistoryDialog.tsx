@@ -12,6 +12,7 @@ import { newId } from '../../newId';
 import { EditOnly, useCanEdit } from '../../useCanEdit';
 import { UNDO_HINT } from '../deleteConfirm';
 import { lineOf } from './sheetSelectors';
+import { MeasureHeadRows } from './MeasureHeadRows';
 import {
   BLANK_DRAFT, MEASURE_COLS, NOT_A_NUMBER, dateIssue, draftHasBad, isBadCell, isBlankDraft, measurementOf, today, type MeasureDraft,
 } from './measureDraft';
@@ -68,12 +69,10 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
   }
 
   const head = (
-    <tr>
-      <Th>측정일</Th>
-      {MEASURE_COLS.map((c) => <Th key={c.key} align="right" unit={c.unit} title={c.title}>{c.name}</Th>)}
-      <Th>측정자</Th>
-      <Th><span className="sr-only">동작</span></Th>
-    </tr>
+    <MeasureHeadRows
+      lead={<Th rowSpan={2}>측정일</Th>}
+      trail={<><Th rowSpan={2}>측정자</Th><Th rowSpan={2}><span className="sr-only">동작</span></Th></>}
+    />
   );
 
   const group = (sd: Side) => {
@@ -81,7 +80,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
     /* 국 이름에 괄호가 든다(「(구)춘천S/S」) — 괄호로 감싸면 「상대 끝((구)춘천S/S)」로 겹쳐 읽힌다. */
     const label = `${sd === side ? '자국' : '대국'} · ${subName(sd)}`;
     return (
-      <section aria-label={label} data-testid={`history-${sd === side ? 'near' : 'far'}`} className="space-y-1">
+      <section aria-label={label} data-testid={`history-${sd === side ? 'near' : 'far'}`} className="flex flex-col gap-1.5">
         <ListHeading>{label} · {rows.length}건</ListHeading>
         <TableCard widths={WIDTHS}>
           <thead>{head}</thead>
@@ -112,10 +111,10 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
 
   return (
     <Modal open onClose={onClose} size="lg" title={`코어 ${no} — ${lineTitle}`} footer={<Button variant="secondary" onClick={onClose}>닫기</Button>}>
-      <div className="space-y-4">
+      <div className="flex flex-col gap-3">
         {group(side)}
         {group(other(side))}
-        {canEdit && <section aria-label="측정 추가" className="space-y-1">
+        {canEdit && <section aria-label="측정 추가" className="flex flex-col gap-1.5">
           <ListHeading>측정 추가 — 자국 · {subName(side)}</ListHeading>
           <TableCard widths={WIDTHS}>
             <thead>{head}</thead>
@@ -134,7 +133,7 @@ export function CoreHistoryDialog({ lineId, no, side, onClose }: CoreHistoryDial
                   );
                 })}
                 <Td><Input size="cell" aria-label="측정자" value={measuredBy} onChange={(e) => setMeasuredBy(e.currentTarget.value)} /></Td>
-                <Td align="right"><Button size="xs" disabled={!ok} onClick={add}>추가</Button></Td>
+                <Td align="right"><Button variant="secondary" size="xs" disabled={!ok} onClick={add}>추가</Button></Td>
               </tr>
             </tbody>
           </TableCard>
