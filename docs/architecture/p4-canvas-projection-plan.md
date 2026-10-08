@@ -1,5 +1,7 @@
 # P4 — 뷰=투영: FloorPlanEquipment 제거, 캔버스가 Asset 직접 (북극성 ③)
 
+> **이력 문서 — 2026-10-06 「설비 모델 단순화」로 대체됨.** 이 문서의 포트·자산(Asset)·조립 모델은 걷어 냈다. 지금 모델은 `docs/superpowers/specs/2026-10-06-설비-모델-단순화-design.md` (색인: `docs/superpowers/README.md`).
+
 > 목표: 캔버스(평면도)가 **Asset 레코드를 직접 투영**하도록 → 변환기 4개(`equipmentToAsset`·`assetToEquipment`·`rackModuleToAsset`·`assetToRackModule`) + `FloorPlanEquipment` 타입 제거. 별도 모양 0 = 리네임 드리프트 불가.
 
 ## 왜 (정직)

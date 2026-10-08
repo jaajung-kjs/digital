@@ -1,5 +1,7 @@
 # ICT실 디지털 트윈 시스템 - Product Requirements Document
 
+> **이력 문서 — 2026-10-06 「설비 모델 단순화」로 대체됨.** 이 문서의 포트·자산(Asset)·조립 모델은 걷어 냈다. 지금 모델은 `docs/superpowers/specs/2026-10-06-설비-모델-단순화-design.md` (색인: `docs/superpowers/README.md`).
+
 ## 1. 개요
 
 ### 1.1 프로젝트 명

@@ -1,5 +1,7 @@
 # 설비 DB (Equipment Database)
 
+> **이력 문서 — 2026-10-06 「설비 모델 단순화」로 대체됨.** 이 문서의 포트·자산(Asset)·조립 모델은 걷어 냈다. 지금 모델은 `docs/superpowers/specs/2026-10-06-설비-모델-단순화-design.md` (색인: `docs/superpowers/README.md`).
+
 > 138개 KEPCO ICT 공사 설계서 Excel 분석 + 업계 표준 규격 교차 검증
 > 분석일: 2026-04-09 / 최종 갱신: 2026-05-22
 >
