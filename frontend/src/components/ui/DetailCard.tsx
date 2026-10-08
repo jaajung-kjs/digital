@@ -64,6 +64,7 @@ export function DetailCard({ children, className }: { children: ReactNode; class
  */
 export function DetailCardHeader({
   title,
+  count,
   badge,
   badgeStatus = 'neutral',
   actions,
@@ -72,6 +73,11 @@ export function DetailCardHeader({
   className,
 }: {
   title: ReactNode;
+  /**
+   * 머리의 개수 — 제목 뒤 흐린 숫자(「차단기 22」). 개수는 **이것 하나**로 적는다(CONVENTIONS §1.7-i3):
+   * 제목 문자열에 숫자를 섞거나 배지 알약(`badge`)으로 두지 않는다. 배지는 판 버전·상태 같은 낱말 하나에만.
+   */
+  count?: number;
   badge?: ReactNode;
   badgeStatus?: BadgeStatus;
   /** 우측 임의 액션(업로드·추가 등). onEdit/onDelete 와 함께 쓸 수 있다. */
@@ -91,6 +97,7 @@ export function DetailCardHeader({
       )}
     >
       <span className="text-xs font-bold text-content-muted">{title}</span>
+      {count != null && <span className="text-xs tabular-nums text-content-faint" data-count>{count}</span>}
       {badge != null && <Badge status={badgeStatus}>{badge}</Badge>}
       {(actions || onEdit || onDelete) && (
         <div className="ml-auto flex shrink-0 items-center gap-0.5">

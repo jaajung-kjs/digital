@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { SWITCH_STATES } from '@twin/core';
-import { Button, EMPTY, HOVER_REVEAL, Td, Th, cn, useTableLayout, type TableColumn } from '../../../components/ui';
+import { Button, EMPTY, HOVER_REVEAL, Td, Th, cn, formatNumber, lengthText, unitValueText, useTableLayout, type TableColumn } from '../../../components/ui';
 import type { Circuit } from '../../model/types';
 import { CircuitCell, type CircuitField } from './CircuitCell';
 import { CIRCUIT_FIELD_LABELS as L } from './fieldLabels';
@@ -110,11 +110,11 @@ export function BreakerCells({ row, onSet, onConnect, connectOnHover = false, on
   const c = row.circuit;
   const cell = (field: CircuitField) => <CircuitCell circuit={c} field={field} onSet={onSet} />;
   const port = row.load?.port ?? null;
-  const length = row.lengthM != null ? `${row.lengthM} m` : null;
+  const length = row.lengthM != null ? lengthText(row.lengthM) : null;
   /* 지금 서지 않는 칸의 값 — 번호 칸에 모은다(병합 칸에 이미 보이는 값은 빼고). */
   const hiddenText = [
-    !layout.shows('voltage') && !layout.shows('rating') && c.voltage ? `${L.voltage} ${c.voltage}` : null,
-    !layout.shows('capacity') && !layout.shows('rating') && c.capacity ? `${L.capacity} ${c.capacity}` : null,
+    !layout.shows('voltage') && !layout.shows('rating') && c.voltage ? `${L.voltage} ${unitValueText(c.voltage)}` : null,
+    !layout.shows('capacity') && !layout.shows('rating') && c.capacity ? `${L.capacity} ${unitValueText(c.capacity)}` : null,
     !layout.shows('phase') && c.phase ? `${L.phase} ${c.phase}` : null,
     !layout.shows('switch') && c.switch ? `${L.switch} ${SWITCH_STATES.find((x) => x.value === c.switch)?.label ?? c.switch}` : null,
     !layout.shows('note') && c.purpose ? `${L.purpose} ${c.purpose}` : null,
@@ -137,13 +137,16 @@ export function BreakerCells({ row, onSet, onConnect, connectOnHover = false, on
       <Td col="current">{cell('current')}</Td>
       <Td col="voltage">{cell('voltage')}</Td>
       <Td col="capacity">{cell('capacity')}</Td>
-      <Td col="rating">
-        {/* 정격 = 전압 · 용량 — 두 칸이 그대로 고쳐진다(병합은 보는 꼴일 뿐). */}
-        <span className="flex min-w-0 items-center gap-1">
-          <span className="min-w-0 flex-1">{cell('voltage')}</span>
-          <span aria-hidden className="shrink-0 text-content-faint">·</span>
-          <span className="min-w-0 flex-1">{cell('capacity')}</span>
-        </span>
+      <Td col="rating" data-testid="breaker-rating">
+        {/* 정격 = 전압 · 용량 — **빈 조각은 빼고** 잇는다(「— · 50 A」가 아니라 「50 A」). 두 칸이 그대로 고쳐진다(병합은 보는 꼴일 뿐).
+            둘 다 비면 용량 칸 하나(「—」)가 선다 — 빈 전압은 편집 창(전 열)에서 채운다. */}
+        {c.voltage && c.capacity ? (
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="min-w-0 flex-1">{cell('voltage')}</span>
+            <span aria-hidden className="shrink-0 text-content-faint">·</span>
+            <span className="min-w-0 flex-1">{cell('capacity')}</span>
+          </span>
+        ) : c.voltage ? cell('voltage') : cell('capacity')}
       </Td>
       <Td col="phase">{cell('phase')}</Td>
       <Td col="switch">{cell('switch')}</Td>
@@ -169,10 +172,11 @@ export function BreakerCells({ row, onSet, onConnect, connectOnHover = false, on
       </Td>
       <Td col="port" className="truncate" title={port ?? undefined}>{port ?? faint(EMPTY)}</Td>
       <Td col="cable" className="truncate" title={[row.cable, !layout.shows('length') ? length : null].filter(Boolean).join(' · ') || undefined}>
-        {row.cable ?? faint(EMPTY)}
-        {!layout.shows('length') && length && <span className="text-content-muted"> · {length}</span>}
+        {/* 전원케이블 · 길이 — 빈 조각은 뺀다(케이블이 비면 길이만). */}
+        {row.cable ?? (!layout.shows('length') && length ? null : faint(EMPTY))}
+        {!layout.shows('length') && length && <span className="text-content-muted">{row.cable ? ' · ' : ''}{length}</span>}
       </Td>
-      <Td col="length" align="right">{row.lengthM != null ? row.lengthM : faint(EMPTY)}</Td>
+      <Td col="length" align="right">{row.lengthM != null ? formatNumber(row.lengthM, 2) : faint(EMPTY)}</Td>
       <Td col="note">{cell('purpose')}</Td>
     </>
   );

@@ -83,3 +83,15 @@ function TwoLine({ children, meta }: { children: ReactNode; meta: ReactNode }) {
     </span>
   );
 }
+
+/**
+ * **절 안이 빔** — 한 줄(`text-sm` 흐리게, 줄 높이 28px). 문장은 「<대상>이 없습니다」(마침표 없음, CONVENTIONS §1.7-c 빈 상태 4꼴).
+ * 절(카드) 안에서는 `EmptyState`(가운데 큰 상자)를 쓰지 않는다 — 판 전체가 빌 때만 `EmptyState`.
+ * 표 안이면 `colSpan` 을 주어 줄 하나를 덮는다.
+ */
+export function EmptyRow({ children, colSpan }: { children: ReactNode; colSpan?: number }) {
+  if (colSpan != null) {
+    return <tr className="h-7"><td colSpan={colSpan} className="px-2 text-sm text-content-faint">{children}</td></tr>;
+  }
+  return <p className="px-1 py-1 text-sm text-content-faint" data-empty-row>{children}</p>;
+}

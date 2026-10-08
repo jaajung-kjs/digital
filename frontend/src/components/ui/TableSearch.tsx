@@ -4,7 +4,7 @@ import { Input } from './Input';
 export interface TableSearchProps {
   value: string;
   onChange: (value: string) => void;
-  /** 무엇을 훑는지 알려주는 안내 — `이름 · 종류 · 담당자 검색` 처럼 실제 대상 열을 적는다. */
+  /** 무엇을 훑는지 — 「<필드>·<필드>·<필드> 검색」(가운뎃점 붙임, 필드 최대 3개, 끝은 늘 「검색」, §1.7-f). */
   placeholder: string;
   'aria-label': string;
   /** 상자 폭 — 배치용(기본 `w-64`). 좁은 머리 띠에서만 줄인다. */
@@ -14,8 +14,8 @@ export interface TableSearchProps {
   /** 거르기 전 전체 건수. */
   total: number;
   /**
-   * 건수를 둘 자리 — `before`(기본, 표 머리 띠: 오른쪽 끝이 `ml-auto` 라 앞에 서야 칸이 안 튄다) ·
-   * `inside`(고르개: 칸이 폭을 다 쓰는 상자 안 목록 위 — 앞에 서면 칸이 옆으로 밀리므로 칸 안 오른쪽에 붙인다).
+   * 건수를 둘 자리 — `inside`(기본, 머리 띠·고르개 모두: 칸 안 오른쪽 — 거르는 동안 칸 폭이 변하지 않는다, CONVENTIONS §1.7-f) ·
+   * `before`(칸 앞 — 거르는 동안 칸이 좁아진다. 새로 쓰지 않는다).
    */
   count?: 'before' | 'inside';
 }
@@ -34,7 +34,7 @@ export interface TableSearchProps {
  * 필요하다. 하지만 안 거를 때의 수는 화면이 이미 말하고 있는 것을 되풀이할 뿐이고,
  * 접어 둔 표에서는 화면과 다른 수가 되기까지 했다(두 줄이 보이는데 「18건」).
  */
-export function TableSearch({ value, onChange, placeholder, shown, total, className, count = 'before', ...rest }: TableSearchProps) {
+export function TableSearch({ value, onChange, placeholder, shown, total, className, count = 'inside', ...rest }: TableSearchProps) {
   const filtering = value.trim().length > 0;
   const label = `${shown} / ${total}건`;
   return (

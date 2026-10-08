@@ -1,4 +1,5 @@
 import { CIRCUIT_CURRENTS, SWITCH_STATES } from '@twin/core';
+import { unitValueText } from '../../../components/ui';
 import type { Circuit } from '../../model/types';
 import { InlineEditCell } from '../InlineEditCell';
 import { CIRCUIT_FIELD_LABELS } from './fieldLabels';
@@ -11,6 +12,9 @@ const LABEL: Record<CircuitField, string> = CIRCUIT_FIELD_LABELS;
 const CHOICES: Partial<Record<CircuitField, readonly { value: string; label: string }[]>> = {
   current: CIRCUIT_CURRENTS, switch: SWITCH_STATES,
 };
+
+/* 전압·용량은 자유 글(「50A」) — 분명한 수+단위 꼴만 **보일 때** 띄운다(「50 A」). 고치는 칸에는 적힌 그대로. */
+const FORMAT: Partial<Record<CircuitField, (v: string) => string>> = { voltage: unitValueText, capacity: unitValueText };
 
 /**
  * 차단기 칸 하나 — 편집 창의 표(`CircuitTable`)와 전원 계통의 차단기 대장이 **같은 칸**을 쓴다.
@@ -26,7 +30,7 @@ export function CircuitCell({ circuit, field, onSet }: {
   const choices = CHOICES[field];
   return (
     <InlineEditCell
-      value={current ?? ''} label={LABEL[field]} choices={choices}
+      value={current ?? ''} label={LABEL[field]} choices={choices} format={FORMAT[field]}
       onCommit={(raw) => {
         const next = choices ? raw || null : raw.trim() || null;
         /* 닫힌 어휘 칸의 raw 는 choices 의 값뿐이다 — 타입은 그 어휘가 정한다. */

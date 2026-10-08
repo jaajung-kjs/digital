@@ -26,10 +26,15 @@ export function isLineMedium(m: string): boolean {
   return CABLE_MEDIA.some((x) => x.key === m && x.use === 'line');
 }
 
-/** 설비 상태 — 철거 자체는 삭제와 변경 이력으로 남는다(「철거됨」 상태를 두지 않는다). */
+/**
+ * 설비 상태 — 철거 자체는 삭제와 변경 이력으로 남는다(「철거됨」 상태를 두지 않는다).
+ *
+ * `tone` 은 **뜻**이다(CONVENTIONS §2 배지·색의 뜻): danger = 지금 고장, warning = 손봐야 함,
+ * neutral = 범주(좋고 나쁨이 없음). 「예비」는 대기 중일 뿐 잘못이 아니라 neutral 이다.
+ */
 export const EQUIPMENT_STATUSES = [
   { value: 'normal', label: '정상', tone: 'success' },
-  { value: 'standby', label: '예비', tone: 'warning' },
+  { value: 'standby', label: '예비', tone: 'neutral' },
   { value: 'fault', label: '고장', tone: 'danger' },
   { value: 'retiring', label: '철거예정', tone: 'neutral' },
   { value: 'replacing', label: '교체예정', tone: 'neutral' },
@@ -44,17 +49,23 @@ export const DEFAULT_EQUIPMENT_STATUS: EquipmentStatus = 'normal';
  * 점퍼를 걷고 상태를 안 고친 코어가 「사용」으로 남는다(엑셀 선번장에서 실제로 그랬다).
  */
 export const CORE_STATUSES = [
-  { value: 'ok', label: '정상' },
-  { value: 'broken', label: '단선' },
-  { value: 'unusable', label: '사용불가' },
+  { value: 'ok', label: '정상', tone: 'neutral' },
+  /* 단선 = 지금 쓸 수 없음(danger), 사용불가 = 손봐야 함(warning) — 같은 색이면 둘이 갈리지 않는다. */
+  { value: 'broken', label: '단선', tone: 'danger' },
+  { value: 'unusable', label: '사용불가', tone: 'warning' },
 ] as const;
 export type CoreStatus = (typeof CORE_STATUSES)[number]['value'];
 export const DEFAULT_CORE_STATUS: CoreStatus = 'ok';
 
-/** 코어가 주 경로인가 예비 경로인가 — 선택 값. 그림에서 실선/점선을 가른다. */
+/**
+ * 코어가 주 경로인가 예비 경로인가 — 선택 값. 그림에서 실선/점선을 가른다.
+ *
+ * 화면 말은 늘 **「주회선」/「예비회선」**이다(선번장 주/예비 칸 포함) — 맨 「예비」는 설비 상태 「예비」(대기)와
+ * 같은 낱말이라 둘이 갈리지 않았다.
+ */
 export const CORE_ROLES = [
-  { value: 'main', label: '주' },
-  { value: 'backup', label: '예비' },
+  { value: 'main', label: '주회선' },
+  { value: 'backup', label: '예비회선' },
 ] as const;
 export type CoreRole = (typeof CORE_ROLES)[number]['value'];
 
@@ -77,10 +88,9 @@ export function asCoreRole(value: string | null | undefined): CoreRole | null {
 }
 /** 값이 비었을 때의 화면 말(광 계통도 범례·회선 목록 꼬리). */
 export const CORE_ROLE_UNSET_LABEL = '주/예비 미지정';
-/** 회선의 주/예비 화면 말 — `CORE_ROLES` 의 label + 「회선」(주회선 · 예비회선), 비면 「주/예비 미지정」. */
+/** 회선의 주/예비 화면 말 — `CORE_ROLES` 의 label(주회선 · 예비회선), 비면 「주/예비 미지정」. */
 export function coreRoleCircuitLabel(value: string | null | undefined): string {
-  const r = CORE_ROLES.find((x) => x.value === value);
-  return r ? `${r.label}회선` : CORE_ROLE_UNSET_LABEL;
+  return CORE_ROLES.find((x) => x.value === value)?.label ?? CORE_ROLE_UNSET_LABEL;
 }
 
 export const CIRCUIT_CURRENTS = [

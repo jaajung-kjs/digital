@@ -16,7 +16,7 @@ export interface ReportItem {
   laborCode: string | null;
   qty: number;             // 랙·설비 1(대), 케이블·광선로 길이(m)
   unit: '대' | 'm';
-  manDays: number;         // 계산된 공량(인·일). 공량 미입력이면 0 으로 센다
+  manDays: number;         // 계산된 공량(인). 공량 미입력이면 0 으로 센다
   /** 자재단가(원/단위). 안 적혀 있으면 null — 재료비가 0 이라는 뜻이다. */
   unitPrice: number | null;
   /**

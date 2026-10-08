@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CABLE_MEDIA, CORE_STATUSES, EQUIPMENT_STATUSES, isLineMedium, isLinkMedium,
+  CABLE_MEDIA, CORE_ROLES, CORE_STATUSES, EQUIPMENT_STATUSES, isLineMedium, isLinkMedium,
   DEFAULT_EQUIPMENT_STATUS, DEFAULT_CORE_STATUS, asCoreRole, coreRoleCircuitLabel, isBackupRole, isMainRole,
 } from './vocab.js';
 import { circuitKey, coreKey, endRefKey, sameEndRef } from './types.js';
@@ -27,6 +27,11 @@ describe('상태 어휘', () => {
     expect(CORE_STATUSES.map((s) => s.value)).toEqual(['ok', 'broken', 'unusable']);
     expect(DEFAULT_CORE_STATUS).toBe('ok');
   });
+  it('톤은 뜻이다 — 고장·단선 danger, 사용불가 warning, 예비(대기)는 neutral(경고 아님)', () => {
+    const tone = (v: string) => EQUIPMENT_STATUSES.find((s) => s.value === v)?.tone;
+    expect([tone('fault'), tone('standby'), tone('retiring')]).toEqual(['danger', 'neutral', 'neutral']);
+    expect(CORE_STATUSES.map((s) => s.tone)).toEqual(['neutral', 'danger', 'warning']);
+  });
 });
 
 describe('행 키', () => {
@@ -48,6 +53,9 @@ describe('코어 주/예비 판정·화면 말', () => {
     expect([isMainRole('main'), isMainRole('backup'), isMainRole(null)]).toEqual([true, false, false]);
     expect([isBackupRole('backup'), isBackupRole('main'), isBackupRole(undefined)]).toEqual([true, false, false]);
     expect([asCoreRole('main'), asCoreRole('x'), asCoreRole(null)]).toEqual(['main', null, null]);
+  });
+  it('코어 역할의 화면 말은 늘 주회선/예비회선 — 맨 「예비」는 설비 상태(대기)와 겹친다', () => {
+    expect(CORE_ROLES.map((r) => r.label)).toEqual(['주회선', '예비회선']);
   });
   it('coreRoleCircuitLabel — 주회선 · 예비회선 · 주/예비 미지정', () => {
     expect([coreRoleCircuitLabel('main'), coreRoleCircuitLabel('backup'), coreRoleCircuitLabel(null)]).toEqual(['주회선', '예비회선', '주/예비 미지정']);
