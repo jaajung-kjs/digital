@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { compareName, computeEstimate, computeReport, designItems, materialCostOf, sizeBand } from '@twin/core';
+import { compareName, computeEstimate, computeReport, designItems, laborCosts, materialCostOf, sizeBand } from '@twin/core';
 import type { DesignItem, DesignTarget, EstimateParams, OverheadRates, ReportKind } from '@twin/core';
 import {
   Badge, Button, DetailCard, DetailCardHeader, DetailRow, EMPTY, Input, MessageStrip, Modal, OverflowShade, SegmentedControl,
@@ -377,17 +377,9 @@ function useDesignEstimate(items: DesignItem[], report: Report) {
   const wageReady = wages.rows.length > 0;
   const { name, setName, days, setDays, contract, setContract, sanjae, setSanjae } = useConditions();
 
-  /*
-   * 노무유형별 공량·노무비 — 직종 이름 자연 순서. 노무비 = 그 직종 공량 합 × 노임단가, 원 단위 반올림.
-   * 직접노무비는 이 노무비 열의 합이다(표에서 그대로 더해 볼 수 있게).
-   */
-  const laborRows = useMemo(() => report.byLaborType
-    .map(({ laborCode, totalManDays }) => {
-      const wage = wages.wageOf(laborCode);
-      return { laborCode, name: wages.nameOf(laborCode) ?? laborCode, manDays: totalManDays, wage, cost: wage == null ? null : Math.round(totalManDays * wage) };
-    })
-    .sort((a, b) => compareName(a.name, b.name)), [report, wages]);
-  const directLaborCost = laborRows.reduce((n, r) => n + (r.cost ?? 0), 0);
+  /* 노무유형별 공량·노무비와 직접노무비 — 셈과 반올림은 core(`laborCosts`) 한 곳이다. */
+  const { rows: laborRows, directLaborCost } = useMemo(
+    () => laborCosts(report.byLaborType, wages.wageOf, wages.nameOf), [report, wages]);
   /* 노임이 없는 줄은 0 으로 세고 몇 건인지 말한다. */
   const missingWage = items.filter((it) => it.manDays > 0 && wages.wageOf(it.laborCode) == null).length;
   const unpriced = unpricedCount(items);

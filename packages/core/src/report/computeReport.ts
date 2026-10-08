@@ -54,6 +54,28 @@ export function materialCostOf(item: ReportItem): number {
   return Math.round(item.qty * (item.unitPrice ?? 0));
 }
 
+/** 노무유형 한 줄 — 그 직종 공량 합 × 노임단가. 노임이 없으면 `wage`·`cost` 가 `null`. */
+export interface LaborCostRow { laborCode: string; name: string; manDays: number; wage: number | null; cost: number | null }
+
+/**
+ * 노무유형별 노무비와 직접노무비 — **원 단위 반올림은 직종 줄마다**(`materialCostOf` 와 같은 정책).
+ * 직접노무비는 반올림한 줄의 합이라 표의 노무비 열을 그대로 더한 값과 같다. 노임이 없는 직종은 0 으로 센다.
+ * 줄 순서는 직종 이름 자연 순서.
+ */
+export function laborCosts(
+  byLaborType: ReportSummary['byLaborType'],
+  wageOf: (laborCode: string) => number | null,
+  nameOf: (laborCode: string) => string | null,
+): { rows: LaborCostRow[]; directLaborCost: number } {
+  const rows = byLaborType
+    .map(({ laborCode, totalManDays }) => {
+      const wage = wageOf(laborCode);
+      return { laborCode, name: nameOf(laborCode) ?? laborCode, manDays: totalManDays, wage, cost: wage == null ? null : Math.round(totalManDays * wage) };
+    })
+    .sort((a, b) => compareName(a.name, b.name));
+  return { rows, directLaborCost: rows.reduce((n, r) => n + (r.cost ?? 0), 0) };
+}
+
 /** 작업 종류 → 품 칸. 랙과 설비가 같은 칸을 쓴다(`LaborSpec`). */
 const MAN_DAYS_OF: Record<UnitReportKind, 'installManDays' | 'removeManDays' | 'relocateManDays'> = {
   'rack-install': 'installManDays',

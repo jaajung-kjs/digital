@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { unitReportItem, cableReportItem, computeReport, materialCostOf } from './computeReport.js';
+import { unitReportItem, cableReportItem, computeReport, laborCosts, materialCostOf } from './computeReport.js';
 import type { ReportItem } from './computeReport.js';
 
 const labor = { laborCode: '통신내선공', unitPrice: null, installManDays: 2, removeManDays: 1, relocateManDays: 3 };
@@ -95,5 +95,23 @@ describe('materialCostOf', () => {
       item({ kind: 'equipment-remove', qty: 1, unitPrice: 9_000_000 }),
     ]);
     expect(r.totalMaterialCost).toBe(2_000_000);
+  });
+});
+
+describe('laborCosts — 노무유형별 노무비·직접노무비', () => {
+  const wage: Record<string, number> = { '1086': 284880, '1084': 300001 };
+  const name: Record<string, string> = { '1086': '통신내선공', '1084': '통신외선공' };
+  it('줄마다 원 단위 반올림, 직접노무비는 반올림한 줄의 합, 이름 자연 순서', () => {
+    const { rows, directLaborCost } = laborCosts(
+      [{ laborCode: '1086', totalManDays: 0.125 }, { laborCode: '1084', totalManDays: 0.5 }],
+      (c) => wage[c] ?? null, (c) => name[c] ?? null,
+    );
+    expect(rows.map((r) => [r.name, r.cost])).toEqual([['통신내선공', 35610], ['통신외선공', 150001]]);
+    expect(directLaborCost).toBe(35610 + 150001);
+  });
+  it('노임이 없는 직종은 cost null 이고 합에는 0 으로 센다, 이름이 없으면 코드', () => {
+    const { rows, directLaborCost } = laborCosts([{ laborCode: '9999', totalManDays: 2 }], () => null, () => null);
+    expect(rows).toEqual([{ laborCode: '9999', name: '9999', manDays: 2, wage: null, cost: null }]);
+    expect(directLaborCost).toBe(0);
   });
 });
