@@ -105,5 +105,33 @@ export function validateState(state: ModelState): ModelIssue[] {
       }
     }
   }
+
+  // ⑨ 접속 설비의 슬롯 — 슬롯 번호는 슬롯 수 안, 같은 슬롯의 어댑터 범위(시작번호 … 시작번호+코어 수−1)는 겹치지 않는다.
+  type SlotEnd = { lineId: string; eqId: string; panel: number; from: number; to: number };
+  const slotEnds: SlotEnd[] = [];
+  for (const l of state.fiberLines) {
+    for (const [eqId, panel, start] of [[l.aEquipmentId, l.aPanel, l.aStartNo], [l.bEquipmentId, l.bPanel, l.bStartNo]] as const) {
+      if (eqId === null || panel == null) continue;
+      const e = eqById.get(eqId);
+      if (e?.panelCount != null && panel > e.panelCount) {
+        issues.push({ code: 'LINE_SLOT_RANGE', message: `접속 설비 「${e.name}」의 슬롯 ${panel} — 슬롯 수(${e.panelCount})를 넘습니다`, ids: [l.id] });
+      }
+      if (start != null) slotEnds.push({ lineId: l.id, eqId, panel, from: start, to: start + l.coreCount - 1 });
+    }
+  }
+  const bySlot = new Map<string, SlotEnd[]>();
+  for (const s of slotEnds) bySlot.set(`${s.eqId}\u0000${s.panel}`, [...(bySlot.get(`${s.eqId}\u0000${s.panel}`) ?? []), s]);
+  for (const ends of bySlot.values()) {
+    const sorted = [...ends].sort((x, y) => x.from - y.from);
+    /* 지금까지 가장 멀리 닿은 끝과 견준다 — 바로 앞 것만 보면 긴 범위 안의 둘째 겹침을 놓친다. */
+    let prev = sorted[0]!;
+    for (const cur of sorted.slice(1)) {
+      if (cur.from <= prev.to && cur.lineId !== prev.lineId) {
+        const name = eqById.get(cur.eqId)?.name ?? '';
+        issues.push({ code: 'LINE_SLOT_OVERLAP', message: `접속 설비 「${name}」 슬롯 ${cur.panel}에서 광선로 둘의 어댑터 번호가 겹칩니다`, ids: [prev.lineId, cur.lineId] });
+      }
+      if (cur.to > prev.to) prev = cur;
+    }
+  }
   return issues;
 }

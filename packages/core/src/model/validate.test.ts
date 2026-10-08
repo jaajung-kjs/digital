@@ -148,6 +148,45 @@ describe('validateState', () => {
     expect(codes(s)).toEqual(['LINK_SELF']);
   });
 
+  it('⑨ 같은 접속 설비·슬롯에서 어댑터 범위가 겹치면 흠 — 이어지면(1–24, 25–48) 괜찮다', () => {
+    const s = base();
+    s.fiberLines = [
+      { ...s.fiberLines[0]!, id: 'L', aPanel: 1, aStartNo: 1 },
+      { ...s.fiberLines[0]!, id: 'M', aPanel: 1, aStartNo: 25 },
+    ];
+    expect(validateState(s).filter((i) => i.code === 'LINE_SLOT_OVERLAP')).toEqual([]);
+    s.fiberLines[1] = { ...s.fiberLines[1]!, aStartNo: 1 };
+    const hit = validateState(s).filter((i) => i.code === 'LINE_SLOT_OVERLAP');
+    expect(hit).toHaveLength(1);
+    expect(hit[0]!.ids.sort()).toEqual(['L', 'M']);
+    expect(hit[0]!.message).toBe('접속 설비 「OFD」 슬롯 1에서 광선로 둘의 어댑터 번호가 겹칩니다');
+    /* 다른 슬롯이면 같은 번호여도 괜찮다. 슬롯 미정은 묻지 않는다. */
+    s.fiberLines[1] = { ...s.fiberLines[1]!, aPanel: 2 };
+    expect(validateState(s).filter((i) => i.code === 'LINE_SLOT_OVERLAP')).toEqual([]);
+    s.fiberLines = s.fiberLines.map((l) => ({ ...l, aPanel: null }));
+    expect(validateState(s).filter((i) => i.code === 'LINE_SLOT_OVERLAP')).toEqual([]);
+  });
+
+  it('⑨ 긴 범위 안에 든 둘째 겹침도 잡는다', () => {
+    const s = base();
+    s.fiberLines = [
+      { ...s.fiberLines[0]!, id: 'A', coreCount: 48, aPanel: 1, aStartNo: 1 },
+      { ...s.fiberLines[0]!, id: 'B', coreCount: 2, aPanel: 1, aStartNo: 2 },
+      { ...s.fiberLines[0]!, id: 'C', coreCount: 2, aPanel: 1, aStartNo: 10 },
+    ];
+    const ids = validateState(s).filter((i) => i.code === 'LINE_SLOT_OVERLAP').map((i) => i.ids.sort().join(''));
+    expect(ids.sort()).toEqual(['AB', 'AC']);
+  });
+
+  it('⑨ 슬롯 번호가 접속 설비의 슬롯 수를 넘으면 흠 — 슬롯 수 미정이면 묻지 않는다', () => {
+    const s = base();
+    s.fiberLines = [{ ...s.fiberLines[0]!, aPanel: 5, aStartNo: 1 }];
+    expect(validateState(s).filter((i) => i.code === 'LINE_SLOT_RANGE')).toEqual([]);
+    s.equipment = s.equipment.map((e) => (e.id === 'ofd1' ? { ...e, panelCount: 4 } : e));
+    const hit = validateState(s).filter((i) => i.code === 'LINE_SLOT_RANGE');
+    expect(hit).toEqual([{ code: 'LINE_SLOT_RANGE', message: '접속 설비 「OFD」의 슬롯 5 — 슬롯 수(4)를 넘습니다', ids: ['L'] }]);
+  });
+
   it('코어 수는 1 이상', () => {
     const s = base();
     s.fiberLines[0]!.coreCount = 0;

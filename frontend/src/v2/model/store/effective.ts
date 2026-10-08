@@ -71,10 +71,11 @@ export function outsideLinks(s: S): Link[] {
 export function toModelState(s: S & { saved: WorkingCopyState['saved'] }, cableTypes: { id: string; medium: string }[] = []): ModelState {
   return {
     racks: effectiveRows(s, 'racks').map((r) => ({ id: r.id, substationId: r.substationId, name: r.name })),
-    equipment: effectiveRows(s, 'equipment').map((e) => ({ id: e.id, substationId: e.substationId, rackId: e.rackId, name: e.name, circuitCount: e.circuitCount })),
+    equipment: effectiveRows(s, 'equipment').map((e) => ({ id: e.id, substationId: e.substationId, rackId: e.rackId, name: e.name, circuitCount: e.circuitCount, panelCount: e.panelCount })),
     fiberLines: effectiveRows(s, 'fiberLines').map((l) => ({
       id: l.id, cableTypeId: l.cableTypeId, coreCount: l.coreCount,
       aSubstationId: l.aSubstationId, aEquipmentId: l.aEquipmentId, bSubstationId: l.bSubstationId, bEquipmentId: l.bEquipmentId,
+      aPanel: l.aPanel, aStartNo: l.aStartNo, bPanel: l.bPanel, bStartNo: l.bStartNo,
     })),
     links: effectiveRows(s, 'links').map(linkRow),
     outsideLinks: outsideLinks(s).map(linkRow),

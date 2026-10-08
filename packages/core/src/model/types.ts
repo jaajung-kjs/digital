@@ -7,7 +7,11 @@ import type { Side } from './vocab.js';
  * 이름·상태 같은 표시 칸은 판정과 무관해서 넣지 않는다(넣으면 두 쪽이 그 칸까지 맞춰야 한다).
  */
 export interface RackRow { id: string; substationId: string; name: string }
-export interface EquipmentRow { id: string; substationId: string; rackId: string; name: string; circuitCount: number }
+export interface EquipmentRow {
+  id: string; substationId: string; rackId: string; name: string; circuitCount: number;
+  /** 슬롯 수 — 정했으면 광선로 끝 슬롯이 이것을 넘을 수 없다(⑨). 없으면(미정) 묻지 않는다. */
+  panelCount?: number | null;
+}
 export interface CableTypeRow { id: string; medium: string }
 
 export interface FiberLineRow {
@@ -18,6 +22,11 @@ export interface FiberLineRow {
   aEquipmentId: string | null;
   bSubstationId: string;
   bEquipmentId: string | null;
+  /** 끝의 슬롯·어댑터 시작 번호 — 같은 접속 설비·슬롯에서 어댑터 범위가 겹치면 안 된다(⑨). 없으면 묻지 않는다. */
+  aPanel?: number | null;
+  aStartNo?: number;
+  bPanel?: number | null;
+  bStartNo?: number;
 }
 
 /**
@@ -64,7 +73,9 @@ export type ModelIssueCode =
   | 'LINK_MEDIUM'
   | 'LINE_MEDIUM'
   | 'LINE_END_EQUIPMENT'
-  | 'LINE_CORE_COUNT';
+  | 'LINE_CORE_COUNT'
+  | 'LINE_SLOT_OVERLAP'
+  | 'LINE_SLOT_RANGE';
 
 export interface ModelIssue { code: ModelIssueCode; message: string; ids: string[] }
 

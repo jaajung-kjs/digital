@@ -26,18 +26,22 @@ export async function loadState(tx: Tx, substationIds: readonly string[]): Promi
   const subs = [...substationIds];
   const [racks, equipment, links, fiberLines, cableTypes] = await Promise.all([
     tx.rack.findMany({ where: { substationId: { in: subs } }, select: { id: true, substationId: true, name: true } }),
-    tx.equipment.findMany({ where: { substationId: { in: subs } }, select: { id: true, substationId: true, rackId: true, name: true, circuitCount: true } }),
+    tx.equipment.findMany({ where: { substationId: { in: subs } }, select: { id: true, substationId: true, rackId: true, name: true, circuitCount: true, panelCount: true } }),
     tx.link.findMany({ where: { substationId: { in: subs } }, include: { ends: true } }),
     tx.fiberLine.findMany({
       where: { OR: [{ aSubstationId: { in: subs } }, { bSubstationId: { in: subs } }] },
-      select: { id: true, cableTypeId: true, coreCount: true, aSubstationId: true, aEquipmentId: true, bSubstationId: true, bEquipmentId: true },
+      select: {
+        id: true, cableTypeId: true, coreCount: true,
+        aSubstationId: true, aEquipmentId: true, aPanel: true, aStartNo: true,
+        bSubstationId: true, bEquipmentId: true, bPanel: true, bStartNo: true,
+      },
     }),
     tx.cableType.findMany({ select: { id: true, medium: true } }),
   ]);
   const known = new Set(equipment.map((e) => e.id));
   const farIds = fiberLines.flatMap((l) => [l.aEquipmentId, l.bEquipmentId]).filter((x): x is string => !!x && !known.has(x));
   const far = farIds.length
-    ? await tx.equipment.findMany({ where: { id: { in: farIds } }, select: { id: true, substationId: true, rackId: true, name: true, circuitCount: true } })
+    ? await tx.equipment.findMany({ where: { id: { in: farIds } }, select: { id: true, substationId: true, rackId: true, name: true, circuitCount: true, panelCount: true } })
     : [];
   /* 먼 설비의 랙도 싣는다 — 안 실으면 「랙이 없는 설비」로 잘못 판정된다. */
   const farRacks = far.length
