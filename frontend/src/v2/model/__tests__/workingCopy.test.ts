@@ -333,3 +333,106 @@ describe('코어 고치기 — 제자리로 돌아오면 걷히고, 저장에 �
     expect(store.getState().dirtyCount()).toBe(o.equipment.deletes.length + o.links.deletes.length);
   });
 });
+
+describe('고쳤다 되돌리면 변경 0건 — 차단기 값·연결 포트', () => {
+  it('저장된 차단기 값을 고쳤다 되돌리면 걷힌다(dirtyCount 0)', async () => {
+    await store.getState().ensureLoaded('S1');
+    store.getState().updateCircuit('pnl', 1, { label: 'CB1Z' });
+    expect(store.getState().dirtyCount()).toBe(1);
+    store.getState().updateCircuit('pnl', 1, { label: 'CB1' });
+    expect(store.getState().overlays.circuits).toEqual({});
+    expect(store.getState().dirtyCount()).toBe(0);
+  });
+
+  it('「차단기 추가」가 저장된 옛 번호를 빈 값으로 덮은 키는 접지 않는다 — 옛 값이 되살아나지 않는다', async () => {
+    wcOf.S1.equipment[0]!.circuits[1]!.label = 'OLD2';
+    await store.getState().ensureLoaded('S1');
+    expect(removeLastCircuit('pnl')).toEqual({ blocked: null });
+    expect(addCircuit('pnl')).toBe(2);
+    expect(store.getState().overlays.blankCircuits).toEqual({ 'circuit:pnl:2': true });
+    store.getState().updateCircuit('pnl', 2, { label: 'OLD2' });
+    store.getState().updateCircuit('pnl', 2, { label: null });
+    /* 덮개는 남는다 — 저장하면 옛 값을 지운다. */
+    expect(effectiveCircuits(store.getState(), 'pnl').find((c) => c.no === 2)?.label).toBeNull();
+    expect(store.getState().overlays.circuits['circuit:pnl:2']).toMatchObject({ label: null, current: null });
+    /* 다시 지우면 표시도 함께 걷힌다. */
+    expect(removeLastCircuit('pnl')).toEqual({ blocked: null });
+    expect(store.getState().overlays.blankCircuits).toEqual({});
+  });
+
+  it('연결 포트를 고쳤다 되돌리면 걷힌다(dirtyCount 0)', async () => {
+    await store.getState().ensureLoaded('S1');
+    const k1 = () => effectiveRows(store.getState(), 'links').find((l) => l.id === 'k1')!;
+    const ref = k1().b;
+    store.getState().update('links', 'k1', { b: { ...ref, label: 'AC IN' } as never });
+    expect(store.getState().dirtyCount()).toBe(1);
+    expect(buildCommitPayload(store.getState()).links?.updates?.[0]?.patch).toEqual({ bLabel: 'AC IN' });
+    store.getState().update('links', 'k1', { b: { ...k1().b, label: null } as never });
+    expect(store.getState().dirtyCount()).toBe(0);
+  });
+});
+
+describe('새로 읽기 · 충돌 뒤 다시 맞추기 · 주인', () => {
+  it('새로 읽는 동안 들른 국도 새 기준에 남는다(경합) — 국들은 함께 읽는다', async () => {
+    await store.getState().ensureLoaded('S1');
+    const p = store.getState().refresh();
+    /* refresh 가 S1 을 읽는 동안 S2 를 들른다. */
+    await store.getState().ensureLoaded('S2');
+    await p;
+    const st = store.getState();
+    expect(st.loaded.sort()).toEqual(['S1', 'S2']);
+    expect(st.saved.substations.S2?.name).toBe('춘천HP');
+    expect(st.saved.racks.map((r) => r.id)).toEqual(['r1']);
+  });
+
+  it('충돌 키의 손질만 버리고 나머지 변경은 남긴다 — 서버의 새 값을 기준으로', async () => {
+    await store.getState().ensureLoaded('S1');
+    await store.getState().ensureLoaded('S2');
+    store.getState().update('equipment', 'ote', { note: '내 메모' });
+    store.getState().update('racks', 'r1', { name: '내 랙 이름' });
+    store.getState().updateCircuit('pnl', 1, { label: 'CB1Z' });
+    store.getState().create('racks', { id: 'r9', substationId: 'S2', name: '새 랙', rackTypeId: 'rt', floorId: null, x: null, y: null, width: null, height: null, facing: null, updatedAt: '' });
+    /* 그사이 다른 사람이 랙 이름과 차단기 1 을 고쳐 저장했다. */
+    wcOf.S1.racks[0] = { ...wcOf.S1.racks[0]!, name: '남의 이름', updatedAt: 't9' };
+    wcOf.S1.equipment[0]!.circuits[0] = { ...wcOf.S1.equipment[0]!.circuits[0]!, label: '남의 CB', updatedAt: 'c9' };
+    const dropped = await store.getState().rebase([
+      { key: 'r1', reason: 'modified', serverUpdatedAt: 't9' },
+      { key: 'circuit:pnl:1', reason: 'modified', serverUpdatedAt: 'c9' },
+    ]);
+    expect(dropped.map((d) => d.key).sort()).toEqual(['circuit:pnl:1', 'r1']);
+    const st = store.getState();
+    expect(st.dirtyCount()).toBe(2);
+    expect(effectiveRows(st, 'racks').find((r) => r.id === 'r1')?.name).toBe('남의 이름');
+    expect(effectiveRows(st, 'equipment').find((e) => e.id === 'ote')?.note).toBe('내 메모');
+    expect(effectiveCircuits(st, 'pnl')[0]?.label).toBe('남의 CB');
+    expect(st.baseVersions.r1).toBe('t9');
+    /* 되돌리기로 버린 손질이 되살아나지 않는다. */
+    expect(store.temporal.getState().pastStates).toHaveLength(0);
+  });
+
+  it('서버에서 지워진 설비 — 그 고치기와, 그 설비에 단 저장 안 된 기록도 버린다', async () => {
+    await store.getState().ensureLoaded('S1');
+    store.getState().update('equipment', 'ote', { note: '내 메모' });
+    store.getState().create('maintenance', { id: 'm9', equipmentId: 'ote', occurredAt: '2026-10-01', content: '고장', action: null, updatedAt: '' });
+    wcOf.S1.equipment = wcOf.S1.equipment.filter((e) => e.id !== 'ote');
+    wcOf.S1.links = [];
+    const dropped = await store.getState().rebase([{ key: 'ote', reason: 'deleted' }]);
+    expect(dropped).toEqual([
+      { key: 'ote', kind: 'equipment', reason: 'conflict' },
+      { key: 'm9', kind: 'maintenance', reason: 'orphan' },
+    ]);
+    expect(store.getState().dirtyCount()).toBe(0);
+  });
+
+  it('다른 사용자가 들어오면 변경안을 비운다 — 같은 사람이면 이어서 쓴다', async () => {
+    store.getState().claim('u1');
+    await store.getState().ensureLoaded('S1');
+    store.getState().update('equipment', 'ote', { note: '메모' });
+    store.getState().claim('u1');
+    expect(store.getState().dirtyCount()).toBe(1);
+    store.getState().claim('u2');
+    expect(store.getState().dirtyCount()).toBe(0);
+    expect(store.getState().loaded).toEqual([]);
+    expect(store.getState().owner).toBe('u2');
+  });
+});

@@ -2,7 +2,7 @@ import { MAX_CIRCUITS, circuitKey, coreKey, expandDeletes, validateState, type D
 import type { Circuit, FiberLine } from '../types';
 import { stageDelete, stageUpdate, type Overlay } from '../../store/overlay';
 import { effectiveRows, outsideLinks, toModelState } from './effective';
-import { workingCopyStore, type RowKind } from './workingCopy';
+import { BLANK_CIRCUIT, workingCopyStore, type RowKind } from './workingCopy';
 
 /**
  * 지우기 — **함께 가는 것까지 펼쳐서** 오버레이에 싣는다(`expandDeletes`). 막힌 것이 하나라도
@@ -74,7 +74,8 @@ export function removeLastCircuit(equipmentId: string): { blocked: string | null
   const k = circuitKey(equipmentId, no);
   s.applyOverlays((o) => {
     const { [k]: _gone, ...circuits } = o.circuits;
-    return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no - 1 }, savedEquipment(equipmentId)), circuits };
+    const { [k]: _mark, ...blankCircuits } = o.blankCircuits;
+    return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no - 1 }, savedEquipment(equipmentId)), circuits, blankCircuits };
   });
   return { blocked: null };
 }
@@ -97,12 +98,14 @@ export function addCircuit(equipmentId: string, initial: Partial<Circuit> = {}):
   const hasSaved = s.saved.circuits.some((c) => c.equipmentId === equipmentId && c.no === no);
   s.applyOverlays((o) => {
     const { [k]: _old, ...rest } = o.circuits;
-    const blank = { label: null, current: null, voltage: null, capacity: null, phase: null, switch: null, purpose: null };
+    const { [k]: _mark, ...marks } = o.blankCircuits;
     const given = Object.keys(initial).length > 0;
     const circuits = hasSaved
-      ? { ...rest, [k]: { ...blank, ...initial } }
+      ? { ...rest, [k]: { ...BLANK_CIRCUIT, ...initial } }
       : given ? { ...rest, [k]: { ...initial } } : rest;
-    return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no }, savedEquipment(equipmentId)), circuits };
+    /* 저장된 옛 행을 덮었으면 표시한다 — 그 키의 고치기는 저장값으로 접지 않는다(`updateCircuit`). */
+    const blankCircuits = hasSaved ? { ...marks, [k]: true as const } : marks;
+    return { ...o, equipment: stageUpdate(o.equipment, equipmentId, { circuitCount: no }, savedEquipment(equipmentId)), circuits, blankCircuits };
   });
   return no;
 }

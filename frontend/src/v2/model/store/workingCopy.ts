@@ -8,7 +8,7 @@ import { fetchWorkingcopy } from '../api';
 import { effectiveRows } from './effective';
 import type {
   Circuit, Core, CoreMeasurement, EquipmentPhoto, Equipment, FiberLine, Floor, InspectionLog, Link,
-  MaintenanceLog, Rack, RefEquipment, RefLine, Workingcopy,
+  Conflict, MaintenanceLog, Rack, RefEquipment, RefLine, Workingcopy,
 } from '../types';
 
 export interface RowOf {
@@ -30,7 +30,16 @@ export type Overlays = { [K in RowKind]: Overlay<RowOf[K]> } & {
   circuits: Record<string, Partial<Circuit>>;
   /** 코어 값 고치기 — 키는 `coreKey`. */
   cores: Record<string, Partial<Core>>;
+  /**
+   * 「차단기 추가」가 **저장된 옛 번호를 빈 값으로 덮은** 차단기 키(`addCircuit`). 이 키의 고치기는 저장값으로 접지 않는다 —
+   * 접으면 덮어 둔 빈 값이 벗겨져 옛 값이 되살아난다. 그 밖의 키는 저장값으로 돌아오면 걷힌다.
+   * 오버레이 안에 있어 되돌리기가 함께 물린다.
+   */
+  blankCircuits: Record<string, true>;
 };
+
+/** 값이 하나도 없는 차단기 — 저장된 행이 없는 번호의 기준(`updateCircuit`)이자 「차단기 추가」의 새 줄. */
+export const BLANK_CIRCUIT: Partial<Circuit> = { label: null, current: null, voltage: null, capacity: null, phase: null, switch: null, purpose: null };
 
 const EMPTY_SAVED: Saved = {
   substations: {}, floors: [], racks: [], equipment: [], circuits: [], fiberLines: [], cores: [], coreMeasurements: [],
@@ -45,7 +54,7 @@ export function emptyOverlays(): Overlays {
   return {
     floors: emptyOverlay(), racks: emptyOverlay(), equipment: emptyOverlay(), fiberLines: emptyOverlay(),
     coreMeasurements: emptyOverlay(), links: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(),
-    photos: emptyOverlay(), circuits: {}, cores: {},
+    photos: emptyOverlay(), circuits: {}, cores: {}, blankCircuits: {},
   };
 }
 
@@ -97,6 +106,65 @@ function versionsOf(s: Saved): Record<string, string> {
   return v;
 }
 
+/**
+ * 들른 국을 모두 **함께**(병렬로) 다시 읽는다. 읽는 동안 다른 국을 들렀으면(`ensureLoaded` 가 `loaded` 에 더함)
+ * 그 국도 마저 읽는다 — 안 그러면 그 국의 행이 새 기준에서 빠져 빈 국으로 보인다.
+ * 마지막 확인과 돌려주기 사이에는 await 이 없다(부르는 쪽이 같은 틱에 `set` 한다).
+ */
+async function fetchLoaded(get: () => WorkingCopyState): Promise<Saved> {
+  let saved = EMPTY_SAVED;
+  const done = new Set<string>();
+  for (;;) {
+    const todo = get().loaded.filter((id) => !done.has(id));
+    if (todo.length === 0) return saved;
+    const wcs = await Promise.all(todo.map((id) => fetchWorkingcopy(id)));
+    for (const wc of wcs) saved = absorb(saved, wc);
+    for (const id of todo) done.add(id);
+  }
+}
+
+/** 충돌로 버린 손질 하나 — 화면이 이름을 붙여 알린다(키는 `Conflict.key` 와 같은 꼴). */
+export interface DroppedEdit { key: string; kind: RowKind | 'circuits' | 'cores'; reason: 'conflict' | 'orphan' }
+
+/**
+ * 오버레이에서 `keys` 의 손질(고치기·지우기, 차단기·코어 값)을 걷는다. 그 뒤 새 기준(`saved`)에 주인이 없는
+ * 저장 안 된 기록·사진(설비)·측정(광선로)도 걷는다 — 서버에서 지워진 주인에 붙일 수 없다.
+ */
+export function dropKeys(o0: Overlays, keys: ReadonlySet<string>, saved: Saved): { overlays: Overlays; dropped: DroppedEdit[] } {
+  const dropped: DroppedEdit[] = [];
+  let o: Overlays = { ...o0 };
+  for (const kind of ROW_KINDS) {
+    const ov = o[kind] as Overlay<unknown>;
+    const hit = [...Object.keys(ov.updates), ...ov.deletes].filter((id) => keys.has(id));
+    if (hit.length === 0) continue;
+    const updates = Object.fromEntries(Object.entries(ov.updates).filter(([id]) => !keys.has(id)));
+    o = { ...o, [kind]: { creates: ov.creates, updates, deletes: ov.deletes.filter((id) => !keys.has(id)) } };
+    for (const key of new Set(hit)) dropped.push({ key, kind, reason: 'conflict' });
+  }
+  for (const kind of ['circuits', 'cores'] as const) {
+    const hit = Object.keys(o[kind]).filter((k) => keys.has(k));
+    if (hit.length === 0) continue;
+    o = { ...o, [kind]: Object.fromEntries(Object.entries(o[kind]).filter(([k]) => !keys.has(k))) };
+    if (kind === 'circuits') o = { ...o, blankCircuits: Object.fromEntries(Object.entries(o.blankCircuits).filter(([k]) => !keys.has(k))) };
+    for (const key of hit) dropped.push({ key, kind, reason: 'conflict' });
+  }
+  /* 주인이 사라진 저장 안 된 행 — 새 기준 ⊕ 남은 오버레이에서 주인을 찾는다. */
+  const eqAlive = new Set(mergeIds(saved.equipment, o.equipment));
+  const lineAlive = new Set(mergeIds(saved.fiberLines, o.fiberLines));
+  for (const kind of ['maintenance', 'inspections', 'photos'] as const) {
+    const gone = Object.values(o[kind].creates).filter((r) => !eqAlive.has(r.equipmentId)).map((r) => r.id);
+    for (const id of gone) { o = { ...o, [kind]: stageDelete(o[kind] as Overlay<unknown>, id) }; dropped.push({ key: id, kind, reason: 'orphan' }); }
+  }
+  const goneM = Object.values(o.coreMeasurements.creates).filter((m) => !lineAlive.has(m.lineId)).map((m) => m.id);
+  for (const id of goneM) { o = { ...o, coreMeasurements: stageDelete(o.coreMeasurements, id) }; dropped.push({ key: id, kind: 'coreMeasurements', reason: 'orphan' }); }
+  return { overlays: o, dropped };
+}
+
+function mergeIds<T extends { id: string }>(saved: T[], o: Overlay<T>): string[] {
+  const gone = new Set(o.deletes);
+  return [...saved.map((r) => r.id).filter((id) => !gone.has(id)), ...Object.keys(o.creates)];
+}
+
 export interface WorkingCopyState {
   /** 들른 국 — 들른 차례대로. */
   loaded: string[];
@@ -112,8 +180,13 @@ export interface WorkingCopyState {
    * 지난번에 못 읽었으면 다시 읽는다(못 읽은 국은 `loaded` 에 들지 않는다).
    */
   ensureLoaded: (substationId: string) => Promise<void>;
-  /** 들른 국을 모두 다시 읽고 오버레이를 비운다 — 저장·충돌 새로고침 뒤. */
+  /** 들른 국을 모두 다시 읽고 오버레이를 비운다 — 저장 뒤. */
   refresh: () => Promise<void>;
+  /**
+   * 충돌(409) 뒤 — 들른 국을 모두 다시 읽어 기준을 새로 하고, **오버레이는 남긴 채 충돌한 키의 손질만 버린다**.
+   * 서버에서 사라진 설비에 딸린 저장 안 된 기록·사진·측정도 함께 버린다(갈 곳이 없다). 버린 것을 돌려준다.
+   */
+  rebase: (conflicts: Conflict[]) => Promise<DroppedEdit[]>;
   /** 변경안을 버린다(들른 국은 그대로). */
   revert: () => void;
   /** 오버레이를 한 번에 바꾼다 — 한 번의 되돌리기로 모두 물린다(삭제 펼침용). */
@@ -122,6 +195,10 @@ export interface WorkingCopyState {
   clearOverlays: () => void;
   /** 처음 상태로 — 시험·로그아웃용. */
   reset: () => void;
+  /** 이 변경안을 쥔 사용자 — 다른 사용자가 들어오면 비운다(`claim`). 아직 아무도 쥐지 않았으면 null. */
+  owner: string | null;
+  /** 사용자가 들어왔다 — 쥔 사람이 다르면 변경안을 통째로 비우고(`reset`) 새 사람이 쥔다. 같으면 그대로(세션 만료 뒤 같은 사람). */
+  claim: (userId: string) => void;
   create: <K extends RowKind>(kind: K, row: RowOf[K]) => void;
   /** 여러 행을 **한 번의 set** 으로 — 되돌리기 한 번에 함께 물러난다(블록 일괄 측정 입력). */
   createMany: <K extends RowKind>(kind: K, rows: RowOf[K][]) => void;
@@ -153,6 +230,7 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       saved: EMPTY_SAVED,
       overlays: emptyOverlays(),
       baseVersions: {},
+      owner: null,
 
       ensureLoaded: async (substationId) => {
         if (get().loaded.includes(substationId)) return;
@@ -171,15 +249,29 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       },
 
       refresh: async () => {
-        const ids = get().loaded;
         const t = workingCopyStore.temporal.getState();
         t.pause();
         try {
-          let saved = EMPTY_SAVED;
-          for (const id of ids) saved = absorb(saved, await fetchWorkingcopy(id));
+          const saved = await fetchLoaded(get);
           set({ saved, baseVersions: versionsOf(saved), overlays: emptyOverlays() });
         } finally {
           t.resume();
+          t.clear();
+        }
+      },
+
+      rebase: async (conflicts) => {
+        const t = workingCopyStore.temporal.getState();
+        t.pause();
+        try {
+          const saved = await fetchLoaded(get);
+          const keys = new Set(conflicts.map((c) => c.key));
+          const { overlays, dropped } = dropKeys(get().overlays, keys, saved);
+          set({ saved, baseVersions: versionsOf(saved), overlays });
+          return dropped;
+        } finally {
+          t.resume();
+          /* 지난 손질 이력에는 버린 키가 살아 있다 — 되돌리기로 되살아나지 않게 비운다. */
           t.clear();
         }
       },
@@ -197,8 +289,14 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       },
 
       reset: () => {
-        set({ loaded: [], loading: null, loadErrors: {}, saved: EMPTY_SAVED, overlays: emptyOverlays(), baseVersions: {} });
+        set({ loaded: [], loading: null, loadErrors: {}, saved: EMPTY_SAVED, overlays: emptyOverlays(), baseVersions: {}, owner: null });
         workingCopyStore.temporal.getState().clear();
+      },
+
+      claim: (userId) => {
+        if (get().owner === userId) return;
+        if (get().owner !== null) get().reset();
+        set({ owner: userId });
       },
 
       create: (kind, row) => get().createMany(kind, [row]),
@@ -207,11 +305,17 @@ export const workingCopyStore = createStore<WorkingCopyState>()(
       })),
       update: (kind, id, patch) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageUpdate(s.overlays[kind] as Overlay<unknown>, id, patch as Partial<unknown>, savedRow(s.saved, kind, id)) } })),
       remove: (kind, id) => set((s) => ({ overlays: { ...s.overlays, [kind]: stageDelete(s.overlays[kind] as Overlay<unknown>, id) } })),
-      /* 차단기는 저장값으로 접지 않는다 — 「차단기 추가」가 저장된 옛 번호를 빈 값으로 덮어 두므로(`addCircuit`),
-         저장값과 같다고 칸을 걷으면 덮어 둔 빈 값이 벗겨져 옛 값이 되살아난다. */
+      /* 저장된 값으로 돌아온 칸은 걷는다(코어와 같은 어법) — 다 걷히면 그 차단기의 고치기가 사라진다. 저장된 행이 없는 번호는
+         빈 차단기가 기준이다. 단 「차단기 추가」가 옛 값을 빈 값으로 덮은 키(`blankCircuits`)는 접지 않는다 — 그 덮개가 곧 변경이다. */
       updateCircuit: (equipmentId, no, patch) => set((s) => {
         const k = circuitKey(equipmentId, no);
-        return { overlays: { ...s.overlays, circuits: { ...s.overlays.circuits, [k]: { ...s.overlays.circuits[k], ...patch } } } };
+        const merged: Partial<Circuit> = { ...s.overlays.circuits[k], ...patch };
+        if (!s.overlays.blankCircuits[k]) {
+          const base: Partial<Circuit> = s.saved.circuits.find((c) => c.equipmentId === equipmentId && c.no === no) ?? BLANK_CIRCUIT;
+          for (const f of Object.keys(merged) as (keyof Circuit)[]) if (Object.is(merged[f], base[f])) delete merged[f];
+        }
+        const { [k]: _old, ...rest } = s.overlays.circuits;
+        return { overlays: { ...s.overlays, circuits: Object.keys(merged).length > 0 ? { ...rest, [k]: merged } : rest } };
       }),
       /* 저장된 값으로 돌아온 칸은 걷는다(`stageUpdate` 와 같은 어법) — 다 걷히면 그 코어의 고치기가 사라진다.
          저장된 행이 없는 코어(늘린 번호·새 광선로)는 빈 코어가 기준이다. */
